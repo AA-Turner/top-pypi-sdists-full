@@ -96,6 +96,7 @@ class CardDirective(SphinxDirective):
     option_spec = {
         "path": directives.unchanged,  # link to the tutorial
         "tags": directives.unchanged,  # tags for the tutorial
+        "title": directives.unchanged,  # explicit title, required for external links
     }
 
     def run(self):
@@ -108,9 +109,13 @@ class CardDirective(SphinxDirective):
         """
         path = self.options.get("path", [])
         tags = self.options.get("tags", [])
+        is_external = path.startswith("http://") or path.startswith("https://")
 
         # Get the tutorial's title
-        title = self.get_notebook_title(path)
+        if is_external:
+            title = self.options.get("title", path)
+        else:
+            title = self.get_notebook_title(path)
 
         # Get the model group from the model group's index file
         group = self.get_index_header()
@@ -121,7 +126,7 @@ class CardDirective(SphinxDirective):
         # Insert HTML content into the card node
         card_html = CARD_HTML.format(
             tags=tags,
-            link=(f"{path}.html"),
+            link=(path if is_external else f"{path}.html"),
             header=title,
             card_description=self.content[0],
             group=group,
@@ -271,11 +276,12 @@ CARD_HTML = """
 LIST_START_HTML = """
 <div id="cards-container">
 
-<nav class="navbar tutorials-nav">
-    <div class="tags-container">
-        <div id="dropdown-filter-tags">
-            <div class="filter-menu all-tag-selected">
-                <div class="filter filter-btn" data-tag="all">All</div>
+<nav class="navbar">
+    <div class="tabs-container">
+        <div class="filter-subtitle">Tutorials classes</div>
+        <div id="dropdown-filter-tabs">
+            <div class="tab-menu all-group-selected">
+                <div class="tab tab-btn" data-group="all">All</div>
             </div>
         </div>
     </div>
@@ -283,10 +289,13 @@ LIST_START_HTML = """
 
 <hr class="tutorials-hr">
 
-<nav class="navbar">
-    <div class="tabs-container">
-        <div class="tab-menu">
-            <div class="tab tab-selected" data-group="all">All</div>
+<nav class="navbar tutorials-nav">
+    <div class="tags-container">
+        <div class="filter-subtitle">Tutorials Tags (which can be selected multi tags)</div>
+        <div id="dropdown-filter-tags">
+            <div class="filter-menu all-tag-selected">
+                <div class="filter filter-btn" data-tag="all">All</div>
+            </div>
         </div>
     </div>
 </nav>

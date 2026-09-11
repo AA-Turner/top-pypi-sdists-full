@@ -30,7 +30,6 @@
 # -----------------------------------------------------------------------------
 
 import array
-from typing import Union
 
 from .base import BaseMetaClass
 from .base_impl import get_array_type_code_uint32, SparseVectorImpl
@@ -46,8 +45,8 @@ class SparseVector(metaclass=BaseMetaClass):
     def __init__(
         self,
         num_dimensions: int,
-        indices: Union[list, array.array],
-        values: Union[list, array.array],
+        indices: list | array.array,
+        values: list | array.array,
     ):
         """
         Creates and returns a :ref:`SparseVector object <sparsevectorsobj>`.
@@ -60,6 +59,8 @@ class SparseVector(metaclass=BaseMetaClass):
 
         The ``values`` parameter is the non-zero values stored in the vector.
         """
+        if num_dimensions <= 0:
+            raise ValueError("vector dimensions must be greater than zero")
         if (
             not isinstance(indices, array.array)
             or indices.typecode != ARRAY_TYPE_CODE_UINT32

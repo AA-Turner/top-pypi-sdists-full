@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ledgered
-Version: 0.15.0
+Version: 0.16.0
 Summary: Python tools, utils, libraries, to be used with Ledger cryptodevices
 Author-email: Ledger <hello@ledger.fr>
 License: MIT License
@@ -28,8 +28,6 @@ License: MIT License
 Project-URL: Home, https://github.com/LedgerHQ/ledgered
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -37,7 +35,7 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic

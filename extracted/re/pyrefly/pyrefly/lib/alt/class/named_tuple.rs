@@ -17,19 +17,19 @@ use crate::alt::types::class_metadata::ClassSynthesizedFields;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::types::callable::Callable;
-use crate::types::callable::FuncMetadata;
-use crate::types::callable::Function;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::function::FuncMetadata;
+use crate::types::function::Function;
 use crate::types::literal::Lit;
 use crate::types::types::Type;
 
 const NAMED_TUPLE_REPLACE: Name = Name::new_static("_replace");
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub fn get_named_tuple_elements(&self, cls: &Class, errors: &ErrorCollector) -> SmallSet<Name> {
         let Some(class_fields) = self.get_class_fields(cls) else {
             return SmallSet::new();
@@ -222,7 +222,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             dunder::ITER,
             params,
             self.heap
-                .mk_class_type(self.stdlib.iterable(self.unions(element_types))),
+                .mk_class_type(self.stdlib.iterator(self.unions(element_types))),
         );
         ClassSynthesizedField::new(ty)
     }

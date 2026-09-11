@@ -9,7 +9,6 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_build::handle::Handle;
@@ -22,9 +21,9 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_types::callable::PropertyRole;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
+use pyrefly_types::function::PropertyRole;
 use pyrefly_types::types::Type;
 use pyrefly_util::forgetter::Forgetter;
 use pyrefly_util::includes::Includes;
@@ -124,24 +123,11 @@ fn parse_suppressions(module: &Module) -> Vec<ReportSuppression> {
     suppressions
 }
 
-fn has_function_ancestor(parent: &NestingContext) -> bool {
-    let mut current = parent;
-    loop {
-        if current.is_function() {
-            return true;
-        }
-        match current.parent() {
-            Some(p) => current = p,
-            None => return false,
-        }
-    }
-}
-
 /// True if the class, or an enclosing class, was removed by a module-scope `del`.
 /// After `del X` at module scope the entire `X.*` subtree is unreachable, so a nested
 /// class (and its methods/attrs) must be excluded along with `X` itself. We therefore
 /// test the outermost enclosing name: function-nested classes are already filtered by
-/// `has_function_ancestor`, so every context reached here is a class.
+/// `NestingContext::has_function_ancestor`, so every context reached here is a class.
 fn is_deleted_class(module: &Module, bindings: &Bindings, cls: &ClassBinding) -> bool {
     let mut nesting = &cls.parent;
     let outermost = loop {
@@ -356,20 +342,19 @@ fn compute_public_fqns(
         let exports = transaction.get_exports(handle);
 
         // prioritize `__all__` if present, otherwise local defs + `import x as x`
-        let names: Vec<Name> =
-            if let Some(all_iter) = exports_data.get_explicit_dunder_all_names_iter() {
-                all_iter.cloned().collect()
-            } else {
-                exports
-                    .iter()
-                    .filter_map(|(name, loc)| {
-                        let is_local = matches!(loc, ExportLocation::ThisModule(_));
-                        let is_reexport = exports_data.is_explicit_reexport(name);
-                        (is_public_name(name.as_str()) && (is_local || is_reexport))
-                            .then_some(name.clone())
-                    })
-                    .collect()
-            };
+        let names: Vec<Name> = if let Some(all) = exports_data.explicit_dunder_all_names() {
+            all.iter().cloned().collect()
+        } else {
+            exports
+                .iter()
+                .filter_map(|(name, loc)| {
+                    let is_local = matches!(loc, ExportLocation::ThisModule(_));
+                    let is_reexport = exports_data.is_explicit_reexport(name);
+                    (is_public_name(name.as_str()) && (is_local || is_reexport))
+                        .then_some(name.clone())
+                })
+                .collect()
+        };
 
         // collect both the local and traced origin FQN so a file-scoped run matches the module
         for name in names {
@@ -449,6 +434,28 @@ fn is_schema_class(bindings: &Bindings, answers: &Answers, cls_binding: &ClassBi
         })
 }
 
+/// Builtin classes whose constructor names the type it yields. Iterator adapters are left out.
+const IMPLICIT_BUILTIN_CONSTRUCTORS: &[&str] = &[
+    "bool",
+    "bytearray",
+    "bytes",
+    "complex",
+    "dict",
+    "float",
+    "frozendict",
+    "frozenset",
+    "int",
+    "list",
+    "memoryview",
+    "object",
+    "range",
+    "sentinel",
+    "set",
+    "slice",
+    "str",
+    "tuple",
+];
+
 fn parse_variables(
     module: &Module,
     bindings: &Bindings,
@@ -458,11 +465,21 @@ fn parse_variables(
     functions: &[Function],
     classes: &[ReportClass],
 ) -> Vec<Variable> {
-    fn untyped_if_call(expr: &Expr) -> SlotCounts {
-        if let Expr::Call(_) = expr {
-            SlotCounts::untyped()
-        } else {
+    /// Only a call hides its type at the assignment site, unless it is a builtin constructor.
+    fn untyped_if_call(answers: &Answers, idx: Idx<Key>, expr: &Expr) -> SlotCounts {
+        let Expr::Call(call) = expr else {
+            return SlotCounts::default();
+        };
+
+        if let Expr::Name(n) = call.func.as_ref()
+            && IMPLICIT_BUILTIN_CONSTRUCTORS.contains(&n.id.as_str())
+            && answers
+                .get_idx(idx)
+                .is_some_and(|t| matches!(t.ty(), Type::ClassType(cls) if cls.is_builtin(&n.id)))
+        {
             SlotCounts::default()
+        } else {
+            SlotCounts::untyped()
         }
     }
 
@@ -480,9 +497,9 @@ fn parse_variables(
             Binding::Phi(_, branches) => branches
                 .iter()
                 .any(|b| involves_import(bindings, b.value_key, seen)),
-            Binding::LoopPhi(prior, members) => {
-                involves_import(bindings, *prior, seen)
-                    || members.iter().any(|i| involves_import(bindings, *i, seen))
+            Binding::LoopPhi(phi) => {
+                involves_import(bindings, phi.0, seen)
+                    || phi.1.iter().any(|i| involves_import(bindings, *i, seen))
             }
             _ => false,
         }
@@ -542,12 +559,10 @@ fn parse_variables(
                     // Functions and classes are handled by parse_functions/parse_classes;
                     // skip them here even when excluded (e.g. @type_check_only).
                     Binding::Function { .. } | Binding::ClassDef(..) => continue,
-                    // IMPLICIT: non-call assignments have 0 slots;
-                    // call assignments are untyped (1 slot)
-                    Binding::NameAssign(na) => untyped_if_call(na.expr.as_ref()),
+                    Binding::NameAssign(na) => untyped_if_call(answers, *idx, na.expr.as_ref()),
                     Binding::MultiTargetAssign(_, rhs_idx, _, _) => match bindings.get(*rhs_idx) {
                         Binding::Function { .. } | Binding::ClassDef(..) => continue,
-                        Binding::Expr(_, expr) => untyped_if_call(expr.as_ref()),
+                        Binding::Expr(_, expr) => untyped_if_call(answers, *idx, expr.as_ref()),
                         _ => {
                             unreachable!(
                                 "MultiTargetAssign RHS should be Expr, Function, or ClassDef"
@@ -576,10 +591,10 @@ fn parse_variables(
 }
 
 /// The MRO of `class`, or `Cyclic` if unresolved.
-fn class_mro(bindings: &Bindings, answers: &Answers, class: &Class) -> Arc<ClassMro> {
+fn class_mro<'a>(bindings: &Bindings, answers: &'a Answers, class: &Class) -> &'a ClassMro {
     answers
         .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
-        .unwrap_or_else(|| Arc::new(ClassMro::Cyclic))
+        .unwrap_or(&ClassMro::Cyclic)
 }
 
 /// Slots for `field_name` from the nearest base class annotating it in `class_idx`'s MRO (gh-3997).
@@ -667,7 +682,7 @@ fn parse_instance_attrs(
             BindingClass::ClassDef(cls) => cls,
             BindingClass::FunctionalClassDef(..) => continue,
         };
-        if has_function_ancestor(&cls_binding.parent)
+        if cls_binding.parent.has_function_ancestor()
             || is_deleted_class(module, bindings, cls_binding)
         {
             continue;
@@ -758,7 +773,7 @@ fn parse_functions(
             let fun = bindings.get(decorated.undecorated_idx);
             // Skip functions nested inside other functions, even when the name collides with an
             // exported module-level function (gh-4018).
-            if fun.outer_funcs.is_some() {
+            if fun.parent.has_function_ancestor() {
                 continue;
             }
             // Skip @type_check_only decorated functions.
@@ -798,7 +813,7 @@ fn parse_functions(
                 match bindings.get(class_key) {
                     BindingClass::ClassDef(cls) => {
                         // Skip methods of function-nested and `del`eted classes
-                        if has_function_ancestor(&cls.parent)
+                        if cls.parent.has_function_ancestor()
                             || is_deleted_class(module, bindings, cls)
                         {
                             continue;
@@ -931,7 +946,7 @@ fn parse_functions(
                 BindingClass::ClassDef(cls) => cls,
                 BindingClass::FunctionalClassDef(..) => continue,
             };
-            if has_function_ancestor(&cls.parent) {
+            if cls.parent.has_function_ancestor() {
                 continue;
             }
             let class_prefix = class_fqn(module, &cls.parent, &cls.def.name);
@@ -1084,8 +1099,8 @@ fn has_decorator_named(decorators: &[Idx<KeyDecorator>], bindings: &Bindings, na
 fn collect_dunder_all(transaction: &Transaction, handle: &Handle) -> Option<SmallSet<Name>> {
     transaction
         .get_exports_data(handle)
-        .get_explicit_dunder_all_names_iter()
-        .map(|it| it.cloned().collect())
+        .explicit_dunder_all_names()
+        .cloned()
 }
 
 /// The `(module_prefix, __all__ FQNs)` that gate which `.py`-only symbols a stub merge keeps,
@@ -1178,7 +1193,7 @@ fn parse_classes(
         let parent = &cls_binding.parent;
         let name = &cls_binding.def.name;
         // Skip classes nested inside functions, since they are not public symbols.
-        if has_function_ancestor(parent) {
+        if parent.has_function_ancestor() {
             continue;
         }
         if is_deleted_class(module, bindings, cls_binding) {
@@ -1224,7 +1239,7 @@ fn collect_class_members(
         let BindingClass::ClassDef(binding) = bindings.get(idx) else {
             continue;
         };
-        if has_function_ancestor(&binding.parent) {
+        if binding.parent.has_function_ancestor() {
             continue;
         }
         let Some(cls) = answers.get_idx(idx).and_then(|r| r.0.clone()) else {

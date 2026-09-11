@@ -80,6 +80,7 @@ from matrx_scraper.web_crawl.url_identity import (
     RevivedDismissal,
     resolve_crawl_page_identity,
 )
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 AUTHENTICATED_ROLE = "authenticated"
 logger = logging.getLogger(__name__)
@@ -1775,7 +1776,7 @@ class CanonicalBodyPersister:
             )
         if not result.storage_uri.startswith("s3://"):
             raise RuntimeError(
-                f"crawler artifact used forbidden storage backend: {result.storage_uri}"
+                f"crawler artifact used forbidden storage backend: {redact_url_secrets(result.storage_uri)}"
             )
         return result
 

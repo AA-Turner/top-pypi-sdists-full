@@ -5,192 +5,145 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-//! Special handling for Polars `DataFrame` construction.
-//!
-//! Polars' stubs type a `DataFrame` as one opaque blob, so we synthesize a
-//! `Type::DataFrame` carrying an inferred column schema when a DataFrame is built
-//! from a dict literal. This is the entry point for column-aware checking.
+//! Column-aware typing for Polars and pandas DataFrames.
 
 use pyrefly_types::data_frame::DataFrameKind;
 use pyrefly_types::data_frame::DataFrameSchema;
 use pyrefly_types::data_frame::SchemaCompleteness;
+use pyrefly_types::data_frame::SchemaRole;
+use pyrefly_types::polars_dtype::PolarsArrayShape;
 use pyrefly_types::polars_dtype::PolarsDType;
+use pyrefly_types::series::SeriesSchema;
 use pyrefly_types::types::CalleeKind;
 use pyrefly_types::types::Type;
 use ruff_python_ast::Arguments;
+use ruff_python_ast::CmpOp;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
+use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprDict;
 use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Keyword;
 use ruff_python_ast::Number;
+use ruff_python_ast::Operator;
+use ruff_python_ast::UnaryOp;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
+use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
+use crate::alt::callable::CallArg;
+use crate::alt::callable::CallKeyword;
+use crate::binding::polars::PolarsMutationKind;
+use crate::binding::polars::PolarsMutationMethod;
+use crate::binding::polars::polars_column_mutation;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
-use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
+use crate::types::function::FuncDefId;
+use crate::types::function::FunctionKind;
 use crate::types::literal::Lit;
 
-pub fn is_polars_dataframe(cls: &Class) -> bool {
-    cls.has_toplevel_qname("polars.dataframe.frame", "DataFrame")
+const POLARS_MODULE: &str = "polars";
+const POLARS_MODULE_PREFIX: &str = "polars.";
+const POLARS_ALL_COLUMNS: &str = "*";
+const POLARS_DEFAULT_INFER_SCHEMA_LENGTH: usize = 100;
+const POLARS_DEFAULT_JOIN_SUFFIX: &str = "_right";
+const POLARS_LEN_OUTPUT_NAME: &str = "len";
+const POLARS_LITERAL_OUTPUT_NAME: &str = "literal";
+
+#[derive(Clone, Copy)]
+enum RuntimeClass {
+    PolarsDataFrame,
+    PolarsSeries,
+    PolarsDataFrameSeries,
+    PolarsExpr,
+    PolarsLazyFrame,
+    PolarsCol,
+    PolarsSchema,
+    PandasDataFrame,
+    Date,
+    Datetime,
+    Time,
+    Timedelta,
+}
+
+impl RuntimeClass {
+    fn matches(self, cls: &Class) -> bool {
+        let (module, name) = match self {
+            Self::PolarsDataFrame => ("polars.dataframe.frame", "DataFrame"),
+            Self::PolarsSeries => ("polars.series.series", "Series"),
+            Self::PolarsDataFrameSeries => ("polars.dataframe.frame", "Series"),
+            Self::PolarsExpr => ("polars.expr.expr", "Expr"),
+            Self::PolarsLazyFrame => ("polars.lazyframe.frame", "LazyFrame"),
+            Self::PolarsCol => ("polars.functions.col", "Col"),
+            Self::PolarsSchema => ("polars.schema", "Schema"),
+            Self::PandasDataFrame => ("pandas.core.frame", "DataFrame"),
+            Self::Date => ("datetime", "date"),
+            Self::Datetime => ("datetime", "datetime"),
+            Self::Time => ("datetime", "time"),
+            Self::Timedelta => ("datetime", "timedelta"),
+        };
+        cls.has_toplevel_qname(module, name)
+    }
+}
+
+fn is_polars_dataframe(cls: &Class) -> bool {
+    RuntimeClass::PolarsDataFrame.matches(cls)
 }
 
 pub fn is_polars_series(cls: &Class) -> bool {
-    cls.has_toplevel_qname("polars.series.series", "Series")
+    RuntimeClass::PolarsSeries.matches(cls)
 }
 
-/// The receiver schema for a column transform whose method takes only positional
-/// arguments: `base` must carry a schema and `func` must name `method` with no
-/// keywords. Shared preamble so each transform states only what is unique to it.
-fn column_transform_schema<'b>(
-    base: &'b Type,
-    func: &ExprAttribute,
-    method: &str,
-    args: &Arguments,
-) -> Option<&'b DataFrameSchema> {
+fn is_polars_expr(cls: &Class) -> bool {
+    RuntimeClass::PolarsExpr.matches(cls)
+}
+
+fn is_polars_lazyframe(cls: &Class) -> bool {
+    RuntimeClass::PolarsLazyFrame.matches(cls)
+}
+
+fn column_transform_schema<'b>(base: &'b Type, args: &Arguments) -> Option<&'b DataFrameSchema> {
     let Type::DataFrame(schema) = base else {
         return None;
     };
-    (func.attr.id.as_str() == method && args.keywords.is_empty()).then_some(&**schema)
+    args.keywords.is_empty().then_some(&**schema)
 }
 
-/// Map a `pl.<DType>` expression such as `pl.Int8` or `pl.Datetime("us")` to its dtype, or `None`
-/// for anything that is not a recognized dtype so the caller falls back rather than guessing.
-fn polars_dtype_from_expr(e: &Expr) -> Option<PolarsDType> {
-    let name = match e {
-        Expr::Attribute(a) => a.attr.id.as_str(),
-        Expr::Call(c) => match &*c.func {
-            Expr::Attribute(a) => a.attr.id.as_str(),
-            _ => return None,
-        },
-        _ => return None,
-    };
-    Some(match name {
-        "Int8" => PolarsDType::Int8,
-        "Int16" => PolarsDType::Int16,
-        "Int32" => PolarsDType::Int32,
-        "Int64" => PolarsDType::Int64,
-        "Int128" => PolarsDType::Int128,
-        "UInt8" => PolarsDType::UInt8,
-        "UInt16" => PolarsDType::UInt16,
-        "UInt32" => PolarsDType::UInt32,
-        "UInt64" => PolarsDType::UInt64,
-        "UInt128" => PolarsDType::UInt128,
-        "Float32" => PolarsDType::Float32,
-        "Float64" => PolarsDType::Float64,
-        "Boolean" => PolarsDType::Boolean,
-        "String" | "Utf8" => PolarsDType::String,
-        "Binary" => PolarsDType::Binary,
-        "Date" => PolarsDType::Date,
-        "Datetime" => PolarsDType::Datetime,
-        "Duration" => PolarsDType::Duration,
-        "Time" => PolarsDType::Time,
-        _ => return None,
-    })
+fn dataframe_type_with_columns(
+    schema: &DataFrameSchema,
+    columns: Vec<(Name, PolarsDType)>,
+) -> Type {
+    dataframe_type_with_columns_and_completeness(schema, columns, schema.completeness)
 }
 
-pub fn is_pandas_dataframe(cls: &Class) -> bool {
-    cls.has_toplevel_qname("pandas.core.frame", "DataFrame")
-}
-
-/// DataFrame methods whose arguments may refer to existing columns.
-pub fn is_dataframe_column_method(method: &str) -> bool {
-    matches!(
-        method,
-        "select" | "drop" | "with_columns" | "filter" | "sort" | "group_by" | "groupby"
-    )
-}
-
-/// How an in-place mutation changes a Polars frame's tracked column set.
-#[derive(Clone, Debug)]
-pub enum PolarsMutationKind {
-    /// Adds a column with an unknowable name, so every known column survives but exhaustiveness is lost.
-    Add,
-    /// Overwrites a column at an index we cannot map to a name.
-    Replace,
-    /// May insert a statically-known column name at a known index. The callee is resolved before the
-    /// column set stays exhaustive.
-    Insert(Name, usize, Box<Expr>),
-}
-
-/// The literal name, index, and unresolved callee of an `insert_column` candidate. The callee is kept
-/// so schema application can verify it is `pl.Series`; `None` when the call shape is not static.
-fn insert_column_spec(args: &Arguments) -> Option<(Name, usize, Box<Expr>)> {
-    let [index_expr, column_expr] = &args.args[..] else {
-        return None;
-    };
-    if !args.keywords.is_empty() {
-        return None;
+fn dataframe_type_with_columns_and_completeness(
+    schema: &DataFrameSchema,
+    columns: Vec<(Name, PolarsDType)>,
+    completeness: SchemaCompleteness,
+) -> Type {
+    DataFrameSchema {
+        underlying: schema.underlying.clone(),
+        columns,
+        completeness,
+        role: SchemaRole::Inferred,
+        ..schema.clone()
     }
-    let Expr::NumberLiteral(ExprNumberLiteral {
-        value: Number::Int(i),
-        ..
-    }) = index_expr
-    else {
-        return None;
-    };
-    let (name, callee) = series_literal_name(column_expr)?;
-    Some((name, i.to_string().parse::<usize>().ok()?, callee))
+    .to_type()
 }
 
-/// The literal `name` and unresolved callee of a possible `pl.Series` call, or `None` when it is not a
-/// call with a string-literal name. The callee is resolved when the mutation is applied.
-fn series_literal_name(expr: &Expr) -> Option<(Name, Box<Expr>)> {
-    let Expr::Call(call) = expr else {
-        return None;
-    };
-    let name = if let Some(kw) = call
-        .arguments
-        .keywords
-        .iter()
-        .find(|kw| kw.arg.as_ref().is_some_and(|a| a.id.as_str() == "name"))
-    {
-        match &kw.value {
-            Expr::StringLiteral(s) => Name::new(s.value.to_str()),
-            _ => return None,
-        }
-    } else {
-        match call.arguments.args.first() {
-            Some(Expr::StringLiteral(s)) => Name::new(s.value.to_str()),
-            _ => return None,
-        }
-    };
-    Some((name, call.func.clone()))
+fn is_pandas_dataframe(cls: &Class) -> bool {
+    RuntimeClass::PandasDataFrame.matches(cls)
 }
 
-/// Classify an in-place column-mutation method, or `None` for anything else. `insert_column` with a
-/// literal index and `pl.Series` name inserts that exact column; otherwise it only adds an unknowable
-/// one. `hstack` counts only when an `in_place` keyword is present and not the literal `False`.
-pub fn polars_column_mutation(method: &str, args: &Arguments) -> Option<PolarsMutationKind> {
-    match method {
-        "insert_column" => Some(match insert_column_spec(args) {
-            Some((name, index, callee)) => PolarsMutationKind::Insert(name, index, callee),
-            None => PolarsMutationKind::Add,
-        }),
-        "replace_column" => Some(PolarsMutationKind::Replace),
-        "hstack"
-            if args.keywords.iter().any(|kw| {
-                kw.arg.as_ref().is_some_and(|a| a.id.as_str() == "in_place")
-                    && !matches!(&kw.value, Expr::BooleanLiteral(b) if !b.value)
-            }) =>
-        {
-            Some(PolarsMutationKind::Add)
-        }
-        _ => None,
-    }
-}
-
-/// Degrade a Polars frame's schema for an in-place column mutation, or identity on any other type.
-/// `Insert` adds the known column and stays exhaustive, `Add` keeps the known columns but drops
-/// exhaustiveness, and `Replace` falls back to opaque.
+/// Apply a binding-time mutation to a tracked frame schema.
 pub fn polars_degrade_for_mutation(
     ty: &Type,
     kind: &PolarsMutationKind,
@@ -214,6 +167,7 @@ pub fn polars_degrade_for_mutation(
             );
             DataFrameSchema {
                 columns,
+                role: SchemaRole::Inferred,
                 ..(**schema).clone()
             }
             .to_type()
@@ -221,6 +175,7 @@ pub fn polars_degrade_for_mutation(
         PolarsMutationKind::Add | PolarsMutationKind::Insert(..) if schema.is_complete() => {
             DataFrameSchema {
                 completeness: SchemaCompleteness::Partial,
+                role: SchemaRole::Inferred,
                 ..(**schema).clone()
             }
             .to_type()
@@ -229,7 +184,6 @@ pub fn polars_degrade_for_mutation(
     }
 }
 
-/// Whether `ty` is a Polars `DataFrame`, schema-carrying or an opaque class instance.
 fn is_polars_dataframe_type(ty: &Type) -> bool {
     match ty {
         Type::DataFrame(schema) => schema.kind == DataFrameKind::Polars,
@@ -238,103 +192,269 @@ fn is_polars_dataframe_type(ty: &Type) -> bool {
     }
 }
 
-/// Whether a callee is the module-level `polars.concat`, seen through any `Forall`/`Overload`
-/// wrapper via `callee_kind`.
-pub fn is_polars_concat(callee: &Type) -> bool {
-    matches!(
-        callee.callee_kind(),
-        Some(CalleeKind::Function(FunctionKind::Def(id)))
-            if id.name.as_str() == "concat"
-                && id.module.name().as_str() == "polars.functions.eager"
-    )
+fn polars_dtype_from_scalar_type(ty: &Type) -> Option<PolarsDType> {
+    // Integers past i64 have a data-shape-dependent runtime dtype, so do not claim Int64.
+    if let Type::Literal(lit) = ty {
+        return match &lit.value {
+            Lit::Int(i) => i.as_i64().map(|_| PolarsDType::Int64),
+            Lit::Bool(_) => Some(PolarsDType::Boolean),
+            Lit::Str(_) => Some(PolarsDType::String),
+            Lit::Bytes(_) => Some(PolarsDType::Binary),
+            Lit::Enum(_) => None,
+        };
+    }
+    let Type::ClassType(cls) = ty else {
+        return None;
+    };
+    Some(if cls.is_builtin("bool") {
+        PolarsDType::Boolean
+    } else if cls.is_builtin("int") {
+        PolarsDType::Int64
+    } else if cls.is_builtin("float") {
+        PolarsDType::Float64
+    } else if cls.is_builtin("str") {
+        PolarsDType::String
+    } else if cls.is_builtin("bytes") {
+        PolarsDType::Binary
+    } else {
+        return None;
+    })
 }
 
-/// The two `pl.concat` strategies column inference models. `Vertical` requires identical schemas;
-/// `VerticalRelaxed` requires the same ordered names and folds `supertype()` per column.
+fn is_string_type(ty: &Type) -> bool {
+    ty.is_literal_string() || polars_dtype_from_scalar_type(ty) == Some(PolarsDType::String)
+}
+
+fn is_polars_selector_name(name: &Name) -> bool {
+    let name = name.as_str();
+    name == POLARS_ALL_COLUMNS || (name.starts_with('^') && name.ends_with('$'))
+}
+
+/// Map a resolved type to the Polars dtype it names, e.g. the `pl.Float64` class to `Float64`.
+/// Only the modeled scalar dtypes from the `polars` package are recognized; anything else is `None`.
+fn polars_dtype_from_type(ty: &Type) -> Option<PolarsDType> {
+    let cls = match ty {
+        Type::ClassDef(cls) => cls,
+        Type::ClassType(cls) => cls.class_object(),
+        _ => return None,
+    };
+    let module = cls.module_name();
+    if module.as_str() != POLARS_MODULE && !module.as_str().starts_with(POLARS_MODULE_PREFIX) {
+        return None;
+    }
+    PolarsDType::from_polars_name(cls.name().as_str())
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PolarsFunction {
+    Col,
+    Concat,
+    Csv(PolarsCsvFunction),
+    Len,
+    Lit,
+    Unmodeled,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PolarsCsvFunction {
+    Read,
+    Scan,
+}
+
+#[derive(Clone, Copy)]
+enum PolarsMethod {
+    Select,
+    Drop,
+    Rename,
+    WithColumns,
+    FillNull,
+    RowTransform,
+    RowAppend,
+    Cast,
+    FrameConversion(PolarsFrameConversion),
+    Join,
+    Hstack,
+    GroupByAgg,
+    InPlaceMutation,
+    GetColumn,
+    ToSeries,
+}
+
+impl PolarsMethod {
+    fn parse(name: &str) -> Option<Self> {
+        Some(match name {
+            "select" => Self::Select,
+            "drop" => Self::Drop,
+            "rename" => Self::Rename,
+            "with_columns" => Self::WithColumns,
+            "fill_null" => Self::FillNull,
+            "filter" | "sort" | "head" | "slice" | "unique" | "drop_nulls" => Self::RowTransform,
+            "vstack" | "extend" => Self::RowAppend,
+            "cast" => Self::Cast,
+            "lazy" => Self::FrameConversion(PolarsFrameConversion::Lazy),
+            "collect" => Self::FrameConversion(PolarsFrameConversion::Collect),
+            "join" => Self::Join,
+            "agg" => Self::GroupByAgg,
+            "get_column" => Self::GetColumn,
+            "to_series" => Self::ToSeries,
+            name => match PolarsMutationMethod::parse(name)? {
+                PolarsMutationMethod::InsertColumn | PolarsMutationMethod::ReplaceColumn => {
+                    Self::InPlaceMutation
+                }
+                PolarsMutationMethod::Hstack => Self::Hstack,
+            },
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PolarsFrameConversion {
+    Lazy,
+    Collect,
+}
+
+impl PolarsFunction {
+    fn from_id(id: &FuncDefId) -> Self {
+        match (id.qname.id().as_str(), id.qname.module_name().as_str()) {
+            ("col", "polars.functions.col") => Self::Col,
+            ("concat", "polars.functions.eager") => Self::Concat,
+            ("len", "polars.functions.len") => Self::Len,
+            ("lit", "polars.functions.lit") => Self::Lit,
+            ("read_csv", "polars.io.csv.functions") => Self::Csv(PolarsCsvFunction::Read),
+            ("scan_csv", "polars.io.csv.functions") => Self::Csv(PolarsCsvFunction::Scan),
+            _ => Self::Unmodeled,
+        }
+    }
+
+    fn from_callee(callee: &Type) -> Option<Self> {
+        if let Type::ClassType(cls) = callee
+            && RuntimeClass::PolarsCol.matches(cls.class_object())
+        {
+            return Some(Self::Col);
+        }
+        match callee.callee_kind() {
+            Some(CalleeKind::Function(FunctionKind::Def(id))) => Some(Self::from_id(&id)),
+            _ => None,
+        }
+    }
+}
+
+/// For a resolved `polars.col` or `polars.lit`, whether strings name columns rather than values.
+pub(crate) fn polars_function_treats_strings_as_columns(callee: &Type) -> Option<bool> {
+    match PolarsFunction::from_callee(callee)? {
+        PolarsFunction::Col => Some(true),
+        PolarsFunction::Lit => Some(false),
+        _ => None,
+    }
+}
+
+enum CsvColumnSelection {
+    All,
+    Names(SmallSet<Name>),
+    Indices(SmallSet<usize>),
+}
+
+enum CsvDtypeOverrides {
+    Unchanged,
+    Sequence(Vec<PolarsDType>),
+}
+
+impl CsvDtypeOverrides {
+    /// A complete schema changes only for positional dtype overrides.
+    fn parse(
+        expr: Option<&Expr>,
+        parse_dtype: impl FnMut(&Expr) -> Option<PolarsDType>,
+    ) -> Option<Self> {
+        Some(match expr {
+            None | Some(Expr::NoneLiteral(_) | Expr::Dict(_)) => Self::Unchanged,
+            Some(expr) => Self::Sequence(
+                literal_sequence(expr)?
+                    .iter()
+                    .map(parse_dtype)
+                    .collect::<Option<Vec<_>>>()?,
+            ),
+        })
+    }
+}
+
+struct PolarsCsvCommonOptions {
+    schema: Vec<(Name, PolarsDType)>,
+    overrides: CsvDtypeOverrides,
+    new_columns: Vec<Name>,
+    row_index_name: Option<Name>,
+}
+
+enum PolarsCsvOptions {
+    Read {
+        common: PolarsCsvCommonOptions,
+        selection: CsvColumnSelection,
+    },
+    Scan {
+        common: PolarsCsvCommonOptions,
+        include_file_paths: Option<Name>,
+    },
+}
+
 #[derive(Clone, Copy)]
 enum ConcatHow {
     Vertical,
     VerticalRelaxed,
 }
 
-/// The two data shapes column inference models: a dict-of-columns or list-of-dict rows.
-#[derive(Clone, Copy)]
-enum PolarsData<'b> {
-    Dict(&'b ExprDict),
-    Records(&'b ExprList),
+impl ConcatHow {
+    fn parse(value: &str) -> Option<Self> {
+        Some(match value {
+            "vertical" => Self::Vertical,
+            "vertical_relaxed" => Self::VerticalRelaxed,
+            _ => return None,
+        })
+    }
 }
 
-/// A DataFrame constructor call reduced to the pieces column inference needs.
-/// `data` is `None` when absent or empty; `schema` is the ordered `schema=` column set, each
-/// column pinned to a dtype or `None` to defer to data inference.
-pub struct PolarsConstruct<'b> {
+#[derive(Clone)]
+struct PolarsDictData<'b> {
+    columns: SmallMap<Name, &'b Expr>,
+    range: TextRange,
+}
+
+#[derive(Clone)]
+enum PolarsData<'b> {
+    Dict(PolarsDictData<'b>),
+    Records(SmallMap<Name, Vec<&'b Expr>>),
+    TypedDict(Vec<(Name, PolarsDType)>, SchemaCompleteness),
+}
+
+/// Parsed DataFrame constructor inputs.
+struct PolarsConstruct<'b> {
     data: Option<PolarsData<'b>>,
     schema: Option<Vec<(Name, Option<PolarsDType>)>>,
+    columns: Option<Vec<Name>>,
     overrides: SmallMap<Name, PolarsDType>,
     strict: bool,
 }
 
-/// A data dict literal as an order-preserving name-to-value map, or `None` if a key is not a
-/// string literal or repeats (Python keeps only the last value for a repeated key).
-fn dataframe_data_map(dict: &ExprDict) -> Option<SmallMap<Name, &Expr>> {
-    let mut map = SmallMap::with_capacity(dict.items.len());
-    for item in &dict.items {
-        let Some(Expr::StringLiteral(key)) = &item.key else {
-            return None;
-        };
-        if map
-            .insert(Name::new(key.value.to_str()), &item.value)
-            .is_some()
-        {
-            return None;
-        }
-    }
-    Some(map)
+pub(crate) enum PolarsCallSpecialization {
+    DataFrame {
+        columns: Vec<(Name, PolarsDType)>,
+        kind: DataFrameKind,
+        completeness: SchemaCompleteness,
+    },
+    Series(PolarsDType),
 }
 
-/// A list-of-dicts as an ordered column-to-per-row-values map (first-appearance order), or `None`
-/// if not a record literal we model. Only the first 100 rows are read, matching Polars'
-/// `infer_schema_length` default, so a key that first appears past row 100 is absent at runtime too.
-fn dataframe_records_map(list: &ExprList) -> Option<SmallMap<Name, Vec<&Expr>>> {
-    let mut columns: SmallMap<Name, Vec<&Expr>> = SmallMap::new();
-    for elt in list.elts.iter().take(100) {
-        let Expr::Dict(dict) = elt else {
-            return None;
-        };
-        for (name, value) in dataframe_data_map(dict)? {
-            columns.entry(name).or_default().push(value);
-        }
-    }
-    (!columns.is_empty()).then_some(columns)
+struct SeriesConstruct<'b> {
+    values: Option<&'b Expr>,
+    dtype: Option<PolarsDType>,
+    strict: bool,
 }
 
-/// A `schema=` dict literal as an ordered column list, each pinned to a `pl.<DType>` or `None`
-/// to defer to data inference. `None` (fall back) for an empty dict or an unrecognized entry.
-fn schema_dict_entries(dict: &ExprDict) -> Option<Vec<(Name, Option<PolarsDType>)>> {
-    if dict.items.is_empty() {
-        return None;
-    }
-    let mut entries = Vec::with_capacity(dict.items.len());
-    let mut seen = SmallSet::new();
-    for item in &dict.items {
-        let Some(Expr::StringLiteral(key)) = &item.key else {
-            return None;
-        };
-        let name = Name::new(key.value.to_str());
-        if !seen.insert(name.clone()) {
-            return None;
-        }
-        let dtype = match &item.value {
-            Expr::NoneLiteral(_) => None,
-            value => Some(polars_dtype_from_expr(value)?),
-        };
-        entries.push((name, dtype));
-    }
-    Some(entries)
+/// A bare dict defers `None` to data inference; `pl.Schema` rejects it.
+#[derive(Clone, Copy, PartialEq)]
+enum SchemaForm {
+    Dict,
+    SchemaClass,
 }
 
-/// The join strategies column inference models. They differ only in which key columns survive and
-/// which name overlaps get suffixed.
 #[derive(Clone, Copy)]
 enum JoinHow {
     Inner,
@@ -360,100 +480,1297 @@ impl JoinHow {
         })
     }
 
-    /// Whether a paired key coalesces into one primary-side column by default, dropping the other
-    /// side's key. `full` and `cross` keep every key; `semi`/`anti` output only the left columns.
-    fn coalesces(self) -> bool {
+    fn coalesces_by_default(self) -> bool {
         matches!(self, Self::Inner | Self::Left | Self::Right)
     }
 }
 
-/// The key names from an `on=` argument, each with its literal range for error reporting, or `None`
-/// when it is not a string literal or a list/tuple of string literals.
-fn join_key_names(on: &Expr) -> Option<Vec<(Name, TextRange)>> {
-    let elts = match on {
-        Expr::StringLiteral(s) => return Some(vec![(Name::new(s.value.to_str()), on.range())]),
-        Expr::List(list) => &list.elts,
-        Expr::Tuple(tuple) => &tuple.elts,
-        _ => return None,
+fn literal_sequence(expr: &Expr) -> Option<&[Expr]> {
+    match expr {
+        Expr::List(list) => Some(&list.elts),
+        Expr::Tuple(tuple) => Some(&tuple.elts),
+        _ => None,
+    }
+}
+
+fn positional_elements(arg: &Expr) -> &[Expr] {
+    literal_sequence(arg).unwrap_or_else(|| std::slice::from_ref(arg))
+}
+
+/// A pinned dtype or a numeric literal that can adapt to its other operand.
+#[derive(Clone)]
+enum ExprValue {
+    Dtype(PolarsDType),
+    IntLit(i128),
+    FloatLit,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FillNullValue {
+    IntegerLiteral(i128),
+    /// The literal exceeds the i128 range used by inference.
+    IntegerOutsideModel,
+    Float,
+    /// The integer value is not statically known.
+    DynamicInteger,
+    /// The value does not change an integer column dtype.
+    Other,
+}
+
+impl FillNullValue {
+    fn from_type(ty: &Type) -> Self {
+        if let Type::Literal(lit) = ty
+            && let Lit::Int(value) = &lit.value
+        {
+            return value
+                .to_string()
+                .parse::<i128>()
+                .map_or(Self::IntegerOutsideModel, Self::IntegerLiteral);
+        }
+        match polars_dtype_from_scalar_type(ty) {
+            Some(PolarsDType::Float64) => Self::Float,
+            Some(PolarsDType::Int64) => Self::DynamicInteger,
+            _ => Self::Other,
+        }
+    }
+
+    fn widen_integer(self, dtype: PolarsDType) -> PolarsDType {
+        if !dtype.is_integer() {
+            return dtype;
+        }
+        match self {
+            Self::Float => PolarsDType::Float64,
+            Self::IntegerLiteral(value) => {
+                integer_dtype_with_literal(dtype, value).unwrap_or(PolarsDType::Unknown)
+            }
+            Self::DynamicInteger => PolarsDType::Unknown,
+            Self::IntegerOutsideModel | Self::Other => dtype,
+        }
+    }
+}
+
+enum ColumnArg {
+    Named(Name),
+    Opaque,
+    Expr,
+}
+
+#[derive(Clone, Copy)]
+enum ArgumentValue<'b> {
+    Missing,
+    Present(&'b Expr),
+}
+
+impl<'b> ArgumentValue<'b> {
+    fn into_option(self) -> Option<&'b Expr> {
+        match self {
+            Self::Missing => None,
+            Self::Present(expr) => Some(expr),
+        }
+    }
+}
+
+/// Extract the last named form or its positional form and reject conflicts.
+fn extract_argument<'b>(
+    arguments: &'b Arguments,
+    position: usize,
+    name: &str,
+) -> Option<ArgumentValue<'b>> {
+    let positional = arguments.args.get(position);
+    let keyword = arguments
+        .keywords
+        .iter()
+        .rev()
+        .find(|kw| kw.arg.as_ref().is_some_and(|arg| arg.id.as_str() == name))
+        .map(|kw| &kw.value);
+    match (positional, keyword) {
+        (Some(_), Some(_)) => None,
+        (Some(expr), None) | (None, Some(expr)) => Some(ArgumentValue::Present(expr)),
+        (None, None) => Some(ArgumentValue::Missing),
+    }
+}
+
+/// Check positional arity and optionally restrict keyword names.
+fn arguments_are_valid(
+    arguments: &Arguments,
+    max_positional: usize,
+    allowed_keywords: Option<&[&str]>,
+) -> bool {
+    arguments.args.len() <= max_positional
+        && allowed_keywords.is_none_or(|allowed| {
+            arguments.keywords.iter().all(|kw| {
+                kw.arg
+                    .as_ref()
+                    .is_some_and(|arg| allowed.contains(&arg.id.as_str()))
+            })
+        })
+}
+
+impl ExprValue {
+    fn dtype(self) -> PolarsDType {
+        match self {
+            ExprValue::Dtype(d) => d,
+            ExprValue::FloatLit => PolarsDType::Float64,
+            ExprValue::IntLit(v) => {
+                if i32::try_from(v).is_ok() {
+                    PolarsDType::Int32
+                } else if i64::try_from(v).is_ok() {
+                    PolarsDType::Int64
+                } else {
+                    PolarsDType::Int128
+                }
+            }
+        }
+    }
+
+    fn is_numeric(&self) -> bool {
+        match self {
+            ExprValue::IntLit(_) | ExprValue::FloatLit => true,
+            ExprValue::Dtype(d) => d.is_numeric(),
+        }
+    }
+
+    fn is_integer(&self) -> bool {
+        match self {
+            ExprValue::IntLit(_) => true,
+            ExprValue::FloatLit => false,
+            ExprValue::Dtype(d) => d.is_integer(),
+        }
+    }
+}
+
+fn literal_value(expr: &Expr) -> Option<ExprValue> {
+    match expr {
+        Expr::NumberLiteral(ExprNumberLiteral {
+            value: Number::Int(i),
+            ..
+        }) => i.to_string().parse::<i128>().ok().map(ExprValue::IntLit),
+        Expr::NumberLiteral(ExprNumberLiteral {
+            value: Number::Float(_),
+            ..
+        }) => Some(ExprValue::FloatLit),
+        Expr::BooleanLiteral(_) => Some(ExprValue::Dtype(PolarsDType::Boolean)),
+        Expr::StringLiteral(_) => Some(ExprValue::Dtype(PolarsDType::String)),
+        Expr::BytesLiteral(_) => Some(ExprValue::Dtype(PolarsDType::Binary)),
+        Expr::NoneLiteral(_) => Some(ExprValue::Dtype(PolarsDType::Null)),
+        _ => None,
+    }
+}
+
+fn series_method_schema(base: &Type) -> Option<&DataFrameSchema> {
+    let Type::DataFrame(schema) = base else {
+        return None;
     };
-    elts.iter()
-        .map(|elt| match elt {
-            Expr::StringLiteral(s) => Some((Name::new(s.value.to_str()), elt.range())),
+    (schema.kind == DataFrameKind::Polars && schema.is_complete()).then_some(&**schema)
+}
+
+fn get_column_name_arg(args: &Arguments) -> Option<&Expr> {
+    if !arguments_are_valid(args, 1, Some(&["name"])) {
+        return None;
+    }
+    extract_argument(args, 0, "name")?.into_option()
+}
+
+fn resolve_column(
+    schema: &DataFrameSchema,
+    name: &Name,
+    range: TextRange,
+    errors: &ErrorCollector,
+) -> Option<PolarsDType> {
+    match schema.columns.iter().find(|(c, _)| c == name) {
+        Some((_, ty)) => Some(ty.clone()),
+        None => {
+            if schema.is_complete() {
+                errors
+                    .error_builder(
+                        range,
+                        ErrorKind::UnknownColumn,
+                        format!("Column `{name}` is not in the DataFrame schema"),
+                    )
+                    .emit();
+            }
+            None
+        }
+    }
+}
+
+/// Returns the first repeated column name.
+fn first_duplicate_column(columns: &[(Name, PolarsDType)]) -> Option<&Name> {
+    let mut seen = SmallSet::with_capacity(columns.len());
+    columns
+        .iter()
+        .find_map(|(name, _)| (!seen.insert(name)).then_some(name))
+}
+
+fn report_duplicate_column(name: &Name, range: TextRange, errors: &ErrorCollector) {
+    errors
+        .error_builder(
+            range,
+            ErrorKind::DuplicateColumn,
+            format!("Operation produces duplicate column `{name}`"),
+        )
+        .emit();
+}
+
+fn arith(a: ExprValue, b: ExprValue) -> Option<ExprValue> {
+    use ExprValue::*;
+    match (&a, &b) {
+        (Dtype(da), Dtype(db)) if da.is_numeric() && db.is_numeric() => {
+            da.clone().supertype(db.clone()).map(Dtype)
+        }
+        (Dtype(_), Dtype(_)) => None,
+        (Dtype(d), IntLit(v)) | (IntLit(v), Dtype(d)) => int_lit_with_dtype(d.clone(), *v),
+        (Dtype(d), FloatLit) | (FloatLit, Dtype(d)) => float_lit_with_dtype(d.clone()),
+        (IntLit(_), IntLit(_)) => a.dtype().supertype(b.dtype()).map(Dtype),
+        (IntLit(_), FloatLit) | (FloatLit, IntLit(_)) | (FloatLit, FloatLit) => {
+            Some(Dtype(PolarsDType::Float64))
+        }
+    }
+}
+
+fn int_lit_with_dtype(d: PolarsDType, v: i128) -> Option<ExprValue> {
+    if d.is_float() {
+        return Some(ExprValue::Dtype(d));
+    }
+    match d.int_bounds() {
+        Some((lo, hi)) if (lo..=hi).contains(&v) => Some(ExprValue::Dtype(d)),
+        _ => None,
+    }
+}
+
+fn float_lit_with_dtype(d: PolarsDType) -> Option<ExprValue> {
+    match d {
+        PolarsDType::Float32 => Some(ExprValue::Dtype(PolarsDType::Float32)),
+        PolarsDType::Float64 => Some(ExprValue::Dtype(PolarsDType::Float64)),
+        d if d.is_integer() => Some(ExprValue::Dtype(PolarsDType::Float64)),
+        _ => None,
+    }
+}
+
+fn pow(a: ExprValue, b: ExprValue) -> Option<ExprValue> {
+    if !a.is_numeric() || !b.is_numeric() {
+        return None;
+    }
+    let left = a.dtype();
+    let right = b.dtype();
+    Some(ExprValue::Dtype(if left.is_float() {
+        left
+    } else if right.is_float() {
+        right
+    } else {
+        left
+    }))
+}
+
+fn integer_dtype_with_literal(dtype: PolarsDType, value: i128) -> Option<PolarsDType> {
+    let (lower, upper) = dtype.int_bounds()?;
+    if (lower..=upper).contains(&value)
+        || value < i64::MIN as i128
+        || value > u64::MAX as i128
+        || dtype == PolarsDType::UInt128
+    {
+        return Some(dtype);
+    }
+    if dtype == PolarsDType::UInt64 && value < 0 {
+        return Some(PolarsDType::Int64);
+    }
+    let smallest = |candidates: [PolarsDType; 4]| {
+        candidates.into_iter().find(|candidate| {
+            candidate
+                .int_bounds()
+                .is_some_and(|(lower, upper)| (lower..=upper).contains(&value))
+        })
+    };
+    let literal = if value < 0 {
+        smallest([
+            PolarsDType::Int8,
+            PolarsDType::Int16,
+            PolarsDType::Int32,
+            PolarsDType::Int64,
+        ])
+        .expect("negative literal within i64 bounds must fit Int64")
+    } else if dtype.is_signed_int() {
+        smallest([
+            PolarsDType::Int8,
+            PolarsDType::Int16,
+            PolarsDType::Int32,
+            PolarsDType::Int64,
+        ])
+        .unwrap_or(PolarsDType::UInt64)
+    } else {
+        smallest([
+            PolarsDType::UInt8,
+            PolarsDType::UInt16,
+            PolarsDType::UInt32,
+            PolarsDType::UInt64,
+        ])
+        .expect("nonnegative literal within u64 bounds must fit UInt64")
+    };
+    dtype.supertype(literal)
+}
+
+fn combine_binop(op: Operator, a: ExprValue, b: ExprValue) -> Option<ExprValue> {
+    use ExprValue::*;
+    match op {
+        Operator::Div => {
+            let result = arith(a, b)?;
+            Some(if result.is_integer() {
+                Dtype(PolarsDType::Float64)
+            } else {
+                result
+            })
+        }
+        Operator::BitAnd | Operator::BitOr | Operator::BitXor => {
+            if matches!(
+                (&a, &b),
+                (Dtype(PolarsDType::Boolean), Dtype(PolarsDType::Boolean))
+            ) {
+                Some(Dtype(PolarsDType::Boolean))
+            } else if a.is_integer() && b.is_integer() {
+                arith(a, b)
+            } else {
+                None
+            }
+        }
+        Operator::Add | Operator::Sub | Operator::Mult | Operator::FloorDiv | Operator::Mod => {
+            arith(a, b)
+        }
+        Operator::Pow => pow(a, b),
+        Operator::LShift | Operator::RShift | Operator::MatMult => None,
+    }
+}
+
+fn unary_value(op: UnaryOp, a: ExprValue) -> Option<ExprValue> {
+    use ExprValue::*;
+    match op {
+        UnaryOp::USub | UnaryOp::UAdd => match a {
+            IntLit(v) if op == UnaryOp::USub => v.checked_neg().map(IntLit),
+            IntLit(v) => Some(IntLit(v)),
+            FloatLit => Some(FloatLit),
+            Dtype(d) if d.is_signed_int() || d.is_float() => Some(Dtype(d)),
+            Dtype(_) => None,
+        },
+        UnaryOp::Invert => match a {
+            Dtype(PolarsDType::Boolean) => Some(Dtype(PolarsDType::Boolean)),
+            v if v.is_integer() => Some(Dtype(v.dtype())),
+            _ => None,
+        },
+        UnaryOp::Not => None,
+    }
+}
+
+fn comparison_value(a: ExprValue, b: ExprValue) -> Option<ExprValue> {
+    use ExprValue::*;
+    let comparable =
+        (a.is_numeric() && b.is_numeric()) || matches!((&a, &b), (Dtype(x), Dtype(y)) if x == y);
+    comparable.then_some(Dtype(PolarsDType::Boolean))
+}
+
+#[derive(Clone, Copy)]
+enum Reducer {
+    Identity,
+    FloatPromote,
+    Count,
+    Sum,
+    Product,
+}
+
+impl Reducer {
+    fn parse(method: &str) -> Option<Self> {
+        Some(match method {
+            "min" | "max" | "first" | "last" => Self::Identity,
+            "mean" | "median" | "std" | "var" => Self::FloatPromote,
+            "count" | "n_unique" => Self::Count,
+            "sum" => Self::Sum,
+            "product" => Self::Product,
+            _ => return None,
+        })
+    }
+
+    fn output_dtype(self, d: PolarsDType) -> Option<PolarsDType> {
+        match self {
+            Reducer::Identity => Some(d),
+            Reducer::Count => Some(PolarsDType::UInt32),
+            Reducer::FloatPromote => match d {
+                PolarsDType::Float32 => Some(PolarsDType::Float32),
+                PolarsDType::Boolean => Some(PolarsDType::Float64),
+                d if d.is_numeric() => Some(PolarsDType::Float64),
+                _ => None,
+            },
+            Reducer::Sum => match d {
+                PolarsDType::Boolean => Some(PolarsDType::UInt32),
+                PolarsDType::Int8
+                | PolarsDType::Int16
+                | PolarsDType::UInt8
+                | PolarsDType::UInt16 => Some(PolarsDType::Int64),
+                PolarsDType::Int32
+                | PolarsDType::Int64
+                | PolarsDType::UInt32
+                | PolarsDType::UInt64
+                | PolarsDType::Float32
+                | PolarsDType::Float64 => Some(d),
+                _ => None,
+            },
+            Reducer::Product => match d {
+                PolarsDType::UInt64 | PolarsDType::Float32 | PolarsDType::Float64 => Some(d),
+                PolarsDType::Boolean
+                | PolarsDType::Int8
+                | PolarsDType::Int16
+                | PolarsDType::Int32
+                | PolarsDType::Int64
+                | PolarsDType::UInt8
+                | PolarsDType::UInt16
+                | PolarsDType::UInt32 => Some(PolarsDType::Int64),
+                _ => None,
+            },
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PolarsExprMethod {
+    Alias,
+    Cast,
+    Reducer(Reducer),
+}
+
+impl PolarsExprMethod {
+    fn parse(name: &str) -> Option<Self> {
+        match name {
+            "alias" => Some(Self::Alias),
+            "cast" => Some(Self::Cast),
+            name => Reducer::parse(name).map(Self::Reducer),
+        }
+    }
+}
+
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
+    pub(crate) fn polars_method_call(
+        &self,
+        base: &Type,
+        func: &ExprAttribute,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        // Pandas DataFrames have methods with some of the same names, but different semantics.
+        if matches!(base, Type::DataFrame(schema) if schema.kind == DataFrameKind::Pandas) {
+            return None;
+        }
+        match PolarsMethod::parse(func.attr.id.as_str())? {
+            PolarsMethod::Select => self.polars_select(base, args, errors),
+            PolarsMethod::Drop => self.polars_drop(base, args, errors),
+            PolarsMethod::Rename => self.polars_rename(base, args, errors),
+            PolarsMethod::WithColumns => self.polars_with_columns(base, args, errors),
+            PolarsMethod::FillNull => self.polars_fill_null(base, args, errors),
+            PolarsMethod::RowTransform => self.polars_row_transform(base, args, errors),
+            PolarsMethod::RowAppend => self.polars_row_append(base, args, errors),
+            PolarsMethod::Cast => self.polars_cast(base, args, errors),
+            PolarsMethod::FrameConversion(conversion) => {
+                self.polars_lazy_collect(base, func, args, errors, conversion)
+            }
+            PolarsMethod::Join => self.polars_join(base, args, errors),
+            PolarsMethod::Hstack => self
+                .polars_hstack(base, args, errors)
+                .or_else(|| self.polars_in_place_column_mutation(base, func, args, errors)),
+            PolarsMethod::GroupByAgg => self.polars_group_by_agg(func, args, errors),
+            PolarsMethod::InPlaceMutation => {
+                self.polars_in_place_column_mutation(base, func, args, errors)
+            }
+            PolarsMethod::GetColumn => self.polars_get_column(base, func, args, errors),
+            PolarsMethod::ToSeries => self.polars_to_series(base, func, args, errors),
+        }
+    }
+
+    pub(crate) fn infer_polars_call_specialization(
+        &self,
+        callee: &Type,
+        arguments: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<PolarsCallSpecialization> {
+        if let Type::ClassDef(cls) = callee
+            && (is_polars_dataframe(cls) || is_pandas_dataframe(cls))
+            && let Some(construct) = self.polars_construct_options(arguments)
+        {
+            let kind = if is_polars_dataframe(cls) {
+                DataFrameKind::Polars
+            } else {
+                DataFrameKind::Pandas
+            };
+            return self.infer_dataframe_schema(&construct, kind, errors).map(
+                |(columns, completeness)| PolarsCallSpecialization::DataFrame {
+                    columns,
+                    kind,
+                    completeness,
+                },
+            );
+        }
+        match PolarsFunction::from_callee(callee) {
+            Some(PolarsFunction::Csv(function)) => {
+                return self
+                    .infer_polars_csv_schema(arguments, function)
+                    .map(|columns| PolarsCallSpecialization::DataFrame {
+                        columns,
+                        kind: DataFrameKind::Polars,
+                        completeness: SchemaCompleteness::Complete,
+                    });
+            }
+            Some(PolarsFunction::Concat) => {
+                return self
+                    .infer_polars_concat(arguments)
+                    .map(
+                        |(columns, completeness)| PolarsCallSpecialization::DataFrame {
+                            columns,
+                            kind: DataFrameKind::Polars,
+                            completeness,
+                        },
+                    );
+            }
+            _ => {}
+        }
+        if let Type::ClassDef(cls) = callee
+            && is_polars_series(cls)
+        {
+            return self
+                .infer_series_dtype(arguments)
+                .map(PolarsCallSpecialization::Series);
+        }
+        None
+    }
+
+    pub(crate) fn apply_polars_call_specialization(
+        &self,
+        result: Type,
+        specialization: Option<PolarsCallSpecialization>,
+    ) -> Type {
+        match (specialization, result) {
+            (
+                Some(PolarsCallSpecialization::DataFrame {
+                    columns,
+                    kind,
+                    completeness,
+                }),
+                Type::ClassType(underlying),
+            ) => DataFrameSchema {
+                underlying,
+                columns,
+                completeness,
+                kind,
+                role: SchemaRole::Inferred,
+            }
+            .to_type(),
+            (Some(PolarsCallSpecialization::Series(dtype)), Type::ClassType(underlying)) => {
+                SeriesSchema { underlying, dtype }.to_type()
+            }
+            (_, result) => result,
+        }
+    }
+
+    fn polars_dtype_from_expr(&self, e: &Expr) -> Option<PolarsDType> {
+        if let Expr::Call(call) = e
+            && let Some(dtype) = self.polars_nested_dtype_from_call(call)
+        {
+            return Some(dtype);
+        }
+        let ty = self.expr_infer(e, &self.error_swallower());
+        polars_dtype_from_type(&ty)
+    }
+
+    fn polars_nested_dtype_from_call(&self, call: &ExprCall) -> Option<PolarsDType> {
+        let callee = self.expr_infer(&call.func, &self.error_swallower());
+        let Type::ClassDef(cls) = callee else {
+            return None;
+        };
+        let module = cls.module_name();
+        if module.as_str() != POLARS_MODULE && !module.as_str().starts_with(POLARS_MODULE_PREFIX) {
+            return None;
+        }
+        match cls.name().as_str() {
+            "Array" => {
+                if !arguments_are_valid(&call.arguments, 2, Some(&["inner", "shape"])) {
+                    return None;
+                }
+                let inner = extract_argument(&call.arguments, 0, "inner")?.into_option()?;
+                let shape = extract_argument(&call.arguments, 1, "shape")?.into_option()?;
+                let dimensions = match shape {
+                    Expr::Tuple(tuple) => &tuple.elts,
+                    _ => std::slice::from_ref(shape),
+                };
+                let mut shape = Vec1::try_from_vec(
+                    dimensions
+                        .iter()
+                        .map(|dimension| usize::try_from(self.polars_int_literal(dimension)?).ok())
+                        .collect::<Option<Vec<_>>>()?,
+                )
+                .ok()?;
+                let inner = self.polars_dtype_from_expr(inner)?;
+                let element = match inner {
+                    PolarsDType::Array {
+                        element,
+                        shape: PolarsArrayShape::Known(inner_shape),
+                    } => {
+                        shape.extend(inner_shape);
+                        element
+                    }
+                    PolarsDType::Array {
+                        shape: PolarsArrayShape::Unknown,
+                        ..
+                    } => return None,
+                    inner => Box::new(inner),
+                };
+                Some(PolarsDType::Array {
+                    element,
+                    shape: PolarsArrayShape::Known(shape),
+                })
+            }
+            "List" => {
+                if !arguments_are_valid(&call.arguments, 1, Some(&["inner"])) {
+                    return None;
+                }
+                let inner = extract_argument(&call.arguments, 0, "inner")?.into_option()?;
+                Some(PolarsDType::List(Box::new(
+                    self.polars_dtype_from_expr(inner)?,
+                )))
+            }
+            "Struct" => {
+                if !arguments_are_valid(&call.arguments, 1, Some(&["fields"])) {
+                    return None;
+                }
+                let fields = extract_argument(&call.arguments, 0, "fields")?.into_option()?;
+                let Expr::Dict(fields) = fields else {
+                    return None;
+                };
+                let mut parsed = Vec::with_capacity(fields.items.len());
+                let mut seen = SmallSet::new();
+                for field in &fields.items {
+                    let name = self.polars_column_name(field.key.as_ref()?)?;
+                    if !seen.insert(name.clone()) {
+                        return None;
+                    }
+                    parsed.push((name, self.polars_dtype_from_expr(&field.value)?));
+                }
+                Some(PolarsDType::Struct(parsed))
+            }
+            _ => None,
+        }
+    }
+
+    fn polars_column_arg(&self, expr: &Expr) -> ColumnArg {
+        let ty = self.expr_infer(expr, &self.error_swallower());
+        if let Type::Literal(lit) = &ty
+            && let Lit::Str(value) = &lit.value
+        {
+            let name = Name::new(value.as_str());
+            if is_polars_selector_name(&name) {
+                return ColumnArg::Opaque;
+            }
+            return ColumnArg::Named(name);
+        }
+        if is_string_type(&ty) {
+            return ColumnArg::Opaque;
+        }
+        ColumnArg::Expr
+    }
+
+    pub fn polars_column_name(&self, expr: &Expr) -> Option<Name> {
+        self.polars_string_literal(expr).map(Name::new)
+    }
+
+    fn polars_literal<T>(&self, expr: &Expr, get: impl FnOnce(&Lit) -> Option<T>) -> Option<T> {
+        let Type::Literal(lit) = self.expr_infer(expr, &self.error_swallower()) else {
+            return None;
+        };
+        get(&lit.value)
+    }
+
+    fn polars_bool_literal(&self, expr: &Expr) -> Option<bool> {
+        self.polars_literal(expr, |lit| match lit {
+            Lit::Bool(value) => Some(*value),
             _ => None,
         })
-        .collect()
-}
+    }
 
-/// Whether a `select`/`drop` string is a `pl.col` selector (`"*"` or `"^regex$"`) rather than an
-/// exact column name.
-fn is_polars_selector_string(arg: &Expr) -> bool {
-    let Expr::StringLiteral(s) = arg else {
-        return false;
-    };
-    let value = s.value.to_str();
-    value == "*" || (value.starts_with('^') && value.ends_with('$'))
-}
+    fn polars_string_literal(&self, expr: &Expr) -> Option<String> {
+        self.polars_literal(expr, |lit| match lit {
+            Lit::Str(value) => Some(value.to_string()),
+            _ => None,
+        })
+    }
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    /// Infer a column schema for a DataFrame constructor call, or `None` to fall back to plain
-    /// construction. Purely syntactic; never infers the element expressions.
-    ///
-    /// With `schema=` the column set is authoritative and ordered: each column takes its
-    /// `schema_overrides` dtype, else its schema dtype, else defers to data inference. Data must
-    /// name the same columns. Without `schema=`, data order defines the columns.
-    pub fn infer_dataframe_schema(
+    fn polars_int_literal(&self, expr: &Expr) -> Option<i64> {
+        self.polars_literal(expr, |lit| match lit {
+            Lit::Int(value) => value.as_i64(),
+            _ => None,
+        })
+    }
+
+    /// Parse optional new column names and treat absence as an empty rename set.
+    fn polars_csv_names(&self, expr: Option<&Expr>) -> Option<Vec<Name>> {
+        let Some(expr) = Self::non_none_csv_option(expr) else {
+            return Some(Vec::new());
+        };
+        literal_sequence(expr)?
+            .iter()
+            .map(|expr| self.polars_column_name(expr))
+            .collect()
+    }
+
+    /// Distinguish an absent name from a name that cannot be resolved.
+    fn polars_optional_csv_name(&self, expr: Option<&Expr>) -> Option<Option<Name>> {
+        let expr = Self::non_none_csv_option(expr);
+        let name = expr.and_then(|expr| self.polars_column_name(expr));
+        (expr.is_none() || name.is_some()).then_some(name)
+    }
+
+    /// Parse static projections; an empty sequence selects every column.
+    fn polars_csv_selection(&self, expr: &Expr, width: usize) -> Option<CsvColumnSelection> {
+        let values = literal_sequence(expr)?;
+        if values.is_empty() {
+            return Some(CsvColumnSelection::All);
+        }
+        if let Some(names) = values
+            .iter()
+            .map(|expr| self.polars_column_name(expr))
+            .collect::<Option<SmallSet<_>>>()
+            && names.len() == values.len()
+        {
+            return Some(CsvColumnSelection::Names(names));
+        }
+        let indices = values
+            .iter()
+            .map(|expr| usize::try_from(self.polars_int_literal(expr)?).ok())
+            .collect::<Option<SmallSet<_>>>()?;
+        (indices.len() == values.len() && indices.iter().all(|index| *index < width))
+            .then_some(CsvColumnSelection::Indices(indices))
+    }
+
+    fn polars_csv_schema(&self, expr: &Expr) -> Option<Vec<(Name, PolarsDType)>> {
+        let (form, dict) = self.schema_literal_dict(expr)?;
+        if dict.items.is_empty() {
+            return Some(Vec::new());
+        }
+        self.schema_dict_entries(form, dict)?
+            .into_iter()
+            .map(|(name, dtype)| Some((name, dtype?)))
+            .collect()
+    }
+
+    /// An omitted option and explicit `None` both represent semantic absence.
+    fn non_none_csv_option(expr: Option<&Expr>) -> Option<&Expr> {
+        match expr {
+            None | Some(Expr::NoneLiteral(_)) => None,
+            Some(expr) => Some(expr),
+        }
+    }
+
+    /// The requested row index is prepended with the UInt32 dtype.
+    fn apply_polars_csv_row_index(
+        columns: &mut Vec<(Name, PolarsDType)>,
+        row_index_name: Option<Name>,
+    ) -> bool {
+        let Some(name) = row_index_name else {
+            return true;
+        };
+        if columns.iter().any(|(column, _)| *column == name) {
+            return false;
+        }
+        columns.insert(0, (name, PolarsDType::UInt32));
+        true
+    }
+
+    /// Positional dtypes replace leading column dtypes unless the sequence is too large.
+    fn apply_polars_csv_sequence_overrides(
+        columns: &mut [(Name, PolarsDType)],
+        overrides: CsvDtypeOverrides,
+    ) -> bool {
+        let CsvDtypeOverrides::Sequence(dtypes) = overrides else {
+            return true;
+        };
+        if dtypes.len() > columns.len() {
+            return false;
+        }
+        for ((_, dtype), override_dtype) in columns.iter_mut().zip(dtypes) {
+            *dtype = override_dtype;
+        }
+        true
+    }
+
+    /// New names replace leading columns unless they exceed the width or create duplicates.
+    fn apply_polars_csv_new_columns(
+        columns: &mut [(Name, PolarsDType)],
+        new_columns: Vec<Name>,
+    ) -> bool {
+        if new_columns.len() > columns.len() {
+            return false;
+        }
+        for ((name, _), replacement) in columns.iter_mut().zip(new_columns) {
+            *name = replacement;
+        }
+        first_duplicate_column(columns).is_none()
+    }
+
+    fn infer_polars_csv_schema(
+        &self,
+        arguments: &Arguments,
+        function: PolarsCsvFunction,
+    ) -> Option<Vec<(Name, PolarsDType)>> {
+        match self.polars_csv_options(arguments, function)? {
+            PolarsCsvOptions::Read { common, selection } => {
+                self.infer_read_csv_schema(common, selection)
+            }
+            PolarsCsvOptions::Scan {
+                common,
+                include_file_paths,
+            } => self.infer_scan_csv_schema(common, include_file_paths),
+        }
+    }
+
+    /// This parser converts CSV arguments into their schema transformations.
+    fn polars_csv_options(
+        &self,
+        arguments: &Arguments,
+        function: PolarsCsvFunction,
+    ) -> Option<PolarsCsvOptions> {
+        let mut source_keyword = false;
+        let mut schema = None;
+        let mut overrides = None;
+        let mut selection = None;
+        let mut new_columns = None;
+        let mut row_index_name = None;
+        let mut with_column_names = None;
+        let mut include_file_paths = None;
+        for kw in &arguments.keywords {
+            let Some(arg) = &kw.arg else {
+                return None;
+            };
+            let slot = match arg.id.as_str() {
+                "source" => {
+                    if source_keyword {
+                        return None;
+                    }
+                    source_keyword = true;
+                    continue;
+                }
+                "schema" => &mut schema,
+                "schema_overrides" => &mut overrides,
+                "columns" => &mut selection,
+                "new_columns" => &mut new_columns,
+                "row_index_name" => &mut row_index_name,
+                "with_column_names" => &mut with_column_names,
+                "include_file_paths" => &mut include_file_paths,
+                _ => continue,
+            };
+            if slot.replace(&kw.value).is_some() {
+                return None;
+            }
+        }
+        if !arguments_are_valid(arguments, 1, None)
+            || !matches!(
+                extract_argument(arguments, 0, "source")?,
+                ArgumentValue::Present(_)
+            )
+        {
+            return None;
+        }
+
+        let schema = self.polars_csv_schema(schema?)?;
+        let overrides =
+            CsvDtypeOverrides::parse(overrides, |expr| self.polars_dtype_from_expr(expr))?;
+        let new_columns = self.polars_csv_names(new_columns)?;
+        let row_index_name = self.polars_optional_csv_name(row_index_name)?;
+        let common = PolarsCsvCommonOptions {
+            schema,
+            overrides,
+            new_columns,
+            row_index_name,
+        };
+
+        Some(match function {
+            PolarsCsvFunction::Read => {
+                let selection = match Self::non_none_csv_option(selection) {
+                    None => CsvColumnSelection::All,
+                    Some(expr) => self.polars_csv_selection(expr, common.schema.len())?,
+                };
+                PolarsCsvOptions::Read { common, selection }
+            }
+            PolarsCsvFunction::Scan => {
+                if Self::non_none_csv_option(with_column_names).is_some() {
+                    return None;
+                }
+                let include_file_paths = self.polars_optional_csv_name(include_file_paths)?;
+                PolarsCsvOptions::Scan {
+                    common,
+                    include_file_paths,
+                }
+            }
+        })
+    }
+
+    /// Eager CSV inference applies overrides before projection and inserts the row index before renaming.
+    fn infer_read_csv_schema(
+        &self,
+        common: PolarsCsvCommonOptions,
+        selection: CsvColumnSelection,
+    ) -> Option<Vec<(Name, PolarsDType)>> {
+        let PolarsCsvCommonOptions {
+            schema: mut columns,
+            overrides,
+            new_columns,
+            row_index_name,
+        } = common;
+        if matches!(&overrides, CsvDtypeOverrides::Sequence(_))
+            && !matches!(selection, CsvColumnSelection::All)
+        {
+            return None;
+        }
+        if !Self::apply_polars_csv_sequence_overrides(&mut columns, overrides) {
+            return None;
+        }
+        if !matches!(selection, CsvColumnSelection::All) {
+            if let CsvColumnSelection::Names(names) = &selection
+                && !names
+                    .iter()
+                    .all(|name| columns.iter().any(|(column, _)| column == name))
+            {
+                return None;
+            }
+            columns = columns
+                .into_iter()
+                .enumerate()
+                .filter(|(index, (name, _))| match &selection {
+                    CsvColumnSelection::All => true,
+                    CsvColumnSelection::Names(names) => names.contains(name),
+                    CsvColumnSelection::Indices(indices) => indices.contains(index),
+                })
+                .map(|(_, column)| column)
+                .collect();
+        }
+        if !Self::apply_polars_csv_row_index(&mut columns, row_index_name)
+            || !Self::apply_polars_csv_new_columns(&mut columns, new_columns)
+        {
+            return None;
+        }
+        Some(columns)
+    }
+
+    /// Lazy CSV inference applies overrides before inserting the row index.
+    /// It renames columns before adding the file path.
+    fn infer_scan_csv_schema(
+        &self,
+        common: PolarsCsvCommonOptions,
+        include_file_paths: Option<Name>,
+    ) -> Option<Vec<(Name, PolarsDType)>> {
+        let PolarsCsvCommonOptions {
+            schema: mut columns,
+            overrides,
+            new_columns,
+            row_index_name,
+        } = common;
+        if !Self::apply_polars_csv_sequence_overrides(&mut columns, overrides)
+            || !Self::apply_polars_csv_row_index(&mut columns, row_index_name)
+            || !Self::apply_polars_csv_new_columns(&mut columns, new_columns)
+        {
+            return None;
+        }
+        if let Some(name) = include_file_paths {
+            if columns.iter().any(|(column, _)| *column == name) {
+                return None;
+            }
+            columns.push((name, PolarsDType::String));
+        }
+        Some(columns)
+    }
+
+    fn dataframe_data_map<'b>(&self, dict: &'b ExprDict) -> Option<SmallMap<Name, &'b Expr>> {
+        let mut map = SmallMap::with_capacity(dict.items.len());
+        for item in &dict.items {
+            let name = self.polars_column_name(item.key.as_ref()?)?;
+            if map.insert(name, &item.value).is_some() {
+                return None;
+            }
+        }
+        Some(map)
+    }
+
+    fn dataframe_records_map<'b>(
+        &self,
+        list: &'b ExprList,
+    ) -> Option<SmallMap<Name, Vec<&'b Expr>>> {
+        let mut columns: SmallMap<Name, Vec<&Expr>> = SmallMap::new();
+        for elt in list.elts.iter().take(POLARS_DEFAULT_INFER_SCHEMA_LENGTH) {
+            let Expr::Dict(dict) = elt else {
+                return None;
+            };
+            for (name, value) in self.dataframe_data_map(dict)? {
+                columns.entry(name).or_default().push(value);
+            }
+        }
+        (!columns.is_empty()).then_some(columns)
+    }
+
+    fn is_string_typed(&self, expr: &Expr) -> bool {
+        let ty = self.expr_infer(expr, &self.error_swallower());
+        is_string_type(&ty)
+    }
+
+    fn polars_series_options<'b>(&self, arguments: &'b Arguments) -> Option<SeriesConstruct<'b>> {
+        let mut strict = true;
+        for kw in &arguments.keywords {
+            let Some(arg) = &kw.arg else {
+                return None;
+            };
+            match arg.id.as_str() {
+                "name" | "values" | "dtype" | "nan_to_null" => {}
+                "strict" => strict = self.polars_bool_literal(&kw.value)?,
+                _ => return None,
+            }
+        }
+        let values_position = match &arguments.args[..] {
+            [first] | [first, _] | [first, _, _] if self.is_string_typed(first) => 1,
+            [] | [_] => 0,
+            _ => return None,
+        };
+        let values = extract_argument(arguments, values_position, "values")?.into_option();
+        let dtype = match extract_argument(arguments, values_position + 1, "dtype")? {
+            ArgumentValue::Present(expr) => Some(self.polars_dtype_from_expr(expr)?),
+            ArgumentValue::Missing => None,
+        };
+        Some(SeriesConstruct {
+            values,
+            dtype,
+            strict,
+        })
+    }
+
+    fn schema_dict_entries(
+        &self,
+        form: SchemaForm,
+        dict: &ExprDict,
+    ) -> Option<Vec<(Name, Option<PolarsDType>)>> {
+        if dict.items.is_empty() {
+            return None;
+        }
+        let mut entries = Vec::with_capacity(dict.items.len());
+        let mut seen = SmallSet::new();
+        for item in &dict.items {
+            let name = self.polars_column_name(item.key.as_ref()?)?;
+            if !seen.insert(name.clone()) {
+                return None;
+            }
+            let dtype = match &item.value {
+                Expr::NoneLiteral(_) if form == SchemaForm::Dict => None,
+                Expr::NoneLiteral(_) => return None,
+                value => Some(self.polars_dtype_from_expr(value)?),
+            };
+            entries.push((name, dtype));
+        }
+        Some(entries)
+    }
+
+    /// Interpret supported `Annotated[pl.DataFrame, ...]` metadata as a schema contract.
+    pub fn polars_dataframe_annotated_type(&self, inner: &Type, metadata: &[Type]) -> Option<Type> {
+        let Type::ClassType(underlying) = inner else {
+            return None;
+        };
+        if !is_polars_dataframe(underlying.class_object()) {
+            return None;
+        }
+        let (schema_cls, completeness) = match metadata {
+            [Type::ClassDef(schema_cls)] => (schema_cls, SchemaCompleteness::Complete),
+            [Type::ClassDef(schema_cls), tail] if tail.is_ellipsis_value() => {
+                (schema_cls, SchemaCompleteness::Partial)
+            }
+            _ => return None,
+        };
+        Some(
+            DataFrameSchema {
+                underlying: underlying.clone(),
+                columns: self.schema_class_columns(schema_cls)?,
+                completeness,
+                kind: DataFrameKind::Polars,
+                role: SchemaRole::Contract,
+            }
+            .to_type(),
+        )
+    }
+
+    fn schema_class_entries(&self, expr: &Expr) -> Option<Vec<(Name, Option<PolarsDType>)>> {
+        let ty = self.expr_infer(expr, &self.error_swallower());
+        let Type::ClassDef(cls) = &ty else {
+            return None;
+        };
+        Some(
+            self.schema_class_columns(cls)?
+                .into_iter()
+                .map(|(name, dtype)| (name, Some(dtype)))
+                .collect(),
+        )
+    }
+
+    fn schema_class_columns(&self, cls: &Class) -> Option<Vec<(Name, PolarsDType)>> {
+        let fields = self.get_class_field_map(cls);
+        if fields.is_empty() {
+            return None;
+        }
+        let mut columns = Vec::with_capacity(fields.len());
+        for (name, field) in &fields {
+            columns.push((name.clone(), polars_dtype_from_type(&field.ty())?));
+        }
+        Some(columns)
+    }
+
+    /// Optional TypedDict fields are omitted and make the resulting schema partial.
+    fn typed_dict_data_columns(
+        &self,
+        expr: &Expr,
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+        let ty = self.expr_infer(expr, &self.error_swallower());
+        let Type::TypedDict(typed_dict) = &ty else {
+            return None;
+        };
+        let fields = self.typed_dict_fields(typed_dict);
+        if fields.is_empty() {
+            return None;
+        }
+        let completeness = if fields.values().all(|field| field.required) {
+            SchemaCompleteness::Complete
+        } else {
+            SchemaCompleteness::Partial
+        };
+        let sequence = self.stdlib.sequence(Type::any_implicit());
+        let mut columns = Vec::with_capacity(fields.len());
+        for (name, field) in fields.iter().filter(|(_, field)| field.required) {
+            let Type::ClassType(cls) = &field.ty else {
+                return None;
+            };
+            let sequence = self
+                .type_order()
+                .as_superclass(cls, sequence.class_object())?;
+            let [element] = sequence.targs().as_slice() else {
+                return None;
+            };
+            columns.push((name.clone(), polars_dtype_from_scalar_type(element)?));
+        }
+        Some((columns, completeness))
+    }
+
+    /// Infer the ordered columns of a DataFrame constructor.
+    fn infer_dataframe_schema(
         &self,
         construct: &PolarsConstruct,
         kind: DataFrameKind,
         errors: &ErrorCollector,
-    ) -> Option<Vec<(Name, PolarsDType)>> {
-        let data = match construct.data {
-            Some(PolarsData::Dict(dict)) => Some(dataframe_data_map(dict)?),
-            None => None,
-            // Records fold the supertype over each column's per-row values (as if strict=False), so a
-            // column never errors. Polars-only, and records with a `schema=` are not modeled: fall back.
-            Some(PolarsData::Records(list)) => {
-                if kind != DataFrameKind::Polars || construct.schema.is_some() {
-                    return None;
-                }
-                let columns = dataframe_records_map(list)?
-                    .into_iter()
-                    .map(|(name, values)| {
-                        let element = match construct.overrides.get(&name) {
-                            Some(dtype) => *dtype,
-                            None => self
-                                .dataframe_list_element_type(
-                                    &name,
-                                    values.iter().copied(),
-                                    kind.clone(),
-                                    false,
-                                    errors,
-                                )
-                                .unwrap_or(PolarsDType::Unknown),
-                        };
-                        (name, element)
-                    })
-                    .collect();
-                return Some(columns);
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+        if construct.columns.is_some() && kind != DataFrameKind::Pandas {
+            return None;
+        }
+        match (&construct.data, &construct.schema) {
+            (Some(PolarsData::Records(_)), Some(_)) => None,
+            (Some(PolarsData::Records(records)), None) => {
+                self.infer_dataframe_records_schema(records, construct, kind, errors)
             }
+            (Some(PolarsData::TypedDict(_, _)), Some(_)) => None,
+            (Some(PolarsData::TypedDict(columns, completeness)), None) => {
+                self.infer_dataframe_typed_dict_schema(columns, *completeness, construct, kind)
+            }
+            (Some(PolarsData::Dict(data)), _) => {
+                self.infer_dataframe_dict_schema(Some(data), construct, kind, errors)
+            }
+            (None, _) => self.infer_dataframe_dict_schema(None, construct, kind, errors),
+        }
+    }
+
+    fn infer_dataframe_typed_dict_schema(
+        &self,
+        columns: &[(Name, PolarsDType)],
+        completeness: SchemaCompleteness,
+        construct: &PolarsConstruct,
+        kind: DataFrameKind,
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+        if kind != DataFrameKind::Polars {
+            return None;
+        }
+        Some((
+            columns
+                .iter()
+                .map(|(name, dtype)| {
+                    (
+                        name.clone(),
+                        construct
+                            .overrides
+                            .get(name)
+                            .cloned()
+                            .unwrap_or_else(|| dtype.clone()),
+                    )
+                })
+                .collect(),
+            completeness,
+        ))
+    }
+
+    /// Infer a Polars list-of-dicts after parsing it into per-column row values.
+    fn infer_dataframe_records_schema(
+        &self,
+        records: &SmallMap<Name, Vec<&Expr>>,
+        construct: &PolarsConstruct,
+        kind: DataFrameKind,
+        errors: &ErrorCollector,
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+        if kind != DataFrameKind::Polars {
+            return None;
+        }
+        Some((
+            records
+                .iter()
+                .map(|(name, values)| {
+                    let element = match construct.overrides.get(name) {
+                        Some(dtype) => dtype.clone(),
+                        None => self
+                            .dataframe_list_element_type(
+                                name,
+                                values.iter().copied(),
+                                kind,
+                                false,
+                                errors,
+                            )
+                            .unwrap_or(PolarsDType::Unknown),
+                    };
+                    (name.clone(), element)
+                })
+                .collect(),
+            SchemaCompleteness::Complete,
+        ))
+    }
+
+    /// Infer column-oriented dict data, or a schema-only construction when `data` is absent.
+    fn infer_dataframe_dict_schema(
+        &self,
+        data: Option<&PolarsDictData>,
+        construct: &PolarsConstruct,
+        kind: DataFrameKind,
+        errors: &ErrorCollector,
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
+        let completeness = if kind == DataFrameKind::Polars {
+            SchemaCompleteness::Complete
+        } else {
+            SchemaCompleteness::Partial
         };
-        // Only list literals have modeled dtypes.
         let element_from_data = |name: &Name, value: &Expr| match value {
-            Expr::List(ExprList { elts, .. }) => self.dataframe_list_element_type(
-                name,
-                elts.iter(),
-                kind.clone(),
-                construct.strict,
-                errors,
-            ),
+            Expr::List(ExprList { elts, .. }) => {
+                self.dataframe_list_element_type(name, elts.iter(), kind, construct.strict, errors)
+            }
             _ => None,
         };
         let Some(schema) = &construct.schema else {
             let data = data?;
-            let mut columns = Vec::with_capacity(data.len());
-            for (name, value) in &data {
+            let names: Vec<&Name> = match &construct.columns {
+                Some(cols) => cols.iter().collect(),
+                None => data.columns.keys().collect(),
+            };
+            let mut result = Vec::with_capacity(names.len());
+            for name in names {
+                let value = data.columns.get(name).copied()?;
                 let element = if let Some(dtype) = construct.overrides.get(name) {
-                    *dtype
+                    dtype.clone()
                 } else {
                     match element_from_data(name, value) {
                         Some(dtype) => dtype,
@@ -461,28 +1778,57 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         None => return None,
                     }
                 };
-                columns.push((name.clone(), element));
+                result.push((name.clone(), element));
             }
-            return Some(columns);
+            return Some((result, completeness));
         };
         if kind != DataFrameKind::Polars {
             return None;
         }
-        // Data and schema must name the same columns at runtime.
-        if let Some(data) = &data
-            && (data.len() != schema.len() || schema.iter().any(|(n, _)| !data.contains_key(n)))
-        {
-            return None;
+        if let Some(data) = &data {
+            let missing: Vec<&Name> = schema
+                .iter()
+                .map(|(n, _)| n)
+                .filter(|n| !data.columns.contains_key(*n))
+                .collect();
+            let unexpected: Vec<&Name> = data
+                .columns
+                .keys()
+                .filter(|n| !schema.iter().any(|(s, _)| s == *n))
+                .collect();
+            if !missing.is_empty() || !unexpected.is_empty() {
+                let show = |ns: &[&Name]| {
+                    ns.iter()
+                        .map(|n| format!("`{n}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+                let detail = [
+                    (!missing.is_empty()).then(|| format!("missing {}", show(&missing))),
+                    (!unexpected.is_empty()).then(|| format!("unexpected {}", show(&unexpected))),
+                ]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(", ");
+                self.error(
+                    errors,
+                    data.range,
+                    ErrorKind::ColumnSchemaMismatch,
+                    format!("DataFrame data columns do not match the declared schema ({detail})"),
+                );
+                return None;
+            }
         }
         let columns = schema
             .iter()
             .map(|(name, dtype)| {
                 let element = if let Some(dtype) = construct.overrides.get(name) {
-                    *dtype
+                    dtype.clone()
                 } else if let Some(dtype) = dtype {
-                    *dtype
+                    dtype.clone()
                 } else {
-                    match data.as_ref().and_then(|m| m.get(name).copied()) {
+                    match data.and_then(|d| d.columns.get(name).copied()) {
                         Some(value) => {
                             element_from_data(name, value).unwrap_or(PolarsDType::Unknown)
                         }
@@ -492,117 +1838,147 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (name.clone(), element)
             })
             .collect();
-        Some(columns)
+        Some((columns, completeness))
     }
 
-    /// The single expression for a constructor parameter from its positional and keyword slots.
-    /// Supplying both is a runtime error that ordinary call checking reports on the fallback path,
-    /// so this returns `None` to defer to it rather than emit a second diagnostic.
-    fn positional_or_keyword<'b>(
-        positional: Option<&'b Expr>,
-        keyword: Option<&'b Expr>,
-    ) -> Option<Option<&'b Expr>> {
-        match (positional, keyword) {
-            (Some(_), Some(_)) => None,
-            (e, None) | (None, e) => Some(e),
+    /// Recognize a dict literal or an inline call resolving to `polars.Schema`.
+    fn schema_literal_dict<'b>(&self, expr: &'b Expr) -> Option<(SchemaForm, &'b ExprDict)> {
+        match expr {
+            Expr::Dict(dict) => Some((SchemaForm::Dict, dict)),
+            Expr::Call(call) => {
+                let [Expr::Dict(dict)] = &call.arguments.args[..] else {
+                    return None;
+                };
+                if !call.arguments.keywords.is_empty() {
+                    return None;
+                }
+                match self.expr_infer(&call.func, &self.error_swallower()) {
+                    Type::ClassDef(cls) if RuntimeClass::PolarsSchema.matches(&cls) => {
+                        Some((SchemaForm::SchemaClass, dict))
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
         }
     }
 
-    /// Reduce a DataFrame constructor call to a `PolarsConstruct`, or `None` to fall back to plain
-    /// construction. `data` and `schema` each come from their positional slot or keyword, not both.
-    pub fn polars_construct_options<'b>(
+    fn infer_series_dtype(&self, arguments: &Arguments) -> Option<PolarsDType> {
+        let construct = self.polars_series_options(arguments)?;
+        if let Some(dtype) = construct.dtype {
+            return Some(dtype);
+        }
+        let elts = match construct.values {
+            None => return Some(PolarsDType::Null),
+            Some(Expr::List(ExprList { elts, .. })) | Some(Expr::Tuple(ExprTuple { elts, .. })) => {
+                elts
+            }
+            Some(_) => return None,
+        };
+        self.dataframe_list_element_type(
+            &Name::new_static("values"),
+            elts.iter(),
+            DataFrameKind::Polars,
+            construct.strict,
+            &self.error_swallower(),
+        )
+    }
+
+    fn polars_construct_options<'b>(
         &self,
         arguments: &'b Arguments,
     ) -> Option<PolarsConstruct<'b>> {
         let mut overrides = SmallMap::new();
         let mut strict = true;
-        let mut data_keyword: Option<&Expr> = None;
-        let mut schema_keyword: Option<&Expr> = None;
+        let mut columns = None;
         for kw in &arguments.keywords {
             let Some(arg) = &kw.arg else {
                 return None;
             };
             match arg.id.as_str() {
-                "data" => data_keyword = Some(&kw.value),
-                "schema" => schema_keyword = Some(&kw.value),
+                "data" | "schema" => {}
+                "columns" => {
+                    let Expr::List(list) = &kw.value else {
+                        return None;
+                    };
+                    let mut names = Vec::with_capacity(list.elts.len());
+                    for elt in &list.elts {
+                        let name = self.polars_column_name(elt)?;
+                        if names.contains(&name) {
+                            return None;
+                        }
+                        names.push(name);
+                    }
+                    columns = Some(names);
+                }
                 "schema_overrides" => {
                     let Expr::Dict(dict) = &kw.value else {
                         return None;
                     };
                     for item in &dict.items {
-                        let (Some(Expr::StringLiteral(key)), value) = (&item.key, &item.value)
-                        else {
+                        let (Some(key), value) = (&item.key, &item.value) else {
                             return None;
                         };
                         overrides.insert(
-                            Name::new(key.value.to_str()),
-                            polars_dtype_from_expr(value)?,
+                            self.polars_column_name(key)?,
+                            self.polars_dtype_from_expr(value)?,
                         );
                     }
                 }
-                "strict" => match &kw.value {
-                    Expr::BooleanLiteral(b) => strict = b.value,
-                    _ => return None,
-                },
+                "strict" => strict = self.polars_bool_literal(&kw.value)?,
                 _ => return None,
             }
         }
-        let (data_positional, schema_positional) = match &arguments.args[..] {
-            [] => (None, None),
-            [data] => (Some(data), None),
-            [data, schema] => (Some(data), Some(schema)),
-            _ => return None,
-        };
-        let data_expr = Self::positional_or_keyword(data_positional, data_keyword)?;
-        let schema_expr = Self::positional_or_keyword(schema_positional, schema_keyword)?;
+        if !arguments_are_valid(arguments, 2, None) {
+            return None;
+        }
+        let data_expr = extract_argument(arguments, 0, "data")?.into_option();
+        let schema_expr = extract_argument(arguments, 1, "schema")?.into_option();
         let data = match data_expr {
             None | Some(Expr::NoneLiteral(_)) => None,
             Some(Expr::Dict(dict)) if dict.items.is_empty() => None,
-            Some(Expr::Dict(dict)) => Some(PolarsData::Dict(dict)),
-            Some(Expr::List(list)) => Some(PolarsData::Records(list)),
-            Some(_) => return None,
+            Some(Expr::Dict(dict)) => Some(PolarsData::Dict(PolarsDictData {
+                columns: self.dataframe_data_map(dict)?,
+                range: dict.range(),
+            })),
+            Some(Expr::List(list)) => Some(PolarsData::Records(self.dataframe_records_map(list)?)),
+            Some(expr) => {
+                let (columns, completeness) = self.typed_dict_data_columns(expr)?;
+                Some(PolarsData::TypedDict(columns, completeness))
+            }
         };
         let schema = match schema_expr {
             None | Some(Expr::NoneLiteral(_)) => None,
-            Some(Expr::Dict(dict)) => Some(schema_dict_entries(dict)?),
-            Some(_) => return None,
+            Some(expr) if let Some(entries) = self.schema_class_entries(expr) => Some(entries),
+            Some(expr) => {
+                let (form, dict) = self.schema_literal_dict(expr)?;
+                Some(self.schema_dict_entries(form, dict)?)
+            }
         };
         Some(PolarsConstruct {
             data,
             schema,
+            columns,
             overrides,
             strict,
         })
     }
 
-    /// The modeled `how=` value, defaulting to `Vertical` when absent, or `None` for a value we do not
-    /// model or a `**spread` that could carry `how`, so the opaque frame is the safe fallback. The value
-    /// is read from its inferred type, so a `Literal["vertical"]` variable resolves like a bare literal.
     fn polars_concat_how(&self, keywords: &[Keyword]) -> Option<ConcatHow> {
         let mut how = ConcatHow::Vertical;
         for kw in keywords {
             let arg = kw.arg.as_ref()?;
             if arg.id.as_str() == "how" {
-                // Swallow errors here, since the fallback call path re-infers this and is the sole reporter.
-                let ty = self.expr_infer(&kw.value, &self.error_swallower());
-                let Type::Literal(lit) = &ty else {
-                    return None;
-                };
-                let Lit::Str(value) = &lit.value else {
-                    return None;
-                };
-                how = match value.as_str() {
-                    "vertical" => ConcatHow::Vertical,
-                    "vertical_relaxed" => ConcatHow::VerticalRelaxed,
-                    _ => return None,
-                };
+                how = ConcatHow::parse(self.polars_string_literal(&kw.value)?.as_str())?;
             }
         }
         Some(how)
     }
 
-    /// Infers literal vertical concatenations; any schema or supertype mismatch falls back.
-    pub fn infer_polars_concat(&self, arguments: &Arguments) -> Option<Vec<(Name, PolarsDType)>> {
+    fn infer_polars_concat(
+        &self,
+        arguments: &Arguments,
+    ) -> Option<(Vec<(Name, PolarsDType)>, SchemaCompleteness)> {
         let [items] = &arguments.args[..] else {
             return None;
         };
@@ -615,36 +1991,45 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let schemas = elts
             .iter()
             .map(|e| match self.expr_infer(e, &self.error_swallower()) {
-                Type::DataFrame(schema) => Some(schema.columns),
+                Type::DataFrame(schema) if schema.kind == DataFrameKind::Polars => {
+                    Some((schema.columns, schema.completeness))
+                }
                 _ => None,
             })
             .collect::<Option<Vec<_>>>()?;
+        let completeness = schemas
+            .iter()
+            .fold(SchemaCompleteness::Complete, |completeness, (_, next)| {
+                completeness.combine(*next)
+            });
         let (first, rest) = schemas.split_first()?;
-        match how {
+        let columns = match how {
             ConcatHow::Vertical => rest
                 .iter()
-                .all(|columns| columns == first)
-                .then(|| first.clone()),
+                .all(|(columns, _)| columns == &first.0)
+                .then(|| first.0.clone())?,
             ConcatHow::VerticalRelaxed => {
-                let names_match = rest.iter().all(|columns| {
-                    columns.len() == first.len()
-                        && columns.iter().zip(first).all(|((n, _), (m, _))| n == m)
+                let names_match = rest.iter().all(|(columns, _)| {
+                    columns.len() == first.0.len()
+                        && columns.iter().zip(&first.0).all(|((n, _), (m, _))| n == m)
                 });
                 if !names_match {
                     return None;
                 }
                 first
+                    .0
                     .iter()
                     .enumerate()
                     .map(|(i, (name, dtype))| {
-                        let folded = rest
-                            .iter()
-                            .try_fold(*dtype, |acc, columns| acc.supertype(columns[i].1))?;
+                        let folded = rest.iter().try_fold(dtype.clone(), |acc, (columns, _)| {
+                            acc.supertype(columns[i].1.clone())
+                        })?;
                         Some((name.clone(), folded))
                     })
-                    .collect()
+                    .collect::<Option<Vec<_>>>()?
             }
-        }
+        };
+        Some((columns, completeness))
     }
 
     /// Anchors on the first non-null element; only Polars reports later mismatches.
@@ -656,50 +2041,60 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         strict: bool,
         errors: &ErrorCollector,
     ) -> Option<PolarsDType> {
-        let scalar = |e: &Expr| match e {
-            // An integer literal that fits in i64 is Int64; past i64 the runtime dtype is data-shape
-            // dependent (UInt64 or Int128), so we degrade rather than claim a wrong Int64.
-            Expr::NumberLiteral(ExprNumberLiteral {
-                value: Number::Int(i),
-                ..
-            }) => i.as_i64().map(|_| PolarsDType::Int64),
-            Expr::NumberLiteral(ExprNumberLiteral {
+        let scalar = |e: &Expr| {
+            // A float literal's type is the plain `float`, indistinguishable from a `float` variable,
+            // so a written float literal is the one element read from syntax to keep pandas floats pinned.
+            if let Expr::NumberLiteral(ExprNumberLiteral {
                 value: Number::Float(_),
                 ..
-            }) => Some(PolarsDType::Float64),
-            Expr::BooleanLiteral(_) => Some(PolarsDType::Boolean),
-            Expr::StringLiteral(_) => Some(PolarsDType::String),
-            Expr::BytesLiteral(_) => Some(PolarsDType::Binary),
-            // `None` is `Null` in Polars only; pandas coerces it (int-with-`None` → `float64`),
-            // which we do not model, so fall back there.
-            Expr::NoneLiteral(_) if kind == DataFrameKind::Polars => Some(PolarsDType::Null),
-            // Resolve the callee class, not the element type: a variable typed `date` may hold a
-            // `datetime` subclass at runtime, so only a direct constructor call pins the dtype.
-            Expr::Call(call) if kind == DataFrameKind::Polars => {
-                match self.expr_infer(&call.func, &self.error_swallower()) {
-                    Type::ClassDef(cls) if cls.has_toplevel_qname("datetime", "date") => {
+            }) = e
+            {
+                return Some(PolarsDType::Float64);
+            }
+            let ty = self.expr_infer(e, &self.error_swallower());
+            if matches!(ty, Type::Literal(_))
+                && let Some(dtype) = polars_dtype_from_scalar_type(&ty)
+            {
+                return Some(dtype);
+            }
+            // Beyond a literal, pandas coerces mixed and null-bearing columns in ways we do not model
+            // (int-with-`None` becomes float64), so only Polars pins the dtype of a non-literal element.
+            if kind != DataFrameKind::Polars {
+                return None;
+            }
+            // A datetime-constructor call resolves by its callee class, not its element type, because a
+            // variable typed `date` may hold a `datetime` subclass at runtime and so does not pin the
+            // dtype. Only a direct constructor call is specific enough.
+            if let Expr::Call(call) = e {
+                let temporal = match self.expr_infer(&call.func, &self.error_swallower()) {
+                    Type::ClassDef(cls) if RuntimeClass::Date.matches(&cls) => {
                         Some(PolarsDType::Date)
                     }
-                    Type::ClassDef(cls) if cls.has_toplevel_qname("datetime", "datetime") => {
+                    Type::ClassDef(cls) if RuntimeClass::Datetime.matches(&cls) => {
                         Some(PolarsDType::Datetime)
                     }
-                    Type::ClassDef(cls) if cls.has_toplevel_qname("datetime", "time") => {
+                    Type::ClassDef(cls) if RuntimeClass::Time.matches(&cls) => {
                         Some(PolarsDType::Time)
                     }
-                    Type::ClassDef(cls) if cls.has_toplevel_qname("datetime", "timedelta") => {
+                    Type::ClassDef(cls) if RuntimeClass::Timedelta.matches(&cls) => {
                         Some(PolarsDType::Duration)
                     }
                     _ => None,
+                };
+                if temporal.is_some() {
+                    return temporal;
                 }
             }
-            _ => None,
+            if matches!(ty, Type::None) {
+                return Some(PolarsDType::Null);
+            }
+            polars_dtype_from_scalar_type(&ty)
         };
         let mut rest = elts.clone();
         let Some(first) = rest.next() else {
             return Some(PolarsDType::Unknown);
         };
         if !strict {
-            // strict=False widens to the elements' common supertype instead of erroring.
             let mut acc = scalar(first)?;
             let mut any_rest = false;
             for e in rest {
@@ -713,8 +2108,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             return Some(acc);
         }
-        // Anchor to the first non-null element; a `None` never anchors and always fits
-        // (`supertype(Null, anchor) == anchor`), so an all-null column stays `Null`.
         let mut column = PolarsDType::Null;
         for e in elts {
             let element = scalar(e)?;
@@ -722,8 +2115,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 column = element;
                 continue;
             }
-            // The element fits only if it coerces into the column dtype without widening it.
-            if element.supertype(column) != Some(column) {
+            if element.clone().supertype(column.clone()) != Some(column.clone()) {
                 if kind == DataFrameKind::Polars {
                     self.error(
                         errors,
@@ -740,10 +2132,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Some(column)
     }
 
-    /// Narrow a schema to the columns named in a `df[[...]]` list literal, keeping list order.
-    /// Falls back with `None` when an element is not a string literal or when a name repeats,
-    /// since Polars rejects duplicate column selection at runtime. An absent name reports the
-    /// same `UnknownColumn` error as a single-column read.
+    /// Select list-literal columns while rejecting duplicates as Polars does.
     pub fn polars_select_columns(
         &self,
         schema: &DataFrameSchema,
@@ -751,115 +2140,140 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Option<Type> {
         let mut names = Vec::with_capacity(elts.len());
-        let mut seen = SmallSet::new();
+        let mut output_names = SmallSet::new();
+        let mut has_repeated_name = false;
         for elt in elts {
-            let Expr::StringLiteral(key) = elt else {
-                return None;
-            };
-            let name = Name::new(key.value.to_str());
-            if !seen.insert(name.clone()) {
-                return None;
+            let name = self.polars_column_name(elt)?;
+            if !output_names.insert(name.clone()) {
+                has_repeated_name = true;
             }
             names.push((name, elt.range()));
         }
-        let columns = names
-            .into_iter()
-            .filter_map(
-                |(name, range)| match schema.columns.iter().find(|(c, _)| *c == name) {
-                    Some((_, ty)) => Some((name, *ty)),
-                    None => {
-                        // Only a Complete schema can prove a column absent, since a Partial one may
-                        // hold it untracked.
-                        if schema.is_complete() {
-                            errors
-                                .error_builder(
-                                    range,
-                                    ErrorKind::UnknownColumn,
-                                    format!("Column `{name}` is not in the DataFrame schema"),
-                                )
-                                .emit();
-                        }
-                        None
-                    }
-                },
-            )
-            .collect();
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
+        for elt in elts {
+            self.expr_infer(elt, errors);
+        }
+        let mut columns = Vec::with_capacity(names.len());
+        let mut resolved_names = SmallSet::new();
+        for (name, range) in names {
+            let Some(dtype) = resolve_column(schema, &name, range, errors) else {
+                continue;
+            };
+            if !resolved_names.insert(name.clone()) {
+                report_duplicate_column(&name, range, errors);
             }
-            .to_type(),
-        )
+            columns.push((name, dtype));
+        }
+        if has_repeated_name {
+            Some(schema.underlying_type())
+        } else {
+            Some(dataframe_type_with_columns(schema, columns))
+        }
     }
 
-    /// Model `df.select("a", "b")` as a new schema with the named columns in argument order. A lone
-    /// `"*"` keeps the schema unchanged since it selects every column. Falls back with `None` unless
-    /// every argument is a positional string literal.
-    pub fn polars_select(
+    /// Infer the ordered output columns of a Polars `select` call.
+    fn polars_select(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
-        let schema = column_transform_schema(base, func, "select", args)?;
-        // Column selection is Polars-only; pandas has no `select` method and uses `[]`.
+        let schema = column_transform_schema(base, args)?;
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
-        if let [Expr::StringLiteral(s)] = &args.args[..]
-            && s.value.to_str() == "*"
+        let positional = args
+            .args
+            .iter()
+            .flat_map(positional_elements)
+            .collect::<Vec<_>>();
+        if let [arg] = &positional[..]
+            && let Type::Literal(lit) = &self.expr_infer(arg, &self.error_swallower())
+            && let Lit::Str(value) = &lit.value
+            && value.as_str() == POLARS_ALL_COLUMNS
         {
+            self.expr_infer(arg, errors);
             return Some(base.clone());
         }
-        if args.args.iter().any(is_polars_selector_string) {
-            return None;
+        let mut names = Vec::with_capacity(positional.len());
+        let mut output_names = SmallSet::new();
+        let mut has_opaque = false;
+        let mut has_repeated_name = false;
+        for &arg in &positional {
+            let output = match self.polars_column_arg(arg) {
+                ColumnArg::Named(name) => Some((name, true)),
+                ColumnArg::Opaque => None,
+                ColumnArg::Expr => self.polars_expr_output_name(arg).map(|name| (name, false)),
+            };
+            let Some((name, is_column)) = output else {
+                has_opaque = true;
+                names.push(None);
+                continue;
+            };
+            if !output_names.insert(name.clone()) {
+                has_repeated_name = true;
+            }
+            names.push(Some((name, is_column)));
         }
-        self.polars_select_columns(schema, &args.args, errors)
+        let mut columns = Vec::with_capacity(names.len());
+        let mut resolved_names = SmallSet::new();
+        for (output, arg) in names.iter().zip(positional) {
+            let Some((name, is_column)) = output else {
+                continue;
+            };
+            let resolved = if *is_column {
+                resolve_column(schema, name, arg.range(), errors)
+            } else {
+                self.eval_polars_expr(arg, schema, errors)
+                    .map(ExprValue::dtype)
+            };
+            if resolved.is_some() && !resolved_names.insert(name.clone()) {
+                report_duplicate_column(name, arg.range(), errors);
+            }
+            if let Some(dtype) = resolved {
+                columns.push((name.clone(), dtype));
+            } else if !*is_column {
+                columns.push((name.clone(), PolarsDType::Unknown));
+            }
+        }
+        if has_opaque {
+            None
+        } else {
+            for arg in &args.args {
+                self.expr_infer(arg, errors);
+            }
+            if !has_repeated_name {
+                return Some(dataframe_type_with_columns(schema, columns));
+            }
+            Some(schema.underlying_type())
+        }
     }
 
-    /// Model `df.drop("a", "b")` as a new schema with the named columns removed, order preserved.
-    /// Falls back with `None` unless every argument is a positional string literal, and an unknown
-    /// name errors only after a schema is committed. Duplicate names are de-duplicated, unlike `select`.
-    pub fn polars_drop(
-        &self,
-        base: &Type,
-        func: &ExprAttribute,
-        args: &Arguments,
-        errors: &ErrorCollector,
-    ) -> Option<Type> {
-        let schema = column_transform_schema(base, func, "drop", args)?;
-        // Column drop is Polars-only; pandas `drop` defaults to the index axis.
+    /// Remove statically named columns while preserving order.
+    fn polars_drop(&self, base: &Type, args: &Arguments, errors: &ErrorCollector) -> Option<Type> {
+        let schema = column_transform_schema(base, args)?;
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
-        if args.args.iter().any(is_polars_selector_string) {
-            return None;
-        }
-        let mut dropped: Vec<(Name, TextRange)> = Vec::with_capacity(args.args.len());
+        let positional = args
+            .args
+            .iter()
+            .flat_map(positional_elements)
+            .collect::<Vec<_>>();
+        let mut dropped: Vec<(Name, TextRange)> = Vec::with_capacity(positional.len());
         let mut seen = SmallSet::new();
-        for arg in &args.args {
-            let Expr::StringLiteral(key) = arg else {
+        for arg in positional {
+            let ColumnArg::Named(name) = self.polars_column_arg(arg) else {
                 return None;
             };
-            let name = Name::new(key.value.to_str());
             if seen.insert(name.clone()) {
                 dropped.push((name, arg.range()));
             }
         }
+        for arg in &args.args {
+            self.expr_infer(arg, errors);
+        }
         for (name, range) in &dropped {
-            if !schema.has_column(name) && schema.is_complete() {
-                errors
-                    .error_builder(
-                        *range,
-                        ErrorKind::UnknownColumn,
-                        format!("Column `{name}` is not in the DataFrame schema"),
-                    )
-                    .emit();
-            }
+            let _ = resolve_column(schema, name, *range, errors);
         }
         let columns = schema
             .columns
@@ -867,50 +2281,39 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .filter(|(c, _)| !seen.contains(c))
             .cloned()
             .collect();
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
-            }
-            .to_type(),
-        )
+        Some(dataframe_type_with_columns(schema, columns))
     }
 
-    /// Model `df.rename({"a": "b"})` as a new schema whose renamed columns keep their type and order.
-    /// Falls back with `None` unless the sole argument is a dict literal of string-literal pairs, or if
-    /// the rename would collide two columns. An unknown source name errors only after a schema is committed.
-    pub fn polars_rename(
+    /// Rename statically named columns while preserving dtype and order.
+    fn polars_rename(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
-        let schema = column_transform_schema(base, func, "rename", args)?;
+        let schema = column_transform_schema(base, args)?;
         let [Expr::Dict(mapping)] = &args.args[..] else {
             return None;
         };
-        // Column rename is Polars-only; pandas `rename` defaults to the index axis.
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
         let mut renames: SmallMap<Name, (Name, TextRange)> =
             SmallMap::with_capacity(mapping.items.len());
+        let mut name_exprs = Vec::with_capacity(mapping.items.len());
         for item in &mapping.items {
-            let (Some(Expr::StringLiteral(src)), Expr::StringLiteral(dest)) =
-                (&item.key, &item.value)
+            let (Some(key), value) = (&item.key, &item.value) else {
+                return None;
+            };
+            let (Some(source), Some(dest)) =
+                (self.polars_column_name(key), self.polars_column_name(value))
             else {
                 return None;
             };
-            let source = Name::new(src.value.to_str());
-            if renames
-                .insert(source, (Name::new(dest.value.to_str()), src.range()))
-                .is_some()
-            {
+            if renames.insert(source, (dest, key.range())).is_some() {
                 return None;
             }
+            name_exprs.push((key, value));
         }
         let target = |name: &Name| {
             renames
@@ -923,55 +2326,263 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 return None;
             }
         }
+        for (key, value) in name_exprs {
+            self.expr_infer(key, errors);
+            self.expr_infer(value, errors);
+        }
         for (source, (_, range)) in &renames {
-            if !schema.has_column(source) && schema.is_complete() {
-                errors
-                    .error_builder(
-                        *range,
-                        ErrorKind::UnknownColumn,
-                        format!("Column `{source}` is not in the DataFrame schema"),
-                    )
-                    .emit();
-            }
+            let _ = resolve_column(schema, source, *range, errors);
         }
         let columns = schema
             .columns
             .iter()
-            .map(|(name, ty)| (target(name), *ty))
+            .map(|(name, ty)| (target(name), ty.clone()))
             .collect();
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
+        Some(dataframe_type_with_columns(schema, columns))
+    }
+
+    fn eval_polars_expr(
+        &self,
+        expr: &Expr,
+        schema: &DataFrameSchema,
+        errors: &ErrorCollector,
+    ) -> Option<ExprValue> {
+        match expr {
+            Expr::Call(call) => {
+                if let Expr::Attribute(attr) = &*call.func {
+                    match PolarsExprMethod::parse(attr.attr.id.as_str()) {
+                        Some(PolarsExprMethod::Cast) => {
+                            self.eval_polars_expr(&attr.value, schema, errors)?;
+                            let [target] = &call.arguments.args[..] else {
+                                return None;
+                            };
+                            return self.polars_dtype_from_expr(target).map(ExprValue::Dtype);
+                        }
+                        Some(PolarsExprMethod::Alias) => {
+                            return self.eval_polars_expr(&attr.value, schema, errors);
+                        }
+                        Some(PolarsExprMethod::Reducer(reducer)) => {
+                            let inner = self.eval_polars_expr(&attr.value, schema, errors)?;
+                            return Some(ExprValue::Dtype(reducer.output_dtype(inner.dtype())?));
+                        }
+                        None => {}
+                    }
+                }
+                match self.polars_function(&call.func)? {
+                    PolarsFunction::Len => Some(ExprValue::Dtype(PolarsDType::UInt32)),
+                    PolarsFunction::Col => {
+                        let [arg] = &call.arguments.args[..] else {
+                            return None;
+                        };
+                        let ColumnArg::Named(name) = self.polars_column_arg(arg) else {
+                            return None;
+                        };
+                        resolve_column(schema, &name, arg.range(), errors).map(ExprValue::Dtype)
+                    }
+                    PolarsFunction::Lit => {
+                        for kw in &call.arguments.keywords {
+                            if kw.arg.as_ref().is_some_and(|a| a.id.as_str() == "dtype") {
+                                return self
+                                    .polars_dtype_from_expr(&kw.value)
+                                    .map(ExprValue::Dtype);
+                            }
+                        }
+                        let [value] = &call.arguments.args[..] else {
+                            return None;
+                        };
+                        literal_value(value)
+                    }
+                    PolarsFunction::Concat | PolarsFunction::Csv(_) | PolarsFunction::Unmodeled => {
+                        None
+                    }
+                }
             }
-            .to_type(),
+            Expr::BinOp(binop) => {
+                let a = self.eval_polars_expr(&binop.left, schema, errors)?;
+                let b = self.eval_polars_expr(&binop.right, schema, errors)?;
+                combine_binop(binop.op, a, b)
+            }
+            Expr::UnaryOp(unary) => {
+                let a = self.eval_polars_expr(&unary.operand, schema, errors)?;
+                unary_value(unary.op, a)
+            }
+            Expr::Compare(cmp) => {
+                let ([op], [right]) = (&*cmp.ops, &*cmp.comparators) else {
+                    return None;
+                };
+                if !matches!(
+                    op,
+                    CmpOp::Eq | CmpOp::NotEq | CmpOp::Lt | CmpOp::LtE | CmpOp::Gt | CmpOp::GtE
+                ) {
+                    return None;
+                }
+                let a = self.eval_polars_expr(&cmp.left, schema, errors)?;
+                let b = self.eval_polars_expr(right, schema, errors)?;
+                comparison_value(a, b)
+            }
+            Expr::Attribute(_) => {
+                let name = self.polars_col_attribute_name(expr)?;
+                resolve_column(schema, &name, expr.range(), errors).map(ExprValue::Dtype)
+            }
+            _ => literal_value(expr),
+        }
+    }
+
+    fn polars_function(&self, func: &Expr) -> Option<PolarsFunction> {
+        PolarsFunction::from_callee(&self.expr_infer(func, &self.error_swallower()))
+    }
+
+    fn polars_col_attribute_name(&self, expr: &Expr) -> Option<Name> {
+        let Expr::Attribute(attr) = expr else {
+            return None;
+        };
+        let Type::ClassType(base) = self.expr_infer(&attr.value, &self.error_swallower()) else {
+            return None;
+        };
+        (RuntimeClass::PolarsCol.matches(base.class_object()) && self.is_polars_expr_value(expr))
+            .then(|| attr.attr.id.clone())
+    }
+
+    /// Prove an expression produces one column, so its output name is well-defined.
+    fn polars_expr_has_single_output(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Call(call) => {
+                if let Expr::Attribute(attr) = &*call.func
+                    && PolarsExprMethod::parse(attr.attr.id.as_str()).is_some()
+                {
+                    return self.polars_expr_has_single_output(&attr.value);
+                }
+                match self.polars_function(&call.func) {
+                    Some(PolarsFunction::Len) => true,
+                    Some(PolarsFunction::Col) => {
+                        matches!(&call.arguments.args[..], [arg] if matches!(self.polars_column_arg(arg), ColumnArg::Named(_)))
+                    }
+                    Some(PolarsFunction::Lit) => matches!(&call.arguments.args[..], [_]),
+                    _ => false,
+                }
+            }
+            Expr::BinOp(binop) => {
+                self.polars_expr_has_single_output(&binop.left)
+                    && self.polars_expr_has_single_output(&binop.right)
+            }
+            Expr::UnaryOp(unary) => self.polars_expr_has_single_output(&unary.operand),
+            Expr::Compare(cmp) => {
+                matches!((&*cmp.ops, &*cmp.comparators), ([_], [right]) if self.polars_expr_has_single_output(&cmp.left) && self.polars_expr_has_single_output(right))
+            }
+            Expr::NumberLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::NoneLiteral(_) => true,
+            Expr::Attribute(_) if self.polars_col_attribute_name(expr).is_some() => true,
+            _ => !self.is_polars_expr_value(expr),
+        }
+    }
+
+    /// Follow Polars' leftmost-leaf naming, overridden by an outer `alias`.
+    fn polars_expr_output_name(&self, expr: &Expr) -> Option<Name> {
+        match expr {
+            Expr::Call(call) => {
+                if let Expr::Attribute(attr) = &*call.func {
+                    match PolarsExprMethod::parse(attr.attr.id.as_str()) {
+                        Some(PolarsExprMethod::Cast) => {
+                            return self.polars_expr_output_name(&attr.value);
+                        }
+                        Some(PolarsExprMethod::Alias) => {
+                            if !self.polars_expr_has_single_output(&attr.value) {
+                                return None;
+                            }
+                            let [arg] = &call.arguments.args[..] else {
+                                return None;
+                            };
+                            return self.polars_string_literal(arg).map(Name::new);
+                        }
+                        Some(PolarsExprMethod::Reducer(_)) => {
+                            return self.polars_expr_output_name(&attr.value);
+                        }
+                        None => {}
+                    }
+                }
+                match self.polars_function(&call.func)? {
+                    PolarsFunction::Len => Some(Name::new_static(POLARS_LEN_OUTPUT_NAME)),
+                    PolarsFunction::Col => {
+                        let [arg] = &call.arguments.args[..] else {
+                            return None;
+                        };
+                        let ColumnArg::Named(name) = self.polars_column_arg(arg) else {
+                            return None;
+                        };
+                        Some(name)
+                    }
+                    PolarsFunction::Lit => {
+                        let [value] = &call.arguments.args[..] else {
+                            return None;
+                        };
+                        // `pl.lit(series)` takes the runtime Series name.
+                        literal_value(value).map(|_| Name::new_static(POLARS_LITERAL_OUTPUT_NAME))
+                    }
+                    PolarsFunction::Concat | PolarsFunction::Csv(_) | PolarsFunction::Unmodeled => {
+                        None
+                    }
+                }
+            }
+            Expr::BinOp(binop) => {
+                if !self.polars_expr_has_single_output(expr) {
+                    return None;
+                }
+                self.polars_expr_output_name(&binop.left)
+            }
+            Expr::UnaryOp(unary) => self.polars_expr_output_name(&unary.operand),
+            Expr::Compare(cmp) => {
+                let ([_], [right]) = (&*cmp.ops, &*cmp.comparators) else {
+                    return None;
+                };
+                if !self.polars_expr_has_single_output(expr) {
+                    return None;
+                }
+                // Python reflects comparisons whose left operand is not a Polars expression.
+                if self.is_polars_expr_value(&cmp.left) {
+                    self.polars_expr_output_name(&cmp.left)
+                } else {
+                    self.polars_expr_output_name(right)
+                }
+            }
+            Expr::NumberLiteral(_)
+            | Expr::BooleanLiteral(_)
+            | Expr::StringLiteral(_)
+            | Expr::BytesLiteral(_)
+            | Expr::NoneLiteral(_) => {
+                literal_value(expr).map(|_| Name::new_static(POLARS_LITERAL_OUTPUT_NAME))
+            }
+            Expr::Attribute(_) => self.polars_col_attribute_name(expr),
+            _ => None,
+        }
+    }
+
+    fn is_polars_expr_value(&self, expr: &Expr) -> bool {
+        matches!(
+            self.expr_infer(expr, &self.error_swallower()),
+            Type::ClassType(cls) if is_polars_expr(cls.class_object())
         )
     }
 
-    /// Model `df.with_columns(x=..., y=...)` as a new schema, overwriting a matching column
-    /// in place or appending a new one with an `Unknown` element type since the value type is
-    /// not modeled. Falls back with `None` unless every argument is a keyword with a name.
-    pub fn polars_with_columns(
+    /// Infer named `with_columns` outputs against the receiver schema.
+    fn polars_with_columns(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if func.attr.id.as_str() != "with_columns" || !args.args.is_empty() {
+        if !args.args.is_empty() {
             return None;
         }
-        // Adding columns this way is Polars-only; pandas uses `assign`, not `with_columns`.
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
-        // Validate syntactically before inferring anything: a `**mapping` spread bails here, so the
-        // fallback path stays the sole checker and never double-reports.
+        // Validate names before inference so fallback does not duplicate diagnostics.
         let mut named = Vec::with_capacity(args.keywords.len());
         for kw in &args.keywords {
             let Some(arg) = &kw.arg else {
@@ -979,52 +2590,271 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             };
             named.push((arg.id.clone(), &kw.value));
         }
+        // Polars evaluates every keyword expression against the receiver's original schema in
+        // parallel, so a sibling's new column is not visible; resolve all values before applying.
         let mut columns = schema.columns.clone();
         for (name, value) in named {
-            // Infer the value to surface type errors inside it; its type is unused.
             self.expr_infer(value, errors);
-            let unknown = PolarsDType::Unknown;
+            let dtype = match self.polars_column_arg(value) {
+                ColumnArg::Named(name) => resolve_column(schema, &name, value.range(), errors),
+                ColumnArg::Opaque => None,
+                ColumnArg::Expr => self
+                    .eval_polars_expr(value, schema, errors)
+                    .map(ExprValue::dtype),
+            }
+            .unwrap_or(PolarsDType::Unknown);
             match columns.iter_mut().find(|(c, _)| *c == name) {
-                Some((_, ty)) => *ty = unknown,
-                None => columns.push((name, unknown)),
+                Some((_, ty)) => *ty = dtype,
+                None => columns.push((name, dtype)),
             }
         }
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
-            }
-            .to_type(),
-        )
+        Some(dataframe_type_with_columns(schema, columns))
     }
 
-    /// Model row-only transforms as returning the receiver's schema unchanged; they drop, reorder,
-    /// deduplicate, window, or replace rows without touching the column set. `None` if no schema.
-    pub fn polars_row_transform(
+    /// A bound `GroupBy` does not expose its receiver schema, so only an inline chain is modeled.
+    fn polars_group_by_agg(
+        &self,
+        func: &ExprAttribute,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let Expr::Call(group_by) = &*func.value else {
+            return None;
+        };
+        let Expr::Attribute(group_by_func) = &*group_by.func else {
+            return None;
+        };
+        if group_by_func.attr.id.as_str() != "group_by" {
+            return None;
+        }
+        let Type::DataFrame(schema) =
+            self.expr_infer(&group_by_func.value, &self.error_swallower())
+        else {
+            return None;
+        };
+        if schema.kind != DataFrameKind::Polars {
+            return None;
+        }
+        // Validate every output name before emitting diagnostics.
+        enum ColumnKind {
+            Key,
+            Agg,
+        }
+        let mut outputs = Vec::new();
+        for arg in &group_by.arguments.args {
+            for elt in positional_elements(arg) {
+                outputs.push((self.polars_group_output_name(elt)?, elt, ColumnKind::Key));
+            }
+        }
+        for kw in &group_by.arguments.keywords {
+            let Some(name) = &kw.arg else {
+                return None;
+            };
+            if name.id.as_str() == "maintain_order" {
+                continue;
+            }
+            outputs.push((name.id.clone(), &kw.value, ColumnKind::Key));
+        }
+        for arg in &args.args {
+            for elt in positional_elements(arg) {
+                outputs.push((self.polars_group_output_name(elt)?, elt, ColumnKind::Agg));
+            }
+        }
+        for kw in &args.keywords {
+            let Some(name) = &kw.arg else {
+                return None;
+            };
+            self.polars_group_output_name(&kw.value)?;
+            outputs.push((name.id.clone(), &kw.value, ColumnKind::Agg));
+        }
+        let mut seen = SmallSet::new();
+        if outputs
+            .iter()
+            .any(|(name, _, _)| !seen.insert(name.clone()))
+        {
+            return None;
+        }
+
+        let columns = outputs
+            .into_iter()
+            .map(|(name, expr, kind)| {
+                let dtype = match kind {
+                    ColumnKind::Key => self.polars_group_key_dtype(&schema, expr, errors)?,
+                    ColumnKind::Agg => self.polars_agg_dtype(&schema, expr, errors)?,
+                };
+                Some((name, dtype))
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Some(dataframe_type_with_columns(&schema, columns))
+    }
+
+    fn polars_group_output_name(&self, expr: &Expr) -> Option<Name> {
+        match self.polars_column_arg(expr) {
+            ColumnArg::Named(name) => Some(name),
+            ColumnArg::Opaque => None,
+            ColumnArg::Expr => self.polars_expr_output_name(expr),
+        }
+    }
+
+    fn polars_group_key_dtype(
+        &self,
+        schema: &DataFrameSchema,
+        expr: &Expr,
+        errors: &ErrorCollector,
+    ) -> Option<PolarsDType> {
+        match self.polars_column_arg(expr) {
+            ColumnArg::Named(name) => resolve_column(schema, &name, expr.range(), errors),
+            ColumnArg::Opaque => None,
+            ColumnArg::Expr => Some(
+                self.eval_polars_expr(expr, schema, errors)
+                    .map_or(PolarsDType::Unknown, ExprValue::dtype),
+            ),
+        }
+    }
+
+    fn polars_agg_dtype(
+        &self,
+        schema: &DataFrameSchema,
+        expr: &Expr,
+        errors: &ErrorCollector,
+    ) -> Option<PolarsDType> {
+        match self.polars_column_arg(expr) {
+            ColumnArg::Named(name) => {
+                // The aggregated list dtype is unmodeled.
+                self.expr_infer(expr, errors);
+                resolve_column(schema, &name, expr.range(), errors);
+                Some(PolarsDType::Unknown)
+            }
+            ColumnArg::Opaque => None,
+            ColumnArg::Expr => {
+                self.expr_infer(expr, errors);
+                let dtype = if self.polars_expr_aggregates(expr) {
+                    self.eval_polars_expr(expr, schema, errors)
+                        .map_or(PolarsDType::Unknown, ExprValue::dtype)
+                } else {
+                    // Evaluate for column-existence errors, but the list dtype is unmodeled.
+                    self.eval_polars_expr(expr, schema, errors);
+                    PolarsDType::Unknown
+                };
+                Some(dtype)
+            }
+        }
+    }
+
+    fn polars_expr_aggregates(&self, expr: &Expr) -> bool {
+        let Expr::Call(call) = expr else {
+            return false;
+        };
+        if let Some(function) = self.polars_function(&call.func) {
+            return function == PolarsFunction::Len;
+        }
+        match &*call.func {
+            Expr::Attribute(attr) => match PolarsExprMethod::parse(attr.attr.id.as_str()) {
+                Some(PolarsExprMethod::Alias | PolarsExprMethod::Cast) => {
+                    self.polars_expr_aggregates(&attr.value)
+                }
+                Some(PolarsExprMethod::Reducer(_)) => true,
+                None => false,
+            },
+            _ => false,
+        }
+    }
+
+    /// Model the deterministic dtype widening performed by `DataFrame.fill_null`.
+    fn polars_fill_null(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if !matches!(
-            func.attr.id.as_str(),
-            "filter" | "sort" | "fill_null" | "head" | "slice" | "unique" | "drop_nulls"
-        ) {
-            return None;
-        }
-        // Pandas `filter` selects columns and has no `sort`/`fill_null`, so this is Polars-only.
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
-        // Infer the arguments so type errors inside them surface; the schema is unchanged. A `*args`
-        // spread is an `Expr::Starred`; infer its inner value, since `expr_infer` treats a bare
-        // starred expression as a type-form and would wrongly report the iterable as not-a-type.
+        let mut arguments_are_static = args.args.len() <= 1;
+        let mut value_type = None;
+        for arg in &args.args {
+            let ty = match arg {
+                Expr::Starred(starred) => {
+                    arguments_are_static = false;
+                    self.expr_infer(&starred.value, errors)
+                }
+                _ => self.expr_infer(arg, errors),
+            };
+            if args.args.len() == 1 && !matches!(arg, Expr::Starred(_)) {
+                value_type = Some(ty);
+            }
+        }
+        let mut matches_supertype = Some(true);
+        let mut seen_matches_supertype = false;
+        for kw in &args.keywords {
+            let ty = self.expr_infer(&kw.value, errors);
+            let Some(arg) = &kw.arg else {
+                arguments_are_static = false;
+                continue;
+            };
+            match arg.id.as_str() {
+                "value" => {
+                    if value_type.is_some() {
+                        arguments_are_static = false;
+                    } else {
+                        value_type = Some(ty);
+                    }
+                }
+                "strategy" | "limit" => {}
+                "matches_supertype" => {
+                    if seen_matches_supertype {
+                        arguments_are_static = false;
+                    }
+                    seen_matches_supertype = true;
+                    match &ty {
+                        Type::Literal(lit) => match &lit.value {
+                            Lit::Bool(value) => matches_supertype = Some(*value),
+                            _ => matches_supertype = None,
+                        },
+                        _ => matches_supertype = None,
+                    }
+                }
+                _ => arguments_are_static = false,
+            }
+        }
+        if !arguments_are_static || matches_supertype.is_none() {
+            return Some(schema.underlying_type());
+        }
+        if matches_supertype == Some(false) {
+            return Some(base.clone());
+        }
+        let Some(value_type) = value_type.as_ref() else {
+            return Some(base.clone());
+        };
+        let value = FillNullValue::from_type(value_type);
+        if value == FillNullValue::IntegerOutsideModel {
+            return Some(base.clone());
+        }
+        let columns = schema
+            .columns
+            .iter()
+            .map(|(name, dtype)| (name.clone(), value.widen_integer(dtype.clone())))
+            .collect();
+        Some(dataframe_type_with_columns(schema, columns))
+    }
+
+    /// Preserve the schema through row-only transforms.
+    fn polars_row_transform(
+        &self,
+        base: &Type,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let Type::DataFrame(schema) = base else {
+            return None;
+        };
+        if schema.kind != DataFrameKind::Polars {
+            return None;
+        }
+        // A bare `Expr::Starred` is treated as a type form, so infer its value instead.
         for arg in args.args.iter() {
             let value = match arg {
                 Expr::Starred(starred) => &starred.value,
@@ -1038,23 +2868,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         Some(base.clone())
     }
 
-    /// Model `df.vstack(other)`/`df.extend(other)` as the receiver schema unchanged: both append rows
-    /// and raise unless `other` has the identical schema, so `other` needs no inspection. `other` must
-    /// be a Polars `DataFrame`; a non-frame, pandas, or any keyword (`in_place=` unmodeled) falls back.
-    pub fn polars_row_append(
+    /// Preserve the receiver schema through `vstack` and `extend`.
+    fn polars_row_append(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if !matches!(func.attr.id.as_str(), "vstack" | "extend")
-            || schema.kind != DataFrameKind::Polars
-            || !args.keywords.is_empty()
-        {
+        if schema.kind != DataFrameKind::Polars || !args.keywords.is_empty() {
             return None;
         }
         let [other_expr] = &args.args[..] else {
@@ -1063,27 +2887,71 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if !is_polars_dataframe_type(&self.expr_infer(other_expr, &self.error_swallower())) {
             return None;
         }
-        // Now committed to a schema, so infer `other` with real errors as the sole reporter of any
-        // error inside it, since returning here bypasses ordinary call-checking.
         self.expr_infer(other_expr, errors);
         Some(base.clone())
     }
 
-    /// Model `df.cast(...)`, which rewrites column dtypes. A single `pl.<DType>` casts every column;
-    /// a `{name: pl.<DType>}` dict casts the named ones and reports a name absent from the schema.
-    /// An unrecognized dtype falls back with `None` before any error is emitted.
-    pub fn polars_cast(
+    /// Carry columns between eager and lazy Polars frames.
+    fn polars_lazy_collect(
         &self,
         base: &Type,
         func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
+        conversion: PolarsFrameConversion,
     ) -> Option<Type> {
-        let schema = column_transform_schema(base, func, "cast", args)?;
+        let Type::DataFrame(schema) = base else {
+            return None;
+        };
+        if schema.kind != DataFrameKind::Polars || !args.args.is_empty() {
+            return None;
+        }
+        // Delegate keyword validation and the result class to the stub.
+        let call_kws: Vec<CallKeyword> = args.keywords.iter().map(CallKeyword::new).collect();
+        let result = self.call_method_or_error(
+            &schema.underlying_type(),
+            &func.attr.id,
+            func.range(),
+            &[],
+            &call_kws,
+            errors,
+            None,
+        );
+        match (conversion, result) {
+            (PolarsFrameConversion::Lazy, Type::ClassType(cls))
+                if is_polars_lazyframe(cls.class_object()) =>
+            {
+                Some(
+                    DataFrameSchema {
+                        underlying: cls,
+                        role: SchemaRole::Inferred,
+                        ..(**schema).clone()
+                    }
+                    .to_type(),
+                )
+            }
+            (PolarsFrameConversion::Collect, Type::ClassType(cls))
+                if is_polars_dataframe(cls.class_object()) =>
+            {
+                Some(
+                    DataFrameSchema {
+                        underlying: cls,
+                        role: SchemaRole::Inferred,
+                        ..(**schema).clone()
+                    }
+                    .to_type(),
+                )
+            }
+            (_, result) => Some(result),
+        }
+    }
+
+    /// Rewrite all or statically named column dtypes through `DataFrame.cast`.
+    fn polars_cast(&self, base: &Type, args: &Arguments, errors: &ErrorCollector) -> Option<Type> {
+        let schema = column_transform_schema(base, args)?;
         let [arg] = &args.args[..] else {
             return None;
         };
-        // Pandas `astype` casts columns; `cast` is Polars-only.
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
@@ -1092,66 +2960,46 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let mut casts: SmallMap<Name, (TextRange, PolarsDType)> =
                     SmallMap::with_capacity(mapping.items.len());
                 for item in &mapping.items {
-                    let (Some(Expr::StringLiteral(key)), value) = (&item.key, &item.value) else {
+                    let (Some(key), value) = (&item.key, &item.value) else {
                         return None;
                     };
-                    casts.insert(
-                        Name::new(key.value.to_str()),
-                        (key.range(), polars_dtype_from_expr(value)?),
-                    );
+                    let name = self.polars_column_name(key)?;
+                    casts.insert(name, (key.range(), self.polars_dtype_from_expr(value)?));
                 }
                 for (name, (range, _)) in &casts {
-                    if !schema.has_column(name) && schema.is_complete() {
-                        errors
-                            .error_builder(
-                                *range,
-                                ErrorKind::UnknownColumn,
-                                format!("Column `{name}` is not in the DataFrame schema"),
-                            )
-                            .emit();
-                    }
+                    let _ = resolve_column(schema, name, *range, errors);
                 }
                 schema
                     .columns
                     .iter()
-                    .map(|(name, ty)| (name.clone(), casts.get(name).map_or(*ty, |(_, d)| *d)))
+                    .map(|(name, ty)| {
+                        (
+                            name.clone(),
+                            casts
+                                .get(name)
+                                .map_or_else(|| ty.clone(), |(_, dtype)| dtype.clone()),
+                        )
+                    })
                     .collect()
             }
             _ => {
-                let dtype = polars_dtype_from_expr(arg)?;
+                let dtype = self.polars_dtype_from_expr(arg)?;
                 schema
                     .columns
                     .iter()
-                    .map(|(name, _)| (name.clone(), dtype))
+                    .map(|(name, _)| (name.clone(), dtype.clone()))
                     .collect()
             }
         };
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
-            }
-            .to_type(),
-        )
+        Some(dataframe_type_with_columns(schema, columns))
     }
 
-    /// Model `df.join(other, on=..., how=...)` as the merged schema of the two frames; dtypes copy
-    /// straight from each side, so the result is a pure column-name computation (see [JoinStrategy]).
-    /// Only same-name `on=` keys with the default coalesce and suffix are modeled; `left_on`/`right_on`,
-    /// an explicit `coalesce=`, or a custom `suffix=` fall back.
-    pub fn polars_join(
-        &self,
-        base: &Type,
-        func: &ExprAttribute,
-        args: &Arguments,
-        errors: &ErrorCollector,
-    ) -> Option<Type> {
+    /// Merge schemas for joins with same-name keys, honoring the `how` and `coalesce` arguments.
+    fn polars_join(&self, base: &Type, args: &Arguments, errors: &ErrorCollector) -> Option<Type> {
         let Type::DataFrame(schema) = base else {
             return None;
         };
-        if func.attr.id.as_str() != "join" || schema.kind != DataFrameKind::Polars {
+        if schema.kind != DataFrameKind::Polars {
             return None;
         }
         let [other_expr] = &args.args[..] else {
@@ -1159,6 +3007,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let mut on = None;
         let mut how = JoinHow::Inner;
+        let mut coalesce = None;
         for kw in &args.keywords {
             let Some(arg) = &kw.arg else {
                 return None;
@@ -1166,20 +3015,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             match arg.id.as_str() {
                 "on" => on = Some(&kw.value),
                 "how" => {
-                    let Expr::StringLiteral(s) = &kw.value else {
-                        return None;
-                    };
-                    how = JoinHow::parse(s.value.to_str())?;
+                    how = JoinHow::parse(self.polars_string_literal(&kw.value)?.as_str())?;
+                }
+                // An explicit `None` is the runtime default, so leave it to `how`.
+                "coalesce" => {
+                    if !matches!(&kw.value, Expr::NoneLiteral(_)) {
+                        coalesce = Some(self.polars_bool_literal(&kw.value)?);
+                    }
                 }
                 _ => return None,
             }
         }
-        // `cross` takes no keys and every other strategy needs `on=` here since `left_on`/`right_on`
-        // are not yet modeled; both mismatches raise at runtime, so fall back.
         let keys = match (how, on) {
             (JoinHow::Cross, None) => Vec::new(),
             (JoinHow::Cross, Some(_)) | (_, None) => return None,
-            (_, Some(on)) => join_key_names(on)?,
+            // A key must name one column of each frame to be resolved against their schemas, so a
+            // selector or pattern, which names a set, is as opaque here as a dynamic string.
+            (_, Some(on)) => positional_elements(on)
+                .iter()
+                .map(|element| match self.polars_column_arg(element) {
+                    ColumnArg::Named(name) => Some((name, element.range())),
+                    ColumnArg::Opaque | ColumnArg::Expr => None,
+                })
+                .collect::<Option<Vec<_>>>()?,
         };
         let Type::DataFrame(other) = self.expr_infer(other_expr, &self.error_swallower()) else {
             return None;
@@ -1205,73 +3063,75 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
         let key_set: SmallSet<Name> = keys.into_iter().map(|(name, _)| name).collect();
         let column_dtype = |columns: &[(Name, PolarsDType)], name: &Name| {
-            columns.iter().find(|(c, _)| c == name).map(|(_, t)| *t)
+            columns
+                .iter()
+                .find(|(column, _)| column == name)
+                .map(|(_, dtype)| dtype.clone())
         };
-        // A coalesced key keeps the primary side's dtype, so paired keys with differing dtypes could
-        // be cast or rejected at runtime; fall back rather than pick one side.
-        if how.coalesces()
-            && key_set.iter().any(|name| {
-                column_dtype(&schema.columns, name) != column_dtype(&other.columns, name)
-            })
+        // Polars rejects a join whose paired keys have differing dtypes, so fall back.
+        if key_set
+            .iter()
+            .any(|name| column_dtype(&schema.columns, name) != column_dtype(&other.columns, name))
         {
             return None;
         }
         let not_key = |(name, _): &&(Name, PolarsDType)| !key_set.contains(name);
+        // Coalescing keeps one copy of each shared key; otherwise the secondary side's copy stays
+        // and is suffixed below. A right join's secondary side is the left frame, not the right.
+        let coalesce_keys = coalesce.unwrap_or(how.coalesces_by_default());
+        let drop_secondary_keys = |columns: &[(Name, PolarsDType)]| -> Vec<(Name, PolarsDType)> {
+            if coalesce_keys {
+                columns.iter().filter(not_key).cloned().collect()
+            } else {
+                columns.to_vec()
+            }
+        };
         let (base_columns, other_columns): (Vec<_>, Vec<_>) = match how {
             JoinHow::Semi | JoinHow::Anti => (schema.columns.clone(), Vec::new()),
-            JoinHow::Inner | JoinHow::Left => (
-                schema.columns.clone(),
-                other.columns.iter().filter(not_key).cloned().collect(),
-            ),
-            JoinHow::Full | JoinHow::Cross => (schema.columns.clone(), other.columns.clone()),
-            JoinHow::Right => (
-                schema.columns.iter().filter(not_key).cloned().collect(),
-                other.columns.clone(),
-            ),
+            JoinHow::Right => (drop_secondary_keys(&schema.columns), other.columns.clone()),
+            JoinHow::Inner | JoinHow::Left | JoinHow::Full | JoinHow::Cross => {
+                (schema.columns.clone(), drop_secondary_keys(&other.columns))
+            }
+        };
+        let completeness = match how {
+            JoinHow::Semi | JoinHow::Anti => schema.completeness,
+            _ => schema.completeness.combine(other.completeness),
         };
         let base_names: SmallSet<Name> =
             base_columns.iter().map(|(name, _)| name.clone()).collect();
         let mut columns = base_columns;
         for (name, ty) in other_columns {
             let out = if base_names.contains(&name) {
-                Name::new(format!("{name}_right"))
+                Name::new(format!("{name}{POLARS_DEFAULT_JOIN_SUFFIX}"))
             } else {
                 name
             };
             columns.push((out, ty));
         }
-        // A suffixed name that already exists is a runtime `DuplicateError`, so fall back rather than
-        // emit a schema with a duplicate column.
-        let mut seen = SmallSet::new();
-        if columns.iter().any(|(name, _)| !seen.insert(name.clone())) {
+        // Polars raises `DuplicateError` when suffixing creates a repeated output name.
+        if let Some(name) = first_duplicate_column(&columns) {
+            report_duplicate_column(name, other_expr.range(), errors);
             return None;
         }
-        // Now committed to a schema, so infer `other` with real errors as the sole reporter of any
-        // error inside it, since returning here bypasses ordinary call-checking.
         self.expr_infer(other_expr, errors);
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
-            }
-            .to_type(),
-        )
+        if let Some(on) = on {
+            self.expr_infer(on, errors);
+        }
+        Some(dataframe_type_with_columns_and_completeness(
+            schema,
+            columns,
+            completeness,
+        ))
     }
 
-    /// Model `df.hstack(other)` as the receiver columns followed by `other`'s (dtypes copy from each
-    /// side). Only a schema-carrying Polars `DataFrame` is modeled; a non-frame, keyword, or
-    /// overlapping name (runtime `DuplicateError`) falls back.
-    pub fn polars_hstack(
+    /// Append another Polars frame's non-overlapping columns.
+    fn polars_hstack(
         &self,
         base: &Type,
-        func: &ExprAttribute,
         args: &Arguments,
         errors: &ErrorCollector,
     ) -> Option<Type> {
-        let schema = column_transform_schema(base, func, "hstack", args)?;
-        // Appending columns this way is Polars-only; pandas has no `hstack`.
+        let schema = column_transform_schema(base, args)?;
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
@@ -1281,34 +3141,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let Type::DataFrame(other) = self.expr_infer(other_expr, &self.error_swallower()) else {
             return None;
         };
-        // A pandas frame raises `AttributeError` at runtime, so fall back rather than fabricate a
-        // merged Polars schema and swallow the argument-type error.
         if other.kind != DataFrameKind::Polars {
             return None;
         }
         let mut columns = schema.columns.clone();
         columns.extend(other.columns.iter().cloned());
-        let mut seen = SmallSet::new();
-        if columns.iter().any(|(name, _)| !seen.insert(name.clone())) {
+        if first_duplicate_column(&columns).is_some() {
             return None;
         }
-        // Now committed to a schema, so infer `other` with real errors as the sole reporter of any
-        // error inside it, since returning here bypasses ordinary call-checking.
         self.expr_infer(other_expr, errors);
-        Some(
-            DataFrameSchema {
-                underlying: schema.underlying.clone(),
-                columns,
-                completeness: schema.completeness.clone(),
-                kind: schema.kind.clone(),
-            }
-            .to_type(),
-        )
+        let completeness = schema.completeness.combine(other.completeness);
+        Some(dataframe_type_with_columns_and_completeness(
+            schema,
+            columns,
+            completeness,
+        ))
     }
 
-    /// Model an in-place column mutation as the receiver schema degraded for that mutation. The frame
-    /// is rebound in the binding phase, so a discarded return value still degrades it.
-    pub fn polars_in_place_column_mutation(
+    /// Apply a binding-time column mutation to the receiver schema.
+    fn polars_in_place_column_mutation(
         &self,
         base: &Type,
         func: &ExprAttribute,
@@ -1322,7 +3173,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if schema.kind != DataFrameKind::Polars {
             return None;
         }
-        // Infer the arguments so type errors inside them surface, though the schema ignores them.
         for arg in &args.args {
             self.expr_infer(arg, errors);
         }
@@ -1338,8 +3188,189 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         matches!(
             self.expr_infer(callee, &self.error_swallower()),
             Type::ClassDef(cls)
-                if cls.has_toplevel_qname("polars.series.series", "Series")
-                    || cls.has_toplevel_qname("polars.dataframe.frame", "Series")
+                if is_polars_series(&cls) || RuntimeClass::PolarsDataFrameSeries.matches(&cls)
         )
+    }
+
+    /// Return the statically named column's element dtype.
+    fn polars_get_column(
+        &self,
+        base: &Type,
+        func: &ExprAttribute,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let schema = series_method_schema(base)?;
+        let name_expr = get_column_name_arg(args)?;
+        let name = self.polars_column_name(name_expr)?;
+        let dtype = resolve_column(schema, &name, name_expr.range(), errors);
+        Some(self.wrap_series_method(schema, func, args, dtype, errors))
+    }
+
+    fn to_series_index(&self, args: &Arguments) -> Option<i128> {
+        if !arguments_are_valid(args, 1, Some(&["index"])) {
+            return None;
+        }
+        match extract_argument(args, 0, "index")? {
+            ArgumentValue::Missing => Some(0),
+            ArgumentValue::Present(expr) => self.polars_int_literal(expr).map(i128::from),
+        }
+    }
+
+    /// Return a statically indexed column's element dtype.
+    fn polars_to_series(
+        &self,
+        base: &Type,
+        func: &ExprAttribute,
+        args: &Arguments,
+        errors: &ErrorCollector,
+    ) -> Option<Type> {
+        let schema = series_method_schema(base)?;
+        let index = self.to_series_index(args)?;
+        let len = schema.columns.len() as i128;
+        let resolved = if index < 0 { index + len } else { index };
+        let dtype = if (0..len).contains(&resolved) {
+            Some(schema.columns[resolved as usize].1.clone())
+        } else {
+            errors
+                .error_builder(
+                    args.range(),
+                    ErrorKind::UnknownColumn,
+                    format!("Index {index} is out of bounds for a DataFrame with {len} columns"),
+                )
+                .emit();
+            None
+        };
+        Some(self.wrap_series_method(schema, func, args, dtype, errors))
+    }
+
+    fn wrap_series_method(
+        &self,
+        schema: &DataFrameSchema,
+        func: &ExprAttribute,
+        args: &Arguments,
+        dtype: Option<PolarsDType>,
+        errors: &ErrorCollector,
+    ) -> Type {
+        let call_args: Vec<CallArg> = args.args.iter().map(CallArg::expr_maybe_starred).collect();
+        let call_kws: Vec<CallKeyword> = args.keywords.iter().map(CallKeyword::new).collect();
+        let result = self.call_method_or_error(
+            &schema.underlying_type(),
+            &func.attr.id,
+            func.range(),
+            &call_args,
+            &call_kws,
+            errors,
+            None,
+        );
+        match (dtype, result) {
+            (Some(dtype), Type::ClassType(cls)) if is_polars_series(cls.class_object()) => {
+                SeriesSchema {
+                    underlying: cls,
+                    dtype,
+                }
+                .to_type()
+            }
+            (_, result) => result,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pow_dtype(left: PolarsDType, right: PolarsDType) -> Option<PolarsDType> {
+        pow(ExprValue::Dtype(left), ExprValue::Dtype(right)).map(ExprValue::dtype)
+    }
+
+    #[test]
+    fn test_pow_dtype_matrix_matches_polars_runtime() {
+        use pyrefly_types::polars_dtype::PolarsScalarDType::*;
+
+        let dtypes = [
+            Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32, UInt64, UInt128, Float32,
+            Float64,
+        ];
+        let expected = [
+            [
+                Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Int8, Float32, Float64,
+            ],
+            [
+                Int16, Int16, Int16, Int16, Int16, Int16, Int16, Int16, Int16, Int16, Float32,
+                Float64,
+            ],
+            [
+                Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32, Float32,
+                Float64,
+            ],
+            [
+                Int64, Int64, Int64, Int64, Int64, Int64, Int64, Int64, Int64, Int64, Float32,
+                Float64,
+            ],
+            [
+                Int128, Int128, Int128, Int128, Int128, Int128, Int128, Int128, Int128, Int128,
+                Float32, Float64,
+            ],
+            [
+                UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, Float32,
+                Float64,
+            ],
+            [
+                UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16,
+                Float32, Float64,
+            ],
+            [
+                UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32, UInt32,
+                Float32, Float64,
+            ],
+            [
+                UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64, UInt64,
+                Float32, Float64,
+            ],
+            [
+                UInt128, UInt128, UInt128, UInt128, UInt128, UInt128, UInt128, UInt128, UInt128,
+                UInt128, Float32, Float64,
+            ],
+            [
+                Float32, Float32, Float32, Float32, Float32, Float32, Float32, Float32, Float32,
+                Float32, Float32, Float32,
+            ],
+            [
+                Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64, Float64,
+                Float64, Float64, Float64,
+            ],
+        ];
+
+        for (left, expected_row) in dtypes.into_iter().zip(expected) {
+            for (right, expected_dtype) in dtypes.into_iter().zip(expected_row) {
+                assert_eq!(
+                    pow_dtype(PolarsDType::Scalar(left), PolarsDType::Scalar(right)),
+                    Some(PolarsDType::Scalar(expected_dtype)),
+                    "{} ** {}",
+                    left.name(),
+                    right.name(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_pow_rejects_every_nonnumeric_dtype() {
+        let nonnumeric = [
+            PolarsDType::Boolean,
+            PolarsDType::String,
+            PolarsDType::Binary,
+            PolarsDType::Date,
+            PolarsDType::Datetime,
+            PolarsDType::Duration,
+            PolarsDType::Time,
+            PolarsDType::Null,
+            PolarsDType::Unknown,
+        ];
+        for dtype in nonnumeric {
+            assert_eq!(pow_dtype(dtype.clone(), PolarsDType::Int8), None);
+            assert_eq!(pow_dtype(PolarsDType::Int8, dtype), None);
+        }
     }
 }

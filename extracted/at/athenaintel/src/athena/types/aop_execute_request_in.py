@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .run_budget import RunBudget
 
 
 class AopExecuteRequestIn(UniversalBaseModel):
@@ -19,6 +20,11 @@ class AopExecuteRequestIn(UniversalBaseModel):
     dry_run: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Execute the AOP in dry-run mode: the agent runs with its real prompt, config, and read-only tools, but side-effectful tool calls (emails, external writes) are validated and captured instead of executed. The session remains visible and is marked with athena_metadata.is_dry_run for UI badging.
+    """
+
+    run_budget: typing.Optional[RunBudget] = pydantic.Field(default=None)
+    """
+    Optional spend cap for this execution: max_model_calls (top-level and sub-agent model calls) and/or max_cost_usd (provider cost at Athena's model pricing). When a limit is reached the run stops before the next model call, ends with athena_termination_reason=run_budget, and the AOP execution settles as not succeeded. Absent = no cap beyond the agent's step limit.
     """
 
     user_inputs: typing.Optional[typing.Dict[str, typing.Optional[str]]] = pydantic.Field(default=None)

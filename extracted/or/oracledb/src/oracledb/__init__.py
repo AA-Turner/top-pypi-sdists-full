@@ -32,7 +32,7 @@ import collections
 import sys
 import warnings
 
-if sys.version_info[:2] < (3, 9):
+if sys.version_info[:2] < (3, 10):
     message = (
         f"Python {sys.version_info[0]}.{sys.version_info[1]} is no longer "
         "supported by the Python core team. Therefore, support for it is "
@@ -52,6 +52,7 @@ from .enums import (
     PipelineOpType as PipelineOpType,
     PoolGetMode as PoolGetMode,
     Purity as Purity,
+    TransactionPriority as TransactionPriority,
     VectorFormat as VectorFormat,
 )
 
@@ -95,6 +96,7 @@ from .dsn import (
 
 from .end_user_security_context import (
     create_end_user_security_context as create_end_user_security_context,
+    EndUserSecurityContext as EndUserSecurityContext,
 )
 
 from .errors import (
@@ -135,6 +137,7 @@ from .pipeline import (
 )
 
 from .secret_values import (
+    clear_all_secrets as clear_all_secrets,
     get_secret as get_secret,
     save_secret as save_secret,
     SecretValue as SecretValue,
@@ -1155,6 +1158,7 @@ from .connection import (  # noqa: E402
     connect as connect,
     connect_async as connect_async,
     Connection as Connection,
+    Xid as Xid,
 )
 
 from .cursor import (  # noqa: E402

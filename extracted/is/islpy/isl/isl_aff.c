@@ -180,57 +180,20 @@ static __isl_give isl_vec *isl_aff_get_rat_aff(__isl_keep isl_aff *aff)
 	return isl_vec_copy(aff->v);
 }
 
-/* Return the rational affine expression of "aff".
- * This may be either a copy or the expression itself
- * if there is only one reference to "aff".
- * This allows the expression to be modified inplace
- * if both the "aff" and its expression have only a single reference.
- * The caller is not allowed to modify "aff" between this call and
- * a subsequent call to isl_aff_restore_rat_aff.
- * The only exception is that isl_aff_free can be called instead.
- */
-static __isl_give isl_vec *isl_aff_take_rat_aff(__isl_keep isl_aff *aff)
-{
-	isl_vec *v;
+#undef TYPE
+#define TYPE	isl_aff
 
-	if (!aff)
-		return NULL;
-	if (aff->ref != 1)
-		return isl_aff_get_rat_aff(aff);
-	v = aff->v;
-	aff->v = NULL;
-	return v;
-}
+#undef FIELD_TYPE
+#define FIELD_TYPE	isl_vec
+#undef FIELD_NAME
+#define FIELD_NAME	v
+#undef PROPERTY
+#define PROPERTY	rat_aff
 
-/* Set the rational affine expression of "aff" to "v",
- * where the rational affine expression of "aff" may be missing
- * due to a preceding call to isl_aff_take_rat_aff.
- * However, in this case, "aff" only has a single reference and
- * then the call to isl_aff_cow has no effect.
- */
-static __isl_give isl_aff *isl_aff_restore_rat_aff(__isl_keep isl_aff *aff,
-	__isl_take isl_vec *v)
-{
-	if (!aff || !v)
-		goto error;
-
-	if (aff->v == v) {
-		isl_vec_free(v);
-		return aff;
-	}
-
-	aff = isl_aff_cow(aff);
-	if (!aff)
-		goto error;
-	isl_vec_free(aff->v);
-	aff->v = v;
-
-	return aff;
-error:
-	isl_aff_free(aff);
-	isl_vec_free(v);
-	return NULL;
-}
+static
+#include "isl_take_templ.c"
+static
+#include "isl_restore_templ.c"
 
 __isl_give isl_aff *isl_aff_zero_on_domain(__isl_take isl_local_space *ls)
 {
@@ -485,13 +448,19 @@ uint32_t isl_aff_get_hash(__isl_keep isl_aff *aff)
 	return hash;
 }
 
-/* Return the domain local space of "aff".
- */
-static __isl_keep isl_local_space *isl_aff_peek_domain_local_space(
-	__isl_keep isl_aff *aff)
-{
-	return aff ? aff->ls : NULL;
-}
+#undef TYPE
+#define TYPE	isl_aff
+
+#undef FIELD_TYPE
+#define FIELD_TYPE	isl_local_space
+#undef FIELD_NAME
+#define FIELD_NAME	ls
+#undef PROPERTY
+#define PROPERTY	domain_local_space
+
+static
+#include "isl_peek_templ.c"
+#include "isl_get_templ.c"
 
 /* Return the number of variables of the given type in the domain of "aff".
  */
@@ -581,14 +550,6 @@ __isl_give isl_space *isl_aff_get_space(__isl_keep isl_aff *aff)
 	return space;
 }
 
-/* Return a copy of the domain space of "aff".
- */
-__isl_give isl_local_space *isl_aff_get_domain_local_space(
-	__isl_keep isl_aff *aff)
-{
-	return isl_local_space_copy(isl_aff_peek_domain_local_space(aff));
-}
-
 __isl_give isl_local_space *isl_aff_get_local_space(__isl_keep isl_aff *aff)
 {
 	isl_local_space *ls;
@@ -600,58 +561,18 @@ __isl_give isl_local_space *isl_aff_get_local_space(__isl_keep isl_aff *aff)
 	return ls;
 }
 
-/* Return the local space of the domain of "aff".
- * This may be either a copy or the local space itself
- * if there is only one reference to "aff".
- * This allows the local space to be modified inplace
- * if both the expression and its local space have only a single reference.
- * The caller is not allowed to modify "aff" between this call and
- * a subsequent call to isl_aff_restore_domain_local_space.
- * The only exception is that isl_aff_free can be called instead.
- */
-__isl_give isl_local_space *isl_aff_take_domain_local_space(
-	__isl_keep isl_aff *aff)
-{
-	isl_local_space *ls;
+#undef TYPE
+#define TYPE	isl_aff
 
-	if (!aff)
-		return NULL;
-	if (aff->ref != 1)
-		return isl_aff_get_domain_local_space(aff);
-	ls = aff->ls;
-	aff->ls = NULL;
-	return ls;
-}
+#undef FIELD_TYPE
+#define FIELD_TYPE	isl_local_space
+#undef FIELD_NAME
+#define FIELD_NAME	ls
+#undef PROPERTY
+#define PROPERTY	domain_local_space
 
-/* Set the local space of the domain of "aff" to "ls",
- * where the local space of "aff" may be missing
- * due to a preceding call to isl_aff_take_domain_local_space.
- * However, in this case, "aff" only has a single reference and
- * then the call to isl_aff_cow has no effect.
- */
-__isl_give isl_aff *isl_aff_restore_domain_local_space(
-	__isl_keep isl_aff *aff, __isl_take isl_local_space *ls)
-{
-	if (!aff || !ls)
-		goto error;
-
-	if (aff->ls == ls) {
-		isl_local_space_free(ls);
-		return aff;
-	}
-
-	aff = isl_aff_cow(aff);
-	if (!aff)
-		goto error;
-	isl_local_space_free(aff->ls);
-	aff->ls = ls;
-
-	return aff;
-error:
-	isl_aff_free(aff);
-	isl_local_space_free(ls);
-	return NULL;
-}
+#include "isl_take_templ.c"
+#include "isl_restore_templ.c"
 
 /* Externally, an isl_aff has a map space, but internally, the
  * ls field corresponds to the domain of that space.

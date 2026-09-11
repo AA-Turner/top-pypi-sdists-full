@@ -70,8 +70,8 @@ cdef class _PostProcessFn:
 
 cdef class Message:
     cdef:
-        BaseThinConnImpl conn_impl
-        BaseThinDbObjectTypeCache type_cache
+        ThinConnImpl conn_impl
+        ThinDbObjectTypeCache type_cache
         PipelineOpResultImpl pipeline_result_impl
         _OracleErrorInfo error_info
         uint8_t message_type
@@ -84,7 +84,9 @@ cdef class Message:
         bint flush_out_binds
         bint resend
         bint retry
+        bint is_one_way
         object warning
+        str name
 
     cdef int _check_and_raise_exception(self) except -1:
         """
@@ -101,7 +103,7 @@ cdef class Message:
                 self.conn_impl._protocol._disconnect()
             raise error.exc_type(error)
 
-    cdef int _initialize(self, BaseThinConnImpl conn_impl) except -1:
+    cdef int _initialize(self, ThinConnImpl conn_impl) except -1:
         """
         Initializes the message to contain the connection and a place to store
         error information. For DRCP, the status of the connection may change
@@ -110,7 +112,8 @@ cdef class Message:
         to avoid overhead using the constructor, a special hook method is used
         instead.
         """
-        conn_impl._protocol._read_buf._check_connected()
+        if not conn_impl._protocol._in_connect:
+            conn_impl._protocol._read_buf._check_connected()
         self.conn_impl = conn_impl
         self.message_type = TNS_MSG_TYPE_FUNCTION
         self.error_info = _OracleErrorInfo.__new__(_OracleErrorInfo)
@@ -277,6 +280,8 @@ cdef class Message:
             elif keyword_num == TNS_KEYWORD_NUM_TRANSACTION_ID:
                 if binary_value is not None:
                     self._update_sessionless_txn_state(binary_value)
+            elif keyword_num == TNS_KEYWORD_NUM_TXN_PRIORITY:
+                self.conn_impl._txn_priority = text_value
 
     cdef int _process_message(self, ReadBuffer buf,
                               uint8_t message_type) except -1:
@@ -476,6 +481,24 @@ cdef class Message:
         buf.write_bytes_with_two_lengths(text)
         buf.write_bytes_with_two_lengths(value_bytes)
 
+    cdef int _write_alter_session_piggyback(self, WriteBuffer buf) except -1:
+        """
+        Writes the piggyback that informs the server that session is being
+        altered. Currently the only session data that is altered is the
+        transaction priority.
+        """
+        cdef uint32_t flags = 0
+        if not self.conn_impl._txn_priority:
+            flags = 1
+        self._write_piggyback_code(buf, TNS_FUNC_ALTER_SESSION)
+        buf.write_ub4(0)                    # flags
+        buf.write_uint8(1)                  # pointer
+        buf.write_ub4(1)                    # number of key/value pairs
+        buf.write_bytes_with_two_lengths(b"TXN_PRIORITY")
+        buf.write_bytes_with_two_lengths(self.conn_impl._txn_priority.encode())
+        buf.write_ub4(flags)
+        self.conn_impl._txn_priority_modified = False
+
     cdef int _write_begin_pipeline_piggyback(self, WriteBuffer buf) except -1:
         """
         Writes the piggyback to the server that informs the server that a
@@ -565,6 +588,38 @@ cdef class Message:
             self.conn_impl.security_context.oson_bytes.get_value_as_bytes()
         )
 
+    cdef int _write_app_context_piggyback(self, WriteBuffer buf) except -1:
+        """
+        Writes the piggyback that informs the server of application context
+        changes.
+        """
+        cdef:
+            dict app_context = self.conn_impl._app_context
+            str namespace, key, value
+            bytes namespace_bytes
+            uint16_t flags
+            dict entries
+        for namespace, entries in app_context.items():
+            self._write_piggyback_code(buf, TNS_FUNC_APP_CONTEXT)
+            namespace_bytes = namespace.encode()
+            buf.write_uint8(1)              # pointer
+            buf.write_ub4(len(namespace_bytes))
+            if len(entries) > 0:
+                flags = TNS_APP_CONTEXT_FLAG_SET
+                buf.write_uint8(1)          # pointer
+            else:
+                flags = TNS_APP_CONTEXT_FLAG_CLEAR
+                buf.write_uint8(0)          # null pointer
+            buf.write_ub4(len(entries))
+            buf.write_ub2(flags)
+            buf.write_uint8(0)
+            buf.write_bytes_with_length(namespace_bytes)
+            for key, value in entries.items():
+                buf.write_bytes_with_two_lengths(key.encode())
+                buf.write_bytes_with_two_lengths(value.encode())
+                buf.write_ub4(0)
+        self.conn_impl._app_context = None
+
     cdef int _write_end_to_end_piggyback(self, WriteBuffer buf) except -1:
         """
         Writes the piggyback that informs the server of end-to-end attributes
@@ -572,7 +627,7 @@ cdef class Message:
         """
         cdef:
             bytes action_bytes, client_identifier_bytes, client_info_bytes
-            BaseThinConnImpl conn_impl = self.conn_impl
+            ThinConnImpl conn_impl = self.conn_impl
             bytes module_bytes, dbop_bytes
             uint32_t flags = 0
 
@@ -700,6 +755,41 @@ cdef class Message:
         if buf._caps.ttc_field_version >= TNS_CCAP_FIELD_VERSION_23_1_EXT_1:
             buf.write_ub8(self.token_num)
 
+    cdef int _write_ha_readiness_piggyback(self, WriteBuffer buf) except -1:
+        """
+        Writes the piggyback that informs the server of its HA readiness.
+        """
+        cdef:
+            uint32_t num_pairs = 3 if self.conn_impl._is_pooled else 1
+            bytes namespace_bytes = b"ORA$HA"
+        self._write_piggyback_code(buf, TNS_FUNC_SET_KEY_VALUE)
+        buf.write_uint8(1)                  # pointer (namespace)
+        buf.write_ub4(<uint32_t> len(namespace_bytes))
+        buf.write_uint8(1)                  # pointer (num key/value pairs)
+        buf.write_ub4(num_pairs)
+        buf.write_ub2(0x21)                 # flag (set HA values)
+        buf.write_uint8(0)                  # pointer (unused)
+        buf.write_bytes_with_length(namespace_bytes)
+        if self.conn_impl._is_pooled:
+
+            # key/value pair 1
+            buf.write_bytes_with_two_lengths(b"CONNECTION_POOL")
+            buf.write_bytes_with_two_lengths(b"PYTHON")
+            buf.write_ub4(0)
+
+            # key/value pair 2
+            buf.write_bytes_with_two_lengths(b"CONNECTION_POOL_ID")
+            buf.write_bytes_with_two_lengths(self.conn_impl._pool_id)
+            buf.write_ub4(0)
+
+        # key/value pair 3
+        buf.write_bytes_with_two_lengths(b"INBAND_NOTIFICATION")
+        buf.write_bytes_with_two_lengths(b"1")
+        buf.write_ub4(0)
+
+        # mark that HA readiness piggyback has been sent
+        self.conn_impl._send_ha_readiness = False
+
     cdef int _write_message(self, WriteBuffer buf) except -1:
         self._write_function_code(buf)
 
@@ -737,11 +827,17 @@ cdef class Message:
             self._write_end_to_end_piggyback(buf)
         if self.conn_impl._temp_lobs_total_size > 0:
             self._write_close_temp_lobs_piggyback(buf)
+        if self.conn_impl._app_context is not None:
+            self._write_app_context_piggyback(buf)
         if self.conn_impl._session_state_desired != 0:
             self._write_session_state_piggyback(buf)
         if self.conn_impl._sessionless_data is not None \
                 and self.conn_impl._sessionless_data.piggyback_pending:
             self._write_sessionless_piggyback(buf)
+        if self.conn_impl._send_ha_readiness:
+            self._write_ha_readiness_piggyback(buf)
+        if self.conn_impl._txn_priority_modified:
+            self._write_alter_session_piggyback(buf)
 
     cdef int _write_sessionless_piggyback(self, WriteBuffer buf):
         """
@@ -793,7 +889,7 @@ cdef class Message:
             self._process_message(buf, message_type)
 
     cdef int send(self, WriteBuffer buf) except -1:
-        buf.start_request(TNS_PACKET_TYPE_DATA)
+        buf.start_request(TNS_PACKET_TYPE_DATA, self.name)
         self._write_message(buf)
         if self.pipeline_result_impl is not None:
             buf._data_flags |= TNS_DATA_FLAGS_END_OF_REQUEST
@@ -802,7 +898,7 @@ cdef class Message:
 
 cdef class MessageWithData(Message):
     cdef:
-        BaseThinCursorImpl cursor_impl
+        ThinCursorImpl cursor_impl
         array.array bit_vector_buf
         const char_type *bit_vector
         bint arraydmlrowcounts
@@ -845,7 +941,7 @@ cdef class MessageWithData(Message):
 
     cdef object _create_cursor_from_describe(self, ReadBuffer buf,
                                              object cursor=None):
-        cdef BaseThinCursorImpl cursor_impl
+        cdef ThinCursorImpl cursor_impl
         if cursor is None:
             cursor = self.cursor.connection.cursor()
         cursor_impl = cursor._impl
@@ -910,7 +1006,9 @@ cdef class MessageWithData(Message):
                 else:
                     num_elements = self.row_index
 
-                # perform post conversion to user-facing objects, if applicable
+                # perform post conversion to user-facing objects, if
+                # applicable; also, include transformation back to string/bytes
+                # from CLOB/BLOB for PL/SQL binds that exceeded 32,767 bytes
                 if self.in_fetch:
                     metadata = var_impl._fetch_metadata
                 else:
@@ -923,6 +1021,12 @@ cdef class MessageWithData(Message):
                     fn = _PostProcessFn.from_info(cls._from_impl, num_elements,
                                                   var_impl._values)
                     fns.append(fn)
+                    if var_impl._plsql_lob_transformation:
+                        fn = _PostProcessFn.from_info(cls.read, num_elements,
+                                                      var_impl._values,
+                                                      convert_nulls=False,
+                                                      check_awaitable=True)
+                        fns.append(fn)
 
                 # perform post conversion via user out converter, if applicable
                 if var_impl.outconverter is None:
@@ -973,7 +1077,7 @@ cdef class MessageWithData(Message):
         Actions that takes place before query data is processed.
         """
         cdef:
-            BaseThinCursorImpl cursor_impl = self.cursor_impl
+            ThinCursorImpl cursor_impl = self.cursor_impl
             Statement statement = cursor_impl._statement
             object type_handler, conn
             ThinVarImpl var_impl
@@ -1026,7 +1130,7 @@ cdef class MessageWithData(Message):
         cdef:
             uint8_t num_bytes, ora_type_num, csfrm
             ThinDbObjectTypeImpl typ_impl
-            BaseThinCursorImpl cursor_impl
+            ThinCursorImpl cursor_impl
             const char *encoding = NULL
             object column_value = None
             ThinDbObjectImpl obj_impl
@@ -1136,7 +1240,7 @@ cdef class MessageWithData(Message):
 
     cdef int _process_describe_info(self, ReadBuffer buf,
                                     object cursor,
-                                    BaseThinCursorImpl cursor_impl) except -1:
+                                    ThinCursorImpl cursor_impl) except -1:
         cdef:
             Statement stmt = cursor_impl._statement
             list prev_fetch_var_impls
@@ -1181,8 +1285,8 @@ cdef class MessageWithData(Message):
 
     cdef int _process_error_info(self, ReadBuffer buf) except -1:
         cdef:
-            BaseThinCursorImpl cursor_impl = self.cursor_impl
-            BaseThinConnImpl conn_impl = self.conn_impl
+            ThinCursorImpl cursor_impl = self.cursor_impl
+            ThinConnImpl conn_impl = self.conn_impl
             object exc_type
         Message._process_error_info(self, buf)
         if self.error_info.cursor_id != 0:
@@ -1217,7 +1321,7 @@ cdef class MessageWithData(Message):
 
     cdef int _process_implicit_result(self, ReadBuffer buf) except -1:
         cdef:
-            BaseThinCursorImpl child_cursor_impl
+            ThinCursorImpl child_cursor_impl
             uint32_t i, num_results
             object child_cursor
             uint8_t num_bytes
@@ -1258,6 +1362,8 @@ cdef class MessageWithData(Message):
             buf.read_ub1(&bind_info.bind_dir)
             if bind_info.bind_dir == TNS_BIND_DIR_INPUT:
                 continue
+            elif bind_info.bind_dir == TNS_BIND_DIR_INPUT_OUTPUT:
+                self.cursor_impl._statement._has_in_out_binds = True
             self.out_var_impls.append(bind_info._bind_var_impl)
 
     cdef int _process_message(self, ReadBuffer buf,
@@ -1436,10 +1542,10 @@ cdef class MessageWithData(Message):
                                        uint32_t offset) except -1:
         cdef:
             ThinDbObjectTypeImpl typ_impl
-            BaseThinCursorImpl cursor_impl
+            ThinCursorImpl cursor_impl
             const char* encoding = NULL
-            BaseThinLobImpl lob_impl
             OracleMetadata metadata
+            ThinLobImpl lob_impl
             uint8_t ora_type_num
             uint32_t num_bytes
             bytes temp_bytes
@@ -1505,9 +1611,9 @@ cdef class MessageWithData(Message):
         elif ora_type_num == ORA_TYPE_NUM_BOOLEAN:
             buf.write_bool(data.buffer.as_bool)
         elif ora_type_num == ORA_TYPE_NUM_INTERVAL_DS:
-            buf.write_interval_ds(value)
+            buf.write_interval_ds(&data.buffer.as_interval_ds)
         elif ora_type_num == ORA_TYPE_NUM_INTERVAL_YM:
-            buf.write_interval_ym(value)
+            buf.write_interval_ym(&data.buffer.as_interval_ym)
         elif ora_type_num in (
                 ORA_TYPE_NUM_BLOB,
                 ORA_TYPE_NUM_CLOB,

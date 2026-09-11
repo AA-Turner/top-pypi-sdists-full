@@ -10758,6 +10758,22 @@ class CfnDBInstance(
         return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrStatusInfos"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrStorageOperationPercentProgress")
+    def attr_storage_operation_percent_progress(self) -> jsii.Number:
+        '''
+        :cloudformationAttribute: StorageOperationPercentProgress
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrStorageOperationPercentProgress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStorageOperationStatus")
+    def attr_storage_operation_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: StorageOperationStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStorageOperationStatus"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -12028,6 +12044,8 @@ class CfnDBInstance(
             "allocated_storage": "allocatedStorage",
             "iops": "iops",
             "max_allocated_storage": "maxAllocatedStorage",
+            "storage_operation_percent_progress": "storageOperationPercentProgress",
+            "storage_operation_status": "storageOperationStatus",
             "storage_throughput": "storageThroughput",
             "storage_type": "storageType",
             "volume_name": "volumeName",
@@ -12040,6 +12058,8 @@ class CfnDBInstance(
             allocated_storage: typing.Optional[builtins.str] = None,
             iops: typing.Optional[jsii.Number] = None,
             max_allocated_storage: typing.Optional[jsii.Number] = None,
+            storage_operation_percent_progress: typing.Optional[jsii.Number] = None,
+            storage_operation_status: typing.Optional[builtins.str] = None,
             storage_throughput: typing.Optional[jsii.Number] = None,
             storage_type: typing.Optional[builtins.str] = None,
             volume_name: typing.Optional[builtins.str] = None,
@@ -12051,6 +12071,8 @@ class CfnDBInstance(
             :param allocated_storage: The amount of storage allocated for the additional storage volume, in gibibytes (GiB). The minimum is 20 GiB. The maximum is 65,536 GiB (64 TiB).
             :param iops: The number of I/O operations per second (IOPS) provisioned for the additional storage volume.
             :param max_allocated_storage: The upper limit in gibibytes (GiB) to which RDS can automatically scale the storage of the additional storage volume.
+            :param storage_operation_percent_progress: 
+            :param storage_operation_status: 
             :param storage_throughput: The storage throughput value for the additional storage volume, in mebibytes per second (MiBps). This setting applies only to the General Purpose SSD (``gp3``) storage type.
             :param storage_type: The storage type for the additional storage volume. Valid Values: ``GP3 | IO2``
             :param volume_name: The name of the additional storage volume. Valid Values: ``RDSDBDATA2 | RDSDBDATA3 | RDSDBDATA4``
@@ -12068,6 +12090,8 @@ class CfnDBInstance(
                     allocated_storage="allocatedStorage",
                     iops=123,
                     max_allocated_storage=123,
+                    storage_operation_percent_progress=123,
+                    storage_operation_status="storageOperationStatus",
                     storage_throughput=123,
                     storage_type="storageType",
                     volume_name="volumeName"
@@ -12078,6 +12102,8 @@ class CfnDBInstance(
                 check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
                 check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
                 check_type(argname="argument max_allocated_storage", value=max_allocated_storage, expected_type=type_hints["max_allocated_storage"])
+                check_type(argname="argument storage_operation_percent_progress", value=storage_operation_percent_progress, expected_type=type_hints["storage_operation_percent_progress"])
+                check_type(argname="argument storage_operation_status", value=storage_operation_status, expected_type=type_hints["storage_operation_status"])
                 check_type(argname="argument storage_throughput", value=storage_throughput, expected_type=type_hints["storage_throughput"])
                 check_type(argname="argument storage_type", value=storage_type, expected_type=type_hints["storage_type"])
                 check_type(argname="argument volume_name", value=volume_name, expected_type=type_hints["volume_name"])
@@ -12088,6 +12114,10 @@ class CfnDBInstance(
                 self._values["iops"] = iops
             if max_allocated_storage is not None:
                 self._values["max_allocated_storage"] = max_allocated_storage
+            if storage_operation_percent_progress is not None:
+                self._values["storage_operation_percent_progress"] = storage_operation_percent_progress
+            if storage_operation_status is not None:
+                self._values["storage_operation_status"] = storage_operation_status
             if storage_throughput is not None:
                 self._values["storage_throughput"] = storage_throughput
             if storage_type is not None:
@@ -12123,6 +12153,22 @@ class CfnDBInstance(
             '''
             result = self._values.get("max_allocated_storage")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def storage_operation_percent_progress(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html#cfn-rds-dbinstance-additionalstoragevolume-storageoperationpercentprogress
+            '''
+            result = self._values.get("storage_operation_percent_progress")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def storage_operation_status(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-additionalstoragevolume.html#cfn-rds-dbinstance-additionalstoragevolume-storageoperationstatus
+            '''
+            result = self._values.get("storage_operation_status")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def storage_throughput(self) -> typing.Optional[jsii.Number]:
@@ -12946,6 +12992,8 @@ class CfnDBInstanceProps:
                     allocated_storage="allocatedStorage",
                     iops=123,
                     max_allocated_storage=123,
+                    storage_operation_percent_progress=123,
+                    storage_operation_status="storageOperationStatus",
                     storage_throughput=123,
                     storage_type="storageType",
                     volume_name="volumeName"
@@ -15037,48 +15085,6 @@ class CfnDBParameterGroup(
             type_hints = cached_type_hints(_typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
-
-    @jsii.member(jsii_name="fromDBParameterGroupArn")
-    @builtins.classmethod
-    def from_db_parameter_group_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
-        '''Creates a new IDBParameterGroupRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupArn", [scope, id, arn]))
-
-    @jsii.member(jsii_name="fromDBParameterGroupName")
-    @builtins.classmethod
-    def from_db_parameter_group_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        db_parameter_group_name: builtins.str,
-    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
-        '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
-
-        :param scope: -
-        :param id: -
-        :param db_parameter_group_name: -
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
-        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
 
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
@@ -55133,6 +55139,8 @@ def _typecheckingstub__28ef177d6e6f3f5068e9ea87fe85b460492bed7697b4f762562d0b338
     allocated_storage: typing.Optional[builtins.str] = None,
     iops: typing.Optional[jsii.Number] = None,
     max_allocated_storage: typing.Optional[jsii.Number] = None,
+    storage_operation_percent_progress: typing.Optional[jsii.Number] = None,
+    storage_operation_status: typing.Optional[builtins.str] = None,
     storage_throughput: typing.Optional[jsii.Number] = None,
     storage_type: typing.Optional[builtins.str] = None,
     volume_name: typing.Optional[builtins.str] = None,
@@ -55295,22 +55303,6 @@ def _typecheckingstub__c10aa78132a0eae6199258b5e55e45968fdce240e932138b48918eafb
 
 def _typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824(
     resource: _aws_rds_26740a85.IDBParameterGroupRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    db_parameter_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -11,6 +12,7 @@ from matrx_ai.tools._sandbox_proxy import SandboxBinding, SandboxReadResult
 from matrx_ai.tools.arg_models.fs_args import FsListArgs
 from matrx_ai.tools.implementations import filesystem
 from matrx_ai.tools.models import ToolContext
+from matrx_ai.tools.result_gate import apply_size_gate
 
 
 @pytest.mark.parametrize(
@@ -183,6 +185,45 @@ async def test_bound_fs_list_uses_contract_entry_cap(monkeypatch) -> None:
     assert result.output["recursive"] is True
     assert result.output["pattern"] == "*.py"
     assert result.output["truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_bound_fs_list_self_caps_long_paths_before_result_gate(monkeypatch) -> None:
+    binding = SandboxBinding("target", "https://target.invalid", "token")
+
+    async def proxy_list(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "entries": [
+                {"name": f"entry-{index}", "path": "/home/agent/" + ("x" * 180), "kind": "file"}
+                for index in range(500)
+            ],
+            "truncated": False,
+        }
+
+    monkeypatch.setattr(filesystem, "get_active_sandbox", lambda: binding)
+    monkeypatch.setattr(filesystem, "_proxy_fs_list", proxy_list)
+
+    result = await filesystem.fs_list(
+        {"path": "."}, ToolContext(call_id="long-list", tool_name="fs_list")
+    )
+
+    assert result.success is True
+    assert result.output_self_capped is True
+    assert result.output["truncated"] is True
+    assert len(result.output["entries"]) < 500
+
+    content = json.dumps(result.output)
+    assert len(content) < 50_000
+    gated, did_gate = apply_size_gate(
+        {"content": content, "call_id": "long-list", "output_chars": len(content)},
+        output_self_capped=result.output_self_capped,
+        tool_name="fs_list",
+        tool_kind="native",
+        conversation_id="test-conversation",
+        user_id="test-user",
+    )
+    assert did_gate is False
+    assert gated["content"] == content
 
 
 @pytest.mark.asyncio

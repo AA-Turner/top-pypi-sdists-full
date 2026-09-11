@@ -30,6 +30,11 @@ try:
 except ImportError:
     run_coroutine_safely = None
 
+# Guards lazy creation of each AgentTeam's per-instance _run_lock so two threads
+# that first reach start()/astart() concurrently observe the same lock object
+# (double-checked locking) rather than each minting and acquiring its own.
+_RUN_LOCK_INIT_GUARD = threading.Lock()
+
 # Task status constants
 class TaskStatus(Enum):
     """Enumeration for task status values to ensure consistency"""
@@ -327,6 +332,187 @@ async def _execute_with_agent_async(executor_agent, task_prompt, task, tools, st
         )
 
 
+def _build_handler_context(agents_instance, task):
+    """Build a lightweight context object for a Task.handler / should_run callable.
+
+    Mirrors the WorkflowContext shape used by the Workflow engine so a handler
+    written for either engine behaves identically.
+    """
+    variables = dict(getattr(agents_instance, 'variables', None) or {})
+    task_vars = getattr(task, 'variables', None)
+    if task_vars:
+        variables.update(task_vars)
+    try:
+        from ..workflows.workflows import WorkflowContext
+        return WorkflowContext(
+            input=variables.get('input', ''),
+            current_step=getattr(task, 'name', '') or '',
+            variables=variables,
+        )
+    except Exception:
+        return {'variables': variables, 'current_step': getattr(task, 'name', '')}
+
+
+def _task_has_custom_handler(task):
+    """A handler-only task has no agent/agent_config but does have a handler."""
+    return (
+        getattr(task, 'handler', None) is not None
+        and getattr(task, 'agent', None) is None
+        and getattr(task, 'agent_config', None) is None
+    )
+
+
+def _finalize_task_handler_result(agents_instance, task, result):
+    """Build the TaskOutput/TaskResult from a handler's return value.
+
+    Shared by the sync and async handler executors so both paths store the same
+    output shape and expose ``output_variable`` identically.
+    """
+    from .protocols import TaskResult
+
+    raw = getattr(result, 'output', result)
+    if raw is None:
+        raw = ""
+    raw = str(raw)
+
+    task_output = TaskOutput(
+        description=task.description or (getattr(task, 'name', '') or ''),
+        summary=(task.description or getattr(task, 'name', '') or '')[:10],
+        raw=raw,
+        agent=getattr(task, 'name', '') or 'handler',
+        output_format="RAW",
+    )
+    task.result = task_output
+
+    output_variable = getattr(task, 'output_variable', None)
+    if output_variable:
+        if getattr(agents_instance, 'variables', None) is None:
+            agents_instance.variables = {}
+        agents_instance.variables[output_variable] = raw
+
+    task.status = "completed"
+    return TaskResult(task_output=task_output, success=True)
+
+
+def _resolve_coroutine_sync(coro):
+    """Run a coroutine to completion from a synchronous context.
+
+    ``astart`` dispatches sync-marked tasks through the sync ``run_task`` path
+    (in an executor), so an ``async def`` handler still lands here. Rather than
+    stringifying the coroutine, drive it to completion on a private loop.
+    """
+    import asyncio
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop in this thread — safe to use asyncio.run.
+        return asyncio.run(coro)
+
+    # A loop is already running in this thread; run the coroutine on a fresh
+    # loop in a worker thread so we don't re-enter the active loop.
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(asyncio.run, coro).result()
+
+
+def _execute_task_handler(agents_instance, task_id):
+    """Execute a Task.handler and store the result as the task output.
+
+    Returns a TaskResult, mirroring _process_task_result so the sync/async
+    execute paths can short-circuit before requiring an agent. Coroutine
+    handlers are resolved here too, since ``astart`` runs sync-marked tasks
+    through this synchronous path.
+    """
+    import asyncio
+
+    task = agents_instance.tasks[task_id]
+    context = _build_handler_context(agents_instance, task)
+    result = task.handler(context)
+    if asyncio.iscoroutine(result):
+        result = _resolve_coroutine_sync(result)
+    return _finalize_task_handler_result(agents_instance, task, result)
+
+
+async def _aexecute_task_handler(agents_instance, task_id):
+    """Async variant of _execute_task_handler that awaits coroutine handlers.
+
+    Mirrors the Workflow engine's async path, which awaits handlers returning a
+    coroutine so an ``async def`` handler runs instead of being stringified.
+    """
+    import asyncio
+
+    task = agents_instance.tasks[task_id]
+    context = _build_handler_context(agents_instance, task)
+    result = task.handler(context)
+    if asyncio.iscoroutine(result):
+        result = await result
+    return _finalize_task_handler_result(agents_instance, task, result)
+
+
+def _record_skipped_task(agents_instance, task):
+    """Record a stable, empty result for a task gated out by should_run.
+
+    Without this the task would be marked completed with no ``task.result``,
+    which makes ``start``/``astart`` fall through to returning the full results
+    dict when the skipped task is the final one, and leaves callers unable to
+    tell a skip from a genuine empty run.
+    """
+    task_output = TaskOutput(
+        description=task.description or (getattr(task, 'name', '') or ''),
+        summary=(task.description or getattr(task, 'name', '') or '')[:10],
+        raw="",
+        agent=getattr(task, 'name', '') or 'skipped',
+        output_format="RAW",
+    )
+    task.result = task_output
+    task.status = "completed"
+
+
+def _task_should_skip(agents_instance, task):
+    """Return True when a task's should_run gate evaluates falsy.
+
+    Mirrors the Workflow engine's should_run behaviour so conditional tasks are
+    honoured under PraisonAIAgents/AgentTeam as well. Coroutine results from an
+    ``async def`` gate are resolved to completion here; the async path uses
+    ``_atask_should_skip`` to await them natively.
+    """
+    should_run = getattr(task, 'should_run', None)
+    if should_run is None:
+        return False
+    try:
+        import asyncio
+        context = _build_handler_context(agents_instance, task)
+        result = should_run(context)
+        if asyncio.iscoroutine(result):
+            # astart runs sync-marked tasks through this sync gate; resolve the
+            # coroutine rather than dropping it so async gates are still honoured.
+            result = _resolve_coroutine_sync(result)
+        return not result
+    except Exception as e:
+        logger.error(f"should_run failed for task {getattr(task, 'name', task)}: {e}")
+        return False
+
+
+async def _atask_should_skip(agents_instance, task):
+    """Async variant of _task_should_skip that awaits coroutine gates."""
+    import asyncio
+
+    should_run = getattr(task, 'should_run', None)
+    if should_run is None:
+        return False
+    try:
+        context = _build_handler_context(agents_instance, task)
+        result = should_run(context)
+        if asyncio.iscoroutine(result):
+            result = await result
+        return not result
+    except Exception as e:
+        logger.error(f"should_run failed for task {getattr(task, 'name', task)}: {e}")
+        return False
+
+
 def _build_execution_context(agents_instance, task_id, skip_memory_init=False):
     """
     Build unified execution context for task execution (DRY helper).
@@ -531,6 +717,14 @@ def _process_task_result(agents_instance, context, agent_output):
 
         task.result = task_output
 
+        # Expose the task output under its output_variable so downstream tasks /
+        # should_run gates can read it (mirrors the Workflow engine).
+        output_variable = getattr(task, 'output_variable', None)
+        if output_variable:
+            if getattr(agents_instance, 'variables', None) is None:
+                agents_instance.variables = {}
+            agents_instance.variables[output_variable] = agent_output
+
         # Fail-closed: when structured output was requested but not produced,
         # the task did not fulfil its contract. Surface it as a failed result so
         # callers relying on TaskResult.success (and the retry loop, which uses
@@ -644,7 +838,76 @@ class AgentTeam(SpawnAnnounceProtocol):
         The class was renamed from `AgentManager` to `AgentTeam` in v1.0.
         `AgentManager` and `Agents` remain as silent aliases for backward compatibility.
     """
-    
+
+    @staticmethod
+    def _adapt_single_agent_execution_config(execution, multi_agent_cls):
+        """Accept the single-agent ``ExecutionConfig`` on a team, loudly.
+
+        ``ExecutionConfig`` is exported at the package top level;
+        ``MultiAgentExecutionConfig`` is not, so ``AgentTeam(execution=
+        ExecutionConfig(max_iter=99))`` is an easy and natural mistake. It used
+        to be resolved against the wrong class and silently discarded whole.
+
+        Shared fields are carried over (``max_iter``; ``max_retry_limit`` ->
+        ``max_retries``) and a ``UserWarning`` names the right class and lists
+        any settings that have no team-level counterpart. A shared field is only
+        carried when the caller actually changed it, so the team keeps its own
+        defaults for anything left untouched (``ExecutionConfig.max_retry_limit``
+        defaults to 2, but the team default ``max_retries`` is 5 — an
+        ``ExecutionConfig(max_iter=99)`` must not silently drop team retries).
+        """
+        if execution is None or multi_agent_cls is None:
+            return execution
+        if isinstance(execution, multi_agent_cls):
+            return execution
+        try:
+            from ..config.feature_configs import ExecutionConfig
+        except ImportError:
+            return execution
+        if not isinstance(execution, ExecutionConfig):
+            return execution
+
+        import warnings
+        from dataclasses import fields as _dc_fields
+
+        defaults = ExecutionConfig()
+        shared = {"max_iter", "max_retry_limit"}
+
+        def _is_set(name):
+            # A user object with an exotic __eq__ must not blow up the warning
+            # path; treat an uncomparable value as explicitly set.
+            try:
+                return getattr(execution, name) != getattr(defaults, name)
+            except Exception:
+                return True
+
+        # Only carry a shared field when the caller changed it; otherwise let
+        # the team config keep its own (different) default.
+        carried = {}
+        if _is_set("max_iter"):
+            carried["max_iter"] = execution.max_iter
+        if _is_set("max_retry_limit"):
+            carried["max_retries"] = execution.max_retry_limit
+
+        dropped = sorted(
+            f.name for f in _dc_fields(execution)
+            if f.name not in shared and _is_set(f.name)
+        )
+        message = (
+            "AgentTeam(execution=...) expects MultiAgentExecutionConfig, not the "
+            "single-agent ExecutionConfig. max_iter and max_retry_limit were "
+            "carried over; pass MultiAgentExecutionConfig(max_iter=..., "
+            "max_retries=...) at the team level and ExecutionConfig(...) to the "
+            "individual Agent(...) instances."
+        )
+        if dropped:
+            message += (
+                " These settings have no team-level counterpart and were "
+                f"ignored: {', '.join(dropped)}."
+            )
+        warnings.warn(message, UserWarning, stacklevel=3)
+        return multi_agent_cls(**carried)
+
     def __init__(
         self,
         agents,
@@ -794,6 +1057,14 @@ class AgentTeam(SpawnAnnounceProtocol):
         # Resolve EXECUTION param using canonical resolver
         # Supports: None, str preset, list [preset, overrides], Config, dict
         # ─────────────────────────────────────────────────────────────────────
+        # The top-level-exported ``ExecutionConfig`` is the *single-agent* class;
+        # this container's own class is ``MultiAgentExecutionConfig``. Passing
+        # the exported one used to be resolved against the wrong class and
+        # dropped whole - including ``max_iter``, which both classes define -
+        # with no error and no warning. Adapt the shared fields and say so.
+        execution = self._adapt_single_agent_execution_config(
+            execution, MultiAgentExecutionConfig
+        )
         _exec_config = resolve(
             value=execution,
             param_name="execution",
@@ -898,7 +1169,13 @@ class AgentTeam(SpawnAnnounceProtocol):
                 )
 
         if not agents:
-            raise ValueError("At least one agent must be provided")
+            # Handler-only tasks (task.handler with no agent) don't need an agent,
+            # mirroring the Workflow engine. Allow a team built solely from them.
+            has_handler_only_task = any(
+                _task_has_custom_handler(t) for t in (tasks or [])
+            )
+            if not has_handler_only_task:
+                raise ValueError("At least one agent must be provided")
         
         # ─────────────────────────────────────────────────────────────────────
         # Core initialization
@@ -965,6 +1242,10 @@ class AgentTeam(SpawnAnnounceProtocol):
         self._completion_events: List[SubAgentCompletionEvent] = []
         self._event_bus: Optional[EventBus] = None
         self._spawn_lock = threading.RLock()  # Thread-safe spawn operations (reentrant)
+        # Strong references to fire-and-forget async spawn tasks. The event loop
+        # keeps only a weak reference to tasks from asyncio.create_task(), so
+        # without this a running sub-agent task can be garbage-collected mid-run.
+        self._bg_spawn_tasks: set = set()
         self._team_id = str(uuid.uuid4())  # Unique team identifier
         # Aggregate stream emitter (lazy). Fans in member agents' per-step
         # StreamEventEmitter events, tagging each with the emitting agent's id,
@@ -1258,6 +1539,13 @@ class AgentTeam(SpawnAnnounceProtocol):
         if task.status == "not started":
             task.status = "in progress"
 
+        # Handler-only tasks (no agent/agent_config) run their custom callable
+        # instead of an LLM, mirroring the Workflow engine. Await here so an
+        # ``async def`` handler actually runs instead of being stringified.
+        if _task_has_custom_handler(task):
+            task_result = await _aexecute_task_handler(self, task_id)
+            return task_result.task_output
+
         # Initialize memory asynchronously to avoid blocking the event loop on
         # synchronous Memory() construction. The shared helper's own
         # `if not task.memory:` guard makes this a safe no-op for the sync path.
@@ -1303,6 +1591,15 @@ class AgentTeam(SpawnAnnounceProtocol):
                 
                 task.retry_count += 1
                 task.status = "in progress"  # Keep task in progress for retry
+                # Carry the reason into the re-run. Without this the whole-task
+                # retry re-asks the identical prompt and the model has no way to
+                # know what was wrong; Process._build_task_context turns this
+                # dict into "Previous attempt failed validation with reason: ...".
+                task.validation_feedback = {
+                    'validation_response': guardrail_result.error,
+                    'validated_task': task.name or task.description,
+                    'rejected_output': getattr(task_output, 'raw', str(task_output)),
+                }
                 logger.warning(f"Task {task_id}: Guardrail validation failed (retry {task.retry_count}/{task.max_retries}): {guardrail_result.error}")
                 return task_output, True  # Signal retry needed
             
@@ -1430,6 +1727,12 @@ class AgentTeam(SpawnAnnounceProtocol):
 
         # Call on_task_start callback and propagate variables (async-aware, mirrors run_task)
         await self._arun_task_start_hook(task, task_id)
+
+        # Honour the should_run conditional gate (mirrors the Workflow engine).
+        if await _atask_should_skip(self, task):
+            logger.info(f"Task {task_id} skipped by should_run gate")
+            _record_skipped_task(self, task)
+            return
 
         # Use per-task max_retries if available
         task_max = getattr(task, "max_retries", self.max_retries)
@@ -1755,6 +2058,60 @@ class AgentTeam(SpawnAnnounceProtocol):
         finally:
             self._tools_scope_depths.reset(token)
 
+    @property
+    def _execution_lock(self):
+        """Lazily-created re-entrancy lock for start()/astart() (zero overhead until used).
+
+        AgentTeam shares its Task objects and its ``tasks`` dict (aliased, not
+        copied, by ``Process.__init__``) plus instance attributes like
+        ``_last_real_task_id`` across every run. Concurrent runs on the same
+        instance would interleave task status transitions, duplicate
+        ``previous_tasks`` entries, and swap results between callers, so refuse
+        re-entrancy loudly instead of corrupting shared state. Mirrors the guard
+        already used by Workflow. Creation is serialized through a module-level
+        guard (double-checked locking) so two threads racing into start()/astart()
+        observe the same lock object.
+        """
+        lock = getattr(self, '_run_lock', None)
+        if lock is None:
+            with _RUN_LOCK_INIT_GUARD:
+                lock = getattr(self, '_run_lock', None)
+                if lock is None:
+                    lock = threading.Lock()
+                    self._run_lock = lock
+        return lock
+
+    @contextlib.contextmanager
+    def _guard_execution(self):
+        """Refuse concurrent runs on the same instance, re-entrant for one owner.
+
+        A plain non-reentrant ``threading.Lock`` would deadlock when a batch
+        (``start_for_each``) holds the guard for its whole lifecycle and then
+        calls ``start()`` per item. Track the owning thread so nested runs on the
+        *same* thread (batch → item) pass through, while a genuinely concurrent
+        run from a *different* thread is rejected loudly. ``start_for_each`` needs
+        to hold the guard across the whole batch so its shared-state mutations
+        (``variables``/task snapshot) can never interleave with a competing run.
+        """
+        lock = self._execution_lock
+        current = threading.get_ident()
+        if getattr(self, '_run_owner_ident', None) == current:
+            # Re-entrant on the owning thread (e.g. batch → per-item start()).
+            yield
+            return
+        if not lock.acquire(blocking=False):
+            raise RuntimeError(
+                "This AgentTeam instance is already running; an AgentTeam is not "
+                "safe to run concurrently on the same object. Create a separate "
+                "AgentTeam/PraisonAIAgents instance per concurrent run."
+            )
+        self._run_owner_ident = current
+        try:
+            yield
+        finally:
+            self._run_owner_ident = None
+            lock.release()
+
     async def astart(self, content=None, return_dict=False, **kwargs):
         """Async version of start method.
         
@@ -1769,6 +2126,15 @@ class AgentTeam(SpawnAnnounceProtocol):
             with self._shared_tools_scope():
                 return await self.astart(content=content, return_dict=return_dict, **kwargs)
 
+        # Refuse concurrent re-entrancy: shared Task/tasks state is not safe to
+        # run twice at once on the same instance. Acquired after the tools-scope
+        # recursion so the re-invocation (not this outer frame) holds the lock.
+        # Re-entrant on the owning thread so batch runs (astart_for_each) can hold
+        # the guard across the whole batch while still calling astart() per item.
+        with self._guard_execution():
+            return await self._astart_impl(content=content, return_dict=return_dict, **kwargs)
+
+    async def _astart_impl(self, content=None, return_dict=False, **kwargs):
         # Track execution via telemetry
         if hasattr(self, '_telemetry') and self._telemetry:
             self._telemetry.track_agent_execution(self.name, success=True, async_mode=True)
@@ -1845,6 +2211,12 @@ class AgentTeam(SpawnAnnounceProtocol):
         if task.status == "not started":
             task.status = "in progress"
 
+        # Handler-only tasks (no agent/agent_config) run their custom callable
+        # instead of an LLM, mirroring the Workflow engine.
+        if _task_has_custom_handler(task):
+            task_result = _execute_task_handler(self, task_id)
+            return task_result.task_output
+
         # Build execution context using DRY helper
         context = _build_execution_context(self, task_id)
 
@@ -1870,6 +2242,12 @@ class AgentTeam(SpawnAnnounceProtocol):
 
         # Call on_task_start callback and propagate variables (shared with arun_task)
         self._run_task_start_hook(task, task_id)
+
+        # Honour the should_run conditional gate (mirrors the Workflow engine).
+        if _task_should_skip(self, task):
+            logger.info(f"Task {task_id} skipped by should_run gate")
+            _record_skipped_task(self, task)
+            return
 
         # Use per-task max_retries if available
         task_max = getattr(task, "max_retries", self.max_retries)
@@ -2035,6 +2413,16 @@ class AgentTeam(SpawnAnnounceProtocol):
                 return self.start(content=content, return_dict=return_dict,
                                   output=output, **kwargs)
 
+        # Refuse concurrent re-entrancy: shared Task/tasks state is not safe to
+        # run twice at once on the same instance. Acquired after the tools-scope
+        # recursion so the re-invocation (not this outer frame) holds the lock.
+        # Re-entrant on the owning thread so batch runs (start_for_each) can hold
+        # the guard across the whole batch while still calling start() per item.
+        with self._guard_execution():
+            return self._start_impl(content=content, return_dict=return_dict,
+                                    output=output, **kwargs)
+
+    def _start_impl(self, content=None, return_dict=False, output=None, **kwargs):
         # Track execution via telemetry
         if hasattr(self, '_telemetry') and self._telemetry:
             self._telemetry.track_agent_execution(self.name, success=True)
@@ -2359,27 +2747,32 @@ class AgentTeam(SpawnAnnounceProtocol):
                 )
 
         batch_id = f"batch_{uuid.uuid4().hex[:12]}"
-        saved_variables = self.variables
-        task_snapshot = self._snapshot_task_state()
-        items = []
-        try:
-            for index, item_input in enumerate(inputs):
-                result = {"index": index, "input": item_input, "success": False,
-                          "output": None, "error": None}
-                try:
-                    item_vars = self._validate_batch_input(item_input, index)
-                    self.variables = {**saved_variables, **item_vars}
-                    self._reset_task_state_for_item()
-                    result["output"] = self.start(output=output, **kwargs)
-                    result["success"] = True
-                except Exception as exc:  # noqa: BLE001
-                    if on_error == "fail_fast":
-                        raise
-                    result["error"] = str(exc)
-                items.append(result)
-        finally:
-            self.variables = saved_variables
-            self._restore_task_state(task_snapshot)
+        # Hold the execution guard for the WHOLE batch so the per-item
+        # self.variables / task-state mutations below can never interleave with a
+        # competing run on another thread. The per-item start() re-enters the
+        # guard on this same thread (see _guard_execution) rather than deadlocking.
+        with self._guard_execution():
+            saved_variables = self.variables
+            task_snapshot = self._snapshot_task_state()
+            items = []
+            try:
+                for index, item_input in enumerate(inputs):
+                    result = {"index": index, "input": item_input, "success": False,
+                              "output": None, "error": None}
+                    try:
+                        item_vars = self._validate_batch_input(item_input, index)
+                        self.variables = {**saved_variables, **item_vars}
+                        self._reset_task_state_for_item()
+                        result["output"] = self.start(output=output, **kwargs)
+                        result["success"] = True
+                    except Exception as exc:  # noqa: BLE001
+                        if on_error == "fail_fast":
+                            raise
+                        result["error"] = str(exc)
+                    items.append(result)
+            finally:
+                self.variables = saved_variables
+                self._restore_task_state(task_snapshot)
 
         return self._build_batch_result(batch_id, items)
 
@@ -2402,27 +2795,31 @@ class AgentTeam(SpawnAnnounceProtocol):
                 )
 
         batch_id = f"batch_{uuid.uuid4().hex[:12]}"
-        saved_variables = self.variables
-        task_snapshot = self._snapshot_task_state()
-        items = []
-        try:
-            for index, item_input in enumerate(inputs):
-                result = {"index": index, "input": item_input, "success": False,
-                          "output": None, "error": None}
-                try:
-                    item_vars = self._validate_batch_input(item_input, index)
-                    self.variables = {**saved_variables, **item_vars}
-                    self._reset_task_state_for_item()
-                    result["output"] = await self.astart(**kwargs)
-                    result["success"] = True
-                except Exception as exc:  # noqa: BLE001
-                    if on_error == "fail_fast":
-                        raise
-                    result["error"] = str(exc)
-                items.append(result)
-        finally:
-            self.variables = saved_variables
-            self._restore_task_state(task_snapshot)
+        # Hold the execution guard across the whole batch (see start_for_each).
+        # astart_for_each runs items sequentially on this event-loop thread, so
+        # the per-item astart() re-enters the guard on the same thread ident.
+        with self._guard_execution():
+            saved_variables = self.variables
+            task_snapshot = self._snapshot_task_state()
+            items = []
+            try:
+                for index, item_input in enumerate(inputs):
+                    result = {"index": index, "input": item_input, "success": False,
+                              "output": None, "error": None}
+                    try:
+                        item_vars = self._validate_batch_input(item_input, index)
+                        self.variables = {**saved_variables, **item_vars}
+                        self._reset_task_state_for_item()
+                        result["output"] = await self.astart(**kwargs)
+                        result["success"] = True
+                    except Exception as exc:  # noqa: BLE001
+                        if on_error == "fail_fast":
+                            raise
+                        result["error"] = str(exc)
+                    items.append(result)
+            finally:
+                self.variables = saved_variables
+                self._restore_task_state(task_snapshot)
 
         return self._build_batch_result(batch_id, items)
 
@@ -2513,7 +2910,152 @@ class AgentTeam(SpawnAnnounceProtocol):
             "state": state_copy,
             "agents": [agent.display_name for agent in self.agents],
             "process": self.process,
+            # Task status and outputs, so a resumed team can SKIP work it has
+            # already done. Without these the payload carried only the shared
+            # _state dict, and a team that died on task 9 of 12 restarted from
+            # task 1 -- re-paying for eight completed tasks. The snapshot helper
+            # already existed for in-memory batch resets; this makes it durable.
+            "tasks": self._serialisable_task_state(),
+            # Task keys are POSITIONAL (0, 1, 2...), so a checkpoint from a
+            # different team would restore by index and put task 3's output on a
+            # different task 3 -- a resume that looks successful and is wrong.
+            # The YAML workflow path already guards this with a definition
+            # fingerprint; this is the same idea for a team.
+            "tasks_fingerprint": self._task_set_fingerprint(),
         }
+
+    def _task_set_fingerprint(self) -> str:
+        """Identify this team's task SET, so a checkpoint cannot cross teams.
+
+        Covers the fields that change what a task actually *does* -- its name,
+        full description, the agent that runs it, and its expected output. A
+        truncated description or a name-only fingerprint would let a materially
+        changed task keep the same fingerprint, so a restore would mark the
+        changed task completed and skip the new work.
+        """
+        import hashlib
+        parts = []
+        for task_id in sorted(self.tasks, key=lambda k: str(k)):
+            task = self.tasks[task_id]
+            agent = getattr(task, "agent", None)
+            agent_name = getattr(agent, "name", None) or getattr(agent, "display_name", None) or ""
+            parts.append("|".join([
+                str(task_id),
+                str(getattr(task, "name", "") or ""),
+                str(getattr(task, "description", "") or ""),
+                str(agent_name),
+                str(getattr(task, "expected_output", "") or ""),
+            ]))
+        blob = "\n".join(parts)
+        return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+    @staticmethod
+    def _json_safe(value: Any, fallback: Any = None) -> Any:
+        """Return ``value`` if it survives a JSON round-trip, else ``fallback``.
+
+        A nested ``datetime``/``set``/``bytes``/custom object inside a dict or
+        list result reaches the JSON encoder and fails the durable write, losing
+        the WHOLE checkpoint rather than one field. Probing each field here keeps
+        the rest of the checkpoint intact when one field is not portable.
+        """
+        try:
+            json.dumps(value)
+            return value
+        except (TypeError, ValueError):
+            return fallback
+
+    def _serialisable_task_state(self) -> Dict[str, Any]:
+        """``_snapshot_task_state`` reduced to what survives JSON.
+
+        A task result may be a TaskOutput object; only its text is portable, and
+        a half-serialised object that fails to write would lose the whole
+        checkpoint rather than one field. Nested non-JSON values inside a dict or
+        list result, or inside task variables, are dropped the same way.
+        """
+        snapshot = {}
+        for task_id, state in self._snapshot_task_state().items():
+            result = state.get("result")
+            if result is not None and not isinstance(result, (str, int, float, bool, dict, list)):
+                result = getattr(result, "raw", None) or str(result)
+            # A dict/list result may still carry a nested non-JSON value; fall
+            # back to its string form rather than forfeiting the checkpoint.
+            if isinstance(result, (dict, list)):
+                result = self._json_safe(result, fallback=str(result))
+            variables = state.get("variables")
+            if not isinstance(variables, dict):
+                variables = {}
+            variables = self._json_safe(variables, fallback={})
+            snapshot[str(task_id)] = {
+                "status": state.get("status"),
+                "result": result,
+                "retry_count": state.get("retry_count"),
+                "variables": variables,
+            }
+        return snapshot
+
+    def _restore_serialised_task_state(self, snapshot: Dict[str, Any]) -> int:
+        """Re-apply a persisted task snapshot. Returns how many tasks matched.
+
+        Tasks absent from this team are skipped rather than invented: a
+        checkpoint from a DIFFERENT team definition must not silently
+        half-restore, which would look like a resume and behave like a fresh run.
+        """
+        restored = 0
+        for task_id, state in (snapshot or {}).items():
+            task = self.tasks.get(task_id)
+            if task is None:
+                for key, candidate in self.tasks.items():
+                    if str(key) == str(task_id):
+                        task = candidate
+                        break
+            if task is None:
+                continue
+            task.status = state.get("status") or getattr(task, "status", "not started")
+            if state.get("result") is not None:
+                # The checkpoint reduced a TaskOutput to text; a remaining task
+                # that consumes this predecessor through workflow dependencies or
+                # task.context reads result.raw (see process.py). Restoring a bare
+                # string would raise AttributeError there, so rebuild a minimal
+                # TaskOutput carrying the text instead.
+                task.result = self._result_from_serialised(task, state["result"])
+            if state.get("retry_count") is not None:
+                task.retry_count = state["retry_count"]
+            if state.get("variables"):
+                task.variables = state["variables"]
+            restored += 1
+        return restored
+
+    @staticmethod
+    def _result_from_serialised(task: Any, value: Any) -> Any:
+        """Rebuild a ``TaskOutput`` from a checkpointed result string.
+
+        Consumers of a completed task read ``task.result.raw`` (dependency
+        context, routing decisions). A restored plain string has no ``.raw``, so
+        wrap it in a minimal ``TaskOutput`` preserving the text. A non-string
+        (already a structured/portable value) is returned unchanged so nothing is
+        lost. If ``TaskOutput`` cannot be constructed, fall back to the raw value
+        rather than failing the whole restore.
+        """
+        if not isinstance(value, str):
+            return value
+        try:
+            from ..main import TaskOutput
+        except Exception:
+            try:
+                from ..output.models import TaskOutput
+            except Exception:
+                return value
+        try:
+            agent = getattr(task, "agent", None)
+            agent_name = getattr(agent, "name", None) or getattr(agent, "display_name", None) or ""
+            return TaskOutput(
+                description=str(getattr(task, "description", "") or ""),
+                raw=value,
+                agent=str(agent_name),
+                output_format="RAW",
+            )
+        except Exception:
+            return value
 
     def save_session_state(self, session_id: str, include_memory: bool = True) -> bool:
         """Persist team session state for deterministic resume (Issue #3635).
@@ -2583,6 +3125,24 @@ class AgentTeam(SpawnAnnounceProtocol):
                 if isinstance(state_data, dict) and "state" in state_data:
                     with self._state_lock:
                         self._state.update(state_data["state"])
+                    # Completed tasks come back with their status and output, so
+                    # the process layer's "skip anything already completed" logic
+                    # sees them as done instead of re-running them.
+                    saved_fp = state_data.get("tasks_fingerprint")
+                    if saved_fp and saved_fp != self._task_set_fingerprint():
+                        # Shared state is still restored -- it is keyed by name
+                        # and safe -- but task outputs are NOT, because matching
+                        # them by position across a changed task set would skip
+                        # the wrong work.
+                        logging.warning(
+                            "Team session %s was saved against a different task set; "
+                            "shared state restored but task outputs were not, so no "
+                            "task will be wrongly skipped. Re-run from the start, or "
+                            "resume with the team definition that saved it.",
+                            session_id,
+                        )
+                        return True
+                    self._restore_serialised_task_state(state_data.get("tasks") or {})
                     return True
         except Exception as e:
             logger.debug(f"Durable team session restore failed for {session_id}: {e}")
@@ -3740,11 +4300,12 @@ class AgentTeam(SpawnAnnounceProtocol):
         """Async version of spawn_sub_agent using asyncio primitives."""
         import asyncio
         
-        # Use asyncio lock for async coordination
-        if not hasattr(self, '_async_spawn_lock'):
-            self._async_spawn_lock = asyncio.Lock()
-        
-        async with self._async_spawn_lock:
+        # Guard shared spawn state with the single threading.RLock used by the
+        # sync path (spawn_sub_agent/announce_completion). An asyncio.Lock would
+        # not exclude the background spawn thread that mutates the same dicts, so
+        # both paths must share one real thread lock. This critical section is
+        # purely synchronous (no await), so holding the thread lock is safe.
+        with self._spawn_lock:
             # Create unique IDs. agent_id keys self._spawned_agents, so retry on
             # the (rare) truncated-UUID collision rather than silently clobbering
             # an existing spawn record - the same guard the endpoint-path
@@ -3802,8 +4363,14 @@ class AgentTeam(SpawnAnnounceProtocol):
                 logger.warning(f"Sub-agent {agent_id} failed: {e}")
                 await self.aannounce_completion(agent_id, task_id, None, success=False, error=str(e))
         
-        # Create task for background execution
-        asyncio.create_task(_aexecute_sub_agent())
+        # Create task for background execution. Keep a strong reference until the
+        # task finishes; the loop only holds a weak reference, so without this the
+        # sub-agent run could be garbage-collected mid-execution.
+        if not hasattr(self, '_bg_spawn_tasks'):
+            self._bg_spawn_tasks = set()
+        _bg_task = asyncio.create_task(_aexecute_sub_agent())
+        self._bg_spawn_tasks.add(_bg_task)
+        _bg_task.add_done_callback(self._bg_spawn_tasks.discard)
         
         logger.debug(f"Async spawned sub-agent {agent_id} for task {task_id}")
         return spawned
@@ -3818,12 +4385,11 @@ class AgentTeam(SpawnAnnounceProtocol):
         metadata: Optional[Dict[str, Any]] = None
     ) -> None:
         """Async version of announce_completion."""
-        import asyncio
-        
-        if not hasattr(self, '_async_spawn_lock'):
-            self._async_spawn_lock = asyncio.Lock()
-        
-        async with self._async_spawn_lock:
+        # Mutate shared completion state under the single threading.RLock shared
+        # with the sync path — an asyncio.Lock would not exclude the background
+        # spawn thread. The awaited publish happens outside the lock so we never
+        # hold a thread lock across an await.
+        with self._spawn_lock:
             # Create completion event
             completion_event = SubAgentCompletionEvent(
                 agent_id=agent_id,
@@ -3837,41 +4403,28 @@ class AgentTeam(SpawnAnnounceProtocol):
             
             # Store the completion event
             self._completion_events.append(completion_event)
-            
-            # Publish completion event via event bus (use async if available)
-            if self._event_bus:
-                event_type = EventType.SUBAGENT_COMPLETED.value if success else EventType.SUBAGENT_ERROR.value
-                if hasattr(self._event_bus, 'publish_async'):
-                    await self._event_bus.publish_async(
-                        event_type,
-                        {
-                            "agent_id": agent_id,
-                            "task_id": task_id,
-                            "parent_id": self._team_id,
-                            "result": result,
-                            "success": success,
-                            "error": error,
-                            "completion_time": completion_event.completion_time,
-                            "metadata": completion_event.metadata
-                        }
-                    )
-                else:
-                    # Fallback to sync publish
-                    self._event_bus.publish(
-                        event_type,
-                        {
-                            "agent_id": agent_id,
-                            "task_id": task_id,
-                            "parent_id": self._team_id,
-                            "result": result,
-                            "success": success,
-                            "error": error,
-                            "completion_time": completion_event.completion_time,
-                            "metadata": completion_event.metadata
-                        }
-                    )
-            
-            logger.debug(f"Async announced completion for sub-agent {agent_id}: {'success' if success else 'error'}")
+            event_bus = self._event_bus
+        
+        # Publish completion event via event bus (use async if available)
+        if event_bus:
+            event_type = EventType.SUBAGENT_COMPLETED.value if success else EventType.SUBAGENT_ERROR.value
+            payload = {
+                "agent_id": agent_id,
+                "task_id": task_id,
+                "parent_id": self._team_id,
+                "result": result,
+                "success": success,
+                "error": error,
+                "completion_time": completion_event.completion_time,
+                "metadata": completion_event.metadata
+            }
+            if hasattr(event_bus, 'publish_async'):
+                await event_bus.publish_async(event_type, payload)
+            else:
+                # Fallback to sync publish
+                event_bus.publish(event_type, payload)
+        
+        logger.debug(f"Async announced completion for sub-agent {agent_id}: {'success' if success else 'error'}")
 
     async def await_for_completions(
         self,
@@ -3881,16 +4434,22 @@ class AgentTeam(SpawnAnnounceProtocol):
         """Async, event-driven version of wait_for_completions."""
         import asyncio
         
-        # Read target agents inside lock to avoid race condition
-        if not hasattr(self, '_async_spawn_lock'):
-            self._async_spawn_lock = asyncio.Lock()
+        # Capture the running loop here, in the coroutine's own frame (we ARE the
+        # loop thread). check_completions() may run on a background spawn thread
+        # (spawn_sub_agent publishes synchronously on a plain threading.Thread),
+        # where asyncio.get_running_loop() would raise RuntimeError and the
+        # completion signal would be silently dropped — hanging the awaiter.
+        loop = asyncio.get_running_loop()
         
-        async with self._async_spawn_lock:
+        # Read target agents under the single threading.RLock shared with the
+        # sync path so a background spawn thread cannot mutate _spawned_agents
+        # mid-read. These critical sections are synchronous (no await).
+        with self._spawn_lock:
             target_agents = agent_ids or list(self._spawned_agents.keys())
         
         if not target_agents:
             # Return existing completions for the requested agents
-            async with self._async_spawn_lock:
+            with self._spawn_lock:
                 return [e for e in self._completion_events if not agent_ids or e.agent_id in agent_ids]
         
         # Use asyncio.Event for efficient waiting
@@ -3899,45 +4458,54 @@ class AgentTeam(SpawnAnnounceProtocol):
         
         def check_completions():
             """Check if all target agents are completed - THREAD-SAFE version."""
-            for event in self._completion_events:
+            with self._spawn_lock:
+                events_snapshot = list(self._completion_events)
+            for event in events_snapshot:
                 if event.agent_id in target_agents:
                     completed_agents.add(event.agent_id)
             
             if completed_agents >= set(target_agents):
-                # CRITICAL FIX: Use call_soon_threadsafe() to safely set event from background thread
+                # Use call_soon_threadsafe() with the loop captured in the
+                # coroutine's frame above, so this works whether check_completions
+                # runs on the loop thread (initial check) or on a background spawn
+                # thread (synchronous EventBus publish).
+                loop.call_soon_threadsafe(completion_event.set)
+        
+        # Subscribe BEFORE the initial state check. If we checked first and then
+        # subscribed, a sub-agent finishing on its background thread in that gap
+        # would append its completion event AND publish it with no subscriber
+        # attached — and the event bus does not replay past events, so the signal
+        # would be lost and the awaiter would hang until timeout (or forever when
+        # timeout is None). completion_handler re-snapshots the full completion
+        # list under the lock, and Event.set() is idempotent, so subscribing
+        # first is safe and simply re-checks state on every published completion.
+        def completion_handler(event):
+            if event.data.get("parent_id") == self._team_id:
+                check_completions()
+
+        subscriber_id = self._event_bus.subscribe(
+            completion_handler,
+            [EventType.SUBAGENT_COMPLETED.value, EventType.SUBAGENT_ERROR.value]
+        ) if self._event_bus else None
+
+        try:
+            # Check initial state (covers completions that landed before we
+            # subscribed); the subscription covers everything after.
+            check_completions()
+
+            if not completion_event.is_set():
                 try:
-                    loop = asyncio.get_running_loop()
-                    loop.call_soon_threadsafe(completion_event.set)
-                except RuntimeError:
-                    # Fallback if no event loop running
+                    # Wait for completion or timeout
+                    await asyncio.wait_for(completion_event.wait(), timeout=timeout)
+                except asyncio.TimeoutError:
                     pass
-        
-        # Check initial state
-        check_completions()
-        
-        if not completion_event.is_set():
-            # Subscribe to completion events temporarily
-            def completion_handler(event):
-                if event.data.get("parent_id") == self._team_id:
-                    check_completions()
-            
-            subscriber_id = self._event_bus.subscribe(
-                completion_handler,
-                [EventType.SUBAGENT_COMPLETED.value, EventType.SUBAGENT_ERROR.value]
-            ) if self._event_bus else None
-            
-            try:
-                # Wait for completion or timeout
-                await asyncio.wait_for(completion_event.wait(), timeout=timeout)
-            except asyncio.TimeoutError:
-                pass
-            finally:
-                # Unsubscribe
-                if subscriber_id and self._event_bus:
-                    self._event_bus.unsubscribe(subscriber_id)
+        finally:
+            # Unsubscribe
+            if subscriber_id and self._event_bus:
+                self._event_bus.unsubscribe(subscriber_id)
         
         # Return completed events
-        async with self._async_spawn_lock:
+        with self._spawn_lock:
             return [e for e in self._completion_events if e.agent_id in target_agents]
 
     def __enter__(self):

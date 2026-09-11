@@ -3,7 +3,7 @@ use std::{
     cell::{Cell, RefCell},
     cmp::Ordering,
     collections::BTreeSet,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use ahash::AHashMap;
@@ -17,6 +17,12 @@ use crate::{
 
 /// Past this many remembered pairs a run keeps recomputing rather than grow without end.
 const INTERSECTION_CACHE_CAPACITY: usize = 1 << 20;
+
+/// Past this many remembered nodes a run walks them again rather than grow without end.
+const FACET_CACHE_CAPACITY: usize = 1 << 16;
+
+/// Patterns compiled under one document's engine, shared by every run over it.
+pub(crate) type SharedRegexes = Arc<Mutex<AHashMap<Arc<str>, Option<Arc<CompiledMatcher>>>>>;
 
 pub(crate) enum CompiledMatcher {
     Regex(regex::Regex),
@@ -41,9 +47,15 @@ pub(crate) struct CanonicalizationContext {
     validate_formats: bool,
     /// `None` caches a rejected pattern so callers don't recompile it.
     regex_cache: RefCell<AHashMap<Arc<str>, Option<Arc<CompiledMatcher>>>>,
+    /// The compiled patterns of the document this run reads, which outlive it: every run over that
+    /// document translates and compiles the same texts under the same engine.
+    shared_regexes: Option<SharedRegexes>,
     /// An `allOf` over unions takes the product of their branches, which reaches the same pair
     /// of nodes over and over - on a schema of five such `allOf`s, 431 times per distinct pair.
     intersections: RefCell<AHashMap<(Schema, Schema), Remembered>>,
+    /// Every containment query reads the facets of the node it asks about, and the object walks ask
+    /// about the same handful of nodes once per piece they cut out.
+    uncheckable_facets: RefCell<AHashMap<Schema, Arc<BTreeSet<Arc<str>>>>>,
     /// An intersection reached during this run that the canonical form cannot express exactly.
     /// Nodes built around it may already be wrong, so the whole run is discarded rather than the site.
     inexact_intersection: Cell<bool>,
@@ -57,6 +69,11 @@ pub(crate) struct CanonicalizationContext {
     intersections_left: Cell<u64>,
     /// Variants the conditional splits of this run may still produce. Nesting multiplies them.
     variants_left: Cell<u64>,
+    /// Set where a conditional split asked for more cases than were left.
+    outgrew_cases: Cell<bool>,
+    /// Address of the first subschema whose parse declined, for the pointer naming it. Compared
+    /// against the document's nodes, never read through.
+    declined_at: Cell<Option<usize>>,
 }
 
 /// Intersections one run may take before giving up and leaving the document `Raw`. Above what the
@@ -79,13 +96,23 @@ impl CanonicalizationContext {
             pattern_options,
             validate_formats,
             regex_cache: RefCell::new(AHashMap::new()),
+            shared_regexes: None,
             intersections: RefCell::new(AHashMap::new()),
+            uncheckable_facets: RefCell::new(AHashMap::new()),
             inexact_intersection: Cell::new(false),
             intersections_left: Cell::new(INTERSECTION_BUDGET),
             variants_left: Cell::new(VARIANT_BUDGET),
+            outgrew_cases: Cell::new(false),
+            declined_at: Cell::new(None),
             definitions: None,
             cyclic: BTreeSet::new(),
         }
+    }
+
+    /// The same context, keeping what it compiles for the next run over the same document.
+    pub(crate) fn sharing_regexes(mut self, regexes: SharedRegexes) -> Self {
+        self.shared_regexes = Some(regexes);
+        self
     }
 
     /// The same context, reading intersections through `definitions`. The caller passes a map only
@@ -185,6 +212,7 @@ impl CanonicalizationContext {
     pub(crate) fn take_variants(&self, count: u64) -> bool {
         let left = self.variants_left.get();
         if left < count {
+            self.note_outgrew_cases();
             return false;
         }
         self.variants_left.set(left - count);
@@ -207,6 +235,40 @@ impl CanonicalizationContext {
         self.intersections_left.get() == 0
     }
 
+    pub(crate) fn note_outgrew_cases(&self) {
+        self.outgrew_cases.set(true);
+    }
+
+    pub(crate) fn outgrew_cases(&self) -> bool {
+        self.outgrew_cases.get()
+    }
+
+    /// Remember the subschema whose parse declined, unless one is already remembered: the walk is
+    /// depth first and every caller passes a decline on, so the first is the one that caused it.
+    pub(crate) fn note_declined(&self, address: usize) {
+        if self.declined_at.get().is_none() {
+            self.declined_at.set(Some(address));
+        }
+    }
+
+    /// Forget the decline of an earlier parse attempt, whose nodes this one re-reads.
+    pub(crate) fn forget_decline(&self) {
+        self.declined_at.set(None);
+    }
+
+    pub(crate) fn declined_at(&self) -> Option<usize> {
+        self.declined_at.get()
+    }
+
+    /// Parse a schema this run wrote itself, keeping what it declines on off the record: those
+    /// nodes are not the document's, and the node standing in for them is the one being rewritten.
+    pub(crate) fn over_rewritten<T>(&self, parse: impl FnOnce() -> T) -> T {
+        let before = self.declined_at.replace(None);
+        let parsed = parse();
+        self.declined_at.set(before);
+        parsed
+    }
+
     pub(crate) fn validate_formats(&self) -> bool {
         self.validate_formats
     }
@@ -217,11 +279,45 @@ impl CanonicalizationContext {
         if let Some(cached) = self.regex_cache.borrow().get(pattern) {
             return cached.clone();
         }
-        let compiled = compile(self.pattern_options, pattern).map(Arc::new);
+        // Reached once per pattern per run, so the shared map is locked that often rather than
+        // once per use. The document fixes the engine, so its text alone names the matcher.
+        let shared = self.shared_regexes.as_ref();
+        let held = shared.and_then(|shared| {
+            let shared = shared.lock().ok()?;
+            shared.get(pattern).cloned()
+        });
+        let compiled = if let Some(compiled) = held {
+            compiled
+        } else {
+            // Compiled outside the lock: holding it across a translation would serialize every
+            // other run over the document, and a panic there would poison the cache.
+            let compiled = compile(self.pattern_options, pattern).map(Arc::new);
+            if let Some(mut shared) = shared.and_then(|shared| shared.lock().ok()) {
+                shared.insert(Arc::clone(pattern), compiled.clone());
+            }
+            compiled
+        };
         self.regex_cache
             .borrow_mut()
             .insert(Arc::clone(pattern), compiled.clone());
         compiled
+    }
+
+    /// The facets of `schema` no checker covers, walking the node the first time it is asked about.
+    pub(crate) fn uncheckable_facets(
+        &self,
+        schema: &Schema,
+        walk: impl FnOnce() -> BTreeSet<Arc<str>>,
+    ) -> Arc<BTreeSet<Arc<str>>> {
+        if let Some(cached) = self.uncheckable_facets.borrow().get(schema) {
+            return Arc::clone(cached);
+        }
+        let found = Arc::new(walk());
+        let mut cache = self.uncheckable_facets.borrow_mut();
+        if cache.len() < FACET_CACHE_CAPACITY {
+            cache.insert(schema.clone(), Arc::clone(&found));
+        }
+        found
     }
 
     /// The intersection of these two, from an earlier run of the same pair. One the form could only

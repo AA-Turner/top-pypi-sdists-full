@@ -39,6 +39,7 @@ from matrx_scraper.web_crawl.url_identity import (
     upsert_observed_page_urls,
 )
 from matrx_scraper.utils.url import normalize_url, validate_and_correct_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ async def _upsert_sitemap_documents(
                     "re-observed a sitemap the user previously dismissed — "
                     "reviving with dismissal memory: %s (dismissed_at=%s, "
                     "cycles=%d, session=%s)",
-                    doc.url,
+                    redact_url_secrets(doc.url),
                     row.deleted_at,
                     len(revived_metadata["dismissals"]),
                     session_id,
@@ -219,7 +220,7 @@ async def _upsert_pages_and_memberships(
             continue
         sitemap_id = sitemap_ids.get(doc.url)
         if sitemap_id is None:
-            raise RuntimeError(f"sitemap row missing for fetched document {doc.url}")
+            raise RuntimeError(f"sitemap row missing for fetched document {redact_url_secrets(doc.url)}")
         for entry in doc.entries:
             normalized = normalize_sitemap_loc(entry.loc)
             if normalized is None:

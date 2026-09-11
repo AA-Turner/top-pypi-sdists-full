@@ -35,11 +35,14 @@ class DynamicSecretUpdateLdap(object):
     """
     openapi_types = {
         'provider_type': 'str',
+        'ara_enabled': 'bool',
         'bind_dn': 'str',
         'bind_dn_password': 'str',
         'custom_username_template': 'str',
         'delete_protection': 'str',
         'description': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'external_username': 'str',
         'fixed_user_claim_keyname': 'str',
         'group_dn': 'str',
@@ -58,9 +61,11 @@ class DynamicSecretUpdateLdap(object):
         'secure_access_certificate_issuer': 'str',
         'secure_access_delay': 'int',
         'secure_access_enable': 'str',
+        'secure_access_enforce_hosts_restriction': 'bool',
         'secure_access_host': 'list[str]',
         'secure_access_rd_gateway_server': 'str',
         'secure_access_rdp_domain': 'str',
+        'skip_dry_run': 'str',
         'tags': 'list[str]',
         'target': 'list[str]',
         'target_name': 'str',
@@ -78,11 +83,14 @@ class DynamicSecretUpdateLdap(object):
 
     attribute_map = {
         'provider_type': 'ProviderType',
+        'ara_enabled': 'ara-enabled',
         'bind_dn': 'bind-dn',
         'bind_dn_password': 'bind-dn-password',
         'custom_username_template': 'custom-username-template',
         'delete_protection': 'delete_protection',
         'description': 'description',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'external_username': 'external-username',
         'fixed_user_claim_keyname': 'fixed-user-claim-keyname',
         'group_dn': 'group-dn',
@@ -101,9 +109,11 @@ class DynamicSecretUpdateLdap(object):
         'secure_access_certificate_issuer': 'secure-access-certificate-issuer',
         'secure_access_delay': 'secure-access-delay',
         'secure_access_enable': 'secure-access-enable',
+        'secure_access_enforce_hosts_restriction': 'secure-access-enforce-hosts-restriction',
         'secure_access_host': 'secure-access-host',
         'secure_access_rd_gateway_server': 'secure-access-rd-gateway-server',
         'secure_access_rdp_domain': 'secure-access-rdp-domain',
+        'skip_dry_run': 'skip_dry_run',
         'tags': 'tags',
         'target': 'target',
         'target_name': 'target-name',
@@ -119,18 +129,21 @@ class DynamicSecretUpdateLdap(object):
         'user_ttl': 'user-ttl'
     }
 
-    def __init__(self, provider_type=None, bind_dn=None, bind_dn_password=None, custom_username_template=None, delete_protection=None, description=None, external_username='false', fixed_user_claim_keyname='ext_username', group_dn=None, host_provider=None, input_rule=None, item_custom_fields=None, json=False, ldap_ca_cert=None, ldap_url=None, name=None, new_name=None, output_rule=None, password_length=None, producer_encryption_key_name=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_delay=None, secure_access_enable=None, secure_access_host=None, secure_access_rd_gateway_server=None, secure_access_rdp_domain=None, tags=None, target=None, target_name=None, token=None, token_expiration=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_attribute=None, user_dn=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, provider_type=None, ara_enabled=None, bind_dn=None, bind_dn_password=None, custom_username_template=None, delete_protection=None, description=None, enable_agentic_runtime_authority=None, enable_ai_quorum=None, external_username='false', fixed_user_claim_keyname='ext_username', group_dn=None, host_provider=None, input_rule=None, item_custom_fields=None, json=False, ldap_ca_cert=None, ldap_url=None, name=None, new_name=None, output_rule=None, password_length=None, producer_encryption_key_name=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_delay=None, secure_access_enable=None, secure_access_enforce_hosts_restriction=None, secure_access_host=None, secure_access_rd_gateway_server=None, secure_access_rdp_domain=None, skip_dry_run=None, tags=None, target=None, target_name=None, token=None, token_expiration=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_attribute=None, user_dn=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
         """DynamicSecretUpdateLdap - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._provider_type = None
+        self._ara_enabled = None
         self._bind_dn = None
         self._bind_dn_password = None
         self._custom_username_template = None
         self._delete_protection = None
         self._description = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._external_username = None
         self._fixed_user_claim_keyname = None
         self._group_dn = None
@@ -149,9 +162,11 @@ class DynamicSecretUpdateLdap(object):
         self._secure_access_certificate_issuer = None
         self._secure_access_delay = None
         self._secure_access_enable = None
+        self._secure_access_enforce_hosts_restriction = None
         self._secure_access_host = None
         self._secure_access_rd_gateway_server = None
         self._secure_access_rdp_domain = None
+        self._skip_dry_run = None
         self._tags = None
         self._target = None
         self._target_name = None
@@ -169,6 +184,8 @@ class DynamicSecretUpdateLdap(object):
 
         if provider_type is not None:
             self.provider_type = provider_type
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if bind_dn is not None:
             self.bind_dn = bind_dn
         if bind_dn_password is not None:
@@ -179,6 +196,10 @@ class DynamicSecretUpdateLdap(object):
             self.delete_protection = delete_protection
         if description is not None:
             self.description = description
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if external_username is not None:
             self.external_username = external_username
         if fixed_user_claim_keyname is not None:
@@ -214,12 +235,16 @@ class DynamicSecretUpdateLdap(object):
             self.secure_access_delay = secure_access_delay
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
+        if secure_access_enforce_hosts_restriction is not None:
+            self.secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
         if secure_access_host is not None:
             self.secure_access_host = secure_access_host
         if secure_access_rd_gateway_server is not None:
             self.secure_access_rd_gateway_server = secure_access_rd_gateway_server
         if secure_access_rdp_domain is not None:
             self.secure_access_rdp_domain = secure_access_rdp_domain
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if tags is not None:
             self.tags = tags
         if target is not None:
@@ -267,6 +292,29 @@ class DynamicSecretUpdateLdap(object):
         """
 
         self._provider_type = provider_type
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this DynamicSecretUpdateLdap.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :return: The ara_enabled of this DynamicSecretUpdateLdap.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this DynamicSecretUpdateLdap.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this DynamicSecretUpdateLdap.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def bind_dn(self):
@@ -384,6 +432,52 @@ class DynamicSecretUpdateLdap(object):
         self._description = description
 
     @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this DynamicSecretUpdateLdap.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this DynamicSecretUpdateLdap.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this DynamicSecretUpdateLdap.
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this DynamicSecretUpdateLdap.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this DynamicSecretUpdateLdap.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this DynamicSecretUpdateLdap.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this DynamicSecretUpdateLdap.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this DynamicSecretUpdateLdap.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
+
+    @property
     def external_username(self):
         """Gets the external_username of this DynamicSecretUpdateLdap.  # noqa: E501
 
@@ -456,7 +550,7 @@ class DynamicSecretUpdateLdap(object):
     def host_provider(self):
         """Gets the host_provider of this DynamicSecretUpdateLdap.  # noqa: E501
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :return: The host_provider of this DynamicSecretUpdateLdap.  # noqa: E501
         :rtype: str
@@ -467,7 +561,7 @@ class DynamicSecretUpdateLdap(object):
     def host_provider(self, host_provider):
         """Sets the host_provider of this DynamicSecretUpdateLdap.
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :param host_provider: The host_provider of this DynamicSecretUpdateLdap.  # noqa: E501
         :type: str
@@ -800,6 +894,29 @@ class DynamicSecretUpdateLdap(object):
         self._secure_access_enable = secure_access_enable
 
     @property
+    def secure_access_enforce_hosts_restriction(self):
+        """Gets the secure_access_enforce_hosts_restriction of this DynamicSecretUpdateLdap.  # noqa: E501
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :return: The secure_access_enforce_hosts_restriction of this DynamicSecretUpdateLdap.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_enforce_hosts_restriction
+
+    @secure_access_enforce_hosts_restriction.setter
+    def secure_access_enforce_hosts_restriction(self, secure_access_enforce_hosts_restriction):
+        """Sets the secure_access_enforce_hosts_restriction of this DynamicSecretUpdateLdap.
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :param secure_access_enforce_hosts_restriction: The secure_access_enforce_hosts_restriction of this DynamicSecretUpdateLdap.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
+
+    @property
     def secure_access_host(self):
         """Gets the secure_access_host of this DynamicSecretUpdateLdap.  # noqa: E501
 
@@ -869,6 +986,29 @@ class DynamicSecretUpdateLdap(object):
         self._secure_access_rdp_domain = secure_access_rdp_domain
 
     @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this DynamicSecretUpdateLdap.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this DynamicSecretUpdateLdap.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this DynamicSecretUpdateLdap.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this DynamicSecretUpdateLdap.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
+
+    @property
     def tags(self):
         """Gets the tags of this DynamicSecretUpdateLdap.  # noqa: E501
 
@@ -895,7 +1035,7 @@ class DynamicSecretUpdateLdap(object):
     def target(self):
         """Gets the target of this DynamicSecretUpdateLdap.  # noqa: E501
 
-        A list of linked targets to be associated, Relevant only for Secure Remote Access for ssh cert issuer, ldap rotated secret and ldap dynamic secret, To specify multiple targets use argument multiple times  # noqa: E501
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
 
         :return: The target of this DynamicSecretUpdateLdap.  # noqa: E501
         :rtype: list[str]
@@ -906,7 +1046,7 @@ class DynamicSecretUpdateLdap(object):
     def target(self, target):
         """Sets the target of this DynamicSecretUpdateLdap.
 
-        A list of linked targets to be associated, Relevant only for Secure Remote Access for ssh cert issuer, ldap rotated secret and ldap dynamic secret, To specify multiple targets use argument multiple times  # noqa: E501
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
 
         :param target: The target of this DynamicSecretUpdateLdap.  # noqa: E501
         :type: list[str]

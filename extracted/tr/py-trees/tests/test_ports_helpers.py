@@ -17,13 +17,8 @@ from py_trees.ports import BehaviourWithPorts, PortInformation, PortsMixin
 class Producer(BehaviourWithPorts):
     OUTPUT_PORT = "output"
 
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {cls.OUTPUT_PORT: PortInformation(data_type=str, required=True)}
+    INPUT_PORTS = {}
+    OUTPUT_PORTS = {OUTPUT_PORT: PortInformation(data_type=str, required=True)}
 
     def update(self) -> py_trees.common.Status:
         self._set_output(self.OUTPUT_PORT, f"Producer[{self.subtree_namespace}:{self.name}]")
@@ -34,13 +29,8 @@ class ConsumerProducer(BehaviourWithPorts):
     OUTPUT_PORT = "output"
     INPUT_PORT = "input"
 
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {cls.INPUT_PORT: PortInformation(data_type=str, required=True)}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {cls.OUTPUT_PORT: PortInformation(data_type=str, required=True)}
+    INPUT_PORTS = {INPUT_PORT: PortInformation(data_type=str, required=True)}
+    OUTPUT_PORTS = {OUTPUT_PORT: PortInformation(data_type=str, required=True)}
 
     def update(self) -> py_trees.common.Status:
         input_value = self.get_input(self.INPUT_PORT)
@@ -51,13 +41,8 @@ class ConsumerProducer(BehaviourWithPorts):
 class Consumer(BehaviourWithPorts):
     INPUT_PORT = "input"
 
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {cls.INPUT_PORT: PortInformation(data_type=str, required=True)}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
+    INPUT_PORTS = {INPUT_PORT: PortInformation(data_type=str, required=True)}
+    OUTPUT_PORTS = {}
 
     def update(self) -> py_trees.common.Status:
         return py_trees.common.Status.SUCCESS
@@ -70,13 +55,8 @@ class Consumer(BehaviourWithPorts):
 class FloatConsumer(BehaviourWithPorts):
     INPUT_PORT = "input"
 
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {cls.INPUT_PORT: PortInformation(data_type=float, required=True)}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
+    INPUT_PORTS = {INPUT_PORT: PortInformation(data_type=float, required=True)}
+    OUTPUT_PORTS = {}
 
     def update(self) -> py_trees.common.Status:
         return py_trees.common.Status.SUCCESS
@@ -84,6 +64,37 @@ class FloatConsumer(BehaviourWithPorts):
     @property
     def consumed_value(self) -> Any:
         return self.get_input(self.INPUT_PORT)
+
+
+class DefaultingConsumer(BehaviourWithPorts):
+    """Consumer whose input ports declare default values."""
+
+    INPUT_PORTS = {
+        "input": PortInformation(data_type=str, required=True, default_value="fallback"),
+        "items": PortInformation(data_type=list[int], required=False, default_value=[1, 2]),
+    }
+    OUTPUT_PORTS = {}
+
+    def update(self) -> py_trees.common.Status:
+        return py_trees.common.Status.SUCCESS
+
+    @property
+    def consumed_value(self) -> Any:
+        return self.get_input("input")
+
+
+class DefaultingProducer(BehaviourWithPorts):
+    """Producer whose output ports declare default values."""
+
+    INPUT_PORTS = {}
+    OUTPUT_PORTS = {
+        "output": PortInformation(data_type=str, default_value="initial"),
+        "items": PortInformation(data_type=list[int], default_value=[1, 2]),
+    }
+
+    def update(self) -> py_trees.common.Status:
+        self._set_output("output", "produced")
+        return py_trees.common.Status.SUCCESS
 
 
 # ---------- Tiny direct-only leaves (no ports needed) ----------
@@ -135,13 +146,8 @@ class RunsThenSucceeds(py_trees.behaviour.Behaviour):
 
 
 class AlwaysSuccessBP(BehaviourWithPorts):
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
+    INPUT_PORTS = {}
+    OUTPUT_PORTS = {}
 
     def __init__(self, name: str, **kwargs: Any) -> None:
         super().__init__(name=name, **kwargs)
@@ -151,13 +157,8 @@ class AlwaysSuccessBP(BehaviourWithPorts):
 
 
 class AlwaysFailureBP(BehaviourWithPorts):
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
+    INPUT_PORTS = {}
+    OUTPUT_PORTS = {}
 
     def __init__(self, name: str, **kwargs: Any) -> None:
         super().__init__(name=name, **kwargs)
@@ -167,13 +168,8 @@ class AlwaysFailureBP(BehaviourWithPorts):
 
 
 class AlwaysRunningBP(BehaviourWithPorts):
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
+    INPUT_PORTS = {}
+    OUTPUT_PORTS = {}
 
     def __init__(self, name: str, **kwargs: Any) -> None:
         super().__init__(name=name, **kwargs)

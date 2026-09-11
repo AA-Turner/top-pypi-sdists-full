@@ -142,8 +142,7 @@ def transform_type(
             if x is None:
                 if defined:
                     raise SQLTemplateException(REQUIRED_PARAM_NOT_DEFINED, documentation="/cli/advanced-templates.html")
-                else:
-                    return None
+                return None
         if tester == "String":
             if x is not None:
                 return transform(x)
@@ -167,12 +166,11 @@ def _and(*args, **kwargs):
         tk = k.rsplit("__", 1)
         if len(tk) == 1:
             return "="
-        else:
-            if tk[1] in operands:
-                return operands[tk[1]]
-            raise SQLTemplateException(
-                f"operand {tk[1]} not supported", documentation="/cli/advanced-templates.html#sql_and"
-            )
+        if tk[1] in operands:
+            return operands[tk[1]]
+        raise SQLTemplateException(
+            f"operand {tk[1]} not supported", documentation="/cli/advanced-templates.html#sql_and"
+        )
 
     return Expression(
         " and ".join([f"{_name(k)} {_op(k)} {expression_wrapper(v, k)}" for k, v in kwargs.items() if v is not None])
@@ -277,8 +275,7 @@ def columns(x, default=None, fn=None):
 
     if fn:
         return Expression(",".join(f"{fn}({str(column(c, c))}) as {c}" for c in _columns))
-    else:
-        return Expression(",".join(str(column(c, c)) for c in _columns))
+    return Expression(",".join(str(column(c, c)) for c in _columns))
 
 
 def column(x, default=None):
@@ -368,11 +365,10 @@ def boolean(x, default=None):
         if default is None:
             return 0
         return boolean(default)
-    elif isinstance(x, Placeholder):
+    if isinstance(x, Placeholder):
         return boolean(default)
-    elif isinstance(x, str):
-        if x == "0" or x.lower() == "false":
-            return 0
+    if isinstance(x, str) and (x == "0" or x.lower() == "false"):
+        return 0
 
     return int(bool(x))
 
@@ -403,8 +399,7 @@ def array_type(types):
                         raise SQLTemplateException(
                             REQUIRED_PARAM_NOT_DEFINED, documentation="/cli/advanced-templates.html"
                         )
-                    else:
-                        return None
+                    return None
             values = []
             list_values = x if type(x) == list else x.split(",")  # noqa: E721
             for i, t in enumerate(list_values):
@@ -744,12 +739,11 @@ def __date_diff(
 
         if unit == "days":
             return int(diff / 86400)
-        elif unit == "hours":
+        if unit == "hours":
             return int(diff / 3600)
-        elif unit == "minutes":
+        if unit == "minutes":
             return int(diff / 60)
-        else:
-            return int(diff)
+        return int(diff)
     except Exception:
         if none_if_error:
             return None
@@ -1348,9 +1342,9 @@ def escape_single_quote_str(s):
 def expression_wrapper(x, name, escape_arrays: bool = False):
     if type(x) in (unicode_type, bytes, str):
         return "'" + sqlescape_for_string_expression(x) + "'"
-    elif isinstance(x, Placeholder):
+    if isinstance(x, Placeholder):
         return "'__no_value__'"
-    elif isinstance(x, Comment):
+    if isinstance(x, Comment):
         return "-- {x} \n"
     if x is None:
         truncated_name = name[:20] + "..." if len(name) > 20 else name
@@ -1361,10 +1355,7 @@ def expression_wrapper(x, name, escape_arrays: bool = False):
         logging.warning(f"expression_wrapper -> list :{x}:")
 
         try:
-            result = (
-                f"[{','.join(escape_single_quote_str(item) if isinstance(item, str) else str(item) for item in x)}]"
-            )
-            return result
+            return f"[{','.join(escape_single_quote_str(item) if isinstance(item, str) else str(item) for item in x)}]"
         except Exception as e:
             logging.error(f"Error escaping array: {e}")
     return x
@@ -1425,20 +1416,18 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
                 # secret available: Always use workspace secret regardless of test mode
                 template_execution_results.add_ch_param(x)
                 return Symbol("{" + sqlescape(x) + ": String}")
-            else:
-                # secret not available: Check test mode and defaults
-                is_test_mode = TB_SECRET_IN_TEST_MODE in template_execution_results
-                if default is not None:
-                    # Use provided default value
-                    return default
-                elif is_test_mode:
-                    # In test mode without default - return placeholder
-                    return Symbol("{" + sqlescape(x) + ": String}")
-                else:
-                    # Not in test mode, no secret, no default - raise error
-                    raise SQLTemplateException(
-                        f"Cannot access secret '{x}'. Check the secret exists in the Workspace and the token has the required scope."
-                    )
+            # secret not available: Check test mode and defaults
+            is_test_mode = TB_SECRET_IN_TEST_MODE in template_execution_results
+            if default is not None:
+                # Use provided default value
+                return default
+            if is_test_mode:
+                # In test mode without default - return placeholder
+                return Symbol("{" + sqlescape(x) + ": String}")
+            # Not in test mode, no secret, no default - raise error
+            raise SQLTemplateException(
+                f"Cannot access secret '{x}'. Check the secret exists in the Workspace and the token has the required scope."
+            )
         except Exception:
             raise SQLTemplateException(
                 f"Cannot access secret '{x}'. Check the secret exists in the Workspace and the token has the required scope."
@@ -1522,14 +1511,12 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
 
             if line:
                 raise SQLTemplateException(f"{message.strip()} line {line[0]}")
-            else:
-                raise SQLTemplateException(f"{message.strip()}")
+            raise SQLTemplateException(f"{message.strip()}")
         except Exception as e:
             if isinstance(e, SQLTemplateException):
                 raise e
-            else:
-                logging.exception(f"Error on unbound local error: {e}")
-                raise ValueError(str(e))
+            logging.exception(f"Error on unbound local error: {e}")
+            raise ValueError(str(e))
     except TypeError as e:
         error = str(e)
         if "not supported between instances of 'Placeholder' and " in str(e):
@@ -1960,29 +1947,27 @@ def get_var_data(content, node_id=None):
         # ast.Constant nodes, so .value holds str/bytes/int/float/bool/None.
         if type(x) == ast.Constant:  # noqa: E721
             return x.value
-        elif type(x) == ast.Name:  # noqa: E721
+        if type(x) == ast.Name:  # noqa: E721
             return x.id
-        elif type(x) == ast.List:  # noqa: E721
+        if type(x) == ast.List:  # noqa: E721
             # List can hold different types
             return _get_list_var_data(x)
-        elif type(x) == ast.BinOp:  # noqa: E721
+        if type(x) == ast.BinOp:  # noqa: E721
             # in this case there could be several variables
             # if that's the case the left one is the main
             r = node_to_value(x.left)
             if not r:
                 r = node_to_value(x.right)
             return r
-        elif type(x) == ast.UnaryOp and type(x.operand) == ast.Constant:  # noqa: E721
+        if type(x) == ast.UnaryOp and type(x.operand) == ast.Constant:  # noqa: E721
             if type(x.op) == ast.USub:  # noqa: E721
                 return x.operand.value * -1
-            else:
-                return x.operand.value
-        else:
-            try:
-                return x.id
-            except Exception:
-                # don't let this ruin the parsing
-                pass
+            return x.operand.value
+        try:
+            return x.id
+        except Exception:
+            # don't let this ruin the parsing
+            pass
         return None
 
     def _get_list_var_data(x):
@@ -1994,7 +1979,7 @@ def get_var_data(content, node_id=None):
         # ast.Bytes/ast.Str/ast.Num/ast.NameConstant (removed in 3.14).
         if type(first_elem) == ast.Constant:  # noqa: E721
             return [elem.value for elem in x.elts]
-        elif type(first_elem) == ast.Name:  # noqa: E721
+        if type(first_elem) == ast.Name:  # noqa: E721
             return [elem.id for elem in x.elts]
 
         return []
@@ -2013,8 +1998,7 @@ def get_var_data(content, node_id=None):
     # to just `ast.parse(content)` once we confirm all environments use patched Python versions.
     def parse_content(content, retries=0):
         try:
-            parsed = ast.parse(content)
-            return parsed
+            return ast.parse(content)
         except Exception as e:
             if "AST constructor recursion depth mismatch" not in str(e):
                 raise e
@@ -2042,8 +2026,7 @@ def get_var_data(content, node_id=None):
                     if type(x) == ast.Call:  # noqa: E721
                         # Nested calls are traversed via `ast.iter_child_nodes` below.
                         continue
-                    else:
-                        args.append(node_to_value(x))
+                    args.append(node_to_value(x))
 
                 kwargs = {}
                 for x in node.keywords:
@@ -2531,8 +2514,7 @@ def format_SQLTemplateException_message(e: SQLTemplateException, vars_and_types:
             f"{REQUIRED_PARAM_NOT_DEFINED}. Check the parameters {join_with_different_last_separator(vars_with_default_none)}. Please provide a value or set a default value in the pipe code.",
             e.documentation,
         )
-    else:
-        raise e
+    raise e
 
 
 def render_sql_template(
@@ -2913,12 +2895,12 @@ def render_sql_template(
         # https://gitlab.com/tinybird/analytics/-/issues/943
         if "length" in v and not v["length"]:
             raise SQLTemplateException("length cannot be used as a variable name or as a function inside of a template")
-        elif "missing 1 required positional argument" in str(e):
+        if "missing 1 required positional argument" in str(e):
             raise SQLTemplateException(
                 "one of the transform type functions is missing an argument",
                 documentation="/cli/advanced-templates.html#transform-types-functions",
             )
-        elif "not callable" in str(e) or "unhashable type" in str(e):
+        if "not callable" in str(e) or "unhashable type" in str(e):
             raise SQLTemplateException(
                 "wrong syntax, you might be using a not valid function inside a control block",
                 documentation="/cli/advanced-templates.html",
@@ -3063,7 +3045,7 @@ def render_template_with_secrets(
                     )
                 return '""'
             return value
-        elif default is not None:
+        if default is not None:
             if isinstance(default, str) and len(default) == 0:
                 if empty_secret_raises:
                     raise SQLTemplateException(
@@ -3071,10 +3053,9 @@ def render_template_with_secrets(
                     )
                 return '""'
             return default
-        else:
-            raise SQLTemplateException(
-                f"Cannot access secret '{secret_name}'. Check the secret exists in the Workspace and the token has the required scope."
-            )
+        raise SQLTemplateException(
+            f"Cannot access secret '{secret_name}'. Check the secret exists in the Workspace and the token has the required scope."
+        )
 
     # Create the template
     t = Template(content, name=name, autoescape=None)

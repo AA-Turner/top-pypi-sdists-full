@@ -80,7 +80,13 @@ class SelkiesSupervisor:
 
     @staticmethod
     def _terminate_process(process: subprocess.Popen[bytes]) -> None:
-        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            # The whole group is already gone — a launcher that died during
+            # startup was reaped by poll(). Nothing is left to stop, and raising
+            # here would mask the real startup failure the caller must see.
+            return
         try:
             process.wait(timeout=0.75)
         except subprocess.TimeoutExpired:

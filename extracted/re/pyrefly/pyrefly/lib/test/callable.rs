@@ -8,6 +8,23 @@
 use crate::test::util::TestEnv;
 use crate::testcase;
 
+// `CallArgPreEval::advance_after_match` is shared with shape-specific call matching. Keep this
+// regression in the general callable suite so the refactor cannot change ordinary variadic
+// type-variable consumption.
+testcase!(
+    ordinary_type_var_tuple_argument_advancement_is_unchanged,
+    r#"
+from typing import assert_type
+
+def pack[*Ts](*args: *Ts) -> tuple[*Ts]: ...
+
+assert_type(pack(1, "x"), tuple[int, str])
+
+def check(xs: tuple[int, str]) -> None:
+    assert_type(pack(*xs), tuple[int, str])
+"#,
+);
+
 testcase!(
     test_lambda,
     r#"
@@ -252,6 +269,21 @@ from typing import Callable
 def test(f: Callable[[bool, *tuple[int, str], bool], None]) -> Callable[[*tuple[bool, int, str, bool]], None]:
     return f
 "#,
+);
+
+testcase!(
+    test_callable_unpacked_homogeneous_tuple_args,
+    r#"
+from typing import Callable
+type VarCallback = Callable[[*tuple[int, ...]], None]
+def takes(cb: VarCallback) -> None:
+    cb(1, 2, 3)  # OK: any number of ints
+    cb("a")  # E: Unpacked argument `tuple[Literal['a']]` is not assignable to varargs type `tuple[int, ...]`
+def good(*args: int) -> None: ...
+def bad(*args: str) -> None: ...
+x: VarCallback = good  # OK
+y: VarCallback = bad  # E: `(*args: str) -> None` is not assignable to `(**tuple[int, ...]) -> None`
+    "#,
 );
 
 testcase!(
@@ -558,8 +590,18 @@ testcase!(
     test_default_ellipsis,
     r#"
 def stub(x: int = ...): ... # OK
-def err(x: int = ...): pass # E: Default `Ellipsis` is not assignable to parameter `x` with type `int`
+def err(x: int = ...): pass # E: Default `EllipsisType` is not assignable to parameter `x` with type `int`
 "#,
+);
+
+testcase!(
+    test_default_value_checked_against_annotation,
+    r#"
+def f1(x: int = 0) -> None: ...  # OK
+def f2(x: int | None = None) -> None: ...  # OK
+def f3(x: int = 0.0) -> None: ...  # E: Default `float` is not assignable to parameter `x` with type `int`
+def f4(x: int = None) -> None: ...  # E: Default `None` is not assignable to parameter `x` with type `int`
+    "#,
 );
 
 testcase!(
@@ -654,6 +696,109 @@ test2(1, *(2, 3), *(4, "5"))  # E: Unpacked argument `tuple[Literal[1], Literal[
 "#,
 );
 
+// Splatting a tuple with a variadic middle preserves the positions of its fixed ends.
+// See https://github.com/facebook/pyrefly/issues/4482
+testcase!(
+    test_splat_unpacked_args_shape,
+    r#"
+class P: ...
+class V: ...
+class S: ...
+
+def f(a1: P, a2: P, /, *args: *tuple[*tuple[V, ...], S, S]) -> None: ...
+
+def test(
+    p: P,
+    v: tuple[V, ...],
+    s: S,
+    vs: tuple[*tuple[V, ...], S],
+    pv: tuple[P, *tuple[V, ...]],
+) -> None:
+    # Reassembles to exactly the `*args` type.
+    f(p, p, *vs, s)
+    # `a2` sees the prefix element `P`, not `P | V`.
+    f(p, *pv, s, s)
+    # All 45 ways to parenthesize the arguments are equivalent.
+    f(p, p, *v, s, s)
+    f(p, p, *v, *(s, s))
+    f(p, p, *(*v, s), s)
+    f(p, p, *(*v, s, s))
+    f(p, p, *(*v, *(s, s)))
+    f(p, p, *(*(*v, s), s))
+    f(p, *(p, *v), s, s)
+    f(p, *(p, *v), *(s, s))
+    f(p, *(p, *v, s), s)
+    f(p, *(p, *(*v, s)), s)
+    f(p, *(*(p, *v), s), s)
+    f(p, *(p, *v, s, s))
+    f(p, *(p, *v, *(s, s)))
+    f(p, *(p, *(*v, s), s))
+    f(p, *(p, *(*v, s, s)))
+    f(p, *(p, *(*v, *(s, s))))
+    f(p, *(p, *(*(*v, s), s)))
+    f(p, *(*(p, *v), s, s))
+    f(p, *(*(p, *v), *(s, s)))
+    f(p, *(*(p, *v, s), s))
+    f(p, *(*(p, *(*v, s)), s))
+    f(p, *(*(*(p, *v), s), s))
+    f(*(p, p), *v, s, s)
+    f(*(p, p), *v, *(s, s))
+    f(*(p, p), *(*v, s), s)
+    f(*(p, p), *(*v, s, s))
+    f(*(p, p), *(*v, *(s, s)))
+    f(*(p, p), *(*(*v, s), s))
+    f(*(p, p, *v), s, s)
+    f(*(p, *(p, *v)), s, s)
+    f(*(*(p, p), *v), s, s)
+    f(*(p, p, *v), *(s, s))
+    f(*(p, *(p, *v)), *(s, s))
+    f(*(*(p, p), *v), *(s, s))
+    f(*(p, p, *v, s), s)
+    f(*(p, p, *(*v, s)), s)
+    f(*(p, *(p, *v), s), s)
+    f(*(p, *(p, *v, s)), s)
+    f(*(p, *(p, *(*v, s))), s)
+    f(*(p, *(*(p, *v), s)), s)
+    f(*(*(p, p), *v, s), s)
+    f(*(*(p, p), *(*v, s)), s)
+    f(*(*(p, p, *v), s), s)
+    f(*(*(p, *(p, *v)), s), s)
+    f(*(*(*(p, p), *v), s), s)
+"#,
+);
+
+// Against ordinary positional parameters, only positions past the prefix widen.
+testcase!(
+    test_splat_unbounded_middle_against_positional,
+    r#"
+def f(a: int, b: str, c: bytes) -> None: ...
+
+def test(
+    prefix: tuple[int, *tuple[str, ...]],
+    suffix: tuple[*tuple[int, ...], bytes],
+) -> None:
+    # `a` gets the prefix element exactly; `b` and `c` draw from the middle.
+    f(*prefix)  # E: Argument `str` is not assignable to parameter `c` with type `bytes`
+    # No prefix, so which parameter the `bytes` reaches depends on the middle's length.
+    f(*suffix)  # E: Argument `bytes | int` is not assignable to parameter `a` with type `int` # E: Argument `bytes | int` is not assignable to parameter `b` with type `str` # E: Argument `bytes | int` is not assignable to parameter `c` with type `bytes`
+"#,
+);
+
+// Variadic parameter takes the whole remainder, so every element must be assignable to it.
+testcase!(
+    test_splat_variadic_checks_whole_remainder,
+    r#"
+def f(*args: int) -> None: ...
+
+def test(
+    mixed: tuple[int, *tuple[str, ...]],
+    none: tuple[str, *tuple[bytes, ...]],
+) -> None:
+    f(*mixed)  # E: Argument `int | str` is not assignable to parameter `*args` with type `int`
+    f(*none)  # E: Argument `bytes | str` is not assignable to parameter `*args` with type `int`
+"#,
+);
+
 testcase!(
     test_splat_union,
     r#"
@@ -700,6 +845,29 @@ def f(x: int, y: int, z: int): ...
 def test(kwargs: dict[str, int]):
     f(**kwargs) # OK
     f(1, **kwargs) # OK
+"#,
+);
+
+testcase!(
+    test_splat_unknown_length_with_known_kwargs_keys,
+    r#"
+from typing import Any
+
+def get_content(
+    service_instance: Any,
+    obj_type: str,
+    property_list: list[str] | None = None,
+    container_ref: Any = None,
+) -> dict[str, Any]:
+    return {}
+
+def call_get_content(instance: Any, obj_type: str) -> dict[str, Any]:
+    args: list[Any] = [instance, obj_type]
+    kwargs = {
+        "property_list": ["name"],
+        "container_ref": None,
+    }
+    return get_content(*args, **kwargs)  # OK
 "#,
 );
 
@@ -859,6 +1027,44 @@ x: P1 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P1`
 y: P2 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P2`
 z: P3 = func1  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `P3`
 "#,
+);
+
+testcase!(
+    test_assignability_unpack_kwargs_to_regular_kwargs,
+    r#"
+from typing import TypedDict, Unpack, Protocol
+class TD(TypedDict):
+    x: int
+class Untyped(Protocol):
+    def __call__(self, **kwargs) -> None: ...
+class Traditional(Protocol):
+    def __call__(self, **kwargs: int) -> None: ...
+def src(**kwargs: Unpack[TD]) -> None: ...
+# An `Unpack[TypedDict]` source is not assignable to an untyped or traditionally
+# typed `**kwargs` destination, because traditional kwargs are not checked for
+# keyword names and could be called with keys the TypedDict does not permit.
+a: Untyped = src  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `Untyped`
+b: Traditional = src  # E: `(**kwargs: Unpack[TD]) -> None` is not assignable to `Traditional`
+"#,
+);
+
+testcase!(
+    test_forwarding_unpack_kwargs_to_fixed_signature,
+    TestEnv::new().enable_open_unpacking_error(),
+    r#"
+from typing import TypedDict, Unpack
+class Open(TypedDict):
+    name: str
+class Closed(TypedDict, closed=True):
+    name: str
+def has_kwargs(**kwargs: Unpack[Open]) -> None: ...
+def takes_name(name: str) -> None: ...
+def forward_open(**kwargs: Unpack[Open]) -> None:
+    has_kwargs(**kwargs)  # OK: target accepts **kwargs
+    takes_name(**kwargs)  # E: `Open` is an open TypedDict with unknown extra items, which cannot be unpacked into a callable without `**kwargs`
+def forward_closed(**kwargs: Unpack[Closed]) -> None:
+    takes_name(**kwargs)  # OK: closed TypedDict has no extra keys
+    "#,
 );
 
 testcase!(
@@ -1352,6 +1558,29 @@ def f(
 );
 
 testcase!(
+    test_builtins_callable_narrow_unknown,
+    r#"
+from typing import Any, Callable, TypeIs, assert_type
+
+def f(x):
+    assert callable(x)
+    assert_type(x, Callable[..., Any])
+    assert_type(x(), Any)
+
+def g(x: object):
+    assert callable(x)
+    assert_type(x, Callable[..., Any])
+
+def is_object_callable(x: object) -> TypeIs[Callable[..., object]]:
+    return callable(x)
+
+def h(x):
+    assert is_object_callable(x)
+    assert_type(x(), object)
+    "#,
+);
+
+testcase!(
     test_narrow_union,
     r#"
 from typing import Any, Callable, assert_type
@@ -1474,7 +1703,6 @@ def test(p4: Proto4[...], p7: Proto7):
 );
 
 testcase!(
-    bug = "conformance: Constructor to Callable conversion issues with overloads and __new__",
     test_constructor_callable_conversion,
     r#"
 from typing import Callable, ParamSpec, TypeVar, Self, assert_type, overload, Generic
@@ -1508,8 +1736,8 @@ class Class8(Generic[T]):
         return super().__new__(cls)
 
 r8 = accepts_callable(Class8)
-# pyrefly incorrectly errors on this - should be OK
-assert_type(r8([""], [""]), Class8[str])  # E: assert_type(Class8[Unknown], Class8[str]) failed
+assert_type(r8([""], [""]), Class8[str])
+r8([1], [""])  # E: Argument `list[str]` is not assignable to parameter `y` with type `list[int]`
 "#,
 );
 
@@ -1703,9 +1931,7 @@ constrained_first(0, lambda x: None)
 "#,
 );
 
-// Lambda arguments are inferred before later arguments can constrain the generic parameter.
 testcase!(
-    bug = "Lambda context ignores later generic constraints",
     test_implicit_any_lambda_late_generic_context,
     TestEnv::new().enable_implicit_any_lambda_error(),
     r#"
@@ -1713,7 +1939,7 @@ from typing import Callable
 
 def constrained_later[T](f: Callable[[T], None], x: T) -> None: ...
 
-constrained_later(lambda x: None, 0)  # E: Type of lambda parameter `x` is unknown
+constrained_later(lambda x: None, 0)
 "#,
 );
 
@@ -1878,11 +2104,10 @@ f = lambda x=1: x
 );
 
 testcase!(
-    bug = "Pyrefly does not contextually type lambda parameters in generic callback arguments (e.g. `sorted(key=...)`), so they become implicit `Any` and are flagged, even though the type is derivable (Pyright infers `int` here)",
     test_implicit_any_lambda_in_generic_call,
     TestEnv::new().enable_implicit_any_lambda_error(),
     r#"
-xs = sorted([3, 1, 2], key=lambda x: x)  # E: Type of lambda parameter `x` is unknown
+xs = sorted([3, 1, 2], key=lambda x: x)
 "#,
 );
 
@@ -1931,5 +2156,49 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     def f(x: int = ...):
         pass
+    "#,
+);
+
+// A `*args: Any, **kwargs: Any` signature written in a definition is gradual (equivalent to
+// `...`), but an `Any` that only arises from substituting a type parameter is not: the
+// signature stays strict.
+testcase!(
+    test_gradual_variadic_params_annotation_vs_substitution,
+    r#"
+from typing import Any, ParamSpec, Protocol, TypeVar
+P = ParamSpec("P")
+T_contra = TypeVar("T_contra", contravariant=True)
+
+class Gradual(Protocol):
+    def __call__(self, *args: Any, **kwargs: Any) -> None: ...
+
+# `*args`/`**kwargs` typed via a TypeVar, specialized with `Any`.
+class Subst(Protocol[T_contra]):
+    def __call__(self, *args: T_contra, **kwargs: T_contra) -> None: ...
+
+# `*args`/`**kwargs` typed via a ParamSpec, specialized with `...`.
+class SubstP(Protocol[P]):
+    def __call__(self, a: int, *args: P.args, **kwargs: P.kwargs) -> None: ...
+
+class NoArgs(Protocol):
+    def __call__(self) -> None: ...
+
+def f(n: NoArgs) -> None:
+    ok: Gradual = n        # a gradual target accepts a stricter callable
+    err1: Subst[Any] = n   # E: `NoArgs` is not assignable to `Subst[Any]`
+    err2: SubstP[...] = n  # E: `NoArgs` is not assignable to `SubstP[...]`
+    "#,
+);
+
+testcase!(
+    test_defaultdict_frozenset,
+    r#"
+from collections import defaultdict
+from typing import Any, assert_type
+
+class C:
+    def __init__(self):
+        self.x = defaultdict(frozenset)
+        assert_type(self.x, defaultdict[Any, frozenset[Any]])
     "#,
 );

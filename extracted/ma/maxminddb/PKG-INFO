@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: maxminddb
-Version: 3.1.1
+Version: 3.2.0
 Summary: Reader for the MaxMind DB format
 Author-email: Gregory Oschwald <goschwald@maxmind.com>
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://www.maxmind.com/
-Project-URL: Documentation, https://maxminddb.readthedocs.org/
+Project-URL: Homepage, https://www.maxmind.com/en/home
+Project-URL: Documentation, https://maxminddb.readthedocs.io/en/latest/
 Project-URL: Source Code, https://github.com/maxmind/MaxMind-DB-Reader-python
 Project-URL: Issue Tracker, https://github.com/maxmind/MaxMind-DB-Reader-python/issues
 Classifier: Development Status :: 5 - Production/Stable
@@ -62,8 +62,8 @@ Usage
 -----
 
 To use this module, you must first download or create a MaxMind DB file. We
-provide `free GeoLite2 databases
-<https://dev.maxmind.com/geoip/geolocate-an-ip/databases?lang=en>`_. These
+provide `free GeoLite databases
+<https://dev.maxmind.com/geoip/geolocate-an-ip/databases/?lang=en>`_. These
 files must be decompressed with ``gunzip``.
 
 After you have obtained a database and imported the module, call
@@ -86,7 +86,7 @@ file descriptor immediately after the ``Reader`` object is created.
 The ``open_database`` function returns a ``Reader`` object. To look up an IP
 address, use the ``get`` method on this object. The method will return the
 corresponding values for the IP address from the database (e.g., a dictionary
-for GeoIP2/GeoLite2 databases). If the database does not contain a record for
+for GeoIP/GeoLite databases). If the database does not contain a record for
 that IP address, the method will return ``None``.
 
 If you wish to also retrieve the prefix length for the record, use the
@@ -122,6 +122,11 @@ The module will return an ``InvalidDatabaseError`` if the database is corrupt
 or otherwise invalid. A ``ValueError`` will be thrown if you look up an
 invalid IP address or an IPv6 address in an IPv4 database.
 
+The reader also raises ``InvalidDatabaseError`` when one record, or the
+database metadata, exceeds its resource limits: 65,536 decoded values, 512
+levels of nesting, or 2 MiB of string and bytes data. Real databases stay far
+below these limits. Python's recursion limit may stop decoding sooner.
+
 Thread Safety
 -------------
 
@@ -144,5 +149,6 @@ Please report all issues with this code using the `GitHub issue tracker
 <https://github.com/maxmind/MaxMind-DB-Reader-python/issues>`_
 
 If you are having an issue with a MaxMind service that is not specific to this
-API, please contact `MaxMind support <https://www.maxmind.com/en/support>`_ for
+API, please contact `MaxMind support
+<https://support.maxmind.com/knowledge-base>`_ for
 assistance.

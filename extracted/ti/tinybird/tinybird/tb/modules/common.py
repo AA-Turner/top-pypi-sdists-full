@@ -223,6 +223,7 @@ class AliasedGroup(click.Group):
         cm = click.Group.get_command(self, ctx, cmd_name)
         if cm is not None:
             return cm
+        return None
 
     def resolve_command(self, ctx, args):
         # always return the command's name, not the alias
@@ -449,7 +450,7 @@ def analyze_file(filename: str, client: TinyB, format: str):
     meta, data = _analyze(filename, client, format)
     schema = meta["analysis"]["schema"]
     schema = schema.replace(", ", ",\n    ")
-    content = f"""DESCRIPTION >
+    return f"""DESCRIPTION >
     Generated from {filename}
 
 SCHEMA >
@@ -459,7 +460,6 @@ ENGINE "MergeTree"
 # ENGINE_SORTING_KEY "user_id, timestamp"
 # ENGINE_TTL "timestamp + toIntervalDay(60)"
 # Learn more at https://www.tinybird.co/docs/forward/dev-reference/datafiles/datasource-files"""
-    return content
 
 
 def _generate_datafile(
@@ -516,6 +516,7 @@ def ask_for_region_interactively(regions):
             available_options = ", ".join(map(str, range(1, len(regions) + 1)))
             click.echo(FeedbackManager.error_region_index(host_index=region_index, available_options=available_options))
             region_index = -1
+    return None
 
 
 def get_region_info(ctx, region=None):
@@ -711,10 +712,8 @@ def print_branch_regression_tests_summary(client, job_id, host, response=None):
         if isinstance(metric, float):
             if is_percentage:
                 return f"{round(metric, 3):+} %"
-            else:
-                return f"{round(metric, 3)} seconds"
-        else:
-            return metric
+            return f"{round(metric, 3)} seconds"
+        return metric
 
     failed = False
     response = client.job(job_id) if job_id else response or {"progress": []}
@@ -2087,9 +2086,7 @@ def get_gcs_svc_account_creds() -> str:
         )
 
     assert isinstance(creds, str)
-    creds_without_new_lines = creds.replace("\n", "")
-
-    return creds_without_new_lines
+    return creds.replace("\n", "")
 
 
 class DataConnectorType(str, Enum):
@@ -2478,9 +2475,8 @@ def create_workspace_branch(
             job_response = wait_job(config.get_client(), job_id, job_url, "Environment creation")
             if job_response is None:
                 raise CLIException(f"Empty job API response (job_id: {job_id}, job_url: {job_url})")
-            else:
-                response = job_response.get("result", {})
-                is_summary = "partitions" in response
+            response = job_response.get("result", {})
+            is_summary = "partitions" in response
 
     except Exception as e:
         raise CLIException(FeedbackManager.error_exception(error=str(e)))

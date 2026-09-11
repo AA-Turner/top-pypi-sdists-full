@@ -6,10 +6,65 @@ enabling hierarchical task delegation and multi-agent coordination.
 """
 
 import threading
+import time as _time
 from praisonaiagents._logging import get_logger
+from praisonaiagents.session.provenance import wrap_inter_agent
 from typing import Any, Callable, Dict, List, Optional
 
 logger = get_logger(__name__)
+
+
+def _emit_subagent_stop(
+    result: Dict[str, Any],
+    task: str,
+    agent_name: Optional[str],
+    effective_llm: Optional[str],
+    effective_permission_mode: Optional[str],
+    depth: int,
+    duration_ms: float,
+) -> None:
+    """Best-effort emit of SUBAGENT_STOP when a subagent reaches a terminal state.
+
+    Called from the single completion chokepoint in ``_run_subagent`` so it
+    covers every path (sync, background, resolver-routed, factory, simulation
+    and failure). Fully guarded and skipped when nothing is listening: an
+    observability hook must never turn a completed sub-task into an error.
+    """
+    try:
+        import os
+        from datetime import datetime, timezone
+
+        from praisonaiagents.hooks.registry import get_default_registry
+        from praisonaiagents.hooks.types import HookEvent
+
+        registry = get_default_registry()
+        if not registry.has_hooks(HookEvent.SUBAGENT_STOP):
+            return
+
+        from praisonaiagents.hooks.events import SubagentStopInput
+        from praisonaiagents.hooks.runner import HookRunner
+
+        HookRunner(registry).execute_sync(
+            HookEvent.SUBAGENT_STOP,
+            SubagentStopInput(
+                session_id="subagent",
+                cwd=os.getcwd(),
+                event_name=HookEvent.SUBAGENT_STOP.value,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                agent_name=result.get("agent_name") or agent_name or "subagent",
+                task=task,
+                success=bool(result.get("success")),
+                output=result.get("output"),
+                error=result.get("error"),
+                llm=effective_llm,
+                permission_mode=effective_permission_mode,
+                depth=depth,
+                duration_ms=duration_ms,
+            ),
+        )
+    except Exception:  # pragma: no cover - observability must never break a subagent
+        logger.debug("SUBAGENT_STOP hook failed", exc_info=True)
+
 
 def create_subagent_tool(
     agent_factory: Optional[Callable[..., Any]] = None,
@@ -20,6 +75,7 @@ def create_subagent_tool(
     on_job_complete: Optional[Callable[[Any], None]] = None,
     agent_resolver: Optional[Callable[[str], Any]] = None,
     resolvable_agents: Optional[Dict[str, str]] = None,
+    trusted_sources: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Create a subagent tool for task delegation.
@@ -46,6 +102,13 @@ def create_subagent_tool(
             agents ``agent_resolver`` can resolve. Used only to enrich the
             tool description so the model knows which named agents it may
             delegate to (and what each one is for).
+        trusted_sources: Optional list of ``agent_name`` values whose returned
+            output is trusted and therefore NOT wrapped in the inter-agent
+            provenance envelope. By default (``None``) every sub-agent's output
+            is enveloped as "data, not instructions" (safe-by-default): a
+            sub-agent whose output was shaped by injected text cannot then
+            drive the parent as a first-person instruction. Add a source here
+            only for pipelines that genuinely trust that upstream agent.
         on_job_complete: Optional callback invoked with the terminal
             ``JobInfo`` when a ``background=True`` subagent that carries a
             ``deliver`` target finishes. This is the observable completion
@@ -64,11 +127,59 @@ def create_subagent_tool(
     # captured at call time and passed into ``_run_subagent`` so a background
     # worker (running on a different thread) starts from the correct depth.
     _depth_state = threading.local()
+    _trusted = set(trusted_sources or ())
 
     def _get_depth() -> int:
         return getattr(_depth_state, "current_depth", 0)
 
+    def _envelope(output: Any, source: str) -> Any:
+        """Wrap a sub-agent's textual output in the inter-agent provenance
+        envelope unless the source is explicitly trusted. Non-string outputs
+        (rare) are returned unchanged."""
+        if not isinstance(output, str):
+            return output
+        return wrap_inter_agent(
+            output, source=source, trusted=source in _trusted
+        )
+
     def _run_subagent(
+        task: str,
+        agent_name: Optional[str],
+        context: Optional[str],
+        tools: Optional[List[str]],
+        effective_llm: Optional[str],
+        effective_permission_mode: Optional[str],
+        parent_depth: int = 0,
+    ) -> Dict[str, Any]:
+        """Execute the subagent and emit SUBAGENT_STOP on every terminal path.
+
+        This is the single completion chokepoint for both synchronous spawns
+        and ``background=True`` jobs, so emitting here (rather than in
+        ``spawn_subagent``) means the hook fires exactly once per subagent
+        regardless of how it was launched, including on failure.
+        """
+        started = _time.monotonic()
+        result = _execute_subagent(
+            task=task,
+            agent_name=agent_name,
+            context=context,
+            tools=tools,
+            effective_llm=effective_llm,
+            effective_permission_mode=effective_permission_mode,
+            parent_depth=parent_depth,
+        )
+        _emit_subagent_stop(
+            result,
+            task=task,
+            agent_name=agent_name,
+            effective_llm=effective_llm,
+            effective_permission_mode=effective_permission_mode,
+            depth=parent_depth + 1,
+            duration_ms=(_time.monotonic() - started) * 1000.0,
+        )
+        return result
+
+    def _execute_subagent(
         task: str,
         agent_name: Optional[str],
         context: Optional[str],
@@ -103,7 +214,7 @@ def create_subagent_tool(
                     result = resolved.chat(prompt)
                     return {
                         "success": True,
-                        "output": result,
+                        "output": _envelope(result, agent_name or "subagent"),
                         "agent_name": agent_name,
                         "task": task,
                         "llm": effective_llm,
@@ -123,7 +234,7 @@ def create_subagent_tool(
 
                 return {
                     "success": True,
-                    "output": result,
+                    "output": _envelope(result, agent_name or "subagent"),
                     "agent_name": agent_name or "subagent",
                     "task": task,
                     "llm": effective_llm,

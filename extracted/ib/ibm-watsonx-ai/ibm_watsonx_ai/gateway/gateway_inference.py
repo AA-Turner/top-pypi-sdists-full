@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterator, Union
 
-from ibm_watsonx_ai.gateway.utils.utils import build_chat_params, build_generate_params
+from ibm_watsonx_ai.gateway.utils.utils import drop_nones
 from ibm_watsonx_ai.wml_client_error import InvalidMultipleArguments
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -474,37 +474,37 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = build_chat_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_completion_tokens,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            top_logprobs,
-            logit_bias,
-            seed,
-            reasoning_effort,
-            tools,
-            tool_choice,
-            parallel_tool_calls,
-            function_call,
-            functions,
-            response_format,
-            modalities,
-            audio,
-            stream_options,
-            store,
-            metadata,
-            user,
-            service_tier,
-            prediction,
-            router,
-            cache,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            reasoning_effort=reasoning_effort,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+            function_call=function_call,
+            functions=functions,
+            response_format=response_format,
+            modalities=modalities,
+            audio=audio,
+            stream_options=stream_options,
+            store=store,
+            metadata=metadata,
+            user=user,
+            service_tier=service_tier,
+            prediction=prediction,
+            router=router,
+            cache=cache,
         )
         return self._gateway.chat.completions.create(
             model=self._model, messages=messages, **{**self._chat_params, **call_params}
@@ -649,37 +649,37 @@ class GatewayInference(WMLResource):
         :rtype: Iterator
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = build_chat_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_completion_tokens,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            top_logprobs,
-            logit_bias,
-            seed,
-            reasoning_effort,
-            tools,
-            tool_choice,
-            parallel_tool_calls,
-            function_call,
-            functions,
-            response_format,
-            modalities,
-            audio,
-            stream_options,
-            store,
-            metadata,
-            user,
-            service_tier,
-            prediction,
-            router,
-            cache,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            reasoning_effort=reasoning_effort,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+            function_call=function_call,
+            functions=functions,
+            response_format=response_format,
+            modalities=modalities,
+            audio=audio,
+            stream_options=stream_options,
+            store=store,
+            metadata=metadata,
+            user=user,
+            service_tier=service_tier,
+            prediction=prediction,
+            router=router,
+            cache=cache,
         )
         return self._gateway.chat.completions.create(
             model=self._model,
@@ -827,37 +827,37 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = build_chat_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_completion_tokens,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            top_logprobs,
-            logit_bias,
-            seed,
-            reasoning_effort,
-            tools,
-            tool_choice,
-            parallel_tool_calls,
-            function_call,
-            functions,
-            response_format,
-            modalities,
-            audio,
-            stream_options,
-            store,
-            metadata,
-            user,
-            service_tier,
-            prediction,
-            router,
-            cache,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            reasoning_effort=reasoning_effort,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+            function_call=function_call,
+            functions=functions,
+            response_format=response_format,
+            modalities=modalities,
+            audio=audio,
+            stream_options=stream_options,
+            store=store,
+            metadata=metadata,
+            user=user,
+            service_tier=service_tier,
+            prediction=prediction,
+            router=router,
+            cache=cache,
         )
         return await self._gateway.chat.completions.acreate(
             model=self._model, messages=messages, **{**self._chat_params, **call_params}
@@ -1002,37 +1002,37 @@ class GatewayInference(WMLResource):
         :rtype: AsyncIterator
         """
         self._validate_type(messages, "messages", list, True)
-        call_params = build_chat_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_completion_tokens,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            top_logprobs,
-            logit_bias,
-            seed,
-            reasoning_effort,
-            tools,
-            tool_choice,
-            parallel_tool_calls,
-            function_call,
-            functions,
-            response_format,
-            modalities,
-            audio,
-            stream_options,
-            store,
-            metadata,
-            user,
-            service_tier,
-            prediction,
-            router,
-            cache,
+            temperature=temperature,
+            max_completion_tokens=max_completion_tokens,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            top_logprobs=top_logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            reasoning_effort=reasoning_effort,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
+            function_call=function_call,
+            functions=functions,
+            response_format=response_format,
+            modalities=modalities,
+            audio=audio,
+            stream_options=stream_options,
+            store=store,
+            metadata=metadata,
+            user=user,
+            service_tier=service_tier,
+            prediction=prediction,
+            router=router,
+            cache=cache,
         )
         return await self._gateway.chat.completions.acreate(
             model=self._model,
@@ -1142,25 +1142,25 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = build_generate_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            logit_bias,
-            seed,
-            echo,
-            suffix,
-            stream_options,
-            metadata,
-            user,
-            router,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
             best_of=best_of,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            echo=echo,
+            suffix=suffix,
+            stream_options=stream_options,
+            metadata=metadata,
+            user=user,
+            router=router,
             cache=cache,
         )
         return self._gateway.completions.create(
@@ -1270,25 +1270,25 @@ class GatewayInference(WMLResource):
         :rtype: dict
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = build_generate_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            logit_bias,
-            seed,
-            echo,
-            suffix,
-            stream_options,
-            metadata,
-            user,
-            router,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
             best_of=best_of,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            echo=echo,
+            suffix=suffix,
+            stream_options=stream_options,
+            metadata=metadata,
+            user=user,
+            router=router,
             cache=cache,
         )
         return await self._gateway.completions.acreate(
@@ -1306,6 +1306,7 @@ class GatewayInference(WMLResource):
         max_tokens: int | None = None,
         top_p: float | None = None,
         n: int | None = None,
+        best_of: int | None = None,
         stop: list[str] | None = None,
         # --- sampling / output control ---
         frequency_penalty: float | None = None,
@@ -1320,6 +1321,7 @@ class GatewayInference(WMLResource):
         metadata: dict | None = None,
         user: str | None = None,
         router: dict | None = None,
+        cache: dict | None = None,
         **kwargs: Any,
     ) -> Iterator:
         """Generate text completions with streaming.
@@ -1341,6 +1343,10 @@ class GatewayInference(WMLResource):
         :param n: how many completions to generate for each prompt
         :type n: int, optional
 
+        :param best_of: generates ``best_of`` completions server-side and returns the best one;
+            must be greater than ``n`` when used together; cannot be used with streaming
+        :type best_of: int, optional
+
         :param stop: up to 4 sequences where the API will stop generating further tokens;
             the returned text will not contain the stop sequence
         :type stop: list[str], optional
@@ -1382,6 +1388,9 @@ class GatewayInference(WMLResource):
         :param router: model routing configuration for the request
         :type router: dict, optional
 
+        :param cache: caching configuration for the request
+        :type cache: dict, optional
+
         :param kwargs: additional keyword arguments passed directly to the gateway
         :type kwargs: Any
 
@@ -1389,24 +1398,26 @@ class GatewayInference(WMLResource):
         :rtype: Iterator
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = build_generate_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            logit_bias,
-            seed,
-            echo,
-            suffix,
-            stream_options,
-            metadata,
-            user,
-            router,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            best_of=best_of,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            echo=echo,
+            suffix=suffix,
+            stream_options=stream_options,
+            metadata=metadata,
+            user=user,
+            router=router,
+            cache=cache,
         )
         return self._gateway.completions.create(
             model=self._model,
@@ -1424,6 +1435,7 @@ class GatewayInference(WMLResource):
         max_tokens: int | None = None,
         top_p: float | None = None,
         n: int | None = None,
+        best_of: int | None = None,
         stop: list[str] | None = None,
         # --- sampling / output control ---
         frequency_penalty: float | None = None,
@@ -1438,6 +1450,7 @@ class GatewayInference(WMLResource):
         metadata: dict | None = None,
         user: str | None = None,
         router: dict | None = None,
+        cache: dict | None = None,
         **kwargs: Any,
     ) -> AsyncIterator:
         """Generate text completions asynchronously with streaming.
@@ -1459,6 +1472,10 @@ class GatewayInference(WMLResource):
         :param n: how many completions to generate for each prompt
         :type n: int, optional
 
+        :param best_of: generates ``best_of`` completions server-side and returns the best one;
+            must be greater than ``n`` when used together; cannot be used with streaming
+        :type best_of: int, optional
+
         :param stop: up to 4 sequences where the API will stop generating further tokens;
             the returned text will not contain the stop sequence
         :type stop: list[str], optional
@@ -1500,6 +1517,9 @@ class GatewayInference(WMLResource):
         :param router: model routing configuration for the request
         :type router: dict, optional
 
+        :param cache: caching configuration for the request
+        :type cache: dict, optional
+
         :param kwargs: additional keyword arguments passed directly to the gateway
         :type kwargs: Any
 
@@ -1507,24 +1527,26 @@ class GatewayInference(WMLResource):
         :rtype: AsyncIterator
         """
         self._validate_type(prompt, "prompt", [str, list], True)
-        call_params = build_generate_params(
+        call_params = drop_nones(
             kwargs,
-            temperature,
-            max_tokens,
-            top_p,
-            n,
-            stop,
-            frequency_penalty,
-            presence_penalty,
-            logprobs,
-            logit_bias,
-            seed,
-            echo,
-            suffix,
-            stream_options,
-            metadata,
-            user,
-            router,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            n=n,
+            best_of=best_of,
+            stop=stop,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            logprobs=logprobs,
+            logit_bias=logit_bias,
+            seed=seed,
+            echo=echo,
+            suffix=suffix,
+            stream_options=stream_options,
+            metadata=metadata,
+            user=user,
+            router=router,
+            cache=cache,
         )
         return await self._gateway.completions.acreate(
             model=self._model,

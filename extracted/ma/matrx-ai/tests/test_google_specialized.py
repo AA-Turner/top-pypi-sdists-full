@@ -7,10 +7,12 @@ import pytest
 from matrx_ai.catalog.routes import client_attr_for_wire_format
 from matrx_ai.providers.google.specialized import (
     GoogleBackgroundInteractionRuntime,
+    GoogleEmbeddingPart,
     GoogleEmbeddingRuntime,
     GoogleLiveOptions,
     GoogleLiveSession,
     WeightedMusicPrompt,
+    embedding_contents,
 )
 from matrx_ai.testing.profile_factory import make_profile
 
@@ -94,6 +96,19 @@ async def test_embedding_runtime_calls_embed_content(monkeypatch: pytest.MonkeyP
     assert seen["model"] == "test-google-model"
     assert seen["config"].output_dimensionality == 128
     assert result.vectors == [[0.1, 0.2]]
+
+
+def test_embedding_content_translation_stays_at_google_provider_boundary() -> None:
+    contents = embedding_contents(
+        [
+            "plain text",
+            [GoogleEmbeddingPart(type="inline", data="aGVsbG8=", mime_type="text/plain")],
+        ]
+    )
+
+    assert contents[0] == "plain text"
+    assert contents[1].role == "user"
+    assert contents[1].parts[0].inline_data.mime_type == "text/plain"
 
 
 @pytest.mark.asyncio

@@ -9,6 +9,19 @@ drift the contract out from under this code. Each call runs through
 ``NamedAgent.run`` -> ``run_agent`` -> ``child_agent_context`` for the standard
 context fork + lifecycle events + reservation isolation.
 
+🚨 EVERY stage agent here runs under a LIVE parent stream — the
+``/podcast/generate`` endpoint's own emitter, or the workflow node's
+``SubPipelineEmitter`` (aidream/context/sub_pipeline_emitter.py), which
+forwards ``send_chunk`` straight to the workflow run's wire. This pipeline
+reports through TYPED stage/asset events, so a stage agent's raw tokens are
+pure leakage onto somebody's screen — and, in the concurrent media fan-out,
+they contaminate a sibling slot's captured output through the shared turn-text
+accumulator. Every ``_run_mandated`` call below therefore passes
+``suppress_stream=True``. Enforced by ``scripts/check_nested_agent_streams.py``
+through the marker on the next line; never remove it.
+
+# nested-agent-stream: parent-live
+
 Pipeline stages:
     1. Prepare Content   — extract (files) / research (topic) / pass-through (content)
     2. Create Script     — produce structured podcast script
@@ -1456,6 +1469,15 @@ async def _prepare_content(request: PodcastRequest) -> StageResult:
                 inputs=_ResearchAgent.Inputs(),
                 user_input=user_input,
                 label="Podcast Research",
+                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                # parent stream — the /podcast/generate endpoint's emitter, or the
+                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                # to the workflow run's wire. The pipeline reports through typed stage /
+                # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                # output via the shared turn-text accumulator). Result still returns via
+                # AgentRunResult.
+                suppress_stream=True,
             )
             return _to_stage("prepare_content_researcher", result)
 
@@ -1467,6 +1489,15 @@ async def _prepare_content(request: PodcastRequest) -> StageResult:
                 inputs=_ContentExtractorAgent.Inputs(extraction_unit=extraction_unit),
                 user_input=user_input_blocks,
                 label="Podcast Extraction",
+                # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                # parent stream — the /podcast/generate endpoint's emitter, or the
+                # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                # to the workflow run's wire. The pipeline reports through typed stage /
+                # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                # output via the shared turn-text accumulator). Result still returns via
+                # AgentRunResult.
+                suppress_stream=True,
             )
             return _to_stage("prepare_content_extractor", result)
 
@@ -1553,6 +1584,15 @@ async def _apply_audience_adaptation(
                 adaptation_guidance=guidance.strip(),
             ),
             label="Podcast Audience Adaptation",
+            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+            # parent stream — the /podcast/generate endpoint's emitter, or the
+            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+            # to the workflow run's wire. The pipeline reports through typed stage /
+            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+            # output via the shared turn-text accumulator). Result still returns via
+            # AgentRunResult.
+            suppress_stream=True,
         )
     except Exception as exc:  # noqa: BLE001 — soft stage: record + keep original content
         vcprint(f"[PodcastGenerator] {stage} failed: {exc}", color="red")
@@ -1606,24 +1646,60 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                         content=content, target_language=language
                     ),
                     label="Podcast Post-Prep Translation",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
                 )
             case PostPrepOption.SUMMARIZATION:
                 result = await _run_mandated(
                     _PostPrepSummarizationAgent,
                     inputs=_PostPrepSummarizationAgent.Inputs(content=content),
                     label="Podcast Post-Prep Summarization",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
                 )
             case PostPrepOption.EXPANSION:
                 result = await _run_mandated(
                     _PostPrepExpansionAgent,
                     inputs=_PostPrepExpansionAgent.Inputs(content=content),
                     label="Podcast Post-Prep Expansion",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
                 )
             case PostPrepOption.FACT_CHECKING:
                 result = await _run_mandated(
                     _PostPrepFactCheckingAgent,
                     inputs=_PostPrepFactCheckingAgent.Inputs(content=content),
                     label="Podcast Post-Prep Fact Check",
+                    # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+                    # parent stream — the /podcast/generate endpoint's emitter, or the
+                    # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+                    # to the workflow run's wire. The pipeline reports through typed stage /
+                    # asset events, so an unmuted stage agent's raw tokens are pure leakage
+                    # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+                    # output via the shared turn-text accumulator). Result still returns via
+                    # AgentRunResult.
+                    suppress_stream=True,
                 )
             case _:
                 return StageResult(
@@ -1868,6 +1944,15 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             legacy_cls,
             inputs=legacy_cls.Inputs(podcast_topic_or_content=prepared_content),
             label="Podcast Script",
+            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+            # parent stream — the /podcast/generate endpoint's emitter, or the
+            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+            # to the workflow run's wire. The pipeline reports through typed stage /
+            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+            # output via the shared turn-text accumulator). Result still returns via
+            # AgentRunResult.
+            suppress_stream=True,
         )
         return _validated_script_stage(result, request)
 
@@ -1884,6 +1969,15 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
                 "speaker_name": solo_name,
             },
             label="Podcast Script",
+            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+            # parent stream — the /podcast/generate endpoint's emitter, or the
+            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+            # to the workflow run's wire. The pipeline reports through typed stage /
+            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+            # output via the shared turn-text accumulator). Result still returns via
+            # AgentRunResult.
+            suppress_stream=True,
         )
         return _validated_script_stage(result, request)
 
@@ -1908,6 +2002,15 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
                 "speaker_names": _speaker_names_json(request),
             },
             label="Podcast Script",
+            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+            # parent stream — the /podcast/generate endpoint's emitter, or the
+            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+            # to the workflow run's wire. The pipeline reports through typed stage /
+            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+            # output via the shared turn-text accumulator). Result still returns via
+            # AgentRunResult.
+            suppress_stream=True,
         )
         return _validated_script_stage(result, request)
 
@@ -1923,6 +2026,15 @@ async def _create_script(request: PodcastRequest, prepared_content: str) -> Stag
             speaker_names=_speaker_names_json(request),
         ),
         label="Podcast Script",
+        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+        # parent stream — the /podcast/generate endpoint's emitter, or the
+        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+        # to the workflow run's wire. The pipeline reports through typed stage /
+        # asset events, so an unmuted stage agent's raw tokens are pure leakage
+        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+        # output via the shared turn-text accumulator). Result still returns via
+        # AgentRunResult.
+        suppress_stream=True,
     )
     return _validated_script_stage(result, request)
 
@@ -2469,6 +2581,15 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
             inputs={"content": audio_content},
             config_overrides={"tts_voice": turns},
             label="Podcast Audio",
+            # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+            # parent stream — the /podcast/generate endpoint's emitter, or the
+            # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+            # to the workflow run's wire. The pipeline reports through typed stage /
+            # asset events, so an unmuted stage agent's raw tokens are pure leakage
+            # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+            # output via the shared turn-text accumulator). Result still returns via
+            # AgentRunResult.
+            suppress_stream=True,
         )
         return _audio_stage_result(result)
 
@@ -2520,6 +2641,15 @@ async def _create_audio(request: PodcastRequest, script: str) -> StageResult:
         ),
         config_overrides=overrides,
         label="Podcast Audio",
+        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+        # parent stream — the /podcast/generate endpoint's emitter, or the
+        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+        # to the workflow run's wire. The pipeline reports through typed stage /
+        # asset events, so an unmuted stage agent's raw tokens are pure leakage
+        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+        # output via the shared turn-text accumulator). Result still returns via
+        # AgentRunResult.
+        suppress_stream=True,
     )
     return _audio_stage_result(result)
 
@@ -2542,6 +2672,15 @@ async def _generate_metadata(prepared_content: str) -> tuple[StageResult, Podcas
         _MetadataAgent,
         inputs=_MetadataAgent.Inputs(podcast_content=prepared_content),
         label="Podcast Metadata",
+        # NESTED-AGENT STREAM LEAK: generate_podcast always runs under a LIVE
+        # parent stream — the /podcast/generate endpoint's emitter, or the
+        # workflow node's SubPipelineEmitter, which forwards send_chunk straight
+        # to the workflow run's wire. The pipeline reports through typed stage /
+        # asset events, so an unmuted stage agent's raw tokens are pure leakage
+        # (and, in the concurrent fan-out, contaminate a sibling slot's captured
+        # output via the shared turn-text accumulator). Result still returns via
+        # AgentRunResult.
+        suppress_stream=True,
     )
     meta = result.parsed if isinstance(result.parsed, PodcastMetadata) else PodcastMetadata()
 

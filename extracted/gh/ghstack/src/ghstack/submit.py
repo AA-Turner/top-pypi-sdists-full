@@ -516,8 +516,10 @@ class Submitter:
 
         object.__setattr__(self, "base", default_branch)
 
-        # Check if direct should be used, if the user didn't explicitly
-        # specify an option
+    # ~~~~~~~~~~~~~~~~~~~~~~~~
+    # The main algorithm
+
+    async def _initialize_direct(self, pr_info_cache: Dict[GitHubNumber, Any]) -> None:
         direct = self.direct_opt
         if direct is None:
             direct_r = await self.sh.agit(
@@ -525,11 +527,21 @@ class Submitter:
             )
             assert isinstance(direct_r, bool)
             direct = direct_r
-
+        if self.direct_opt is None and not direct:
+            styles = {
+                re.fullmatch(r"gh/[^/]+/[0-9]+/base", base_ref) is None
+                for pr_info in pr_info_cache.values()
+                if (base_ref := self._pr_ref_name(pr_info, "base")) is not None
+            }
+            if len(styles) > 1:
+                raise RuntimeError(
+                    "Cannot infer ghstack submission style: the stack contains "
+                    "both direct and non-direct pull requests. Pass --direct or "
+                    "--no-direct explicitly."
+                )
+            if styles:
+                direct = styles.pop()
         object.__setattr__(self, "direct", direct)
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~
-    # The main algorithm
 
     async def run(self) -> List[DiffMeta]:
         timer = _Timer() if _TIMING_ENABLED else None
@@ -601,6 +613,7 @@ class Submitter:
         )
 
         pr_info_cache = await self._prefetch_pr_info(commits_to_rebase)
+        await self._initialize_direct(pr_info_cache)
         if not self.no_fetch:
             await self._fetch_foreign_pr_refs(pr_info_cache.values())
 
@@ -1992,6 +2005,25 @@ Current PR description:
         # otherwise GitHub can spuriously think that the user pushed a number
         # of patches as part of the PR, when actually they were just from the
         # new upstream branch.
+        # In direct mode a pull request's base is another pull request's head
+        # branch, so a reorder can leave a pull request's head reachable from
+        # the base GitHub still has on file, and GitHub closes any pull request
+        # in that state as merged.  Park the ones whose base is moving on the
+        # default branch, which no head branch is ever reachable from, until
+        # their real base has been pushed.
+        if self.direct:
+            await _gather_ordered(
+                self.github.arest(
+                    "patch",
+                    "repos/{}/{}/pulls/{}".format(
+                        self.repo_owner, self.repo_name, s.number
+                    ),
+                    base=self.base,
+                )
+                for s in diffs_to_submit
+                if not s.closed and s.base != s.elab_diff.base_ref
+            )
+
         all_push_specs: List[str] = []
 
         for s in reversed(diffs_to_submit):

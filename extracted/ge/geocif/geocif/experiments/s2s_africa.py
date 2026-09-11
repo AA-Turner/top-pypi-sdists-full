@@ -24,6 +24,7 @@ Usage::
     from geocif.experiments import s2s_africa
     out = s2s_africa.run(parser=parser)
 """
+import ast
 import glob
 import logging
 import re
@@ -56,9 +57,12 @@ MAX_OFFSET = 4          # months before planting (1..4); 4 loses grain-fill
 OOS_TOLERANCE = 1.0     # sd beyond the training range still called in-support
 N_PERM = 300            # year-block permutations behind the skill test
 PERM_ALPHA = 0.05       # one-sided; NOT corrected for the 17-combination sweep
-# Anderson et al. 2024 define skill as ROC > 0.6, following the prior
-# global crop-forecast literature. Used when no permutation test is run.
-SKILL_ROC_THRESHOLD = 0.6
+# Skill bar used when no permutation test is run. Anderson et al. 2024
+# use ROC > 0.6, following the prior global crop-forecast literature;
+# set to 0.5 here by request. Note what that costs: the LOYO null sits
+# near 0.45, so a PURE NOISE region clears 0.5 roughly 36% of the time
+# on a 22-year record (against 22% at 0.6).
+SKILL_ROC_THRESHOLD = 0.5
 # What actually limits a per-region AUC is RECORD LENGTH, not the number of
 # low-tercile events. Measured on pure noise, the AUC sampling sd falls
 # smoothly with events — 0.304 (1), 0.220 (2), 0.185 (3), 0.166 (4), 0.152
@@ -127,11 +131,34 @@ def causal_trend_fnid(obs):
 # crop calendar
 # ---------------------------------------------------------------------------
 def season_index(season_name):
-    """1 for a primary season, 2 for a secondary one, else 1."""
+    """1 for a primary season, 2 for a secondary one, else 1.
+
+    Exact membership alone is not enough: HarvestStat writes
+    ``'North 2nd Season'`` while the shared list holds ``'2nd Season'``, so
+    an exact test missed it and the default of 1 handed a SECOND-season crop
+    the ``maize_1`` EWCM sheet — the wrong planting month, window and leads.
+    So fall back to a substring test, secondary first (a name like
+    ``'Long/Dry'`` carries both a primary and a secondary token, and the
+    secondary reading is the safer default for a calendar lookup). ``-off``
+    is treated as secondary, mirroring ``Main-off`` and ``Cold-off``, which
+    the list already classifies that way.
+
+    Names resolved by anything other than an exact match are logged, so a
+    reclassification is auditable rather than silent.
+    """
     if season_name in PRIMARY_SEASON_NAMES:
         return 1
     if season_name in SECONDARY_SEASON_NAMES:
         return 2
+    name = str(season_name).lower()
+    for tag in [s.lower() for s in SECONDARY_SEASON_NAMES] + ["-off"]:
+        if tag in name:
+            logger.info(f"season '{season_name}' -> 2 (matched '{tag}')")
+            return 2
+    for tag in (s.lower() for s in PRIMARY_SEASON_NAMES):
+        if tag in name:
+            logger.info(f"season '{season_name}' -> 1 (matched '{tag}')")
+            return 1
     return 1
 
 
@@ -350,9 +377,78 @@ def build_features(tp, t2, planting, wraps, offset, years, fnids):
     return pd.DataFrame(rows)
 
 
-def features_for_offset(offset):
-    """The feature list an init at ``offset`` can actually construct."""
-    return FEATURES if offset <= 3 else [f for f in FEATURES if f != "z_P_GF"]
+# Selectable predictor sets. `rain` is the DEFAULT: it drops temperature
+# and the interaction entirely. `full` is the historical four-term model,
+# kept selectable for comparison.
+#
+# Why `rain` exists, measured on the climatology-filtered pipeline:
+# z_TMEAN correlates with YEAR at mean r = +0.593 and significantly in
+# 16 of 16 combinations (rainfall: +0.010, 7 of 16). The target is
+# detrended per unit, so it carries no year-index component at all — the
+# temperature channel therefore feeds the fit a trend the target cannot
+# contain. Removing z_TMEAN's own trend does not rescue it (mean R2
+# -0.174 -> -0.150) but dropping temperature outright does
+# (-0.174 -> -0.064; national -0.695 -> -0.344), while AUC is unchanged
+# to slightly better. It also sheds the whole out-of-support problem:
+# every large excursion is z_TMEAN or DRYHEAT, and NOAA's real-time
+# stream runs ~1.3 C warmer than the hindcast it is standardised against
+# while tprate shows no such break.
+#
+# Measured side by side on the same run: AUC 0.457 -> 0.463, national
+# 0.412 -> 0.418, R2 -0.174 -> -0.064, national R2 -0.695 -> -0.344,
+# combinations clearing AUC 0.5 six -> eight, and the median forecast
+# unit goes from 2.97 sd OUTSIDE the fitted range to 0.00 (worst case
+# 27.2 sd -> 3.9). The out-of-support problem was almost entirely a
+# temperature problem. ~40% of the apparent signal went with it: 474 of
+# 647 regions moved toward climatology and the count above P_low 0.67
+# fell from 53 to 23.
+#
+# `rain_main` is kept only as a control — grain-fill rainfall carries
+# real information (dropping it costs AUC 0.463 -> 0.407).
+FEATURE_SETS = {
+    "full": list(FEATURES),
+    "rain": ["z_PRCPTOT", "z_P_GF"],
+    "rain_main": ["z_PRCPTOT"],
+    "no_interact": ["z_PRCPTOT", "z_TMEAN", "z_P_GF"],
+}
+DEFAULT_FEATURE_SET = "rain"
+
+
+def features_for_offset(offset, feature_set=DEFAULT_FEATURE_SET):
+    """The feature list an init at ``offset`` can actually construct.
+
+    Offsets beyond 3 lose grain-fill rainfall: the window would sit past
+    lead 6, the edge of the S2S horizon.
+    """
+    feats = FEATURE_SETS.get(feature_set, FEATURE_SETS[DEFAULT_FEATURE_SET])
+    if offset > 3:
+        feats = [f for f in feats if f != "z_P_GF"]
+    return list(feats)
+
+
+def real_harvest_years(planting, offset, wraps, years):
+    """The harvest years backed by a REAL S2S forecast, not climatology fill.
+
+    NOAA's archive stops at the 1993-2016 hindcast and geoprepare gap-fills
+    every later init with the per-(fnid, month, lead) hindcast MEAN, writing
+    a byte-identical copy for each year. Those rows reach the model as ONE
+    repeated design point at the unit's climatological centre (all four
+    predictors ~0) paired with genuinely varying yields, so they behave as
+    shrinkage toward the origin: they pull the intercept and, because
+    DRYHEAT = 0 sits off the design centroid (E[z_P*z_T] != 0), they drag
+    the DRYHEAT slope specifically. Left in, they FLATTER every skill
+    metric — for Zimbabwe maize 48 of 224 training rows were fill, and
+    removing them moves R2 from -0.151 to -0.390 and mean P_low from 0.618
+    to 0.487.
+
+    The predecessor (``s2s_simple_model.REAL_HARVESTS``) filtered these out;
+    the filter was lost when this module was written. Derived per combination
+    rather than hardcoded, because a wrapped season maps harvest H to init
+    H-1 and an unwrapped one to init H.
+    """
+    return [y for y in years
+            if init_calendar(planting, offset, int(y), wraps)[0]
+            <= REAL_INIT_YEARS[1]]
 
 
 def clip_to_support(fx, train, feats):
@@ -588,10 +684,12 @@ def per_region_skill(lo, anoms, edges):
         if sst > 0:
             rec["region_r2"] = round(
                 1 - float(((obs_a - g["ahat"]) ** 2).sum()) / sst, 3)
-        if (rec["region_n_years"] < MIN_YEARS
-                or rec["region_n_low"] < MIN_LOW_YEARS
-                or rec.get("region_auc") is None):
-            rec["region_skill"] = "insufficient"
+        # Two states only. A region with no computable AUC (no low year,
+        # or no scorable fold) still cannot be called either way, so it
+        # keeps a null verdict and the map leaves it unhatched rather
+        # than asserting no-skill.
+        if rec.get("region_auc") is None:
+            rec["region_skill"] = None
         elif rec["region_auc"] > SKILL_ROC_THRESHOLD:
             rec["region_skill"] = "skill"
         else:
@@ -758,24 +856,60 @@ def permutation_auc(train, feats, eval_years, anoms, edges, obs,
 
     rng = np.random.default_rng(seed)
     fcols = [c for c in set(feats) | {"DRYHEAT"} if c in train.columns]
-    feat = train.set_index(["fnid", "year"])[fcols]
+    # The permutation must be scored on the SAME panel as the observed
+    # statistic, or the p-value is not an exchangeability test. The panel is
+    # unbalanced (units have different year spans), so a global year->year
+    # map sends some rows to a (fnid, year) the unit never had; reindex
+    # returns NaN and the row is deleted. Measured on a mildly unbalanced
+    # panel that lost 15% of rows per draw, up to 26% in the worst, and it
+    # biased p CONSERVATIVELY (mean perm_p 0.744 unbalanced vs 0.653
+    # balanced against a nominal 0.5) — so it was under-declaring skill.
+    #
+    # Fix: restrict to the rectangular core — units holding the full year
+    # span — and score the OBSERVED statistic on that same core. Nothing is
+    # dropped mid-permutation, so every draw sees an identical panel.
     years = sorted(train.year.unique())
+    spans = train.groupby("fnid")["year"].nunique()
+    full = spans[spans == len(years)].index
+    if len(full) >= MIN_UNITS:
+        core = train[train.fnid.isin(full)].copy()
+    else:
+        # Too few complete units: trim the year span instead, keeping the
+        # years held by the most units, then the units holding all of them.
+        per_year = train.groupby("year")["fnid"].nunique()
+        keep_y = per_year[per_year >= per_year.max()].index
+        core = train[train.year.isin(keep_y)].copy()
+        spans = core.groupby("fnid")["year"].nunique()
+        core = core[core.fnid.isin(spans[spans == len(keep_y)].index)]
+    if len(core) < 40:
+        return {}
+    core_years = [y for y in eval_years if y in set(core.year)]
+    obs_core = {**decomposed_auc(loyo(core, feats, core_years), anoms, edges),
+                **decomposed_r2(loyo(core, feats, core_years))}
+    keys = [k for k in keys if obs_core.get(k) is not None]
+    if not keys:
+        return {}
+
+    feat = core.set_index(["fnid", "year"])[fcols]
+    years = sorted(core.year.unique())
     null = {k: [] for k in keys}
+    dropped = 0
     for _ in range(int(n_perm)):
         perm = dict(zip(years, rng.permutation(years)))
-        t = train.copy()
+        t = core.copy()
         idx = pd.MultiIndex.from_arrays(
             [t.fnid.to_numpy(), t.year.map(perm).to_numpy()])
         vals = feat.reindex(idx)
         for c in fcols:
             t[c] = vals[c].to_numpy()
-        t = t.dropna(subset=fcols)
-        if len(t) < 40:
+        if t[fcols].isna().any().any():      # must not happen on the core
+            dropped += 1
             continue
+        eval_years_p = core_years
         # One permutation pass scores BOTH metric families — running the
         # classification and regression nulls separately would double the
         # cost for identical permutations.
-        lo_p = loyo(t, feats, eval_years)
+        lo_p = loyo(t, feats, eval_years_p)
         s = {**decomposed_auc(lo_p, anoms, edges), **decomposed_r2(lo_p)}
         for k in keys:
             if s.get(k) is not None:
@@ -796,10 +930,19 @@ def permutation_auc(train, feats, eval_years, anoms, edges, obs,
             continue
         null_col, p_col = names[k]
         out[null_col] = round(float(arr.mean()), 3)
-        out[p_col] = round(float((arr >= obs[k]).mean()), 3)
+        # Compare against the observed statistic recomputed on the SAME
+        # rectangular core the null was drawn on — not the full-panel value
+        # in `obs`, which is what made the old p-values non-exchangeable.
+        out[p_col] = round(float((arr >= obs_core[k]).mean()), 3)
         if k == "auc":
             out["null_auc_sd"] = round(float(arr.std()), 3)
             out["null_auc_p95"] = round(float(np.percentile(arr, 95)), 3)
+            out["perm_core_rows"] = int(len(core))
+            out["perm_core_units"] = int(core.fnid.nunique())
+            out["perm_core_years"] = int(core.year.nunique())
+            out["auc_core"] = round(float(obs_core["auc"]), 3)
+            if dropped:
+                out["perm_draws_dropped"] = int(dropped)
             out["n_perm"] = int(len(arr))
     return out
 
@@ -817,12 +960,56 @@ def class_probabilities(ahat, hist_anoms, residuals):
 
 
 # ---------------------------------------------------------------------------
+# config
+# ---------------------------------------------------------------------------
+def config_list(parser, key, section="ML"):
+    """A `["a", "b"]`-style config value as a list, or None when absent.
+
+    geocif configs write lists as Python literals, so `ast.literal_eval` is
+    the parser the rest of the codebase already uses. A bare comma string is
+    accepted too, because that is what a hand-edited config usually holds.
+    """
+    if not parser.has_option(section, key):
+        return None
+    raw = parser.get(section, key).strip()
+    if not raw:
+        return None
+    try:
+        val = ast.literal_eval(raw)
+    except (ValueError, SyntaxError):
+        val = [p.strip() for p in raw.split(",")]
+    if isinstance(val, str):
+        val = [val]
+    return [str(v).strip() for v in val if str(v).strip()] or None
+
+
+def config_extent(parser, key="s2s_map_extent", section="ML"):
+    """Map extent as `[lon_min, lon_max, lat_min, lat_max]`, or None.
+
+    A malformed extent is refused rather than defaulted: a silently
+    continent-wide map from a regional config would be read as "this region
+    has no forecast anywhere else", which is the opposite of the truth.
+    """
+    vals = config_list(parser, key, section)
+    if vals is None:
+        return None
+    if len(vals) != 4:
+        raise ValueError(f"{key} needs 4 numbers "
+                         f"(lon_min, lon_max, lat_min, lat_max), got {vals}")
+    x0, x1, y0, y1 = (float(v) for v in vals)
+    if x0 >= x1 or y0 >= y1:
+        raise ValueError(f"{key} is not increasing: {[x0, x1, y0, y1]}")
+    return [x0, x1, y0, y1]
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 def run(path_config_files=None, *, parser=None, logger_obj=None,
         threshold_dir="crop_t0", crops=("maize", "beans"), today=None,
         hvstat_csv=None, calendar_xlsx=None, countries=None,
-        eval_years=None, out_dir=None, n_perm=N_PERM, figures=True):
+        eval_years=None, out_dir=None, n_perm=N_PERM, figures=True,
+        feature_set=None):
     """Enumerate, score and forecast every eligible HarvestStat combination."""
     if parser is None:
         from geocif import logger as log
@@ -836,9 +1023,29 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
     calendar_xlsx = calendar_xlsx or (meta / "crop_calendars"
                                       / "EWCM_2026-01-05.xlsx")
     eval_years = eval_years or list(range(EVAL_SPAN[0], EVAL_SPAN[1] + 1))
+    if feature_set is None:
+        feature_set = parser.get("ML", "s2s_feature_set",
+                                 fallback=DEFAULT_FEATURE_SET)
+    # A regional config restricts the run to its own countries and crops
+    # its own maps, so southern and eastern Africa are separate runs rather
+    # than separate views of one. Keys are optional: absent means all Africa.
+    if countries is None:
+        countries = config_list(parser, "s2s_countries")
+    region_label = parser.get("ML", "s2s_region_label", fallback="")
+    map_extent = config_extent(parser)
+    if feature_set not in FEATURE_SETS:
+        raise ValueError(f"unknown feature_set {feature_set!r}; "
+                         f"choose from {sorted(FEATURE_SETS)}")
+    logger.info(f"feature set {feature_set!r}: "
+                f"{FEATURE_SETS[feature_set]}")
     ts = ar.utcnow().to("America/New_York").format("MMMM_DD_YYYY_HH[h]mm")
+    suffix = "" if feature_set == DEFAULT_FEATURE_SET else f"_{feature_set}"
+    if region_label:
+        # Region goes in the directory name: two regional runs launched in
+        # the same minute would otherwise land in the same timestamped dir.
+        suffix += "_" + re.sub(r"\W+", "_", region_label.lower()).strip("_")
     out = Path(out_dir) if out_dir else (
-        root / "ml" / "analysis" / ts / "explore" / "s2s_africa")
+        root / "ml" / "analysis" / ts / "explore" / f"s2s_africa{suffix}")
     out.mkdir(parents=True, exist_ok=True)
 
     raw = pd.read_csv(hvstat_csv)
@@ -847,7 +1054,16 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
     if countries:
         ylds = ylds[ylds.country.isin(countries)]
     prod_to_crop = {p: c for c, ps in CROP_PRODUCTS.items() for p in ps}
-    logger.info(f"yield rows: {len(ylds)} | countries: {ylds.country.nunique()}")
+    logger.info(f"yield rows: {len(ylds)} | countries: "
+                f"{ylds.country.nunique()}"
+                + (f" | region {region_label!r}" if region_label else "")
+                + (f" | extent {map_extent}" if map_extent else ""))
+    if countries:
+        missing = sorted(set(countries) - set(ylds.country.unique()))
+        if missing:
+            # Silently dropping a misspelt country would look like "that
+            # country has no forecastable season", which is a different story.
+            logger.warning(f"s2s_countries not in the yield table: {missing}")
 
     combos, skills, forecasts, excluded = [], [], [], []
     s2s_cache = {}
@@ -936,12 +1152,16 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         edges = edge_table(anoms)
         train_by_offset = {}
         for off in range(1, MAX_OFFSET + 1):
-            fl = features_for_offset(off)
+            fl = features_for_offset(off, feature_set)
             fx = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                                 off, sorted(anoms.year.unique()), fnids)
             if fx.empty:
                 continue
             d = anoms.merge(fx, on=["fnid", "year"], how="inner")
+            # Drop the climatology-fill era: see real_harvest_years.
+            d = d[d.year.isin(real_harvest_years(
+                cal["planting_month"], off, cal["wraps"],
+                sorted(d.year.unique())))]
             if len(d) < 40:
                 continue
             lo = loyo(d, fl, [y for y in eval_years if y in set(d.year)])
@@ -979,11 +1199,19 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             excluded.append(rec)
             continue
 
-        fl = features_for_offset(off_used)
+        fl = features_for_offset(off_used, feature_set)
         fx_h = build_features(tp, t2, cal["planting_month"], cal["wraps"],
                               off_used, sorted(anoms.year.unique()), fnids)
         train = anoms.merge(fx_h, on=["fnid", "year"], how="inner").dropna(
             subset=["anom"])
+        # Drop the climatology-fill era before fitting: see
+        # real_harvest_years. Left in, ~21% of these rows are one repeated
+        # design point and they flatter every metric downstream.
+        n_all = len(train)
+        train = train[train.year.isin(real_harvest_years(
+            cal["planting_month"], off_used, cal["wraps"],
+            sorted(train.year.unique())))]
+        rec["n_climfill_dropped"] = int(n_all - len(train))
         if len(train) < 40:
             rec.update(status="no_train",
                        reason=f"training pool too small ({len(train)})")
@@ -1068,6 +1296,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 "offset_used": off_used, "planting_month": cal["planting_month"],
                 "calendar_source": cal["calendar_source"],
                 "ahat": round(float(r["ahat"]), 3), **pr,
+                "feature_set": feature_set,
                 # skill AT THE ISSUED LEAD
                 "skill_auc": sk.get("auc"), "skill_low_recall": sk.get("low_recall"),
                 "skill_far": sk.get("far"), "skill_rrmse": sk.get("rrmse"),
@@ -1116,6 +1345,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
                 # best lead, kept separate so the two are never conflated
                 "best_offset": best["offset"], "best_auc": skb.get("auc")})
         rec.update(status="forecast", offset_used=off_used,
+                   feature_set=feature_set,
                    best_offset=best["offset"], best_auc=skb.get("auc"),
                    has_skill=has_skill, in_support=in_support,
                    has_national_skill=has_national_skill,
@@ -1166,5 +1396,6 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         gpkg = meta / "boundary_files" / "adm_shapefile.gpkg"
         viz.render_all(out, root, hvstat_csv,
                        gpkg=gpkg if gpkg.exists() else None,
-                       version=__version__, threshold_dir=threshold_dir)
+                       version=__version__, threshold_dir=threshold_dir,
+                       extent=map_extent, label=region_label)
     return out

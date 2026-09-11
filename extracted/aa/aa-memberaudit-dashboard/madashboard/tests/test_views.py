@@ -1,48 +1,49 @@
 # Third Party
+from app_utils.testdata_factories import EveCharacterFactory
+from app_utils.testing import (
+    NoSocketsTestCase,
+    add_character_to_user,
+    create_user_from_evecharacter,
+)
 from memberaudit.models import CharacterUpdateStatus
+from memberaudit.tests.testdata.factories_2 import CharacterFactory
+from memberaudit.tests.utils import create_user_from_evecharacter_with_access
 
 # Django
 from django.http import HttpResponse
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory
 
 # Alliance Auth
 from allianceauth.eveonline.models import EveCharacter
 
-# Alliance Auth (External Libs)
-from app_utils.testing import add_character_to_user, create_user_from_evecharacter
-
 # AA Member Audit Dashboard
-from madashboard.tests.testdata.load_allianceauth import load_allianceauth
-from madashboard.tests.testdata.load_memberaudit import load_memberaudit
 from madashboard.views import dashboard_memberaudit_check
 
 
-class DashboardMemberAuditCheckTest(TestCase):
+class DashboardMemberAuditCheckTest(NoSocketsTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        load_allianceauth()
-        load_memberaudit()
         cls.factory = RequestFactory()
+        EveCharacterFactory(character_id=1001)
+        EveCharacterFactory(character_id=1002)
+
         cls.user_without_permission, cls.character_ownership = (
             create_user_from_evecharacter(character_id=1002)
         )
         cls.user_with_ma_permission, cls.character_ownership = (
-            create_user_from_evecharacter(
-                character_id=1001,
-                permissions=["memberaudit.basic_access"],
-            )
+            create_user_from_evecharacter_with_access(character_id=1001)
         )
 
     def test_dashboard_memberaudit_check_user_with_ma_premission(self):
-        # given
+        # Test Data
         request = self.factory.get("/")
         request.user = self.user_with_ma_permission
-        # when
+        # Test Action
         response = dashboard_memberaudit_check(request)
         # Convert SafeString to HttpResponse for testing
         response = HttpResponse(response)
-        # then
+        # Expected Result
         self.assertEqual(response.status_code, 200)
         self.assertIn(
             '<div id="memberaudit-check-dashboard-widget" class="col-12 mb-3">',
@@ -50,14 +51,14 @@ class DashboardMemberAuditCheckTest(TestCase):
         )
 
     def test_dashboard_memberaudit_check_user_without_permission(self):
-        # given
+        # Test Data
         request = self.factory.get("/")
         request.user = self.user_without_permission
-        # when
+        # Test Action
         response = dashboard_memberaudit_check(request)
         # Convert SafeString to HttpResponse for testing
         response = HttpResponse(response)
-        # then
+        # Expected Result
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(
             '<div id="memberaudit-check-dashboard-widget" class="col-12 mb-3">',
@@ -65,20 +66,17 @@ class DashboardMemberAuditCheckTest(TestCase):
         )
 
     def test_dashboard_memberaudit_check_many(self):
-        # given
-        add_character_to_user(
-            self.user_with_ma_permission, EveCharacter.objects.get(character_id=1006)
-        )
-        add_character_to_user(
-            self.user_with_ma_permission, EveCharacter.objects.get(character_id=1007)
-        )
+        # Test Data
+        CharacterFactory(user=self.user_with_ma_permission)
+        CharacterFactory(user=self.user_with_ma_permission, is_main=False)
+
         request = self.factory.get("/")
         request.user = self.user_with_ma_permission
-        # when
+        # Test Action
         response = dashboard_memberaudit_check(request)
         # Convert SafeString to HttpResponse for testing
         response = HttpResponse(response)
-        # then
+        # Expected Result
         self.assertEqual(response.status_code, 200)
         self.assertIn(
             '<div id="memberaudit-check-dashboard-widget" class="col-12 mb-3">',
@@ -86,22 +84,20 @@ class DashboardMemberAuditCheckTest(TestCase):
         )
 
     def test_dashboard_memberaudit_check_character_update_issues(self):
-        # given
+        # Test Data
         # Create a CharacterUpdateStatus with failed update for character 1001
-        character = (
-            self.user_with_ma_permission.character_ownerships.first().character.memberaudit_character
-        )
+        memberaudit = CharacterFactory(user=self.user_with_ma_permission)
         CharacterUpdateStatus.objects.create(
-            character=character, is_success=False, update_finished_at=None
+            character=memberaudit, is_success=False, update_finished_at=None
         )
 
         request = self.factory.get("/")
         request.user = self.user_with_ma_permission
-        # when
+        # Test Action
         response = dashboard_memberaudit_check(request)
         # Convert SafeString to HttpResponse for testing
         response = HttpResponse(response)
-        # then
+        # Expected Result
         self.assertEqual(response.status_code, 200)
         self.assertIn(
             '<div id="memberaudit-check-dashboard-widget" class="col-12 mb-3">',
@@ -119,27 +115,25 @@ class DashboardMemberAuditCheckTest(TestCase):
         )
 
     def test_dashboard_memberaudit_check_character_both_unregistered_and_issues(self):
-        # given
+        # Test Data
+        character = CharacterFactory(user=self.user_with_ma_permission)
+        EveCharacterFactory(character_id=1006)
         # Add an unregistered character (character without memberaudit record)
         add_character_to_user(
             self.user_with_ma_permission, EveCharacter.objects.get(character_id=1006)
         )
-
         # Create a CharacterUpdateStatus with failed update for the registered character 1001
-        character = (
-            self.user_with_ma_permission.character_ownerships.first().character.memberaudit_character
-        )
         CharacterUpdateStatus.objects.create(
             character=character, is_success=False, update_finished_at=None
         )
 
         request = self.factory.get("/")
         request.user = self.user_with_ma_permission
-        # when
+        # Test Action
         response = dashboard_memberaudit_check(request)
         # Convert SafeString to HttpResponse for testing
         response = HttpResponse(response)
-        # then
+        # Expected Result
         self.assertEqual(response.status_code, 200)
         self.assertIn(
             '<div id="memberaudit-check-dashboard-widget" class="col-12 mb-3">',

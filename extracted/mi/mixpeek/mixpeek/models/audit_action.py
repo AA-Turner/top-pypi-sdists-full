@@ -80,6 +80,7 @@ class AuditAction(str, Enum):
     SECRET_CREATED = 'secret_created'
     SECRET_UPDATED = 'secret_updated'
     SECRET_DELETED = 'secret_deleted'
+    SECRET_ACCESSED = 'secret_accessed'
     WEBHOOK_CREATED = 'webhook_created'
     WEBHOOK_UPDATED = 'webhook_updated'
     WEBHOOK_DELETED = 'webhook_deleted'

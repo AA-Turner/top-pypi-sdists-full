@@ -15911,23 +15911,30 @@ class ServicePrincipal(
 ):
     '''An IAM principal that represents an AWS service (i.e. ``sqs.amazonaws.com``).
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # vpc: ec2.Vpc
-        
-        
-        log_group = logs.LogGroup(self, "MyCustomLogGroup")
-        
-        role = iam.Role(self, "MyCustomRole",
-            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")
+        # Create a browser
+        browser = agentcore.BrowserCustom(self, "MyBrowser",
+            browser_custom_name="my_browser",
+            description="Browser for web automation",
+            network_configuration=agentcore.BrowserNetworkConfiguration.using_public_network()
         )
         
-        ec2.FlowLog(self, "FlowLog",
-            resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
-            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role)
+        # Create a role that needs access to the browser
+        user_role = iam.Role(self, "UserRole",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
         )
+        
+        # Grant read permissions (Get and List actions)
+        browser.grant_read(user_role)
+        
+        # Grant use permissions (Start, Update, Stop actions)
+        browser.grant_use(user_role)
+        
+        # Grant specific custom permissions
+        browser.grant(user_role, "bedrock-agentcore:GetBrowserSession")
     '''
 
     def __init__(

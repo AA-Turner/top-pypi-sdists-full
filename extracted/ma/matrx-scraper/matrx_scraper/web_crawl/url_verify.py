@@ -73,6 +73,7 @@ from matrx_scraper.db.models_web import (
 from matrx_scraper.robots_txt import ROBOTS_MAX_BYTES, RobotsDocument, parse_robots_txt
 from matrx_scraper.scraper import content_type_from_header
 from matrx_scraper.utils.url import url_match_key, validate_public_http_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -365,7 +366,7 @@ class PoliteVerifier:
             message = f"{type(exc).__name__}: {exc}"
             if head_error is not None:
                 message = f"HEAD {head_error}; GET {message}"
-            logger.info("url verify: no response from %s (%s)", url, message)
+            logger.info("url verify: no response from %s (%s)", redact_url_secrets(url), message)
             return VerificationOutcome(
                 url=url,
                 http_status=NO_RESPONSE_STATUS,
@@ -410,7 +411,7 @@ async def load_site_robots(http: httpx.AsyncClient, root_url: str) -> RobotsDocu
         await validate_public_http_url(robots_url)
         response = await http.get(robots_url)
     except (httpx.HTTPError, ValueError) as exc:
-        logger.info("url verify: robots.txt unreadable at %s (%s)", robots_url, exc)
+        logger.info("url verify: robots.txt unreadable at %s (%s)", redact_url_secrets(robots_url), redact_url_secrets(exc))
         return None
     if response.status_code >= 400:
         return None

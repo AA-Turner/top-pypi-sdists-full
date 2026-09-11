@@ -88,6 +88,11 @@ class GlueSparkSessionManager(SparkSessionManager):
         self.glue_client = None
         self.sts_client = None
         self.project = None
+        # Effective Glue version of the session (e.g. "5.1", "6.0"), populated
+        # once the session is created (see _start_glue_session). Exposed via
+        # get_glue_version() so the SDK can map the Glue engine -> worker Python
+        # (Glue 6.x -> 3.13, 5.x -> 3.11) for UDF version routing.
+        self.glue_version = None
 
     def _lazy_init(self):
         _utils = InternalUtils()
@@ -130,12 +135,14 @@ class GlueSparkSessionManager(SparkSessionManager):
 
             custom_session = _boto3.Session()
 
-        glue_kwargs = {"region_name": region}
+        glue_kwargs = {"region_name": region, "config": self._client_retry_config()}
         if glue_endpoint_url:
             glue_kwargs["endpoint_url"] = glue_endpoint_url
 
         self.glue_client = custom_session.client("glue", **glue_kwargs)
-        self.sts_client = boto3.client("sts", region_name=region)
+        self.sts_client = boto3.client(
+            "sts", region_name=region, config=self._client_retry_config()
+        )
         if self.project is None:
             self.project = _ensure_project()
 
@@ -151,6 +158,9 @@ class GlueSparkSessionManager(SparkSessionManager):
         conn_data = getattr(connection, "_Connection__connection_data", {})
         props = conn_data.get("props", {}) if isinstance(conn_data, dict) else {}
         self._glue_props = props.get("sparkGlueProperties", {})
+        # Keep the whole prop bag so the SDK can read connection-level metadata
+        # (e.g. a declared worker pythonVersion) without re-fetching.
+        self._connection_props = props
 
         # Extract GlueDefaultArgument and SparkConfiguration from connection configurations
         # (same as sessions package connection_transformer.py).
@@ -286,6 +296,49 @@ class GlueSparkSessionManager(SparkSessionManager):
     def get_session_id(self):
         return self.glue_session_id
 
+    def get_glue_version(self):
+        """Return the effective Glue version of this session (e.g. "6.0", "5.1").
+
+        Resolution order:
+          1. ``self.glue_version`` — the effective version resolved (and possibly
+             bumped to 5.1) during session creation. This is the REAL engine
+             version once ``create()`` has run.
+          2. the connection's ``sparkGlueProperties.glueVersion`` (available after
+             ``_lazy_init`` even before the session is created).
+
+        Returns ``None`` if neither is available. Used by the SDK to map the Glue
+        engine -> worker Python (Glue 6.x -> 3.13, 5.x -> 3.11) for UDF routing.
+        """
+        if self.glue_version:
+            return self.glue_version
+        glue_props = getattr(self, "_glue_props", None)
+        if isinstance(glue_props, dict):
+            version = glue_props.get("glueVersion")
+            if version is not None:
+                return str(version)
+        return None
+
+    def get_connection_python_version(self):
+        """Return the worker Python version the CONNECTION declares, if any.
+
+        This is the cheapest and most authoritative signal available -- no RPC,
+        no probe -- but only if DataZone publishes it (see the design doc's Open
+        Question 3, "Should the Python version be surfaced as DataZone connection
+        metadata?"). Until it does, this returns ``None`` and the SDK falls
+        through to runtime detection. Checked in both the Spark-Glue property bag
+        and at the top level of the connection props, since either shape has been
+        seen.
+        """
+        for source in (
+            getattr(self, "_glue_props", None),
+            getattr(self, "_connection_props", None),
+        ):
+            if isinstance(source, dict):
+                version = source.get("pythonVersion")
+                if version:
+                    return str(version)
+        return None
+
     def _get_execution_role_arn(self):
         """Get the execution role ARN for the Glue session.
 
@@ -336,6 +389,10 @@ class GlueSparkSessionManager(SparkSessionManager):
                     glue_version = "5.1"
             except (ValueError, TypeError):
                 pass
+            # Record the effective (possibly bumped) Glue version on the manager
+            # so the SDK can derive the worker Python for UDF version routing
+            # (Glue 6.x -> 3.13, 5.x -> 3.11). This is the REAL engine version.
+            self.glue_version = str(glue_version)
             worker_type = self._resolve_session_field("workerType", "G.1X")
             number_of_workers = self._resolve_session_field("numberOfWorkers", 10)
             idle_timeout = self._resolve_session_field("idleTimeout", 15)

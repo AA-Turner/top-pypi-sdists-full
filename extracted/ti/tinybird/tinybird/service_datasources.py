@@ -335,13 +335,14 @@ def get_tinybird_service_datasources() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "tinybird.rate_limits_log",
-            "description": "Endpoint concurrency limiter transitions in your workspace.",
+            "name": "tinybird.cluster_control_log",
+            "description": "Actions applied by cluster control in your workspace to keep the load of your cluster under control: one row every time cluster control applies, updates, or clears the concurrency limit of an endpoint. rate_limit_type is the control family, currently always endpoint_concurrency. action is the transition: applied, updated, or cleared. limit_metadata is a JSON object with the inputs of the decision and the resulting limit, read it with JSONExtract functions; its keys are max_concurrent_queries (UInt64, the limit in force after the transition), change_reason (String), analysis_window_seconds (UInt64), and the nullable estimated_qps, request_count, observed_qps, error_count, success_count, error_to_success_ratio, rate_limited_request_count, degradation_reason, pipe_cpu_time, total_cpu_time, pipe_cpu_ratio and max_cpu_ratio. This data source has a TTL of 6 months.",
             "dateColumn": "timestamp",
             "engine": {
                 "engine": "MergeTree",
                 "sorting_key": "timestamp, pipe_name",
                 "partition_key": "toYYYYMM(timestamp)",
+                "ttl": "toStartOfMonth(toDateTime(timestamp)) + toIntervalMonth(6)",
             },
             "columns": [
                 {"name": "timestamp", "type": "DateTime64(3)"},
@@ -732,13 +733,14 @@ def get_organization_service_datasources() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "organization.rate_limits_log",
-            "description": "Endpoint concurrency limiter transitions across the organization.",
+            "name": "organization.cluster_control_log",
+            "description": "Actions applied by cluster control across all the workspaces in your organization to keep the load of your cluster under control: one row every time cluster control applies, updates, or clears the concurrency limit of an endpoint. workspace_id and workspace_name identify the affected workspace. rate_limit_type is the control family, currently always endpoint_concurrency. action is the transition: applied, updated, or cleared. limit_metadata is a JSON object with the inputs of the decision and the resulting limit, read it with JSONExtract functions; its keys are max_concurrent_queries (UInt64, the limit in force after the transition), change_reason (String), analysis_window_seconds (UInt64), and the nullable estimated_qps, request_count, observed_qps, error_count, success_count, error_to_success_ratio, rate_limited_request_count, degradation_reason, pipe_cpu_time, total_cpu_time, pipe_cpu_ratio and max_cpu_ratio. This data source has a TTL of 6 months.",
             "dateColumn": "timestamp",
             "engine": {
                 "engine": "MergeTree",
                 "sorting_key": "workspace_id, timestamp, pipe_name",
                 "partition_key": "toYYYYMM(timestamp)",
+                "ttl": "toStartOfMonth(toDateTime(timestamp)) + toIntervalMonth(6)",
             },
             "columns": [
                 {"name": "timestamp", "type": "DateTime64(3)"},

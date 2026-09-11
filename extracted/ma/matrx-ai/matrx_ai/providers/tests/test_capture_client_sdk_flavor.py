@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import sys
 from pathlib import Path
 
 import httpx
@@ -98,6 +99,54 @@ def test_no_sdk_still_means_plain_httpx() -> None:
     assert resolve_sdk_httpx(None) is httpx
     client = make_capture_http_client()
     assert isinstance(client, httpx.AsyncClient)
+
+
+def test_unloaded_importable_sdk_name_resolves_its_httpx_flavor(tmp_path: Path) -> None:
+    """String callers retain the public lazy-import contract for new SDKs."""
+    sdk_name = "unloaded_sdk_fixture"
+    (tmp_path / f"{sdk_name}.py").write_text(
+        "from httpx2 import AsyncClient\n"
+        "class DefaultAsyncHttpxClient(AsyncClient):\n"
+        "    pass\n"
+    )
+    assert sdk_name not in sys.modules
+    sys.path.insert(0, str(tmp_path))
+    importlib.invalidate_caches()
+    try:
+        flavor = resolve_sdk_httpx(sdk_name)
+        assert flavor.__name__ == "httpx2"
+    finally:
+        sys.path.remove(str(tmp_path))
+        sys.modules.pop(sdk_name, None)
+
+
+def test_capture_flavor_resolver_has_no_unresolved_dynamic_import() -> None:
+    """The provider scanner can statically inspect the complete resolver.
+
+    This intentionally fails against the former ``import_module(sdk)`` and
+    ``import_module(base_client_name)`` implementation while the preceding
+    test preserves the independent, unloaded arbitrary-SDK compatibility
+    contract.
+    """
+    source_path = PROVIDERS_ROOT / "outbound_capture.py"
+    tree = ast.parse(source_path.read_text(), filename=str(source_path))
+    unresolved_dynamic_imports = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "__import__"
+            or isinstance(node.func, ast.Attribute)
+            and node.func.attr == "import_module"
+        )
+    ]
+
+    assert not unresolved_dynamic_imports, (
+        "outbound capture must not call import_module() or __import__() with "
+        "a computed SDK/base-client name; that produces an UNRESOLVED_IMPORT "
+        "finding in the provider scanner."
+    )
 
 
 def test_every_sdk_call_site_declares_its_sdk() -> None:

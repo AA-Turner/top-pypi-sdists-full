@@ -1,6 +1,6 @@
 [project]
 name = "maxminddb"
-version = "3.1.1"
+version = "3.2.0"
 description = "Reader for the MaxMind DB format"
 authors = [
     {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
@@ -25,8 +25,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://www.maxmind.com/"
-Documentation = "https://maxminddb.readthedocs.org/"
+Homepage = "https://www.maxmind.com/en/home"
+Documentation = "https://maxminddb.readthedocs.io/en/latest/"
 "Source Code" = "https://github.com/maxmind/MaxMind-DB-Reader-python"
 "Issue Tracker" = "https://github.com/maxmind/MaxMind-DB-Reader-python/issues"
 
@@ -62,6 +62,9 @@ ignore = [
 
     # Redundant as the formatter handles missing trailing commas.
     "COM812",
+
+    # We do not want a copyright header on every file.
+    "CPY001",
 
     # documenting magic methods
     "D105",

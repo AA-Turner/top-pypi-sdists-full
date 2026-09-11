@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-rattler
-Version: 0.25.0
+Version: 0.26.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -8,10 +8,12 @@ Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
+Requires-Dist: networkx ; extra == 'networkx'
+Provides-Extra: networkx
 Summary: A blazing fast library to work with the conda ecosystem
 Author-email: Bas Zalmstra <zalmstra.bas@gmail.com>, Tarun Pratap Singh <pratapsinghtarun9@gmail.com>
 License-Expression: BSD-3-Clause
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://conda.github.io/rattler/py-rattler/
 Project-URL: Homepage, https://github.com/conda/rattler

@@ -29,10 +29,13 @@
 # DeqOptions, EnqOptions and MessageProperties.
 # -----------------------------------------------------------------------------
 
+from __future__ import annotations
+
 import datetime
+import functools
+from typing import Any
 
 from . import connection as connection_module
-from typing import Any, Union
 from . import errors, utils
 from .base import BaseMetaClass
 from .dbobject import DbObject, DbObjectType
@@ -48,6 +51,45 @@ class BaseQueue(metaclass=BaseMetaClass):
         queue._payload_type = None
         queue._impl = impl
         return queue
+
+    def _deqmany(self, max_num_messages: int) -> list["MessageProperties"]:
+        """
+        Common logic for deqmany().
+        """
+        if self._impl._supports_deq_many(self._connection._impl):
+            message_impls = yield from self._impl.deq_many(max_num_messages)
+        else:
+            message_impls = []
+            while len(message_impls) < max_num_messages:
+                message_impl = yield from self._impl.deq_one()
+                if message_impl is None:
+                    break
+                message_impls.append(message_impl)
+        return [MessageProperties._from_impl(impl) for impl in message_impls]
+
+    def _deqone(self) -> MessageProperties | None:
+        """
+        Common logic for deqone().
+        """
+        message_impl = yield from self._impl.deq_one()
+        if message_impl is not None:
+            return MessageProperties._from_impl(message_impl)
+
+    def _enqmany(self, messages: list["MessageProperties"]) -> None:
+        """
+        Common logic for enqmany().
+        """
+        for message in messages:
+            self._verify_message(message)
+        message_impls = [m._impl for m in messages]
+        yield from self._impl.enq_many(message_impls)
+
+    def _enqone(self, message: "MessageProperties") -> None:
+        """
+        Common logic for enqone().
+        """
+        self._verify_message(message)
+        yield from self._impl.enq_one(message._impl)
 
     def _verify_message(self, message: "MessageProperties") -> None:
         """
@@ -116,7 +158,7 @@ class BaseQueue(metaclass=BaseMetaClass):
         return self._impl.name
 
     @property
-    def payload_type(self) -> Union[DbObjectType, None]:
+    def payload_type(self) -> DbObjectType | None:
         """
         This read-only attribute returns the object type for payloads that can
         be enqueued and dequeued. If using a JSON queue, this returns the value
@@ -132,30 +174,37 @@ class BaseQueue(metaclass=BaseMetaClass):
         return self._payload_type
 
     @property
-    def payloadType(self) -> Union[DbObjectType, None]:
+    def payloadType(self) -> DbObjectType | None:
         """
         Deprecated: use payload_type instead.
         """
         return self.payload_type
 
 
+def sync_operation(f):
+    """
+    Decorator function which is used on all synchronous operations that
+    interact with the database.
+    """
+
+    @functools.wraps(f)
+    def wrapped_f(self, *args, **kwargs):
+        return self._connection._impl.process_sync_operation(
+            self, f.__name__, args, kwargs
+        )
+
+    return wrapped_f
+
+
 class Queue(BaseQueue):
 
+    @sync_operation
     def deqmany(self, max_num_messages: int) -> list["MessageProperties"]:
         """
         Dequeues up to the specified number of messages from the queue and
         returns a list of these messages.
         """
-        if self._impl._supports_deq_many(self._connection._impl):
-            message_impls = self._impl.deq_many(max_num_messages)
-        else:
-            message_impls = []
-            while len(message_impls) < max_num_messages:
-                message_impl = self._impl.deq_one()
-                if message_impl is None:
-                    break
-                message_impls.append(message_impl)
-        return [MessageProperties._from_impl(impl) for impl in message_impls]
+        pass
 
     def deqMany(self, max_num_messages: int) -> list["MessageProperties"]:
         """
@@ -163,21 +212,21 @@ class Queue(BaseQueue):
         """
         return self.deqmany(max_num_messages)
 
-    def deqone(self) -> Union["MessageProperties", None]:
+    @sync_operation
+    def deqone(self) -> MessageProperties | None:
         """
         Dequeues at most one message from the queue and returns it. If no
         message is dequeued, None is returned.
         """
-        message_impl = self._impl.deq_one()
-        if message_impl is not None:
-            return MessageProperties._from_impl(message_impl)
+        pass
 
-    def deqOne(self) -> Union["MessageProperties", None]:
+    def deqOne(self) -> MessageProperties | None:
         """
         Deprecated: use deqone() instead.
         """
         return self.deqone()
 
+    @sync_operation
     def enqmany(self, messages: list["MessageProperties"]) -> None:
         """
         Enqueues multiple messages into the queue. The messages parameter must
@@ -193,10 +242,7 @@ class Queue(BaseQueue):
         multiple calls to :meth:`Queue.enqone()`. The function
         :meth:`Queue.deqmany()` call is not affected.
         """
-        for message in messages:
-            self._verify_message(message)
-        message_impls = [m._impl for m in messages]
-        self._impl.enq_many(message_impls)
+        pass
 
     def enqMany(self, messages: list["MessageProperties"]) -> None:
         """
@@ -204,14 +250,14 @@ class Queue(BaseQueue):
         """
         return self.enqmany(messages)
 
+    @sync_operation
     def enqone(self, message: "MessageProperties") -> None:
         """
         Enqueues a single message into the queue. The message must be a message
         property object which has had its payload attribute set to a value that
         the queue supports.
         """
-        self._verify_message(message)
-        self._impl.enq_one(message._impl)
+        pass
 
     def enqOne(self, message: "MessageProperties") -> None:
         """
@@ -220,8 +266,24 @@ class Queue(BaseQueue):
         return self.enqone(message)
 
 
+def async_operation(f):
+    """
+    Decorator function which is used on all asynchronous operations that
+    interact with the database.
+    """
+
+    @functools.wraps(f)
+    async def wrapped_f(self, *args, **kwargs):
+        return await self._connection._impl.process_async_operation(
+            self, f.__name__, args, kwargs
+        )
+
+    return wrapped_f
+
+
 class AsyncQueue(BaseQueue):
 
+    @async_operation
     async def deqmany(
         self, max_num_messages: int
     ) -> list["MessageProperties"]:
@@ -229,18 +291,17 @@ class AsyncQueue(BaseQueue):
         Dequeues up to the specified number of messages from the queue and
         returns a list of these messages.
         """
-        message_impls = await self._impl.deq_many(max_num_messages)
-        return [MessageProperties._from_impl(impl) for impl in message_impls]
+        pass
 
-    async def deqone(self) -> Union["MessageProperties", None]:
+    @async_operation
+    async def deqone(self) -> MessageProperties | None:
         """
         Dequeues at most one message from the queue and returns it. If no
         message is dequeued, None is returned.
         """
-        message_impl = await self._impl.deq_one()
-        if message_impl is not None:
-            return MessageProperties._from_impl(message_impl)
+        pass
 
+    @async_operation
     async def enqmany(self, messages: list["MessageProperties"]) -> None:
         """
         Enqueues multiple messages into the queue. The messages parameter must
@@ -253,19 +314,16 @@ class AsyncQueue(BaseQueue):
         or connections from different pools, or make multiple calls to
         enqone() instead. The function Queue.deqmany() call is not affected.
         """
-        for message in messages:
-            self._verify_message(message)
-        message_impls = [m._impl for m in messages]
-        await self._impl.enq_many(message_impls)
+        pass
 
+    @async_operation
     async def enqone(self, message: "MessageProperties") -> None:
         """
         Enqueues a single message into the queue. The message must be a message
         property object which has had its payload attribute set to a value that
         the queue supports.
         """
-        self._verify_message(message)
-        await self._impl.enq_one(message._impl)
+        pass
 
 
 class DeqOptions(metaclass=BaseMetaClass):
@@ -295,13 +353,14 @@ class DeqOptions(metaclass=BaseMetaClass):
         This read-write attribute specifies the name of the consumer. Only
         messages matching the consumer name will be accessed. If the queue is
         not set up for multiple consumers this attribute should not be set. The
-        default is to have no consumer name specified.
+        default is to have no consumer name specified. The maximum length is 30
+        bytes.
         """
         return self._impl.get_consumer_name()
 
     @consumername.setter
     def consumername(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("consumername", value, 30)
         self._impl.set_consumer_name(value)
 
     @property
@@ -311,13 +370,14 @@ class DeqOptions(metaclass=BaseMetaClass):
         message to be dequeued. Special pattern-matching characters, such as
         the percent sign (%) and the underscore (_), can be used. If multiple
         messages satisfy the pattern, the order of dequeuing is indeterminate.
-        The default is to have no correlation specified.
+        The default is to have no correlation specified. The maximum length is
+        128 bytes.
         """
         return self._impl.get_correlation()
 
     @correlation.setter
     def correlation(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("correlation", value, 128)
         self._impl.set_correlation(value)
 
     @property
@@ -386,13 +446,13 @@ class DeqOptions(metaclass=BaseMetaClass):
         must be applied after the message is dequeued from the database but
         before it is returned to the calling application. The transformation
         must be created using dbms_transform. The default is to have no
-        transformation specified.
+        transformation specified. The maximum length is 61 bytes.
         """
         return self._impl.get_transformation()
 
     @transformation.setter
     def transformation(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("transformation", value, 61)
         self._impl.set_transformation(value)
 
     @property
@@ -457,13 +517,13 @@ class EnqOptions(metaclass=BaseMetaClass):
         This read-write attribute specifies the name of the transformation that
         must be applied before the message is enqueued into the database. The
         transformation must be created using dbms_transform. The default is to
-        have no transformation specified.
+        have no transformation specified. The maximum length is 61 bytes.
         """
         return self._impl.get_transformation()
 
     @transformation.setter
     def transformation(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("transformation", value, 61)
         self._impl.set_transformation(value)
 
     @property
@@ -503,13 +563,13 @@ class MessageProperties(metaclass=BaseMetaClass):
     def correlation(self) -> str:
         """
         This read-write attribute specifies the correlation used when the
-        message was enqueued.
+        message was enqueued. The maximum length is 128 bytes.
         """
         return self._impl.get_correlation()
 
     @correlation.setter
     def correlation(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("correlation", value, 128)
         self._impl.set_correlation(value)
 
     @property
@@ -553,13 +613,13 @@ class MessageProperties(metaclass=BaseMetaClass):
         maximum number of retries or if the message has expired. All messages
         in the exception queue are in the :data:`~oracledb.MSG_EXPIRED` state.
         The default value is the name of the exception queue associated with
-        the queue table.
+        the queue table. The maximum length is 51 bytes.
         """
         return self._impl.get_exception_queue()
 
     @exceptionq.setter
     def exceptionq(self, value: str) -> None:
-        utils.check_parameter_length("value", value, 128)
+        utils.check_parameter_length("exceptionq", value, 51)
         self._impl.set_exception_queue(value)
 
     @property
@@ -588,7 +648,7 @@ class MessageProperties(metaclass=BaseMetaClass):
         return self._impl.get_message_id()
 
     @property
-    def payload(self) -> Union[bytes, DbObject]:
+    def payload(self) -> bytes | DbObject:
         """
         This read-write attribute specifies the payload that will be enqueued
         or the payload that was dequeued when using a queue. When enqueuing,
@@ -634,7 +694,8 @@ class MessageProperties(metaclass=BaseMetaClass):
         allows a limited set of recipients to dequeue each message. The
         recipient list associated with the message overrides the queue
         subscriber list, if there is one. The recipient names need not be in
-        the subscriber list but can be, if desired.
+        the subscriber list but can be, if desired. The maximum length of each
+        recipient name is 30 bytes.
 
         To dequeue a message, the consumername attribute can be set to one of
         the recipient names. The original message recipient list is not
@@ -653,7 +714,7 @@ class MessageProperties(metaclass=BaseMetaClass):
     def recipients(self, value: list) -> None:
         if value is not None:
             for recipient in value:
-                utils.check_parameter_length("value", recipient, 120)
+                utils.check_parameter_length("recipient", recipient, 30)
         self._impl.set_recipients(value)
         self._recipients = value
 

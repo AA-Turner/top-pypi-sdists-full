@@ -513,15 +513,15 @@ def test_every_js_capable_context_installs_the_egress_guard() -> None:
     every crawl is a real cost on the hottest path. Widening it is a measured
     decision, not a reflex.
     """
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     session_mod = importlib.import_module("matrx_scraper.ai_browser.session")
-    session_src = inspect.getsource(session_mod.BrowserSessionManager.create)
+    session_src = stable_source(session_mod.BrowserSessionManager.create)
     assert "install_egress_guard(context)" in session_src, (
         "browser sessions no longer install the egress guard — eval_js can "
         "reach internal hosts again"
     )
-    preview_src = inspect.getsource(preview_mod._take_homepage_screenshot)
+    preview_src = stable_source(preview_mod._take_homepage_screenshot)
     assert "install_egress_guard(ctx)" in preview_src, (
         "/preview no longer installs the egress guard"
     )

@@ -25,15 +25,15 @@ class HeadersConfigurationMethodsMixin:
 
         Used to customize atproto proxy and set of labeler services.
 
+        Note:
+            The clone shares the session and its dispatcher with the original, so it stays
+            authenticated even when it is created before the first login.
+
         Returns:
             Cloned client instance.
         """
         cloned_client = super().clone()
-
-        # share the same objects to avoid conflicts with session changes
         cloned_client.me = self.me
-        cloned_client._session = self._session
-        cloned_client._session_dispatcher = self._session_dispatcher
 
         return cloned_client
 
@@ -45,7 +45,7 @@ class HeadersConfigurationMethodsMixin:
             did: The DID of the proxy.
 
         Returns:
-            :obj:`self`: Configured client instance.
+            ``self``: Configured client instance.
         """
         cloned_client = self.clone()
         cloned_client.configure_proxy_header(service_type, did)
@@ -58,7 +58,7 @@ class HeadersConfigurationMethodsMixin:
             labeler_dids: The DIDs of the labelers.
 
         Returns:
-            :obj:`self`: Configured client instance.
+            ``self``: Configured client instance.
         """
         cloned_client = self.clone()
         cloned_client.configure_labelers_header(labeler_dids)
@@ -95,7 +95,7 @@ class HeadersConfigurationMethodsMixin:
         """Get a new client instance with the atproto-proxy header configured for bsky.chat.
 
         Returns:
-            :obj:`self`: Configured client instance.
+            ``self``: Configured client instance.
         """
         return self.with_proxy(self.AtprotoServiceType.BSKY_CHAT, self.BSKY_CHAT_DID)
 
@@ -103,6 +103,6 @@ class HeadersConfigurationMethodsMixin:
         """Get a new client instance with the atproto-accept-labelers header configured for Bluesky Labeler.
 
         Returns:
-            :obj:`self`: Configured client instance.
+            ``self``: Configured client instance.
         """
         return self.with_labelers([self.BSKY_LABELER_DID])

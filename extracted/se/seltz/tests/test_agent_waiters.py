@@ -75,7 +75,7 @@ def test_create_and_wait_chains_create_into_wait(
         created.append((query, output_schema))
         return _run(PENDING, "run_new")
 
-    service.create = fake_create  # type: ignore[method-assign, assignment]
+    service.create = fake_create  # type: ignore[method-assign]
     monkeypatch.setattr("seltz.services.agent_service.time.sleep", lambda s: None)
 
     run = service.create_and_wait("q", output_schema={"type": "json_object"})

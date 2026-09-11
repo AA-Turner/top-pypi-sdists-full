@@ -22,6 +22,7 @@ from selectolax.parser import HTMLParser
 
 from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.user_agents import normalize_user_agent
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 # Load environment variables
 load_dotenv()
@@ -90,7 +91,7 @@ def _curl_cffi_get_sync(
                 {"status": int(resp.status_code), "url": response_url or current_url}
             )
             if redirect_count >= max_redirects:
-                raise RuntimeError(f"redirect limit exceeded for {url!r} ({max_redirects})")
+                raise RuntimeError(f"redirect limit exceeded for {redact_url_secrets(url)!r} ({max_redirects})")
             current_url = urljoin(response_url or current_url, location)
 
         status_code = resp.status_code
@@ -741,8 +742,8 @@ async def fetch(
                     except Exception as chain_exc:
                         logger.warning(
                             "redirect chain capture FAILED for %s — hop evidence lost: %s",
-                            url,
-                            chain_exc,
+                            redact_url_secrets(url),
+                            redact_url_secrets(chain_exc),
                         )
                         redirect_chain = []
                 else:
@@ -826,8 +827,8 @@ async def fetch(
                     except Exception as chain_exc:
                         logger.warning(
                             "redirect chain capture FAILED for %s — hop evidence lost: %s",
-                            url,
-                            chain_exc,
+                            redact_url_secrets(url),
+                            redact_url_secrets(chain_exc),
                         )
                         redirect_chain = []
                     content_type_raw = headers.get("content-type", "")
@@ -1085,7 +1086,7 @@ async def fetch_normally_with_proxy(
         random.shuffle(remaining_proxies)
     for alt_proxy in remaining_proxies:
         vcprint(
-            f"[RETRY] Different proxy for: {url} (original failure: {first_reason})", color="cyan"
+            f"[RETRY] Different proxy for: {redact_url_secrets(url)} (original failure: {first_reason})", color="cyan"
         )
         response = await fetch(url, RequestType.NORMAL, alt_proxy, user_agent=user_agent)
         all_proxy_errors = (
@@ -1094,15 +1095,15 @@ async def fetch_normally_with_proxy(
         if response.failed_primary_reason != FailureReason.PROXY_ERROR:
             _proxy_pool_exhausted = False
         if not response.failed:
-            vcprint(f"[RETRY] ALT PROXY WORKED: {url}", color="green")
+            vcprint(f"[RETRY] ALT PROXY WORKED: {redact_url_secrets(url)}", color="green")
             return response
         vcprint(
-            f"[RETRY] Alt proxy also failed: {url} ({response.failed_primary_reason})",
+            f"[RETRY] Alt proxy also failed: {redact_url_secrets(url)} ({response.failed_primary_reason})",
             color="yellow",
         )
 
     vcprint(
-        f"[RETRY] Proxy retries exhausted for: {url} ({response.failed_primary_reason})",
+        f"[RETRY] Proxy retries exhausted for: {redact_url_secrets(url)} ({response.failed_primary_reason})",
         color="yellow",
     )
     if all_proxy_errors and not _proxy_pool_exhausted:

@@ -19,6 +19,11 @@ Endpoints:
 * ``GET /assignment/{id}`` — single-assignment detail: the complete row
   (briefing + full free-text fields).  Point lookups get point endpoints.
 * ``GET /issue/{repo_name}/{number}`` — single-issue detail (full body).
+* ``GET /issues``   — cached ``issues`` rows (labels decoded, body included),
+  optionally scoped by repeated ``?repo_name=`` params (#3227/#3228); backs
+  ``coord.state.cached_open_issues``/``coord plans --lint-epics``/
+  ``--lint-stale-epics`` on a thin client. Not part of ``/board`` — the
+  ``Board`` model carries no issues field.
 * ``GET /audit``    — paginated, newest-first read over the append-only
   ``audit_log`` (#1037); keyset cursor, not part of ``/board``.
 * ``GET /leg-counts`` — all-time per-issue assignment leg counts by type,
@@ -4896,6 +4901,28 @@ def openapi_spec() -> dict:
                 "responses": {"200": {"description": "OK"}},
             },
         },
+        "/issues": {
+            "get": {
+                "summary": (
+                    "#3227/#3228: cached `issues` rows (labels decoded, body "
+                    "included), optionally scoped by repeated `?repo_name=` "
+                    "params. Backs `coord.state.cached_open_issues` / "
+                    "`coord plans --lint-epics`/`--lint-stale-epics` on a "
+                    "thin client. NOT part of `/board` — the `Board` model "
+                    "carries no issues field."
+                ),
+                "parameters": [
+                    {
+                        "name": "repo_name",
+                        "in": "query",
+                        "required": False,
+                        "schema": {"type": "array", "items": {"type": "string"}},
+                        "description": "Repeatable; omitted reads every repo's rows.",
+                    }
+                ],
+                "responses": {"200": {"description": "OK"}},
+            },
+        },
         "/pause": {
             "get": {
                 "summary": (
@@ -8593,13 +8620,37 @@ def build_app(
                     # key (a client predating this feature) means "no
                     # passthrough", same as `bool(None)`.
                     no_acceptance=bool(body.get("no_acceptance")),
+                    # #3236: per-entry destroy/replace-plan declaration.
+                    # Absent key (a client predating this feature) means
+                    # "not destructive", same as `bool(None)`.
+                    plan_destructive=bool(body.get("plan_destructive")),
                 )
                 return JSONResponse({"entry_id": entry_id})
             if action == "dequeue":
                 deleted = state._dequeue_drive_queue_local(
                     body["repo_name"], body["issue_number"]
                 )
-                return JSONResponse({"deleted": bool(deleted)})
+                # #3282: this daemon process runs ON the daemon host — the
+                # only machine `coord drive-queue tick` (and every `coord
+                # drive --tmux` session it launches) ever runs on — so this
+                # is exactly where a dequeue must own the live driver it may
+                # be orphaning. Every dequeue-routed client (the CLI's
+                # `coord drive-queue remove`, the dashboard's `remove`
+                # action) gets this for free without probing its own,
+                # unrelated host.
+                driver_ok, driver_session, driver_detail = True, None, None
+                if deleted:
+                    from coord.drive import stop_live_driver_session  # noqa: PLC0415
+
+                    driver_ok, driver_session, driver_detail = stop_live_driver_session(
+                        body["repo_name"], body["issue_number"]
+                    )
+                return JSONResponse({
+                    "deleted": bool(deleted),
+                    "driver_ok": driver_ok,
+                    "driver_session": driver_session,
+                    "driver_detail": driver_detail,
+                })
             if action == "update":
                 fields = body.get("fields")
                 if not isinstance(fields, dict):
@@ -8653,6 +8704,27 @@ def build_app(
                 status_code=503,
             )
         return JSONResponse(counts)
+
+    async def get_issues_collection(request: Request) -> Response:
+        # #3227: backs `coord plans --lint-epics` on a thin client — the
+        # daemon-routed half of `coord.state.cached_open_issues`. Repeated
+        # `?repo_name=` query params scope the read; omitted entirely reads
+        # every repo's cached rows. Deliberately its own endpoint (like
+        # /leg-counts) rather than folded into /board: the board projection's
+        # `Board` model (coord/models.py) has no `issues` field at all — only
+        # the raw wire payload carries a "issues" key, so there's no board
+        # read to piggyback on here.
+        from coord import state  # noqa: PLC0415
+
+        repo_names = request.query_params.getlist("repo_name") or None
+        try:
+            issues = state._cached_open_issues_local(repo_names)
+        except Exception as e:  # noqa: BLE001
+            return JSONResponse(
+                {"error": "issues read failed", "detail": str(e)},
+                status_code=503,
+            )
+        return JSONResponse({"issues": issues})
 
     async def get_pause(request: Request) -> Response:  # noqa: ARG001
         # #1563: the daemon's own view of the paused-machine set. ALWAYS the
@@ -10935,6 +11007,7 @@ def build_app(
         Route("/issue-label", post_issue_label, methods=["POST"]),
         Route("/issue-create", post_issue_create, methods=["POST"]),
         Route("/issues-sync", post_issues_sync, methods=["POST"]),
+        Route("/issues", get_issues_collection, methods=["GET"]),
         # #2895: single-row issue upsert + purge, the two write paths coord-tui
         # used to perform against coord.db directly.
         Route("/issue-upsert", post_issue_upsert, methods=["POST"]),

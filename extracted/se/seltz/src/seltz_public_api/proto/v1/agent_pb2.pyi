@@ -39,14 +39,16 @@ AGENT_RUN_STOP_REASON_INVALID_OUTPUT: AgentRunStopReason
 AGENT_RUN_STOP_REASON_INTERNAL_ERROR: AgentRunStopReason
 
 class CreateAgentRunRequest(_message.Message):
-    __slots__ = ("query", "output_schema", "api_key")
+    __slots__ = ("query", "output_schema", "api_key", "effort")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     API_KEY_FIELD_NUMBER: _ClassVar[int]
+    EFFORT_FIELD_NUMBER: _ClassVar[int]
     query: str
     output_schema: str
     api_key: str
-    def __init__(self, query: _Optional[str] = ..., output_schema: _Optional[str] = ..., api_key: _Optional[str] = ...) -> None: ...
+    effort: str
+    def __init__(self, query: _Optional[str] = ..., output_schema: _Optional[str] = ..., api_key: _Optional[str] = ..., effort: _Optional[str] = ...) -> None: ...
 
 class CreateAgentRunResponse(_message.Message):
     __slots__ = ("run",)
@@ -123,12 +125,14 @@ class AgentRun(_message.Message):
     def __init__(self, id: _Optional[str] = ..., object: _Optional[str] = ..., status: _Optional[_Union[AgentRunStatus, str]] = ..., stop_reason: _Optional[_Union[AgentRunStopReason, str]] = ..., created_at: _Optional[str] = ..., started_at: _Optional[str] = ..., completed_at: _Optional[str] = ..., request: _Optional[_Union[AgentRunRequest, _Mapping]] = ..., output: _Optional[_Union[AgentRunOutput, _Mapping]] = ...) -> None: ...
 
 class AgentRunRequest(_message.Message):
-    __slots__ = ("query", "output_schema")
+    __slots__ = ("query", "output_schema", "effort")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    EFFORT_FIELD_NUMBER: _ClassVar[int]
     query: str
     output_schema: str
-    def __init__(self, query: _Optional[str] = ..., output_schema: _Optional[str] = ...) -> None: ...
+    effort: str
+    def __init__(self, query: _Optional[str] = ..., output_schema: _Optional[str] = ..., effort: _Optional[str] = ...) -> None: ...
 
 class AgentRunOutput(_message.Message):
     __slots__ = ("text", "structured", "sources", "grounding")

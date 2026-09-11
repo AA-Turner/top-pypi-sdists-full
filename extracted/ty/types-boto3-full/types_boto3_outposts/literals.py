@@ -74,6 +74,7 @@ __all__ = (
     "QuoteRackUseTypeType",
     "QuoteSpecificationTypeType",
     "QuoteStatusType",
+    "RackScalingTypeType",
     "RackUnitHeightType",
     "RegionName",
     "ResourceServiceName",
@@ -213,11 +214,14 @@ PowerPhaseType = Literal["SINGLE_PHASE", "THREE_PHASE"]
 PricingResultType = Literal["PRICED", "UNABLE_TO_PRICE"]
 PrivateConnectivityStatusType = Literal["DISABLED", "ENABLED"]
 QuoteCapacityTypeType = Literal["EBS", "EC2", "S3"]
-QuoteConstraintTypeType = Literal["RACK_MAXIMUM", "RACK_MAX_POWER_KVA", "RACK_MAX_WEIGHT_LBS"]
+QuoteConstraintTypeType = Literal[
+    "RACK_MAXIMUM", "RACK_MAX_POWER_KVA", "RACK_MAX_WEIGHT_LBS", "RACK_SPACE_CONSTRAINED"
+]
 QuotePricingTypeType = Literal["SUBSCRIPTION"]
 QuoteRackUseTypeType = Literal["COMPUTE", "NETWORKING"]
 QuoteSpecificationTypeType = Literal["EXISTING_RACK", "NEW_RACK", "SERVER", "UPDATED_RACK"]
 QuoteStatusType = Literal["CREATED", "EXPIRED", "ORDER_SUBMITTED"]
+RackScalingTypeType = Literal["MULTI_RACK", "SINGLE_RACK"]
 RackUnitHeightType = Literal["HEIGHT_1U", "HEIGHT_2U", "HEIGHT_42U"]
 ShipmentCarrierType = Literal["DBS", "DHL", "EXPEDITORS", "FEDEX", "UPS"]
 SubscriptionStatusType = Literal["ACTIVE", "CANCELLED", "INACTIVE", "PENDING"]

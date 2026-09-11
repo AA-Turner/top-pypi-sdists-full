@@ -1,5 +1,6 @@
 import typing as t
 
+from atproto_client.models import type_conversion as type_conversion
 from atproto_client.models.models_loader import make_lazy_accessors
 
 if t.TYPE_CHECKING:
@@ -101,6 +102,7 @@ if t.TYPE_CHECKING:
     from atproto_client.models.app.bsky.graph import mute_actor as AppBskyGraphMuteActor
     from atproto_client.models.app.bsky.graph import mute_actor_list as AppBskyGraphMuteActorList
     from atproto_client.models.app.bsky.graph import mute_thread as AppBskyGraphMuteThread
+    from atproto_client.models.app.bsky.graph import referencelistoptout as AppBskyGraphReferencelistoptout
     from atproto_client.models.app.bsky.graph import search_starter_packs as AppBskyGraphSearchStarterPacks
     from atproto_client.models.app.bsky.graph import search_starter_packs_v2 as AppBskyGraphSearchStarterPacksV2
     from atproto_client.models.app.bsky.graph import starterpack as AppBskyGraphStarterpack
@@ -402,6 +404,9 @@ if t.TYPE_CHECKING:
     from atproto_client.models.tools.ozone.moderation import defs as ToolsOzoneModerationDefs
     from atproto_client.models.tools.ozone.moderation import emit_event as ToolsOzoneModerationEmitEvent
     from atproto_client.models.tools.ozone.moderation import (
+        get_account_preferences as ToolsOzoneModerationGetAccountPreferences,
+    )
+    from atproto_client.models.tools.ozone.moderation import (
         get_account_timeline as ToolsOzoneModerationGetAccountTimeline,
     )
     from atproto_client.models.tools.ozone.moderation import get_event as ToolsOzoneModerationGetEvent
@@ -584,6 +589,7 @@ class _Ids:
     AppBskyGraphMuteActor: str = 'app.bsky.graph.muteActor'
     AppBskyGraphMuteActorList: str = 'app.bsky.graph.muteActorList'
     AppBskyGraphMuteThread: str = 'app.bsky.graph.muteThread'
+    AppBskyGraphReferencelistoptout: str = 'app.bsky.graph.referencelistoptout'
     AppBskyGraphSearchStarterPacks: str = 'app.bsky.graph.searchStarterPacks'
     AppBskyGraphSearchStarterPacksV2: str = 'app.bsky.graph.searchStarterPacksV2'
     AppBskyGraphStarterpack: str = 'app.bsky.graph.starterpack'
@@ -828,6 +834,7 @@ class _Ids:
     ToolsOzoneModerationCancelScheduledActions: str = 'tools.ozone.moderation.cancelScheduledActions'
     ToolsOzoneModerationDefs: str = 'tools.ozone.moderation.defs'
     ToolsOzoneModerationEmitEvent: str = 'tools.ozone.moderation.emitEvent'
+    ToolsOzoneModerationGetAccountPreferences: str = 'tools.ozone.moderation.getAccountPreferences'
     ToolsOzoneModerationGetAccountTimeline: str = 'tools.ozone.moderation.getAccountTimeline'
     ToolsOzoneModerationGetEvent: str = 'tools.ozone.moderation.getEvent'
     ToolsOzoneModerationGetRecord: str = 'tools.ozone.moderation.getRecord'

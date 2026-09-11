@@ -41,6 +41,7 @@ from matrx_runtime import (
 
 from matrx_scraper.queue_backend import QueueItem
 from matrx_scraper.utils.url import normalize_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 if TYPE_CHECKING:  # avoid a hard import cycle; the host passes a live engine
     from matrx_runtime import ExecutionEngine
@@ -204,7 +205,7 @@ class RuntimeWorkQueueBackend:
                 logger.warning(
                     "durable crawl frontier: mark_done(%s) lost the settle CAS — "
                     "the item's lease expired and a newer claim owns it (item %s)",
-                    url,
+                    redact_url_secrets(url),
                     item_id,
                 )
 
@@ -232,7 +233,7 @@ class RuntimeWorkQueueBackend:
                 logger.warning(
                     "durable crawl frontier: mark_failed(%s) lost the settle CAS — "
                     "the item's lease expired and a newer claim owns it (item %s)",
-                    url,
+                    redact_url_secrets(url),
                     item_id,
                 )
             elif will_retry and state in (WorkItemState.DEAD_LETTER, WorkItemState.FAILED):
@@ -249,7 +250,7 @@ class RuntimeWorkQueueBackend:
                     "will report this URL neither fetched nor failed. Reclaim churn "
                     "exhausted %d attempts; investigate worker health.",
                     item_id,
-                    url,
+                    redact_url_secrets(url),
                     state.value,
                     DEFAULT_ITEM_MAX_ATTEMPTS,
                 )

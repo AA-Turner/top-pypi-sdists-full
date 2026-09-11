@@ -2144,6 +2144,490 @@ class CfnChannelFlowProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_chime_58870695.IMediaPipelineKinesisVideoStreamPoolRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnMediaPipelineKinesisVideoStreamPool(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_chime.CfnMediaPipelineKinesisVideoStreamPool",
+):
+    '''Resource Type definition for an Amazon Chime SDK Media Pipeline Kinesis Video Stream Pool.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediapipelinekinesisvideostreampool.html
+    :cloudformationResource: AWS::Chime::MediaPipelineKinesisVideoStreamPool
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_chime as chime
+        
+        cfn_media_pipeline_kinesis_video_stream_pool = chime.CfnMediaPipelineKinesisVideoStreamPool(self, "MyCfnMediaPipelineKinesisVideoStreamPool",
+            pool_name="poolName",
+            stream_configuration=chime.CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty(
+                region="region",
+        
+                # the properties below are optional
+                data_retention_in_hours=123
+            ),
+        
+            # the properties below are optional
+            tags=[chime.CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        pool_name: builtins.str,
+        stream_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Chime::MediaPipelineKinesisVideoStreamPool``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param pool_name: The name of the Kinesis Video Stream Pool.
+        :param stream_configuration: The configuration settings for the Kinesis video stream.
+        :param tags: The tags associated with the Kinesis Video Stream Pool.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b336d9205da99d4437e13b57fe31566b7bcddbad8a4aca01118d6e9af2e64130)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMediaPipelineKinesisVideoStreamPoolProps(
+            pool_name=pool_name, stream_configuration=stream_configuration, tags=tags
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMediaPipelineKinesisVideoStreamPool")
+    @builtins.classmethod
+    def arn_for_media_pipeline_kinesis_video_stream_pool(
+        cls,
+        resource: "_aws_chime_58870695.IMediaPipelineKinesisVideoStreamPoolRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__32690cfe6167486a6bc73ee7a4e8b2d72cf2b71f8d044f85f72d01dafc98562b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMediaPipelineKinesisVideoStreamPool", [resource]))
+
+    @jsii.member(jsii_name="isCfnMediaPipelineKinesisVideoStreamPool")
+    @builtins.classmethod
+    def is_cfn_media_pipeline_kinesis_video_stream_pool(
+        cls,
+        x: typing.Any,
+    ) -> builtins.bool:
+        '''Checks whether the given object is a CfnMediaPipelineKinesisVideoStreamPool.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__49dc319dea57d3c17dfa63f2944c37fff0d692bfb0acb6c6a6c8d4849a7fbcae)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMediaPipelineKinesisVideoStreamPool", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bb3bc86383838753d4e892b4d5b009b8a4bf3d69ae85b39d6d4a54445fbd219)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__023cb1dbceee8545cd0fb5816a4202d640695b79fc5f31581fab9f0ee4e134ec)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the Kinesis Video Stream Pool.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time at which the Kinesis Video Stream Pool was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPoolId")
+    def attr_pool_id(self) -> builtins.str:
+        '''The unique identifier of the Kinesis Video Stream Pool.
+
+        :cloudformationAttribute: PoolId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPoolId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPoolStatus")
+    def attr_pool_status(self) -> builtins.str:
+        '''The status of the Kinesis Video Stream Pool.
+
+        :cloudformationAttribute: PoolStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPoolStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedTimestamp")
+    def attr_updated_timestamp(self) -> builtins.str:
+        '''The time at which the Kinesis Video Stream Pool was last updated.
+
+        :cloudformationAttribute: UpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaPipelineKinesisVideoStreamPoolRef")
+    def media_pipeline_kinesis_video_stream_pool_ref(
+        self,
+    ) -> "_aws_chime_58870695.MediaPipelineKinesisVideoStreamPoolReference":
+        '''A reference to a MediaPipelineKinesisVideoStreamPool resource.'''
+        return typing.cast("_aws_chime_58870695.MediaPipelineKinesisVideoStreamPoolReference", jsii.get(self, "mediaPipelineKinesisVideoStreamPoolRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="poolName")
+    def pool_name(self) -> builtins.str:
+        '''The name of the Kinesis Video Stream Pool.'''
+        return typing.cast(builtins.str, jsii.get(self, "poolName"))
+
+    @pool_name.setter
+    def pool_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f677f01464018d20d5c629d5a30dfe7b5a353a6f894cee558cd7a079815b3648)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "poolName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamConfiguration")
+    def stream_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty"]:
+        '''The configuration settings for the Kinesis video stream.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty"], jsii.get(self, "streamConfiguration"))
+
+    @stream_configuration.setter
+    def stream_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4eef490c284885605bd4d9641f9a06d3eda73e2ce6d657b210b0a1f9a297ab7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty"]]:
+        '''The tags associated with the Kinesis Video Stream Pool.'''
+        return typing.cast(typing.Optional[typing.List["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__994c1e7aea782a4f5ac4c165542058880ff58e7435841b0f9687daa4baa0d0ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "region": "region",
+            "data_retention_in_hours": "dataRetentionInHours",
+        },
+    )
+    class StreamConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            region: builtins.str,
+            data_retention_in_hours: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The configuration settings for the Kinesis video stream.
+
+            :param region: The AWS Region of the video stream.
+            :param data_retention_in_hours: The amount of time that data is retained, in hours.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-streamconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                stream_configuration_property = chime.CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty(
+                    region="region",
+                
+                    # the properties below are optional
+                    data_retention_in_hours=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9180f89bf344bebe3717327b7e726cc5fc7402b806c845d0a7bec90af2aa71a6)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+                check_type(argname="argument data_retention_in_hours", value=data_retention_in_hours, expected_type=type_hints["data_retention_in_hours"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region": region,
+            }
+            if data_retention_in_hours is not None:
+                self._values["data_retention_in_hours"] = data_retention_in_hours
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''The AWS Region of the video stream.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-streamconfiguration.html#cfn-chime-mediapipelinekinesisvideostreampool-streamconfiguration-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def data_retention_in_hours(self) -> typing.Optional[jsii.Number]:
+            '''The amount of time that data is retained, in hours.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-streamconfiguration.html#cfn-chime-mediapipelinekinesisvideostreampool-streamconfiguration-dataretentioninhours
+            '''
+            result = self._values.get("data_retention_in_hours")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_chime.CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_chime as chime
+                
+                tags_items_property = chime.CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__720939a95a92fe53c15ba34c0f539667cb899205f38b3e1f0635deeb6d1ee34b)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-tagsitems.html#cfn-chime-mediapipelinekinesisvideostreampool-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-chime-mediapipelinekinesisvideostreampool-tagsitems.html#cfn-chime-mediapipelinekinesisvideostreampool-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_chime.CfnMediaPipelineKinesisVideoStreamPoolProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "pool_name": "poolName",
+        "stream_configuration": "streamConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnMediaPipelineKinesisVideoStreamPoolProps:
+    def __init__(
+        self,
+        *,
+        pool_name: builtins.str,
+        stream_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMediaPipelineKinesisVideoStreamPool``.
+
+        :param pool_name: The name of the Kinesis Video Stream Pool.
+        :param stream_configuration: The configuration settings for the Kinesis video stream.
+        :param tags: The tags associated with the Kinesis Video Stream Pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediapipelinekinesisvideostreampool.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_chime as chime
+            
+            cfn_media_pipeline_kinesis_video_stream_pool_props = chime.CfnMediaPipelineKinesisVideoStreamPoolProps(
+                pool_name="poolName",
+                stream_configuration=chime.CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty(
+                    region="region",
+            
+                    # the properties below are optional
+                    data_retention_in_hours=123
+                ),
+            
+                # the properties below are optional
+                tags=[chime.CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0a4fb7dfa431fc097a5630ce4858b4dd3da0617dbc59442dd069b385683b9538)
+            check_type(argname="argument pool_name", value=pool_name, expected_type=type_hints["pool_name"])
+            check_type(argname="argument stream_configuration", value=stream_configuration, expected_type=type_hints["stream_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pool_name": pool_name,
+            "stream_configuration": stream_configuration,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def pool_name(self) -> builtins.str:
+        '''The name of the Kinesis Video Stream Pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediapipelinekinesisvideostreampool.html#cfn-chime-mediapipelinekinesisvideostreampool-poolname
+        '''
+        result = self._values.get("pool_name")
+        assert result is not None, "Required property 'pool_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stream_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty"]:
+        '''The configuration settings for the Kinesis video stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediapipelinekinesisvideostreampool.html#cfn-chime-mediapipelinekinesisvideostreampool-streamconfiguration
+        '''
+        result = self._values.get("stream_configuration")
+        assert result is not None, "Required property 'stream_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty"], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty"]]:
+        '''The tags associated with the Kinesis Video Stream Pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-chime-mediapipelinekinesisvideostreampool.html#cfn-chime-mediapipelinekinesisvideostreampool-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMediaPipelineKinesisVideoStreamPoolProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAppInstance",
     "CfnAppInstanceBot",
@@ -2153,6 +2637,8 @@ __all__ = [
     "CfnAppInstanceUserProps",
     "CfnChannelFlow",
     "CfnChannelFlowProps",
+    "CfnMediaPipelineKinesisVideoStreamPool",
+    "CfnMediaPipelineKinesisVideoStreamPoolProps",
 ]
 
 publication.publish()
@@ -2508,6 +2994,84 @@ def _typecheckingstub__04fab589c36890507658f03e0daf5dda656b997e99d4f0f5d449cfb43
     name: builtins.str,
     processors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnChannelFlow.ProcessorProperty, typing.Dict[builtins.str, typing.Any]]]]],
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b336d9205da99d4437e13b57fe31566b7bcddbad8a4aca01118d6e9af2e64130(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    pool_name: builtins.str,
+    stream_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32690cfe6167486a6bc73ee7a4e8b2d72cf2b71f8d044f85f72d01dafc98562b(
+    resource: _aws_chime_58870695.IMediaPipelineKinesisVideoStreamPoolRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49dc319dea57d3c17dfa63f2944c37fff0d692bfb0acb6c6a6c8d4849a7fbcae(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bb3bc86383838753d4e892b4d5b009b8a4bf3d69ae85b39d6d4a54445fbd219(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__023cb1dbceee8545cd0fb5816a4202d640695b79fc5f31581fab9f0ee4e134ec(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f677f01464018d20d5c629d5a30dfe7b5a353a6f894cee558cd7a079815b3648(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4eef490c284885605bd4d9641f9a06d3eda73e2ce6d657b210b0a1f9a297ab7c(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__994c1e7aea782a4f5ac4c165542058880ff58e7435841b0f9687daa4baa0d0ed(
+    value: typing.Optional[typing.List[CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9180f89bf344bebe3717327b7e726cc5fc7402b806c845d0a7bec90af2aa71a6(
+    *,
+    region: builtins.str,
+    data_retention_in_hours: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__720939a95a92fe53c15ba34c0f539667cb899205f38b3e1f0635deeb6d1ee34b(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a4fb7dfa431fc097a5630ce4858b4dd3da0617dbc59442dd069b385683b9538(
+    *,
+    pool_name: builtins.str,
+    stream_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnMediaPipelineKinesisVideoStreamPool.StreamConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnMediaPipelineKinesisVideoStreamPool.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

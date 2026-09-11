@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.638"
+__version__ = "1.3.650"
 
 # Define package exports
 __all__ = [
@@ -368,7 +368,6 @@ __all__ = [
     "CompoundIndexPattern",
     "CompoundIndexResponse",
     "ComputeCostSummary",
-    "ComputeTier",
     "ConfidenceDistribution",
     "ConfidenceResponse",
     "Config",
@@ -1261,6 +1260,7 @@ __all__ = [
     "SyncMode",
     "SyncPerformanceResponse",
     "SyncRunMetric",
+    "SyncStatsModel",
     "SyncUpdateRequest",
     "SystemCondition",
     "SystemConditionType",
@@ -1768,7 +1768,6 @@ from mixpeek.models.components_config import ComponentsConfig as ComponentsConfi
 from mixpeek.models.compound_index_pattern import CompoundIndexPattern as CompoundIndexPattern
 from mixpeek.models.compound_index_response import CompoundIndexResponse as CompoundIndexResponse
 from mixpeek.models.compute_cost_summary import ComputeCostSummary as ComputeCostSummary
-from mixpeek.models.compute_tier import ComputeTier as ComputeTier
 from mixpeek.models.confidence_distribution import ConfidenceDistribution as ConfidenceDistribution
 from mixpeek.models.confidence_response import ConfidenceResponse as ConfidenceResponse
 from mixpeek.models.config import Config as Config
@@ -2661,6 +2660,7 @@ from mixpeek.models.sync_metrics_response import SyncMetricsResponse as SyncMetr
 from mixpeek.models.sync_mode import SyncMode as SyncMode
 from mixpeek.models.sync_performance_response import SyncPerformanceResponse as SyncPerformanceResponse
 from mixpeek.models.sync_run_metric import SyncRunMetric as SyncRunMetric
+from mixpeek.models.sync_stats_model import SyncStatsModel as SyncStatsModel
 from mixpeek.models.sync_update_request import SyncUpdateRequest as SyncUpdateRequest
 from mixpeek.models.system_condition import SystemCondition as SystemCondition
 from mixpeek.models.system_condition_type import SystemConditionType as SystemConditionType

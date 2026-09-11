@@ -276,6 +276,7 @@ class Task(XPanderSharedModel):
     is_orchestration: Optional[bool] = False
     is_gateway: Optional[bool] = False
     is_app: Optional[bool] = False
+    background_auth_eligible: bool = False
     additional_context: Optional[str] = None
     tool_call_limit: Optional[int] = None
     instructions_override: Optional[str] = None

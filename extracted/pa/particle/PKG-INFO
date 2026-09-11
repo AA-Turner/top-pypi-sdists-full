@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: particle
-Version: 1.0.0
+Version: 1.0.1
 Summary: Extended PDG particle data and MC identification codes
 Project-URL: Homepage, https://github.com/scikit-hep/particle
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>, Henry Schreiner <henryfs@princeton.edu>
@@ -24,6 +24,7 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.10
 Requires-Dist: attrs>=22.2.0
 Requires-Dist: hepunits>=2.4.0
+Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: all
 Requires-Dist: pandas; extra == 'all'
 Requires-Dist: pre-commit; extra == 'all'

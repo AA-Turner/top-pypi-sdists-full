@@ -5,11 +5,11 @@ from typing import Any, Literal, Optional
 from google.genai.types import Part
 
 from matrx_ai.config.config_utils import encode_binary_metadata
-from matrx_ai.config.wire_names import to_wire_name
 from matrx_ai.config.openai_responses_tool_ids import (
     openai_responses_tool_call_wire_ids,
     openai_responses_tool_result_call_id,
 )
+from matrx_ai.config.wire_names import to_wire_name
 
 
 def _is_typed_block_list(content: Any) -> bool:
@@ -199,10 +199,6 @@ class ToolCallContent:
     arguments: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    from openai.types.responses import (
-        ResponseFunctionToolCall as OpenAIResponseFunctionToolCall,
-    )
-
     def get_output(self) -> str:
         """Get the output of the tool call."""
         return json.dumps(self.to_dict())
@@ -382,7 +378,7 @@ class ToolCallContent:
         return None
 
     @classmethod
-    def from_openai(cls, item: OpenAIResponseFunctionToolCall) -> Optional["ToolCallContent"]:
+    def from_openai(cls, item: Any) -> Optional["ToolCallContent"]:
         """Create ToolCallContent from OpenAI item.
 
         ``id`` is set to ``item.call_id`` (the join key, e.g. ``call_...``).

@@ -11,9 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .worktree_setup import _parse_non_negative_timeout
+
 _WORKFLOW_AUTO_EXECUTE_TIMEOUTS: dict[str, int] = {
-    "pull-request-review": 600,
-    "apply-pull-request-review-suggestions": 300,
+    "pull-request-review": 1800,
+    "apply-pull-request-review-suggestions": 1800,
 }
 
 
@@ -289,9 +291,8 @@ def perform_auto_setup(
         auto_execute_command: Optional command to run inside the worktree after
             creation. Passed through to the background setup task.
         auto_execute_timeout: Timeout in seconds for the auto-execute command.
-            When None (default), uses workflow-specific defaults (e.g., 600s
-            for pull-request-review) or falls back to 1800s. Pass an explicit
-            value to override the workflow default.
+            When None (default), uses the 1800s workflow default. Pass an
+            explicit value to override the workflow default.
         interactive: Whether to start the Copilot session interactively after
             the worktree is ready (default: False). Set to True for interactive mode.
         model: The Copilot model ID to use (e.g., "gpt-4o"). When provided,
@@ -331,20 +332,7 @@ def perform_auto_setup(
     if auto_execute_timeout is None:
         configured_timeout = get_value("worktree_setup.auto_execute_timeout")
         if configured_timeout is not None:
-            parsed_timeout: int | None = None
-            if isinstance(configured_timeout, bool):
-                parsed_timeout = None
-            elif isinstance(configured_timeout, int):
-                parsed_timeout = configured_timeout
-            elif isinstance(configured_timeout, str):
-                stripped_timeout = configured_timeout.strip()
-                if stripped_timeout.startswith(("+", "-")):
-                    sign = stripped_timeout[0]
-                    digits = stripped_timeout[1:]
-                    if digits.isdigit():
-                        parsed_timeout = int(f"{sign}{digits}")
-                elif stripped_timeout.isdigit():
-                    parsed_timeout = int(stripped_timeout)
+            parsed_timeout = _parse_non_negative_timeout(configured_timeout)
 
             if parsed_timeout is not None and parsed_timeout >= 0:
                 auto_execute_timeout = parsed_timeout

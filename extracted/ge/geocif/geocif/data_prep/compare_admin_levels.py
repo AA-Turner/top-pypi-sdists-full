@@ -46,11 +46,13 @@ def load_admin1(xlsx_path, country, admin_1):
     return ref.reset_index()
 
 
-def aggregate_admin2(csv_path, product=None):
+def aggregate_admin2(csv_path, product=None, admin_1=None):
     """Municipality rows -> production-weighted state series per year."""
     df = pd.read_csv(csv_path)
     if product:
         df = df[df["product"] == product]
+    if admin_1:
+        df = df[df["admin_1"].str.casefold() == str(admin_1).casefold()]
     g = df.groupby("harvest_year")
     agg = g.agg(
         area=("area", "sum"),
@@ -65,9 +67,10 @@ def aggregate_admin2(csv_path, product=None):
     return agg
 
 
-def compare(xlsx, csv, country, admin_1, product, out_csv=None, tol_pct=5.0):
+def compare(xlsx, csv, country, admin_1, product, out_csv=None, tol_pct=5.0,
+            filter_admin_1=None, quiet=False):
     ref = load_admin1(xlsx, country, admin_1)
-    agg = aggregate_admin2(csv, product)
+    agg = aggregate_admin2(csv, product, admin_1=filter_admin_1)
 
     m = ref.merge(agg, on="harvest_year", suffixes=("_admin1", "_admin2"))
     m = m.dropna(subset=["yield_admin1", "yield_admin2"])
@@ -79,31 +82,113 @@ def compare(xlsx, csv, country, admin_1, product, out_csv=None, tol_pct=5.0):
         m[f"{q}_diff_pct"] = (a2 - a1) / a1.replace(0, np.nan) * 100
 
     y1, y2 = m["yield_admin1"], m["yield_admin2"]
-    corr = y1.corr(y2)
-    mad = float((y2 - y1).abs().mean())
-    mapd = float(m["yield_diff_pct"].abs().mean())
-    bias = float(m["yield_diff_pct"].mean())
-    within = float((m["yield_diff_pct"].abs() <= tol_pct).mean() * 100)
+    summary = {
+        "admin_1": admin_1,
+        "n_years": len(m),
+        "year_min": int(m.harvest_year.min()),
+        "year_max": int(m.harvest_year.max()),
+        "corr": float(y1.corr(y2)),
+        "mean_abs_diff_tha": float((y2 - y1).abs().mean()),
+        "mapd_pct": float(m["yield_diff_pct"].abs().mean()),
+        "bias_pct": float(m["yield_diff_pct"].mean()),
+        "within_tol_pct": float((m["yield_diff_pct"].abs() <= tol_pct).mean() * 100),
+    }
 
-    print(f"Years compared      : {len(m)}  ({int(m.harvest_year.min())}-{int(m.harvest_year.max())})")
-    print(f"Municipalities/year : {int(m.n_units.min())}-{int(m.n_units.max())}")
-    print(f"Yield correlation   : {corr:.4f}")
-    print(f"Mean |diff|         : {mad:.4f} t/ha ({mapd:.2f}%)")
-    print(f"Mean signed bias    : {bias:+.2f}%  (admin_2 vs admin_1)")
-    print(f"Years within +-{tol_pct:.0f}%   : {within:.0f}%")
-    print(f"Area  mean diff     : {m['area_diff_pct'].mean():+.2f}%")
-    print(f"Prod. mean diff     : {m['production_diff_pct'].mean():+.2f}%")
+    if not quiet:
+        print(f"Years compared      : {summary['n_years']}  "
+              f"({summary['year_min']}-{summary['year_max']})")
+        print(f"Municipalities/year : {int(m.n_units.min())}-{int(m.n_units.max())}")
+        print(f"Yield correlation   : {summary['corr']:.4f}")
+        print(f"Mean |diff|         : {summary['mean_abs_diff_tha']:.4f} t/ha "
+              f"({summary['mapd_pct']:.2f}%)")
+        print(f"Mean signed bias    : {summary['bias_pct']:+.2f}%  (admin_2 vs admin_1)")
+        print(f"Years within +-{tol_pct:.0f}%   : {summary['within_tol_pct']:.0f}%")
+        print(f"Area  mean diff     : {m['area_diff_pct'].mean():+.2f}%")
+        print(f"Prod. mean diff     : {m['production_diff_pct'].mean():+.2f}%")
 
-    show = m[["harvest_year", "n_units", "yield_admin1", "yield_admin2",
-              "yield_diff_pct", "area_diff_pct", "production_diff_pct"]]
-    print("\nPer-year (worst 8 by |yield diff|):")
-    print(show.reindex(show["yield_diff_pct"].abs().sort_values(ascending=False).index)
-          .head(8).to_string(index=False, float_format=lambda v: f"{v:.3f}"))
+        show = m[["harvest_year", "n_units", "yield_admin1", "yield_admin2",
+                  "yield_diff_pct", "area_diff_pct", "production_diff_pct"]]
+        print("\nPer-year (worst 8 by |yield diff|):")
+        print(show.reindex(show["yield_diff_pct"].abs().sort_values(ascending=False).index)
+              .head(8).to_string(index=False, float_format=lambda v: f"{v:.3f}"))
 
     if out_csv:
         Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
         m.to_csv(out_csv, index=False)
-        print(f"\nwrote {out_csv}")
+        if not quiet:
+            print(f"\nwrote {out_csv}")
+    return m, summary
+
+
+def compare_all_states(xlsx, csv, country, product, out_csv=None, tol_pct=5.0):
+    """One comparison per state present on BOTH sides; per-state summary table.
+
+    States are matched case-insensitively between the wide CSV's ``admin_1``
+    column and the GEOGLAM sheet's ``ADM1_NAME`` values.
+    """
+    xl = pd.ExcelFile(xlsx)
+    ref_states = xl.parse(SHEETS["yield"])
+    ref_states = ref_states.loc[ref_states["ADM0_NAME"] == country, "ADM1_NAME"].dropna()
+    ref_by_fold = {str(s).casefold(): s for s in ref_states}
+
+    csv_states = sorted(pd.read_csv(csv, usecols=["admin_1"])["admin_1"].unique())
+    rows, per_year = [], []
+    skipped = [s for s in csv_states if s.casefold() not in ref_by_fold]
+    for state in csv_states:
+        ref_name = ref_by_fold.get(state.casefold())
+        if ref_name is None:
+            continue
+        m, summary = compare(xlsx, csv, country, ref_name, product,
+                             tol_pct=tol_pct, filter_admin_1=state, quiet=True)
+        rows.append(summary)
+        per_year.append(m.assign(admin_1=ref_name))
+
+    summary_df = pd.DataFrame(rows).sort_values("mapd_pct")
+    print(f"{len(rows)} states compared; {len(skipped)} CSV states absent from "
+          f"the GEOGLAM workbook (skipped): {skipped}")
+    print(summary_df.to_string(index=False, float_format=lambda v: f"{v:.3f}"))
+    w = summary_df["n_years"]
+    has_corr = summary_df["corr"].notna()  # single-year states have no corr
+    print(f"\nAcross states (year-weighted): "
+          f"corr {np.average(summary_df.loc[has_corr, 'corr'], weights=w[has_corr]):.4f} | "
+          f"MAPD {np.average(summary_df['mapd_pct'], weights=w):.2f}% | "
+          f"bias {np.average(summary_df['bias_pct'], weights=w):+.2f}%")
+
+    if out_csv:
+        out_csv = Path(out_csv)
+        out_csv.parent.mkdir(parents=True, exist_ok=True)
+        summary_df.to_csv(out_csv, index=False)
+        long_csv = out_csv.with_name(out_csv.stem + "_per_year.csv")
+        pd.concat(per_year, ignore_index=True).to_csv(long_csv, index=False)
+        print(f"\nwrote {out_csv}\nwrote {long_csv}")
+    return summary_df
+
+
+def check_national_vs_br_row(sidra_csv, wide_csv, product_label, product):
+    """Sum every municipality in the wide CSV and compare against SIDRA's own
+    Brasil (level ``BR``) row — a parser/aggregation exactness check."""
+    from .convert_tabela1612 import parse_sidra_blocks
+
+    blocks = parse_sidra_blocks(sidra_csv, product_label, level="BR")
+    br = blocks["area"].rename(columns={"value": "area"})[["year", "area"]].merge(
+        blocks["production"].rename(columns={"value": "production"})[["year", "production"]],
+        on="year")
+    br["yield_br"] = br["production"] / br["area"]
+
+    df = pd.read_csv(wide_csv)
+    df = df[df["product"] == product]
+    agg = df.groupby("harvest_year").agg(area=("area", "sum"),
+                                         production=("production", "sum")).reset_index()
+    agg["yield_mu"] = agg["production"] / agg["area"]
+
+    m = br.merge(agg, left_on="year", right_on="harvest_year",
+                 suffixes=("_br", "_mu")).dropna(subset=["yield_br", "yield_mu"])
+    m["yield_diff_pct"] = (m["yield_mu"] - m["yield_br"]) / m["yield_br"] * 100
+    m["prod_diff_pct"] = (m["production_mu"] - m["production_br"]) / m["production_br"] * 100
+    worst = m["yield_diff_pct"].abs().max()
+    print(f"National check vs SIDRA BR row: {len(m)} years, "
+          f"max |yield diff| {worst:.4f}%, max |production diff| "
+          f"{m['prod_diff_pct'].abs().max():.4f}%")
     return m
 
 
@@ -113,13 +198,25 @@ def main(argv=None):
     p.add_argument("--admin1-xlsx", default=r"Z:\cmongp1\GEO\inputs\metadata\production_statistics\soybean_1.xlsx")
     p.add_argument("--admin2-csv", default=base + r"\adm_crop_production_BR_MT_municipality_wide.csv")
     p.add_argument("--country", default="Brazil")
-    p.add_argument("--admin-1", default="Mato Grosso")
+    p.add_argument("--admin-1", default="Mato Grosso",
+                   help="one ADM1_NAME, or ALL for a per-state sweep (needs the "
+                        "wide CSV's admin_1 column to be per-municipality)")
     p.add_argument("--product", default="Soybean")
+    p.add_argument("--product-label", default="Soja (em grão)",
+                   help="SIDRA product column (only used with --sidra-csv)")
+    p.add_argument("--sidra-csv", default=None,
+                   help="raw Tabela 1612 export; adds the national-vs-BR-row check")
     p.add_argument("--out", default=base + r"\admin1_vs_admin2_yield_comparison.csv")
     p.add_argument("--tol-pct", type=float, default=5.0)
     a = p.parse_args(argv)
-    compare(a.admin1_xlsx, a.admin2_csv, a.country, a.admin_1, a.product,
-            out_csv=a.out, tol_pct=a.tol_pct)
+    if a.admin_1.upper() == "ALL":
+        compare_all_states(a.admin1_xlsx, a.admin2_csv, a.country, a.product,
+                           out_csv=a.out, tol_pct=a.tol_pct)
+    else:
+        compare(a.admin1_xlsx, a.admin2_csv, a.country, a.admin_1, a.product,
+                out_csv=a.out, tol_pct=a.tol_pct, filter_admin_1=a.admin_1)
+    if a.sidra_csv:
+        check_national_vs_br_row(a.sidra_csv, a.admin2_csv, a.product_label, a.product)
 
 
 if __name__ == "__main__":

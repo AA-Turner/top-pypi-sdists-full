@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oracledb
-Version: 4.0.2
+Version: 26.0.0
 Summary: Python interface to Oracle Database
 Author-email: Anthony Tuininga <anthony.tuininga@oracle.com>
 License-Expression: UPL-1.0 OR Apache-2.0
@@ -17,16 +17,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Cython
 Classifier: Topic :: Database
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: THIRD_PARTY_LICENSES.txt
@@ -51,6 +51,12 @@ Requires-Dist: azure-identity; extra == "azure-config"
 Requires-Dist: azure-keyvault-secrets; extra == "azure-config"
 Provides-Extra: azure-auth
 Requires-Dist: msal; extra == "azure-auth"
+Provides-Extra: aws-config
+Requires-Dist: boto3; extra == "aws-config"
+Provides-Extra: gcp-config
+Requires-Dist: google-cloud-storage; extra == "gcp-config"
+Requires-Dist: google-cloud-secret-manager; extra == "gcp-config"
+Requires-Dist: google-crc32c; extra == "gcp-config"
 Dynamic: license-file
 
 # python-oracledb
@@ -113,7 +119,7 @@ with oracledb.connect(user=un, password=pw, dsn=cs) as connection:
 
 ## Dependencies and Interoperability
 
-- Python versions 3.9 through 3.14.
+- Python versions 3.10 through 3.15.
 
   Pre-built packages are available on [PyPI][pypi] and other repositories.
 

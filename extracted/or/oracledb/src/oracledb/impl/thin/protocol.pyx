@@ -96,121 +96,18 @@ cdef class BaseProtocol:
         return self._transport is not None \
                 and self._read_buf._pending_error_num == 0
 
-    cdef Message _on_close_phase_one(self, BaseThinConnImpl conn_impl):
-        """
-        Called when the connection to the database is being closed. The
-        database object type cache will be destroyed. If the connection is not
-        a DRCP session and is still open, a logoff message will be returned for
-        processing.
-        """
-        conn_impl._clear_dbobject_type_cache()
-        self._check_is_healthy()
-        if self._transport is not None and not conn_impl._drcp_enabled:
-            return conn_impl._create_message(LogoffMessage)
-
-    cdef int _on_close_phase_two(self, BaseThinConnImpl conn_impl):
-        """
-        Called when the connection to the database is being closed. The final
-        close will be sent if the connection is still open.
-        """
-        cdef WriteBuffer buf = self._write_buf
-        self._check_is_healthy()
-        if self._transport is not None:
-            buf.start_request(TNS_PACKET_TYPE_DATA, 0, TNS_DATA_FLAGS_EOF)
-            buf.end_request()
-
-    cdef Message _on_request_end_phase_one(self, BaseThinConnImpl conn_impl):
-        """
-        Called when a request to the database is ending. A check is made to see
-        if there is an open transaction and, if one exists, a rollback message
-        is returned. If a request is actually in progress, a rollback message
-        will always be returned in order to ensure that the database is aware
-        of the request being ended.
-        """
-        cdef:
-            BaseThinDbObjectTypeCache type_cache
-            int cache_num
-        if conn_impl._dbobject_type_cache_num > 0:
-            cache_num = conn_impl._dbobject_type_cache_num
-            type_cache = get_dbobject_type_cache(cache_num)
-            type_cache._clear_cursors()
-        self._check_is_healthy()
-        if self._transport is not None:
-            if conn_impl._in_request and conn_impl._session_state_desired != 0:
-                conn_impl._in_request = False
-            if self._txn_in_progress or conn_impl._in_request:
-                if conn_impl._in_request:
-                    conn_impl._session_state_desired = \
-                            TNS_SESSION_STATE_REQUEST_END
-                    conn_impl._in_request = False
-                if conn_impl._transaction_context is not None:
-                    conn_impl._transaction_context = None
-                    return conn_impl._create_tpc_rollback_message()
-                else:
-                    return conn_impl._create_message(RollbackMessage)
-
-    cdef int _on_request_end_phase_two(self,
-                                       BaseThinConnImpl conn_impl) except -1:
-        """
-        Called when a request to the database is ending. A check is made to see
-        if DRCP is in use, and if it is, a release takes place. Any warnings
-        that were set are cleared.
-        """
-        cdef SessionReleaseMessage message
-        self._check_is_healthy()
-        if self._transport is not None and conn_impl._drcp_enabled:
-            message = conn_impl._create_message(SessionReleaseMessage)
-            if not conn_impl._is_pooled:
-                message.release_mode = DRCP_DEAUTHENTICATE
-            message.send(self._write_buf)
-            conn_impl._drcp_establish_session = True
-        conn_impl.warning = None
-
-    cdef int _post_connect(self, BaseThinConnImpl conn_impl,
-                           AuthMessage auth_message) except -1:
-        """"
-        Performs activities after the connection has completed. The protocol
-        must be marked to indicate that the connect is no longer in progress,
-        which allows the normal break/reset mechanism to fire. The session must
-        also be marked as not needing to be closed since for listener redirects
-        the packet may indicate EOF for the initial connection that is
-        established.
-        """
-        cdef:
-            dict session_data = auth_message.session_data
-            ReadBuffer buf = self._read_buf
-        conn_impl._session_id = \
-                <uint32_t> int(session_data["AUTH_SESSION_ID"])
-        conn_impl._serial_num = \
-                <uint16_t> int(session_data["AUTH_SERIAL_NUM"])
-        conn_impl._db_domain = session_data.get("AUTH_SC_DB_DOMAIN")
-        conn_impl._db_name = session_data.get("AUTH_SC_DBUNIQUE_NAME")
-        conn_impl._max_open_cursors = \
-                int(session_data.get("AUTH_MAX_OPEN_CURSORS", 0))
-        conn_impl._service_name = session_data.get("AUTH_SC_SERVICE_NAME")
-        conn_impl._instance_name = session_data.get("AUTH_INSTANCENAME")
-        conn_impl._max_identifier_length = \
-                int(session_data.get("AUTH_MAX_IDEN_LENGTH", 30))
-        conn_impl.server_version = auth_message._get_version_tuple(buf)
-        conn_impl.supports_bool = \
-                buf._caps.ttc_field_version >= TNS_CCAP_FIELD_VERSION_23_1
-        conn_impl._edition = auth_message.edition
-        conn_impl.warning = auth_message.warning
-        buf._pending_error_num = 0
-        self._in_connect = False
-
     cdef int _send_marker(self, WriteBuffer buf, uint8_t marker_type):
         """
         Sends a marker of the specified type to the server.
         Internal method for sending a break to the server.
         """
-        buf.start_request(TNS_PACKET_TYPE_MARKER)
+        buf.start_request(TNS_PACKET_TYPE_MARKER, "send_marker")
         buf.write_uint8(1)
         buf.write_uint8(0)
         buf.write_uint8(marker_type)
         buf.end_request()
 
-    cdef int _process_call_status(self, BaseThinConnImpl conn_impl,
+    cdef int _process_call_status(self, ThinConnImpl conn_impl,
                                   uint32_t call_status) except -1:
         """
         Processes the call status flags returned by the server.
@@ -225,150 +122,6 @@ cdef class Protocol(BaseProtocol):
     def __init__(self):
         BaseProtocol.__init__(self)
         self._request_lock = threading.Lock()
-
-    cdef int _close(self, BaseThinConnImpl conn_impl) except -1:
-        """
-        Closes the connection to the database.
-        """
-        cdef Message message
-        try:
-            message = self._on_close_phase_one(conn_impl)
-            if message is not None:
-                self._process_message(message)
-            self._on_close_phase_two(conn_impl)
-        finally:
-            self._disconnect()
-
-    cdef int _connect_phase_one(self, ThinConnImpl conn_impl,
-                                ConnectParamsImpl params,
-                                Description description,
-                                Address address,
-                                str connect_string) except -1:
-        """
-        Method for performing the required steps for establishing a connection
-        within the scope of a retry. If the listener refuses the connection, a
-        retry will be performed, if retry_count is set.
-        """
-        cdef:
-            ConnectMessage connect_message = None
-            uint8_t packet_type, packet_flags = 0
-            object ssl_context, connect_info
-            ConnectParamsImpl temp_params
-            str host, redirect_data
-            Address temp_address
-            int port, pos
-
-        # store whether OOB processing is possible or not
-        self._caps.supports_oob = not params.disable_oob \
-                and sys.platform != "win32"
-
-        # establish initial TCP connection and get initial connect string
-        host = address.ip_address
-        port = address.port
-        self._connect_tcp(params, description, address, host, port,
-                          connect_string)
-
-        # send connect message and process response; this may request the
-        # message to be resent multiple times; if a redirect packet is
-        # detected, a new TCP connection is established first
-        while True:
-
-            # create connection message, if needed
-            if connect_message is None:
-                connect_message = conn_impl._create_message(ConnectMessage)
-                connect_message.host = host
-                connect_message.port = port
-                connect_message.description = description
-                connect_message.connect_string_bytes = connect_string.encode()
-                connect_message.connect_string_len = \
-                        <uint16_t> len(connect_message.connect_string_bytes)
-                connect_message.packet_flags = packet_flags
-
-            # process connection message
-            self._process_message(connect_message)
-            packet_type = self._read_buf._current_packet.packet_type
-            if connect_message.redirect_data is not None:
-                redirect_data = connect_message.redirect_data
-                pos = redirect_data.find('\x00')
-                if pos < 0:
-                    errors._raise_err(errors.ERR_INVALID_REDIRECT_DATA,
-                                      data=redirect_data)
-                temp_params = ConnectParamsImpl()
-                temp_params._parse_connect_string(redirect_data[:pos])
-                temp_address = temp_params._get_addresses()[0]
-                host = temp_address.host
-                port = temp_address.port
-                connect_string = redirect_data[pos + 1:]
-                self._connect_tcp(params, description, address, host, port,
-                                  connect_string)
-                connect_message = None
-                packet_flags = TNS_PACKET_FLAG_REDIRECT
-            elif packet_type == TNS_PACKET_TYPE_ACCEPT:
-                self._transport._max_packet_size = self._caps.sdu
-                self._write_buf._size_for_sdu()
-                break
-
-            # for TCPS connections, if the packet flags indicate that TLS
-            # renegotiation is required, this is performed now
-            if address.protocol == "tcps":
-                packet_flags = self._read_buf._current_packet.packet_flags
-                if packet_flags & TNS_PACKET_FLAG_TLS_RENEG:
-                    self._transport.renegotiate_tls(address, description)
-
-    cdef int _connect_phase_two(self, ThinConnImpl conn_impl,
-                                Description description,
-                                ConnectParamsImpl params) except -1:
-        """"
-        Method for perfoming the required steps for establishing a connection
-        oustide the scope of a retry. If any of the steps in this method fail,
-        an exception will be raised.
-        """
-        cdef:
-            DataTypesMessage data_types_message
-            FastAuthMessage fast_auth_message
-            ProtocolMessage protocol_message
-            bint supports_end_of_response
-            AuthMessage auth_message
-
-        # if we can use OOB, send an urgent message now followed by a reset
-        # marker to see if the server understands it
-        if self._caps.supports_oob and self._caps.supports_oob_check:
-            self._transport.send_oob_break()
-            self._send_marker(self._write_buf, TNS_MARKER_TYPE_RESET)
-
-        # create the messages that need to be sent to the server
-        protocol_message = conn_impl._create_message(ProtocolMessage)
-        data_types_message = conn_impl._create_message(DataTypesMessage)
-        auth_message = conn_impl._create_message(AuthMessage)
-        auth_message._set_params(params, description)
-
-        # starting in Oracle Database version 23, fast authentication is
-        # possible; see if the server supports it
-        if self._caps.supports_fast_auth:
-            fast_auth_message = conn_impl._create_message(FastAuthMessage)
-            fast_auth_message.protocol_message = protocol_message
-            fast_auth_message.data_types_message = data_types_message
-            fast_auth_message.auth_message = auth_message
-            self._process_message(fast_auth_message)
-
-        # otherwise, do the normal authentication; disable end of response for
-        # the first two messages as the server does not send an end of response
-        # for these messages
-        else:
-            supports_end_of_response = self._caps.supports_end_of_response
-            self._caps.supports_end_of_response = False
-            self._process_message(protocol_message)
-            self._process_message(data_types_message)
-            self._caps.supports_end_of_response = supports_end_of_response
-            self._process_message(auth_message)
-
-        # send authorization message a second time, if needed, to respond to
-        # the challenge sent by the server
-        if auth_message.resend:
-            self._process_message(auth_message)
-
-        # perform post connect activities
-        self._post_connect(conn_impl, auth_message)
 
     cdef int _connect_tcp(self, ConnectParamsImpl params,
                           Description description, Address address, str host,
@@ -421,29 +174,14 @@ cdef class Protocol(BaseProtocol):
             self._transport.create_ssl_context(params, description, address)
             self._transport.negotiate_tls(sock, address, description)
 
-    cdef int _end_request(self, BaseThinConnImpl conn_impl) except -1:
-        """
-        Ends the request on the database. This rolls back any open transaction
-        and releases any DRCP session, if applicable.
-        """
-        cdef Message message
-        message = self._on_request_end_phase_one(conn_impl)
-        if message is not None:
-            self._process_message(message)
-        self._on_request_end_phase_two(conn_impl)
-        if not self._get_is_healthy():
-            try:
-                self._close(conn_impl)
-            except:
-                pass
-
     cdef int _process_message(self, Message message) except -1:
         cdef uint32_t timeout = message.conn_impl._call_timeout
         try:
             self._read_buf.reset_packets()
             message.send(self._write_buf)
-            self._receive_packet(message, check_request_boundary=True)
-            message.process(self._read_buf)
+            if not message.is_one_way:
+                self._receive_packet(message, check_request_boundary=True)
+                message.process(self._read_buf)
         except socket.timeout:
             try:
                 self._break_external()
@@ -469,7 +207,9 @@ cdef class Protocol(BaseProtocol):
                 self._reset()
             raise
         if message.flush_out_binds:
-            self._write_buf.start_request(TNS_PACKET_TYPE_DATA)
+            self._write_buf.start_request(
+                TNS_PACKET_TYPE_DATA, "flush_out_binds"
+            )
             self._write_buf.write_uint8(TNS_MSG_TYPE_FLUSH_OUT_BINDS)
             self._write_buf.end_request()
             self._receive_packet(message)
@@ -493,15 +233,33 @@ cdef class Protocol(BaseProtocol):
                 return self._process_message(message)
             message._check_and_raise_exception()
 
+    cdef int _process_round_trip(self, Message message) except -1:
+        """
+        Process one round trip and invoke callbacks, if applicable.
+        """
+        cdef object completion = None
+        if message.conn_impl.round_trip_callback is not None:
+            completion = message.conn_impl.round_trip_callback(message.name)
+            if completion is not None and not callable(completion):
+                errors._raise_err(errors.ERR_INVALID_CALLABLE_FUN)
+        try:
+            self._process_message(message)
+        except Exception as round_trip_error:
+            if completion is not None:
+                completion(round_trip_error)
+            raise
+        if completion is not None:
+            completion(None)
+
     cdef int _process_single_message(self, Message message) except -1:
         """
         Process a single message within a request.
         """
         message.preprocess()
         with self._request_lock:
-            self._process_message(message)
+            self._process_round_trip(message)
             if message.resend:
-                self._process_message(message)
+                self._process_round_trip(message)
         message.postprocess()
 
     cdef int _receive_packet(self, Message message,
@@ -556,20 +314,6 @@ cdef class Protocol(BaseProtocol):
             packet_type = self._read_buf._current_packet.packet_type
         self._break_in_progress = False
 
-    cdef int close(self, ThinConnImpl conn_impl, bint in_del) except -1:
-        """
-        Closes the connection. If a transaction is in progress it will be
-        rolled back. DRCP sessions will be released. For standalone
-        connections, the session will be logged off.
-        """
-        with self._request_lock:
-            try:
-                self._end_request(conn_impl)
-                self._close(conn_impl)
-            except:
-                if not in_del:
-                    raise
-
 
 cdef class BaseAsyncProtocol(BaseProtocol):
 
@@ -580,150 +324,9 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         BaseProtocol.__init__(self)
         self._request_lock = asyncio.Lock()
         self._transport._is_async = True
-
-    async def _close(self, BaseThinConnImpl conn_impl):
-        """
-        Closes the connection to the database.
-        """
-        cdef Message message
-        try:
-            message = self._on_close_phase_one(conn_impl)
-            if message is not None:
-                await self._process_message(message)
-            self._on_close_phase_two(conn_impl)
-        finally:
-            self._disconnect()
-
-    async def _connect_phase_one(self,
-                                 AsyncThinConnImpl conn_impl,
-                                 ConnectParamsImpl params,
-                                 Description description,
-                                 Address address,
-                                 str connect_string):
-        """
-        Method for performing the required steps for establishing a connection
-        within the scope of a retry. If the listener refuses the connection, a
-        retry will be performed, if retry_count is set.
-        """
-        cdef:
-            ConnectMessage connect_message = None
-            uint8_t packet_type, packet_flags = 0
-            object ssl_context, connect_info
-            ConnectParamsImpl temp_params
-            str host, redirect_data
-            object orig_transport
-            Address temp_address
-            int port, pos
-
+        self._read_buf._loop = asyncio.get_running_loop()
         # asyncio doesn't support OOB processing
         self._caps.supports_oob = False
-
-        # establish initial TCP connection and get initial connect string
-        host = address.ip_address
-        port = address.port
-        orig_transport = await self._connect_tcp(params, description, address,
-                                                 host, port)
-
-        # send connect message and process response; this may request the
-        # message to be resent multiple times; if a redirect packet is
-        # detected, a new TCP connection is established first
-        while True:
-
-            # create connection message, if needed
-            if connect_message is None:
-                connect_message = conn_impl._create_message(ConnectMessage)
-                connect_message.host = host
-                connect_message.port = port
-                connect_message.description = description
-                connect_message.connect_string_bytes = connect_string.encode()
-                connect_message.connect_string_len = \
-                        <uint16_t> len(connect_message.connect_string_bytes)
-                connect_message.packet_flags = packet_flags
-
-            # process connection message
-            await self._process_message(connect_message)
-            packet_type = self._read_buf._current_packet.packet_type
-            if connect_message.redirect_data is not None:
-                redirect_data = connect_message.redirect_data
-                pos = redirect_data.find('\x00')
-                if pos < 0:
-                    errors._raise_err(errors.ERR_INVALID_REDIRECT_DATA,
-                                      data=redirect_data)
-                temp_params = ConnectParamsImpl()
-                temp_params._parse_connect_string(redirect_data[:pos])
-                temp_address = temp_params._get_addresses()[0]
-                host = temp_address.host
-                port = temp_address.port
-                connect_string = redirect_data[pos + 1:]
-                orig_transport = await self._connect_tcp(params, description,
-                                                         address, host, port)
-                connect_message = None
-                packet_flags = TNS_PACKET_FLAG_REDIRECT
-            elif packet_type == TNS_PACKET_TYPE_ACCEPT:
-                self._transport._max_packet_size = self._caps.sdu
-                self._write_buf._size_for_sdu()
-                break
-
-            # for TCPS connections, OOB processing is not supported; if the
-            # packet flags indicate that TLS renegotiation is required, this is
-            # performed now
-            if address.protocol == "tcps":
-                self._caps.supports_oob = False
-                packet_flags = self._read_buf._current_packet.packet_flags
-                if packet_flags & TNS_PACKET_FLAG_TLS_RENEG:
-                    self._transport._transport = orig_transport
-                    await self._transport.negotiate_tls_async(self, address,
-                                                              description)
-
-    async def _connect_phase_two(self, AsyncThinConnImpl conn_impl,
-                                 Description description,
-                                 ConnectParamsImpl params):
-        """"
-        Method for perfoming the required steps for establishing a connection
-        oustide the scope of a retry. If any of the steps in this method fail,
-        an exception will be raised.
-        """
-        cdef:
-            DataTypesMessage data_types_message
-            FastAuthMessage fast_auth_message
-            ProtocolMessage protocol_message
-            bint supports_end_of_response
-            AuthMessage auth_message
-
-        # create the messages that need to be sent to the server
-        protocol_message = conn_impl._create_message(ProtocolMessage)
-        data_types_message = conn_impl._create_message(DataTypesMessage)
-        auth_message = conn_impl._create_message(AuthMessage)
-        auth_message._set_params(params, description)
-
-        # starting in Oracle Database version 23, fast authentication is
-        # possible; see if the server supports it
-        if self._caps.supports_fast_auth:
-            fast_auth_message = conn_impl._create_message(FastAuthMessage)
-            fast_auth_message.protocol_message = protocol_message
-            fast_auth_message.data_types_message = data_types_message
-            fast_auth_message.auth_message = auth_message
-            await self._process_message(fast_auth_message)
-
-        # otherwise, do the normal authentication; disable end of response for
-        # the first two messages as the server does not send an end of response
-        # for these messages
-        else:
-            supports_end_of_response = self._caps.supports_end_of_response
-            self._caps.supports_end_of_response = False
-            await self._process_message(protocol_message)
-            await self._process_message(data_types_message)
-            self._caps.supports_end_of_response = supports_end_of_response
-            await self._process_message(auth_message)
-
-        # send authorization message a second time, if needed, to respond to
-        # the challenge sent by the server
-        if auth_message.resend:
-            await self._process_message(auth_message)
-
-        # perform post connect activities
-        self._post_connect(conn_impl, auth_message)
-
 
     async def _connect_tcp(self, ConnectParamsImpl params,
                            Description description, Address address, str host,
@@ -780,22 +383,6 @@ cdef class BaseAsyncProtocol(BaseProtocol):
             return await self._transport.negotiate_tls_async(self, address,
                                                              description)
 
-    async def _end_request(self, BaseThinConnImpl conn_impl):
-        """
-        Ends the request on the database. This rolls back any open transaction
-        and releases any DRCP session, if applicable.
-        """
-        cdef Message message
-        message = self._on_request_end_phase_one(conn_impl)
-        if message is not None:
-            await self._process_message(message)
-        self._on_request_end_phase_two(conn_impl)
-        if not self._get_is_healthy():
-            try:
-                await self._close(conn_impl)
-            except:
-                pass
-
     async def _process_message(self, Message message):
         """
         Sends a message to the server and processes its response.
@@ -827,7 +414,9 @@ cdef class BaseAsyncProtocol(BaseProtocol):
                 await self._reset()
             raise
         if message.flush_out_binds:
-            self._write_buf.start_request(TNS_PACKET_TYPE_DATA)
+            self._write_buf.start_request(
+                TNS_PACKET_TYPE_DATA, "flush_out_binds"
+            )
             self._write_buf.write_uint8(TNS_MSG_TYPE_FLUSH_OUT_BINDS)
             self._write_buf.end_request()
             await self._receive_packet(message)
@@ -856,15 +445,39 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         """
         self._read_buf.reset_packets()
         message.send(self._write_buf)
-        await self._receive_packet(message, check_request_boundary=True)
-        while True:
-            try:
-                message.process(self._read_buf)
-                break
-            except OutOfPackets:
-                await self._receive_packet(message)
-                message.on_out_of_packets()
-                self._read_buf.restore_point()
+        if not message.is_one_way:
+            await self._receive_packet(message, check_request_boundary=True)
+            while True:
+                try:
+                    message.process(self._read_buf)
+                    break
+                except OutOfPackets:
+                    await self._receive_packet(message)
+                    message.on_out_of_packets()
+                    self._read_buf.restore_point()
+
+    async def _process_round_trip(self, Message message):
+        """
+        Process one round trip and invoke callbacks, if applicable.
+        """
+        cdef:
+            object callback = message.conn_impl.round_trip_callback
+            object completion = None
+        if message.conn_impl.round_trip_callback is not None:
+            completion = message.conn_impl.round_trip_callback(message.name)
+            if completion is not None and not callable(completion):
+                errors._raise_err(errors.ERR_INVALID_CALLABLE_FUN)
+        try:
+            await self._process_message(message)
+        except BaseException as round_trip_error:
+            if completion is not None:
+                try:
+                    completion(round_trip_error)
+                except BaseException as completion_error:
+                    raise round_trip_error from completion_error
+            raise
+        if completion is not None:
+            completion(None)
 
     async def _process_single_message(self, Message message):
         """
@@ -872,9 +485,12 @@ cdef class BaseAsyncProtocol(BaseProtocol):
         """
         message.preprocess()
         async with self._request_lock:
-            await self._process_message(message)
+            if isinstance(message, EndPipelineMessage):
+                await message.process_pipeline()
+            else:
+                await self._process_round_trip(message)
             if message.resend:
-                await self._process_message(message)
+                await self._process_round_trip(message)
         await message.postprocess_async()
 
     async def _process_timeout_helper(self, Message message, uint32_t timeout):
@@ -941,29 +557,6 @@ cdef class BaseAsyncProtocol(BaseProtocol):
             packet_type = self._read_buf._current_packet.packet_type
         self._break_in_progress = False
 
-    async def close(self, AsyncThinConnImpl conn_impl, bint in_del):
-        """
-        Closes the connection. If a transaction is in progress it will be
-        rolled back. DRCP sessions will be released. For standalone
-        connections, the session will be logged off.
-        """
-        async with self._request_lock:
-            try:
-                await self._end_request(conn_impl)
-                await self._close(conn_impl)
-            except:
-                if not in_del:
-                    raise
-
-            # otherwise, destroy the database object type cache, send the
-            # logoff message and final close packet
-            conn_impl._clear_dbobject_type_cache()
-            if self._transport is not None:
-                if not conn_impl._drcp_enabled:
-                    message = conn_impl._create_message(LogoffMessage)
-                    await self._process_message(message)
-                self._final_close(self._write_buf)
-
     def connection_lost(self, exc):
         """
         Called when a connection has been lost. The presence of an exception
@@ -998,49 +591,6 @@ cdef class BaseAsyncProtocol(BaseProtocol):
                 if notify_waiter:
                     self._read_buf.notify_packet_received()
                 packet = self._transport.extract_packet()
-
-    async def end_pipeline(self, BaseThinConnImpl conn_impl, list messages,
-                           bint continue_on_error):
-        """
-        Called when all messages for the pipeline have been sent to the
-        database. An end pipeline message is sent to the database and then
-        the responses to all of the messages are processed.
-        """
-        cdef:
-            ssize_t num_responses_to_discard
-            ReadBuffer buf = self._read_buf
-            Message message, end_message
-        end_message = conn_impl._create_message(EndPipelineMessage)
-        end_message.send(self._write_buf)
-        buf._check_request_boundary = True
-        buf._in_pipeline = True
-        try:
-            num_responses_to_discard = len(messages) + 1
-            for message in messages:
-                try:
-                    if not buf.has_response():
-                        await buf.wait_for_response_async()
-                    buf._start_packet()
-                    message.preprocess()
-                    message.process(buf)
-                    num_responses_to_discard -= 1
-                    self._process_call_status(conn_impl, message.call_status)
-                    message._check_and_raise_exception()
-                except Exception as e:
-                    if not continue_on_error:
-                        raise
-                    message.pipeline_result_impl._capture_err(e)
-            await self._receive_packet(end_message,
-                                       check_request_boundary=True)
-            end_message.process(buf)
-            num_responses_to_discard = 0
-            end_message._check_and_raise_exception()
-        except:
-            await buf.discard_pipeline_responses(num_responses_to_discard)
-            raise
-        finally:
-            buf._check_request_boundary = False
-            buf._in_pipeline = False
 
 
 class AsyncProtocol(BaseAsyncProtocol, asyncio.Protocol):

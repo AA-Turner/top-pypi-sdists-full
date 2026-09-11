@@ -27,7 +27,9 @@ Usage::
         ListServicesPaginator,
         ListSystemEventsPaginator,
         ListSystemsPaginator,
+        ListTestRunDependenciesPaginator,
         ListTestRunEventsPaginator,
+        ListTestRunSourceEventsPaginator,
         ListTestRunSourcesPaginator,
         ListTestRunsPaginator,
         ListTestSourcesPaginator,
@@ -62,7 +64,9 @@ Usage::
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     list_system_events_paginator: ListSystemEventsPaginator = client.get_paginator("list_system_events")
     list_systems_paginator: ListSystemsPaginator = client.get_paginator("list_systems")
+    list_test_run_dependencies_paginator: ListTestRunDependenciesPaginator = client.get_paginator("list_test_run_dependencies")
     list_test_run_events_paginator: ListTestRunEventsPaginator = client.get_paginator("list_test_run_events")
+    list_test_run_source_events_paginator: ListTestRunSourceEventsPaginator = client.get_paginator("list_test_run_source_events")
     list_test_run_sources_paginator: ListTestRunSourcesPaginator = client.get_paginator("list_test_run_sources")
     list_test_runs_paginator: ListTestRunsPaginator = client.get_paginator("list_test_runs")
     list_test_sources_paginator: ListTestSourcesPaginator = client.get_paginator("list_test_sources")
@@ -88,7 +92,9 @@ from .paginator import (
     ListServiceTopologyEdgesPaginator,
     ListSystemEventsPaginator,
     ListSystemsPaginator,
+    ListTestRunDependenciesPaginator,
     ListTestRunEventsPaginator,
+    ListTestRunSourceEventsPaginator,
     ListTestRunSourcesPaginator,
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
@@ -122,7 +128,9 @@ __all__ = (
     "ListServicesPaginator",
     "ListSystemEventsPaginator",
     "ListSystemsPaginator",
+    "ListTestRunDependenciesPaginator",
     "ListTestRunEventsPaginator",
+    "ListTestRunSourceEventsPaginator",
     "ListTestRunSourcesPaginator",
     "ListTestRunsPaginator",
     "ListTestSourcesPaginator",

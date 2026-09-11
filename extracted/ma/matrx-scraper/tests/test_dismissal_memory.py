@@ -214,6 +214,9 @@ async def test_historical_reconciliation_never_revives_a_dismissal(
 
 
 def test_batch_reconciliation_only_dismisses_live_aliases() -> None:
+    """Break: an alias the user ALREADY dismissed gets re-stamped, erasing when
+    they actually dismissed it (the timestamp dismissal memory later records)."""
+    user_dismissed_at = datetime(2026, 2, 1, tzinfo=UTC)
     canonical = PageIdentityNode(
         id="canonical",
         url="https://example.com/page",
@@ -230,10 +233,18 @@ def test_batch_reconciliation_only_dismisses_live_aliases() -> None:
         deleted_at=None,
         latest_snapshot_id=None,
     )
+    already_dismissed_alias = PageIdentityNode(
+        id="dismissed-alias",
+        url="http://example.com/page",
+        canonical_page_id="dismissed-alias",
+        first_seen=TOMBSTONE,
+        deleted_at=user_dismissed_at,
+        latest_snapshot_id=None,
+    )
 
     updates = _alias_visibility_updates(
-        [canonical, alias],
-        {"canonical": "canonical", "alias": "canonical"},
+        [canonical, alias, already_dismissed_alias],
+        {"canonical": "canonical", "alias": "canonical", "dismissed-alias": "canonical"},
         dismissed_at=TOMBSTONE,
     )
 

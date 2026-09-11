@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from urllib.parse import urlparse
 
 from matrx_scraper.utils.url import extract_domain
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +250,7 @@ class HostRateLimiter:
         new_rps, _ = self.throttle_host(url, reason=f"http_{status}", **kwargs)
         logger.warning(
             "host %s returned HTTP %s — throttled to %.2f rps (shared across lanes)",
-            host_key(url),
+            host_key(redact_url_secrets(url)),
             status,
             new_rps,
         )

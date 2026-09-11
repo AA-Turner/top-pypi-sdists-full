@@ -249,15 +249,28 @@ class CompiledControlsMap(BaseModel):
         adjustments: list[Adjustment] = []
 
         # Processor rules own their key + declared consumed keys — pass 1 skips both.
+        #
+        # `supported: false` BEATS a processor (2026-09-10): the anthropic_chat
+        # API gives `temperature` a processor and the Claude 5 offerings override
+        # it with supported:false; the processor still ran, temperature went on
+        # the wire, and every Opus 5 call died with "temperature is deprecated
+        # for this model". An unsupported processor rule drops its key AND the
+        # keys it consumes, with Adjustments, and never runs.
         processor_rules = [
             (rule.processor_config.get("order", 100), key, rule)
             for key, rule in self.rules.items()
-            if rule.processor is not None
+            if rule.processor is not None and rule.supported is not False
         ]
         processor_owned: set[str] = set()
         for _, key, rule in processor_rules:
             processor_owned.add(key)
             processor_owned.update(rule.processor_config.get("consumes", []))
+        unsupported_processor_keys: set[str] = set()
+        for key, rule in self.rules.items():
+            if rule.processor is not None and rule.supported is False:
+                unsupported_processor_keys.add(key)
+                unsupported_processor_keys.update(rule.processor_config.get("consumes", []))
+        unsupported_processor_keys -= processor_owned
 
         # Keys whose SET value was eliminated (map->null / unmapped drop) —
         # send_when_unset=True backfills their default below.
@@ -274,7 +287,7 @@ class CompiledControlsMap(BaseModel):
                 continue  # const rules emit below whether or not a value came in
             if value is None:
                 continue  # unset — the rule default (below) may still apply
-            if rule.supported is False:
+            if rule.supported is False or key in unsupported_processor_keys:
                 adjustments.append(
                     Adjustment(
                         key=key,
@@ -287,11 +300,7 @@ class CompiledControlsMap(BaseModel):
                 continue
 
             sent = value
-            if (
-                rule.to_default is not None
-                and isinstance(value, str)
-                and value in rule.to_default
-            ):
+            if rule.to_default is not None and isinstance(value, str) and value in rule.to_default:
                 # THE EXPLICIT DEFAULT DECLARATION (Rule 3) — a DECLARED decision
                 # that this canonical value resolves to the offering's default,
                 # never an inferred conversion. Takes precedence over

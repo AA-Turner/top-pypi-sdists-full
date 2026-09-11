@@ -34,6 +34,7 @@ class KmipRenewClientCertificate(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'certificate_ttl': 'int',
         'client_id': 'str',
         'json': 'bool',
         'name': 'str',
@@ -42,6 +43,7 @@ class KmipRenewClientCertificate(object):
     }
 
     attribute_map = {
+        'certificate_ttl': 'certificate-ttl',
         'client_id': 'client-id',
         'json': 'json',
         'name': 'name',
@@ -49,12 +51,13 @@ class KmipRenewClientCertificate(object):
         'uid_token': 'uid-token'
     }
 
-    def __init__(self, client_id=None, json=False, name=None, token=None, uid_token=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, certificate_ttl=None, client_id=None, json=False, name=None, token=None, uid_token=None, local_vars_configuration=None):  # noqa: E501
         """KmipRenewClientCertificate - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._certificate_ttl = None
         self._client_id = None
         self._json = None
         self._name = None
@@ -62,6 +65,8 @@ class KmipRenewClientCertificate(object):
         self._uid_token = None
         self.discriminator = None
 
+        if certificate_ttl is not None:
+            self.certificate_ttl = certificate_ttl
         if client_id is not None:
             self.client_id = client_id
         if json is not None:
@@ -72,6 +77,29 @@ class KmipRenewClientCertificate(object):
             self.token = token
         if uid_token is not None:
             self.uid_token = uid_token
+
+    @property
+    def certificate_ttl(self):
+        """Gets the certificate_ttl of this KmipRenewClientCertificate.  # noqa: E501
+
+        Client certificate TTL in days. If unset, the existing client TTL is kept.  # noqa: E501
+
+        :return: The certificate_ttl of this KmipRenewClientCertificate.  # noqa: E501
+        :rtype: int
+        """
+        return self._certificate_ttl
+
+    @certificate_ttl.setter
+    def certificate_ttl(self, certificate_ttl):
+        """Sets the certificate_ttl of this KmipRenewClientCertificate.
+
+        Client certificate TTL in days. If unset, the existing client TTL is kept.  # noqa: E501
+
+        :param certificate_ttl: The certificate_ttl of this KmipRenewClientCertificate.  # noqa: E501
+        :type: int
+        """
+
+        self._certificate_ttl = certificate_ttl
 
     @property
     def client_id(self):

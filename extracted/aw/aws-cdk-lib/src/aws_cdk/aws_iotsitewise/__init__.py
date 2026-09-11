@@ -7029,6 +7029,553 @@ class CfnGatewayProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotsitewise_0afad0c0.IPipelineRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnPipeline(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnPipeline",
+):
+    '''Resource schema for AWS::IoTSiteWise::Pipeline.
+
+    A pipeline defines a directed acyclic graph (DAG) of compute nodes, where each node references a task definition and can declare dependencies on other nodes.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html
+    :cloudformationResource: AWS::IoTSiteWise::Pipeline
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iotsitewise as iotsitewise
+        
+        cfn_pipeline = iotsitewise.CfnPipeline(self, "MyCfnPipeline",
+            computations=[iotsitewise.CfnPipeline.ComputeNodeProperty(
+                compute_node_name="computeNodeName",
+                task_name="taskName",
+        
+                # the properties below are optional
+                depends_on=["dependsOn"],
+                environment_variables={
+                    "environment_variables_key": "environmentVariables"
+                }
+            )],
+            pipeline_name="pipelineName",
+            workspace_name="workspaceName",
+        
+            # the properties below are optional
+            description="description",
+            environment_variables={
+                "environment_variables_key": "environmentVariables"
+            },
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        computations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipeline.ComputeNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        pipeline_name: builtins.str,
+        workspace_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoTSiteWise::Pipeline``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param computations: The list of compute nodes that form the pipeline DAG.
+        :param pipeline_name: The name of the pipeline. Must be unique within the workspace.
+        :param workspace_name: The name of the workspace.
+        :param description: A description of the pipeline.
+        :param environment_variables: A map of environment variable key-value pairs.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4ebe4b49e14a560537c3b1c719c63ff5f5772019c4cb87d42e3e9a6004a3e526)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPipelineProps(
+            computations=computations,
+            pipeline_name=pipeline_name,
+            workspace_name=workspace_name,
+            description=description,
+            environment_variables=environment_variables,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPipeline")
+    @builtins.classmethod
+    def arn_for_pipeline(
+        cls,
+        resource: "_aws_iotsitewise_0afad0c0.IPipelineRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ad87c4e097958de488bcda880680a41ec0397bb88b9ffbdcf7c52b3a0cdcd1e4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPipeline", [resource]))
+
+    @jsii.member(jsii_name="isCfnPipeline")
+    @builtins.classmethod
+    def is_cfn_pipeline(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPipeline.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b6ffb3700c492fdaaf75e6e7813ef0a260eb32d04d015d1012492fecdee70f81)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPipeline", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c00a7b7456cff79e95b2d8f06893e925e77fdaed5043bdf60ae48b385ba4e990)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fff4270e1625ea7a2b69bc6de50cdd9bbf9d3d21fc2ac756c85fe3ec0653d45c)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPipelineArn")
+    def attr_pipeline_arn(self) -> builtins.str:
+        '''The ARN of the pipeline.
+
+        :cloudformationAttribute: PipelineArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPipelineArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current lifecycle status of the pipeline.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "_aws_iotsitewise_0afad0c0.PipelineReference":
+        '''A reference to a Pipeline resource.'''
+        return typing.cast("_aws_iotsitewise_0afad0c0.PipelineReference", jsii.get(self, "pipelineRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="computations")
+    def computations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipeline.ComputeNodeProperty"]]]:
+        '''The list of compute nodes that form the pipeline DAG.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipeline.ComputeNodeProperty"]]], jsii.get(self, "computations"))
+
+    @computations.setter
+    def computations(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipeline.ComputeNodeProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f1be98754ffe7d746147a1603dd3ad30ce5ca6fbb3ccd93c3a31a299c5cbdf80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "computations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineName")
+    def pipeline_name(self) -> builtins.str:
+        '''The name of the pipeline.'''
+        return typing.cast(builtins.str, jsii.get(self, "pipelineName"))
+
+    @pipeline_name.setter
+    def pipeline_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0d8954537250e43f7be9c5caac7d22351a01f3e1bcf5df148a215cdfb068daa1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pipelineName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceName")
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspaceName"))
+
+    @workspace_name.setter
+    def workspace_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__332bc7dd40e5b79328cb80c0bb182eb5d9d0864f5650fa6824641b8c9ecb3322)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the pipeline.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3077870f23d1647fe6124d3a541e10a499a3ec754b54d6a1dacc338b7ed8df5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentVariables")
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of environment variable key-value pairs.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "environmentVariables"))
+
+    @environment_variables.setter
+    def environment_variables(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd631863eff2376d769552e8cb8fb1444209d40e9819433a69b2ee334ccf0d83)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3c48b17308bbdfb5d37a4c2d7b889ae791a1781838760e30e36c776846299056)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iotsitewise.CfnPipeline.ComputeNodeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "compute_node_name": "computeNodeName",
+            "task_name": "taskName",
+            "depends_on": "dependsOn",
+            "environment_variables": "environmentVariables",
+        },
+    )
+    class ComputeNodeProperty:
+        def __init__(
+            self,
+            *,
+            compute_node_name: builtins.str,
+            task_name: builtins.str,
+            depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''A single compute node in a pipeline DAG.
+
+            :param compute_node_name: The unique name for this compute node within the pipeline.
+            :param task_name: The name of the task to execute for this compute node.
+            :param depends_on: A list of compute node names that must complete successfully before this node can start.
+            :param environment_variables: A map of environment variable key-value pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-pipeline-computenode.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iotsitewise as iotsitewise
+                
+                compute_node_property = iotsitewise.CfnPipeline.ComputeNodeProperty(
+                    compute_node_name="computeNodeName",
+                    task_name="taskName",
+                
+                    # the properties below are optional
+                    depends_on=["dependsOn"],
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__02286180d028a6ee03cf9b594f4bb9f205e233e98f570548c6443d5169bf9b02)
+                check_type(argname="argument compute_node_name", value=compute_node_name, expected_type=type_hints["compute_node_name"])
+                check_type(argname="argument task_name", value=task_name, expected_type=type_hints["task_name"])
+                check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "compute_node_name": compute_node_name,
+                "task_name": task_name,
+            }
+            if depends_on is not None:
+                self._values["depends_on"] = depends_on
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
+
+        @builtins.property
+        def compute_node_name(self) -> builtins.str:
+            '''The unique name for this compute node within the pipeline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-pipeline-computenode.html#cfn-iotsitewise-pipeline-computenode-computenodename
+            '''
+            result = self._values.get("compute_node_name")
+            assert result is not None, "Required property 'compute_node_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def task_name(self) -> builtins.str:
+            '''The name of the task to execute for this compute node.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-pipeline-computenode.html#cfn-iotsitewise-pipeline-computenode-taskname
+            '''
+            result = self._values.get("task_name")
+            assert result is not None, "Required property 'task_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def depends_on(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of compute node names that must complete successfully before this node can start.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-pipeline-computenode.html#cfn-iotsitewise-pipeline-computenode-dependson
+            '''
+            result = self._values.get("depends_on")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of environment variable key-value pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-pipeline-computenode.html#cfn-iotsitewise-pipeline-computenode-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComputeNodeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnPipelineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "computations": "computations",
+        "pipeline_name": "pipelineName",
+        "workspace_name": "workspaceName",
+        "description": "description",
+        "environment_variables": "environmentVariables",
+        "tags": "tags",
+    },
+)
+class CfnPipelineProps:
+    def __init__(
+        self,
+        *,
+        computations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPipeline.ComputeNodeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        pipeline_name: builtins.str,
+        workspace_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPipeline``.
+
+        :param computations: The list of compute nodes that form the pipeline DAG.
+        :param pipeline_name: The name of the pipeline. Must be unique within the workspace.
+        :param workspace_name: The name of the workspace.
+        :param description: A description of the pipeline.
+        :param environment_variables: A map of environment variable key-value pairs.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_pipeline_props = iotsitewise.CfnPipelineProps(
+                computations=[iotsitewise.CfnPipeline.ComputeNodeProperty(
+                    compute_node_name="computeNodeName",
+                    task_name="taskName",
+            
+                    # the properties below are optional
+                    depends_on=["dependsOn"],
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    }
+                )],
+                pipeline_name="pipelineName",
+                workspace_name="workspaceName",
+            
+                # the properties below are optional
+                description="description",
+                environment_variables={
+                    "environment_variables_key": "environmentVariables"
+                },
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fb4c9dbd541423932e435b07b4a7f123a1a04fa80e8c08691b58464ebb174074)
+            check_type(argname="argument computations", value=computations, expected_type=type_hints["computations"])
+            check_type(argname="argument pipeline_name", value=pipeline_name, expected_type=type_hints["pipeline_name"])
+            check_type(argname="argument workspace_name", value=workspace_name, expected_type=type_hints["workspace_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "computations": computations,
+            "pipeline_name": pipeline_name,
+            "workspace_name": workspace_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if environment_variables is not None:
+            self._values["environment_variables"] = environment_variables
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def computations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipeline.ComputeNodeProperty"]]]:
+        '''The list of compute nodes that form the pipeline DAG.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-computations
+        '''
+        result = self._values.get("computations")
+        assert result is not None, "Required property 'computations' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPipeline.ComputeNodeProperty"]]], result)
+
+    @builtins.property
+    def pipeline_name(self) -> builtins.str:
+        '''The name of the pipeline.
+
+        Must be unique within the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-pipelinename
+        '''
+        result = self._values.get("pipeline_name")
+        assert result is not None, "Required property 'pipeline_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-workspacename
+        '''
+        result = self._values.get("workspace_name")
+        assert result is not None, "Required property 'workspace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the pipeline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of environment variable key-value pairs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-environmentvariables
+        '''
+        result = self._values.get("environment_variables")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-pipeline.html#cfn-iotsitewise-pipeline-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPipelineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotsitewise_0afad0c0.IPortalRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnPortal(
     _aws_cdk_0cae9daa.CfnResource,
@@ -8212,6 +8759,1084 @@ class CfnProjectProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotsitewise_0afad0c0.ITaskRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnTask(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnTask",
+):
+    '''Resource schema for AWS::IoTSiteWise::Task.
+
+    A task defines a reusable containerized compute workload that can be referenced by one or more pipeline compute nodes.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html
+    :cloudformationResource: AWS::IoTSiteWise::Task
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iotsitewise as iotsitewise
+        
+        cfn_task = iotsitewise.CfnTask(self, "MyCfnTask",
+            task_configuration=iotsitewise.CfnTask.TaskConfigurationProperty(
+                container_task_configuration=iotsitewise.CfnTask.ContainerTaskConfigurationProperty(
+                    ecr_uri="ecrUri",
+                    processing_type="processingType",
+                    processing_unit="processingUnit",
+                    task_execution_role="taskExecutionRole",
+        
+                    # the properties below are optional
+                    command=["command"],
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    timeout_seconds=123
+                )
+            ),
+            task_name="taskName",
+            workspace_name="workspaceName",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        task_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTask.TaskConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        task_name: builtins.str,
+        workspace_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoTSiteWise::Task``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param task_configuration: The task execution configuration.
+        :param task_name: The name of the task. Must be unique within the workspace.
+        :param workspace_name: The name of the workspace.
+        :param description: A description of the task.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e23d92a1a70009f10161a02c8046b808c353e892a7f7b08a2d68d60111384a46)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTaskProps(
+            task_configuration=task_configuration,
+            task_name=task_name,
+            workspace_name=workspace_name,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTask")
+    @builtins.classmethod
+    def arn_for_task(
+        cls,
+        resource: "_aws_iotsitewise_0afad0c0.ITaskRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3da39cba7d00eda679453f7b3435de976ea94c170f450d4e8c0d793379f8a75d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTask", [resource]))
+
+    @jsii.member(jsii_name="isCfnTask")
+    @builtins.classmethod
+    def is_cfn_task(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTask.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b066e54955f9bdc4293d10d8e2b59b907b294f05094b00cfed5a476c4307b609)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTask", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fe7c4b5f8199f6ae3bb667fd35bb906bad3b08472ee97ee75bc2ce4e598406a4)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__444238a975cef770bc39d1b3d7eca0aeddd76970562e9edc51d76918900e0921)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current lifecycle status of the task.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTaskArn")
+    def attr_task_arn(self) -> builtins.str:
+        '''The ARN of the task.
+
+        :cloudformationAttribute: TaskArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTaskArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="taskRef")
+    def task_ref(self) -> "_aws_iotsitewise_0afad0c0.TaskReference":
+        '''A reference to a Task resource.'''
+        return typing.cast("_aws_iotsitewise_0afad0c0.TaskReference", jsii.get(self, "taskRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="taskConfiguration")
+    def task_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.TaskConfigurationProperty"]:
+        '''The task execution configuration.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.TaskConfigurationProperty"], jsii.get(self, "taskConfiguration"))
+
+    @task_configuration.setter
+    def task_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.TaskConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__49036c3bae44de067f626b9600a17b92a5180c40a69c72506290b0acf79764ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "taskConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="taskName")
+    def task_name(self) -> builtins.str:
+        '''The name of the task.'''
+        return typing.cast(builtins.str, jsii.get(self, "taskName"))
+
+    @task_name.setter
+    def task_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__80f2ab1955588bab52939971cba1a0a738fae6fa9a3e6d3d53843f5fe1f34064)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "taskName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceName")
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspaceName"))
+
+    @workspace_name.setter
+    def workspace_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9bba09d00164b42a161da8be4fb624ec813e6ec75fd714a586d4118442c8c041)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the task.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d05347b08bc8052e7ae5540bffe638e4fbe7caa903a3a406259f4cda091a6440)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6c7f55bafe0f867716b03857e063d2699c0bf1e2673ad2ed31ee5bd395ee85a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iotsitewise.CfnTask.ContainerTaskConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "ecr_uri": "ecrUri",
+            "processing_type": "processingType",
+            "processing_unit": "processingUnit",
+            "task_execution_role": "taskExecutionRole",
+            "command": "command",
+            "environment_variables": "environmentVariables",
+            "timeout_seconds": "timeoutSeconds",
+        },
+    )
+    class ContainerTaskConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            ecr_uri: builtins.str,
+            processing_type: builtins.str,
+            processing_unit: builtins.str,
+            task_execution_role: builtins.str,
+            command: typing.Optional[typing.Sequence[builtins.str]] = None,
+            environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            timeout_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration for running a custom container image on managed compute.
+
+            :param ecr_uri: The Amazon ECR image URI for the task container.
+            :param processing_type: The processing type for compute resources.
+            :param processing_unit: The processing unit allocation that determines vCPU, memory, and GPU resources.
+            :param task_execution_role: The ARN of the IAM role that grants the containerized workload permissions to access AWS resources.
+            :param command: The command to execute in the container.
+            :param environment_variables: A map of environment variable key-value pairs.
+            :param timeout_seconds: The timeout in seconds for task execution. Default: 3600 (1 hour).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iotsitewise as iotsitewise
+                
+                container_task_configuration_property = iotsitewise.CfnTask.ContainerTaskConfigurationProperty(
+                    ecr_uri="ecrUri",
+                    processing_type="processingType",
+                    processing_unit="processingUnit",
+                    task_execution_role="taskExecutionRole",
+                
+                    # the properties below are optional
+                    command=["command"],
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    timeout_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__eda526fbb14e84c3c050cb1fc4b1dea1b44aafac730cef9e89944bc9ee810e01)
+                check_type(argname="argument ecr_uri", value=ecr_uri, expected_type=type_hints["ecr_uri"])
+                check_type(argname="argument processing_type", value=processing_type, expected_type=type_hints["processing_type"])
+                check_type(argname="argument processing_unit", value=processing_unit, expected_type=type_hints["processing_unit"])
+                check_type(argname="argument task_execution_role", value=task_execution_role, expected_type=type_hints["task_execution_role"])
+                check_type(argname="argument command", value=command, expected_type=type_hints["command"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+                check_type(argname="argument timeout_seconds", value=timeout_seconds, expected_type=type_hints["timeout_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "ecr_uri": ecr_uri,
+                "processing_type": processing_type,
+                "processing_unit": processing_unit,
+                "task_execution_role": task_execution_role,
+            }
+            if command is not None:
+                self._values["command"] = command
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
+            if timeout_seconds is not None:
+                self._values["timeout_seconds"] = timeout_seconds
+
+        @builtins.property
+        def ecr_uri(self) -> builtins.str:
+            '''The Amazon ECR image URI for the task container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-ecruri
+            '''
+            result = self._values.get("ecr_uri")
+            assert result is not None, "Required property 'ecr_uri' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def processing_type(self) -> builtins.str:
+            '''The processing type for compute resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-processingtype
+            '''
+            result = self._values.get("processing_type")
+            assert result is not None, "Required property 'processing_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def processing_unit(self) -> builtins.str:
+            '''The processing unit allocation that determines vCPU, memory, and GPU resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-processingunit
+            '''
+            result = self._values.get("processing_unit")
+            assert result is not None, "Required property 'processing_unit' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def task_execution_role(self) -> builtins.str:
+            '''The ARN of the IAM role that grants the containerized workload permissions to access AWS resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-taskexecutionrole
+            '''
+            result = self._values.get("task_execution_role")
+            assert result is not None, "Required property 'task_execution_role' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def command(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The command to execute in the container.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-command
+            '''
+            result = self._values.get("command")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''A map of environment variable key-value pairs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def timeout_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The timeout in seconds for task execution.
+
+            Default: 3600 (1 hour).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-containertaskconfiguration.html#cfn-iotsitewise-task-containertaskconfiguration-timeoutseconds
+            '''
+            result = self._values.get("timeout_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContainerTaskConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iotsitewise.CfnTask.TaskConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"container_task_configuration": "containerTaskConfiguration"},
+    )
+    class TaskConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            container_task_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTask.ContainerTaskConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The task execution configuration.
+
+            :param container_task_configuration: Configuration for running a custom container image on managed compute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-taskconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iotsitewise as iotsitewise
+                
+                task_configuration_property = iotsitewise.CfnTask.TaskConfigurationProperty(
+                    container_task_configuration=iotsitewise.CfnTask.ContainerTaskConfigurationProperty(
+                        ecr_uri="ecrUri",
+                        processing_type="processingType",
+                        processing_unit="processingUnit",
+                        task_execution_role="taskExecutionRole",
+                
+                        # the properties below are optional
+                        command=["command"],
+                        environment_variables={
+                            "environment_variables_key": "environmentVariables"
+                        },
+                        timeout_seconds=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ac2d3ef66f4b7dbcaffbec0fec8297aa269932faea24d15d363355453c557309)
+                check_type(argname="argument container_task_configuration", value=container_task_configuration, expected_type=type_hints["container_task_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "container_task_configuration": container_task_configuration,
+            }
+
+        @builtins.property
+        def container_task_configuration(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.ContainerTaskConfigurationProperty"]:
+            '''Configuration for running a custom container image on managed compute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-task-taskconfiguration.html#cfn-iotsitewise-task-taskconfiguration-containertaskconfiguration
+            '''
+            result = self._values.get("container_task_configuration")
+            assert result is not None, "Required property 'container_task_configuration' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.ContainerTaskConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TaskConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnTaskProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "task_configuration": "taskConfiguration",
+        "task_name": "taskName",
+        "workspace_name": "workspaceName",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnTaskProps:
+    def __init__(
+        self,
+        *,
+        task_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTask.TaskConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        task_name: builtins.str,
+        workspace_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTask``.
+
+        :param task_configuration: The task execution configuration.
+        :param task_name: The name of the task. Must be unique within the workspace.
+        :param workspace_name: The name of the workspace.
+        :param description: A description of the task.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_task_props = iotsitewise.CfnTaskProps(
+                task_configuration=iotsitewise.CfnTask.TaskConfigurationProperty(
+                    container_task_configuration=iotsitewise.CfnTask.ContainerTaskConfigurationProperty(
+                        ecr_uri="ecrUri",
+                        processing_type="processingType",
+                        processing_unit="processingUnit",
+                        task_execution_role="taskExecutionRole",
+            
+                        # the properties below are optional
+                        command=["command"],
+                        environment_variables={
+                            "environment_variables_key": "environmentVariables"
+                        },
+                        timeout_seconds=123
+                    )
+                ),
+                task_name="taskName",
+                workspace_name="workspaceName",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__720c6b73598cd748e1fc47a96deca8a278c5c78d7a10a09ca1af798b1b076c63)
+            check_type(argname="argument task_configuration", value=task_configuration, expected_type=type_hints["task_configuration"])
+            check_type(argname="argument task_name", value=task_name, expected_type=type_hints["task_name"])
+            check_type(argname="argument workspace_name", value=workspace_name, expected_type=type_hints["workspace_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "task_configuration": task_configuration,
+            "task_name": task_name,
+            "workspace_name": workspace_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def task_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.TaskConfigurationProperty"]:
+        '''The task execution configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html#cfn-iotsitewise-task-taskconfiguration
+        '''
+        result = self._values.get("task_configuration")
+        assert result is not None, "Required property 'task_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTask.TaskConfigurationProperty"], result)
+
+    @builtins.property
+    def task_name(self) -> builtins.str:
+        '''The name of the task.
+
+        Must be unique within the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html#cfn-iotsitewise-task-taskname
+        '''
+        result = self._values.get("task_name")
+        assert result is not None, "Required property 'task_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html#cfn-iotsitewise-task-workspacename
+        '''
+        result = self._values.get("workspace_name")
+        assert result is not None, "Required property 'workspace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html#cfn-iotsitewise-task-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-task.html#cfn-iotsitewise-task-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTaskProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_iotsitewise_0afad0c0.IWorkspaceRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnWorkspace(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnWorkspace",
+):
+    '''Represents an AWS IoT SiteWise workspace that provides logical isolation for tasks and pipelines.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html
+    :cloudformationResource: AWS::IoTSiteWise::Workspace
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iotsitewise as iotsitewise
+        
+        cfn_workspace = iotsitewise.CfnWorkspace(self, "MyCfnWorkspace",
+            encryption_configuration=iotsitewise.CfnWorkspace.EncryptionConfigurationProperty(
+                encryption_type="encryptionType"
+            ),
+            workspace_name="workspaceName",
+        
+            # the properties below are optional
+            kms_key_id="kmsKeyId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            workspace_description="workspaceDescription"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        encryption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        workspace_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IoTSiteWise::Workspace``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param encryption_configuration: The encryption configuration for the workspace.
+        :param workspace_name: The name of the workspace.
+        :param kms_key_id: The ARN of the AWS KMS key used for KMS_BASED_ENCRYPTION. Required when EncryptionConfiguration.EncryptionType is KMS_BASED_ENCRYPTION.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param workspace_description: A description of the workspace.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2de511624b879ffa2be883dedf412ad683a0d38605a7f5f63f1db648258086ab)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnWorkspaceProps(
+            encryption_configuration=encryption_configuration,
+            workspace_name=workspace_name,
+            kms_key_id=kms_key_id,
+            tags=tags,
+            workspace_description=workspace_description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForWorkspace")
+    @builtins.classmethod
+    def arn_for_workspace(
+        cls,
+        resource: "_aws_iotsitewise_0afad0c0.IWorkspaceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6f5c73be9067d1958af19658737152cb333fb175872551117743409d1c63164)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWorkspace", [resource]))
+
+    @jsii.member(jsii_name="isCfnWorkspace")
+    @builtins.classmethod
+    def is_cfn_workspace(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorkspace.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3dc7d357e388a3e2153b7d9d70ce30785a76bd0496a3f24f66d0c94f11d70f5d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspace", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__24eb2f39d269cf5e803b230de503e7627860f2bd924a8116805da001f1405cda)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d03c2547b2fd0fff96d92864c616848a555c70ba706416ce722cd62ae53e6ca3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time the workspace was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current state of the workspace.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time the workspace was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkspaceArn")
+    def attr_workspace_arn(self) -> builtins.str:
+        '''The ARN of the workspace.
+
+        :cloudformationAttribute: WorkspaceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkspaceArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "_aws_iotsitewise_0afad0c0.WorkspaceReference":
+        '''A reference to a Workspace resource.'''
+        return typing.cast("_aws_iotsitewise_0afad0c0.WorkspaceReference", jsii.get(self, "workspaceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.EncryptionConfigurationProperty"]:
+        '''The encryption configuration for the workspace.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.EncryptionConfigurationProperty"], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.EncryptionConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b3f68c1dc367077e941f0c5f950d437f1f37ac1e33b7c5b2bf12f1ec9589df71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceName")
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.'''
+        return typing.cast(builtins.str, jsii.get(self, "workspaceName"))
+
+    @workspace_name.setter
+    def workspace_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb1927902c6f657fa2cc048883f59fdce05484164e10fe8275ceddeb486b6582)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the AWS KMS key used for KMS_BASED_ENCRYPTION.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70fd32683eaa2285ae355bb9aaf092c0dad00c662406bfd0b1ea29b3de281d5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b1d82c3441fe7cd6be7d9d6ce03daf71e095eeb8238f3dcebe843a516c48337d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceDescription")
+    def workspace_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the workspace.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workspaceDescription"))
+
+    @workspace_description.setter
+    def workspace_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b913989efa18f4f35fee9819f5f806411939b4c60b427178f56bf5a5d24350c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceDescription", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iotsitewise.CfnWorkspace.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_type": "encryptionType"},
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(self, *, encryption_type: builtins.str) -> None:
+            '''The encryption configuration for the workspace.
+
+            :param encryption_type: The type of encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-workspace-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iotsitewise as iotsitewise
+                
+                encryption_configuration_property = iotsitewise.CfnWorkspace.EncryptionConfigurationProperty(
+                    encryption_type="encryptionType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__1f2522353161fbce0e6865bb0dc5ff97c47d2bcbcfdc9e6f8ab2a9564962c844)
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "encryption_type": encryption_type,
+            }
+
+        @builtins.property
+        def encryption_type(self) -> builtins.str:
+            '''The type of encryption.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iotsitewise-workspace-encryptionconfiguration.html#cfn-iotsitewise-workspace-encryptionconfiguration-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            assert result is not None, "Required property 'encryption_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iotsitewise.CfnWorkspaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "encryption_configuration": "encryptionConfiguration",
+        "workspace_name": "workspaceName",
+        "kms_key_id": "kmsKeyId",
+        "tags": "tags",
+        "workspace_description": "workspaceDescription",
+    },
+)
+class CfnWorkspaceProps:
+    def __init__(
+        self,
+        *,
+        encryption_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWorkspace.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        workspace_name: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspace``.
+
+        :param encryption_configuration: The encryption configuration for the workspace.
+        :param workspace_name: The name of the workspace.
+        :param kms_key_id: The ARN of the AWS KMS key used for KMS_BASED_ENCRYPTION. Required when EncryptionConfiguration.EncryptionType is KMS_BASED_ENCRYPTION.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param workspace_description: A description of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iotsitewise as iotsitewise
+            
+            cfn_workspace_props = iotsitewise.CfnWorkspaceProps(
+                encryption_configuration=iotsitewise.CfnWorkspace.EncryptionConfigurationProperty(
+                    encryption_type="encryptionType"
+                ),
+                workspace_name="workspaceName",
+            
+                # the properties below are optional
+                kms_key_id="kmsKeyId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                workspace_description="workspaceDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b00f102237bfe84378833ab1627c87a0f6b3c9b60e3e6f4908404f68fd1f4eec)
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument workspace_name", value=workspace_name, expected_type=type_hints["workspace_name"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument workspace_description", value=workspace_description, expected_type=type_hints["workspace_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "encryption_configuration": encryption_configuration,
+            "workspace_name": workspace_name,
+        }
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if tags is not None:
+            self._values["tags"] = tags
+        if workspace_description is not None:
+            self._values["workspace_description"] = workspace_description
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.EncryptionConfigurationProperty"]:
+        '''The encryption configuration for the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html#cfn-iotsitewise-workspace-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        assert result is not None, "Required property 'encryption_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnWorkspace.EncryptionConfigurationProperty"], result)
+
+    @builtins.property
+    def workspace_name(self) -> builtins.str:
+        '''The name of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html#cfn-iotsitewise-workspace-workspacename
+        '''
+        result = self._values.get("workspace_name")
+        assert result is not None, "Required property 'workspace_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the AWS KMS key used for KMS_BASED_ENCRYPTION.
+
+        Required when EncryptionConfiguration.EncryptionType is KMS_BASED_ENCRYPTION.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html#cfn-iotsitewise-workspace-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html#cfn-iotsitewise-workspace-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def workspace_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iotsitewise-workspace.html#cfn-iotsitewise-workspace-workspacedescription
+        '''
+        result = self._values.get("workspace_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnAccessPolicy",
     "CfnAccessPolicyProps",
@@ -8227,10 +9852,16 @@ __all__ = [
     "CfnDatasetProps",
     "CfnGateway",
     "CfnGatewayProps",
+    "CfnPipeline",
+    "CfnPipelineProps",
     "CfnPortal",
     "CfnPortalProps",
     "CfnProject",
     "CfnProjectProps",
+    "CfnTask",
+    "CfnTaskProps",
+    "CfnWorkspace",
+    "CfnWorkspaceProps",
 ]
 
 publication.publish()
@@ -9220,6 +10851,102 @@ def _typecheckingstub__96b726a7f6953ced23491d12afc63dd3960b8d44e1734397f1db9d45a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4ebe4b49e14a560537c3b1c719c63ff5f5772019c4cb87d42e3e9a6004a3e526(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    computations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipeline.ComputeNodeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pipeline_name: builtins.str,
+    workspace_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad87c4e097958de488bcda880680a41ec0397bb88b9ffbdcf7c52b3a0cdcd1e4(
+    resource: _aws_iotsitewise_0afad0c0.IPipelineRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6ffb3700c492fdaaf75e6e7813ef0a260eb32d04d015d1012492fecdee70f81(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c00a7b7456cff79e95b2d8f06893e925e77fdaed5043bdf60ae48b385ba4e990(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fff4270e1625ea7a2b69bc6de50cdd9bbf9d3d21fc2ac756c85fe3ec0653d45c(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1be98754ffe7d746147a1603dd3ad30ce5ca6fbb3ccd93c3a31a299c5cbdf80(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPipeline.ComputeNodeProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d8954537250e43f7be9c5caac7d22351a01f3e1bcf5df148a215cdfb068daa1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__332bc7dd40e5b79328cb80c0bb182eb5d9d0864f5650fa6824641b8c9ecb3322(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3077870f23d1647fe6124d3a541e10a499a3ec754b54d6a1dacc338b7ed8df5(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd631863eff2376d769552e8cb8fb1444209d40e9819433a69b2ee334ccf0d83(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c48b17308bbdfb5d37a4c2d7b889ae791a1781838760e30e36c776846299056(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02286180d028a6ee03cf9b594f4bb9f205e233e98f570548c6443d5169bf9b02(
+    *,
+    compute_node_name: builtins.str,
+    task_name: builtins.str,
+    depends_on: typing.Optional[typing.Sequence[builtins.str]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb4c9dbd541423932e435b07b4a7f123a1a04fa80e8c08691b58464ebb174074(
+    *,
+    computations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPipeline.ComputeNodeProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    pipeline_name: builtins.str,
+    workspace_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cbc23e7f8ea9f23ecedfbb8e22cd39fad67b5932c9e8eb1d5d50975c13a3c5e8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -9459,6 +11186,189 @@ def _typecheckingstub__7af827083026086703d7567e7e4a27cf6d5bb590317461231a2e997d4
     asset_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     project_description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e23d92a1a70009f10161a02c8046b808c353e892a7f7b08a2d68d60111384a46(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    task_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTask.TaskConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    task_name: builtins.str,
+    workspace_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3da39cba7d00eda679453f7b3435de976ea94c170f450d4e8c0d793379f8a75d(
+    resource: _aws_iotsitewise_0afad0c0.ITaskRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b066e54955f9bdc4293d10d8e2b59b907b294f05094b00cfed5a476c4307b609(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe7c4b5f8199f6ae3bb667fd35bb906bad3b08472ee97ee75bc2ce4e598406a4(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__444238a975cef770bc39d1b3d7eca0aeddd76970562e9edc51d76918900e0921(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49036c3bae44de067f626b9600a17b92a5180c40a69c72506290b0acf79764ea(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTask.TaskConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80f2ab1955588bab52939971cba1a0a738fae6fa9a3e6d3d53843f5fe1f34064(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9bba09d00164b42a161da8be4fb624ec813e6ec75fd714a586d4118442c8c041(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d05347b08bc8052e7ae5540bffe638e4fbe7caa903a3a406259f4cda091a6440(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c7f55bafe0f867716b03857e063d2699c0bf1e2673ad2ed31ee5bd395ee85a5(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eda526fbb14e84c3c050cb1fc4b1dea1b44aafac730cef9e89944bc9ee810e01(
+    *,
+    ecr_uri: builtins.str,
+    processing_type: builtins.str,
+    processing_unit: builtins.str,
+    task_execution_role: builtins.str,
+    command: typing.Optional[typing.Sequence[builtins.str]] = None,
+    environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac2d3ef66f4b7dbcaffbec0fec8297aa269932faea24d15d363355453c557309(
+    *,
+    container_task_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTask.ContainerTaskConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__720c6b73598cd748e1fc47a96deca8a278c5c78d7a10a09ca1af798b1b076c63(
+    *,
+    task_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTask.TaskConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    task_name: builtins.str,
+    workspace_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2de511624b879ffa2be883dedf412ad683a0d38605a7f5f63f1db648258086ab(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    encryption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    workspace_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6f5c73be9067d1958af19658737152cb333fb175872551117743409d1c63164(
+    resource: _aws_iotsitewise_0afad0c0.IWorkspaceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3dc7d357e388a3e2153b7d9d70ce30785a76bd0496a3f24f66d0c94f11d70f5d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24eb2f39d269cf5e803b230de503e7627860f2bd924a8116805da001f1405cda(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d03c2547b2fd0fff96d92864c616848a555c70ba706416ce722cd62ae53e6ca3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b3f68c1dc367077e941f0c5f950d437f1f37ac1e33b7c5b2bf12f1ec9589df71(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnWorkspace.EncryptionConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb1927902c6f657fa2cc048883f59fdce05484164e10fe8275ceddeb486b6582(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70fd32683eaa2285ae355bb9aaf092c0dad00c662406bfd0b1ea29b3de281d5a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1d82c3441fe7cd6be7d9d6ce03daf71e095eeb8238f3dcebe843a516c48337d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b913989efa18f4f35fee9819f5f806411939b4c60b427178f56bf5a5d24350c3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f2522353161fbce0e6865bb0dc5ff97c47d2bcbcfdc9e6f8ab2a9564962c844(
+    *,
+    encryption_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b00f102237bfe84378833ab1627c87a0f6b3c9b60e3e6f4908404f68fd1f4eec(
+    *,
+    encryption_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWorkspace.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    workspace_name: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

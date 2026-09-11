@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling>=1.27", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -15,6 +15,7 @@ maintainers = [
     { name = "Scikit-HEP", email = "scikit-hep-admins@googlegroups.com" },
 ]
 license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 keywords = [
     "HEP",
     "MC identification codes",
@@ -42,6 +43,7 @@ classifiers = [
 dependencies = [
     "attrs>=22.2.0",
     "hepunits>=2.4.0",
+    'typing-extensions>=4;python_version<"3.11"',
 ]
 dynamic = ["version"]
 

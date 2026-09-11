@@ -20,9 +20,15 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 class ExtractInput(BaseModel):
     model_config = ConfigDict(extra="allow")
 
+    # REQUIRED, like ai.llm.chat. This field used to default to "gpt-4o-mini",
+    # a name that is not in the live model catalog: an author (or the
+    # Masterwork Conductor, which reads this schema as the truth) copied the
+    # default, the provider call produced zero tokens, and the node reported
+    # "no output text" instead of the real cause (2026-09-10). A schema default
+    # that names a model is a lie with a shelf life — the picker is the source.
     model: str = Field(
-        default="gpt-4o-mini",
-        description="Model to use for extraction.",
+        min_length=1,
+        description="Model to use for extraction — pick one from the live catalog.",
         json_schema_extra=field_extras(widget="model_picker"),
     )
     text: str = Field(
@@ -74,9 +80,20 @@ class ExtractOutput(BaseModel):
     tags=("ai", "extract", "analyze", "parse"),
 )
 async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeResult[ExtractOutput]:
+    from matrx_ai.catalog.host_catalog import get_model_catalog
     from matrx_ai.config import UnifiedConfig
-    from matrx_ai.graph_nodes.shared import _extract_usage
+    from matrx_ai.graph_nodes.shared import _extract_usage, normalize_completed_result
     from matrx_ai.orchestrator.executor import execute_ai_request
+
+    # Pre-flight: an unknown model is a NAMED failure, never an empty answer.
+    catalog = get_model_catalog()
+    if catalog is not None and await catalog.get_model(inputs.model) is None:
+        return failure(
+            "model_unknown",
+            f"ai.extract: model '{inputs.model}' is not in the model catalog. "
+            "Pick a model from the model picker (the catalog is the only source of model names).",
+            details={"model": inputs.model},
+        )
 
     # Force the LLM to only output JSON
     system_prompt = f"You are a strict data extraction analyzer. \n{inputs.instruction}\n"
@@ -90,10 +107,14 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
         {"role": "user", "content": inputs.text},
     ]
 
+    # No forced temperature: a node has no business hard-coding a sampling
+    # opinion, and several catalog models (the Claude 5 family) REJECT the
+    # parameter outright — 2026-09-10 every Opus 5 extract step died with
+    # "`temperature` is deprecated for this model". The offering's catalog
+    # controls own which parameters travel; the node sends only what it needs.
     overrides = {
         "model": inputs.model,
         "messages": messages,
-        "temperature": 0.0,
     }
 
     if inputs.schema_definition:
@@ -119,6 +140,12 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
     # usage under details["usage"] so the scheduler's cost settlement records
     # the spend (category=LLM gates the settlement).
     usage = _extract_usage(getattr(completed, "total_usage", None)).model_dump(mode="json")
+
+    # A failed turn (provider error, routing error, loop guard) fails the node
+    # with the orchestrator's own reason — never "no output text to parse".
+    normalized = normalize_completed_result(completed)
+    if normalized.status == "error":
+        return normalized  # type: ignore[return-value]
 
     final_text = completed.request.config.get_last_output()
     if not final_text:

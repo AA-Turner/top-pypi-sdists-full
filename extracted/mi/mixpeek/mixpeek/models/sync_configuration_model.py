@@ -26,6 +26,7 @@ from mixpeek.models.file_filters import FileFilters
 from mixpeek.models.reconcile_settings import ReconcileSettings
 from mixpeek.models.schema_mapping_output import SchemaMappingOutput
 from mixpeek.models.sync_mode import SyncMode
+from mixpeek.models.sync_stats_model import SyncStatsModel
 from mixpeek.models.task_status_enum import TaskStatusEnum
 from typing import Optional, Set
 from typing_extensions import Self
@@ -55,6 +56,7 @@ class SyncConfigurationModel(BaseModel):
     total_files_synced: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Cumulative count of successfully synced files.")
     total_files_failed: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Cumulative count of failed files (sent to DLQ after 3 retries).")
     total_bytes_synced: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Cumulative bytes transferred across all runs.")
+    stats: Optional[SyncStatsModel] = Field(default=None, description="Throughput and volume metrics aggregated by the sync pipeline on every run: cumulative totals, the peak object rate, and a full breakdown of the most recent run. Present once a run has completed.")
     created_at: Optional[datetime] = Field(default=None, description="When sync configuration was created.")
     updated_at: Optional[datetime] = Field(default=None, description="Last modification timestamp.")
     last_sync_at: Optional[datetime] = Field(default=None, description="When last successful sync completed. Used for incremental syncs.")
@@ -93,7 +95,7 @@ class SyncConfigurationModel(BaseModel):
     schedule: Optional[Dict[str, Any]] = Field(default=None, description="Derived scheduling summary: mode, interval, next run, and last successful run.")
     sync_progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
     locked: StrictBool = Field(description="Whether a worker currently holds this sync's run lock.")
-    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
+    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "stats", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -145,6 +147,9 @@ class SyncConfigurationModel(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of reconcile
         if self.reconcile:
             _dict['reconcile'] = self.reconcile.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of stats
+        if self.stats:
+            _dict['stats'] = self.stats.to_dict()
         return _dict
 
     @classmethod
@@ -178,6 +183,7 @@ class SyncConfigurationModel(BaseModel):
             "total_files_synced": obj.get("total_files_synced") if obj.get("total_files_synced") is not None else 0,
             "total_files_failed": obj.get("total_files_failed") if obj.get("total_files_failed") is not None else 0,
             "total_bytes_synced": obj.get("total_bytes_synced") if obj.get("total_bytes_synced") is not None else 0,
+            "stats": SyncStatsModel.from_dict(obj["stats"]) if obj.get("stats") is not None else None,
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),
             "last_sync_at": obj.get("last_sync_at"),

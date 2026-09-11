@@ -6,7 +6,6 @@ from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from matrx_utils import vcprint
-from openai.types.responses import ResponseUsage as OpenAIResponseUsage
 
 if TYPE_CHECKING:  # matrx_ai.providers imports matrx_ai.config — type-only here.
     from matrx_ai.providers.resolved_capabilities import ResolvedModelCapabilities
@@ -1247,7 +1246,7 @@ class TokenUsage:
     @classmethod
     def from_openai(
         cls,
-        usage: OpenAIResponseUsage,
+        usage: Any,
         matrx_model_name: str,
         provider_model_name: str,
         response_id: str = "",

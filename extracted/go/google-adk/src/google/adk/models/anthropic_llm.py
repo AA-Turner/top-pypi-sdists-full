@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import copy
 import dataclasses
@@ -46,11 +47,13 @@ from google.genai import types
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic import model_validator
+from pydantic import PrivateAttr
 from typing_extensions import override
 
 from . import _prompt_cache
 from ..utils import _json_utils
 from ..utils._google_client_headers import get_tracking_headers
+from ..utils._schema_utils import lowercase_schema_types
 from .base_llm import BaseLlm
 from .interactions_utils import extract_system_instruction
 from .llm_response import LlmResponse
@@ -336,6 +339,34 @@ def _is_pdf_part(part: types.Part) -> bool:
   )
 
 
+# The fields that mean a part carries something to send. The rest of a Part is
+# annotation -- `part_metadata`, `video_metadata`, `media_resolution` and the
+# like -- and ADK's own A2A converter sets some of them, so asking "is anything
+# else set?" would leave the part in place and the session wedged.
+_PART_CONTENT_FIELDS = (
+    "audio_transcription",
+    "code_execution_result",
+    "executable_code",
+    "file_data",
+    "function_call",
+    "function_response",
+    "inline_data",
+    "tool_call",
+    "tool_response",
+)
+
+
+def _is_content_free_signature(part: types.Part) -> bool:
+  """Whether a part is a thought signature with nothing to send beside it.
+
+  A part that still has its `thought` flag is redacted thinking Claude issued
+  itself, and the branches in `_part_to_message_block` handle it.
+  """
+  if not part.thought_signature or part.thought or part.text:
+    return False
+  return not any(getattr(part, f, None) for f in _PART_CONTENT_FIELDS)
+
+
 def _normalize_image_media_type(mime_type: str) -> _ImageMediaType:
   normalized = mime_type.split(";", 1)[0].strip().lower()
   if normalized not in _ANTHROPIC_IMAGE_MEDIA_TYPES:
@@ -575,6 +606,12 @@ def _content_to_message_param(
       logger.warning("PDF data is not supported in Claude for assistant turns.")
       continue
 
+    # A signature with nothing to send beside it: there is no block to build
+    # from it, and it used to raise and wedge the session for good.
+    if _is_content_free_signature(part):
+      logger.warning("Dropping a thought signature from another model.")
+      continue
+
     message_block.append(_part_to_message_block(part, sanitizer))
 
   return {
@@ -716,63 +753,8 @@ def message_to_generate_content_response(
       ),
       usage_metadata=usage_metadata,
       finish_reason=to_google_genai_finish_reason(message.stop_reason),
+      model_version=message.model,
   )
-
-
-def _update_type_string(value: object) -> None:
-  """Lowercases nested JSON schema type strings for Anthropic compatibility."""
-  if isinstance(value, list):
-    for item in value:
-      _update_type_string(item)
-    return
-
-  if not isinstance(value, dict):
-    return
-
-  schema_type = value.get("type")
-  if isinstance(schema_type, str):
-    value["type"] = schema_type.lower()
-
-  for dict_key in (
-      "$defs",
-      "defs",
-      "dependentSchemas",
-      "patternProperties",
-      "properties",
-  ):
-    child_dict = value.get(dict_key)
-    if isinstance(child_dict, dict):
-      for child_value in child_dict.values():
-        _update_type_string(child_value)
-
-  for single_key in (
-      "additionalProperties",
-      "additional_properties",
-      "contains",
-      "else",
-      "if",
-      "items",
-      "not",
-      "propertyNames",
-      "then",
-      "unevaluatedProperties",
-  ):
-    child_value = value.get(single_key)
-    if isinstance(child_value, (dict, list)):
-      _update_type_string(child_value)
-
-  for list_key in (
-      "allOf",
-      "all_of",
-      "anyOf",
-      "any_of",
-      "oneOf",
-      "one_of",
-      "prefixItems",
-  ):
-    child_list = value.get(list_key)
-    if isinstance(child_list, list):
-      _update_type_string(child_list)
 
 
 def function_declaration_to_tool_param(
@@ -784,7 +766,7 @@ def function_declaration_to_tool_param(
   # Use parameters_json_schema if available, otherwise convert from parameters
   if function_declaration.parameters_json_schema:
     input_schema = copy.deepcopy(function_declaration.parameters_json_schema)
-    _update_type_string(input_schema)
+    lowercase_schema_types(input_schema)
   else:
     properties = {}
     required_params = []
@@ -801,7 +783,7 @@ def function_declaration_to_tool_param(
     }
     if required_params:
       input_schema["required"] = required_params
-    _update_type_string(input_schema)
+    lowercase_schema_types(input_schema)
 
   return anthropic_types.ToolParam(
       name=function_declaration.name,
@@ -936,10 +918,13 @@ class AnthropicLlm(BaseLlm):
   )
   """An optional pre-configured Anthropic client."""
 
+  # Coordinates concurrent coroutines initializing the client.
+  _client_init_task: asyncio.Task | None = PrivateAttr(default=None)
+
   @classmethod
   @override
   def supported_models(cls) -> list[str]:
-    return [r"claude-3-.*", r"claude-.*-4.*", r"claude-.*-5.*"]
+    return [r"claude-.*"]
 
   def _resolve_model_name(self, model: Optional[str]) -> str:
     if not model:
@@ -1044,9 +1029,17 @@ class AnthropicLlm(BaseLlm):
       self, llm_request: LlmRequest, stream: bool = False
   ) -> AsyncGenerator[LlmResponse, None]:
     sanitizer = _ToolUseIdSanitizer()
+    # A turn whose parts are all dropped above leaves no blocks behind, and
+    # Anthropic rejects a message with empty content. Sending one re-wedges the
+    # session exactly as the NotImplementedError did: the offending part stays
+    # in history, so every later turn fails the same way.
     messages = [
-        _content_to_message_param(content, sanitizer)
-        for content in llm_request.contents or []
+        message
+        for message in (
+            _content_to_message_param(content, sanitizer)
+            for content in llm_request.contents or []
+        )
+        if message["content"]
     ]
     tools: Iterable[anthropic_types.ToolUnionParam] | NotGiven = NOT_GIVEN
     function_declarations: list[types.FunctionDeclaration] = []
@@ -1069,11 +1062,12 @@ class AnthropicLlm(BaseLlm):
     thinking = _build_anthropic_thinking_param(llm_request.config)
 
     try:
+      client = await self._get_anthropic_client()
       if not stream:
         kwargs = self._build_anthropic_kwargs(
             llm_request, messages, tools, tool_choice, thinking
         )
-        message = await self._anthropic_client.messages.create(**kwargs)
+        message = await client.messages.create(**kwargs)
         yield message_to_generate_content_response(message)
       else:
         async for response in self._generate_content_streaming(
@@ -1112,7 +1106,8 @@ class AnthropicLlm(BaseLlm):
     kwargs = self._build_anthropic_kwargs(
         llm_request, messages, tools, tool_choice, thinking
     )
-    raw_stream = await self._anthropic_client.messages.create(
+    client = await self._get_anthropic_client()
+    raw_stream = await client.messages.create(
         stream=True,
         **kwargs,
     )
@@ -1129,6 +1124,7 @@ class AnthropicLlm(BaseLlm):
     cached_input_tokens: int | None = None
     cache_creation_tokens: int | None = None
     stop_reason: Optional[anthropic_types.StopReason] = None
+    model_version: Optional[str] = None
 
     async for event in raw_stream:
       if event.type == "message_start":
@@ -1139,6 +1135,7 @@ class AnthropicLlm(BaseLlm):
         cache_creation_tokens = _extract_cache_creation_token_count(
             event.message.usage
         )
+        model_version = event.message.model
 
       elif event.type == "content_block_start":
         block = event.content_block
@@ -1172,6 +1169,7 @@ class AnthropicLlm(BaseLlm):
                   role="model",
                   parts=[types.Part(text=delta.thinking, thought=True)],
               ),
+              model_version=model_version,
               partial=True,
           )
         elif isinstance(delta, anthropic_types.SignatureDelta):
@@ -1196,6 +1194,7 @@ class AnthropicLlm(BaseLlm):
                   role="model",
                   parts=[types.Part.from_text(text=delta.text)],
               ),
+              model_version=model_version,
               partial=True,
           )
         elif isinstance(delta, anthropic_types.InputJSONDelta):
@@ -1268,8 +1267,34 @@ class AnthropicLlm(BaseLlm):
         content=types.Content(role="model", parts=all_parts),
         usage_metadata=usage_metadata,
         finish_reason=to_google_genai_finish_reason(stop_reason),
+        model_version=model_version,
         partial=False,
     )
+
+  async def _get_anthropic_client(
+      self,
+  ) -> AsyncAnthropic | AsyncAnthropicVertex:
+    """Returns the client without blocking the caller's event loop."""
+    cached_client = self.__dict__.get("_anthropic_client")
+    if cached_client is not None:
+      return cast(AsyncAnthropic | AsyncAnthropicVertex, cached_client)
+
+    task = self._client_init_task
+    if task is None:
+      task = asyncio.create_task(
+          asyncio.to_thread(lambda: self._anthropic_client)
+      )
+
+      def _on_done(t: asyncio.Task) -> None:
+        if self._client_init_task is t:
+          self._client_init_task = None
+        if not t.cancelled():
+          t.exception()
+
+      task.add_done_callback(_on_done)
+      self._client_init_task = task
+
+    return await asyncio.shield(task)
 
   @cached_property
   def _anthropic_client(self) -> AsyncAnthropic | AsyncAnthropicVertex:

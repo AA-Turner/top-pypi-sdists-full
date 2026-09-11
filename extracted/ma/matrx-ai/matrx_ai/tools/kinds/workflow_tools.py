@@ -33,10 +33,9 @@ key any success branch can emit is declared, action-specific keys optional.
 
 from __future__ import annotations
 
-from pydantic import JsonValue
-
 from matrx_graph.content_ir.model import KindModel, KindSubModel
 from matrx_graph.content_ir.sdk import kind
+from pydantic import JsonValue
 
 
 @kind(
@@ -224,6 +223,9 @@ class WorkflowPlanResult(KindModel):
     emitted_so_far: int | None = None
     wired: dict | None = None
     wired_note: str | None = None
+    #: Emission wiring receipt; preserve the service's chaining explanation.
+    wiring_mode: str | None = None
+    chained_from: dict[str, str] | None = None
     handshake_warnings: list[str] | None = None
     #: ``settle``.
     settled: bool | None = None

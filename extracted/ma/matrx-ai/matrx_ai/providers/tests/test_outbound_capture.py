@@ -1,30 +1,46 @@
 """Tests for ``matrx_ai.providers.outbound_capture`` — wire-level
 CONTEXT_ANALYSIS capture.
 
-The hard guarantees we lock down here:
+SUTs: ``_outbound_request_hook`` (driven through the real
+``make_capture_http_client`` + httpx transport, and through the real OpenAI
+SDK), ``emit_explicit_context_analysis``, ``stamp_call_meta``. Doubles: the
+network (``httpx.MockTransport``) and the stream sink (the emitter — what it
+receives IS the contract).
 
-1. ``snapshot=False`` (the default): the request hook is a near-no-op —
-   no emitter call, no body parsing, no payload allocation.
-2. ``snapshot=True``: an outbound httpx request triggers exactly one
-   ``send_context_analysis`` call carrying the literal wire bytes (URL,
-   method, headers, parsed JSON body, byte size). Auth-bearing headers
-   are redacted in the event but NOT on the on-wire request itself.
-3. Concurrent async tasks see only their own ``CallMeta`` (ContextVar
-   isolation).
-4. Hook exceptions never break the outbound request.
+Owned contract, and the break each group names:
+1. ``snapshot`` off → nothing is emitted (a leak of payloads into the stream).
+2. ``snapshot`` on → exactly one event carrying the literal request: body bytes
+   decoded faithfully against a committed provider payload captured from the
+   real OpenAI SDK (``fixtures/openai_responses_request.json``), non-JSON and
+   non-object roots preserved, size = wire bytes, per-call metadata intact.
+3. Every credential-bearing header is redacted in the EVENT and untouched on
+   the WIRE (dropping one name from the set leaks a secret into the stream;
+   redacting the request in place breaks the provider call).
+4. Concurrent tasks see only their own ``CallMeta``.
+5. A capture failure never breaks the outbound request.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import openai
 import pytest
+from matrx_connect.context.app_context import (
+    AppContext,
+    clear_app_context,
+    set_app_context,
+)
+from matrx_connect.context.events import ContextAnalysisPayload
 
 from matrx_ai.providers.outbound_capture import (
     CallMeta,
+    _call_meta_var,
     _outbound_request_hook,
     emit_explicit_context_analysis,
     get_call_meta,
@@ -32,12 +48,28 @@ from matrx_ai.providers.outbound_capture import (
     set_call_meta,
     stamp_call_meta,
 )
-from matrx_connect.context.app_context import (
-    AppContext,
-    clear_app_context,
-    set_app_context,
+
+# Captured 2026-09-10 from openai 2.54.0's own serialization of a
+# ``client.responses.create(...)`` call (instructions, multi-turn input, a
+# strict function tool, reasoning, metadata) through the capture client.
+_CAPTURED_OPENAI_REQUEST = Path(__file__).parent / "fixtures" / "openai_responses_request.json"
+
+# The security contract, stated independently of the SUT's constant: these
+# header names carry credentials or identifying tokens and must never reach
+# the CONTEXT_ANALYSIS stream.
+_CREDENTIAL_HEADERS = frozenset(
+    {
+        "authorization",
+        "x-api-key",
+        "x-goog-api-key",
+        "x-goog-api-client",
+        "proxy-authorization",
+        "anthropic-api-key",
+        "openai-organization",
+        "openai-project",
+        "cookie",
+    }
 )
-from matrx_connect.context.events import ContextAnalysisPayload
 
 
 # ---------------------------------------------------------------------------
@@ -62,8 +94,6 @@ def _install_ctx(*, snapshot: bool, emitter: Any | None = None) -> AppContext:
         snapshot=snapshot,
     )
     token = set_app_context(ctx)
-    # Tests are responsible for resetting via the returned context — we use
-    # a fixture below to handle teardown.
     _install_ctx._token = token  # type: ignore[attr-defined]
     return ctx
 
@@ -82,6 +112,27 @@ def _make_request(
     if isinstance(body, bytes):
         return httpx.Request(method, url, content=body, headers=headers or {})
     return httpx.Request(method, url, headers=headers or {})
+
+
+def _only_payload(emitter: Any) -> ContextAnalysisPayload:
+    assert emitter.send_context_analysis.await_count == 1
+    payload = emitter.send_context_analysis.await_args.args[0]
+    assert isinstance(payload, ContextAnalysisPayload)
+    return payload
+
+
+class _Wire:
+    """The network: records exactly what left the process."""
+
+    def __init__(self) -> None:
+        self.requests: list[httpx.Request] = []
+
+    def transport(self, response: httpx.Response | None = None) -> httpx.MockTransport:
+        def _handle(request: httpx.Request) -> httpx.Response:
+            self.requests.append(request)
+            return response if response is not None else httpx.Response(200, json={"ok": True})
+
+        return httpx.MockTransport(_handle)
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +200,7 @@ async def test_hook_emits_exactly_once_with_wire_bytes_when_snapshot_enabled():
             model="gpt-5-test",
             iteration=3,
             is_streaming=True,
-            attempt=1,
+            attempt=2,
         )
     )
 
@@ -160,26 +211,27 @@ async def test_hook_emits_exactly_once_with_wire_bytes_when_snapshot_enabled():
     }
     request = _make_request(
         method="POST",
-        url="https://api.openai.com/v1/responses",
+        url="https://api.openai.com/v1/responses?api-version=2025-01-01",
         body=request_body,
         headers={"Authorization": "Bearer sk-secret-abcdef"},
     )
 
     await _outbound_request_hook(request)
 
-    assert emitter.send_context_analysis.call_count == 1
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
-    assert isinstance(payload, ContextAnalysisPayload)
-
+    payload = _only_payload(emitter)
     assert payload.provider == "openai"
     assert payload.model == "gpt-5-test"
     assert payload.iteration == 3
     assert payload.is_streaming is True
+    assert payload.attempt == 2
     assert payload.method == "POST"
-    assert payload.url == "https://api.openai.com/v1/responses"
+    assert payload.url == "https://api.openai.com/v1/responses?api-version=2025-01-01"
 
-    # Body was JSON-decoded faithfully.
-    assert payload.body == request_body
+    assert payload.body == {
+        "model": "gpt-5",
+        "messages": [{"role": "user", "content": "hello"}],
+        "stream": True,
+    }
     assert payload.body_raw is None
     assert payload.body_size_bytes == len(request.content)
 
@@ -188,9 +240,33 @@ async def test_hook_emits_exactly_once_with_wire_bytes_when_snapshot_enabled():
     # ...but NOT in the actual on-wire request.
     assert request.headers["authorization"] == "Bearer sk-secret-abcdef"
 
-    # Conversation/request IDs from AppContext flow through.
     assert payload.conversation_id == "conv-xyz"
     assert payload.request_id == "req-abc"
+
+
+async def test_captured_provider_payload_is_recorded_byte_faithfully():
+    """The committed payload goes out through the real capture client; the
+    event must carry it exactly and size it by the bytes that hit the wire."""
+    captured = json.loads(_CAPTURED_OPENAI_REQUEST.read_text())
+    wire_bytes = json.dumps(captured, ensure_ascii=False).encode("utf-8")
+
+    emitter = _make_emitter()
+    _install_ctx(snapshot=True, emitter=emitter)
+    set_call_meta(CallMeta(provider="openai", model="gpt-5", iteration=1))
+
+    wire = _Wire()
+    async with make_capture_http_client(transport=wire.transport()) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/responses",
+            content=wire_bytes,
+            headers={"Content-Type": "application/json"},
+        )
+    assert resp.status_code == 200
+
+    payload = _only_payload(emitter)
+    assert payload.body == json.loads(_CAPTURED_OPENAI_REQUEST.read_text())
+    assert payload.body_raw is None
+    assert payload.body_size_bytes == len(wire.requests[0].content) == len(wire_bytes)
 
 
 async def test_hook_handles_non_json_body_via_body_raw():
@@ -206,11 +282,23 @@ async def test_hook_handles_non_json_body_via_body_raw():
 
     await _outbound_request_hook(request)
 
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
+    payload = _only_payload(emitter)
     assert payload.body is None
-    assert payload.body_raw is not None
-    assert "not-json" in payload.body_raw
-    assert payload.body_size_bytes == len(b"\x00\x01\x02\x03not-json")
+    assert payload.body_raw == "\x00\x01\x02\x03not-json"
+    assert payload.body_size_bytes == 12
+
+
+async def test_non_object_json_root_is_wrapped_not_dropped():
+    emitter = _make_emitter()
+    _install_ctx(snapshot=True, emitter=emitter)
+    set_call_meta(CallMeta(provider="together"))
+
+    request = _make_request(body=b'[{"role": "user", "content": "batch item"}]')
+    await _outbound_request_hook(request)
+
+    payload = _only_payload(emitter)
+    assert payload.body == {"__non_dict_root__": [{"role": "user", "content": "batch item"}]}
+    assert payload.body_raw is None
 
 
 async def test_hook_handles_empty_body():
@@ -222,7 +310,7 @@ async def test_hook_handles_empty_body():
 
     await _outbound_request_hook(request)
 
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
+    payload = _only_payload(emitter)
     assert payload.body is None
     assert payload.body_raw is None
     assert payload.body_size_bytes == 0
@@ -232,60 +320,159 @@ async def test_hook_handles_empty_body():
 async def test_hook_uses_fallback_meta_when_set_call_meta_was_skipped():
     emitter = _make_emitter()
     _install_ctx(snapshot=True, emitter=emitter)
-    # Deliberately do NOT call set_call_meta — simulate a provider that
-    # forgot to stamp metadata. We still want an event, just decorated
-    # with the fallback.
+    # Deliberately do NOT call set_call_meta — a provider that forgot to stamp
+    # metadata still produces an event, decorated with the fallback.
 
     request = _make_request(body={"x": 1})
     await _outbound_request_hook(request)
 
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
+    payload = _only_payload(emitter)
     assert payload.provider == "unknown"
     assert payload.model is None
     assert payload.iteration is None
+    assert payload.attempt == 1
 
 
-async def test_hook_swallows_emitter_exceptions_so_request_succeeds():
+async def test_capture_failure_never_breaks_the_outbound_request():
     emitter = _make_emitter()
     emitter.send_context_analysis.side_effect = RuntimeError("emit boom")
     _install_ctx(snapshot=True, emitter=emitter)
     set_call_meta(CallMeta(provider="openai"))
 
-    request = _make_request(body={"x": 1})
-    # MUST NOT raise — capture failures cannot break the live request.
-    await _outbound_request_hook(request)
+    wire = _Wire()
+    async with make_capture_http_client(transport=wire.transport()) as client:
+        resp = await client.post("https://api.openai.com/v1/responses", json={"x": 1})
+
+    assert resp.status_code == 200
+    assert [json.loads(r.content) for r in wire.requests] == [{"x": 1}]
+    assert emitter.send_context_analysis.await_count == 1
 
 
 # ---------------------------------------------------------------------------
-# Header redaction set
+# Header redaction — through the real OpenAI SDK
 # ---------------------------------------------------------------------------
 
 
-async def test_all_known_auth_headers_are_redacted():
+async def test_every_credential_header_is_redacted_in_the_event_and_untouched_on_the_wire():
     emitter = _make_emitter()
     _install_ctx(snapshot=True, emitter=emitter)
-    set_call_meta(CallMeta(provider="generic"))
+    set_call_meta(CallMeta(provider="openai", model="gpt-5", iteration=1))
 
-    request = _make_request(
-        body={"x": 1},
-        headers={
-            "Authorization": "Bearer xxx",
-            "X-API-Key": "ant-key-yyy",
-            "X-Goog-Api-Key": "goog-zzz",
-            "Anthropic-Api-Key": "ant-www",
-            "Content-Type": "application/json",  # NOT redacted
+    secrets_on_wire = {
+        "authorization": "Bearer sk-live-not-real",
+        "openai-organization": "org-live-not-real",
+        "openai-project": "proj-live-not-real",
+        "cookie": "session=live-cookie",
+        "proxy-authorization": "Basic cHJveHk6c2VjcmV0",
+        "x-goog-api-client": "gl-python/3.13 grpc/1.0 auth/token-bearing",
+        "x-api-key": "ant-key-live",
+        "x-goog-api-key": "goog-key-live",
+        "anthropic-api-key": "ant-live",
+    }
+    wire = _Wire()
+    sdk = openai.AsyncOpenAI(
+        api_key="sk-live-not-real",
+        organization="org-live-not-real",
+        project="proj-live-not-real",
+        max_retries=0,
+        default_headers={
+            "Cookie": "session=live-cookie",
+            "Proxy-Authorization": "Basic cHJveHk6c2VjcmV0",
+            "X-Goog-Api-Client": "gl-python/3.13 grpc/1.0 auth/token-bearing",
+            "X-API-Key": "ant-key-live",
+            "X-Goog-Api-Key": "goog-key-live",
+            "Anthropic-Api-Key": "ant-live",
         },
+        http_client=make_capture_http_client(
+            sdk=openai,
+            transport=wire.transport(
+                httpx.Response(400, json={"error": {"message": "stop", "type": "invalid_request_error"}})
+            ),
+        ),
+    )
+    with pytest.raises(openai.BadRequestError):
+        await sdk.responses.create(model="gpt-5", input="Plan the upgrade.")
+
+    assert len(wire.requests) == 1
+    on_wire = dict(wire.requests[0].headers.items())
+    payload = _only_payload(emitter)
+
+    # The wire request is untouched: every secret reached the provider as sent.
+    assert {k: on_wire[k] for k in secrets_on_wire} == secrets_on_wire
+    # The event carries every wire header — credentials redacted, the rest verbatim.
+    assert payload.headers == {
+        k: ("<redacted>" if k in _CREDENTIAL_HEADERS else v) for k, v in on_wire.items()
+    }
+    assert {k for k, v in payload.headers.items() if v == "<redacted>"} == set(secrets_on_wire)
+    # And the body is what the SDK serialized onto the wire.
+    assert payload.body == {"model": "gpt-5", "input": "Plan the upgrade."}
+    assert payload.body_size_bytes == len(wire.requests[0].content)
+
+
+# ---------------------------------------------------------------------------
+# emit_explicit_context_analysis — non-httpx provider call sites
+# ---------------------------------------------------------------------------
+
+
+async def test_explicit_emit_redacts_credentials_in_caller_header_case_and_sizes_the_body():
+    emitter = _make_emitter()
+    _install_ctx(snapshot=True, emitter=emitter)
+    set_call_meta(CallMeta(provider="elevenlabs", model="eleven_v3", iteration=2))
+
+    await emit_explicit_context_analysis(
+        provider="elevenlabs",
+        method="POST",
+        url="https://api.elevenlabs.io/v1/text-to-dialogue/stream",
+        headers={
+            "Authorization": "Bearer el-secret",
+            "Cookie": "sid=el",
+            "Content-Type": "application/json",
+        },
+        body={"inputs": [{"text": "hi"}]},
+        is_streaming=True,
+        model="caller-fallback-model",
+        attempt=3,
     )
 
-    await _outbound_request_hook(request)
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
+    payload = _only_payload(emitter)
+    assert payload.headers == {
+        "Authorization": "<redacted>",
+        "Cookie": "<redacted>",
+        "Content-Type": "application/json",
+    }
+    assert payload.body == {"inputs": [{"text": "hi"}]}
+    # len('{"inputs": [{"text": "hi"}]}') — the JSON the provider receives.
+    assert payload.body_size_bytes == 28
+    assert payload.model == "eleven_v3"  # stamped call meta wins over the caller hint
+    assert payload.iteration == 2
+    assert payload.is_streaming is True
+    assert payload.attempt == 3
+    assert payload.conversation_id == "conv-xyz"
 
-    headers = {k.lower(): v for k, v in payload.headers.items()}
-    assert headers["authorization"] == "<redacted>"
-    assert headers["x-api-key"] == "<redacted>"
-    assert headers["x-goog-api-key"] == "<redacted>"
-    assert headers["anthropic-api-key"] == "<redacted>"
-    assert headers["content-type"] == "application/json"
+
+async def test_explicit_emit_without_call_meta_uses_caller_model_and_utf8_raw_size():
+    emitter = _make_emitter()
+    _install_ctx(snapshot=True, emitter=emitter)
+    token = _call_meta_var.set(None)  # no provider stamped CallMeta for this call
+    try:
+        await emit_explicit_context_analysis(
+            provider="google",
+            method="POST",
+            url="https://generativelanguage.googleapis.com/v1beta/models/gemini:streamGenerateContent",
+            body_raw="café",
+            model="gemini-2.5-pro",
+        )
+    finally:
+        _call_meta_var.reset(token)
+
+    payload = _only_payload(emitter)
+    assert payload.provider == "google"
+    assert payload.model == "gemini-2.5-pro"
+    assert payload.iteration is None
+    assert payload.body is None
+    assert payload.body_raw == "café"
+    assert payload.body_size_bytes == 5  # 'café' is 5 UTF-8 bytes
+    assert payload.is_streaming is False
 
 
 # ---------------------------------------------------------------------------
@@ -297,44 +484,28 @@ async def test_concurrent_tasks_see_their_own_call_meta():
     emitter = _make_emitter()
     _install_ctx(snapshot=True, emitter=emitter)
 
-    captured: dict[str, ContextAnalysisPayload | None] = {"a": None, "b": None}
+    a_stamped = asyncio.Event()
+    b_stamped = asyncio.Event()
 
     async def task_a():
         set_call_meta(CallMeta(provider="openai", model="m-a", iteration=1))
-        await asyncio.sleep(0.01)
-        em_a = MagicMock()
-        em_a.send_context_analysis = AsyncMock()
-        # Local emitter override for this task's context — but the real
-        # path uses the shared emitter. We instead verify by inspecting
-        # what the SHARED emitter received for this task's request.
-        request = _make_request(body={"task": "a"})
-        await _outbound_request_hook(request)
-        # Find the most-recent call args.
-        captured["a"] = emitter.send_context_analysis.call_args.args[0]
+        a_stamped.set()
+        # Emit only AFTER task b has stamped its own meta: a shared (non-
+        # ContextVar) slot would now hold b's values.
+        await asyncio.wait_for(b_stamped.wait(), timeout=5)
+        await _outbound_request_hook(_make_request(body={"task": "a"}))
 
     async def task_b():
+        await asyncio.wait_for(a_stamped.wait(), timeout=5)
         set_call_meta(CallMeta(provider="anthropic", model="m-b", iteration=99))
-        await asyncio.sleep(0.005)
-        request = _make_request(body={"task": "b"})
-        await _outbound_request_hook(request)
-        captured["b"] = emitter.send_context_analysis.call_args.args[0]
+        b_stamped.set()
+        await _outbound_request_hook(_make_request(body={"task": "b"}))
 
-    # Run both — each is its own asyncio Task → forked ContextVar view.
     await asyncio.gather(task_a(), task_b())
 
-    # Both tasks emitted (we just need both to have produced a payload that
-    # matches their own metadata, regardless of which one happens to be the
-    # most-recent overall call_args).
-    assert emitter.send_context_analysis.call_count == 2
-    payloads = [c.args[0] for c in emitter.send_context_analysis.call_args_list]
-
-    by_task = {p.body["task"]: p for p in payloads}
-    assert by_task["a"].provider == "openai"
-    assert by_task["a"].model == "m-a"
-    assert by_task["a"].iteration == 1
-    assert by_task["b"].provider == "anthropic"
-    assert by_task["b"].model == "m-b"
-    assert by_task["b"].iteration == 99
+    payloads = [c.args[0] for c in emitter.send_context_analysis.await_args_list]
+    by_task = {p.body["task"]: (p.provider, p.model, p.iteration) for p in payloads}
+    assert by_task == {"a": ("openai", "m-a", 1), "b": ("anthropic", "m-b", 99)}
 
 
 # ---------------------------------------------------------------------------
@@ -353,13 +524,10 @@ async def test_stamp_call_meta_reads_iteration_from_execution_state():
     state.iteration = 7
     token = set_execution_state(state)
     try:
-        stamp_call_meta(provider="openai", model="gpt-5", is_streaming=True)
-        meta = get_call_meta()
-        assert meta is not None
-        assert meta.provider == "openai"
-        assert meta.model == "gpt-5"
-        assert meta.iteration == 7
-        assert meta.is_streaming is True
+        stamp_call_meta(provider="openai", model="gpt-5", is_streaming=True, attempt=2)
+        assert get_call_meta() == CallMeta(
+            provider="openai", model="gpt-5", iteration=7, is_streaming=True, attempt=2
+        )
     finally:
         clear_execution_state(token)
 
@@ -367,64 +535,21 @@ async def test_stamp_call_meta_reads_iteration_from_execution_state():
 async def test_stamp_call_meta_works_without_execution_state():
     # Outside an executor — iteration is None but no exception is raised.
     stamp_call_meta(provider="standalone", model="x")
-    meta = get_call_meta()
-    assert meta is not None
-    assert meta.iteration is None
+    assert get_call_meta() == CallMeta(provider="standalone", model="x", iteration=None)
 
 
 # ---------------------------------------------------------------------------
-# make_capture_http_client — factory smoke test
+# make_capture_http_client
 # ---------------------------------------------------------------------------
 
 
 async def test_make_capture_http_client_installs_request_hook_only_once():
-    client = make_capture_http_client()
+    client = make_capture_http_client(event_hooks={"request": [_outbound_request_hook]})
     request_hooks = client.event_hooks.get("request", [])
-    assert _outbound_request_hook in request_hooks
     assert request_hooks.count(_outbound_request_hook) == 1
 
 
 async def test_make_capture_http_client_does_not_clobber_caller_hooks():
     extra = AsyncMock()
     client = make_capture_http_client(event_hooks={"request": [extra]})
-    request_hooks = client.event_hooks.get("request", [])
-    assert extra in request_hooks
-    assert _outbound_request_hook in request_hooks
-
-
-async def test_capture_http_client_drives_the_hook_end_to_end():
-    """Full integration: build a real httpx.AsyncClient with our hook,
-    point it at httpx's MockTransport so we don't hit the network, and
-    assert the hook fires with the actual on-wire request."""
-
-    emitter = _make_emitter()
-    _install_ctx(snapshot=True, emitter=emitter)
-    set_call_meta(
-        CallMeta(provider="openai", model="gpt-5", iteration=2, is_streaming=False)
-    )
-
-    seen_bodies: list[bytes] = []
-
-    def _handle(request: httpx.Request) -> httpx.Response:
-        seen_bodies.append(request.content)
-        return httpx.Response(200, json={"ok": True})
-
-    transport = httpx.MockTransport(_handle)
-    async with make_capture_http_client(transport=transport) as client:
-        resp = await client.post(
-            "https://api.openai.com/v1/responses",
-            json={"model": "gpt-5", "stream": False, "messages": [{"role": "user", "content": "hi"}]},
-            headers={"Authorization": "Bearer sk-test"},
-        )
-        assert resp.status_code == 200
-
-    # Hook fired exactly once.
-    assert emitter.send_context_analysis.call_count == 1
-    payload: ContextAnalysisPayload = emitter.send_context_analysis.call_args.args[0]
-    assert payload.body == {
-        "model": "gpt-5",
-        "stream": False,
-        "messages": [{"role": "user", "content": "hi"}],
-    }
-    assert payload.headers["authorization"] == "<redacted>"
-    assert payload.body_size_bytes == len(seen_bodies[0])
+    assert client.event_hooks.get("request", []) == [extra, _outbound_request_hook]

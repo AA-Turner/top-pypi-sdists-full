@@ -56,6 +56,7 @@ from .literals import (
     QuoteRackUseTypeType,
     QuoteSpecificationTypeType,
     QuoteStatusType,
+    RackScalingTypeType,
     RackUnitHeightType,
     ShipmentCarrierType,
     SubscriptionStatusType,
@@ -326,6 +327,8 @@ class OutpostTypeDef(TypedDict):
     Tags: NotRequired[dict[str, str]]
     SiteArn: NotRequired[str]
     SupportedHardwareType: NotRequired[SupportedHardwareTypeType]
+    Generation: NotRequired[OutpostGenerationType]
+    RackScalingType: NotRequired[RackScalingTypeType]
 
 class QuoteConstraintTypeDef(TypedDict):
     QuoteConstraintType: NotRequired[QuoteConstraintTypeType]
@@ -617,6 +620,7 @@ class CatalogItemTypeDef(TypedDict):
     WeightLbs: NotRequired[int]
     SupportedUplinkGbps: NotRequired[list[int]]
     SupportedStorage: NotRequired[list[SupportedStorageEnumType]]
+    RackScalingType: NotRequired[RackScalingTypeType]
 
 class RackSpecificationDetailsTypeDef(TypedDict):
     RackId: NotRequired[str]

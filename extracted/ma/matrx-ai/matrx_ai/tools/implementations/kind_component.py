@@ -787,6 +787,7 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
         )
 
 
+# CONVERGE: resolving an incident must verify the fix renders before resolved=true — declared 2026-09-11 (Arman, content-ir FEATURE § Ratified). Observed here: flag-only write. Reconcile when you next change this. Register: /projects/data-doctrine-adoption/REGISTER.md#DD-069
 async def kindcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Mark a kind-component render incident as resolved (after fixing the
     component), so it stops appearing in kindcomp_get_context's open list.

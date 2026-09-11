@@ -518,6 +518,10 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             user_input=parsed.user_input or None,
             # Reference mode: the child's tokens never reach the client — the
             # descriptor + ValueStoredEvent are the caller's signal.
+            # `inline_once` is deliberately NOT muted — it is an inline mode
+            # whose full output IS delivered this turn (see agent_tool.py
+            # § NESTED-AGENT STREAM LEAK and
+            # scripts/nested_agent_streams_baseline.json).
             suppress_stream=parsed.result_mode == "reference",
             allow_client_delegation=parsed.result_mode != "reference",
             require_complete_output=require_complete_output,

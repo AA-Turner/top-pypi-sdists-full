@@ -1,9 +1,13 @@
 """Tests for spark_config_builder module."""
 
 import sys
+import types
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 with patch("sagemaker_studio.Project"):
     sys.modules["pyspark"] = Mock()
@@ -56,6 +60,28 @@ with patch("sagemaker_studio.Project"):
         extract_connection_spark_configs,
         generate_s3_access_grants_configs,
     )
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = {
+    _name
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
 
 _CONFIG_BUILDER_PATH = "sagemaker_studio.utils.spark.session.spark_config_builder"
 
@@ -209,6 +235,36 @@ class TestExtractConnectionSparkConfigs:
         }
         result = extract_connection_spark_configs(conn)
         assert result == {"spark.custom.key": "custom_value"}
+
+    def test_extracts_spark_defaults(self):
+        conn = MagicMock()
+        conn._Connection__connection_data = {
+            "configurations": [
+                {
+                    "classification": "spark-defaults",
+                    "properties": {"spark.custom.key": "custom_value"},
+                }
+            ]
+        }
+        result = extract_connection_spark_configs(conn)
+        assert result == {"spark.custom.key": "custom_value"}
+
+    def test_extracts_all_spark_config(self):
+        conn = MagicMock()
+        conn._Connection__connection_data = {
+            "configurations": [
+                {
+                    "classification": "spark-defaults",
+                    "properties": {"spark.custom.key": "custom_value"},
+                },
+                {
+                    "classification": "SparkConfiguration",
+                    "properties": {"spark.custom.key1": "custom_value1"},
+                },
+            ]
+        }
+        result = extract_connection_spark_configs(conn)
+        assert result == {"spark.custom.key": "custom_value", "spark.custom.key1": "custom_value1"}
 
     def test_returns_empty_when_no_spark_configuration(self):
         conn = MagicMock()

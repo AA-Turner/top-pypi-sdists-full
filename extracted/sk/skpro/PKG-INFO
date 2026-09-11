@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skpro
-Version: 2.14.0
+Version: 2.15.0
 Summary: A unified framework for tabular probabilistic regression, time-to-event prediction, and probability distributions in python
 Author: Franz Király
 Author-email: skpro developers <info@sktime.net>
@@ -35,14 +35,14 @@ License-File: AUTHORS.rst
 Requires-Dist: numpy<2.5,>=1.21.0
 Requires-Dist: pandas<3.1.0,>=1.1.0
 Requires-Dist: packaging
-Requires-Dist: scikit-base<1.1.0,>=0.6.1
+Requires-Dist: scikit-base<1.2.0,>=0.6.1
 Requires-Dist: scikit-learn<1.8.0,>=0.24.0
 Requires-Dist: scipy<2.0.0,>=1.2.0
 Provides-Extra: all-extras
 Requires-Dist: distfit; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: lifelines<0.31.0; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: matplotlib>=3.3.2; extra == "all-extras"
-Requires-Dist: polars<1.43.0; extra == "all-extras"
+Requires-Dist: polars<1.45.0; extra == "all-extras"
 Requires-Dist: pymc; python_version < "3.13" and extra == "all-extras"
 Requires-Dist: statsmodels>=0.12.1; extra == "all-extras"
 Provides-Extra: dev

@@ -178,6 +178,7 @@ class BaseReloader(ABC):
         # when the app was reloaded continue to send diffs, not full values
         demo.pending_streams = self.running_app.blocks.pending_streams
         demo.pending_diff_streams = self.running_app.blocks.pending_diff_streams
+        demo._stream_run_ids = self.running_app.blocks._stream_run_ids
         demo.allowed_paths = self.running_app.blocks.allowed_paths
         demo.blocked_paths = self.running_app.blocks.blocked_paths
 
@@ -812,6 +813,7 @@ def get_all_components() -> "list[type[Component] | type[BlockContext]]":
             "Interface",
             "Blocks",
             "TabbedInterface",
+            "Workflow",
             "NativePlot",
             "SketchBox",
         ]

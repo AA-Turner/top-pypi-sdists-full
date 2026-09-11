@@ -271,11 +271,11 @@ def test_prepare_resume_seeds_both_monotonic_counters() -> None:
     seeders and assigns BOTH counters — a structural check, because the live
     stateful path has no test harness here.
     """
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_scraper.web_crawl.service import WebCrawlService
 
-    source = inspect.getsource(WebCrawlService.prepare_resume)
+    source = stable_source(WebCrawlService.prepare_resume)
     assert "max_url_sequence" in source, "crawl_url ledger counter must be seeded"
     assert "max_event_sequence" in source, "crawl_event counter must be seeded"
     assert "state.url_sequence =" in source
@@ -399,11 +399,11 @@ def test_lease_filter_pins_a_write_to_its_owner() -> None:
 def test_lease_gated_writes_are_threaded_through_every_terminal_path() -> None:
     """Structural pin: `fail_session` is the write that made the bug
     destructive. Every call site must pass this run's token."""
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_scraper.web_crawl.service import WebCrawlService
 
-    source = inspect.getsource(WebCrawlService)
+    source = stable_source(WebCrawlService)
     fail_calls = source.count("repository.fail_session(")
     assert fail_calls
     assert source.count("lease_token=prepared.state.run_lease_token") >= fail_calls
@@ -518,10 +518,10 @@ def test_graceful_shutdown_marker_is_pinned_for_boot_sweep() -> None:
     from matrx_scraper.web_crawl.persistence import WORKER_STOPPED_ERROR
 
     assert WORKER_STOPPED_ERROR == "CancelledError: crawler worker stopped before completion"
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_scraper.web_crawl.persistence import WebCrawlRepository
 
-    source = inspect.getsource(WebCrawlRepository.list_crash_resumable_sessions)
+    source = stable_source(WebCrawlRepository.list_crash_resumable_sessions)
     assert "WORKER_STOPPED_ERROR" in source
     assert "STALE_SESSION_ERROR" in source

@@ -27,6 +27,7 @@ from matrx_scraper.db.models_web import (
 from matrx_scraper.db.web import WEB_DB_NAME
 from matrx_scraper.utils.url import normalize_url, url_hash, url_match_key
 from matrx_scraper.web_crawl.contracts import UrlReconciliationSummary
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -439,7 +440,7 @@ async def upsert_observed_page_urls(
         logger.warning(
             "re-observed a page the user previously dismissed — reviving with "
             "dismissal memory: %s (dismissed_at=%s, cycles=%d, session=%s)",
-            revive_page.url,
+            redact_url_secrets(revive_page.url),
             revive_page.deleted_at,
             dismissal_count,
             session_id,
@@ -466,7 +467,7 @@ async def upsert_observed_page_urls(
             "time, advancing planned -> active: %s",
             len(adopt_pages),
             site_id,
-            ", ".join(sorted(str(p.url) for p in adopt_pages.values())[:10]),
+            ", ".join(sorted(str(redact_url_secrets(p.url)) for p in adopt_pages.values())[:10]),
         )
         await WebPage.update_where(
             {"id__in": sorted(adopt_pages), "status": "planned"},
@@ -597,7 +598,7 @@ async def ensure_planned_page_urls(
             "a URL the user previously dismissed was PLANNED — reviving it with "
             "dismissal memory so its SEO plan has a visible home: %s "
             "(dismissed_at=%s, cycles=%d)",
-            page.url,
+            redact_url_secrets(page.url),
             page.deleted_at,
             len(revived_metadata["dismissals"]),
         )

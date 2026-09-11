@@ -264,6 +264,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_pinpoint": "aws_cdk.aws_pinpoint",
     "aws-cdk-lib.aws_pinpointemail": "aws_cdk.aws_pinpointemail",
     "aws-cdk-lib.aws_pipes": "aws_cdk.aws_pipes",
+    "aws-cdk-lib.aws_pricingplanmanager": "aws_cdk.aws_pricingplanmanager",
     "aws-cdk-lib.aws_proton": "aws_cdk.aws_proton",
     "aws-cdk-lib.aws_qbusiness": "aws_cdk.aws_qbusiness",
     "aws-cdk-lib.aws_qldb": "aws_cdk.aws_qldb",
@@ -585,6 +586,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_pinpoint": "aws_cdk.interfaces.aws_pinpoint",
     "aws-cdk-lib.interfaces.aws_pinpointemail": "aws_cdk.interfaces.aws_pinpointemail",
     "aws-cdk-lib.interfaces.aws_pipes": "aws_cdk.interfaces.aws_pipes",
+    "aws-cdk-lib.interfaces.aws_pricingplanmanager": "aws_cdk.interfaces.aws_pricingplanmanager",
     "aws-cdk-lib.interfaces.aws_proton": "aws_cdk.interfaces.aws_proton",
     "aws-cdk-lib.interfaces.aws_qbusiness": "aws_cdk.interfaces.aws_qbusiness",
     "aws-cdk-lib.interfaces.aws_qldb": "aws_cdk.interfaces.aws_qldb",
@@ -677,7 +679,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.268.0", __name__[0:-6], "aws-cdk-lib@2.268.0.jsii.tgz"
+    "aws-cdk-lib", "2.269.0", __name__[0:-6], "aws-cdk-lib@2.269.0.jsii.tgz"
 )
 
 __all__ = [

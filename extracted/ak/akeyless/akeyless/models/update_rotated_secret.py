@@ -49,12 +49,15 @@ class UpdateRotatedSecret(object):
         'keep_prev_version': 'str',
         'key': 'str',
         'lock_during_sra_session': 'str',
+        'lock_on_read': 'str',
+        'lock_ttl': 'str',
         'name': 'str',
         'new_metadata': 'str',
         'new_name': 'str',
         'new_version': 'bool',
         'rm_tag': 'list[str]',
         'rotate_after_disconnect': 'str',
+        'rotate_on_unlock': 'str',
         'rotated_password': 'str',
         'rotated_username': 'str',
         'rotation_hour': 'int',
@@ -62,7 +65,8 @@ class UpdateRotatedSecret(object):
         'rotator_creds_type': 'str',
         'rotator_custom_cmd': 'str',
         'same_password': 'str',
-        'secure_access_allow_external_user': 'bool',
+        'secure_access_allow_external_user': 'str',
+        'secure_access_allow_port_forwading': 'bool',
         'secure_access_aws_account_id': 'str',
         'secure_access_aws_native_cli': 'bool',
         'secure_access_bastion_issuer': 'str',
@@ -71,16 +75,20 @@ class UpdateRotatedSecret(object):
         'secure_access_db_schema': 'str',
         'secure_access_disable_concurrent_connections': 'bool',
         'secure_access_enable': 'str',
+        'secure_access_enforce_hosts_restriction': 'bool',
         'secure_access_host': 'list[str]',
         'secure_access_rdp_domain': 'str',
         'secure_access_rdp_user': 'str',
         'secure_access_url': 'str',
+        'secure_access_use_internal_bastion': 'bool',
+        'secure_access_use_internal_ssh_access': 'bool',
         'secure_access_web': 'bool',
         'secure_access_web_browsing': 'bool',
         'secure_access_web_proxy': 'bool',
         'ssh_password': 'str',
         'ssh_username': 'str',
         'storage_account_key_name': 'str',
+        'target': 'list[str]',
         'token': 'str',
         'uid_token': 'str',
         'user_attribute': 'str',
@@ -103,12 +111,15 @@ class UpdateRotatedSecret(object):
         'keep_prev_version': 'keep-prev-version',
         'key': 'key',
         'lock_during_sra_session': 'lock-during-sra-session',
+        'lock_on_read': 'lock-on-read',
+        'lock_ttl': 'lock-ttl',
         'name': 'name',
         'new_metadata': 'new-metadata',
         'new_name': 'new-name',
         'new_version': 'new-version',
         'rm_tag': 'rm-tag',
         'rotate_after_disconnect': 'rotate-after-disconnect',
+        'rotate_on_unlock': 'rotate-on-unlock',
         'rotated_password': 'rotated-password',
         'rotated_username': 'rotated-username',
         'rotation_hour': 'rotation-hour',
@@ -117,6 +128,7 @@ class UpdateRotatedSecret(object):
         'rotator_custom_cmd': 'rotator-custom-cmd',
         'same_password': 'same-password',
         'secure_access_allow_external_user': 'secure-access-allow-external-user',
+        'secure_access_allow_port_forwading': 'secure-access-allow-port-forwading',
         'secure_access_aws_account_id': 'secure-access-aws-account-id',
         'secure_access_aws_native_cli': 'secure-access-aws-native-cli',
         'secure_access_bastion_issuer': 'secure-access-bastion-issuer',
@@ -125,23 +137,27 @@ class UpdateRotatedSecret(object):
         'secure_access_db_schema': 'secure-access-db-schema',
         'secure_access_disable_concurrent_connections': 'secure-access-disable-concurrent-connections',
         'secure_access_enable': 'secure-access-enable',
+        'secure_access_enforce_hosts_restriction': 'secure-access-enforce-hosts-restriction',
         'secure_access_host': 'secure-access-host',
         'secure_access_rdp_domain': 'secure-access-rdp-domain',
         'secure_access_rdp_user': 'secure-access-rdp-user',
         'secure_access_url': 'secure-access-url',
+        'secure_access_use_internal_bastion': 'secure-access-use-internal-bastion',
+        'secure_access_use_internal_ssh_access': 'secure-access-use-internal-ssh-access',
         'secure_access_web': 'secure-access-web',
         'secure_access_web_browsing': 'secure-access-web-browsing',
         'secure_access_web_proxy': 'secure-access-web-proxy',
         'ssh_password': 'ssh-password',
         'ssh_username': 'ssh-username',
         'storage_account_key_name': 'storage-account-key-name',
+        'target': 'target',
         'token': 'token',
         'uid_token': 'uid-token',
         'user_attribute': 'user-attribute',
         'user_dn': 'user-dn'
     }
 
-    def __init__(self, provider_type=None, add_tag=None, api_id=None, api_key=None, auto_rotate=None, aws_region='us-east-2', custom_payload=None, description='default_metadata', gcp_key=None, grace_rotation=None, host_provider=None, json=False, keep_prev_version=None, key=None, lock_during_sra_session=None, name=None, new_metadata='default_metadata', new_name=None, new_version=None, rm_tag=None, rotate_after_disconnect=None, rotated_password=None, rotated_username=None, rotation_hour=None, rotation_interval=None, rotator_creds_type='use-self-creds', rotator_custom_cmd=None, same_password=None, secure_access_allow_external_user=False, secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_db_name=None, secure_access_db_schema=None, secure_access_disable_concurrent_connections=None, secure_access_enable=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_url=None, secure_access_web=False, secure_access_web_browsing=False, secure_access_web_proxy=False, ssh_password=None, ssh_username=None, storage_account_key_name=None, token=None, uid_token=None, user_attribute='cn', user_dn=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, provider_type=None, add_tag=None, api_id=None, api_key=None, auto_rotate=None, aws_region=None, custom_payload=None, description='default_metadata', gcp_key=None, grace_rotation=None, host_provider=None, json=False, keep_prev_version=None, key=None, lock_during_sra_session=None, lock_on_read=None, lock_ttl=None, name=None, new_metadata='default_metadata', new_name=None, new_version=None, rm_tag=None, rotate_after_disconnect=None, rotate_on_unlock=None, rotated_password=None, rotated_username=None, rotation_hour=None, rotation_interval=None, rotator_creds_type='use-self-creds', rotator_custom_cmd=None, same_password=None, secure_access_allow_external_user=None, secure_access_allow_port_forwading=None, secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_db_name=None, secure_access_db_schema=None, secure_access_disable_concurrent_connections=None, secure_access_enable=None, secure_access_enforce_hosts_restriction=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_url=None, secure_access_use_internal_bastion=None, secure_access_use_internal_ssh_access=None, secure_access_web=False, secure_access_web_browsing=None, secure_access_web_proxy=None, ssh_password=None, ssh_username=None, storage_account_key_name=None, target=None, token=None, uid_token=None, user_attribute='cn', user_dn=None, local_vars_configuration=None):  # noqa: E501
         """UpdateRotatedSecret - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -162,12 +178,15 @@ class UpdateRotatedSecret(object):
         self._keep_prev_version = None
         self._key = None
         self._lock_during_sra_session = None
+        self._lock_on_read = None
+        self._lock_ttl = None
         self._name = None
         self._new_metadata = None
         self._new_name = None
         self._new_version = None
         self._rm_tag = None
         self._rotate_after_disconnect = None
+        self._rotate_on_unlock = None
         self._rotated_password = None
         self._rotated_username = None
         self._rotation_hour = None
@@ -176,6 +195,7 @@ class UpdateRotatedSecret(object):
         self._rotator_custom_cmd = None
         self._same_password = None
         self._secure_access_allow_external_user = None
+        self._secure_access_allow_port_forwading = None
         self._secure_access_aws_account_id = None
         self._secure_access_aws_native_cli = None
         self._secure_access_bastion_issuer = None
@@ -184,16 +204,20 @@ class UpdateRotatedSecret(object):
         self._secure_access_db_schema = None
         self._secure_access_disable_concurrent_connections = None
         self._secure_access_enable = None
+        self._secure_access_enforce_hosts_restriction = None
         self._secure_access_host = None
         self._secure_access_rdp_domain = None
         self._secure_access_rdp_user = None
         self._secure_access_url = None
+        self._secure_access_use_internal_bastion = None
+        self._secure_access_use_internal_ssh_access = None
         self._secure_access_web = None
         self._secure_access_web_browsing = None
         self._secure_access_web_proxy = None
         self._ssh_password = None
         self._ssh_username = None
         self._storage_account_key_name = None
+        self._target = None
         self._token = None
         self._uid_token = None
         self._user_attribute = None
@@ -230,6 +254,10 @@ class UpdateRotatedSecret(object):
             self.key = key
         if lock_during_sra_session is not None:
             self.lock_during_sra_session = lock_during_sra_session
+        if lock_on_read is not None:
+            self.lock_on_read = lock_on_read
+        if lock_ttl is not None:
+            self.lock_ttl = lock_ttl
         self.name = name
         if new_metadata is not None:
             self.new_metadata = new_metadata
@@ -241,6 +269,8 @@ class UpdateRotatedSecret(object):
             self.rm_tag = rm_tag
         if rotate_after_disconnect is not None:
             self.rotate_after_disconnect = rotate_after_disconnect
+        if rotate_on_unlock is not None:
+            self.rotate_on_unlock = rotate_on_unlock
         if rotated_password is not None:
             self.rotated_password = rotated_password
         if rotated_username is not None:
@@ -257,6 +287,8 @@ class UpdateRotatedSecret(object):
             self.same_password = same_password
         if secure_access_allow_external_user is not None:
             self.secure_access_allow_external_user = secure_access_allow_external_user
+        if secure_access_allow_port_forwading is not None:
+            self.secure_access_allow_port_forwading = secure_access_allow_port_forwading
         if secure_access_aws_account_id is not None:
             self.secure_access_aws_account_id = secure_access_aws_account_id
         if secure_access_aws_native_cli is not None:
@@ -273,6 +305,8 @@ class UpdateRotatedSecret(object):
             self.secure_access_disable_concurrent_connections = secure_access_disable_concurrent_connections
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
+        if secure_access_enforce_hosts_restriction is not None:
+            self.secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
         if secure_access_host is not None:
             self.secure_access_host = secure_access_host
         if secure_access_rdp_domain is not None:
@@ -281,6 +315,10 @@ class UpdateRotatedSecret(object):
             self.secure_access_rdp_user = secure_access_rdp_user
         if secure_access_url is not None:
             self.secure_access_url = secure_access_url
+        if secure_access_use_internal_bastion is not None:
+            self.secure_access_use_internal_bastion = secure_access_use_internal_bastion
+        if secure_access_use_internal_ssh_access is not None:
+            self.secure_access_use_internal_ssh_access = secure_access_use_internal_ssh_access
         if secure_access_web is not None:
             self.secure_access_web = secure_access_web
         if secure_access_web_browsing is not None:
@@ -293,6 +331,8 @@ class UpdateRotatedSecret(object):
             self.ssh_username = ssh_username
         if storage_account_key_name is not None:
             self.storage_account_key_name = storage_account_key_name
+        if target is not None:
+            self.target = target
         if token is not None:
             self.token = token
         if uid_token is not None:
@@ -534,7 +574,7 @@ class UpdateRotatedSecret(object):
     def host_provider(self):
         """Gets the host_provider of this UpdateRotatedSecret.  # noqa: E501
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :return: The host_provider of this UpdateRotatedSecret.  # noqa: E501
         :rtype: str
@@ -545,7 +585,7 @@ class UpdateRotatedSecret(object):
     def host_provider(self, host_provider):
         """Sets the host_provider of this UpdateRotatedSecret.
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :param host_provider: The host_provider of this UpdateRotatedSecret.  # noqa: E501
         :type: str
@@ -644,6 +684,52 @@ class UpdateRotatedSecret(object):
         """
 
         self._lock_during_sra_session = lock_during_sra_session
+
+    @property
+    def lock_on_read(self):
+        """Gets the lock_on_read of this UpdateRotatedSecret.  # noqa: E501
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :return: The lock_on_read of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_on_read
+
+    @lock_on_read.setter
+    def lock_on_read(self, lock_on_read):
+        """Sets the lock_on_read of this UpdateRotatedSecret.
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :param lock_on_read: The lock_on_read of this UpdateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_on_read = lock_on_read
+
+    @property
+    def lock_ttl(self):
+        """Gets the lock_ttl of this UpdateRotatedSecret.  # noqa: E501
+
+        Lock TTL in minutes  # noqa: E501
+
+        :return: The lock_ttl of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_ttl
+
+    @lock_ttl.setter
+    def lock_ttl(self, lock_ttl):
+        """Sets the lock_ttl of this UpdateRotatedSecret.
+
+        Lock TTL in minutes  # noqa: E501
+
+        :param lock_ttl: The lock_ttl of this UpdateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_ttl = lock_ttl
 
     @property
     def name(self):
@@ -784,6 +870,29 @@ class UpdateRotatedSecret(object):
         """
 
         self._rotate_after_disconnect = rotate_after_disconnect
+
+    @property
+    def rotate_on_unlock(self):
+        """Gets the rotate_on_unlock of this UpdateRotatedSecret.  # noqa: E501
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :return: The rotate_on_unlock of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._rotate_on_unlock
+
+    @rotate_on_unlock.setter
+    def rotate_on_unlock(self, rotate_on_unlock):
+        """Sets the rotate_on_unlock of this UpdateRotatedSecret.
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :param rotate_on_unlock: The rotate_on_unlock of this UpdateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._rotate_on_unlock = rotate_on_unlock
 
     @property
     def rotated_password(self):
@@ -950,10 +1059,10 @@ class UpdateRotatedSecret(object):
     def secure_access_allow_external_user(self):
         """Gets the secure_access_allow_external_user of this UpdateRotatedSecret.  # noqa: E501
 
-        Allow providing external user for a domain users (relevant only for rdp)  # noqa: E501
+        Allow providing external user for a domain users [true/false]  # noqa: E501
 
         :return: The secure_access_allow_external_user of this UpdateRotatedSecret.  # noqa: E501
-        :rtype: bool
+        :rtype: str
         """
         return self._secure_access_allow_external_user
 
@@ -961,13 +1070,36 @@ class UpdateRotatedSecret(object):
     def secure_access_allow_external_user(self, secure_access_allow_external_user):
         """Sets the secure_access_allow_external_user of this UpdateRotatedSecret.
 
-        Allow providing external user for a domain users (relevant only for rdp)  # noqa: E501
+        Allow providing external user for a domain users [true/false]  # noqa: E501
 
         :param secure_access_allow_external_user: The secure_access_allow_external_user of this UpdateRotatedSecret.  # noqa: E501
-        :type: bool
+        :type: str
         """
 
         self._secure_access_allow_external_user = secure_access_allow_external_user
+
+    @property
+    def secure_access_allow_port_forwading(self):
+        """Gets the secure_access_allow_port_forwading of this UpdateRotatedSecret.  # noqa: E501
+
+        Enable Port forwarding while using CLI access (relevant only for EKS/GKE/K8s Dynamic-Secret)  # noqa: E501
+
+        :return: The secure_access_allow_port_forwading of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_allow_port_forwading
+
+    @secure_access_allow_port_forwading.setter
+    def secure_access_allow_port_forwading(self, secure_access_allow_port_forwading):
+        """Sets the secure_access_allow_port_forwading of this UpdateRotatedSecret.
+
+        Enable Port forwarding while using CLI access (relevant only for EKS/GKE/K8s Dynamic-Secret)  # noqa: E501
+
+        :param secure_access_allow_port_forwading: The secure_access_allow_port_forwading of this UpdateRotatedSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_allow_port_forwading = secure_access_allow_port_forwading
 
     @property
     def secure_access_aws_account_id(self):
@@ -996,7 +1128,7 @@ class UpdateRotatedSecret(object):
     def secure_access_aws_native_cli(self):
         """Gets the secure_access_aws_native_cli of this UpdateRotatedSecret.  # noqa: E501
 
-        The AWS native cli  # noqa: E501
+        The AWS native cli (relevant only for aws)  # noqa: E501
 
         :return: The secure_access_aws_native_cli of this UpdateRotatedSecret.  # noqa: E501
         :rtype: bool
@@ -1007,7 +1139,7 @@ class UpdateRotatedSecret(object):
     def secure_access_aws_native_cli(self, secure_access_aws_native_cli):
         """Sets the secure_access_aws_native_cli of this UpdateRotatedSecret.
 
-        The AWS native cli  # noqa: E501
+        The AWS native cli (relevant only for aws)  # noqa: E501
 
         :param secure_access_aws_native_cli: The secure_access_aws_native_cli of this UpdateRotatedSecret.  # noqa: E501
         :type: bool
@@ -1154,6 +1286,29 @@ class UpdateRotatedSecret(object):
         self._secure_access_enable = secure_access_enable
 
     @property
+    def secure_access_enforce_hosts_restriction(self):
+        """Gets the secure_access_enforce_hosts_restriction of this UpdateRotatedSecret.  # noqa: E501
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :return: The secure_access_enforce_hosts_restriction of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_enforce_hosts_restriction
+
+    @secure_access_enforce_hosts_restriction.setter
+    def secure_access_enforce_hosts_restriction(self, secure_access_enforce_hosts_restriction):
+        """Sets the secure_access_enforce_hosts_restriction of this UpdateRotatedSecret.
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :param secure_access_enforce_hosts_restriction: The secure_access_enforce_hosts_restriction of this UpdateRotatedSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
+
+    @property
     def secure_access_host(self):
         """Gets the secure_access_host of this UpdateRotatedSecret.  # noqa: E501
 
@@ -1246,6 +1401,52 @@ class UpdateRotatedSecret(object):
         self._secure_access_url = secure_access_url
 
     @property
+    def secure_access_use_internal_bastion(self):
+        """Gets the secure_access_use_internal_bastion of this UpdateRotatedSecret.  # noqa: E501
+
+        Deprecated. Use secure-access-use-internal-ssh-access  # noqa: E501
+
+        :return: The secure_access_use_internal_bastion of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_use_internal_bastion
+
+    @secure_access_use_internal_bastion.setter
+    def secure_access_use_internal_bastion(self, secure_access_use_internal_bastion):
+        """Sets the secure_access_use_internal_bastion of this UpdateRotatedSecret.
+
+        Deprecated. Use secure-access-use-internal-ssh-access  # noqa: E501
+
+        :param secure_access_use_internal_bastion: The secure_access_use_internal_bastion of this UpdateRotatedSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_use_internal_bastion = secure_access_use_internal_bastion
+
+    @property
+    def secure_access_use_internal_ssh_access(self):
+        """Gets the secure_access_use_internal_ssh_access of this UpdateRotatedSecret.  # noqa: E501
+
+        Use internal SSH Access  # noqa: E501
+
+        :return: The secure_access_use_internal_ssh_access of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_use_internal_ssh_access
+
+    @secure_access_use_internal_ssh_access.setter
+    def secure_access_use_internal_ssh_access(self, secure_access_use_internal_ssh_access):
+        """Sets the secure_access_use_internal_ssh_access of this UpdateRotatedSecret.
+
+        Use internal SSH Access  # noqa: E501
+
+        :param secure_access_use_internal_ssh_access: The secure_access_use_internal_ssh_access of this UpdateRotatedSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_use_internal_ssh_access = secure_access_use_internal_ssh_access
+
+    @property
     def secure_access_web(self):
         """Gets the secure_access_web of this UpdateRotatedSecret.  # noqa: E501
 
@@ -1272,7 +1473,7 @@ class UpdateRotatedSecret(object):
     def secure_access_web_browsing(self):
         """Gets the secure_access_web_browsing of this UpdateRotatedSecret.  # noqa: E501
 
-        Secure browser viaAkeyless's Secure Remote Access (SRA) (relevant only for aws or azure)  # noqa: E501
+        Secure browser via Akeyless's Secure Remote Access (SRA)  # noqa: E501
 
         :return: The secure_access_web_browsing of this UpdateRotatedSecret.  # noqa: E501
         :rtype: bool
@@ -1283,7 +1484,7 @@ class UpdateRotatedSecret(object):
     def secure_access_web_browsing(self, secure_access_web_browsing):
         """Sets the secure_access_web_browsing of this UpdateRotatedSecret.
 
-        Secure browser viaAkeyless's Secure Remote Access (SRA) (relevant only for aws or azure)  # noqa: E501
+        Secure browser via Akeyless's Secure Remote Access (SRA)  # noqa: E501
 
         :param secure_access_web_browsing: The secure_access_web_browsing of this UpdateRotatedSecret.  # noqa: E501
         :type: bool
@@ -1295,7 +1496,7 @@ class UpdateRotatedSecret(object):
     def secure_access_web_proxy(self):
         """Gets the secure_access_web_proxy of this UpdateRotatedSecret.  # noqa: E501
 
-        Web-Proxy via Akeyless's Secure Remote Access (SRA) (relevant only for aws or azure)  # noqa: E501
+        Web-Proxy via Akeyless's Secure Remote Access (SRA)  # noqa: E501
 
         :return: The secure_access_web_proxy of this UpdateRotatedSecret.  # noqa: E501
         :rtype: bool
@@ -1306,7 +1507,7 @@ class UpdateRotatedSecret(object):
     def secure_access_web_proxy(self, secure_access_web_proxy):
         """Sets the secure_access_web_proxy of this UpdateRotatedSecret.
 
-        Web-Proxy via Akeyless's Secure Remote Access (SRA) (relevant only for aws or azure)  # noqa: E501
+        Web-Proxy via Akeyless's Secure Remote Access (SRA)  # noqa: E501
 
         :param secure_access_web_proxy: The secure_access_web_proxy of this UpdateRotatedSecret.  # noqa: E501
         :type: bool
@@ -1382,6 +1583,29 @@ class UpdateRotatedSecret(object):
         """
 
         self._storage_account_key_name = storage_account_key_name
+
+    @property
+    def target(self):
+        """Gets the target of this UpdateRotatedSecret.  # noqa: E501
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :return: The target of this UpdateRotatedSecret.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._target
+
+    @target.setter
+    def target(self, target):
+        """Sets the target of this UpdateRotatedSecret.
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :param target: The target of this UpdateRotatedSecret.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._target = target
 
     @property
     def token(self):

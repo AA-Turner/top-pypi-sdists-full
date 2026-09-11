@@ -13,11 +13,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n+chalk/engine/v2/offline_store_metrics.proto\x12\x0f\x63halk.engine.v2\x1a\x1fgoogle/protobuf/timestamp.proto"\x13\n\x11GetMetricsRequest"\xf2\x01\n\x18NamespaceObservedAtRange\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12G\n\x0fmin_observed_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\rminObservedAt\x88\x01\x01\x12G\n\x0fmax_observed_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\rmaxObservedAt\x88\x01\x01\x42\x12\n\x10_min_observed_atB\x12\n\x10_max_observed_at"\x84\x01\n\x1aNamespaceWideTableRowCount\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x31\n\x12row_count_estimate\x18\x02 \x01(\x04H\x00R\x10rowCountEstimate\x88\x01\x01\x42\x15\n\x13_row_count_estimate"\x8c\x01\n\x1eSnowflakeOfflineStorageDetails\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1c\n\twarehouse\x18\x02 \x01(\tR\twarehouse\x12\x1a\n\x08\x64\x61tabase\x18\x03 \x01(\tR\x08\x64\x61tabase\x12\x16\n\x06schema\x18\x04 \x01(\tR\x06schema"\x8b\x01\n\x1d\x42igQueryOfflineStorageDetails\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x1d\n\ndataset_id\x18\x02 \x01(\tR\tdatasetId\x12\x1f\n\x08location\x18\x03 \x01(\tH\x00R\x08location\x88\x01\x01\x42\x0b\n\t_location"\x8c\x05\n\x12GetMetricsResponse\x12\x33\n\x13skinny_tables_bytes\x18\x01 \x01(\x04H\x01R\x11skinnyTablesBytes\x88\x01\x01\x12/\n\x11wide_tables_bytes\x18\x02 \x01(\x04H\x02R\x0fwideTablesBytes\x88\x01\x01\x12<\n\x18wide_mapping_table_bytes\x18\x03 \x01(\x04H\x03R\x15wideMappingTableBytes\x88\x01\x01\x12O\n\tsnowflake\x18\x04 \x01(\x0b\x32/.chalk.engine.v2.SnowflakeOfflineStorageDetailsH\x00R\tsnowflake\x12L\n\x08\x62igquery\x18\x05 \x01(\x0b\x32..chalk.engine.v2.BigQueryOfflineStorageDetailsH\x00R\x08\x62igquery\x12j\n\x1cnamespace_observed_at_ranges\x18\x06 \x03(\x0b\x32).chalk.engine.v2.NamespaceObservedAtRangeR\x19namespaceObservedAtRanges\x12q\n\x1fnamespace_wide_table_row_counts\x18\x07 \x03(\x0b\x32+.chalk.engine.v2.NamespaceWideTableRowCountR\x1bnamespaceWideTableRowCountsB\t\n\x07\x64\x65tailsB\x16\n\x14_skinny_tables_bytesB\x14\n\x12_wide_tables_bytesB\x1b\n\x19_wide_mapping_table_bytesB\x8d\x01\n\x13\x63om.chalk.engine.v2B\x18OfflineStoreMetricsProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
+    b'\n+chalk/engine/v2/offline_store_metrics.proto\x12\x0f\x63halk.engine.v2\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"_\n\x11GetMetricsRequest\x12<\n\tread_mask\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskH\x00R\x08readMask\x88\x01\x01\x42\x0c\n\n_read_mask"\x91\x01\n\x0fWideTableLayout\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12*\n\x0epartitioned_by\x18\x02 \x01(\tH\x00R\rpartitionedBy\x88\x01\x01\x12!\n\x0c\x63lustered_by\x18\x03 \x03(\tR\x0b\x63lusteredByB\x11\n\x0f_partitioned_by"\xf2\x01\n\x18NamespaceObservedAtRange\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12G\n\x0fmin_observed_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\rminObservedAt\x88\x01\x01\x12G\n\x0fmax_observed_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\rmaxObservedAt\x88\x01\x01\x42\x12\n\x10_min_observed_atB\x12\n\x10_max_observed_at"\x84\x01\n\x1aNamespaceWideTableRowCount\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x31\n\x12row_count_estimate\x18\x02 \x01(\x04H\x00R\x10rowCountEstimate\x88\x01\x01\x42\x15\n\x13_row_count_estimate"\x8c\x01\n\x1eSnowflakeOfflineStorageDetails\x12\x18\n\x07\x61\x63\x63ount\x18\x01 \x01(\tR\x07\x61\x63\x63ount\x12\x1c\n\twarehouse\x18\x02 \x01(\tR\twarehouse\x12\x1a\n\x08\x64\x61tabase\x18\x03 \x01(\tR\x08\x64\x61tabase\x12\x16\n\x06schema\x18\x04 \x01(\tR\x06schema"\x8b\x01\n\x1d\x42igQueryOfflineStorageDetails\x12\x1d\n\nproject_id\x18\x01 \x01(\tR\tprojectId\x12\x1d\n\ndataset_id\x18\x02 \x01(\tR\tdatasetId\x12\x1f\n\x08location\x18\x03 \x01(\tH\x00R\x08location\x88\x01\x01\x42\x0b\n\t_location"\xdc\x05\n\x12GetMetricsResponse\x12\x33\n\x13skinny_tables_bytes\x18\x01 \x01(\x04H\x01R\x11skinnyTablesBytes\x88\x01\x01\x12/\n\x11wide_tables_bytes\x18\x02 \x01(\x04H\x02R\x0fwideTablesBytes\x88\x01\x01\x12<\n\x18wide_mapping_table_bytes\x18\x03 \x01(\x04H\x03R\x15wideMappingTableBytes\x88\x01\x01\x12O\n\tsnowflake\x18\x04 \x01(\x0b\x32/.chalk.engine.v2.SnowflakeOfflineStorageDetailsH\x00R\tsnowflake\x12L\n\x08\x62igquery\x18\x05 \x01(\x0b\x32..chalk.engine.v2.BigQueryOfflineStorageDetailsH\x00R\x08\x62igquery\x12j\n\x1cnamespace_observed_at_ranges\x18\x06 \x03(\x0b\x32).chalk.engine.v2.NamespaceObservedAtRangeR\x19namespaceObservedAtRanges\x12q\n\x1fnamespace_wide_table_row_counts\x18\x07 \x03(\x0b\x32+.chalk.engine.v2.NamespaceWideTableRowCountR\x1bnamespaceWideTableRowCounts\x12N\n\x12wide_table_layouts\x18\x08 \x03(\x0b\x32 .chalk.engine.v2.WideTableLayoutR\x10wideTableLayoutsB\t\n\x07\x64\x65tailsB\x16\n\x14_skinny_tables_bytesB\x14\n\x12_wide_tables_bytesB\x1b\n\x19_wide_mapping_table_bytesB\x8d\x01\n\x13\x63om.chalk.engine.v2B\x18OfflineStoreMetricsProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -28,16 +29,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.engine.v2B\030OfflineStoreMetricsProtoP\001\242\002\003CEX\252\002\017Chalk.Engine.V2\312\002\017Chalk\\Engine\\V2\342\002\033Chalk\\Engine\\V2\\GPBMetadata\352\002\021Chalk::Engine::V2"
-    _globals["_GETMETRICSREQUEST"]._serialized_start = 97
-    _globals["_GETMETRICSREQUEST"]._serialized_end = 116
-    _globals["_NAMESPACEOBSERVEDATRANGE"]._serialized_start = 119
-    _globals["_NAMESPACEOBSERVEDATRANGE"]._serialized_end = 361
-    _globals["_NAMESPACEWIDETABLEROWCOUNT"]._serialized_start = 364
-    _globals["_NAMESPACEWIDETABLEROWCOUNT"]._serialized_end = 496
-    _globals["_SNOWFLAKEOFFLINESTORAGEDETAILS"]._serialized_start = 499
-    _globals["_SNOWFLAKEOFFLINESTORAGEDETAILS"]._serialized_end = 639
-    _globals["_BIGQUERYOFFLINESTORAGEDETAILS"]._serialized_start = 642
-    _globals["_BIGQUERYOFFLINESTORAGEDETAILS"]._serialized_end = 781
-    _globals["_GETMETRICSRESPONSE"]._serialized_start = 784
-    _globals["_GETMETRICSRESPONSE"]._serialized_end = 1436
+    _globals["_GETMETRICSREQUEST"]._serialized_start = 131
+    _globals["_GETMETRICSREQUEST"]._serialized_end = 226
+    _globals["_WIDETABLELAYOUT"]._serialized_start = 229
+    _globals["_WIDETABLELAYOUT"]._serialized_end = 374
+    _globals["_NAMESPACEOBSERVEDATRANGE"]._serialized_start = 377
+    _globals["_NAMESPACEOBSERVEDATRANGE"]._serialized_end = 619
+    _globals["_NAMESPACEWIDETABLEROWCOUNT"]._serialized_start = 622
+    _globals["_NAMESPACEWIDETABLEROWCOUNT"]._serialized_end = 754
+    _globals["_SNOWFLAKEOFFLINESTORAGEDETAILS"]._serialized_start = 757
+    _globals["_SNOWFLAKEOFFLINESTORAGEDETAILS"]._serialized_end = 897
+    _globals["_BIGQUERYOFFLINESTORAGEDETAILS"]._serialized_start = 900
+    _globals["_BIGQUERYOFFLINESTORAGEDETAILS"]._serialized_end = 1039
+    _globals["_GETMETRICSRESPONSE"]._serialized_start = 1042
+    _globals["_GETMETRICSRESPONSE"]._serialized_end = 1774
 # @@protoc_insertion_point(module_scope)

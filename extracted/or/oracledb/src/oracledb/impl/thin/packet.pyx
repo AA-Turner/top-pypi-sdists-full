@@ -470,7 +470,7 @@ cdef class ReadBuffer(Buffer):
             decoder = OsonDecoder.__new__(OsonDecoder)
             return decoder.decode(data)
 
-    cdef object read_lob_with_length(self, BaseThinConnImpl conn_impl,
+    cdef object read_lob_with_length(self, ThinConnImpl conn_impl,
                                      DbType dbtype, object lob):
         """
         Read a LOB locator from the buffer and return a LOB object containing
@@ -478,7 +478,7 @@ cdef class ReadBuffer(Buffer):
         """
         cdef:
             uint32_t chunk_size, num_bytes
-            BaseThinLobImpl lob_impl
+            ThinLobImpl lob_impl
             uint64_t size
             bytes locator
         self.read_ub4(&num_bytes)
@@ -615,7 +615,7 @@ cdef class ReadBuffer(Buffer):
                 decoder = VectorDecoder.__new__(VectorDecoder)
                 return decoder.decode(data)
 
-    cdef object read_xmltype(self, BaseThinConnImpl conn_impl):
+    cdef object read_xmltype(self, ThinConnImpl conn_impl):
         """
         Reads an XMLType value from the buffer and returns the string value.
         The XMLType object is a special DbObjectType and is handled separately
@@ -762,6 +762,7 @@ cdef class WriteBuffer(Buffer):
         Transport _transport
         uint8_t _seq_num
         bint _packet_sent
+        str _request_name
 
     def __cinit__(self, Transport transport, Capabilities caps):
         self._transport = transport
@@ -823,8 +824,8 @@ cdef class WriteBuffer(Buffer):
         """
         return self._max_size - PACKET_HEADER_SIZE - 2
 
-    cdef void start_request(self, uint8_t packet_type, uint8_t packet_flags=0,
-                            uint16_t data_flags=0):
+    cdef void start_request(self, uint8_t packet_type, str name,
+                            uint8_t packet_flags=0, uint16_t data_flags=0):
         """
         Indicates that a request from the client is starting. The packet type
         is retained just in case a request spans multiple packets. The packet
@@ -835,6 +836,7 @@ cdef class WriteBuffer(Buffer):
         self._packet_type = packet_type
         self._packet_flags = packet_flags
         self._pos = PACKET_HEADER_SIZE
+        self._request_name = name
         if packet_type == TNS_PACKET_TYPE_DATA:
             self._data_flags = data_flags
             self._pos += sizeof(uint16_t)
@@ -865,7 +867,7 @@ cdef class WriteBuffer(Buffer):
         self.write_bytes_with_two_lengths(binary_value)
         self.write_ub2(keyword)
 
-    cdef int write_lob_with_length(self, BaseThinLobImpl lob_impl) except -1:
+    cdef int write_lob_with_length(self, ThinLobImpl lob_impl) except -1:
         """
         Writes a LOB locator to the buffer.
         """

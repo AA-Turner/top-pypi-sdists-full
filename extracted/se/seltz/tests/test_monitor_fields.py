@@ -109,3 +109,26 @@ def test_a_search_request_mapping_refuses_an_api_key() -> None:
 
 def test_run_records_carries_before() -> None:
     assert _list_run_records_request("k", "m", 1, OMIT, 42, OMIT, OMIT).before == 42
+
+
+def test_a_monitor_search_request_takes_the_fields_shorthand() -> None:
+    """A monitor stores a `SearchRequest`, so the selection has to project there too.
+
+    `search()` and `monitors.create()` take the same request, and a selection that works
+    in one and raises in the other is the same defect twice.
+    """
+    built = _search_requests(
+        [
+            {"query": "boolean", "fields": {"content": True}},
+            {"query": "bag", "fields": {"content": {"max_characters_per_result": 500}}},
+        ]
+    )
+    assert built[0].fields.WhichOneof("content") == "content_enabled"
+    assert built[1].fields.content_options.max_characters_per_result == 500
+
+
+def test_a_monitor_search_request_refuses_a_misspelled_member() -> None:
+    """The error names the depth the key was written at."""
+    with pytest.raises(TypeError, match=r"search_request\['fields'\] has no member"):
+        typo = "cont" + "nt"  # codespell:ignore
+        _search_requests([{"query": "q", "fields": {typo: True}}])

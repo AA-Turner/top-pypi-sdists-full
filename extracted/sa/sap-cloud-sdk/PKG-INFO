@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.52.0
+Version: 0.53.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
@@ -27,7 +27,7 @@ Requires-Dist: opentelemetry-instrumentation-requests~=0.65b0
 Requires-Dist: opentelemetry-instrumentation-sqlalchemy~=0.65b0
 Requires-Dist: opentelemetry-instrumentation-starlette~=0.65b0
 Requires-Dist: opentelemetry-sdk~=1.44.0
-Requires-Dist: protobuf<7,>=6.33.5
+Requires-Dist: protobuf<8,>=7.36.0
 Requires-Dist: protovalidate<2,>=1.0.0
 Requires-Dist: pydantic~=2.12.3
 Requires-Dist: pyjwt<3,>=2.13.0

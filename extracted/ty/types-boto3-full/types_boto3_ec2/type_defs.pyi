@@ -19373,6 +19373,7 @@ class CreateImageRequestInstanceCreateImageTypeDef(TypedDict):
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     SnapshotLocation: NotRequired[SnapshotLocationEnumType]
+    BootModeOverride: NotRequired[Literal["uefi"]]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]
@@ -19383,6 +19384,7 @@ class CreateImageRequestTypeDef(TypedDict):
     Name: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     SnapshotLocation: NotRequired[SnapshotLocationEnumType]
+    BootModeOverride: NotRequired[Literal["uefi"]]
     DryRun: NotRequired[bool]
     Description: NotRequired[str]
     NoReboot: NotRequired[bool]

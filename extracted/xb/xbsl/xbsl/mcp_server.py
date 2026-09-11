@@ -26,7 +26,7 @@ from typing import Any
 from xbsl import __version__
 from xbsl import (
     baseline as baseline_data, dataset, docs, environment, formedits, formhandlers,
-    formmodel, i18n, metamodel, report, scaffold, uischema,
+    formmodel, i18n, metamodel, report, scaffold, terms, uischema,
 )
 from xbsl.cli import _filter_requested, discover_with_context
 from xbsl.engine import RULES, active_rules, load, load_text, run, run_sources
@@ -411,18 +411,83 @@ def docs_page(id: str, brief: bool = False, section: str = "") -> dict:
     return _page_as_text(id, brief=brief, section=section)
 
 
+def _member_as_text(name: str) -> dict:
+    """A MEMBER by name: the page of the type that declares it, that member's block as text.
+
+    A member has no page of its own, so `docs.for_symbol` answers with nothing for one - and
+    the tool used to stop there, which left the semantics of an argument to be learned from a
+    failed deploy. A name several types declare is not guessed at: the answer names them and
+    how to ask again. `Type.Member` narrows, and a type that only INHERITS the member narrows
+    to the ancestor that declares it - that is where the documentation is.
+    """
+    hint, dot, tail = name.strip().rpartition(".")
+    member, owners = docs.member_places(tail if dot else name.strip())
+    if not owners:
+        return {}
+    if dot and hint:
+        owners = _declaring_for(owners, hint) or owners
+    if len(owners) > 1:
+        return {
+            "member": member,
+            "owners": [title for title, _ in owners],
+            "note": i18n.t("docs.member-of-many", member=member, count=len(owners),
+                           owner=min(owners, key=lambda place: len(place[0]))[0]),
+        }
+    page = docs.page(owners[0][1])
+    found = docs.member_block((page or {}).get("html") or "", member)
+    if page is None or found is None:  # pragma: no cover - the index is built from that page
+        return {}
+    page = dict(page)
+    page.pop("html", None)
+    page["member"], body = found
+    page["text"] = docs.plain_text(body)
+    return page
+
+
+def _declaring_for(owners: list[tuple[str, str]], hint: str) -> list[tuple[str, str]]:
+    """The places of the type `hint` names, or of the ancestor that declares the member for it.
+
+    `Array.Size` names a type that only inherits the member: the page that documents it is the
+    ancestor's, and answering with the whole list of unrelated owners instead would bury it.
+    """
+    spellings = {form.lower() for form in (hint, terms.russian(hint, "types"),
+                                           terms.common_russian(hint)) if form}
+    direct = [place for place in owners if place[0].lower() in spellings]
+    if direct:
+        return direct
+    try:
+        bases = dataset.load_json("stdlib.json").get("bases") or {}
+    except dataset.DatasetError:  # pragma: no cover - no data, no inheritance to read
+        return []
+    ancestors = {name.lower() for spelling in (hint, terms.russian(hint, "types"),
+                                               terms.common_russian(hint)) if spelling
+                 for name in bases.get(spelling) or ()}
+    return [place for place in owners if place[0].lower() in ancestors]
+
+
 @mcp.tool()
 def docs_symbol(name: str, brief: bool = False, section: str = "") -> dict:
-    """Find the documentation page for a symbol by name (a type or member, e.g. "Массив", "Запрос").
+    """Find the documentation of a symbol by name - a TYPE ("Array", "Query") or a MEMBER
+    of one ("Substring", "String.Find").
 
-    Prefers an exact title match, then a qualified-name match; it does not guess - when
-    nothing matches, the answer is an empty object and docs_search is the way to candidates.
-    Returns the same shape as docs_page, with the same `brief` and `section` modes: the whole
-    page is for reading it, `brief=True` for "which page is it and what is it about", and
-    `section="Properties"` (or another standard section, the pages' Russian heading works
-    too) for one question about it.
+    A type answers with its page, in the same shape as docs_page and with the same `brief`
+    and `section` modes: the whole page is for reading it, `brief=True` for "which page is it
+    and what is it about", `section="Properties"` (or another standard section, the pages'
+    Russian heading works too) for one question about it.
+
+    A member has no page of its own - it is documented inside the type that declares it - and
+    answers with that page's record plus `member` and the `text` of that member alone, every
+    overload of it joined; `brief` and `section` do not apply there, the block being one
+    member's worth of text already. A member several types declare answers {"member",
+    "owners", "note"} instead of guessing: ask again as "Type.Member", or read type_members.
+
+    Either spelling of a name works (`Array`, `Substring`). It does not guess - when nothing
+    matches, the answer is an empty object and docs_search is the way to candidates.
     """
-    return _page_as_text(docs.for_symbol(name), brief=brief, section=section)
+    page_id = docs.for_symbol(name)
+    if page_id:
+        return _page_as_text(page_id, brief=brief, section=section)
+    return _member_as_text(name)
 
 
 @mcp.tool()
@@ -683,6 +748,9 @@ def meta_new_project(
     root – the caller's repository root, an absolute path (a relative one is taken against
     the server's working directory, which a session started elsewhere does not share); the
     answer names it as `root` next to the absolute paths written.
+
+    See also: meta_add_subsystem for the next subsystem, meta_new_object for the first
+    objects in it, meta_add_dependency for a library the project uses.
     """
     base = _base(root)
     return _meta(
@@ -732,6 +800,9 @@ def meta_new_object(
     gets the one the project writes its types in (a Russian project gets `Тип: Группа`);
     pass the brackets as they are - escaped ones (`&lt;`) are undone, anything else that is
     not a type expression is refused rather than written into the file.
+
+    See also: meta_add_field for the object's own items, meta_add_form for its forms,
+    meta_add_route for the routes of an HttpService created without them.
     """
     root_dir = _base(root)
     return _meta(
@@ -757,7 +828,10 @@ def meta_add_field(
     параметр, поле (structure), константа, свойство (contract), табличная-часть, операция
     (Обработка: also writes the @Обработчик method into the module), индекс (Имя + Поля with
     a stub field to replace), параметр-запроса (Отчет) or строка / шаблон (ЛокализованныеСтроки:
-    key-value mapping sections, `type` carries the VALUE, defaulting to the key itself).
+    key-value mapping sections, `type` carries the VALUE, defaulting to the key itself; the
+    key is echoed into the translations the element already has, with the DEFAULT-language
+    text - the text of a translation is written by meta_set_localization, which takes the
+    values by language, and a call aimed at a translation file itself is refused naming it).
     UUIDs, anchoring and indentation are handled here; duplicates and sections invalid for
     the object's kind are rejected. The item joins the end of the section of its kind; a
     section the file lacks is created at the end of the file, and for a register `notes` say
@@ -785,8 +859,12 @@ def meta_add_field(
     {"ДлинаПрефикса": 2}}} - or dotted keys ({"Автонумерация.Префикс": "ЗА"}), checked the
     same way level by level; a list property ("СерииНумерации") is a list of scalars. A
     block the metamodel describes as opaque ("Представление") is refused with its class
-    named - it still goes into the yaml by hand. To change the properties of an item that
-    already exists use meta_set_field_property.
+    named - it still goes into the yaml by hand.
+
+    See also: meta_set_field_property for an item that already exists,
+    meta_set_localization for the TEXTS of a localized-string key (this tool writes the
+    key and the default-language text, every translation is written there),
+    meta_add_localization for a language the element does not have yet.
     """
     base = _base(root)
     return _meta(
@@ -836,6 +914,9 @@ def meta_add_route(yaml_path: str, routes: str = "", template: str = "", methods
     single `template` with its `methods` (comma separated) - the second is what "add a
     method to this template" looks like, and an EXISTING template is extended with the
     missing verbs only. The verbs: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.
+
+    See also: meta_new_object takes the routes of a service at creation time;
+    meta_add_method adds a method no route calls.
     """
     base = _base(root)
     if not routes:
@@ -857,6 +938,9 @@ def meta_add_localization(yaml_path: str, language: str, root: str | None = None
     language – Russian/English (either project spelling) or the folder code Ru/En. The
     language must be declared in LocalizationLanguages of the project descriptor and must
     differ from DefaultLanguage. Candidates come from meta_localization_info.
+
+    See also: meta_set_localization writes the TEXT of one string into every language at
+    once - this tool only adds the language and echoes the keys into it.
     """
     base = _base(root)
     return _meta(base, scaffold.op_add_localization, _under(base, yaml_path), language)
@@ -883,6 +967,10 @@ def meta_set_localization(yaml_path: str, name: str, values: dict[str, str],
                 the default text and a note, so no translation is left a key short.
     section   – Rows or Templates, in either spelling; left out, the key keeps the section
                 it already lives in and a new one goes to Rows.
+
+    See also: meta_add_field adds the KEY itself (with the default-language text),
+    meta_add_localization adds a language, meta_localization_info says which languages
+    and translations the element already has.
     """
     base = _base(root)
     return _meta(base, scaffold.op_set_localization, _under(base, yaml_path), name,
@@ -895,7 +983,11 @@ def meta_localization_info(yaml_path: str, root: str | None = None) -> dict:
     """The localization picture of a LocalizedStrings element: the declared languages, the
     default one, the translations already present and the candidate languages a translation
     can be added for (folder codes Ru/En with their display names). `file` names the
-    absolute path read."""
+    absolute path read.
+
+    See also: meta_add_localization adds one of the candidate languages,
+    meta_set_localization writes the text of a string into every language at once.
+    """
     base = _base(root)
     path = _under(base, yaml_path)
     try:
@@ -929,6 +1021,9 @@ def meta_add_method(
     Placement: `after` or `before` name an existing method (mutually exclusive), otherwise the
     method is appended. `annotations` is a whitespace-separated list, `@` optional; `body` is a
     single line put in place of the `// TODO` stub.
+
+    See also: meta_add_handler for a method that answers an EVENT of a component - it
+    writes the binding in the yaml and the stub with the event's own parameters.
     """
     base = _base(root)
     return _meta(
@@ -978,6 +1073,9 @@ def meta_add_form(
     such a dictionary the captions stay literals, as before.
 
     Existing form files are skipped unless overwrite=true.
+
+    See also: meta_component_tree reads the generated form for editing, meta_add_handler
+    binds an event of a node to a method of the paired module.
     """
     base = _base(root)
     return _meta(
@@ -1083,6 +1181,8 @@ def meta_rename_object(
     object and its forms (defaults: the new name). yaml_path resolves ambiguity when several
     objects share old_name. dry_run=true returns the plan (renames, files, notes) without
     writing anything.
+
+    See also: meta_delete_object removes the same set of files instead of renaming it.
     """
     base = _base(root)
     try:
@@ -1116,6 +1216,9 @@ def meta_delete_object(
     absolute paths. yaml_path resolves ambiguity between namesakes. Deletion is irreversible,
     so dry_run defaults to TRUE - the first call returns the plan; repeat with
     dry_run=false to perform it.
+
+    See also: meta_rename_object when the object stays and only its name changes - it
+    rewrites the references instead of listing them.
     """
     base = _base(root)
     try:
@@ -1144,6 +1247,9 @@ def meta_add_subsystem(
 ) -> dict:
     """Create a subsystem: a folder with Подсистема.yaml. uses – names of other subsystems
     for the Использование block; representation – the navigation caption.
+
+    See also: meta_new_object creates an object INSIDE such a folder - the folder is what
+    its `directory` names; meta_project_info lists the subsystems already there.
     """
     base = _base(root)
     return _meta(
@@ -1292,6 +1398,9 @@ def meta_add_component(
     sibling node id. A missing slot is created; a slot holding a single nested mapping
     is converted to the "-" list form. The edit touches only the affected lines -
     formatting and comments elsewhere survive.
+
+    See also: meta_set_component_property sets the properties of the new node,
+    meta_add_handler binds its events, meta_insert_fragment pastes a ready subtree.
     """
     return _form_write(_base(root), yaml_path, "insert", {
         "parent": parent_id, "slot": slot, "type": type, "name": name,
@@ -1625,9 +1734,11 @@ def translate_unused(
     root: str,
     kind: str = "any",
     filter: str = "",
+    since: str = "",
     limit: int = 50,
     offset: int = 0,
     prune: bool = False,
+    compact: bool = False,
 ) -> dict:
     """The opposite of translate_gaps: what the DICTIONARY still says and the project has not.
 
@@ -1643,11 +1754,23 @@ def translate_unused(
     kind   – 'token' (names), 'phrase' (comment lines), 'literal' or 'any';
     filter – a substring of the key OR of the value: the way to ask about the names of one
              component that has just been deleted rather than about the whole history;
+    since  – the orphans of ONE change, which is what a task cleaning up after itself asks:
+             only the keys that occurred nowhere but in the lines the change REMOVED. A
+             branch or a commit is read from the fork point with HEAD to the WORKING TREE, so
+             work not committed yet counts; a range `A..B` is handed to git as written, which
+             is how a change already merged is examined. Without it the answer covers the
+             whole accumulated dictionary - a live project answers with thousands of rows,
+             every one of them somebody's old deletion - and says so in `note`;
     limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
     prune  – REMOVE the listed entries from the dictionary files. Off by default and named
              separately from the listing on purpose: this is the one direction where a
              mistaken reading destroys a translation. It removes exactly the page it
-             answers with, so `kind`, `filter` and the page apply to the removal too.
+             answers with, so `kind`, `filter` and the page apply to the removal too;
+    compact – each row is only {key, kind, file, line}: the values are the bulk of a
+             page, and a cleaning pass needs the keys and their places, not the
+             translations.
+    Every answer carries `counts` - the orphans by kind over the WHOLE filtered set, not
+    the page - so the size of a cleaning is known before any page is read.
 
     The reading is textual, and the direction of its error is the point: a name that also
     occurs in prose may be counted as used, which merely leaves an entry in place, but a LIVE
@@ -1665,15 +1788,90 @@ def translate_unused(
     if error:
         return {"error": error}
     path = translate_cli.dictionary_path_for(project)
+    removed = None
+    if since:
+        try:
+            removed = entries_module.removed_surfaces(project, since)
+        except ValueError as exc:
+            return {"error": str(exc)}
     needle = (filter or "").casefold()
     rows = [
-        entry for entry in entries_module.unused_entries(project, path, dictionary)
+        entry for entry in entries_module.unused_entries(project, path, dictionary, removed)
         if (kind in ("any", entry.kind))
         and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
     ]
     page, paging = entries_module.page_of(rows, limit, offset)
+    counts: dict[str, int] = {}
+    for entry in rows:
+        counts[entry.kind] = counts.get(entry.kind, 0) + 1
+    out = {**paging, "dictionary": str(path), "counts": counts}
+    if removed is not None:
+        out["since"] = {"base": removed.base, "files": removed.files}
+    elif not needle:
+        out["note"] = i18n.t("translate.unused.textual", option="since")
+    if compact:
+        out["unused"] = [
+            {"key": e.key, "kind": e.kind, "file": e.file, "line": e.line} for e in page
+        ]
+    else:
+        out["unused"] = [entry.as_dict() for entry in page]
+    if prune and page:
+        removed = entries_module.write_entries(
+            path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
+        )
+        out["removed"] = removed["removed"]
+    return out
+
+
+@mcp.tool()
+def translate_redundant(
+    root: str,
+    filter: str = "",
+    limit: int = 50,
+    offset: int = 0,
+    prune: bool = False,
+) -> dict:
+    """Entries the PLATFORM answers itself - the pass comes out the same word for word without them.
+
+    The mirror of translate_unused: there a key the project no longer carries, here one it
+    carries where the platform's own tables spell the very same word. Such an entry is
+    invisible by construction - nothing is missing, nothing collides, the tree builds - and
+    that is exactly why it is worth naming: while it stands, whatever the platform data or
+    this engine fails to answer stays hidden behind it. One live dictionary spelled the
+    languages of its project that way, and the half-translated enumeration behind that pair
+    was found by a test on an empty dictionary, never by the project itself.
+
+    root   – the project directory (a root without a dictionary next to or above it is
+             refused with the places looked at);
+    filter – a substring of the key OR of the value;
+    limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
+    prune  – REMOVE the listed entries from the dictionary files (off by default; it removes
+             exactly the page it answers with).
+
+    The verdict is EVIDENCE, not a second reading of the tables: an entry is listed only when
+    every place it answered would have come out the same without it, which is the same ground
+    the dictionary defects of translate_status rest on. So this runs a full pass over the
+    project, while translate_unused reads the sources textually. An entry the project never
+    uses is not listed here at all - that is the orphan question, and translate_unused
+    answers it.
+    """
+    from xbsl.translation import cli as translate_cli
+    from xbsl.translation import entries as entries_module
+
+    project, dictionary, error = translate_cli.load_for_tools(root)
+    if error:
+        return {"error": error}
+    path = translate_cli.dictionary_path_for(project)
+    needle = (filter or "").casefold()
+    rows = [
+        entry for entry in entries_module.echoed_entries(project, path, dictionary)
+        if not needle or needle in entry.key.casefold() or needle in entry.value.casefold()
+    ]
+    page, paging = entries_module.page_of(rows, limit, offset)
     out = {**paging, "dictionary": str(path),
-           "unused": [entry.as_dict() for entry in page]}
+           "redundant": [entry.as_dict() for entry in page]}
+    if rows:
+        out["note"] = i18n.t("translate.redundant.note")
     if prune and page:
         removed = entries_module.write_entries(
             path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],

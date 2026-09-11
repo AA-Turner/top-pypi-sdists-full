@@ -58,13 +58,30 @@ _LAZY_EXPORTS: dict[str, str] = {
 __all__ = sorted(_LAZY_EXPORTS)
 
 
+def _load_orchestrator_module(module_name: str):
+    """Load one declared facade module without concealing its import edge."""
+    import importlib
+
+    match module_name:
+        case "concurrent_engine":
+            return importlib.import_module(".concurrent_engine", __name__)
+        case "executor":
+            return importlib.import_module(".executor", __name__)
+        case "parallel_executor":
+            return importlib.import_module(".parallel_executor", __name__)
+        case "requests":
+            return importlib.import_module(".requests", __name__)
+        case "tracking":
+            return importlib.import_module(".tracking", __name__)
+        case _:
+            raise AssertionError(f"undeclared orchestrator module: {module_name}")
+
+
 def __getattr__(name: str) -> Any:
     module_name = _LAZY_EXPORTS.get(name)
     if module_name is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    import importlib
-
-    module = importlib.import_module(f".{module_name}", __name__)
+    module = _load_orchestrator_module(module_name)
     value = getattr(module, name)
     globals()[name] = value  # cache: __getattr__ fires once per name
     return value

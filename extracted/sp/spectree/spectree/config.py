@@ -1,9 +1,10 @@
 import warnings
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, ClassVar
 
-from pydantic import AnyUrl, BaseModel, ConfigDict, model_validator
-
+from spectree.dataclass_model import AdapterBackedDataclass
 from spectree.models import SecurityScheme, Server
 from spectree.page import PAGE_TEMPLATES
 
@@ -19,42 +20,48 @@ class ModeEnum(str, Enum):
     greedy = "greedy"
 
 
-class Contact(BaseModel):
+SecurityValue = dict[str, list[str]] | list[dict[str, list[str]]]
+
+
+@dataclass
+class Contact(AdapterBackedDataclass):
     """contact information"""
 
     #: name of the contact
     name: str
     #: contact url
-    url: Optional[AnyUrl] = None
+    url: str | None = field(default=None, metadata={"format": "url"})
     #: contact email address
-    email: Optional[str] = None
+    email: str | None = None
 
 
-class License(BaseModel):
+@dataclass
+class License(AdapterBackedDataclass):
     """license information"""
 
     #: name of the license
     name: str
     #: license url
-    url: Optional[AnyUrl] = None
+    url: str | None = field(default=None, metadata={"format": "url"})
 
 
-class Configuration(BaseModel):
+@dataclass
+class Configuration(AdapterBackedDataclass):
     """Global configuration."""
 
     # OpenAPI configurations
     #: title of the service
     title: str = "Service API Document"
     #: service OpenAPI document description
-    description: Optional[str] = None
+    description: str | None = None
     #: service version
     version: str = "0.1.0"
     #: terms of service url
-    terms_of_service: Optional[AnyUrl] = None
+    terms_of_service: str | None = field(default=None, metadata={"format": "url"})
     #: author contact information
-    contact: Optional[Contact] = None
+    contact: Contact | None = None
     #: license information
-    license: Optional[License] = None
+    license: License | None = None
 
     # SpecTree configurations
     #: OpenAPI doc route path prefix (i.e. /apidoc/)
@@ -70,15 +77,15 @@ class Configuration(BaseModel):
     #: to render the documentation page content. (Each page template should contain a
     #: `{spec_url}` placeholder, that'll be replaced by the actual OpenAPI spec URL in
     #: the rendered documentation page
-    page_templates: Dict[str, str] = PAGE_TEMPLATES
-    #: opt-in type annotation feature, see the README examples
+    page_templates: dict[str, str] = field(default_factory=lambda: dict(PAGE_TEMPLATES))
+    #: type annotation feature, enabled by default; see the README examples
     annotations: bool = True
     #: servers section of OAS :py:class:`spectree.models.Server`
-    servers: Optional[List[Server]] = []
+    servers: list[Server] = field(default_factory=list)
     #: OpenAPI `securitySchemes` :py:class:`spectree.models.SecurityScheme`
-    security_schemes: Optional[List[SecurityScheme]] = None
+    security_schemes: list[SecurityScheme] | None = None
     #: OpenAPI `security` JSON at the global level
-    security: Union[Dict[str, List[str]], List[Dict[str, List[str]]]] = {}
+    security: SecurityValue = field(default_factory=dict)
     # Swagger OAuth2 configs
     #: OAuth2 client id
     client_id: str = ""
@@ -91,25 +98,23 @@ class Configuration(BaseModel):
     #: OAuth2 scope separator
     scope_separator: str = " "
     #: OAuth2 scopes
-    scopes: List[str] = []
+    scopes: list[str] = field(default_factory=list)
     #: OAuth2 additional query string params
-    additional_query_string_params: Dict[str, str] = {}
+    additional_query_string_params: dict[str, str] = field(default_factory=dict)
     #: OAuth2 use basic authentication with access code grant
     use_basic_authentication_with_access_code_grant: bool = False
     #: OAuth2 use PKCE with authorization code grant
     use_pkce_with_authorization_code_grant: bool = False
 
-    model_config = ConfigDict(validate_assignment=True)
-
-    @model_validator(mode="before")
-    def convert_to_lower_case(cls, values: Mapping[str, Any]) -> Dict[str, Any]:
-        return {k.lower(): v for k, v in values.items()}
+    __cls_renames__: ClassVar[Mapping[str, str]] = {
+        "terms_of_service": "termsOfService",
+    }
 
     @property
     def spec_url(self) -> str:
         return f"/{self.path}/{self.filename}"
 
-    def swagger_oauth2_config(self) -> Dict[str, str]:
+    def swagger_oauth2_config(self) -> dict[str, Any]:
         """
         return the swagger UI OAuth2 configs
 
@@ -120,8 +125,8 @@ class Configuration(BaseModel):
                 "Do not use client_secret in production", UserWarning, stacklevel=1
             )
 
-        config = self.model_dump(
-            include={
+        return self.to_dict(
+            include=(
                 "client_id",
                 "client_secret",
                 "realm",
@@ -131,31 +136,28 @@ class Configuration(BaseModel):
                 "additional_query_string_params",
                 "use_basic_authentication_with_access_code_grant",
                 "use_pkce_with_authorization_code_grant",
-            }
-        )
-        config["use_basic_authentication_with_access_code_grant"] = (
-            "true"
-            if config["use_basic_authentication_with_access_code_grant"]
-            else "false"
-        )
-        config["use_pkce_with_authorization_code_grant"] = (
-            "true" if config["use_pkce_with_authorization_code_grant"] else "false"
-        )
-        return config
+            )
+        ) | {
+            "use_basic_authentication_with_access_code_grant": (
+                "true"
+                if self.use_basic_authentication_with_access_code_grant
+                else "false"
+            ),
+            "use_pkce_with_authorization_code_grant": (
+                "true" if self.use_pkce_with_authorization_code_grant else "false"
+            ),
+        }
 
-    def openapi_info(self) -> Dict[str, str]:
-        info = self.model_dump(
-            include={
+    def openapi_info(self) -> dict[str, Any]:
+        info = self.to_dict(
+            include=(
                 "title",
                 "description",
                 "version",
                 "terms_of_service",
                 "contact",
                 "license",
-            },
+            ),
             exclude_none=True,
-            mode="json",
         )
-        if info.get("terms_of_service") is not None:
-            info["termsOfService"] = info.pop("terms_of_service")
         return info

@@ -1725,7 +1725,9 @@ Write the complete compiled report:"""
             # deny or a tool-call guardrail. The check is pure/sync (no awaits).
             check = getattr(self, "_check_tool_policy_and_guardrails", None)
             if check is not None:
-                policy_result = check(function_name, arguments)
+                # ``tools_override`` is threaded through so a run-scoped tool
+                # list cannot bypass the per-tool guardrails its tools declare.
+                policy_result = check(function_name, arguments, tools_override)
                 if isinstance(policy_result, dict):
                     return policy_result  # Error dict
                 _, arguments = policy_result
@@ -2027,6 +2029,24 @@ Write the complete compiled report:"""
                         # Fall through (not return) so the loop guard records this
                         # timeout as a failure — repeated timeouts must accumulate
                         # toward the BLOCK/HALT thresholds like any other failure.
+                        #
+                        # A timeout cancels the awaited ``_invoke_guarded``; the
+                        # cancellation surfaces inside ``breaker.acall`` as
+                        # ``asyncio.CancelledError`` (a BaseException, not
+                        # Exception), so ``acall`` never ran ``_on_failure`` for
+                        # it. The fall-through breaker-record block below only
+                        # runs when ``breaker is None``, so without recording it
+                        # here a repeatedly timing-out tool would never open the
+                        # circuit. Record the one failure directly on the breaker
+                        # (the block below stays disabled, so it is counted once).
+                        if breaker is not None:
+                            try:
+                                breaker._on_failure()
+                            except Exception:
+                                logging.debug(
+                                    "Failed to record tool timeout on circuit breaker",
+                                    exc_info=True,
+                                )
                         result = {
                             "error": f"Tool timed out after {tool_timeout}s",
                             "timeout": True,
@@ -2045,7 +2065,18 @@ Write the complete compiled report:"""
                 # NOT counted as tool failures (same exclusions the sync wrapper
                 # applies in _execute_tool_with_circuit_breaker_impl), so a gated
                 # tool never trips the breaker.
-                breaker_record = getattr(self, '_circuit_breaker_record', None)
+                #
+                # Only when the breaker wrapper did not already run. When
+                # ``breaker`` is set, ``breaker.acall`` above has already called
+                # _on_success/_on_failure for this invocation, and recording
+                # again counted every outcome twice -- halving the configured
+                # failure_threshold (a breaker set to 5 opened after 3) and, on
+                # the success side, closing a HALF_OPEN circuit in half the
+                # required successes.
+                breaker_record = (
+                    getattr(self, '_circuit_breaker_record', None)
+                    if breaker is None else None
+                )
                 if breaker_record is not None:
                     is_breaker_failure = (
                         isinstance(result, dict)
@@ -2064,7 +2095,7 @@ Write the complete compiled report:"""
                 # unsafe tool output. Fail-closed. Zero overhead when unset.
                 apply_result_guardrails = getattr(self, "_apply_tool_result_guardrails", None)
                 if apply_result_guardrails is not None:
-                    result = apply_result_guardrails(function_name, result)
+                    result = apply_result_guardrails(function_name, result, tools_override)
 
                 # Loop guard (post-execution) — record the outcome and surface a
                 # block/halt decision back to the model on this same turn, mirroring
@@ -2097,13 +2128,18 @@ Write the complete compiled report:"""
                 logging.error(f"Error executing {function_name}: {str(e)}", exc_info=True)
                 # Circuit breaker (failure on raised exception) — a raised tool
                 # exception is a failure just like an error-dict result, and the
-                # sync path's ``breaker.call`` counts it. Record it here so the
-                # breaker still opens after repeated raises; otherwise the
-                # post-invoke record block above is skipped and raised failures
-                # never trip the breaker. Approval/permission/policy/guardrail
-                # denials surface as error dicts (handled above), not raises, so
-                # this path only ever sees genuine tool failures.
-                breaker_record = getattr(self, '_circuit_breaker_record', None)
+                # sync path's ``breaker.call`` counts it. Approval/permission/
+                # policy/guardrail denials surface as error dicts (handled
+                # above), not raises, so this path only ever sees genuine tool
+                # failures.
+                #
+                # Again only when the breaker wrapper did not run: ``acall``
+                # records the failure and re-raises, so the exception arriving
+                # here has already been counted once.
+                breaker_record = (
+                    getattr(self, '_circuit_breaker_record', None)
+                    if breaker is None else None
+                )
                 if breaker_record is not None:
                     breaker_record(function_name, False)
                 # Record the failed invocation so repeated identical failures

@@ -10,6 +10,7 @@ from torch.nn.functional import one_hot
 
 from scvi import REGISTRY_KEYS, settings
 from scvi.data._constants import ADATA_MINIFY_TYPE
+from scvi.distributions._utils import _needs_cpu_detour
 from scvi.module._constants import MODULE_KEYS
 from scvi.module.base import (
     BaseMinifiedModeModuleClass,
@@ -70,7 +71,7 @@ class VAE(EmbeddingModuleMixin, BaseMinifiedModeModuleClass):
         * ``"nb"``: :class:`~scvi.distributions.NegativeBinomial`.
         * ``"zinb"``: :class:`~scvi.distributions.ZeroInflatedNegativeBinomial`.
         * ``"poisson"``: :class:`~scvi.distributions.Poisson`.
-        * ``"normal"``: :class:`~torch.distributions.Normal`.
+        * ``"normal"``: :class:`~torch.distributions.normal.Normal`.
     latent_distribution
         Distribution to use for the latent space. One of the following:
 
@@ -554,7 +555,7 @@ class VAE(EmbeddingModuleMixin, BaseMinifiedModeModuleClass):
         tensors: dict[str, torch.Tensor],
         inference_outputs: dict[str, torch.Tensor | Distribution | None],
         generative_outputs: dict[str, Distribution | None],
-        kl_weight: torch.tensor | float = 1.0,
+        kl_weight: torch.Tensor | float = 1.0,
     ) -> LossOutput:
         """Compute the loss."""
         from torch.distributions import kl_divergence
@@ -646,12 +647,11 @@ class VAE(EmbeddingModuleMixin, BaseMinifiedModeModuleClass):
 
         dist = generative_outputs[MODULE_KEYS.PX_KEY]
         if self.gene_likelihood == "poisson":
-            # TODO: NEED TORCH MPS FIX for 'aten::poisson'
-            dist = (
-                Poisson(torch.clamp(dist.rate.to("cpu"), max=max_poisson_rate))
-                if self.device.type == "mps"
-                else Poisson(torch.clamp(dist.rate, max=max_poisson_rate))
-            )
+            on_mps = self.device.type == "mps"
+            rate = torch.clamp(dist.rate, max=max_poisson_rate)
+            if _needs_cpu_detour(on_mps, torch.poisson):
+                rate = rate.to("cpu")
+            dist = Poisson(rate)
 
         # (n_obs, n_vars) if n_samples == 1, else (n_samples, n_obs, n_vars)
         samples = dist.sample()

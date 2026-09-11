@@ -41,12 +41,12 @@ use lsp_types::Url;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_types::callable::Callable;
-use pyrefly_types::callable::FuncId;
-use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Params;
 use pyrefly_types::callable_residual::CallableResidualKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType as PyreflyClassType;
+use pyrefly_types::function::FuncDefId;
+use pyrefly_types::function::FunctionKind;
 use pyrefly_types::literal::Lit;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedOrigin;
@@ -90,11 +90,11 @@ fn next_id() -> i32 {
     NEXT_TYPE_ID.fetch_add(1, Ordering::Relaxed)
 }
 
-/// Callback that resolves a `FuncId` to the `TextRange` of the function
+/// Callback that resolves a `FuncDefId` to the `TextRange` of the function
 /// name in source. When available, the resolver looks up the range via the
 /// binding table's `KeyUndecoratedFunctionRange` entry for the function's
-/// `FuncDefIndex`, avoiding the need to store ranges on every `FuncId`.
-pub type FuncRangeResolver<'a> = dyn Fn(&FuncId) -> Option<TextRange> + 'a;
+/// `FuncDefIndex`, avoiding the need to store ranges on every `FuncDefId`.
+pub type FuncRangeResolver<'a> = dyn Fn(&FuncDefId) -> Option<TextRange> + 'a;
 
 /// Callback that resolves a module name (e.g. `pkg.subpkg`) to a canonical
 /// filesystem path for that module (preferably package `__init__.py[i]` for
@@ -105,8 +105,7 @@ pub type ModulePathResolver<'a> =
 /// Callback that resolves an exported symbol (by defining module and name) to
 /// the `ModulePath` and `lsp_types::Range` of its original definition,
 /// following re-exports. Used to give real source locations to special forms,
-/// `typing` classes, and functions whose `FuncId` lacks a `def_index` (e.g.
-/// imported user functions and special functions like `typing.overload`).
+/// `typing` classes, and functions whose binding-table range is unavailable.
 pub type ExportLocationResolver<'a> =
     dyn Fn(ModuleName, &Name) -> Option<(ModulePath, lsp_types::Range)> + 'a;
 
@@ -195,6 +194,8 @@ fn test_class(module_name: ModuleName, name: &str) -> PyreflyClassType {
     use pyrefly_types::types::TArgs;
     use ruff_python_ast::Identifier;
 
+    use crate::types::class::PrecomputedTParams;
+
     let module = Module::new(
         module_name,
         ModulePath::bundled_typeshed(PathBuf::from(format!("{module_name}.pyi"))),
@@ -205,7 +206,7 @@ fn test_class(module_name: ModuleName, name: &str) -> PyreflyClassType {
         Identifier::new(Name::new(name), TextRange::default()),
         NestingContext::toplevel(),
         module,
-        None,
+        PrecomputedTParams::NotGeneric,
         false,
     );
     PyreflyClassType::new(class, TArgs::default())
@@ -692,26 +693,24 @@ impl TypeConverter<'_> {
     /// Build a declaration for a function described by `kind`.
     ///
     /// Resolution order:
-    ///  1. A source definition whose `FuncId` carries a `def_index`: use the binding-table
-    ///     range via `resolve_func_range`.
+    ///  1. For a source definition, use its `FuncDefId` to resolve the binding-table range.
     ///  2. Otherwise, resolve the function by `(module, name)` through the
-    ///     export-location resolver. This covers imported user functions whose
-    ///     `FuncId` lacks a `def_index`, and special functions that are not
-    ///     source definitions at all (e.g. `typing.overload`).
-    ///  3. Fall back to a zero range pointing at the defining module (for
-    ///     source definition), or a synthesized declaration when even the module is unknown.
+    ///     export-location resolver. This covers special functions that do not
+    ///     retain source identity.
+    ///  3. Fall back to a zero range pointing at the known defining module, or
+    ///     a synthesized declaration when the module is unknown.
     fn function_declaration(&self, kind: &FunctionKind) -> Declaration {
-        if let Some(func_id) = kind.definition_id()
+        if let Some(func_id) = kind.as_func_def_id()
             && let Some(range) = self.resolve_func_range.and_then(|resolve| resolve(func_id))
         {
-            let lsp_range = func_id.module.to_lsp_range(range);
+            let lsp_range = func_id.qname.module().to_lsp_range(range);
             return Declaration::Regular(RegularDeclaration {
                 category: DeclarationCategory::Function,
                 kind: DeclarationKind::Regular,
-                name: Some(func_id.name.to_string()),
+                name: Some(func_id.qname.id().to_string()),
                 node: Node {
                     range: lsp_range_to_tsp(lsp_range),
-                    uri: path_to_uri(func_id.module.path()),
+                    uri: path_to_uri(func_id.qname.module_path()),
                 },
             });
         }
@@ -732,14 +731,14 @@ impl TypeConverter<'_> {
             });
         }
 
-        if let Some(func_id) = kind.definition_id() {
+        if let Some(func_symbol) = kind.to_func_symbol() {
             return Declaration::Regular(RegularDeclaration {
                 category: DeclarationCategory::Function,
                 kind: DeclarationKind::Regular,
-                name: Some(func_id.name.to_string()),
+                name: Some(func_symbol.name.to_string()),
                 node: Node {
                     range: zero_range(),
-                    uri: path_to_uri(func_id.module.path()),
+                    uri: path_to_uri(func_symbol.module.path()),
                 },
             });
         }
@@ -1104,12 +1103,12 @@ fn builtin(name: &str) -> TspType {
 #[cfg(test)]
 mod tests {
     use pyrefly_python::module_name::ModuleName;
-    use pyrefly_types::callable::FuncFlags;
-    use pyrefly_types::callable::FuncMetadata;
-    use pyrefly_types::callable::Function;
     use pyrefly_types::callable::Param;
     use pyrefly_types::callable::ParamList;
     use pyrefly_types::callable::Required;
+    use pyrefly_types::function::FuncFlags;
+    use pyrefly_types::function::FuncMetadata;
+    use pyrefly_types::function::Function;
     use pyrefly_types::lit_int::LitInt;
     use pyrefly_types::literal::Lit;
     use pyrefly_types::literal::LitStyle;
@@ -1172,7 +1171,7 @@ mod tests {
 
     #[test]
     fn test_convert_any() {
-        let ty = PyreflyType::Any(AnyStyle::Implicit);
+        let ty = PyreflyType::any_implicit();
         let tsp = convert_type(&ty);
         match tsp {
             TspType::BuiltInType(b) => {
@@ -2085,6 +2084,30 @@ mod tests {
             }
             other => panic!("expected Function, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn test_synthesized_function_declaration_preserves_name_and_module() {
+        use pyrefly_python::module::Module;
+
+        let module = Module::new(
+            ModuleName::from_str("generated"),
+            ModulePath::filesystem(PathBuf::from("/repo/generated.py")),
+            Arc::new(String::new()),
+        );
+        let ty = PyreflyType::Function(Box::new(Function {
+            signature: Callable::list(ParamList::new(vec![]), PyreflyType::None),
+            metadata: FuncMetadata::synthesized(&module, None, Name::new("helper")),
+        }));
+
+        let TspType::Function(function) = convert_type(&ty) else {
+            panic!("expected Function");
+        };
+        let Declaration::Regular(declaration) = function.declaration else {
+            panic!("expected RegularDeclaration");
+        };
+        assert_eq!(declaration.name.as_deref(), Some("helper"));
+        assert!(declaration.node.uri.contains("/repo/generated.py"));
     }
 
     #[test]

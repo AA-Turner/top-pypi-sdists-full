@@ -14,6 +14,7 @@ from matrx_ai.tools.output_caps import (
     TOOL_RESULT_CANARY_CHARS,
     TOOL_RESULT_SOFT_CAP_CHARS,
     CapInfo,
+    cap_json_list,
     cap_text,
     truncate_with_notice,
 )
@@ -51,6 +52,16 @@ def test_cap_text_exact_limit_not_truncated() -> None:
     text, info = cap_text("abc", limit=3)
     assert text == "abc"
     assert info.truncated is False
+
+
+def test_cap_json_list_bounds_escaped_serialized_rows() -> None:
+    rows = [{"path": "\\\\" * 600, "name": f"entry-{index}"} for index in range(100)]
+    shown, info = cap_json_list(rows, max_chars=10_000)
+
+    assert 0 < len(shown) < len(rows)
+    assert info.total == len(rows)
+    assert info.shown == len(shown)
+    assert info.truncated is True
 
 
 def test_truncate_with_notice_keeps_head_and_points_at_fetch() -> None:

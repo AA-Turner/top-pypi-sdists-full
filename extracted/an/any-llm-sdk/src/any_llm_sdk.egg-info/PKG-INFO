@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.27.1
+Version: 1.27.2
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -26,10 +26,10 @@ Provides-Extra: mistral
 Requires-Dist: mistralai>=2.0.0; extra == "mistral"
 Provides-Extra: anthropic
 Provides-Extra: gemini
-Requires-Dist: google-genai>=1.51.0; extra == "gemini"
+Requires-Dist: google-genai>=1.70.0; extra == "gemini"
 Requires-Dist: google-cloud-storage; extra == "gemini"
 Provides-Extra: vertexai
-Requires-Dist: google-genai>=1.51.0; extra == "vertexai"
+Requires-Dist: google-genai>=1.70.0; extra == "vertexai"
 Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
 Requires-Dist: anthropic[vertex]<1,>=0.119.0; extra == "vertexaianthropic"

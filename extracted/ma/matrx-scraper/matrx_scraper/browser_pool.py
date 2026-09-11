@@ -9,6 +9,7 @@ from typing import Any
 from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.screenshot_dimensions import png_dimensions
 from matrx_scraper.user_agents import normalize_user_agent
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -595,7 +596,7 @@ class PlaywrightBrowserPool:
                     logger.info(
                         "DOM did not settle within %dms for %s; capturing committed page",
                         settle_timeout_ms,
-                        url,
+                        redact_url_secrets(url),
                     )
                 response_url = page.url
                 status_code = resp.status if resp else 500
@@ -626,8 +627,8 @@ class PlaywrightBrowserPool:
                         # dropped chain is missing evidence — scream about it.
                         logger.warning(
                             "redirect chain capture FAILED for %s — hop evidence lost: %s",
-                            url,
-                            exc,
+                            redact_url_secrets(url),
+                            redact_url_secrets(exc),
                         )
                         redirect_chain = []
                 if not redirect_chain or redirect_chain[-1].get("url") != response_url:
@@ -743,7 +744,7 @@ class PlaywrightBrowserPool:
                         logger.info(
                             "DOM did not settle within %dms for %s (%s); capturing anyway",
                             settle_timeout_ms,
-                            url,
+                            redact_url_secrets(url),
                             profile.name,
                         )
                     if recipe_actions and action_runner is not None:
@@ -896,7 +897,7 @@ class PlaywrightBrowserPool:
             await asyncio.wait_for(_run_all(), timeout=hard_budget_seconds)
         except TimeoutError as exc:
             raise BrowserInspectTimeout(
-                f"Timed out inspecting {url} (budget {hard_budget_seconds}s)."
+                f"Timed out inspecting {redact_url_secrets(url)} (budget {hard_budget_seconds}s)."
             ) from exc
 
         # Restore the caller's requested kind order — callers assert on it.

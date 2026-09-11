@@ -27,12 +27,29 @@ class MessageAddReactionParams(TypedDict, total=False):
     Reference to a sticker image pre-uploaded via `POST /v3/attachments`. Only valid
     when type is "sticker".
 
-    Either `url` or `attachment_id` must be provided when type is "sticker", but not
-    both.
+    Exactly one of `emoji`, `url` or `attachment_id` is required when type is
+    "sticker".
     """
 
     custom_emoji: str
-    """Custom emoji string. Required when type is "custom"."""
+    """Custom emoji string. Required when type is "custom".
+
+    This is a **tapback** — the emoji sits in the tapback bubble on the corner of
+    the message. To peel an emoji onto the message as a draggable sticker instead,
+    use type "sticker" with `emoji`.
+    """
+
+    emoji: str
+    """A single emoji to peel onto the message as a sticker.
+
+    Only valid when type is "sticker", and it is rendered on the device so it
+    matches the glyph a person would peel by hand.
+
+    Exactly one of `emoji`, `url` or `attachment_id` is required when type is
+    "sticker".
+
+    Not to be confused with `custom_emoji`, which produces a tapback.
+    """
 
     part_index: int
     """
@@ -58,8 +75,8 @@ class MessageAddReactionParams(TypedDict, total=False):
     no download step, so the image must already be stored. To send a sticker from
     elsewhere, upload it with `POST /v3/attachments` first and pass `attachment_id`.
 
-    Either `url` or `attachment_id` must be provided when type is "sticker", but not
-    both.
+    Exactly one of `emoji`, `url` or `attachment_id` is required when type is
+    "sticker".
     """
 
 
@@ -78,14 +95,14 @@ class Placement(TypedDict, total=False):
     """Clockwise rotation in degrees."""
 
     scale: float
-    """Size relative to the default, where 1 matches the size a sticker gets natively.
+    """How large the sticker is drawn.
 
-    Values outside 0.5–1.5 are clamped rather than rejected. The upper bound keeps a
-    sticker within the size range iMessage itself displays: its own limit is larger,
-    but that allowance assumes the transparent padding Apple's stickers carry, which
-    a full-bleed image does not have.
+    Omit it for the default size — equivalent to `1` for an image, or `0.5` for an
+    emoji.
 
-    Scale is linear, so 1.5 is a little over twice the area.
+    Values outside 0.05–2.5 are clamped rather than rejected.
+
+    Scale is linear, so 2.5 is a little over six times the area.
     """
 
     x: float

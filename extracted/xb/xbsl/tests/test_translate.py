@@ -296,6 +296,28 @@ def test_yaml_localized_strings_and_translation_body():
     assert "    Save: Save the document" in out_body
 
 
+def test_project_languages_are_enumeration_values_of_the_platform():
+    """Both language properties are the platform's own enumeration, and no dictionary of a
+    project should have to spell them.
+
+    The enumeration branch keyed on the `G5Enum` suffix, and these two carry `LanguageCmptEnum`:
+    the list came out `[Русский, English]` - one value answered by the identifier plane by
+    accident, the other by nothing - and the default language stayed data. It was invisible on
+    a live project, which had added `Русский: Russian` to its own dictionary, and on the
+    English tree, where the language flip rewrites that line afterwards.
+    """
+    text = (
+        "Ид: ffeacdec-02d6-4f08-bcfa-be89e9a1861a\nИмя: Задачник\nПоставщик: Acme\n"
+        "ЯзыкиЛокализации: [Русский, Английский]\nЯзыкПоУмолчанию: Русский\n"
+    )
+
+    out, report = _yaml(text, tokens={"Задачник": "TaskBook"}, name="Проект.yaml")
+
+    assert "LocalizationLanguages: [Russian, English]" in out
+    assert "DefaultLanguage: Russian" in out
+    assert report.platform_missing == 0 and report.user_missing == 0
+
+
 def test_yaml_subsystem_descriptor():
     text = (
         "Использование:\n"
@@ -374,6 +396,89 @@ def test_translate_project_renames_swaps_and_flips(tmp_path: Path):
     assert "DevelopmentLanguage: English" in project_yaml
     assert "Id: ffeacdec-02d6-4f08-bcfa-be89e9a1861a" in project_yaml
 
+
+def _mini_project(root: Path) -> None:
+    """The smallest tree that has a descriptor: the two names the layout is built from."""
+    _write(root / "Проект.yaml", (
+        "Ид: ffeacdec-02d6-4f08-bcfa-be89e9a1861a\n"
+        "Поставщик: Acme\n"
+        "Имя: Задачник\n"
+        "Версия: 1.0.0\n"
+        "Представление: \"Задачник\"\n"
+    ))
+    _write(root / "Основное" / "Подсистема.yaml", "Интерфейс: ВключатьВАвтоИнтерфейс\n")
+
+
+def _layout_dictionary():
+    return _dictionary({"Задачник": "TaskBook", "Основное": "Main"})
+
+
+def test_the_repository_layout_puts_the_project_under_vendor_and_name(tmp_path: Path):
+    """`layout="repository"`: the tree lands in {Vendor}/{Name} of the TRANSLATED descriptor.
+
+    A build takes a project only at `{repository}/{vendor}/{name}` - written flat, the tree
+    could not be deployed without being moved by hand. The names come from the translated
+    descriptor rather than from the source directories: the project's own name is a word of
+    the dictionary like any other, and the directory has to follow it.
+    """
+    root = tmp_path / "src" / "Acme" / "Задачник"
+    _mini_project(root)
+    out = tmp_path / "out"
+
+    report = translate_project(root, _layout_dictionary(), out, layout="repository")
+
+    assert report.out_dir == out / "Acme" / "TaskBook"
+    assert (out / "Acme" / "TaskBook" / "Project.yaml").is_file()
+    assert (out / "Acme" / "TaskBook" / "Main" / "Subsystem.yaml").is_file()
+    assert not (out / "Project.yaml").exists()
+
+
+def test_an_out_that_already_names_the_project_directory_is_not_nested_again(tmp_path: Path):
+    """Naming `.../Acme/TaskBook` yourself - the way the layout was reached by hand - still works."""
+    root = tmp_path / "src" / "Acme" / "Задачник"
+    _mini_project(root)
+    out = tmp_path / "out" / "Acme" / "TaskBook"
+
+    report = translate_project(root, _layout_dictionary(), out, layout="repository")
+
+    assert report.out_dir == out
+    assert (out / "Project.yaml").is_file()
+    assert not (out / "Acme").exists()
+
+
+def test_a_tree_without_a_descriptor_is_written_where_it_was_asked_for(tmp_path: Path):
+    """No descriptor - no vendor and no name, and inventing directories would lose the files."""
+    root = tmp_path / "src"
+    _write(root / "Задачи.yaml", "ВидЭлемента: Справочник\nИмя: Задачи\n")
+    out = tmp_path / "out"
+
+    report = translate_project(root, _dictionary({"Задачи": "Tasks"}), out, layout="repository")
+
+    assert report.out_dir == out
+    assert (out / "Tasks.yaml").is_file()
+
+
+def test_the_cli_writes_a_repository_and_says_where(tmp_path: Path, capsys):
+    """`--out` through the command: the log names the project directory, not the root asked for."""
+    from xbsl.translation import cli as translate_cli
+
+    root = tmp_path / "src" / "Acme" / "Задачник"
+    _mini_project(root)
+    dictionary = tmp_path / "dictionary.yaml"
+    dictionary.write_text(
+        "version: 1\nlanguage: en\ntokens:\n    Задачник: TaskBook\n    Основное: Main\n",
+        encoding="utf-8")
+    out = tmp_path / "out"
+
+    code = translate_cli.cli_main([
+        str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru",
+    ])
+
+    assert code == 0
+    assert (out / "Acme" / "TaskBook" / "Project.yaml").is_file()
+    written = [line for line in capsys.readouterr().out.splitlines()
+               if line.startswith("записано файлов: ")]
+    assert written and str(out / "Acme" / "TaskBook") in written[0], written
 
 # --- the linter rule -----------------------------------------------------------------------------
 
@@ -1610,6 +1715,73 @@ def test_a_method_name_collision_is_reported_by_the_project_pass(tmp_path: Path)
     assert any("ServiceChanged" in problem for problem in report.problems), report.problems
 
 
+def test_a_collision_of_locals_names_the_place_of_both_names(tmp_path: Path):
+    """The message sends the reader to the two lines, not to a method with fifteen names in it.
+
+    Met live: "method:RolesString - 'Number' <- Номер, Число" named the method and nothing
+    else, and finding the two words among the declarations of that method was done by eye.
+    """
+    root = tmp_path / "Acme" / "Demo"
+    _write(root / "Модуль.xbsl", """метод СтрокаРолей(Роли: Массив<Строка>): Строка
+    пер Номер = 0
+    пер Итог = ""
+    для Роль из Роли
+        пер Число = Роли.Размер()
+        Номер = Номер + Число
+    ;
+    возврат Итог
+;
+""")
+    report = translate_project(root, _dictionary({
+        "Модуль": "Module", "СтрокаРолей": "RolesString", "Роли": "Roles", "Роль": "Role",
+        "Номер": "Number", "Число": "Number", "Итог": "Total",
+    }), None)
+
+    assert report.problems == [
+        "method:СтрокаРолей - 'Number' <- Номер (Модуль.xbsl:2:9), Число (Модуль.xbsl:5:13)",
+    ]
+
+
+def test_a_collision_of_method_names_names_the_line_of_each_method(tmp_path: Path):
+    """The module namespace too: the two methods are pages apart in a real module."""
+    root = tmp_path / "Acme" / "Demo"
+    _write(root / "Модуль.xbsl",
+           "метод УслугаИзменена()\n;\n\nметод СервисИзменен()\n;\n")
+    report = translate_project(root, _dictionary({
+        "Модуль": "Module",
+        "УслугаИзменена": "ServiceChanged", "СервисИзменен": "ServiceChanged",
+    }), None)
+
+    assert report.problems == [
+        "module - 'ServiceChanged' <- УслугаИзменена (Модуль.xbsl:1:7),"
+        " СервисИзменен (Модуль.xbsl:4:7)",
+    ]
+
+
+def test_a_collision_of_yaml_names_names_the_line_of_each_name(tmp_path: Path):
+    """A collection of one element: the places come from the yaml nodes."""
+    root = tmp_path / "Acme" / "Demo"
+    _write(root / "Задачи.yaml", (
+        "ВидЭлемента: Справочник\n"
+        "Имя: Задачи\n"
+        "Реквизиты:\n"
+        "    -\n"
+        "        Имя: Услуга\n"
+        "        Тип: Строка\n"
+        "    -\n"
+        "        Имя: Сервис\n"
+        "        Тип: Строка\n"
+    ))
+    report = translate_project(root, _dictionary({
+        "Задачи": "Tasks", "Услуга": "Service", "Сервис": "Service",
+    }), None)
+
+    assert report.problems == [
+        "Задачи.Реквизиты - 'Service' <- Услуга (Задачи.yaml:5:14),"
+        " Сервис (Задачи.yaml:8:14)",
+    ]
+
+
 def test_writing_a_value_already_taken_is_reported(tmp_path: Path):
     """The same answer at the moment a person types the word, one lookup instead of a project pass."""
     from xbsl.translation import entries
@@ -1735,7 +1907,12 @@ def test_two_fields_of_one_structure_under_one_word_are_a_problem(tmp_path: Path
         "Сервисы": "Services", "Услуги": "Services",
     }), None)
     assert any("structure:ДанныеЗаписи" in problem for problem in report.problems)
-    assert any("Сервисы, Услуги" in problem for problem in report.problems)
+    # Each colliding name carries its own place: the report sends the reader to the two lines
+    # rather than to a file with fifteen names in the block.
+    assert any(
+        "Сервисы (Модуль.xbsl:2:9), Услуги (Модуль.xbsl:3:9)" in problem
+        for problem in report.problems
+    ), report.problems
 
 
 def test_the_receiver_as_written_answers_before_its_type(tmp_path: Path):

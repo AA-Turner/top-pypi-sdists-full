@@ -372,7 +372,7 @@ def datasource_append(
 
             if datasource_index == 0:
                 click.echo(FeedbackManager.warning(message="Datasource type selection cancelled by user"))
-                return None
+                return
 
             try:
                 datasource_name = datasources[int(datasource_index) - 1]["name"]
@@ -403,7 +403,7 @@ def datasource_append(
 
             if data_index == 0:
                 click.echo(FeedbackManager.warning(message="Data selection cancelled by user"))
-                return None
+                return
 
             try:
                 data_index = int(data_index)
@@ -463,8 +463,7 @@ def datasource_append(
             if is_quarantined:
                 analyze_quarantine(datasource_name, project, client)
                 return
-            else:
-                raise e
+            raise e
         if job_ids:
             _echo_v1_import_jobs_queued(job_ids, "Append")
         else:
@@ -806,7 +805,7 @@ def datasource_delete_rows(
                             )
                         )
                         break
-                    elif res["status"] == "error":
+                    if res["status"] == "error":
                         print("\n")  # noqa: T201
                         raise CLIDatasourceException(FeedbackManager.error_exception(error=res["error"]))
                     time.sleep(1)
@@ -1237,7 +1236,7 @@ ENGINE "MergeTree"
                     wizard_data["exit_reason"] = "user_cancelled_type_selection"
                     wizard_data["duration_seconds"] = round(time.time() - start_time, 2)
                     add_telemetry_event("system_info", **wizard_data)
-                    return None
+                    return
 
                 try:
                     datasource_type = dt_keys[int(datasource_type_index) - 1]
@@ -1560,7 +1559,7 @@ ENGINE "MergeTree"
                     wizard_data["exit_reason"] = "user_cancelled_kafka_configuration"
                     wizard_data["duration_seconds"] = round(time.time() - start_time, 2)
                     add_telemetry_event("system_info", **wizard_data)
-                    return None
+                    return
                 else:
                     click.echo(FeedbackManager.error(message="Invalid option. Please select 1-6."))
 
@@ -1680,7 +1679,7 @@ ENGINE "MergeTree"
                     wizard_data["exit_reason"] = "user_cancelled_s3_configuration"
                     wizard_data["duration_seconds"] = round(time.time() - start_time, 2)
                     add_telemetry_event("system_info", **wizard_data)
-                    return None
+                    return
                 else:
                     click.echo(FeedbackManager.error(message="Invalid option. Please select 1-6."))
 

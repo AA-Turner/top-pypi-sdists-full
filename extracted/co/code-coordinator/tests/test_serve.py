@@ -3585,6 +3585,41 @@ def test_serve_leg_counts(tmp_path: Path, valid_config_path: Path, rw_db):
         assert r.json() == {"api#1": {"work": 1, "review": 1}}
 
 
+def test_serve_issues_collection(tmp_path: Path, valid_config_path: Path, rw_db):
+    """#3227/#3228: `GET /issues` — the daemon-routed half of
+    `coord.state.cached_open_issues`, backing `coord plans --lint-epics`/
+    `--lint-stale-epics` on a thin client. Deliberately its own endpoint,
+    like `/leg-counts`: the `Board` model has no `issues` field, so there's
+    no `/board` read to piggyback on."""
+    import json as _json
+
+    rw_db.execute(
+        "INSERT INTO issues (repo_name, number, title, body, state, labels) "
+        "VALUES ('api', 1, 'Epic: foo', ?, 'open', ?)",
+        ("## Sub-issues\n- [ ] #2\n", _json.dumps(["epic"])),
+    )
+    rw_db.execute(
+        "INSERT INTO issues (repo_name, number, title, state, labels) "
+        "VALUES ('other-repo', 2, 'Epic: bar', 'open', ?)",
+        (_json.dumps([]),),
+    )
+    rw_db.commit()
+    app = build_app(SqliteStore(tmp_path / "rw.db"), load_config(valid_config_path))
+    with TestClient(app) as cli:
+        r = cli.get("/issues", params={"repo_name": "api"})
+        assert r.status_code == 200
+        issues = r.json()["issues"]
+        assert [(i["repo_name"], i["number"]) for i in issues] == [("api", 1)]
+        assert issues[0]["labels"] == ["epic"]
+        # #3228: `--lint-stale-epics` needs the epic's own body to resolve
+        # its declared children — confirm it rides along on this route too.
+        assert issues[0]["body"] == "## Sub-issues\n- [ ] #2\n"
+
+        # Omitting repo_name entirely reads every repo's cached rows.
+        r_all = cli.get("/issues")
+        assert {i["repo_name"] for i in r_all.json()["issues"]} == {"api", "other-repo"}
+
+
 def test_serve_drive_queue_enqueue_at_explicit_position(
     tmp_path: Path, valid_config_path: Path, rw_db
 ):
@@ -3666,7 +3701,15 @@ def test_drive_queue_writes_route_when_service_set(coord_db, monkeypatch):
     ) == 42
     assert state.update_drive_queue_entry("api", 7, state="running") is True
     assert state.move_drive_queue_entry("api", 7, 0) is True
-    assert state.dequeue_drive_queue("api", 7) is True
+    # #3282: `dequeue_drive_queue` now also carries the daemon's driver-stop
+    # verdict; a reply predating that field (as stubbed above) defaults to
+    # "nothing to report", same as a dequeue that found no live session.
+    assert state.dequeue_drive_queue("api", 7) == {
+        "removed": True,
+        "driver_ok": True,
+        "driver_session": None,
+        "driver_detail": None,
+    }
 
     assert {c["path"] for c in calls} == {"/drive-queue"}
     assert [c["payload"]["action"] for c in calls] == [

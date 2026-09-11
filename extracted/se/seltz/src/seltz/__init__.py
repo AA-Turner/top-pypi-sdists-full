@@ -11,6 +11,12 @@ from .exceptions import (
     SeltzTimeoutError,
 )
 from .seltz import AsyncSeltz, Seltz
+from .services.search_service import (
+    ContentOptionsInput,
+    Fields,
+    FieldsInput,
+    SnippetOptionsInput,
+)
 from .services import (
     AgentRun,
     AgentRunCitation,
@@ -31,7 +37,8 @@ from .services import (
     FetchResponse,
     FetchResult,
     FetchStatus,
-    Fields,
+    FieldsMessage,
+    ContentOptions,
     GetMonitorResponse,
     GetRunResponse,
     ListAgentRunsResponse,
@@ -53,6 +60,7 @@ from .services import (
     SearchRequest,
     SearchResponse,
     Snippet,
+    SnippetOptions,
     SortOrder,
     StreamRecordsResponse,
     UpdateMonitorResponse,
@@ -68,7 +76,13 @@ __all__ = [
     "SearchResponse",
     "Document",
     "Snippet",
+    "SnippetOptions",
+    "ContentOptions",
+    "FieldsInput",
     "Fields",
+    "FieldsMessage",
+    "ContentOptionsInput",
+    "SnippetOptionsInput",
     "AnswerResponse",
     "AnswerStreamResponse",
     "Citation",

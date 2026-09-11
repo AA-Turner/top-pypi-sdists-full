@@ -1,3 +1,4 @@
+from seltz_public_api.proto.v1 import options_pb2 as _options_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -30,12 +31,16 @@ class SearchRequest(_message.Message):
     def __init__(self, query: _Optional[str] = ..., api_key: _Optional[str] = ..., max_results: _Optional[int] = ..., scope: _Optional[str] = ..., include_domains: _Optional[_Iterable[str]] = ..., exclude_domains: _Optional[_Iterable[str]] = ..., from_date: _Optional[str] = ..., to_date: _Optional[str] = ..., tier: _Optional[str] = ..., fields: _Optional[_Union[Fields, _Mapping]] = ...) -> None: ...
 
 class Fields(_message.Message):
-    __slots__ = ("content", "snippets")
-    CONTENT_FIELD_NUMBER: _ClassVar[int]
-    SNIPPETS_FIELD_NUMBER: _ClassVar[int]
-    content: bool
-    snippets: bool
-    def __init__(self, content: bool = ..., snippets: bool = ...) -> None: ...
+    __slots__ = ("content_enabled", "content_options", "snippets_enabled", "snippet_options")
+    CONTENT_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    SNIPPETS_ENABLED_FIELD_NUMBER: _ClassVar[int]
+    SNIPPET_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    content_enabled: bool
+    content_options: ContentOptions
+    snippets_enabled: bool
+    snippet_options: SnippetOptions
+    def __init__(self, content_enabled: bool = ..., content_options: _Optional[_Union[ContentOptions, _Mapping]] = ..., snippets_enabled: bool = ..., snippet_options: _Optional[_Union[SnippetOptions, _Mapping]] = ...) -> None: ...
 
 class Document(_message.Message):
     __slots__ = ("url", "content", "published_date", "snippets")
@@ -49,17 +54,23 @@ class Document(_message.Message):
     snippets: _containers.RepeatedCompositeFieldContainer[Snippet]
     def __init__(self, url: _Optional[str] = ..., content: _Optional[str] = ..., published_date: _Optional[str] = ..., snippets: _Optional[_Iterable[_Union[Snippet, _Mapping]]] = ...) -> None: ...
 
+class ContentOptions(_message.Message):
+    __slots__ = ("max_characters_per_result",)
+    MAX_CHARACTERS_PER_RESULT_FIELD_NUMBER: _ClassVar[int]
+    max_characters_per_result: int
+    def __init__(self, max_characters_per_result: _Optional[int] = ...) -> None: ...
+
 class SnippetOptions(_message.Message):
-    __slots__ = ("max_snippets", "max_snippets_per_doc", "max_tokens", "max_tokens_per_doc")
+    __slots__ = ("max_snippets", "max_snippets_per_result", "max_tokens", "max_tokens_per_result")
     MAX_SNIPPETS_FIELD_NUMBER: _ClassVar[int]
-    MAX_SNIPPETS_PER_DOC_FIELD_NUMBER: _ClassVar[int]
+    MAX_SNIPPETS_PER_RESULT_FIELD_NUMBER: _ClassVar[int]
     MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
-    MAX_TOKENS_PER_DOC_FIELD_NUMBER: _ClassVar[int]
+    MAX_TOKENS_PER_RESULT_FIELD_NUMBER: _ClassVar[int]
     max_snippets: int
-    max_snippets_per_doc: int
+    max_snippets_per_result: int
     max_tokens: int
-    max_tokens_per_doc: int
-    def __init__(self, max_snippets: _Optional[int] = ..., max_snippets_per_doc: _Optional[int] = ..., max_tokens: _Optional[int] = ..., max_tokens_per_doc: _Optional[int] = ...) -> None: ...
+    max_tokens_per_result: int
+    def __init__(self, max_snippets: _Optional[int] = ..., max_snippets_per_result: _Optional[int] = ..., max_tokens: _Optional[int] = ..., max_tokens_per_result: _Optional[int] = ...) -> None: ...
 
 class Snippet(_message.Message):
     __slots__ = ("text",)

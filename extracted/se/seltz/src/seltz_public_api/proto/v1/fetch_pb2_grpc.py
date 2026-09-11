@@ -36,7 +36,7 @@ class FetchServiceServicer:
         """Fetch the content of up to 20 URLs.
 
         A failure to fetch a page is never a call failure: the RPC returns OK
-        (HTTP 200) and that URL's result carries `status = FETCH_STATUS_ERROR`.
+        (HTTP 200) and that URL's result carries the error status.
         The call fails only when the request envelope itself is rejected -- a
         malformed body, an unsupported parameter, an invalid or missing API key,
         or an exhausted balance. That split holds so a caller can tell "we could

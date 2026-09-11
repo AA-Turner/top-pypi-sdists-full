@@ -5,9 +5,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 import httpx
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 from coord import github_ops
 from coord.comments import (
@@ -18,7 +21,7 @@ from coord.comments import (
     format_refused_policy,
     format_refused_premise,
 )
-from coord.config import Config
+from coord.config import Config, SmokeRule
 from coord.models import EPIC_DECOMPOSE_TYPE, Machine, Proposal, Repo, coordinator_owned_docs
 
 AGENT_PORT = 7433
@@ -257,27 +260,33 @@ than trusting them as written.
 
 Your job, in order:
 
-1. **Decompose fully.** Read the epic's own decomposition/handoff \
-instructions (if it carries them, follow those verbatim) and file every \
-child issue this epic implies. Register each one against this epic with \
-`coord milestone add-child <repo> <this epic's issue number> <new issue \
-number>` (REPO EPIC ISSUE, all positional — no `--child` flag) so the \
-epic's checklist and this epic's tracking stay in sync — never hand-edit \
-the checklist directly.
-2. **Queue the first batch.** At most 6 of the newly-filed children, \
-chained serially so they land one at a time: `coord drive-queue add <repo> \
-<child 1>`, then `coord drive-queue add <repo> <child 2> --after <repo>#\
-<child 1>`, and so on.
-3. **Re-queue this epic behind that batch** — `coord drive-queue add <repo> \
-<this epic's issue number> --after <repo>#<child N>` (the last one queued) \
-— so decomposition continues once the first batch lands, if more children \
-remain.
-4. **Implement only the first slice in this pickup.** Do not attempt the \
+1. **Decompose fully — except the slice you implement below.** Read the \
+epic's own decomposition/handoff instructions (if it carries them, follow \
+those verbatim) and file a child issue for every slice EXCEPT the one you \
+implement in step 2. Register each one against this epic with `coord \
+milestone add-child <repo> <this epic's issue number> <new issue number>` \
+(REPO EPIC ISSUE, all positional — no `--child` flag) so the epic's \
+checklist and this epic's tracking stay in sync — never hand-edit the \
+checklist directly. Do NOT also file the slice from step 2 as a child \
+issue: this PR IS that slice's delivery, and a separate issue for it would \
+be a duplicate nobody needs to work (#3275).
+2. **Implement only the first slice in this pickup.** Do not attempt the \
 whole epic in one PR — that defeats the point of decomposing it.
-5. **Leave this epic open.** Do not close it yourself and do not word your \
+3. **Leave this epic open.** Do not close it yourself and do not word your \
 PR body as "Closes #N" — the coordinator already opens this PR with `Refs \
 #N`, non-closing, for exactly this reason. The epic closes only when its \
 checklist is complete.
+
+Do NOT queue the newly-filed children or touch this epic's own queue row
+yourself — `coord drive-queue add` is coordinator-side once this assignment
+reports `done` (#3246): it reads the checklist you just wrote back off
+GitHub (not your own report of it) and chains the first ready batch,
+serially, BEHIND THIS EPIC — never the other way around, since your PR
+above already implements the slice the rest of the checklist builds on, so
+it must land first (#3275). That step used to be step 2/3 of this same list
+and worked only ~half the time when a one-shot worker session did it —
+moving it here means it happens from an OBSERVATION of the checklist, not
+from trusting this session's own final message.
 """
 
 
@@ -613,6 +622,43 @@ def dispatch(
     if machine is None:
         raise ValueError(f"Unknown machine: {proposal.machine_name!r}")
 
+    # #3241: STRUCTURAL CAPABILITY-ROUTING GATE — a `type="work"` diff whose
+    # declared `## Files` (`proposal.files_likely`) match
+    # `smoke_tests.capability_rules` gets rerouted to the machine that best
+    # satisfies them, using the SAME matcher (`coord.smoke.match_rules`) the
+    # Test stage's own routing uses. Without this, work dispatch picked
+    # purely by load/name among machines that merely carry the repo, so a
+    # platform-specific diff could land on a machine that can never run its
+    # own suite — the worker then self-records an UNCONFIRMED `coord test`
+    # verdict (#2217/#2464) because no independent re-run was ever possible
+    # there. See `route_work_by_capability`'s and `CapabilityRouting`'s
+    # docstrings for the multi-capability (never-zero-machines) case.
+    capability_routing: CapabilityRouting | None = None
+    if proposal.type == "work":
+        capability_routing = route_work_by_capability(
+            proposed_machine_name=proposal.machine_name,
+            repo_name=proposal.repo_name,
+            files_likely=proposal.files_likely,
+            machines=config.machines,
+            capability_rules=config.smoke_tests.capability_rules,
+        )
+        if capability_routing is not None and capability_routing.rerouted:
+            proposal.machine_name = capability_routing.machine_name
+            machine = next(
+                (m for m in config.machines if m.name == capability_routing.machine_name),
+                None,
+            )
+            if machine is None:  # pragma: no cover — route_work_by_capability
+                # only ever names a machine it drew from config.machines.
+                raise ValueError(
+                    f"Unknown machine: {capability_routing.machine_name!r}"
+                )
+
+    # #3241 review: a rerouted machine can never fail this —
+    # `route_work_by_capability`'s candidate filter already requires
+    # `repo_path(repo_name) is not None` before a machine is eligible to be
+    # named, so this only ever fires for the ORIGINALLY proposed machine
+    # (no reroute happened, e.g. no capability rule matched at all).
     repo_path = machine.repo_path(proposal.repo_name)
     if repo_path is None:
         raise ValueError(
@@ -905,6 +951,19 @@ def dispatch(
             + epic_decompose_briefing(proposal.issue_number)
         )
 
+    # #3241: name the stages this worker cannot verify locally — the
+    # dispatcher already routed to the best-covering machine above
+    # (`capability_routing`), so a non-empty `unmet_capabilities` here means
+    # a genuine multi-capability diff no single configured machine fully
+    # covers, not a routing miss. Appended (not prepended) — this is a
+    # constraint on what the worker may CLAIM, read after the task itself.
+    if (
+        proposal.type == "work"
+        and capability_routing is not None
+        and capability_routing.unmet_capabilities
+    ):
+        briefing_text = briefing_text + capability_routing.briefing_note(machine.name)
+
     url = f"http://{machine.host}:{AGENT_PORT}/assign"
     payload: dict = {
         "repo_name": proposal.repo_name,
@@ -1090,6 +1149,180 @@ def dispatch_with_retry(
         except ValueError:
             raise
     raise last_exc  # unreachable, but satisfies type checker
+
+
+@dataclass(frozen=True)
+class CapabilityRouting:
+    """Outcome of routing a `type="work"` dispatch by
+    `smoke_tests.capability_rules` (#3241).
+
+    Before this, work dispatch picked a machine purely by load/name among
+    machines that merely carry the repo — nothing routed a `type="work"`
+    leg the way `capability_rules` already routes the Test stage. A
+    platform-specific diff (e.g. `quadraui/src/macos/backend.rs`) could
+    land on a machine that can never build or run its own suite; the
+    worker then iterates with no local signal and self-records its own
+    `coord test` verdict (#2217), which the board stores as an explicit
+    UNCONFIRMED pass (#2464) — the pipeline knows the verdict is unbacked
+    and proceeds anyway.
+
+    ``machine_name`` is the chosen machine — always one that
+    `Machine.can_work_on(repo_name)`, never left unset: a multi-capability
+    diff that no single configured machine fully covers still gets the
+    machine covering the MOST of the matched capabilities, deterministically
+    (see `route_work_by_capability`), rather than being refused. ANDing the
+    requirements and refusing when no machine satisfies all of them would
+    route to zero machines the instant two matched rules need capabilities
+    no machine ever carries together (gtk+windows vs. macos) — the #1678
+    shape, and the exact mistake #3177 documented for the Test stage's own
+    routing.
+
+    ``unmet_capabilities`` are the matched capabilities `machine_name` does
+    NOT declare — empty when it fully satisfies every matched rule. The
+    caller (`dispatch()`) turns a non-empty tuple into a briefing note
+    naming the stages the worker cannot verify locally, and telling it not
+    to self-record a verdict for one of them — the UNCONFIRMED path must
+    never be reachable for a capability the dispatcher itself could have
+    satisfied by routing correctly in the first place.
+
+    ``rerouted`` is True when `machine_name` differs from the machine the
+    caller originally proposed — i.e. the proposed pick didn't fully cover
+    the matched capabilities and a better (or fully satisfying) one existed.
+    """
+
+    machine_name: str
+    unmet_capabilities: tuple[str, ...]
+    rerouted: bool
+
+    def briefing_note(self, machine_name: str) -> str:
+        """One appended briefing block naming the stages this dispatch
+        cannot verify locally (#3241).
+
+        Only meaningful when `unmet_capabilities` is non-empty — callers
+        guard on that before appending this. Directive, not just
+        informational: self-recording a `coord test` verdict (#2217) for a
+        stage the worker could never actually run is exactly the
+        UNCONFIRMED-pass shape #3241 exists to close off.
+        """
+        caps = ", ".join(self.unmet_capabilities)
+        return (
+            "\n\n## Capabilities you cannot verify locally (#3241)\n\n"
+            f"This machine ({machine_name}) does not declare: {caps}. No "
+            "single configured machine covers every capability this diff's "
+            "`## Files` touch (see `smoke_tests.capability_rules` in "
+            "coordinator.yml), so at least one Test-stage suite cannot be "
+            "built or run here. Do NOT self-record a passing `coord test` "
+            "verdict for a stage you could not actually run — leave those "
+            "to the Test stage's own capability-matched machine. A verdict "
+            "recorded without an independent re-run on the right hardware "
+            "is an UNCONFIRMED pass (#2464), not a real one."
+        )
+
+
+def route_work_by_capability(
+    *,
+    proposed_machine_name: str,
+    repo_name: str,
+    files_likely: list[str],
+    machines: list[Machine],
+    capability_rules: list[SmokeRule],
+    now: "datetime | None" = None,
+) -> CapabilityRouting | None:
+    """Pick the machine for a `type="work"` dispatch whose declared `##
+    Files` (`files_likely`) match `smoke_tests.capability_rules` (#3241).
+
+    Reuses `coord.smoke.match_rules` — the SAME matcher the Test stage's own
+    routing uses — rather than a second copy of the "does this rule apply"
+    logic. #2096 ("one question, one answer"): a second copy drifting from
+    the first is how the dead-prefix bugs in #1072 and #2953 happened.
+    Deferred import (not a module-level one) because `coord.smoke` imports
+    `AGENT_PORT`/`ASSIGN_POST_TIMEOUT_SECS` from this module — a module-level
+    import here would be circular.
+
+    Returns `None` when `files_likely` matches no capability rule at all
+    (the overwhelmingly common case) or when no machine survives the
+    candidate filter below — both are the caller's signal to leave
+    `proposal.machine_name` exactly as proposed; `dispatch()`'s own
+    unresolved-machine/repo_path checks are the right place for THAT
+    refusal, not a second one here.
+
+    A candidate must satisfy every one of (#3241 review):
+
+    - `can_work_on(repo_name)` — declares the repo at all;
+    - `repo_path(repo_name) is not None` — the SAME check
+      `select_fix_machine`'s `_capable()` applies a few hundred lines below.
+      Without it, a machine that lists the repo under `repos:` but has no
+      `repo_paths` entry configured could be chosen as the reroute target;
+      `dispatch()` sets `proposal.machine_name` from this function's result
+      BEFORE its own pre-existing `repo_path` check runs, so an unfiltered
+      pick here would mutate the proposal to an undispatchable machine
+      before the caller ever sees the `ValueError`;
+    - not in `paused_set(machines)` — the FULL cordon-inclusive set, the
+      same one `coord.brain.propose()` and `coord assign`'s CLI both gate a
+      `type="work"` proposal's machine on before it is ever chosen. This is
+      new work, not the tail of a leg already in flight, so this
+      deliberately does NOT use `follow_on_paused_set()` — that one exists
+      for `select_fix_machine`/`rank_smoke_machines`, which finish work
+      that already started elsewhere (#2240, #2636). A reroute here must
+      not land a `type="work"` leg on a machine the operator explicitly
+      `coord pause`d or that is inside its declared `quiet_hours` window —
+      `dispatch()` itself has no other pause/quiet-hours check anywhere in
+      its body, since that filtering has always been done upstream, and
+      this new gate runs strictly after `coord plan` already did it once.
+
+    *now* is forwarded to `paused_set()` untouched, exactly like
+    `rank_smoke_machines`'s own *now* parameter — `None` (the default, and
+    every production call site) evaluates quiet hours against the real
+    clock; the seam exists purely so a test can pin a specific wall-clock
+    moment instead of depending on whatever instant the suite happens to
+    run at.
+
+    Otherwise, scores every surviving candidate by how many of the matched
+    capabilities it declares. The proposed machine wins ties (no pointless
+    reroute — and its build cache is warm, same reasoning as
+    `coord.smoke.rank_smoke_machines`'s worker preference); otherwise the
+    highest-scoring machine wins, ties broken by `machines` list order
+    (`coordinator.yml` declaration order — deterministic, never dict/set
+    iteration order). A single-capability-rule diff with any fully-capable
+    machine configured always resolves to `unmet_capabilities=()`; see
+    `CapabilityRouting`'s docstring for the multi-capability case where no
+    one machine fully covers it.
+    """
+    from coord.machine_pause import paused_set  # noqa: PLC0415
+    from coord.smoke import match_rules  # noqa: PLC0415
+
+    required = match_rules(files_likely, capability_rules)
+    if not required:
+        return None
+
+    paused = paused_set(machines, now=now)
+    candidates = [
+        m for m in machines
+        if m.can_work_on(repo_name)
+        and m.repo_path(repo_name) is not None
+        and m.name not in paused
+    ]
+    if not candidates:
+        return None
+
+    def _coverage(m: Machine) -> int:
+        return sum(1 for cap in required if cap in m.capabilities)
+
+    scores = {m.name: _coverage(m) for m in candidates}
+    best_score = max(scores.values())
+
+    proposed = next((m for m in candidates if m.name == proposed_machine_name), None)
+    if proposed is not None and scores[proposed.name] == best_score:
+        best = proposed
+    else:
+        best = max(candidates, key=lambda m: scores[m.name])
+
+    unmet = tuple(cap for cap in required if cap not in best.capabilities)
+    return CapabilityRouting(
+        machine_name=best.name,
+        unmet_capabilities=unmet,
+        rerouted=best.name != proposed_machine_name,
+    )
 
 
 @dataclass

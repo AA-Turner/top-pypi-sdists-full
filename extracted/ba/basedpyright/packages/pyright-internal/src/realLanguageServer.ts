@@ -26,7 +26,7 @@ import { CommandController } from './commands/commandController';
 import { ConfigOptions, SignatureDisplayType } from './common/configOptions';
 import { ConsoleWithLogLevel, LogLevel, convertLogLevel } from './common/console';
 import { isDefined, isString } from './common/core';
-import { resolvePathWithEnvVariables } from './common/envVarUtils';
+import { resolvePathStringWithEnvVariables, resolvePathWithEnvVariables } from './common/envVarUtils';
 import { FileSystem, TempFile } from './common/fileSystem';
 import { Host } from './common/host';
 import { ServerSettings } from './common/languageServerInterface';
@@ -209,9 +209,9 @@ export abstract class RealLanguageServer extends LanguageServerBase {
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
-                    serverSettings.extraPaths = extraPaths
+                    serverSettings.extraPathFileSpecs = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePathWithEnvVariables(workspace, p, workspaces))
+                        .map((p) => resolvePathStringWithEnvVariables(workspace, p, workspaces))
                         .filter(isDefined);
                 }
 

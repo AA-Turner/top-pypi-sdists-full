@@ -34,6 +34,7 @@ class GatewayUpdateProducerEks(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'ara_enabled': 'bool',
         'delete_protection': 'str',
         'eks_access_key_id': 'str',
         'eks_assume_role': 'str',
@@ -42,6 +43,8 @@ class GatewayUpdateProducerEks(object):
         'eks_cluster_name': 'str',
         'eks_region': 'str',
         'eks_secret_access_key': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
@@ -56,6 +59,7 @@ class GatewayUpdateProducerEks(object):
         'secure_access_delay': 'int',
         'secure_access_enable': 'str',
         'secure_access_web': 'bool',
+        'skip_dry_run': 'str',
         'tags': 'list[str]',
         'target_name': 'str',
         'token': 'str',
@@ -64,6 +68,7 @@ class GatewayUpdateProducerEks(object):
     }
 
     attribute_map = {
+        'ara_enabled': 'ara-enabled',
         'delete_protection': 'delete_protection',
         'eks_access_key_id': 'eks-access-key-id',
         'eks_assume_role': 'eks-assume-role',
@@ -72,6 +77,8 @@ class GatewayUpdateProducerEks(object):
         'eks_cluster_name': 'eks-cluster-name',
         'eks_region': 'eks-region',
         'eks_secret_access_key': 'eks-secret-access-key',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
@@ -86,6 +93,7 @@ class GatewayUpdateProducerEks(object):
         'secure_access_delay': 'secure-access-delay',
         'secure_access_enable': 'secure-access-enable',
         'secure_access_web': 'secure-access-web',
+        'skip_dry_run': 'skip_dry_run',
         'tags': 'tags',
         'target_name': 'target-name',
         'token': 'token',
@@ -93,12 +101,13 @@ class GatewayUpdateProducerEks(object):
         'user_ttl': 'user-ttl'
     }
 
-    def __init__(self, delete_protection=None, eks_access_key_id=None, eks_assume_role=None, eks_cluster_ca_cert=None, eks_cluster_endpoint=None, eks_cluster_name=None, eks_region='us-east-2', eks_secret_access_key=None, input_rule=None, item_custom_fields=None, json=False, name=None, new_name=None, output_rule=None, producer_encryption_key_name=None, secure_access_allow_port_forwading=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_cluster_endpoint=None, secure_access_delay=None, secure_access_enable=None, secure_access_web=False, tags=None, target_name=None, token=None, uid_token=None, user_ttl='15m', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, ara_enabled=None, delete_protection=None, eks_access_key_id=None, eks_assume_role=None, eks_cluster_ca_cert=None, eks_cluster_endpoint=None, eks_cluster_name=None, eks_region='us-east-2', eks_secret_access_key=None, enable_agentic_runtime_authority=None, enable_ai_quorum=None, input_rule=None, item_custom_fields=None, json=False, name=None, new_name=None, output_rule=None, producer_encryption_key_name=None, secure_access_allow_port_forwading=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_cluster_endpoint=None, secure_access_delay=None, secure_access_enable=None, secure_access_web=False, skip_dry_run=None, tags=None, target_name=None, token=None, uid_token=None, user_ttl='15m', local_vars_configuration=None):  # noqa: E501
         """GatewayUpdateProducerEks - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._ara_enabled = None
         self._delete_protection = None
         self._eks_access_key_id = None
         self._eks_assume_role = None
@@ -107,6 +116,8 @@ class GatewayUpdateProducerEks(object):
         self._eks_cluster_name = None
         self._eks_region = None
         self._eks_secret_access_key = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
@@ -121,6 +132,7 @@ class GatewayUpdateProducerEks(object):
         self._secure_access_delay = None
         self._secure_access_enable = None
         self._secure_access_web = None
+        self._skip_dry_run = None
         self._tags = None
         self._target_name = None
         self._token = None
@@ -128,6 +140,8 @@ class GatewayUpdateProducerEks(object):
         self._user_ttl = None
         self.discriminator = None
 
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if delete_protection is not None:
             self.delete_protection = delete_protection
         if eks_access_key_id is not None:
@@ -144,6 +158,10 @@ class GatewayUpdateProducerEks(object):
             self.eks_region = eks_region
         if eks_secret_access_key is not None:
             self.eks_secret_access_key = eks_secret_access_key
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if input_rule is not None:
             self.input_rule = input_rule
         if item_custom_fields is not None:
@@ -171,6 +189,8 @@ class GatewayUpdateProducerEks(object):
             self.secure_access_enable = secure_access_enable
         if secure_access_web is not None:
             self.secure_access_web = secure_access_web
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if tags is not None:
             self.tags = tags
         if target_name is not None:
@@ -181,6 +201,29 @@ class GatewayUpdateProducerEks(object):
             self.uid_token = uid_token
         if user_ttl is not None:
             self.user_ttl = user_ttl
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this GatewayUpdateProducerEks.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :return: The ara_enabled of this GatewayUpdateProducerEks.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this GatewayUpdateProducerEks.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this GatewayUpdateProducerEks.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def delete_protection(self):
@@ -365,6 +408,52 @@ class GatewayUpdateProducerEks(object):
         """
 
         self._eks_secret_access_key = eks_secret_access_key
+
+    @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this GatewayUpdateProducerEks.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this GatewayUpdateProducerEks.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this GatewayUpdateProducerEks.
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this GatewayUpdateProducerEks.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this GatewayUpdateProducerEks.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this GatewayUpdateProducerEks.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this GatewayUpdateProducerEks.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this GatewayUpdateProducerEks.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
 
     @property
     def input_rule(self):
@@ -689,6 +778,29 @@ class GatewayUpdateProducerEks(object):
         """
 
         self._secure_access_web = secure_access_web
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this GatewayUpdateProducerEks.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this GatewayUpdateProducerEks.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this GatewayUpdateProducerEks.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this GatewayUpdateProducerEks.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
 
     @property
     def tags(self):

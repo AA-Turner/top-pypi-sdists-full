@@ -139,7 +139,9 @@ class EmrEksSparkSessionManager(SparkSessionManager):
         self.release_label = self._resolve_release_label(conn_data, spark_emr_props)
         self.region = arn_region or self._utils._get_domain_region()
         self.endpoint_url = self.config.overrides.get("emr-containers", {}).get("endpoint_url")
-        self.sts_client = boto3.client("sts", region_name=self.region)
+        self.sts_client = boto3.client(
+            "sts", region_name=self.region, config=self._client_retry_config()
+        )
         self._emr_client = self._create_emr_client()
         self.resolved_connection_name = getattr(connection, "name", None) or self.connection_name
         self.connection_spark_configs = extract_connection_spark_configs(connection)
@@ -191,7 +193,7 @@ class EmrEksSparkSessionManager(SparkSessionManager):
             )
             boto_session = boto3.Session()
 
-        client_kwargs = {"region_name": self.region}
+        client_kwargs = {"region_name": self.region, "config": self._client_retry_config()}
         if self.endpoint_url:
             client_kwargs["endpoint_url"] = self.endpoint_url
         return boto_session.client("emr-containers", **client_kwargs)

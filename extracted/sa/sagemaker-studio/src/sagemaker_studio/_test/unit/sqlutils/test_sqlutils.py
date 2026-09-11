@@ -1527,9 +1527,9 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
     def tearDown(self):
         sqlutils._connection_cache.clear()
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    def test_sql_irc_glue_success(self, mock_ensure_project, mock_ensure_spark):
+    def test_sql_irc_glue_success(self, mock_ensure_project, mock_ensure_glue_spark):
         mock_project = Mock()
         mock_conn = Mock()
         mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
@@ -1540,15 +1540,15 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         mock_df = Mock()
         mock_df.limit.return_value.collect.return_value = [Mock()]
         mock_spark.sql.return_value = mock_df
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         result = sqlutils.sql("SELECT 1", connection_name="irc_conn")
         self.assertEqual(result, mock_df)
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
     def test_sql_irc_glue_token_refresh_on_not_authorized(
-        self, mock_ensure_project, mock_ensure_spark
+        self, mock_ensure_project, mock_ensure_glue_spark
     ):
         mock_project = Mock()
         mock_conn = Mock()
@@ -1569,7 +1569,7 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         )
         mock_df_success = Mock()
         mock_spark.sql.side_effect = [mock_df_fail, mock_df_success]
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         result = sqlutils.sql("SELECT 1", connection_name="irc_conn")
         self.assertEqual(result, mock_df_success)
@@ -1579,10 +1579,10 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog1.token", "new_token")
         mock_spark.conf.set.assert_any_call("spark.sql.catalog.catalog2.token", "new_token")
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
     def test_sql_irc_glue_refresh_returning_none_reraises(
-        self, mock_ensure_project, mock_ensure_spark
+        self, mock_ensure_project, mock_ensure_glue_spark
     ):
         """If the forced refresh yields no configs, the original auth error surfaces."""
         mock_project = Mock()
@@ -1600,16 +1600,16 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
             )
         )
         mock_spark.sql.return_value = mock_df_fail
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         with self.assertRaises(Exception) as cm:
             sqlutils.sql("SELECT 1", connection_name="irc_conn")
         self.assertIn("NotAuthorizedException", str(cm.exception))
         mock_conn._spark_catalog_configs.assert_called_once_with(force_token_refresh=True)
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    def test_sql_irc_glue_non_auth_error_raises(self, mock_ensure_project, mock_ensure_spark):
+    def test_sql_irc_glue_non_auth_error_raises(self, mock_ensure_project, mock_ensure_glue_spark):
         mock_project = Mock()
         mock_conn = Mock()
         mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
@@ -1620,15 +1620,15 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         mock_df = Mock()
         type(mock_df).schema = PropertyMock(side_effect=Exception("some other error"))
         mock_spark.sql.return_value = mock_df
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         with self.assertRaises(Exception) as cm:
             sqlutils.sql("SELECT 1", connection_name="irc_conn")
         self.assertIn("some other error", str(cm.exception))
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    def test_sql_stream_irc_glue_success(self, mock_ensure_project, mock_ensure_spark):
+    def test_sql_stream_irc_glue_success(self, mock_ensure_project, mock_ensure_glue_spark):
         mock_project = Mock()
         mock_conn = Mock()
         mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
@@ -1639,16 +1639,16 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         mock_df = Mock()
         mock_df.limit.return_value.collect.return_value = [Mock()]
         mock_spark.sql.return_value = mock_df
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         results = list(sqlutils.sql_stream("SELECT 1", connection_name="irc_conn"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].status, "success")
         self.assertEqual(results[0].result, mock_df)
 
-    @patch("sagemaker_studio.sqlutils._ensure_spark")
+    @patch("sagemaker_studio.sqlutils._ensure_glue_spark")
     @patch("sagemaker_studio.sqlutils._ensure_project")
-    def test_sql_stream_irc_glue_token_refresh(self, mock_ensure_project, mock_ensure_spark):
+    def test_sql_stream_irc_glue_token_refresh(self, mock_ensure_project, mock_ensure_glue_spark):
         mock_project = Mock()
         mock_conn = Mock()
         mock_conn.type = "WORKDAYICEBERGRESTCATALOG"
@@ -1666,12 +1666,330 @@ class TestIRCGlueConnectionPaths(unittest.TestCase):
         )
         mock_df_success = Mock()
         mock_spark.sql.side_effect = [mock_df_fail, mock_df_success]
-        mock_ensure_spark.return_value = mock_spark
+        mock_ensure_glue_spark.return_value = mock_spark
 
         results = list(sqlutils.sql_stream("SELECT 1", connection_name="irc_conn"))
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].result, mock_df_success)
         mock_spark.conf.set.assert_called_with("spark.sql.catalog.cat1.token", "refreshed_token")
+
+
+class _FakeLazySparkSession:
+    """Stand-in for LazySparkSession: session manager lives in the instance __dict__."""
+
+    def __init__(self, session_manager=None, connection_name=None, config=None, spark_conf=None):
+        self._spark = None
+        self._session_manager = session_manager
+        self._connection_name = connection_name
+        self._config = config
+        self._spark_conf = spark_conf
+
+
+class TestEnsureGlueSpark(unittest.TestCase):
+    """Tests for _ensure_glue_spark and its Glue-backend resolution helpers."""
+
+    def setUp(self):
+        sqlutils._project = None
+        sqlutils._glue_spark = None
+
+    def tearDown(self):
+        sqlutils._glue_spark = None
+
+    @staticmethod
+    def _named_mock(class_name):
+        """Mock whose type name matches class_name (checked via type(x).__name__)."""
+        return type(class_name, (), {})()
+
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_kernel_spark_reused_when_glue_backed(self, mock_kernel_spark):
+        """A kernel spark already backed by a Glue session manager is reused as-is."""
+        manager = self._named_mock("GlueSparkSessionManager")
+        kernel_spark = _FakeLazySparkSession(session_manager=manager)
+        mock_kernel_spark.return_value = kernel_spark
+
+        result = sqlutils._ensure_glue_spark()
+
+        self.assertIs(result, kernel_spark)
+        self.assertIsNone(sqlutils._glue_spark)
+
+    @patch("sagemaker_studio.sqlutils._create_glue_spark")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_non_glue_kernel_spark_triggers_dedicated_session(self, mock_kernel_spark, mock_create):
+        """A kernel spark backed by a non-Glue manager is not used; a Glue session is created."""
+        manager = self._named_mock("AthenaSparkSessionManager")
+        mock_kernel_spark.return_value = _FakeLazySparkSession(session_manager=manager)
+        glue_spark = Mock()
+        mock_create.return_value = glue_spark
+
+        result = sqlutils._ensure_glue_spark()
+
+        self.assertIs(result, glue_spark)
+        mock_create.assert_called_once()
+
+    @patch("sagemaker_studio.sqlutils._create_glue_spark")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_missing_kernel_spark_triggers_dedicated_session(self, mock_kernel_spark, mock_create):
+        """No spark in the kernel namespace: a dedicated Glue session is created."""
+        mock_kernel_spark.return_value = None
+        glue_spark = Mock()
+        mock_create.return_value = glue_spark
+
+        result = sqlutils._ensure_glue_spark()
+
+        self.assertIs(result, glue_spark)
+
+    @patch("sagemaker_studio.sqlutils._create_glue_spark")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_dedicated_glue_session_is_cached(self, mock_kernel_spark, mock_create):
+        """The dedicated Glue session is created once and reused across calls."""
+        mock_kernel_spark.return_value = None
+        mock_create.return_value = Mock()
+
+        first = sqlutils._ensure_glue_spark()
+        second = sqlutils._ensure_glue_spark()
+
+        self.assertIs(first, second)
+        mock_create.assert_called_once()
+
+    def test_unresolved_lazy_session_resolves_manager_without_starting_session(self):
+        """A lazy kernel spark with no manager yet gets its manager resolved (not a session)."""
+        kernel_spark = _FakeLazySparkSession(connection_name="my_glue_conn")
+        manager = self._named_mock("GlueSparkSessionManager")
+
+        with patch(
+            "sagemaker_studio.utils.spark.connection_resolver._resolve_connection_and_create_session_manager",
+            return_value=manager,
+        ) as mock_resolve:
+            self.assertTrue(sqlutils._spark_session_is_glue(kernel_spark))
+
+        mock_resolve.assert_called_once_with(
+            connection_name="my_glue_conn", config=None, spark_conf=None
+        )
+        # Manager is assigned back so the lazy session does not resolve twice.
+        self.assertIs(kernel_spark._session_manager, manager)
+
+    def test_resolution_failure_treated_as_non_glue(self):
+        """If backend resolution fails, the kernel spark is treated as non-Glue."""
+        kernel_spark = _FakeLazySparkSession()
+
+        with patch(
+            "sagemaker_studio.utils.spark.connection_resolver._resolve_connection_and_create_session_manager",
+            side_effect=RuntimeError("no notebook metadata"),
+        ):
+            self.assertFalse(sqlutils._spark_session_is_glue(kernel_spark))
+
+    def test_plain_spark_session_treated_as_non_glue(self):
+        """An object without a session manager (plain SparkSession) cannot be identified."""
+        self.assertFalse(sqlutils._spark_session_is_glue(object()))
+
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_create_glue_spark_uses_project_glue_connection(self, mock_ensure_project):
+        """_create_glue_spark finds the project's Glue compute connection and wraps it."""
+        athena_conn = Mock()
+        athena_conn.type = "SPARK_CONNECT"
+        glue_conn = Mock()
+        glue_conn.type = "SPARK"
+        glue_conn.name = "project.spark.compatibility"
+        redshift_conn = Mock()
+        redshift_conn.type = "REDSHIFT"
+
+        mock_project = Mock()
+        mock_project.connections = [redshift_conn, athena_conn, glue_conn]
+        mock_ensure_project.return_value = mock_project
+
+        def identify(conn):
+            return "GLUE" if conn is glue_conn else "ATHENA"
+
+        mock_manager = Mock()
+        with patch(
+            "sagemaker_studio.utils.spark.connection_resolver._identify_service_from_props",
+            side_effect=identify,
+        ), patch(
+            "sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager.GlueSparkSessionManager",
+            return_value=mock_manager,
+        ) as mock_manager_cls, patch(
+            "sagemaker_studio.utils.spark.session.lazy_spark_session.LazySparkSession"
+        ) as mock_lazy_cls:
+            sqlutils._create_glue_spark()
+
+        mock_manager_cls.assert_called_once_with(
+            connection=glue_conn, connection_name="project.spark.compatibility", spark_conf=None
+        )
+        mock_lazy_cls.assert_called_once_with(session_manager=mock_manager)
+
+    @patch("sagemaker_studio.sqlutils._create_glue_spark")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_kernel_config_and_spark_conf_carried_to_dedicated_session(
+        self, mock_kernel_spark, mock_create
+    ):
+        """The kernel lazy session's ClientConfig/spark_conf are passed to the Glue session."""
+        config = Mock()
+        spark_conf = {"spark.some.key": "value"}
+        manager = self._named_mock("AthenaSparkSessionManager")
+        mock_kernel_spark.return_value = _FakeLazySparkSession(
+            session_manager=manager, config=config, spark_conf=spark_conf
+        )
+        mock_create.return_value = Mock()
+
+        sqlutils._ensure_glue_spark()
+
+        mock_create.assert_called_once_with(config=config, spark_conf=spark_conf)
+
+    @patch("sagemaker_studio.sqlutils._spark_session_is_glue")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_cached_dedicated_session_skips_kernel_backend_probe(
+        self, mock_kernel_spark, mock_is_glue
+    ):
+        """Once the dedicated session exists, the kernel backend is not re-probed.
+
+        The backend probe can perform connection-resolution network calls, so it must
+        not run on every query after the dedicated session has been created.
+        """
+        cached = Mock()
+        sqlutils._glue_spark = cached
+
+        result = sqlutils._ensure_glue_spark()
+
+        self.assertIs(result, cached)
+        mock_kernel_spark.assert_not_called()
+        mock_is_glue.assert_not_called()
+
+    @patch("atexit.register")
+    @patch("sagemaker_studio.sqlutils._create_glue_spark")
+    @patch("sagemaker_studio.sqlutils._get_kernel_spark")
+    def test_dedicated_session_registers_atexit_stop(
+        self, mock_kernel_spark, mock_create, mock_atexit_register
+    ):
+        """Creating the dedicated session registers the shutdown stop hook."""
+        mock_kernel_spark.return_value = None
+        mock_create.return_value = Mock()
+
+        sqlutils._ensure_glue_spark()
+
+        mock_atexit_register.assert_called_once_with(sqlutils._stop_glue_spark)
+
+    def test_stop_glue_spark_stops_and_clears(self):
+        """_stop_glue_spark stops the session and clears the cache."""
+        glue_spark = Mock()
+        sqlutils._glue_spark = glue_spark
+
+        sqlutils._stop_glue_spark()
+
+        glue_spark.stop.assert_called_once()
+        self.assertIsNone(sqlutils._glue_spark)
+
+    def test_stop_glue_spark_noop_without_session(self):
+        """_stop_glue_spark is a no-op when no dedicated session exists."""
+        sqlutils._stop_glue_spark()
+        self.assertIsNone(sqlutils._glue_spark)
+
+    def test_stop_glue_spark_swallows_stop_errors(self):
+        """A failing stop() still clears the cache and does not raise."""
+        glue_spark = Mock()
+        glue_spark.stop.side_effect = RuntimeError("session already gone")
+        sqlutils._glue_spark = glue_spark
+
+        sqlutils._stop_glue_spark()
+
+        self.assertIsNone(sqlutils._glue_spark)
+
+    def test_close_all_connections_stops_glue_spark(self):
+        """close_all_connections also stops the dedicated Glue session."""
+        glue_spark = Mock()
+        sqlutils._glue_spark = glue_spark
+
+        sqlutils.close_all_connections()
+
+        glue_spark.stop.assert_called_once()
+        self.assertIsNone(sqlutils._glue_spark)
+
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_create_glue_spark_no_glue_connection_raises(self, mock_ensure_project):
+        """A project without a Glue compute connection gets an actionable error."""
+        athena_conn = Mock()
+        athena_conn.type = "SPARK_CONNECT"
+        mock_project = Mock()
+        mock_project.connections = [athena_conn]
+        mock_ensure_project.return_value = mock_project
+
+        with patch(
+            "sagemaker_studio.utils.spark.connection_resolver._identify_service_from_props",
+            return_value="ATHENA",
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                sqlutils._create_glue_spark()
+
+        self.assertIn("Glue compute connection", str(ctx.exception))
+
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_create_glue_spark_project_not_initialized_raises(self, mock_ensure_project):
+        """A missing project is reported clearly."""
+        mock_ensure_project.return_value = False
+
+        with self.assertRaises(RuntimeError) as ctx:
+            sqlutils._create_glue_spark()
+
+        self.assertIn("Project is not initialized", str(ctx.exception))
+
+    def test_get_kernel_spark_returns_spark_from_namespace(self):
+        """_get_kernel_spark reads the spark object from the IPython user namespace."""
+        kernel_spark = Mock()
+        mock_ipython = Mock()
+        mock_ipython.user_ns = {"spark": kernel_spark}
+        mock_module = Mock()
+        mock_module.get_ipython = Mock(return_value=mock_ipython)
+
+        with patch.dict("sys.modules", {"IPython": mock_module}):
+            self.assertIs(sqlutils._get_kernel_spark(), kernel_spark)
+
+    def test_get_kernel_spark_no_ipython_kernel_returns_none(self):
+        """No running IPython kernel (get_ipython() is None) yields None."""
+        mock_module = Mock()
+        mock_module.get_ipython = Mock(return_value=None)
+
+        with patch.dict("sys.modules", {"IPython": mock_module}):
+            self.assertIsNone(sqlutils._get_kernel_spark())
+
+    def test_get_kernel_spark_ipython_not_installed_returns_none(self):
+        """IPython not importable yields None instead of raising."""
+        with patch.dict("sys.modules", {"IPython": None}):
+            self.assertIsNone(sqlutils._get_kernel_spark())
+
+    def test_create_glue_spark_pyspark_unavailable_raises(self):
+        """Missing Spark session modules surface as an actionable RuntimeError."""
+        with patch.dict("sys.modules", {"sagemaker_studio.utils.spark.connection_resolver": None}):
+            with self.assertRaises(RuntimeError) as ctx:
+                sqlutils._create_glue_spark()
+
+        self.assertIn("PySpark is not available", str(ctx.exception))
+
+    @patch("sagemaker_studio.sqlutils._ensure_project")
+    def test_create_glue_spark_passes_client_config_to_manager(self, mock_ensure_project):
+        """A carried-over ClientConfig is forwarded to GlueSparkSessionManager."""
+        glue_conn = Mock()
+        glue_conn.type = "SPARK"
+        glue_conn.name = "project.spark.compatibility"
+        mock_project = Mock()
+        mock_project.connections = [glue_conn]
+        mock_ensure_project.return_value = mock_project
+        config = Mock()
+
+        with patch(
+            "sagemaker_studio.utils.spark.connection_resolver._identify_service_from_props",
+            return_value="GLUE",
+        ), patch(
+            "sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager.GlueSparkSessionManager",
+        ) as mock_manager_cls, patch(
+            "sagemaker_studio.utils.spark.session.lazy_spark_session.LazySparkSession"
+        ):
+            sqlutils._create_glue_spark(config=config)
+
+        mock_manager_cls.assert_called_once_with(
+            connection=glue_conn,
+            connection_name="project.spark.compatibility",
+            spark_conf=None,
+            config=config,
+        )
 
 
 class TestGetEngineFromConnection(unittest.TestCase):

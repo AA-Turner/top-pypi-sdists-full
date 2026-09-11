@@ -87,3 +87,25 @@ def job_cancel(ctx: Context, job_id: str) -> None:
         else:
             raise CLIException(FeedbackManager.error_job_cancelled_but_status_unknown(job_id=job_id))
     click.echo("\n")
+
+
+@job.command(name="retry")
+@click.argument("job_id")
+@click.pass_context
+def job_retry(ctx: Context, job_id: str) -> None:
+    client: TinyB = ctx.ensure_object(dict)["client"]
+
+    try:
+        retried_job = client.job_retry(job_id)
+    except DoesNotExistException:
+        raise CLIException(FeedbackManager.error_job_does_not_exist(job_id=job_id))
+    except Exception as e:
+        raise CLIException(FeedbackManager.error_exception(error=e))
+
+    click.echo(
+        FeedbackManager.success_job_retried(
+            job_id=job_id,
+            retried_job_id=retried_job["id"],
+        )
+    )
+    click.echo("\n")

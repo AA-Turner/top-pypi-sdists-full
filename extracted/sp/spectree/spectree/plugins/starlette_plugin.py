@@ -1,21 +1,18 @@
 import inspect
 from collections import namedtuple
+from collections.abc import Callable
+from contextvars import ContextVar
 from functools import partial
 from json import JSONDecodeError
-from typing import Any, Callable, Optional
+from typing import Any
 
-from pydantic import ValidationError
 from starlette.convertors import CONVERTOR_TYPES
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 from starlette.routing import compile_path
 
-from spectree._pydantic import (
-    SerializedPydanticResponse,
-    generate_root_model,
-    serialize_model_instance,
-)
-from spectree._types import ModelType
+from spectree._types import HookHandler, ModelAdapterType
+from spectree.model_adapter import ModelClass
 from spectree.plugins.base import (
     BasePlugin,
     Context,
@@ -27,20 +24,39 @@ from spectree.utils import cached_type_hints, get_multidict_items_starlette
 
 METHODS = {"get", "post", "put", "patch", "delete"}
 Route = namedtuple("Route", ["path", "methods", "func"])
+_active_model_adapter: ContextVar[ModelAdapterType | None] = ContextVar(
+    "spectree_starlette_model_adapter",
+    default=None,
+)
+_response_models: dict[object, ModelClass] = {}
 
 
-_PydanticResponseModel = generate_root_model(Any, name="_PydanticResponseModel")
+def _get_response_model(model_adapter: ModelAdapterType) -> ModelClass:
+    response_model = _response_models.get(model_adapter)
+    if response_model is None:
+        response_model = model_adapter.make_root_model(
+            Any,
+            name="_SpecTreeStarletteResponseModel",
+        )
+        _response_models[model_adapter] = response_model
+    return response_model
 
 
-def PydanticResponse(content):
-    class _PydanticResponse(JSONResponse):
-        def render(self, content) -> bytes:
-            self._model_class = content.__class__
-            return serialize_model_instance(
-                _PydanticResponseModel.model_validate(content)
-            ).data
+def _get_starlette_response_model_adapter() -> ModelAdapterType:
+    model_adapter = _active_model_adapter.get()
+    if model_adapter is None:
+        raise RuntimeError(
+            "SpecTreeStarletteResponse must be rendered inside a SpecTree request"
+        )
+    return model_adapter
 
-    return _PydanticResponse(content)
+
+class SpecTreeStarletteResponse(JSONResponse):
+    def render(self, content) -> bytes:
+        adapter = _get_starlette_response_model_adapter()
+        response_model = _get_response_model(adapter)
+        self._model_class = content.__class__
+        return adapter.dump_json(adapter.validate_obj(response_model, content))
 
 
 class StarlettePlugin(BasePlugin):
@@ -77,32 +93,51 @@ class StarlettePlugin(BasePlugin):
             form and has_data and any([x in content_type for x in self.FORM_MIMETYPE])
         )
         request.context = Context(
-            query.model_validate(get_multidict_items_starlette(request.query_params))
+            self.model_adapter.validate_obj(
+                query, get_multidict_items_starlette(request.query_params, query)
+            )
             if query
             else None,
-            json.model_validate(await request.json() or {}) if use_json else None,
-            form.model_validate(await request.form() or {}) if use_form else None,
-            headers.model_validate(request.headers) if headers else None,
-            cookies.model_validate(request.cookies) if cookies else None,
+            self.model_adapter.validate_obj(json, await request.json() or {})
+            if use_json
+            else None,
+            self.model_adapter.validate_obj(form, await request.form() or {})
+            if use_form
+            else None,
+            self.model_adapter.validate_obj(headers, request.headers)
+            if headers
+            else None,
+            self.model_adapter.validate_obj(cookies, request.cookies)
+            if cookies
+            else None,
         )
 
     async def validate(
         self,
         func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
+        query: ModelClass | None,
+        json: ModelClass | None,
+        form: ModelClass | None,
+        headers: ModelClass | None,
+        cookies: ModelClass | None,
+        resp: Response | None,
+        before: HookHandler,
+        after: HookHandler,
         validation_error_status: int,
         skip_validation: bool,
         force_resp_serialize: bool,
         *args: Any,
         **kwargs: Any,
     ):
+        async def call_with_model_adapter() -> Any:
+            model_adapter_token = _active_model_adapter.set(self.model_adapter)
+            try:
+                if inspect.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
+                return func(*args, **kwargs)
+            finally:
+                _active_model_adapter.reset(model_adapter_token)
+
         if isinstance(args[0], Request):
             instance, request = None, args[0]
         else:
@@ -116,10 +151,11 @@ class StarlettePlugin(BasePlugin):
                 await self.request_validation(
                     request, query, json, form, headers, cookies
                 )
-            except ValidationError as err:
+            except self.model_adapter.validation_error as err:
                 req_validation_error = err
                 response = JSONResponse(
-                    err.errors(include_context=False), validation_error_status
+                    self.model_adapter.validation_errors(err),
+                    validation_error_status,
                 )
             except JSONDecodeError as err:
                 json_decode_error = err
@@ -132,7 +168,7 @@ class StarlettePlugin(BasePlugin):
                     {"error_msg": str(err)}, validation_error_status
                 )
 
-        before(request, response, req_validation_error, instance)
+        before(request, response, req_validation_error, instance, self.model_adapter)
         if req_validation_error or json_decode_error:
             return response
 
@@ -144,10 +180,7 @@ class StarlettePlugin(BasePlugin):
                         getattr(request, "context", None), name, None
                     )
 
-        if inspect.iscoroutinefunction(func):
-            response = await func(*args, **kwargs)
-        else:
-            response = func(*args, **kwargs)
+        response = await call_with_model_adapter()
 
         if (
             not skip_validation
@@ -161,24 +194,23 @@ class StarlettePlugin(BasePlugin):
         ):
             try:
                 response_validation_result = validate_response(
+                    model_adapter=self.model_adapter,
                     validation_model=resp.find_model(response.status_code),
                     response_payload=RawResponsePayload(payload=response.body),
                     force_serialize=force_resp_serialize,
                 )
-            except ValidationError as err:
+            except self.model_adapter.validation_error as err:
                 response = JSONResponse(
-                    err.errors(include_context=False),
+                    self.model_adapter.validation_errors(err),
                     500,
                 )
                 resp_validation_error = err
             else:
                 # replace the body of the response if it was serialized during validation
-                if isinstance(
-                    response_validation_result.payload, SerializedPydanticResponse
-                ):
-                    response.body = response_validation_result.payload.data
+                if isinstance(response_validation_result.payload, bytes):
+                    response.body = response_validation_result.payload
 
-        after(request, response, resp_validation_error, instance)
+        after(request, response, resp_validation_error, instance, self.model_adapter)
 
         return response
 

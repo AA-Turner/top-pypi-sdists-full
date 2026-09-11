@@ -1028,22 +1028,13 @@ class ReplicationSubnetGroupReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_dms.ReplicationTaskReference",
     jsii_struct_bases=[],
-    name_mapping={
-        "replication_task_arn": "replicationTaskArn",
-        "replication_task_id": "replicationTaskId",
-    },
+    name_mapping={"replication_task_arn": "replicationTaskArn"},
 )
 class ReplicationTaskReference:
-    def __init__(
-        self,
-        *,
-        replication_task_arn: builtins.str,
-        replication_task_id: builtins.str,
-    ) -> None:
+    def __init__(self, *, replication_task_arn: builtins.str) -> None:
         '''A reference to a ReplicationTask resource.
 
-        :param replication_task_arn: The ARN of the ReplicationTask resource.
-        :param replication_task_id: The Id of the ReplicationTask resource.
+        :param replication_task_arn: The ReplicationTaskArn of the ReplicationTask resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1054,31 +1045,21 @@ class ReplicationTaskReference:
             from aws_cdk.interfaces import aws_dms as interfaces_dms
             
             replication_task_reference = interfaces_dms.ReplicationTaskReference(
-                replication_task_arn="replicationTaskArn",
-                replication_task_id="replicationTaskId"
+                replication_task_arn="replicationTaskArn"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b)
             check_type(argname="argument replication_task_arn", value=replication_task_arn, expected_type=type_hints["replication_task_arn"])
-            check_type(argname="argument replication_task_id", value=replication_task_id, expected_type=type_hints["replication_task_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "replication_task_arn": replication_task_arn,
-            "replication_task_id": replication_task_id,
         }
 
     @builtins.property
     def replication_task_arn(self) -> builtins.str:
-        '''The ARN of the ReplicationTask resource.'''
+        '''The ReplicationTaskArn of the ReplicationTask resource.'''
         result = self._values.get("replication_task_arn")
         assert result is not None, "Required property 'replication_task_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replication_task_id(self) -> builtins.str:
-        '''The Id of the ReplicationTask resource.'''
-        result = self._values.get("replication_task_id")
-        assert result is not None, "Required property 'replication_task_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1193,7 +1174,6 @@ def _typecheckingstub__dc5d133dd09a422b7b86d14f260b9aff35300fe810630d9349a741a5e
 def _typecheckingstub__058318f539698ef8b693c781ecb998f9619364d8e8b86a247f3ed3aa44bd537b(
     *,
     replication_task_arn: builtins.str,
-    replication_task_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

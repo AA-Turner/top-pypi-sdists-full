@@ -70,6 +70,11 @@ async def get_token(
         ),
         method="POST",
         query={
+            **(
+                {"execution_id": task.id}
+                if getattr(task, "background_auth_eligible", False)
+                else {}
+            ),
             "generate_login_url": generate_login_url,
             "is_app": task.is_app,
             "force_refresh": force_refresh,

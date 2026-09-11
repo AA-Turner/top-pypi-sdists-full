@@ -9,6 +9,7 @@ page's status exactly as the last authoritative observation set it.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -16,7 +17,7 @@ from uuid import uuid4
 
 import pytest
 
-from matrx_scraper.events import CrawlPageFailedEvent
+from matrx_scraper.events import CrawlCompletedEvent, CrawlPageFailedEvent
 from matrx_scraper.web_crawl.persistence import (
     GONE_AFTER_CONSECUTIVE_MISSES,
     CrawlPersistenceState,
@@ -48,6 +49,28 @@ def test_404_debounces_missing_then_gone() -> None:
     assert at_threshold.status == "gone"
     assert at_threshold.soft_delete is True
     assert at_threshold.consecutive_misses == GONE_AFTER_CONSECUTIVE_MISSES
+
+
+@pytest.mark.parametrize(
+    ("prior_misses", "status", "soft_delete", "misses"),
+    [
+        (0, "missing", False, 1),
+        (1, "missing", False, 2),
+        # A persistently-404 page goes gone on the THIRD consecutive crawl.
+        (2, "gone", True, 3),
+        (7, "gone", True, 8),
+    ],
+)
+def test_404_goes_gone_on_the_third_consecutive_miss_never_sooner(
+    prior_misses: int, status: str, soft_delete: bool, misses: int
+) -> None:
+    d = failed_fetch_disposition(404, prior_consecutive_misses=prior_misses)
+    assert (d.authoritative, d.status, d.soft_delete, d.consecutive_misses) == (
+        True,
+        status,
+        soft_delete,
+        misses,
+    )
 
 
 @pytest.mark.parametrize("http_status", [None, 429, 500, 502, 503, 520, 403])
@@ -310,3 +333,199 @@ async def test_404_miss_is_counted_once_per_session_across_reconcile(
     ]
     assert evidence_writes == [1]
     assert summary["missing"] == 0 and summary["gone"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Sibling isolation — one page's failure never changes another page's row.
+# A dict-backed stand-in for the web.page / web.page_evidence / web.crawl_url
+# rows lets each test assert the FINAL row state of every sibling instead of
+# which model method was called.
+# ---------------------------------------------------------------------------
+
+
+class _SiteRows:
+    def __init__(self) -> None:
+        self.pages: dict[str, SimpleNamespace] = {}
+        self.evidence: dict[str, SimpleNamespace] = {}
+        self.crawl_urls: list[dict] = []
+
+    def add_page(self, url: str, *, status: str = "active", prior_misses: int | None = None) -> str:
+        page_id = str(uuid4())
+        row = SimpleNamespace(
+            id=page_id, url=url, url_hash=url_hash(url), status=status, deleted_at=None
+        )
+
+        async def soft_delete() -> None:
+            row.deleted_at = datetime(2026, 9, 10, tzinfo=UTC)
+
+        row.soft_delete = soft_delete
+        self.pages[page_id] = row
+        if prior_misses is not None:
+            self.evidence[page_id] = SimpleNamespace(
+                id=str(uuid4()),
+                page_id=page_id,
+                is_present=prior_misses == 0,
+                evidence={"consecutive_misses": prior_misses},
+            )
+        return page_id
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = "matrx_scraper.web_crawl.persistence"
+        rows = self
+
+        async def page_get_or_none(**filters):
+            for row in rows.pages.values():
+                if row.url_hash == filters.get("url_hash") and (
+                    not filters.get("deleted_at__isnull") or row.deleted_at is None
+                ):
+                    return row
+            return None
+
+        async def page_update_where(filters, **values):
+            for key, value in values.items():
+                setattr(rows.pages[filters["id"]], key, value)
+
+        async def page_get(**filters):
+            return rows.pages[filters["id"]]
+
+        def page_filter(**filters):
+            live = [row for row in rows.pages.values() if row.deleted_at is None]
+            return SimpleNamespace(all=AsyncMock(return_value=live))
+
+        async def crawl_url_create(**values):
+            rows.crawl_urls.append(values)
+            return SimpleNamespace(id=str(uuid4()))
+
+        async def evidence_get_or_none(**filters):
+            return rows.evidence.get(filters["page_id"])
+
+        async def evidence_create(**values):
+            rows.evidence[values["page_id"]] = SimpleNamespace(id=str(uuid4()), **values)
+
+        async def evidence_update_where(filters, **values):
+            row = next(r for r in rows.evidence.values() if r.id == filters["id"])
+            for key, value in values.items():
+                setattr(row, key, value)
+
+        monkeypatch.setattr(f"{ns}.WebPage.get_or_none", page_get_or_none)
+        monkeypatch.setattr(f"{ns}.WebPage.update_where", page_update_where)
+        monkeypatch.setattr(f"{ns}.WebPage.get", page_get)
+        monkeypatch.setattr(f"{ns}.WebPage.filter", page_filter)
+        monkeypatch.setattr(f"{ns}.WebCrawlUrl.create", crawl_url_create)
+        monkeypatch.setattr(f"{ns}.WebPageEvidence.get_or_none", evidence_get_or_none)
+        monkeypatch.setattr(f"{ns}.WebPageEvidence.create", evidence_create)
+        monkeypatch.setattr(f"{ns}.WebPageEvidence.update_where", evidence_update_where)
+
+    def misses(self, page_id: str) -> int | None:
+        row = self.evidence.get(page_id)
+        return None if row is None else row.evidence.get("consecutive_misses")
+
+
+@pytest.mark.asyncio
+async def test_coverage_reconcile_moves_only_the_unseen_siblings_of_a_404(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One coverage-qualified session: /gone-404 fails with 404, /seen was
+    captured, /quiet and /stale were never observed. Each sibling lands in
+    its own correct state — the 404 counted once, the captured page left
+    alone, the unseen pages moved by their OWN miss history."""
+    rows = _SiteRows()
+    failed = rows.add_page("https://acme.example/gone-404", prior_misses=0)
+    seen = rows.add_page("https://acme.example/seen", prior_misses=0)
+    quiet = rows.add_page("https://acme.example/quiet", prior_misses=0)
+    stale = rows.add_page("https://acme.example/stale", prior_misses=2)
+    rows.install(monkeypatch)
+
+    state = _state()
+    state.fetched["https://acme.example/gone-404"] = SimpleNamespace(  # type: ignore[assignment]
+        http_status=404, mime_type="text/html", final_url=None
+    )
+    state.seen_hashes.add(url_hash("https://acme.example/seen"))
+    repo = WebCrawlRepository({})
+
+    await repo._persist_failed_url_in_active_transaction(
+        _event("https://acme.example/gone-404"), state
+    )
+    summary = await repo._reconcile_in_active_transaction(state)
+
+    final = {
+        page_id: (rows.pages[page_id].status, rows.pages[page_id].deleted_at is not None, rows.misses(page_id))
+        for page_id in (failed, seen, quiet, stale)
+    }
+    assert final == {
+        failed: ("missing", False, 1),
+        seen: ("active", False, 0),
+        quiet: ("missing", False, 1),
+        stale: ("gone", True, 3),
+    }
+    assert (summary["missing"], summary["gone"]) == (1, 1)
+
+
+@pytest.mark.asyncio
+async def test_session_with_a_failed_fetch_never_demotes_the_failed_page_or_its_unseen_siblings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A full-scope crawl whose run reports a failed fetch (coverage_complete
+    False) must not run negative reconciliation: the timed-out page and every
+    unobserved sibling keep their status and miss history; only the failure
+    fact itself is recorded."""
+    rows = _SiteRows()
+    timed_out = rows.add_page("https://acme.example/slow", prior_misses=0)
+    captured = rows.add_page("https://acme.example/seen", prior_misses=0)
+    unseen = rows.add_page("https://acme.example/quiet", prior_misses=1)
+    rows.install(monkeypatch)
+    ns = "matrx_scraper.web_crawl.persistence"
+
+    @asynccontextmanager
+    async def fake_transaction(*_args: object, **_kwargs: object):
+        yield
+
+    session_writes: list[dict] = []
+
+    async def session_update_where(filters, **values):
+        session_writes.append(values)
+        return SimpleNamespace(rows_affected=1)
+
+    monkeypatch.setattr(f"{ns}.transaction", fake_transaction)
+    monkeypatch.setattr(f"{ns}.WebCrawlSession.update_where", session_update_where)
+    monkeypatch.setattr(f"{ns}.WebCrawlEvent.create", AsyncMock())
+
+    state = _state()  # full-scope request: coverage_qualified=True going in
+    state.seen_hashes.add(url_hash("https://acme.example/seen"))
+    repo = WebCrawlRepository({})
+
+    await repo.persist_event(
+        CrawlPageFailedEvent(
+            run_id="session-1",
+            site_id="site-1",
+            sequence=1,
+            url="https://acme.example/slow",
+            error_class="TimeoutError",
+            error_message="navigation timed out after 30000ms",
+        ),
+        state,
+    )
+    await repo.persist_event(
+        CrawlCompletedEvent(
+            run_id="session-1",
+            site_id="site-1",
+            sequence=2,
+            pages_discovered=3,
+            pages_fetched=1,
+            pages_failed=1,
+            issues_count=0,
+            duration_ms=1_200,
+            coverage_complete=False,
+        ),
+        state,
+    )
+
+    final = {pid: (rows.pages[pid].status, rows.misses(pid)) for pid in (timed_out, captured, unseen)}
+    assert final == {
+        timed_out: ("active", 0),
+        captured: ("active", 0),
+        unseen: ("active", 1),
+    }
+    assert [row["outcome"] for row in rows.crawl_urls] == ["failed"]
+    assert session_writes[-1]["stats"]["reconciliation"]["missing"] == 0
+    assert session_writes[-1]["stats"]["coverage_qualified"] is False

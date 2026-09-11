@@ -27,30 +27,27 @@ def load_all() -> None:
     ``load_all()`` always means what it says.
     """
     import importlib
+    import pkgutil
     import sys
 
+    import matrx_ai.tools.vfs.commands as command_modules
     from matrx_ai.tools.vfs.commands import registry
 
     rebuild = registry.take_cleared()
 
-    # fmt: off
-    modules = [
-        "awk", "cat", "cd", "chmod", "chown", "cp", "cut", "df", "diff", "du",
-        "echo", "env", "file", "find", "grep", "gzip", "head", "ln", "ls",
-        "mkdir", "mv", "patch", "printf", "ps", "pwd", "read_cmd", "readlink",
-        "realpath", "rm", "rmdir", "sed", "set_cmd", "sort", "stat", "stubs",
-        "tail", "tar", "test_cmd", "touch", "tr", "tree", "type", "uniq",
-        "unzip", "wc", "which", "xargs",
-    ]
-    # fmt: on
-    for mod in modules:
-        name = f"matrx_ai.tools.vfs.commands.{mod}"
+    # This is a bounded census of our own package, not an arbitrary plugin
+    # import. New command modules register themselves without requiring a
+    # second hand-maintained list, while support modules remain inert.
+    for module_info in pkgutil.iter_modules(command_modules.__path__):
+        if module_info.name in {"base", "registry", "runner"}:
+            continue
+        name = f"matrx_ai.tools.vfs.commands.{module_info.name}"
         try:
             already_imported = sys.modules.get(name)
             if rebuild and already_imported is not None:
                 importlib.reload(already_imported)
             else:
-                importlib.import_module(name)
+                importlib.import_module(f"matrx_ai.tools.vfs.commands.{module_info.name}")
         except ImportError:
             pass
 

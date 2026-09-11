@@ -1,9 +1,9 @@
 import asyncio
 import inspect
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Mapping
 from functools import partial
-from typing import Any, Callable, Dict, List, Mapping, Optional
+from typing import Any
 
 try:
     # some platforms may ban `tempfile`, e.g. Google App Engine
@@ -14,21 +14,20 @@ try:
 except ImportError:
     from io import BytesIO as CachedFile  # type: ignore[assignment]
 
-from falcon import MEDIA_HTML, MEDIA_JSON, http_status_to_code
-from falcon import Request as FalconRequest
-from falcon import Response as FalconResponse
+from falcon import (
+    MEDIA_HTML,
+    MEDIA_JSON,
+    Request as FalconRequest,
+    Response as FalconResponse,
+    http_status_to_code,
+)
 from falcon.asgi import Request as FalconASGIRequest
 from falcon.asgi.reader import BufferedReader as ASGIBufferedReader
 from falcon.routing.compiled import _FIELD_PATTERN as FALCON_FIELD_PATTERN
 from falcon.util.reader import DEFAULT_CHUNK_SIZE, BufferedReader
-from pydantic import ValidationError
 
-from spectree._pydantic import (
-    SerializedPydanticResponse,
-    is_partial_base_model_instance,
-    serialize_model_instance,
-)
-from spectree._types import ModelType
+from spectree._types import HookHandler
+from spectree.model_adapter import ModelClass
 from spectree.plugins.base import BasePlugin, validate_response
 from spectree.response import Response
 from spectree.utils import cached_type_hints
@@ -40,13 +39,25 @@ class StreamWrapper:
         stream.pipe(self._buf)
         self._buf.seek(0)
 
-    def read(self, size: Optional[int] = -1, /) -> bytes:
+    def read(self, size: int | None = -1, /) -> bytes:
         """read bytes from the stream, size -1 or None means max bytes"""
         return self._buf.read(size if size is not None else -1)
 
     def exhaust(self) -> None:
         self._buf.seek(0)
         self._buf.truncate(0)
+
+    def close(self) -> None:
+        self._buf.close()
+
+    def __enter__(self) -> "StreamWrapper":
+        return self
+
+    def __exit__(self, *_args: Any) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 class AsyncStreamWrapper(StreamWrapper):
@@ -62,7 +73,7 @@ class AsyncStreamWrapper(StreamWrapper):
         await loop.run_in_executor(None, obj._buf.seek, 0)
         return obj
 
-    async def read(self, size: Optional[int] = -1, /) -> bytes:  # type: ignore[override]
+    async def read(self, size: int | None = -1, /) -> bytes:  # type: ignore[override]
         return await asyncio.get_running_loop().run_in_executor(
             None, super().read, size
         )
@@ -75,6 +86,15 @@ class AsyncStreamWrapper(StreamWrapper):
 
     async def exhaust(self) -> None:  # type: ignore[override]
         super().exhaust()
+
+    async def aclose(self) -> None:
+        await asyncio.get_running_loop().run_in_executor(None, self.close)
+
+    async def __aenter__(self) -> "AsyncStreamWrapper":
+        return self
+
+    async def __aexit__(self, *_args: Any) -> None:
+        await self.aclose()
 
 
 class OpenAPI:
@@ -105,7 +125,7 @@ class DocPageAsgi(DocPage):
         super().on_get(req, resp)
 
 
-DOC_CLASS: List[str] = [
+DOC_CLASS: list[str] = [
     x.__name__ for x in (DocPage, OpenAPI, DocPageAsgi, OpenAPIAsgi)
 ]
 
@@ -164,7 +184,7 @@ class FalconPlugin(BasePlugin):
 
         return routes
 
-    def parse_func(self, route: Any) -> Dict[str, Any]:
+    def parse_func(self, route: Any) -> dict[str, Any]:
         return route.method_map.items()
 
     def parse_path(self, route, path_parameter_descriptions):
@@ -234,16 +254,18 @@ class FalconPlugin(BasePlugin):
 
     def validate_request(self, req: FalconRequest, query, json, form, headers, cookies):
         if query:
-            req.context.query = query.model_validate(req.params)
+            req.context.query = self.model_adapter.validate_obj(query, req.params)
         if headers:
-            req.context.headers = headers.model_validate(req.headers)
+            req.context.headers = self.model_adapter.validate_obj(headers, req.headers)
         if cookies:
-            req.context.cookies = cookies.model_validate(req.cookies)
+            req.context.cookies = self.model_adapter.validate_obj(cookies, req.cookies)
         if json:
             # https://falcon.readthedocs.io/en/stable/api/media.html#exception-handling
             # but `json` could be something optional, so we need to provide a default
             # value here to avoid `falcon.MediaNotFoundError`
-            req.context.json = json.model_validate(req.get_media(default_when_empty={}))
+            req.context.json = self.model_adapter.validate_obj(
+                json, req.get_media(default_when_empty={})
+            )
         if form and req.content_type:
             req_form = {}
             if req.content_type == "application/x-www-form-urlencoded":
@@ -258,42 +280,40 @@ class FalconPlugin(BasePlugin):
                         # try to consume the file data, otherwise it will be lost
                         # this is hacky since it changed the underlying stream type
                         part.stream = StreamWrapper(part.stream)
-            req.context.form = form.model_validate(req_form)
+            req.context.form = self.model_adapter.validate_obj(form, req_form)
 
     def validate_response(
         self,
         resp: FalconResponse,
-        resp_model: Optional[Response],
+        resp_model: Response | None,
         skip_validation: bool,
         force_resp_serialize: bool,
-    ) -> Optional[ValueError]:
+    ) -> Exception | None:
         resp_validation_error = None
         if not self._data_set_manually(resp):
             if not skip_validation and resp_model:
                 try:
                     status = http_status_to_code(resp.status)
                     response_validation_result = validate_response(
+                        model_adapter=self.model_adapter,
                         validation_model=resp_model.find_model(status)
                         if resp_model
                         else None,
                         response_payload=resp.media,
                         force_serialize=force_resp_serialize,
                     )
-                except ValidationError as err:
+                except self.model_adapter.validation_error as err:
                     resp_validation_error = err
                     resp.status = HTTP_500
-                    resp.media = err.errors(include_context=False)
+                    resp.media = self.model_adapter.validation_errors(err)
                 else:
-                    # mark the data from SerializedPydanticResponse as JSON
-                    if isinstance(
-                        response_validation_result.payload, SerializedPydanticResponse
-                    ):
-                        resp.data = response_validation_result.payload.data
+                    if isinstance(response_validation_result.payload, bytes):
+                        resp.data = response_validation_result.payload
                         resp.content_type = MEDIA_JSON
                     else:
                         resp.media = response_validation_result.payload
-            elif is_partial_base_model_instance(resp.media):
-                resp.data = serialize_model_instance(resp.media).data
+            elif self.model_adapter.is_partial_model_instance(resp.media):
+                resp.data = self.model_adapter.dump_json(resp.media)
                 resp.content_type = MEDIA_JSON
 
         return resp_validation_error
@@ -301,14 +321,14 @@ class FalconPlugin(BasePlugin):
     def validate(
         self,
         func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
+        query: ModelClass | None,
+        json: ModelClass | None,
+        form: ModelClass | None,
+        headers: ModelClass | None,
+        cookies: ModelClass | None,
+        resp: Response | None,
+        before: HookHandler,
+        after: HookHandler,
         validation_error_status: int,
         skip_validation: bool,
         force_resp_serialize: bool,
@@ -322,12 +342,12 @@ class FalconPlugin(BasePlugin):
             try:
                 self.validate_request(_req, query, json, form, headers, cookies)
 
-            except ValidationError as err:
+            except self.model_adapter.validation_error as err:
                 req_validation_error = err
                 _resp.status = f"{validation_error_status} Validation Error"
-                _resp.media = err.errors(include_context=False)
+                _resp.media = self.model_adapter.validation_errors(err)
 
-        before(_req, _resp, req_validation_error, _self)
+        before(_req, _resp, req_validation_error, _self, self.model_adapter)
         if req_validation_error:
             return None
 
@@ -342,7 +362,7 @@ class FalconPlugin(BasePlugin):
         resp_validation_error = self.validate_response(
             _resp, resp, skip_validation, force_resp_serialize
         )
-        after(_req, _resp, resp_validation_error, _self)
+        after(_req, _resp, resp_validation_error, _self, self.model_adapter)
         # `falcon` doesn't use this return value. However, some users may have
         # their own processing logics that depend on this return value.
         return result
@@ -368,17 +388,17 @@ class FalconAsgiPlugin(FalconPlugin):
         self, req: FalconASGIRequest, query, json, form, headers, cookies
     ):
         if query:
-            req.context.query = query.model_validate(req.params)
+            req.context.query = self.model_adapter.validate_obj(query, req.params)
         if headers:
-            req.context.headers = headers.model_validate(req.headers)
+            req.context.headers = self.model_adapter.validate_obj(headers, req.headers)
         if cookies:
-            req.context.cookies = cookies.model_validate(req.cookies)
+            req.context.cookies = self.model_adapter.validate_obj(cookies, req.cookies)
         if json:
             # https://falcon.readthedocs.io/en/stable/api/media.html#exception-handling
             # but `json` could be something optional, so we need to provide a default
             # value here to avoid `falcon.MediaNotFoundError`
             media = await req.get_media(default_when_empty={})
-            req.context.json = json.model_validate(media)
+            req.context.json = self.model_adapter.validate_obj(json, media)
         if form and req.content_type:
             req_form = {}
             if req.content_type == "application/x-www-form-urlencoded":
@@ -392,19 +412,19 @@ class FalconAsgiPlugin(FalconPlugin):
                         req_form[part.name] = part
                         # try to consume the file data, otherwise it will be lost
                         part.stream = await AsyncStreamWrapper.from_stream(part.stream)
-            req.context.form = form.model_validate(req_form)
+            req.context.form = self.model_adapter.validate_obj(form, req_form)
 
     async def validate(
         self,
         func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
+        query: ModelClass | None,
+        json: ModelClass | None,
+        form: ModelClass | None,
+        headers: ModelClass | None,
+        cookies: ModelClass | None,
+        resp: Response | None,
+        before: HookHandler,
+        after: HookHandler,
         validation_error_status: int,
         skip_validation: bool,
         force_resp_serialize: bool,
@@ -420,12 +440,12 @@ class FalconAsgiPlugin(FalconPlugin):
                     _req, query, json, form, headers, cookies
                 )
 
-            except ValidationError as err:
+            except self.model_adapter.validation_error as err:
                 req_validation_error = err
                 _resp.status = f"{validation_error_status} Validation Error"
-                _resp.media = err.errors(include_context=False)
+                _resp.media = self.model_adapter.validation_errors(err)
 
-        before(_req, _resp, req_validation_error, _self)
+        before(_req, _resp, req_validation_error, _self, self.model_adapter)
         if req_validation_error:
             return None
 
@@ -444,5 +464,5 @@ class FalconAsgiPlugin(FalconPlugin):
         resp_validation_error = self.validate_response(
             _resp, resp, skip_validation, force_resp_serialize
         )
-        after(_req, _resp, resp_validation_error, _self)
+        after(_req, _resp, resp_validation_error, _self, self.model_adapter)
         return result

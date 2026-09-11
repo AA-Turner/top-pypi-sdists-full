@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: django-dbbackup
-Version: 5.3.0
+Version: 5.3.1
 Summary: Management commands to help backup and restore a project database and media.
 Project-URL: Changelog, https://archmonger.github.io/django-dbbackup/latest/changelog/
 Project-URL: Documentation, https://archmonger.github.io/django-dbbackup

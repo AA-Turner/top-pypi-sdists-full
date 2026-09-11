@@ -4,12 +4,6 @@ from typing import Any, Literal, Optional
 
 from google.genai.types import Part
 from matrx_utils import vcprint
-from openai.types.responses import (
-    ResponseOutputText as OpenAIResponseOutputText,
-)
-from openai.types.responses import (
-    ResponseReasoningItem as OpenAIResponseReasoningItem,
-)
 
 from matrx_ai.config.config_utils import (
     decode_binary_metadata,
@@ -344,7 +338,7 @@ class TextContent:
 
     @classmethod
     def from_openai(
-        cls, content_item: OpenAIResponseOutputText, id: str
+        cls, content_item: Any, id: str
     ) -> Optional["TextContent"]:
         from matrx_ai.config.citations import normalize_openai_annotation
 
@@ -799,7 +793,7 @@ class ThinkingContent:
         )
 
     @classmethod
-    def from_openai(cls, item: OpenAIResponseReasoningItem) -> Optional["ThinkingContent"]:
+    def from_openai(cls, item: Any) -> Optional["ThinkingContent"]:
         """Create ThinkingContent from OpenAI reasoning item"""
         encrypted_content = getattr(item, "encrypted_content", None)
         summary = (

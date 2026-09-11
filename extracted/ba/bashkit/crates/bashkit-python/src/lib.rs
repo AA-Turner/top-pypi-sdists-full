@@ -26,8 +26,9 @@ use bashkit::{
     ExecutionLimits, ExtFunctionResult, FileSystem, FileSystemExt, FileType as FsFileType,
     FsLimits, InMemoryFs, Metadata as FsMetadata, MontyException, MontyObject, NetworkAllowlist,
     OutputCallback as RustOutputCallback, OverlayFs, PosixFs, PythonExternalFnHandler,
-    PythonLimits, ScriptedTool as RustScriptedTool, ShellStateView as RustShellStateView,
-    SnapshotOptions as RustSnapshotOptions, Tool, ToolArgs, ToolDef, ToolRequest, async_trait,
+    PythonLimits, ReadOnlyFs, ScriptedTool as RustScriptedTool,
+    ShellStateView as RustShellStateView, SnapshotOptions as RustSnapshotOptions, Tool, ToolArgs,
+    ToolDef, ToolRequest, async_trait,
 };
 
 /// Typed named execution-policy selector for Python constructors.
@@ -4106,20 +4107,24 @@ fn record_runtime_mount(
     vfs_path: &str,
     fs: Arc<dyn bashkit::FileSystem>,
 ) -> PyResult<()> {
+    let vfs_path = bashkit::normalize_path(Path::new(vfs_path))
+        .to_string_lossy()
+        .into_owned();
     let mut mounts = log
         .lock()
         .map_err(|_| PyRuntimeError::new_err("runtime mount log poisoned"))?;
-    mounts.retain(|(path, _)| path != vfs_path);
-    mounts.push((vfs_path.to_string(), fs));
+    mounts.retain(|(path, _)| path != &vfs_path);
+    mounts.push((vfs_path, fs));
     Ok(())
 }
 
 /// Retract a recorded mount so `reset()` does not resurrect it after `unmount()`.
 fn forget_runtime_mount(log: &RuntimeMountLog, vfs_path: &str) -> PyResult<()> {
+    let vfs_path = bashkit::normalize_path(Path::new(vfs_path));
     let mut mounts = log
         .lock()
         .map_err(|_| PyRuntimeError::new_err("runtime mount log poisoned"))?;
-    mounts.retain(|(path, _)| path != vfs_path);
+    mounts.retain(|(path, _)| Path::new(path) != vfs_path);
     Ok(())
 }
 
@@ -5422,7 +5427,20 @@ impl PyBash {
     /// Mount a filesystem at `vfs_path` without rebuilding the interpreter.
     ///
     /// Recorded, so `reset()` replays it — see `runtime_mounts`.
-    fn mount(&self, py: Python<'_>, vfs_path: String, fs: PyRef<'_, PyFileSystem>) -> PyResult<()> {
+    ///
+    /// With `read_only=True` the filesystem is wrapped in `ReadOnlyFs`: reads
+    /// keep working while mutations (and `chmod`) fail at the host layer, so
+    /// sandboxed code cannot rewrite the mounted tree. This is host-enforced
+    /// protection — POSIX mode bits remain metadata-only and are not enforced.
+    /// The default (`read_only=False`) mounts writable.
+    #[pyo3(signature = (vfs_path, fs, *, read_only=false))]
+    fn mount(
+        &self,
+        py: Python<'_>,
+        vfs_path: String,
+        fs: PyRef<'_, PyFileSystem>,
+        read_only: bool,
+    ) -> PyResult<()> {
         self.reject_external_handler_reentry()?;
         let inner = self.inner.clone();
         let source = fs.inner.clone();
@@ -5430,6 +5448,13 @@ impl PyBash {
         py.detach(|| {
             self.rt.block_on(async move {
                 let mounted_fs = source.resolve().await?;
+                // Host-enforced read-only projection: the recorded handle is the
+                // wrapped one, so `reset()` replays the protection.
+                let mounted_fs: Arc<dyn FileSystem> = if read_only {
+                    Arc::new(ReadOnlyFs::new(mounted_fs))
+                } else {
+                    mounted_fs
+                };
                 let bash = inner.lock().await;
                 bash.mount(Path::new(&vfs_path), Arc::clone(&mounted_fs))
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
@@ -6278,13 +6303,33 @@ impl BashTool {
     /// Mount a filesystem at `vfs_path` without rebuilding the interpreter.
     ///
     /// Recorded, so `reset()` replays it — see `runtime_mounts`.
-    fn mount(&self, py: Python<'_>, vfs_path: String, fs: PyRef<'_, PyFileSystem>) -> PyResult<()> {
+    ///
+    /// With `read_only=True` the filesystem is wrapped in `ReadOnlyFs`: reads
+    /// keep working while mutations (and `chmod`) fail at the host layer, so
+    /// sandboxed code cannot rewrite the mounted tree. This is host-enforced
+    /// protection — POSIX mode bits remain metadata-only and are not enforced.
+    /// The default (`read_only=False`) mounts writable.
+    #[pyo3(signature = (vfs_path, fs, *, read_only=false))]
+    fn mount(
+        &self,
+        py: Python<'_>,
+        vfs_path: String,
+        fs: PyRef<'_, PyFileSystem>,
+        read_only: bool,
+    ) -> PyResult<()> {
         let inner = self.inner.clone();
         let source = fs.inner.clone();
         let runtime_mounts = self.runtime_mounts.clone();
         py.detach(|| {
             self.rt.block_on(async move {
                 let mounted_fs = source.resolve().await?;
+                // Host-enforced read-only projection: the recorded handle is the
+                // wrapped one, so `reset()` replays the protection.
+                let mounted_fs: Arc<dyn FileSystem> = if read_only {
+                    Arc::new(ReadOnlyFs::new(mounted_fs))
+                } else {
+                    mounted_fs
+                };
                 let bash = inner.lock().await;
                 bash.mount(Path::new(&vfs_path), Arc::clone(&mounted_fs))
                     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;

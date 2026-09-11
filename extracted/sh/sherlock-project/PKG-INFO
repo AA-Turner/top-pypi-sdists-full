@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sherlock-project
-Version: 0.16.0
+Version: 0.16.2
 Summary: Hunt down social media accounts by username across social networks
 License: MIT
+License-File: LICENSE
 Keywords: osint,reconnaissance,information gathering
 Author: Siddharth Dushantha
 Author-email: siddharth.dushantha@gmail.com
@@ -21,8 +22,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
-Provides-Extra: tor
 Requires-Dist: PySocks (>=1.7.0,<2.0.0)
 Requires-Dist: certifi (>=2019.6.16)
 Requires-Dist: colorama (>=0.4.1,<0.5.0)
@@ -31,7 +32,7 @@ Requires-Dist: pandas (>=2.2.1,<3.0.0)
 Requires-Dist: requests (>=2.22.0,<3.0.0)
 Requires-Dist: requests-futures (>=1.0.0,<2.0.0)
 Requires-Dist: stem (>=1.8.0,<2.0.0)
-Requires-Dist: torrequest (>=0.1.0,<0.2.0) ; extra == "tor"
+Requires-Dist: tomli (>=2.2.1,<3.0.0)
 Project-URL: Bug Tracker, https://github.com/sherlock-project/sherlock/issues
 Project-URL: Homepage, https://sherlockproject.xyz/
 Project-URL: Repository, https://github.com/sherlock-project/sherlock

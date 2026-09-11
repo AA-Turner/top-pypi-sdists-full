@@ -77,6 +77,7 @@ pub mod query;
 pub mod queue_directive;
 mod reference_path;
 pub mod referenced_by;
+pub mod runner_capacity;
 pub mod runner_limit_override;
 pub mod sections;
 mod serde_option;
@@ -187,12 +188,13 @@ pub use agent_launch::{
     admission_unit_results, agent_unit_dispatch_prompt,
     agent_unit_dispatch_prompt_with_flags,
     allocate_and_claim_workspace_from_content, allocate_launch_timestamp_batch,
-    build_condition_context, classify_condition_status,
-    cleanup_proc_private_inputs, condition_command_argv,
-    condition_context_digest, decide_workspace_occupant_conflict,
-    dispatch_fingerprint, evaluate_launch_condition,
-    list_workspace_claims_from_content, next_admission_actions,
-    parse_proc_duration_seconds, plan_claim_workspace_from_content,
+    bind_batch_predecessor_waits, build_condition_context,
+    classify_condition_status, cleanup_proc_private_inputs,
+    condition_command_argv, condition_context_digest,
+    decide_workspace_occupant_conflict, dispatch_fingerprint,
+    evaluate_launch_condition, list_workspace_claims_from_content,
+    next_admission_actions, parse_proc_duration_seconds,
+    plan_claim_workspace_from_content,
     plan_transfer_workspace_claim_from_content, plan_typed_launch_units,
     plan_typed_launch_units_with_flags, prepare_agent_launch,
     prepare_proc_script, proc_script_argv, reconcile_admission_journal,
@@ -200,8 +202,9 @@ pub use agent_launch::{
     sanitized_condition_env, sanitized_proc_env, summarize_admission,
     validate_proc_workspace_intent, validate_standalone_proc_shell_name,
     wait_target_key, AgentLaunchPreparationError, AgentLaunchPreparedWire,
-    AgentLaunchRequestWire, AgentUnitWire, ConditionCheckWire,
-    ConditionContextWire, ConditionEvalRequestWire, ConditionEvalResultWire,
+    AgentLaunchRequestWire, AgentUnitWire, BatchPredecessorContextWire,
+    BatchPredecessorWaitBindingWire, ConditionCheckWire, ConditionContextWire,
+    ConditionEvalRequestWire, ConditionEvalResultWire,
     ConditionLogicalUnitWire, ConditionWaitedOutcomeWire,
     LaunchAdmissionActionWire, LaunchAdmissionJournalEntryWire,
     LaunchAdmissionSummaryWire, LaunchAdmissionUnitStateWire,
@@ -214,13 +217,14 @@ pub use agent_launch::{
     TimestampBatchAllocationError, WaitTargetWire, WaitedOutcomeWire,
     WorkspaceClaimOutcomeWire, WorkspaceClaimPlanWire,
     WorkspaceClaimRequestWire, WorkspaceClaimWire,
-    AGENT_LAUNCH_WIRE_SCHEMA_VERSION, CONDITION_CONTEXT_SCHEMA_VERSION,
-    CONDITION_DEFAULT_TIMEOUT_SECONDS, CONDITION_EVAL_WIRE_SCHEMA_VERSION,
-    CONDITION_MAX_TIMEOUT_SECONDS, CONDITION_OUTPUT_CAP_BYTES,
-    LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION, LAUNCH_PLAN_WIRE_SCHEMA_VERSION,
-    PROC_DISPATCH_WIRE_SCHEMA_VERSION, PROC_PHASE_ACQUIRING_WORKSPACE,
-    PROC_PHASE_CHECKING, PROC_PHASE_PREPARING_SCRIPT, PROC_PHASE_RUNNING,
-    PROC_PHASE_SETTLING, PROC_PHASE_WAITING, XPROMPT_PROC_ORIGIN,
+    AGENT_LAUNCH_WIRE_SCHEMA_VERSION, BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION,
+    CONDITION_CONTEXT_SCHEMA_VERSION, CONDITION_DEFAULT_TIMEOUT_SECONDS,
+    CONDITION_EVAL_WIRE_SCHEMA_VERSION, CONDITION_MAX_TIMEOUT_SECONDS,
+    CONDITION_OUTPUT_CAP_BYTES, LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION,
+    LAUNCH_PLAN_WIRE_SCHEMA_VERSION, PROC_DISPATCH_WIRE_SCHEMA_VERSION,
+    PROC_PHASE_ACQUIRING_WORKSPACE, PROC_PHASE_CHECKING,
+    PROC_PHASE_PREPARING_SCRIPT, PROC_PHASE_RUNNING, PROC_PHASE_SETTLING,
+    PROC_PHASE_WAITING, XPROMPT_PROC_ORIGIN,
 };
 pub use agent_name_template::{
     agent_name_template_namespace_template, agent_name_template_tokens_after,
@@ -884,13 +888,15 @@ pub use host_bridge::{
     MobileChangeSpecTagListResponseWire, MobileHelperProjectContextWire,
     MobileHelperProjectScopeWire, MobileHelperResultWire,
     MobileHelperSkippedWire, MobileHelperStatusWire, MobileInputChoiceWire,
-    MobileUpdateJobStatusWire, MobileUpdateJobWire,
-    MobileUpdateStartRequestWire, MobileUpdateStartResponseWire,
-    MobileUpdateStatusRequestWire, MobileUpdateStatusResponseWire,
-    MobileXpromptCatalogAttachmentWire, MobileXpromptCatalogEntryWire,
-    MobileXpromptCatalogRequestWire, MobileXpromptCatalogResponseWire,
-    MobileXpromptCatalogStatsWire, MobileXpromptInputWire,
-    StaticHelperHostBridge, UnavailableHelperHostBridge,
+    MobilePatchTagEntryWire, MobilePatchTagListRequestWire,
+    MobilePatchTagListResponseWire, MobileUpdateJobStatusWire,
+    MobileUpdateJobWire, MobileUpdateStartRequestWire,
+    MobileUpdateStartResponseWire, MobileUpdateStatusRequestWire,
+    MobileUpdateStatusResponseWire, MobileXpromptCatalogAttachmentWire,
+    MobileXpromptCatalogEntryWire, MobileXpromptCatalogRequestWire,
+    MobileXpromptCatalogResponseWire, MobileXpromptCatalogStatsWire,
+    MobileXpromptInputWire, StaticHelperHostBridge,
+    UnavailableHelperHostBridge,
 };
 pub use machine_hood::{
     machine_hood_of, qualify_machine_agent_name, strip_machine_agent_name,
@@ -923,9 +929,14 @@ pub use markdown_link_refs::{
 };
 pub use migration::{
     acquire_bounded_lock as acquire_migration_bounded_lock, classify,
-    classify_many, fingerprint as migration_fingerprint, plan_next_step,
-    reconcile_plan as reconcile_migration_procs,
-    tree_digest as migration_tree_digest, MigrationBackupRecord,
+    classify_many, convert_gate_bundles_apply, convert_gate_bundles_plan,
+    convert_gate_bundles_verify, convert_patch_records_apply,
+    convert_patch_records_plan, convert_patch_records_verify,
+    fingerprint as migration_fingerprint, gate_bundle_request_sha256,
+    plan_next_step, reconcile_plan as reconcile_migration_procs,
+    tree_digest as migration_tree_digest, GateBundleConvertApplyWire,
+    GateBundleConvertFactsWire, GateBundleConvertPlanWire,
+    GateBundleConvertVerifyWire, MigrationBackupRecord,
     MigrationCanonicalProcRefWire, MigrationConflictRecord,
     MigrationDigestError, MigrationDigestMismatchWire,
     MigrationFingerprintWire, MigrationHeldLock, MigrationJournalRecord,
@@ -936,8 +947,10 @@ pub use migration::{
     MigrationResidueDecisionWire, MigrationResidueEntryWire,
     MigrationResidueFactsWire, MigrationResumePlanWire,
     MigrationTreeDigestEntryWire, MigrationTreeDigestWire,
-    MIGRATION_FINGERPRINT_ALGORITHM, MIGRATION_TREE_DIGEST_ALGORITHM,
-    MIGRATION_WIRE_SCHEMA_VERSION,
+    PatchRecordsConversionCountsWire, PatchRecordsConvertApplyWire,
+    PatchRecordsConvertFactsWire, PatchRecordsConvertPlanWire,
+    PatchRecordsConvertVerifyWire, MIGRATION_FINGERPRINT_ALGORITHM,
+    MIGRATION_TREE_DIGEST_ALGORITHM, MIGRATION_WIRE_SCHEMA_VERSION,
 };
 pub use model_completion::{
     filter_model_completion_candidates, filter_model_completion_entries,
@@ -1142,6 +1155,13 @@ pub use referenced_by::{
     upsert_referenced_by_block, ReferencedByColumnWire,
     ReferencedByDocumentWire, ReferencedByRowWire, ReferencedByTableWire,
     MAX_RENDERED_REFERENCED_BY_ROWS, REFERENCED_BY_BLOCK_WIRE_SCHEMA_VERSION,
+};
+pub use runner_capacity::{
+    runner_capacity_policy_schema_version, runner_capacity_snapshot,
+    RunnerCapacityBlockerWire, RunnerCapacityClaimWire,
+    RunnerCapacityDiagnosticWire, RunnerCapacityRecordWire,
+    RunnerCapacityRequestWire, RunnerCapacitySnapshotWire,
+    RunnerCapacityWaiterWire, RUNNER_CAPACITY_POLICY_SCHEMA_VERSION,
 };
 pub use runner_limit_override::{
     clear_runner_limit_override, get_runner_limit_override,

@@ -169,7 +169,7 @@ class AssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------
@@ -974,7 +974,7 @@ class AsyncAssetsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace. This endpoint uses internal GraphQL mutations to create assets with proper permissions and workspace integration. Computer assets return 202 after the initializing asset is committed; runtime provisioning continues asynchronously. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------

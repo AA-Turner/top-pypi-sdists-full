@@ -502,13 +502,12 @@ class Datafile:
                     f"For Kafka sinks, provide 'export_kafka_topic'. "
                     f"For S3/GCS sinks, provide 'export_bucket_uri' and 'export_file_template'."
                 )
-            else:
-                # There are some export parameters, but they don't match known patterns
-                raise DatafileValidationError(
-                    f"Sink node {repr(node['name'])} has unrecognized export parameters: {export_params}. "
-                    f"For Kafka sinks, use 'export_kafka_topic'. "
-                    f"For S3/GCS sinks, use 'export_bucket_uri' and 'export_file_template'."
-                )
+            # There are some export parameters, but they don't match known patterns
+            raise DatafileValidationError(
+                f"Sink node {repr(node['name'])} has unrecognized export parameters: {export_params}. "
+                f"For Kafka sinks, use 'export_kafka_topic'. "
+                f"For S3/GCS sinks, use 'export_bucket_uri' and 'export_file_template'."
+            )
 
         # Validate schedule format (common for both Kafka and S3/GCS)
         export_schedule = node.get("export_schedule")
@@ -1073,8 +1072,7 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
     # Find the first SyntaxExpr in lookup that matches the schema at the current offset
     def lookahead_matches(lookup: Iterable) -> Optional[SyntaxExpr]:
         s = schema[i:]
-        match = next((x for x in lookup if x.regex.match(s)), None)
-        return match
+        return next((x for x in lookup if x.regex.match(s)), None)
 
     def advance_single_char() -> None:
         nonlocal i, line, pos
@@ -1122,10 +1120,9 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
                     )
                 advance_single_char()
             return schema[begin:i]
-        else:
-            # backticked name
-            advance_single_char()
-            return get_backticked()
+        # backticked name
+        advance_single_char()
+        return get_backticked()
 
     def parse_expr(lookup: Iterable[SyntaxExpr], attribute: str) -> str:
         """Parse an expression for an attribute.
@@ -1296,10 +1293,9 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
                     or "incompatible data types between aggregate function" in str(e).lower()
                 ):
                     raise SchemaSyntaxError(message=str(e), lineno=line, pos=type_start_pos)
-                else:
-                    # TODO(eclbg): The resulting error message is a bit confusing, as the clickhouse error contains some
-                    # references to positions that don't match the position in the schema.
-                    raise SchemaSyntaxError(f"Error parsing type: {e}", lineno=line, pos=type_start_pos)
+                # TODO(eclbg): The resulting error message is a bit confusing, as the clickhouse error contains some
+                # references to positions that don't match the position in the schema.
+                raise SchemaSyntaxError(f"Error parsing type: {e}", lineno=line, pos=type_start_pos)
             except ModuleNotFoundError:
                 pass
             _type = detected_type
@@ -1690,8 +1686,9 @@ def parse(
 
             if severity == "error":
                 return raise_deprecation_error
-            elif severity == "warning":
+            if severity == "warning":
                 return add_deprecation_warning
+            return None
 
         return inner
 
@@ -2238,12 +2235,11 @@ def parse(
     except IndexError as e:
         if "node" in line.lower():
             raise click.ClickException(FeedbackManager.error_missing_node_name())
-        elif "sql" in line.lower():
+        if "sql" in line.lower():
             raise click.ClickException(FeedbackManager.error_missing_sql_command())
-        elif "datasource" in line.lower():
+        if "datasource" in line.lower():
             raise click.ClickException(FeedbackManager.error_missing_datasource_name())
-        else:
-            raise ValidationException(f"Validation error, found {line} in line {str(lineno)}: {str(e)}", lineno=lineno)
+        raise ValidationException(f"Validation error, found {line} in line {str(lineno)}: {str(e)}", lineno=lineno)
     except IncludeFileNotFoundException as e:
         raise IncludeFileNotFoundException(str(e), lineno=lineno)
     except Exception as e:
@@ -2577,12 +2573,11 @@ def get_name_version(ds: str) -> Dict[str, Any]:
     tk = ds.rsplit("__", 2)
     if len(tk) == 1:
         return {"name": tk[0], "version": None}
-    elif len(tk) == 2:
+    if len(tk) == 2:
         if len(tk[1]):
             if tk[1][0] == "v" and _PATTERN_VERSION_NUMBER.match(tk[1][1:]):
                 return {"name": tk[0], "version": int(tk[1][1:])}
-            else:
-                return {"name": tk[0] + "__" + tk[1], "version": None}
+            return {"name": tk[0] + "__" + tk[1], "version": None}
     elif len(tk) == 3 and len(tk[2]):
         if tk[2] == "checker":
             return {"name": tk[0] + "__" + tk[1] + "__" + tk[2], "version": None}

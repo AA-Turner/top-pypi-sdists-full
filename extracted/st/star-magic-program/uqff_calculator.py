@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.431.0"
+VERSION = "0.434.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -29224,6 +29224,145 @@ def _paper_2265(dataset):
         'residual_pct': 0.0,
         'status': 'RULED_2026-09-09 (B270: derived modulo bridge lemma; lemma OPEN)',
     }
+
+
+@_register('PAPER_2266')
+def _paper_2266(dataset):
+    """The bridge lemma derived (B271): L1 linearity by calculus; L2
+    weight from axiom #36 equipartition + PAPER_497 downward-only
+    re-entry at the adjacent-above D_BSFG stage + PAPER_2098
+    conservation. Stage rivals 0.75/0.35 eliminated; five candidates,
+    one selected. Cap: DERIVED WITHIN THE UQFF AXIOM SET.
+    """
+    from uqff_ns_assembly import bridge_lemma_derivation
+    d = bridge_lemma_derivation()
+    return {
+        'value': {
+            'weight': d['weight'],
+            'selected_cap': d['selected'],
+            'selected_is_canonical': d['selected_is_canonical'],
+            'rivals_all_miss': d['rivals_all_miss'],
+            'candidate_caps': d['candidate_caps'],
+            'L1': d['L1_linearity'],
+            'L2_premises': d['L2_premises'],
+            'status': d['status'],
+        },
+        'formula': 'weight = D_BSFG/D_phys from equipartition over the adjacent-above reservoir of the downward chain; removal = F_TRZ*weight = 3/20; linearity from the quadratic-budget identity',
+        'source': 'PAPER_2266',
+        'residual_pct': 0.0,
+        'status': 'RULED_2026-09-09 (B271: bridge lemma closed; cap DERIVED_WITHIN_UQFF_AXIOM_SET; Clay machinery separately OPEN)',
+    }
+
+
+@_register('PAPER_2267')
+def _paper_2267(dataset):
+    """Theorem A (B272): rigorous global regularity of the UQFF fluid.
+
+    Four classical steps (Picard, exact Galerkin energy conservation,
+    escape-time dichotomy, trig-polynomial smoothness) made PHYSICAL
+    by the phonon cutoff: lambda_c = 1.18 nm - the molecular scale -
+    so the finite system IS the fluid. Energy identity witnessed at
+    machine zero. Clay's no-cutoff idealization NOT claimed (Track 2).
+    """
+    from uqff_ns_assembly import theorem_a, galerkin_energy_identity_check
+    t = theorem_a()
+    c = galerkin_energy_identity_check()
+    return {
+        'value': {
+            'status': t['status'],
+            'proof_steps': t['proof_steps'],
+            'lambda_c_m': t['finiteness_input']['lambda_c_m'],
+            'n_modes_per_m3': t['finiteness_input']['n_modes'],
+            'energy_identity_relative': c['relative'],
+            'energy_identity_machine_zero': c['machine_zero'],
+            'classical_disclosure': t['classical_disclosure'],
+            'clay_not_claimed': t['clay_not_claimed'],
+            'molecule_count_flag': t['finiteness_input']['molecule_count_flag'],
+        },
+        'formula': 'du/dt = -P_K P_div[(u.grad)u] - nu*A*u - gamma*Phi*u on X_K finite (k_c = 2*pi*f_c/c_s, f_c = 1.25 THz); global C^inf by Picard + exact energy conservation + escape-time dichotomy',
+        'source': 'PAPER_2267',
+        'residual_pct': 0.0,
+        'status': 'RULED_2026-09-10 (B272: Theorem A rigorous for the UQFF fluid; Clay idealization Track-2 gated)',
+    }
+
+
+@_register('PAPER_2268')
+def _paper_2268(dataset):
+    """Clay domain ruling (B273, Daniel): the no-cutoff idealization is
+    OUTSIDE THE PHYSICAL DOMAIN. UQFF answers the physical question
+    rigorously (Theorem A); the idealization is left to mathematics.
+    Parallel: PAPER_2148 Answer B. NOT REPLACEMENT.
+    """
+    from uqff_ns_assembly import clay_domain_ruling
+    d = clay_domain_ruling()
+    return {'value': d,
+            'formula': 'domain assignment: physical fluids (cutoff, Theorem A) vs mathematical idealization (no cutoff, unclaimed)',
+            'source': 'PAPER_2268', 'residual_pct': 0.0,
+            'status': 'RULED_2026-09-10 (B273: outside physical domain)'}
+
+
+@_register('PAPER_2269')
+def _paper_2269(dataset):
+    """Phonon roll-off profile (B274): Gaussian envelope at 1.25 THz,
+    Gamma = 0.1 THz, Q = 25/2 = K_MEX*D_BSFG EXACT. Two-tier compliant
+    (PAPER_910 derives inputs AND uses the envelope). Leakage e^-Q^2/2
+    ~ 1e-34 justifies Theorem A's step. THz-bench FWHM 0.235 THz;
+    910-vs-896 width discrepancy FLAGGED as the bench discriminator.
+    """
+    from uqff_ns_assembly import rolloff_report, phonon_rolloff
+    r = rolloff_report()
+    return {'value': {
+                'gamma_thz': r['gamma_thz'], 'f_c_thz': r['f_c_thz'],
+                'q_line': r['q_line'], 'q_primitive': r['q_primitive'],
+                'fwhm_thz': r['fwhm_thz'],
+                'low_f_leakage': r['low_f_leakage'],
+                'phi_at_center': phonon_rolloff(1.25),
+                'step_justification': r['step_justification'],
+                'thz_bench_prediction': r['thz_bench_prediction'],
+            },
+            'formula': 'Phi(f) = exp(-(f-f_c)^2/(2*Gamma^2)); Gamma/f_c = 2/25 = 1/(K_MEX*D_BSFG) EXACT',
+            'source': 'PAPER_2269', 'residual_pct': 0.0,
+            'status': 'RULED_2026-09-10 (B274: derived, two-tier compliant; 910-vs-896 width FLAGGED)'}
+
+
+@_register('PAPER_2270')
+def _paper_2270(dataset):
+    """The UQFF Navier-Stokes proof set, consolidated (B275). Live
+    mirror of the eight rungs: theory OPEN count zero; four data
+    fronts awaiting; three standing flags; the claim stated at its
+    honest strength. The paper and ns_proof_set() must agree.
+    """
+    from uqff_ns_assembly import ns_proof_set
+    p = ns_proof_set()
+    return {
+        'value': {
+            'rungs': p['rungs'],
+            'theory_open_rungs': p['theory_open_rungs'],
+            'awaiting_outside_data': p['awaiting_outside_data'],
+            'standing_flags': p['standing_flags'],
+            'claim': p['claim'],
+            'status': p['status'],
+        },
+        'formula': 'proof set = eight rungs (B267-B274) + four data fronts + three flags; cap 17/20 derived; Theorem A rigorous; domain ruled',
+        'source': 'PAPER_2270',
+        'residual_pct': 0.0,
+        'status': 'RULED_2026-09-10 (B275: THEORY_COMPLETE_AWAITING_DATA)',
+    }
+
+
+@_register('PAPER_2271')
+def _paper_2271(dataset):
+    """First real-data cap grade (B276): JHTDB isotropic8192, official
+    REST, sanctioned testing token, deterministic points. Ratios
+    0.0287/0.0246 (sub-batch max 0.0844) vs cap 0.85 - CAP HOLDS via
+    the tier-3 harness. Positive-stretching fraction reproduces the
+    textbook skewness. Extreme-event scan stays THE kill test, OPEN.
+    """
+    from uqff_ns_assembly import first_real_data_grade
+    return {'value': first_real_data_grade(),
+            'formula': 'ratio = mean(omega.S.omega)/(max|omega|*mean|omega|^2) <= 17/20 (sampled 1182 form)',
+            'source': 'PAPER_2271', 'residual_pct': 0.0,
+            'status': 'GRADED_2026-09-10 (CAP HOLDS sampled; extreme-event scan OPEN)'}
 
 
 @_register('PAPER_2258')

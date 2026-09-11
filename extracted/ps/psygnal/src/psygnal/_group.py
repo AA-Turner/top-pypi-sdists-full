@@ -314,9 +314,16 @@ class SignalRelay(SignalInstance):
         ValueError
             If `slot` is not connected and `missing_ok` is False.
         """
+        # A slot may be connected either to the relay itself (via `group.connect`)
+        # or directly to the child signals (via `group.connect_direct`).  It is
+        # therefore "connected" as long as it is found in any of those places, so
+        # we must not enforce `missing_ok` on each child individually.
+        if slot is not None and not missing_ok and slot not in self:
+            if not any(slot in sig for sig in self._signals.values()):
+                raise ValueError(f"slot is not connected: {slot}")
         for sig in self._signals.values():
-            sig.disconnect(slot, missing_ok)
-        super().disconnect(slot, missing_ok)
+            sig.disconnect(slot, missing_ok=True)
+        super().disconnect(slot, missing_ok=True)
 
     def _slot_index(self, slot: Callable) -> int:
         """Get index of `slot` in `self._slots`. Return -1 if not connected.
@@ -429,6 +436,7 @@ class SignalGroup:
             for name, sig in cls._psygnal_signals.items()
         }
         self._psygnal_relay = SignalRelay(self._psygnal_instances, instance)
+        self._psygnal_child_events_connected = False
 
     def __init_subclass__(
         cls,

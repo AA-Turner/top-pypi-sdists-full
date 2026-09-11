@@ -272,8 +272,7 @@ S3_ARN {{{{ tb_secret("{role_arn_secret_name}"{default_secret}) }}}}
 S3_REGION {region}
 # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/s3#s3-connection-settings
 """
-    file_path = generate_connection_file(name, content, folder, skip_feedback=True)
-    return file_path
+    return generate_connection_file(name, content, folder, skip_feedback=True)
 
 
 def generate_dynamodb_connection_file_with_secret(
@@ -284,16 +283,14 @@ DYNAMODB_ARN {{{{ tb_secret("{role_arn_secret_name}") }}}}
 DYNAMODB_REGION {region}
 # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/dynamodb
 """
-    file_path = generate_connection_file(name, content, folder, skip_feedback=True)
-    return file_path
+    return generate_connection_file(name, content, folder, skip_feedback=True)
 
 
 def generate_gcs_connection_file_with_secrets(name: str, service: str, svc_account_creds: str, folder: str) -> Path:
     content = f"""TYPE {service}
 GCS_SERVICE_ACCOUNT_CREDENTIALS_JSON {{{{ tb_secret("{svc_account_creds}") }}}}
 """
-    file_path = generate_connection_file(name, content, folder, skip_feedback=True)
-    return file_path
+    return generate_connection_file(name, content, folder, skip_feedback=True)
 
 
 def create_env_file(folder: str):

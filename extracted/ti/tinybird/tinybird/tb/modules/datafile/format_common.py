@@ -81,17 +81,16 @@ def format_engine(
                     file_parts.append(DATAFILE_NEW_LINE)
             file_parts.append(DATAFILE_NEW_LINE)
         return file_parts
-    else:
-        if node.get("engine", None):
-            empty = '""'
-            file_parts.append(f"ENGINE {node['engine']['type']}" if node.get("engine", {}).get("type") else empty)
+    if node.get("engine", None):
+        empty = '""'
+        file_parts.append(f"ENGINE {node['engine']['type']}" if node.get("engine", {}).get("type") else empty)
+        file_parts.append(DATAFILE_NEW_LINE)
+        for arg in sorted(node["engine"].get("args", [])):
+            elem = ", ".join([x.strip() for x in arg[1].split(",")])
+            file_parts.append(f"ENGINE_{arg[0].upper()} {elem or empty}")
             file_parts.append(DATAFILE_NEW_LINE)
-            for arg in sorted(node["engine"].get("args", [])):
-                elem = ", ".join([x.strip() for x in arg[1].split(",")])
-                file_parts.append(f"ENGINE_{arg[0].upper()} {elem or empty}")
-                file_parts.append(DATAFILE_NEW_LINE)
-            file_parts.append(DATAFILE_NEW_LINE)
-        return file_parts
+        file_parts.append(DATAFILE_NEW_LINE)
+    return file_parts
 
 
 def format_sql(

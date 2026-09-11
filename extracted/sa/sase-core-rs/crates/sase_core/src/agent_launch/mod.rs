@@ -57,6 +57,7 @@ use std::sync::OnceLock;
 
 pub const AGENT_LAUNCH_WIRE_SCHEMA_VERSION: u32 = 1;
 pub const LAUNCH_PLAN_WIRE_SCHEMA_VERSION: u32 = 1;
+pub const BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION: u32 = 1;
 const EMPTY_ALT_SENTINEL: char = '\u{E000}';
 const EMPTY_ALT_SENTINEL_STR: &str = "\u{E000}";
 
@@ -223,6 +224,27 @@ pub struct LaunchFanoutPlanWire {
     pub fanout_sleep_seconds: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchPredecessorContextWire {
+    pub schema_version: u32,
+    pub project_name: String,
+    pub timestamp: String,
+    pub artifact_dir: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchPredecessorWaitBindingWire {
+    pub schema_version: u32,
+    pub prompt: String,
+    #[serde(default)]
+    pub wait_names: Vec<String>,
+    #[serde(default)]
+    pub wait_for_artifacts: Vec<BatchPredecessorContextWire>,
+    pub bound_wait_count: u32,
+}
+
 /// Pure, schema-versioned launch graph. It is produced before approval and
 /// contains only logical launch units, typed waits, code digests/previews, and
 /// resource intent. Runtime identities remain layered on top by later phases.
@@ -307,6 +329,10 @@ pub struct AgentUnitWire {
     pub wait_runners: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wait_priority: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_weight: Option<f64>,
+    #[serde(default, skip_serializing_if = "skip_if_false")]
+    pub queue_weight_explicit: bool,
 }
 
 fn skip_if_false(value: &bool) -> bool {
@@ -583,6 +609,7 @@ pub enum AgentLaunchFanoutPlanError {
         name: String,
         close: char,
     },
+    InvalidBatchPredecessorContext(String),
     TypedLaunchPlan {
         diagnostics: Vec<LaunchPlanDiagnosticWire>,
     },
@@ -600,6 +627,9 @@ impl fmt::Display for AgentLaunchFanoutPlanError {
                     f,
                     "unclosed {name} directive: missing closing '{close}'"
                 )
+            }
+            Self::InvalidBatchPredecessorContext(message) => {
+                write!(f, "invalid batch predecessor context: {message}")
             }
             Self::TypedLaunchPlan { diagnostics } => {
                 if let Some(first) = diagnostics.first() {
@@ -805,6 +835,111 @@ pub fn plan_agent_launch_fanout(
             other.to_string(),
         )),
     }
+}
+
+pub fn bind_batch_predecessor_waits(
+    prompt: &str,
+    predecessor: &BatchPredecessorContextWire,
+) -> Result<BatchPredecessorWaitBindingWire, AgentLaunchFanoutPlanError> {
+    validate_batch_predecessor_context(predecessor)?;
+
+    let ignored_ranges = launch_literal_zone_ranges(prompt);
+    let mut regions_to_remove = Vec::new();
+    if prompt.contains('%') {
+        for directive in directive_occurrences(prompt)? {
+            if position_in_ranges(directive.start, &ignored_ranges) {
+                continue;
+            }
+            if is_no_argument_wait_directive(&directive) {
+                regions_to_remove.push((directive.start, directive.end));
+            }
+        }
+    }
+
+    if regions_to_remove.is_empty() {
+        return Ok(BatchPredecessorWaitBindingWire {
+            schema_version: BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION,
+            prompt: prompt.to_string(),
+            wait_names: Vec::new(),
+            wait_for_artifacts: Vec::new(),
+            bound_wait_count: 0,
+        });
+    }
+
+    let mut wait_names = Vec::new();
+    if let Some(name) = predecessor.name.as_ref() {
+        wait_names.push(name.clone());
+    }
+
+    Ok(BatchPredecessorWaitBindingWire {
+        schema_version: BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION,
+        prompt: strip_prompt_regions(prompt, &regions_to_remove),
+        wait_names,
+        wait_for_artifacts: vec![predecessor.clone()],
+        bound_wait_count: regions_to_remove.len() as u32,
+    })
+}
+
+fn validate_batch_predecessor_context(
+    predecessor: &BatchPredecessorContextWire,
+) -> Result<(), AgentLaunchFanoutPlanError> {
+    if predecessor.schema_version != BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION {
+        return Err(
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                format!(
+                    "schema_version must be {}, got {}",
+                    BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION,
+                    predecessor.schema_version
+                ),
+            ),
+        );
+    }
+    if predecessor.project_name.trim().is_empty() {
+        return Err(
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                "project_name is required".to_string(),
+            ),
+        );
+    }
+    parse_launch_timestamp("timestamp", &predecessor.timestamp).map_err(
+        |error| {
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                error.to_string(),
+            )
+        },
+    )?;
+    if predecessor.artifact_dir.trim().is_empty() {
+        return Err(
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                "artifact_dir is required".to_string(),
+            ),
+        );
+    }
+    if !Path::new(&predecessor.artifact_dir).is_absolute() {
+        return Err(
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                "artifact_dir must be absolute".to_string(),
+            ),
+        );
+    }
+    if predecessor
+        .name
+        .as_ref()
+        .is_some_and(|name| name.trim().is_empty())
+    {
+        return Err(
+            AgentLaunchFanoutPlanError::InvalidBatchPredecessorContext(
+                "name must be non-empty when supplied".to_string(),
+            ),
+        );
+    }
+    Ok(())
+}
+
+fn is_no_argument_wait_directive(directive: &DirectiveOccurrence) -> bool {
+    directive.canonical_name == "wait"
+        && !directive.has_plus_suffix
+        && directive.args.iter().all(String::is_empty)
 }
 
 pub fn plan_typed_launch_units(
@@ -1300,6 +1435,8 @@ fn classify_typed_launch_unit(
             finalizers,
             wait_runners: wait_queue.runners,
             wait_priority: wait_queue.priority,
+            queue_weight: wait_queue.weight,
+            queue_weight_explicit: wait_queue.weight.is_some(),
         })
     };
 
@@ -1519,6 +1656,18 @@ fn parse_wait_directive(
             Some("p") => diagnostics.push(typed_unit_diagnostic(
                 "wait-queue-p-unsupported",
                 "%wait(p=...) is unsupported. Use %queue(priority=...) or %q(p=...).",
+                logical_id,
+                Some(span),
+            )),
+            Some("weight") => diagnostics.push(typed_unit_diagnostic(
+                "wait-queue-weight-moved",
+                "%wait(weight=...) has moved to %queue. Use %queue(weight=W) or %q(w=W), and keep dependencies on %wait.",
+                logical_id,
+                Some(span),
+            )),
+            Some("w") => diagnostics.push(typed_unit_diagnostic(
+                "wait-queue-w-unsupported",
+                "%wait(w=...) is unsupported. Use %queue(weight=W) or %q(w=W).",
                 logical_id,
                 Some(span),
             )),
@@ -5570,6 +5719,93 @@ Keep this comma, and the rest of the prose in the summary.";
         }
     }
 
+    fn predecessor_context() -> BatchPredecessorContextWire {
+        BatchPredecessorContextWire {
+            schema_version: BATCH_PREDECESSOR_CONTEXT_SCHEMA_VERSION,
+            project_name: "sase".to_string(),
+            timestamp: "260501_120000".to_string(),
+            artifact_dir:
+                "/tmp/sase/artifacts/ace-run/202605/01/20260501120000"
+                    .to_string(),
+            name: Some("builder".to_string()),
+        }
+    }
+
+    #[test]
+    fn batch_predecessor_binding_consumes_zero_argument_wait_forms() {
+        for source in [
+            "%wait\nReview",
+            "%w\nReview",
+            "%wait()\nReview",
+            "%w( \t )\nReview",
+        ] {
+            let binding =
+                bind_batch_predecessor_waits(source, &predecessor_context())
+                    .unwrap();
+
+            assert_eq!(binding.prompt, "Review");
+            assert_eq!(binding.wait_names, vec!["builder"]);
+            assert_eq!(binding.wait_for_artifacts, vec![predecessor_context()]);
+            assert_eq!(binding.bound_wait_count, 1);
+        }
+    }
+
+    #[test]
+    fn batch_predecessor_binding_preserves_explicit_and_non_wait_targets() {
+        let binding = bind_batch_predecessor_waits(
+            "%wait %wait:reviewer %wait(agent=ops) %queue:1\nReview",
+            &predecessor_context(),
+        )
+        .unwrap();
+
+        assert_eq!(
+            binding.prompt,
+            " %wait:reviewer %wait(agent=ops) %queue:1\nReview"
+        );
+        assert_eq!(binding.wait_names, vec!["builder"]);
+        assert_eq!(binding.wait_for_artifacts, vec![predecessor_context()]);
+        assert_eq!(binding.bound_wait_count, 1);
+    }
+
+    #[test]
+    fn batch_predecessor_binding_ignores_literal_regions() {
+        let prompt = "```text\n%wait\n```\n`%w`\n%xprompts_enabled:false\n%wait\n%xprompts_enabled:true\nReview";
+
+        let binding =
+            bind_batch_predecessor_waits(prompt, &predecessor_context())
+                .unwrap();
+
+        assert_eq!(binding.prompt, prompt);
+        assert!(binding.wait_names.is_empty());
+        assert!(binding.wait_for_artifacts.is_empty());
+        assert_eq!(binding.bound_wait_count, 0);
+    }
+
+    #[test]
+    fn batch_predecessor_binding_without_name_keeps_identity_only_dependency() {
+        let mut context = predecessor_context();
+        context.name = None;
+
+        let binding =
+            bind_batch_predecessor_waits("%wait\nReview", &context).unwrap();
+
+        assert_eq!(binding.prompt, "Review");
+        assert!(binding.wait_names.is_empty());
+        assert_eq!(binding.wait_for_artifacts, vec![context]);
+        assert_eq!(binding.bound_wait_count, 1);
+    }
+
+    #[test]
+    fn batch_predecessor_binding_validates_context() {
+        let mut context = predecessor_context();
+        context.timestamp = "20260501120000".to_string();
+
+        let err = bind_batch_predecessor_waits("%wait\nReview", &context)
+            .unwrap_err();
+
+        assert!(err.to_string().contains("expected YYmmdd_HHMMSS"));
+    }
+
     #[test]
     fn fanout_planner_deprecated_time_directive_is_not_special() {
         let prompt = "%time:5m\ntwo";
@@ -6662,11 +6898,13 @@ Keep this comma, and the rest of the prose in the summary.";
 
     fn agent_fields(
         plan: &LaunchPlanWire,
-    ) -> (Option<u32>, Option<i32>, String) {
+    ) -> (Option<u32>, Option<i32>, Option<f64>, bool, String) {
         match &plan.units[0].payload {
             LaunchUnitPayloadWire::Agent(agent) => (
                 agent.wait_runners,
                 agent.wait_priority,
+                agent.queue_weight,
+                agent.queue_weight_explicit,
                 agent.prompt.clone(),
             ),
             other => panic!("expected agent payload, got {other:?}"),
@@ -6682,17 +6920,32 @@ Keep this comma, and the rest of the prose in the summary.";
             "%queue(runners=5)\nDo work",
         ] {
             let plan = plan_queue(prompt);
-            let (runners, priority, cleaned) = agent_fields(&plan);
+            let (runners, priority, weight, weight_explicit, cleaned) =
+                agent_fields(&plan);
             assert_eq!(runners, Some(5), "{prompt}");
             assert_eq!(priority, None, "{prompt}");
+            assert_eq!(weight, None, "{prompt}");
+            assert!(!weight_explicit, "{prompt}");
             assert_eq!(cleaned, "Do work", "{prompt}");
             assert!(!cleaned.contains("%q"), "{prompt}");
         }
-        let both = plan_queue("%w(builder, time=5m) %q(1, p=20)\nDo work");
+        let weight_only = plan_queue("%q(w=0.25)\nDo work");
+        let (runners, priority, weight, weight_explicit, cleaned) =
+            agent_fields(&weight_only);
+        assert_eq!(runners, None);
+        assert_eq!(priority, None);
+        assert_eq!(weight, Some(0.25));
+        assert!(weight_explicit);
+        assert_eq!(cleaned, "Do work");
+
+        let both =
+            plan_queue("%w(builder, time=5m) %q(1, p=20, weight=2)\nDo work");
         match &both.units[0].payload {
             LaunchUnitPayloadWire::Agent(agent) => {
                 assert_eq!(agent.wait_runners, Some(1));
                 assert_eq!(agent.wait_priority, Some(20));
+                assert_eq!(agent.queue_weight, Some(2.0));
+                assert!(agent.queue_weight_explicit);
                 assert_eq!(agent.prompt, "Do work");
             }
             other => panic!("expected agent payload, got {other:?}"),
@@ -6705,7 +6958,7 @@ Keep this comma, and the rest of the prose in the summary.";
             },
             &[],
         );
-        assert!(rebuilt.contains("%queue(runners=1, priority=20)"));
+        assert!(rebuilt.contains("%queue(runners=1, priority=20, weight=2)"));
         assert!(!rebuilt.contains("%wait(runners="));
         assert!(!rebuilt.contains("%wait(priority="));
     }
@@ -6733,7 +6986,7 @@ Keep this comma, and the rest of the prose in the summary.";
     #[test]
     fn typed_launch_composes_disjoint_queue_and_fanout() {
         let plan = plan_typed_launch_units_with_flags(
-            "%q:0 %queue(priority=10)\nFirst\n---\n%q(p=1)\nSecond",
+            "%q:0 %queue(priority=10)\nFirst\n---\n%q(p=1, w=.25)\nSecond",
             Some("multi_prompt"),
             Some("sase"),
             &[],
@@ -6751,6 +7004,8 @@ Keep this comma, and the rest of the prose in the summary.";
             LaunchUnitPayloadWire::Agent(agent) => {
                 assert_eq!(agent.wait_runners, None);
                 assert_eq!(agent.wait_priority, Some(1));
+                assert_eq!(agent.queue_weight, Some(0.25));
+                assert!(agent.queue_weight_explicit);
                 assert_eq!(agent.prompt, "Second");
             }
             other => panic!("expected agent payload, got {other:?}"),

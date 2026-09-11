@@ -6,6 +6,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::{Display, Formatter},
     marker::PhantomData,
+    sync::Arc,
 };
 
 use conda_sorting::SolvableSorter;
@@ -23,6 +24,7 @@ use resolvo::{
     VersionSetUnionId,
     utils::{Pool, VersionSet},
 };
+use url::Url;
 
 use crate::{
     CancellationToken, ChannelPriority, ExcludeNewer, IntoRepoData, SolveError, SolveStrategy,
@@ -62,6 +64,16 @@ pub struct DependencyOverride {
     pub package_matcher: MatchSpec,
     /// Replaces matching dependencies.
     pub override_spec: MatchSpec,
+}
+
+/// A [`DependencyOverride`] prepared for fast application: the replacement
+/// spec is pre-rendered to a string so applying the rule does not require
+/// re-serializing the spec for every matching dependency.
+struct PreparedDependencyOverride {
+    /// Matches packages whose dependencies should be overridden.
+    package_matcher: MatchSpec,
+    /// Replaces matching dependencies.
+    override_spec: String,
 }
 
 /// Represents the information required to load available packages into libsolv
@@ -280,6 +292,29 @@ impl From<&PackageName> for NameType {
     }
 }
 
+/// Maximum number of solvable IDs retained across cache keys and values.
+const DEPENDENCY_TIEBREAK_CACHE_CANDIDATE_LIMIT: usize = 100_000;
+
+/// Caches the dependency-based ordering of otherwise equivalent candidates.
+///
+/// Candidate lists can be sorted repeatedly while Resolvo encodes a solve. Each
+/// entry maps the exact input order to its sorted output so repeated sorts can
+/// reuse the result. The input order is part of the key because sorting is
+/// stable and therefore affects how equal candidates are ordered.
+///
+/// The cache belongs to a single [`CondaDependencyProvider`], which limits its
+/// lifetime to one solve. Only completed, non-cancelled sorts are inserted. To
+/// keep memory use bounded, `stored_candidate_ids` tracks the number of IDs
+/// retained across both keys and values.
+#[derive(Default)]
+struct DependencyTiebreakCache {
+    /// Exact candidate input order mapped to its dependency-based output order.
+    entries: HashMap<Vec<SolvableId>, Vec<SolvableId>>,
+
+    /// Number of candidate IDs retained across all keys and values.
+    stored_candidate_ids: usize,
+}
+
 /// An implement of [`resolvo::DependencyProvider`] that implements the
 /// ecosystem behavior for conda. This allows resolvo to solve for conda
 /// packages.
@@ -291,6 +326,9 @@ pub struct CondaDependencyProvider<'a> {
 
     /// Holds all the cached candidates for each package name.
     records: HashMap<NameId, Candidates>,
+
+    /// Caches the dependency-based ordering of equivalent package variants.
+    dependency_tiebreak_cache: RefCell<DependencyTiebreakCache>,
 
     matchspec_to_highest_version:
         RefCell<HashMap<VersionSetId, Option<(rattler_conda_types::Version, bool)>>>,
@@ -305,7 +343,19 @@ pub struct CondaDependencyProvider<'a> {
 
     direct_dependencies: HashSet<NameId>,
 
-    dependency_overrides: HashMap<PackageName, Vec<DependencyOverride>>,
+    dependency_overrides: HashMap<PackageName, Vec<PreparedDependencyOverride>>,
+
+    /// The channel priority mode used for this solve.
+    channel_priority: ChannelPriority,
+
+    /// Maps a channel to its priority rank. Lower ranks indicate
+    /// higher-priority channels. Ranks are assigned in the order
+    /// channels are first encountered in the repodata,
+    /// which matches the order in which channels were provided to the solver.
+    ///
+    /// This is only populated (and consulted) for
+    /// [`ChannelPriority::Flexible`].
+    channel_order: HashMap<Option<String>, u32>,
 }
 
 impl<'a> CondaDependencyProvider<'a> {
@@ -323,13 +373,32 @@ impl<'a> CondaDependencyProvider<'a> {
         exclude_newer: Option<&ExcludeNewer>,
         strategy: SolveStrategy,
         dependency_overrides: Vec<DependencyOverride>,
+        excluded_candidates: &HashMap<Url, Arc<str>>,
     ) -> Result<Self, SolveError> {
         let pool = Pool::default();
         let mut records: HashMap<NameId, Candidates> = HashMap::default();
 
+        // Applies the caller's exclusions to a solvable that was just interned,
+        // reporting whether the record is excluded.
+        //
+        // Every site that interns a record has to go through this. The same
+        // record is interned once from the repodata and again when it is
+        // favored or locked, so an exclusion missed at any one of them lets the
+        // record back into the solve through that other door.
+        let exclude_if_requested =
+            |candidates: &mut Candidates, solvable: SolvableId, url: &Url| -> bool {
+                let Some(reason) = excluded_candidates.get(url) else {
+                    return false;
+                };
+                candidates
+                    .excluded
+                    .push((solvable, pool.intern_string(&**reason)));
+                true
+            };
+
         // Add virtual packages to the records
         for virtual_package in virtual_packages {
-            let name = pool.intern_package_name(&virtual_package.name);
+            let name = pool.intern_package_name(NameType::from(&virtual_package.name));
             let solvable =
                 pool.intern_solvable(name, SolverPackageRecord::VirtualPackage(virtual_package));
             records.entry(name).or_default().candidates.push(solvable);
@@ -339,7 +408,7 @@ impl<'a> CondaDependencyProvider<'a> {
         let direct_dependencies = match_specs
             .iter()
             .filter_map(|spec| spec.name.as_exact())
-            .map(|name| pool.intern_package_name(name))
+            .map(|name| pool.intern_package_name(NameType::from(name)))
             .collect();
 
         // TODO: Normalize these channel names to urls so we can compare them correctly.
@@ -349,7 +418,13 @@ impl<'a> CondaDependencyProvider<'a> {
             .collect::<Vec<_>>();
 
         // Hashmap that maps the package name to the channel it was first found in.
-        let mut package_name_found_in_channel = HashMap::<String, &Option<String>>::new();
+        // Only maintained (and consulted) for [`ChannelPriority::Strict`].
+        let mut package_name_found_in_channel = HashMap::<&str, &Option<String>>::new();
+
+        // Maps each channel to a priority rank in the order channels are first
+        // encountered (which matches the order channels were provided). Lower
+        // rank == higher priority. Used by `ChannelPriority::Flexible`.
+        let mut channel_order = HashMap::<Option<String>, u32>::new();
 
         // Add additional records
         for repo_data in repodata {
@@ -369,14 +444,18 @@ impl<'a> CondaDependencyProvider<'a> {
                 HashMap::with_capacity(repo_data.records.len());
 
             for record in repo_data.records {
-                // Determine if this record will be excluded by exclude_newer.
-                let excluded = exclude_newer.as_ref().is_some_and(|config| {
-                    config.is_excluded(
-                        &record.package_record.name,
-                        record.channel.as_deref(),
-                        record.package_record.timestamp.as_ref(),
-                    )
-                });
+                // Determine if this record will be excluded by the caller or
+                // by exclude_newer. Both count here: keeping an excluded
+                // record over its other-format twin would throw away the only
+                // candidate the solver may still pick.
+                let excluded = excluded_candidates.contains_key(&record.url)
+                    || exclude_newer.as_ref().is_some_and(|config| {
+                        config.is_excluded(
+                            &record.package_record.name,
+                            record.channel.as_deref(),
+                            record.package_record.timestamp.as_ref(),
+                        )
+                    });
 
                 let identifier = &record.identifier.identifier;
                 let archive_type = record.identifier.archive_type;
@@ -425,13 +504,26 @@ impl<'a> CondaDependencyProvider<'a> {
             }
 
             for record in ordered_repodata {
-                let package_name = pool.intern_package_name(&record.package_record.name);
+                let package_name =
+                    pool.intern_package_name(NameType::from(&record.package_record.name));
                 let solvable_id =
                     pool.intern_solvable(package_name, SolverPackageRecord::Record(record));
 
                 // Update records with all entries in a single mutable borrow
                 let candidates = records.entry(package_name).or_default();
                 candidates.candidates.push(solvable_id);
+
+                // Only [`ChannelPriority::Flexible`] consults channel ranks.
+                if channel_priority == ChannelPriority::Flexible
+                    && !channel_order.contains_key(&record.channel)
+                {
+                    let next_rank = channel_order.len() as u32;
+                    channel_order.insert(record.channel.clone(), next_rank);
+                }
+
+                // Exclusions the caller derived from outside the repodata, for
+                // example from what a local package cache holds.
+                exclude_if_requested(candidates, solvable_id, &record.url);
 
                 if let Some(config) = &exclude_newer
                     && config.is_excluded(
@@ -491,59 +583,77 @@ impl<'a> CondaDependencyProvider<'a> {
                     }
                 }
 
-                // Enforce channel priority
-                if let (Some(first_channel), ChannelPriority::Strict) = (
-                    package_name_found_in_channel.get(record.package_record.name.as_normalized()),
-                    channel_priority,
-                ) {
-                    // Add the record to the excluded list when it is from a different channel.
-                    if first_channel != &&record.channel {
-                        if let Some(channel) = &record.channel {
-                            tracing::debug!(
-                                "Ignoring '{}' from '{}' because of strict channel priority.",
-                                &record.package_record.name.as_normalized(),
-                                channel
-                            );
-                            candidates.excluded.push((
-                                solvable_id,
-                                pool.intern_string(format!(
-                                    "due to strict channel priority not using this option from: '{channel}'",
-                                )),
-                            ));
-                        } else {
-                            tracing::debug!(
-                                "Ignoring '{}' without a channel because of strict channel priority.",
-                                &record.package_record.name.as_normalized(),
-                            );
-                            candidates.excluded.push((
-                                solvable_id,
-                                pool.intern_string("due to strict channel priority not using from an unknown channel".to_string()),
-                            ));
+                // Enforce channel priority only in strict mode. Other modes do not
+                // consult this map, so avoid allocating and populating it for every record.
+                if channel_priority == ChannelPriority::Strict {
+                    match package_name_found_in_channel
+                        .entry(record.package_record.name.as_normalized())
+                    {
+                        std::collections::hash_map::Entry::Occupied(first_channel) => {
+                            // Add the record to the excluded list when it is from a different channel.
+                            if *first_channel.get() != &record.channel {
+                                if let Some(channel) = &record.channel {
+                                    tracing::debug!(
+                                        "Ignoring '{}' from '{}' because of strict channel priority.",
+                                        &record.package_record.name.as_normalized(),
+                                        channel
+                                    );
+                                    candidates.excluded.push((
+                                        solvable_id,
+                                        pool.intern_string(format!(
+                                            "due to strict channel priority not using this option from: '{channel}'",
+                                        )),
+                                    ));
+                                } else {
+                                    tracing::debug!(
+                                        "Ignoring '{}' without a channel because of strict channel priority.",
+                                        &record.package_record.name.as_normalized(),
+                                    );
+                                    candidates.excluded.push((
+                                        solvable_id,
+                                        pool.intern_string("due to strict channel priority not using from an unknown channel".to_string()),
+                                    ));
+                                }
+                            }
+                        }
+                        std::collections::hash_map::Entry::Vacant(entry) => {
+                            entry.insert(&record.channel);
                         }
                     }
-                } else {
-                    package_name_found_in_channel.insert(
-                        record.package_record.name.as_normalized().to_string(),
-                        &record.channel,
-                    );
                 }
             }
         }
 
-        // Add favored packages to the records
+        // Add favored packages to the records.
+        //
+        // An excluded record must not become the favored one: favoring means
+        // the solver *prefers* it, so that would turn the exclusion into the
+        // opposite of what the caller asked for.
         for &favored_record in favored_records {
-            let name = pool.intern_package_name(&favored_record.package_record.name);
+            let name =
+                pool.intern_package_name(NameType::from(&favored_record.package_record.name));
             let solvable = pool.intern_solvable(name, SolverPackageRecord::Record(favored_record));
             let candidates = records.entry(name).or_default();
             candidates.candidates.push(solvable);
-            candidates.favored = Some(solvable);
+
+            if !exclude_if_requested(candidates, solvable, &favored_record.url) {
+                candidates.favored = Some(solvable);
+            }
         }
 
         for &locked_record in locked_records {
-            let name = pool.intern_package_name(&locked_record.package_record.name);
+            let name = pool.intern_package_name(NameType::from(&locked_record.package_record.name));
             let solvable = pool.intern_solvable(name, SolverPackageRecord::Record(locked_record));
             let candidates = records.entry(name).or_default();
             candidates.candidates.push(solvable);
+
+            // The pin and the exclusion are applied independently. A locked
+            // record that is also excluded makes the solve unsatisfiable when
+            // the package is needed. Dropping the pin instead would let the
+            // solver quietly select a different version of a deliberately
+            // pinned package. The conflict report names the pin as the
+            // culprit together with the exclusion reason.
+            exclude_if_requested(candidates, solvable, &locked_record.url);
             candidates.locked = Some(solvable);
         }
 
@@ -553,17 +663,26 @@ impl<'a> CondaDependencyProvider<'a> {
         }
 
         // Build a lookup table for dependency overrides keyed by target package name.
-        let mut override_map: HashMap<PackageName, Vec<DependencyOverride>> = HashMap::new();
+        let mut override_map: HashMap<PackageName, Vec<PreparedDependencyOverride>> =
+            HashMap::new();
         for rule in dependency_overrides {
-            if let Some(name) = rule.override_spec.name.as_exact() {
-                override_map.entry(name.clone()).or_default().push(rule);
-            }
+            let Some(name) = rule.override_spec.name.as_exact().cloned() else {
+                continue;
+            };
+            override_map
+                .entry(name)
+                .or_default()
+                .push(PreparedDependencyOverride {
+                    override_spec: rule.override_spec.to_string(),
+                    package_matcher: rule.package_matcher,
+                });
         }
 
         Ok(Self {
             pool,
             name_to_condition: RefCell::default(),
             records,
+            dependency_tiebreak_cache: RefCell::default(),
             matchspec_to_highest_version: RefCell::default(),
             parse_match_spec_cache: RefCell::default(),
             stop_time,
@@ -571,7 +690,17 @@ impl<'a> CondaDependencyProvider<'a> {
             strategy,
             direct_dependencies,
             dependency_overrides: override_map,
+            channel_priority,
+            channel_order,
         })
+    }
+
+    /// Returns the priority rank for a channel, where a lower rank indicates a
+    /// higher-priority channel. Channels not seen during the construction sort last.
+    /// Channel strings are compared byte-for-byte as URL normalization is still missing
+    /// (see TODO: Normalize these channel names to urls above)
+    fn channel_rank(&self, channel: &Option<String>) -> u32 {
+        self.channel_order.get(channel).copied().unwrap_or(u32::MAX)
     }
 
     /// Returns all package names
@@ -592,16 +721,14 @@ impl<'a> CondaDependencyProvider<'a> {
         })
     }
 
-    fn apply_dependency_override(
-        &self,
-        record: &RepoDataRecord,
-        dep_spec: &MatchSpec,
-    ) -> Option<String> {
-        let dep_name = dep_spec.name.as_exact()?;
+    /// Returns the replacement spec for a dependency of `record`, if an
+    /// override rule applies. `dep_name` is the normalized name of the
+    /// dependency's package.
+    fn apply_dependency_override(&self, record: &RepoDataRecord, dep_name: &str) -> Option<&str> {
         let rules = self.dependency_overrides.get(dep_name)?;
         for rule in rules {
             if rule.package_matcher.matches(&record.package_record) {
-                return Some(rule.override_spec.to_string());
+                return Some(&rule.override_spec);
             }
         }
         None
@@ -619,6 +746,9 @@ pub enum CancelReason {
 }
 
 impl Interner for CondaDependencyProvider<'_> {
+    type NameId = NameId;
+    type SolvableId = SolvableId;
+
     fn display_solvable(&self, solvable: SolvableId) -> impl Display + '_ {
         &self.pool.resolve_solvable(solvable).record
     }
@@ -747,6 +877,9 @@ impl DependencyProvider for CondaDependencyProvider<'_> {
                     locked: None,
                     excluded: Vec::new(),
                     hint_dependencies_available: HintDependenciesAvailable::All,
+                    // Spread the rest, so the literal compiles against every
+                    // resolvo version in the supported range.
+                    ..Default::default()
                 })
             }
         }
@@ -766,17 +899,17 @@ impl DependencyProvider for CondaDependencyProvider<'_> {
 
         // Add regular dependencies
         for depends in record.package_record.depends.iter() {
-            // Try to parse the dependency and check for overrides.
-            let dep_str = match MatchSpec::from_str(
-                depends,
-                ParseMatchSpecOptions::lenient().with_repodata_revision(RepodataRevision::V3),
-            ) {
-                Ok(dep_spec) => self
-                    .apply_dependency_override(record, &dep_spec)
-                    .unwrap_or_else(|| depends.clone()),
-                Err(_) => depends.clone(),
+            // Check for overrides. The override map is keyed by the exact
+            // package name, which can be extracted with a cheap scan instead
+            // of parsing the entire matchspec.
+            let dep_str = if self.dependency_overrides.is_empty() {
+                depends.as_str()
+            } else {
+                let dep_name = PackageName::normalized_name_from_matchspec_str(depends);
+                self.apply_dependency_override(record, &dep_name)
+                    .unwrap_or(depends.as_str())
             };
-            let specs = match parse_match_spec(&self.pool, &dep_str, &mut parse_match_spec_cache) {
+            let specs = match parse_match_spec(&self.pool, dep_str, &mut parse_match_spec_cache) {
                 Ok(version_set_id) => version_set_id,
                 Err(e) => {
                     tracing::debug!(
@@ -1008,11 +1141,14 @@ impl super::SolverImpl for Solver {
             task.exclude_newer.as_ref(),
             task.strategy,
             dependency_overrides,
+            &task.excluded_candidates,
         )?;
 
         // Construct the requirements that the solver needs to satisfy.
         let virtual_package_requirements = task.virtual_packages.iter().map(|spec| {
-            let name_id = provider.pool.intern_package_name(&spec.name);
+            let name_id = provider
+                .pool
+                .intern_package_name(NameType::from(&spec.name));
             provider
                 .pool
                 .intern_version_set(name_id, NamelessMatchSpec::default().into())
@@ -1046,7 +1182,7 @@ impl super::SolverImpl for Solver {
                 let (PackageNameMatcher::Exact(name), spec) = spec.clone().into_nameless() else {
                     unimplemented!("only exact package names are supported");
                 };
-                let name_id = provider.pool.intern_package_name(&name);
+                let name_id = provider.pool.intern_package_name(NameType::from(&name));
                 provider.pool.intern_version_set(name_id, spec.into())
             })
             .collect();
@@ -1140,7 +1276,7 @@ fn version_sets_for_match_spec(
     }
 
     // Create a version set for the match spec itself.
-    let dependency_name = pool.intern_package_name(&name);
+    let dependency_name = pool.intern_package_name(NameType::from(&name));
     let version_set_id = pool.intern_version_set(dependency_name, spec.into());
     version_set_ids.push(version_set_id);
 

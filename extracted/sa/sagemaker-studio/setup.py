@@ -108,7 +108,9 @@ setup(
     test_suite="src.sagemaker_studio._test",
     extras_require={
         "teradata": ["teradatasql>=20.0.0.50", "teradatasqlalchemy>=20.0.0.9"],
-        "test": ["pytest >= 6", "pytest-cov", "toml", "coverage"],
+        # Upper bound on purpose: the notebook image ships a 3.5.x client, and on
+        # 4.x these tests need an active session they do not have.
+        "test": ["pytest >= 6", "pytest-cov", "toml", "coverage", "pyspark>=3.5,<4"],
         "dev": ["wheel", "invoke", "twine"],
     },
 )

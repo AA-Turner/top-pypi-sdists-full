@@ -1,23 +1,17 @@
 import logging
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
-    Mapping,
     NamedTuple,
-    Optional,
     TypeVar,
-    Union,
 )
 
-from spectree._pydantic import (
-    is_partial_base_model_instance,
-    serialize_model_instance,
-)
-from spectree._types import JsonType, ModelType, OptionalModelType
+from spectree._types import HookHandler, JsonType, ModelAdapterType
 from spectree.config import Configuration
+from spectree.model_adapter import ModelClass
 from spectree.response import Response
 
 if TYPE_CHECKING:
@@ -26,11 +20,11 @@ if TYPE_CHECKING:
 
 
 class Context(NamedTuple):
-    query: list
-    json: list
-    form: list
-    headers: dict
-    cookies: dict
+    query: Any | None
+    json: Any | None
+    form: Any | None
+    headers: Any | None
+    cookies: Any | None
 
 
 BackendRoute = TypeVar("BackendRoute")
@@ -50,6 +44,7 @@ class BasePlugin(Generic[BackendRoute]):
     def __init__(self, spectree: "SpecTree"):
         self.spectree = spectree
         self.config: Configuration = spectree.config
+        self.model_adapter: ModelAdapterType = spectree.model_adapter
         self.logger = logging.getLogger(__name__)
 
     def register_route(self, app: Any):
@@ -63,14 +58,14 @@ class BasePlugin(Generic[BackendRoute]):
     def validate(
         self,
         func: Callable,
-        query: Optional[ModelType],
-        json: Optional[ModelType],
-        form: Optional[ModelType],
-        headers: Optional[ModelType],
-        cookies: Optional[ModelType],
-        resp: Optional[Response],
-        before: Callable,
-        after: Callable,
+        query: ModelClass | None,
+        json: ModelClass | None,
+        form: ModelClass | None,
+        headers: ModelClass | None,
+        cookies: ModelClass | None,
+        resp: Response | None,
+        before: HookHandler,
+        after: HookHandler,
         validation_error_status: int,
         skip_validation: bool,
         force_resp_serialize: bool,
@@ -98,7 +93,7 @@ class BasePlugin(Generic[BackendRoute]):
         raise NotImplementedError
 
     def parse_path(
-        self, route: Any, path_parameter_descriptions: Optional[Mapping[str, str]]
+        self, route: Any, path_parameter_descriptions: Mapping[str, str] | None
     ):
         """
         :param route: API routes
@@ -133,7 +128,7 @@ class BasePlugin(Generic[BackendRoute]):
 
 @dataclass(frozen=True)
 class RawResponsePayload:
-    payload: Union[JsonType, bytes]
+    payload: JsonType | bytes
 
 
 @dataclass(frozen=True)
@@ -142,14 +137,15 @@ class ResponseValidationResult:
 
 
 def validate_response(
-    validation_model: OptionalModelType,
+    model_adapter: ModelAdapterType,
+    validation_model: ModelClass | None,
     response_payload: Any,
     force_serialize: bool = False,
 ) -> ResponseValidationResult:
     """Validate a given ``response_payload`` against a ``validation_model``.
     This does nothing if ``validation_model is None``.
 
-    :param validation_model: Pydantic model used to validate the provided
+    :param validation_model: model class used to validate the provided
         ``response_payload``.
     :param response_payload: Validated response payload. A :class:`RawResponsePayload`
         should be provided when the plugin view function returned an already
@@ -163,24 +159,29 @@ def validate_response(
     skip_validation = False
     if isinstance(response_payload, RawResponsePayload):
         final_response_payload = response_payload.payload
-    elif isinstance(response_payload, validation_model):
+    elif model_adapter.is_model_instance(response_payload, validation_model):
         skip_validation = True
-        final_response_payload = serialize_model_instance(response_payload)
+        final_response_payload = model_adapter.dump_json(response_payload)
     else:
-        # non-BaseModel response or partial BaseModel response
+        # non-model response or partial model instance response
         final_response_payload = response_payload
 
     if not skip_validation:
-        validator = (
-            validation_model.model_validate_json
-            if isinstance(final_response_payload, bytes)
-            else validation_model.model_validate
-        )
-        validated_instance = validator(final_response_payload)
+        if isinstance(final_response_payload, bytes):
+            validated_instance = model_adapter.validate_json(
+                validation_model, final_response_payload
+            )
+        else:
+            validated_instance = model_adapter.validate_obj(
+                validation_model, final_response_payload
+            )
         # in case the response model contains (alias, default_none, unset fields) which
-        # might not be what the users want, we only return the validated dict when
-        # the response contains BaseModel or the user explicitly sets `force_serialize`
-        if force_serialize or is_partial_base_model_instance(final_response_payload):
-            final_response_payload = serialize_model_instance(validated_instance)
+        # might not be what the users want, we only return the validated payload when
+        # the response contains a partial model instance or the user explicitly sets
+        # `force_serialize`
+        if force_serialize or model_adapter.is_partial_model_instance(
+            final_response_payload
+        ):
+            final_response_payload = model_adapter.dump_json(validated_instance)
 
     return ResponseValidationResult(payload=final_response_payload)

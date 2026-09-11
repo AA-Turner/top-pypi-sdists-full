@@ -46,6 +46,8 @@ if typing.TYPE_CHECKING:
     from .collab_agent_send_message_response_out import CollabAgentSendMessageResponseOut
     from .collab_token_response import CollabTokenResponse
     from .collab_token_response_access_type import CollabTokenResponseAccessType
+    from .computer_initialization_response import ComputerInitializationResponse
+    from .computer_initialization_response_reason import ComputerInitializationResponseReason
     from .computer_lifecycle_response_out import ComputerLifecycleResponseOut
     from .conversation_asset_info import ConversationAssetInfo
     from .conversation_message import ConversationMessage
@@ -93,6 +95,9 @@ if typing.TYPE_CHECKING:
     from .get_table_response import GetTableResponse
     from .grid_range import GridRange
     from .image_url_content import ImageUrlContent
+    from .initialization_phase import InitializationPhase
+    from .initialization_recipe_stage import InitializationRecipeStage
+    from .initialization_state import InitializationState
     from .input_message import InputMessage
     from .input_message_content import InputMessageContent
     from .input_message_content_one_item import (
@@ -122,6 +127,7 @@ if typing.TYPE_CHECKING:
     from .redacted_thinking_content import RedactedThinkingContent
     from .rename_asset_response_out import RenameAssetResponseOut
     from .revoke_ssh_access_response_out import RevokeSshAccessResponseOut
+    from .run_budget import RunBudget
     from .run_task_response import RunTaskResponse
     from .save_asset_request_out import SaveAssetRequestOut
     from .semantic_model_meta_response_out import SemanticModelMetaResponseOut
@@ -134,6 +140,7 @@ if typing.TYPE_CHECKING:
     from .share_recipient_result_out import ShareRecipientResultOut
     from .sheet import Sheet
     from .sheet_operation_response import SheetOperationResponse
+    from .snapshot_import_progress import SnapshotImportProgress
     from .ssh_access_info_out import SshAccessInfoOut
     from .ssh_access_response_out import SshAccessResponseOut
     from .ssh_key_list_response_out import SshKeyListResponseOut
@@ -207,6 +214,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CollabAgentSendMessageResponseOut": ".collab_agent_send_message_response_out",
     "CollabTokenResponse": ".collab_token_response",
     "CollabTokenResponseAccessType": ".collab_token_response_access_type",
+    "ComputerInitializationResponse": ".computer_initialization_response",
+    "ComputerInitializationResponseReason": ".computer_initialization_response_reason",
     "ComputerLifecycleResponseOut": ".computer_lifecycle_response_out",
     "ConversationAssetInfo": ".conversation_asset_info",
     "ConversationMessage": ".conversation_message",
@@ -254,6 +263,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetTableResponse": ".get_table_response",
     "GridRange": ".grid_range",
     "ImageUrlContent": ".image_url_content",
+    "InitializationPhase": ".initialization_phase",
+    "InitializationRecipeStage": ".initialization_recipe_stage",
+    "InitializationState": ".initialization_state",
     "InputMessage": ".input_message",
     "InputMessageContent": ".input_message_content",
     "InputMessageContentOneItem": ".input_message_content_one_item",
@@ -281,6 +293,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RedactedThinkingContent": ".redacted_thinking_content",
     "RenameAssetResponseOut": ".rename_asset_response_out",
     "RevokeSshAccessResponseOut": ".revoke_ssh_access_response_out",
+    "RunBudget": ".run_budget",
     "RunTaskResponse": ".run_task_response",
     "SaveAssetRequestOut": ".save_asset_request_out",
     "SemanticModelMetaResponseOut": ".semantic_model_meta_response_out",
@@ -293,6 +306,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ShareRecipientResultOut": ".share_recipient_result_out",
     "Sheet": ".sheet",
     "SheetOperationResponse": ".sheet_operation_response",
+    "SnapshotImportProgress": ".snapshot_import_progress",
     "SshAccessInfoOut": ".ssh_access_info_out",
     "SshAccessResponseOut": ".ssh_access_response_out",
     "SshKeyListResponseOut": ".ssh_key_list_response_out",
@@ -390,6 +404,8 @@ __all__ = [
     "CollabAgentSendMessageResponseOut",
     "CollabTokenResponse",
     "CollabTokenResponseAccessType",
+    "ComputerInitializationResponse",
+    "ComputerInitializationResponseReason",
     "ComputerLifecycleResponseOut",
     "ConversationAssetInfo",
     "ConversationMessage",
@@ -437,6 +453,9 @@ __all__ = [
     "GetTableResponse",
     "GridRange",
     "ImageUrlContent",
+    "InitializationPhase",
+    "InitializationRecipeStage",
+    "InitializationState",
     "InputMessage",
     "InputMessageContent",
     "InputMessageContentOneItem",
@@ -464,6 +483,7 @@ __all__ = [
     "RedactedThinkingContent",
     "RenameAssetResponseOut",
     "RevokeSshAccessResponseOut",
+    "RunBudget",
     "RunTaskResponse",
     "SaveAssetRequestOut",
     "SemanticModelMetaResponseOut",
@@ -476,6 +496,7 @@ __all__ = [
     "ShareRecipientResultOut",
     "Sheet",
     "SheetOperationResponse",
+    "SnapshotImportProgress",
     "SshAccessInfoOut",
     "SshAccessResponseOut",
     "SshKeyListResponseOut",

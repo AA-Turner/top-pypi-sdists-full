@@ -374,6 +374,14 @@ id_list uncheck(checked::id_list obj) {
 	return manage(obj.copy());
 }
 
+checked::id_set check(id_set obj) {
+	return checked::manage(obj.copy());
+}
+
+id_set uncheck(checked::id_set obj) {
+	return manage(obj.copy());
+}
+
 checked::id_to_ast_expr check(id_to_ast_expr obj) {
 	return checked::manage(obj.copy());
 }

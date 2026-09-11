@@ -4488,8 +4488,12 @@ async def build_agent_args(
     if xpander_agent.using_nemo == False:
         args["tool_hooks"].append(on_tool_call_hook)
 
-    # fix gpt-5 temp
-    if args["model"] and args["model"].id and args["model"].id.startswith("gpt-5"):
+    # reasoning families reject any temperature, whatever layer set it
+    if (
+        args["model"]
+        and openai_supports_reasoning_effort(getattr(args["model"], "id", None))
+        and "temperature" in vars(args["model"])
+    ):
         del args["model"].temperature
 
     # configure deep planning guidance
@@ -5046,8 +5050,8 @@ def _load_llm_model(
             )
 
     # flags must follow the task override, or a task-level gpt-5.6 routes to Chat and 400s
-    is_gpt_5 = "gpt-5" in llm_model_name
-    is_gpt_5_6 = "gpt-5.6" in llm_model_name
+    supports_reasoning_effort = openai_supports_reasoning_effort(llm_model_name)
+    responses_only = openai_requires_responses_api(llm_model_name)
 
     if agent.llm_credentials and isinstance(agent.llm_credentials, dict):
         agent.llm_credentials = LLMCredentials(**agent.llm_credentials)
@@ -5136,7 +5140,7 @@ def _load_llm_model(
         llm_reasoning_effort
         and llm_reasoning_effort != LLMReasoningEffort.Medium
         and llm_model_name
-        and is_gpt_5
+        and supports_reasoning_effort
     ):
         # add, never rebind: a fresh dict here silently dropped extra_headers
         llm_args["reasoning_effort"] = llm_reasoning_effort.value
@@ -5163,7 +5167,6 @@ def _load_llm_model(
             # Try xpander.ai-specific key first, fallback to standard OpenAI key
             "api_key": get_llm_key("AGENTS_OPENAI_API_KEY")
             or get_llm_key("OPENAI_API_KEY"),
-            "temperature": 0.0,
             "retries": 3,
             "exponential_backoff": True,
             "user": llm_usage_identifier,
@@ -5172,17 +5175,18 @@ def _load_llm_model(
             **llm_args,
         }
 
-        # if (is gpt-5 and is effort high OR x-high) OR is gpt 5.6  - USE ResponsesAPI
-        if (
-            is_gpt_5
-            and llm_args
-            and isinstance(llm_args, dict)
-            and "reasoning_effort" in llm_args
-            and (
-                llm_args["reasoning_effort"] == LLMReasoningEffort.High.value
-                or llm_args["reasoning_effort"] == LLMReasoningEffort.XHigh.value
-            )
-        ) or is_gpt_5_6:
+        # Reasoning families reject any sampling temperature; every other model keeps
+        # the deterministic default (llm_args may still override it).
+        if not supports_reasoning_effort:
+            openai_args.setdefault("temperature", 0.0)
+
+        # Responses API: mandatory for responses-only families (tools 400 on chat
+        # completions), and for gpt-5 at high / x-high effort.
+        if responses_only or (
+            supports_reasoning_effort
+            and llm_args.get("reasoning_effort")
+            in (LLMReasoningEffort.High.value, LLMReasoningEffort.XHigh.value)
+        ):
             return OpenAIResponses(**openai_args)
 
         # Org custom providers ride the openai leg with llm_api_base set; those
@@ -5693,19 +5697,23 @@ def _load_compaction_model(agent: Agent, task: Optional[Task] = None) -> Optiona
 
             # prompt_cache_key improves OpenAI cache routing (caching itself is
             # automatic server-side); keyed on org+agent to match the main model.
-            model = OpenAIChat(
-                id=model_id,
-                api_key=api_key,
-                temperature=0.0,
-                retries=3,
-                exponential_backoff=True,
-                client_params={"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
-                extra_body={
+            compaction_args = {
+                "id": model_id,
+                "api_key": api_key,
+                "retries": 3,
+                "exponential_backoff": True,
+                "client_params": {"timeout": LLM_REQUEST_TIMEOUT_SECONDS},
+                "extra_body": {
                     "prompt_cache_key": _bounded_prompt_cache_key(
                         f"{agent.organization_id}:{agent.id}"
                     )
                 },
-            )
+            }
+            # this leg never reaches build_agent_args, so the family rule applies here
+            if not openai_supports_reasoning_effort(model_id):
+                compaction_args["temperature"] = 0.0
+
+            model = OpenAIChat(**compaction_args)
         logger.info(f"[context-optimizer] compaction model: {provider} ({model_id})")
         return model
     except Exception as exc:
@@ -6396,8 +6404,10 @@ async def _ensure_remote_mcp_ready(
         is_mcp_auth_error(probe_error)
         and task is not None
         and task.input
-        and task.input.user
-        and task.input.user.id
+        and (
+            (task.input.user and task.input.user.id)
+            or getattr(task, "background_auth_eligible", False)
+        )
     )
     if can_heal:
         logger.warning(
@@ -6414,7 +6424,11 @@ async def _ensure_remote_mcp_ready(
                 authenticate_mcp_server(
                     mcp_server=mcp,
                     task=task,
-                    user_id=task.input.user.id,
+                    user_id=(
+                        task.input.user.id
+                        if task.input.user and task.input.user.id
+                        else "background"
+                    ),
                     auth_events_callback=auth_events_callback,
                     force_refresh=True,
                 ),
@@ -6886,7 +6900,9 @@ async def _resolve_agent_tools(
                             mcp.api_key = task.user_tokens[graph_item.id]
 
                     if not mcp.api_key:
-                        if not task.input.user or not task.input.user.id:
+                        if (
+                            not task.input.user or not task.input.user.id
+                        ) and not getattr(task, "background_auth_eligible", False):
                             # No user to authenticate -> the tool can't work this run.
                             # Skip it (don't error every dispatch) but tell the agent
                             # so it can explain to the user it needs to sign in / connect.
@@ -6905,7 +6921,11 @@ async def _resolve_agent_tools(
                             await authenticate_mcp_server(
                                 mcp_server=mcp,
                                 task=task,
-                                user_id=task.input.user.id,
+                                user_id=(
+                                    task.input.user.id
+                                    if task.input.user and task.input.user.id
+                                    else "background"
+                                ),
                                 auth_events_callback=auth_events_callback,
                             )
                         )
@@ -7062,6 +7082,25 @@ async def _resolve_agent_tools(
     return agent.tools.functions + mcp_tools
 
 
+# Substring markers (so ``openai/gpt-6-astra`` behaves like the bare id, and the
+# ``gpt-5*-chat-latest`` SKUs keep the family's long-standing treatment); mirrored in
+# xpander-mono ``agent_gateway/model_params.py`` and ``utils/orchestrator/utils.py``.
+_OPENAI_REASONING_FAMILY_MARKERS: Tuple[str, ...] = ("gpt-5", "gpt-6")
+_OPENAI_RESPONSES_ONLY_MARKERS: Tuple[str, ...] = ("gpt-5.6", "gpt-6")
+
+
+def openai_supports_reasoning_effort(model_id: Optional[str]) -> bool:
+    """True for OpenAI families that take reasoning_effort and reject temperature."""
+    lowered = (model_id or "").lower()
+    return any(marker in lowered for marker in _OPENAI_REASONING_FAMILY_MARKERS)
+
+
+def openai_requires_responses_api(model_id: Optional[str]) -> bool:
+    """True when function tools only work on ``/v1/responses`` for this model."""
+    lowered = (model_id or "").lower()
+    return any(marker in lowered for marker in _OPENAI_RESPONSES_ONLY_MARKERS)
+
+
 # Model-id → context window (in tokens). Used to size the L2 trigger so it
 # fires before the provider hard-limits the request.
 #
@@ -7138,6 +7177,15 @@ _MODEL_CONTEXT_WINDOWS_EXACT: Dict[str, int] = {
     "qwen/qwen-plus-2025-07-28": 1_000_000,
     "qwen/qwen-plus-2025-07-28:thinking": 1_000_000,
     "minimax/minimax-m1": 1_000_000,
+    # ---- 1.05M (GPT-5.6 / GPT-6) ----
+    "gpt-6-astra": 1_050_000,
+    "openai/gpt-6-astra": 1_050_000,
+    "gpt-5.6-sol": 1_050_000,
+    "gpt-5.6-terra": 1_050_000,
+    "gpt-5.6-luna": 1_050_000,
+    "openai/gpt-5.6-sol": 1_050_000,
+    "openai/gpt-5.6-terra": 1_050_000,
+    "openai/gpt-5.6-luna": 1_050_000,
     # ---- 400K (GPT-5 family) ----
     "gpt-5": 400_000,
     "gpt-5-mini": 400_000,
@@ -7606,6 +7654,9 @@ _MODEL_CONTEXT_WINDOWS_SUBSTRING: List[Tuple[str, int]] = [
     # family that won't match the hyphenated ``llama-4-*`` substrings.
     ("llama4-maverick", 1_000_000),
     ("llama4-scout", 10_000_000),
+    # 1.05M (GPT-5.6 / GPT-6) must precede the generic gpt-5 marker
+    ("gpt-6", 1_050_000),
+    ("gpt-5.6", 1_050_000),
     # 400K (GPT-5 family)
     ("gpt-5", 400_000),
     # 300K (Nova)
@@ -7679,6 +7730,7 @@ _MODEL_CONTEXT_WINDOWS_SUBSTRING: List[Tuple[str, int]] = [
 _NON_WEAK_MODEL_MARKERS: List[str] = [
     "claude",
     "gpt-5",
+    "gpt-6",
     "o1",
     "o3",
     "o4",
@@ -7840,7 +7892,9 @@ def _retrieve_page_budget(task: Any) -> int:
     try:
         optimizer = getattr(task, "_xp_context_optimizer", None)
         if optimizer is not None:
-            free_tokens = optimizer._auto_compact_threshold - optimizer._last_estimated_tokens
+            free_tokens = (
+                optimizer._auto_compact_threshold - optimizer._last_estimated_tokens
+            )
             # Half of what is left, so a page cannot itself trigger the compaction it is
             # meant to avoid. chars = tokens / 1.2 * 4, inverting the optimizer's estimate.
             free_chars = int(max(0, free_tokens) / 1.2 * 4 / 2)

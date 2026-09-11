@@ -5,6 +5,7 @@
 #include <queue>
 
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
+#include "common/assert.h"
 #include "common/data_chunk/sel_vector.h"
 #include "common/exception/runtime.h"
 #include "common/file_system/virtual_file_system.h"
@@ -231,7 +232,12 @@ void IceDiskRelTable::initializeParquetReaders(Transaction* transaction) const {
     }
 }
 
-void IceDiskRelTable::initializeIndptrReader(Transaction* transaction) const {
+void IceDiskRelTable::initializeIndptrReader(Transaction* transaction,
+    const std::unique_lock<std::mutex>& indptrDataLock) const {
+    // The caller must hold indptrDataMutex: it serializes all writers of indptrReader,
+    // which is what makes the unsynchronized read below data-race-free.
+    DASSERT(indptrDataLock.owns_lock() && indptrDataLock.mutex() == &indptrDataMutex);
+    UNUSED(indptrDataLock);
     if (!indptrFilePath.empty() && !indptrReader) {
         std::lock_guard lock(parquetReaderMutex);
         if (!indptrReader) {
@@ -243,55 +249,65 @@ void IceDiskRelTable::initializeIndptrReader(Transaction* transaction) const {
 }
 
 void IceDiskRelTable::loadIndptrData(Transaction* transaction) const {
-    if (indptrData.empty() && !indptrFilePath.empty()) {
-        std::lock_guard lock(indptrDataMutex);
-        if (indptrData.empty()) {
-            initializeIndptrReader(transaction);
-            if (!indptrReader)
-                return;
+    // Fast path: indptrFilePath is immutable after construction, so checking it first
+    // avoids even an atomic load for FLAT tables. Once loaded, indptrData is read-only
+    // and the acquire load synchronizes with the release store below, so no mutex needed.
+    if (indptrFilePath.empty() || indptrDataLoaded.load(std::memory_order_acquire)) {
+        return;
+    }
+    std::unique_lock lock(indptrDataMutex);
+    if (indptrDataLoaded.load(std::memory_order_relaxed)) {
+        return;
+    }
+    {
+        initializeIndptrReader(transaction, lock);
+        if (!indptrReader)
+            return;
 
-            // Initialize scan to populate column types
-            auto context = transaction->getClientContext();
-            auto vfs = VirtualFileSystem::GetUnsafe(*context);
-            std::vector<uint64_t> groupsToRead;
-            for (uint64_t i = 0; i < indptrReader->getNumRowGroups(); ++i) {
-                groupsToRead.push_back(i);
-            }
+        // Initialize scan to populate column types
+        auto context = transaction->getClientContext();
+        auto vfs = VirtualFileSystem::GetUnsafe(*context);
+        std::vector<uint64_t> groupsToRead;
+        for (uint64_t i = 0; i < indptrReader->getNumRowGroups(); ++i) {
+            groupsToRead.push_back(i);
+        }
 
-            ParquetReaderScanState scanState;
-            indptrReader->initializeScan(scanState, groupsToRead, vfs);
+        ParquetReaderScanState scanState;
+        indptrReader->initializeScan(scanState, groupsToRead, vfs);
 
-            // Check if the indptr file has any columns after scan initialization
-            auto numColumns = indptrReader->getNumColumns();
-            if (numColumns == 0) {
-                throw RuntimeException("Indptr parquet file has no columns");
-            }
+        // Check if the indptr file has any columns after scan initialization
+        auto numColumns = indptrReader->getNumColumns();
+        if (numColumns == 0) {
+            throw RuntimeException("Indptr parquet file has no columns");
+        }
 
-            // Validate column type for indptr
-            const auto& indptrType = indptrReader->getColumnType(0);
-            if (!LogicalTypeUtils::isIntegral(indptrType.getLogicalTypeID())) {
-                throw RuntimeException(
-                    "Indptr parquet file column must be integer type (column 0)");
-            }
+        // Validate column type for indptr
+        const auto& indptrType = indptrReader->getColumnType(0);
+        if (!LogicalTypeUtils::isIntegral(indptrType.getLogicalTypeID())) {
+            throw RuntimeException("Indptr parquet file column must be integer type (column 0)");
+        }
 
-            // Read the indptr column
-            DataChunk dataChunk(1);
+        // Read the indptr column
+        DataChunk dataChunk(1);
 
-            // Now get the column type after scan is initialized
-            const auto& columnTypeRef = indptrReader->getColumnType(0);
-            auto columnType = columnTypeRef.copy();
-            auto vector = std::make_shared<ValueVector>(std::move(columnType));
-            dataChunk.insert(0, vector);
+        // Now get the column type after scan is initialized
+        const auto& columnTypeRef = indptrReader->getColumnType(0);
+        auto columnType = columnTypeRef.copy();
+        auto vector = std::make_shared<ValueVector>(std::move(columnType));
+        dataChunk.insert(0, vector);
 
-            // Read all indptr values
-            while (indptrReader->scanInternal(scanState, dataChunk)) {
-                auto selSize = dataChunk.state->getSelVector().getSelSize();
-                for (size_t i = 0; i < selSize; ++i) {
-                    auto value = dataChunk.getValueVector(0).getValue<common::offset_t>(i);
-                    indptrData.push_back(value);
-                }
+        // Read all indptr values
+        while (indptrReader->scanInternal(scanState, dataChunk)) {
+            auto selSize = dataChunk.state->getSelVector().getSelSize();
+            for (size_t i = 0; i < selSize; ++i) {
+                auto value = dataChunk.getValueVector(0).getValue<common::offset_t>(i);
+                indptrData.push_back(value);
             }
         }
+        // Publish after the vector is fully populated (still under lock); readers use
+        // acquire loads so they see the complete contents. Set even when zero rows were
+        // read so an empty indptr file doesn't trigger a parquet re-scan on every call.
+        indptrDataLoaded.store(true, std::memory_order_release);
     }
 }
 

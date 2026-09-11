@@ -26,6 +26,8 @@ a silent prod failure), never env vars.
 
 from __future__ import annotations
 
+import json
+
 from pydantic import BaseModel
 
 # ── The three tiers ──────────────────────────────────────────────────────────────────
@@ -122,6 +124,30 @@ def cap_list(rows: list, *, limit: int = TOOL_LIST_DEFAULT_LIMIT) -> tuple[list,
     shown = rows[:limit]
     return shown, ListCapInfo(
         total=total, shown=len(shown), truncated=total > len(shown), limit=limit
+    )
+
+
+def cap_json_list(rows: list, *, max_chars: int) -> tuple[list, ListCapInfo]:
+    """Return the largest JSON-safe prefix that fits ``max_chars``.
+
+    Count caps alone are insufficient when list fields are user-controlled: a
+    directory listing, for example, can contain hundreds of long paths. Measure
+    with ASCII JSON escaping so the estimate is a conservative bound for the
+    serialized result that will be sent to a provider.
+    """
+    if max_chars < 0:
+        max_chars = 0
+    shown: list = []
+    used = 2  # JSON list brackets
+    for row in rows:
+        encoded_chars = len(json.dumps(row, ensure_ascii=True, separators=(",", ":")))
+        separator_chars = 1 if shown else 0
+        if used + separator_chars + encoded_chars > max_chars:
+            break
+        shown.append(row)
+        used += separator_chars + encoded_chars
+    return shown, ListCapInfo(
+        total=len(rows), shown=len(shown), truncated=len(shown) < len(rows), limit=max_chars
     )
 
 

@@ -2733,7 +2733,7 @@ class PaymentProviderInvalidError(BadRequestError):
 class PeerFloodError(BadRequestError):
     def __init__(self, request):
         self.request = request
-        super(Exception, self).__init__('Too many requests' + self._fmt_request(self.request))
+        super(Exception, self).__init__('The account is limited (spam-reported) and cannot message non-contacts; account-wide with no defined duration, so retrying will not help. Check @SpamBot' + self._fmt_request(self.request))
 
     def __reduce__(self):
         return type(self), (self.request,)

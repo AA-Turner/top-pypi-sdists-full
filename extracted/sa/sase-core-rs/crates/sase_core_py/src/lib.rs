@@ -158,6 +158,7 @@
 //! - `spawn_prepared_agent_process(prepared: dict, env: dict, claim_callback: Callable[[int], bool] | None = None) -> int`
 //! - `allocate_launch_timestamp_batch(count: int, base_timestamp: str, after_timestamp: str | None = None) -> list[str]`
 //! - `plan_agent_launch_fanout(prompt: str, launch_kind: str | None = None) -> dict`
+//! - `bind_batch_predecessor_waits(prompt: str, predecessor: dict) -> dict`
 //! - `inline_code_ranges(text: str, masked_ranges: list[tuple[int, int]] | None = None) -> list[tuple[int, int]]`
 //! - `model_shortcut_context(text: str, position: dict) -> dict | None`
 //! - `model_shortcut_edit(text: str, position: dict, entries: list[dict], selected_value: str) -> dict | None`
@@ -257,6 +258,7 @@
 //! - `provider_availability_classify_many(context: dict, facts: list[dict]) -> list[dict]`
 //! - `provider_usage_observation_schema_version() -> int`
 //! - `provider_usage_public_schema_version() -> int`
+//! - `provider_usage_indicator_schema_version() -> int`
 //! - `provider_usage_store_schema_version() -> int`
 //! - `provider_usage_collector_failing_threshold() -> int`
 //! - `provider_usage_state_path(sase_home: str) -> str`
@@ -271,6 +273,8 @@
 //! - `provider_usage_record_refresh_attempt(sase_home: str, request: dict, now: float) -> dict`
 //! - `provider_usage_validate_observation(observation: dict, now: float) -> dict`
 //! - `provider_usage_project_snapshot(observations: list[dict], now: float, cadence_seconds: float = 300, warn_percent: float = 75, critical_percent: float = 90) -> dict`
+//! - `provider_usage_validate_indicator_config(indicator: dict | None = None) -> dict`
+//! - `provider_usage_project_indicator(request: dict) -> dict`
 //! - `provider_usage_remaining_percent(used_percent: float) -> float`
 //! - `provider_usage_format_remaining_text(used_percent: float) -> str`
 //! - `provider_usage_classify_freshness(observed_at: float, now: float, cadence_seconds: float = 300) -> str`
@@ -362,6 +366,12 @@
 //! - `migration_fingerprint(value: Any) -> str`
 //! - `migration_residue_classify(entry: dict, facts: dict) -> dict`
 //! - `migration_reconcile_procs(legacy_rows: list[dict], canonical_proc_ids: list[str | dict]) -> dict`
+//! - `migration_patch_records_plan(path: str, data: bytes, facts: dict) -> dict`
+//! - `migration_patch_records_apply(path: str, data: bytes, facts: dict) -> dict`
+//! - `migration_patch_records_verify(path: str, original: bytes, converted: bytes, facts: dict) -> dict`
+//! - `migration_gate_bundles_plan(envelope: dict, facts: dict) -> dict`
+//! - `migration_gate_bundles_apply(envelope: dict, facts: dict) -> dict`
+//! - `migration_gate_bundles_verify(original: dict, converted: dict, facts: dict) -> dict`
 //! - `migration_acquire_bounded_lock(lock_path: str, timeout_ms: int, operation: str) -> MigrationBoundedLockHandle`
 //! - `at_reference_context(text: str, line: int, character: int, known_kinds:
 //!   Sequence[str] | None = None) -> dict | None`
@@ -380,6 +390,8 @@
 //! - `collect_queue_fields(occurrences: list[dict]) -> dict`
 //! - `format_queue_directive(fields: dict) -> str | None`
 //! - `queue_directive_flag_key() -> str`
+//! - `runner_capacity_policy_schema_version() -> int`
+//! - `runner_capacity_snapshot(request: dict) -> dict`
 //! - `code_value_wire_schema_version() -> int`
 //! - `directive_completion_context(text: str, line: int, character: int) -> dict | None`
 //! - `directive_completion_candidates(context: dict, inventories: dict | None = None) -> dict`
@@ -605,6 +617,7 @@ use sase_core::agent_launch::{
     agent_unit_dispatch_prompt_with_flags as core_agent_unit_dispatch_prompt_with_flags,
     allocate_and_claim_workspace_from_content as core_allocate_and_claim_workspace_from_content,
     allocate_launch_timestamp_batch as core_allocate_launch_timestamp_batch,
+    bind_batch_predecessor_waits as core_bind_batch_predecessor_waits,
     build_condition_context as core_build_condition_context,
     classify_condition_status as core_classify_condition_status,
     cleanup_proc_private_inputs as core_cleanup_proc_private_inputs,
@@ -629,12 +642,12 @@ use sase_core::agent_launch::{
     validate_proc_workspace_intent as core_validate_proc_workspace_intent,
     validate_standalone_proc_shell_name as core_validate_standalone_proc_shell_name,
     wait_target_key as core_wait_target_key, AgentLaunchPreparedWire,
-    AgentLaunchRequestWire, AgentUnitWire, ConditionEvalRequestWire,
-    LaunchAdmissionJournalEntryWire, LaunchAdmissionUnitStateWire,
-    LaunchAdmissionWaitFactWire, LaunchPlanWire, LaunchUnitPayloadWire,
-    LaunchUnitWire, OccupancyCallerWire, OccupantRecordWire,
-    ProcDispatchRequestWire, WaitTargetWire, WaitedOutcomeWire,
-    WorkspaceClaimRequestWire, WorkspaceClaimWire,
+    AgentLaunchRequestWire, AgentUnitWire, BatchPredecessorContextWire,
+    ConditionEvalRequestWire, LaunchAdmissionJournalEntryWire,
+    LaunchAdmissionUnitStateWire, LaunchAdmissionWaitFactWire, LaunchPlanWire,
+    LaunchUnitPayloadWire, LaunchUnitWire, OccupancyCallerWire,
+    OccupantRecordWire, ProcDispatchRequestWire, WaitTargetWire,
+    WaitedOutcomeWire, WorkspaceClaimRequestWire, WorkspaceClaimWire,
     CONDITION_CONTEXT_SCHEMA_VERSION, CONDITION_DEFAULT_TIMEOUT_SECONDS,
     CONDITION_EVAL_WIRE_SCHEMA_VERSION, CONDITION_MAX_TIMEOUT_SECONDS,
     CONDITION_OUTPUT_CAP_BYTES, LAUNCH_ADMISSION_JOURNAL_SCHEMA_VERSION,
@@ -1071,14 +1084,20 @@ use sase_core::markdown_link_refs::{
 use sase_core::migration::{
     acquire_bounded_lock as core_migration_acquire_bounded_lock,
     classify as core_migration_residue_classify,
+    convert_gate_bundles_apply as core_migration_gate_bundles_apply,
+    convert_gate_bundles_plan as core_migration_gate_bundles_plan,
+    convert_gate_bundles_verify as core_migration_gate_bundles_verify,
+    convert_patch_records_apply as core_migration_patch_records_apply,
+    convert_patch_records_plan as core_migration_patch_records_plan,
+    convert_patch_records_verify as core_migration_patch_records_verify,
     fingerprint as core_migration_fingerprint,
     plan_next_step as core_migration_plan_next_step,
     reconcile_plan as core_migration_reconcile_procs,
-    tree_digest as core_migration_tree_digest, MigrationCanonicalProcRefWire,
-    MigrationDigestError, MigrationHeldLock, MigrationJournalRecord,
-    MigrationLegacyProcRowWire, MigrationLockError, MigrationManifest,
-    MigrationResidueEntryWire, MigrationResidueFactsWire,
-    MIGRATION_WIRE_SCHEMA_VERSION,
+    tree_digest as core_migration_tree_digest, GateBundleConvertFactsWire,
+    MigrationCanonicalProcRefWire, MigrationDigestError, MigrationHeldLock,
+    MigrationJournalRecord, MigrationLegacyProcRowWire, MigrationLockError,
+    MigrationManifest, MigrationResidueEntryWire, MigrationResidueFactsWire,
+    PatchRecordsConvertFactsWire, MIGRATION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::model_route::{
     select_epic_land_model as core_select_epic_land_model,
@@ -1208,6 +1227,7 @@ use sase_core::provider_usage::{
     load_provider_usage_store as core_load_provider_usage_store,
     mark_provider_usage_refresh_due as core_mark_provider_usage_refresh_due,
     prepare_provider_usage_account_context as core_prepare_provider_usage_account_context,
+    project_usage_indicator as core_project_usage_indicator,
     project_usage_snapshot as core_project_usage_snapshot,
     provider_usage_state_path as core_provider_usage_state_path,
     record_provider_usage_observation as core_record_provider_usage_observation,
@@ -1217,6 +1237,7 @@ use sase_core::provider_usage::{
     reserve_provider_usage_refresh as core_reserve_provider_usage_refresh,
     summarize_usage_windows as core_summarize_usage_windows,
     usage_window_applies as core_usage_window_applies,
+    validate_usage_indicator_config as core_validate_usage_indicator_config,
     validate_usage_observation as core_validate_usage_observation,
     ProviderUsageError as ProviderUsageDomainError,
     ProviderUsageObservationWire, ProviderUsageRefreshAdmitRequestWire,
@@ -1224,9 +1245,11 @@ use sase_core::provider_usage::{
     ProviderUsageRefreshMarkDueRequestWire,
     ProviderUsageRefreshReservationRequestWire,
     ProviderUsageStoreError as ProviderUsageStoreDomainError,
-    UsageApplicabilityWire, UsagePublicWindowWire,
-    DEFAULT_USAGE_CADENCE_SECONDS, DEFAULT_USAGE_CRITICAL_PERCENT,
-    DEFAULT_USAGE_WARN_PERCENT, PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
+    UsageApplicabilityWire, UsageIndicatorProjectionRequestWire,
+    UsagePublicWindowWire, DEFAULT_USAGE_CADENCE_SECONDS,
+    DEFAULT_USAGE_CRITICAL_PERCENT, DEFAULT_USAGE_WARN_PERCENT,
+    PROVIDER_USAGE_INDICATOR_SCHEMA_VERSION,
+    PROVIDER_USAGE_OBSERVATION_SCHEMA_VERSION,
     PROVIDER_USAGE_PUBLIC_SCHEMA_VERSION, PROVIDER_USAGE_STORE_SCHEMA_VERSION,
     USAGE_COLLECTOR_FAILING_THRESHOLD,
 };
@@ -1326,6 +1349,11 @@ use sase_core::{
     validate_snippet_trigger as core_validate_snippet_trigger, EditorPosition,
     EditorSnippetCatalogRequestWire, ModelCompletionEntryWire,
     XpromptCatalogLoadOptions, MODEL_COMPLETION_ENTRY_WIRE_FIELDS,
+};
+use sase_core::{
+    runner_capacity_policy_schema_version as core_runner_capacity_policy_schema_version,
+    runner_capacity_snapshot as core_runner_capacity_snapshot,
+    RunnerCapacityRequestWire,
 };
 use serde::de::DeserializeOwned;
 use serde::ser::{
@@ -2149,7 +2177,7 @@ fn py_model_shortcut_edit(
 }
 
 /// Filter a `%model:`-shaped catalog down to concrete model rows a
-/// `**query` shortcut may expand to, in canonical catalog order.
+/// `==query` shortcut may expand to, in canonical catalog order.
 #[pyfunction]
 #[pyo3(name = "filter_explicit_model_shortcut_entries")]
 fn py_filter_explicit_model_shortcut_entries(
@@ -2200,8 +2228,8 @@ fn py_model_alias_shortcut_edit(
 }
 
 /// Filter a `%model:`-shaped catalog down to the effective alias rows a
-/// `*query` shortcut may expand to, in canonical catalog order. ACE's star
-/// shortcut menu and `sase-xprompt-lsp`'s `*` completion both build their
+/// `=query` shortcut may expand to, in canonical catalog order. ACE's equals
+/// shortcut menu and `sase-xprompt-lsp`'s `=` completion both build their
 /// candidate rows from this one binding so alias filtering never drifts
 /// between the two frontends.
 #[pyfunction]
@@ -7396,6 +7424,94 @@ fn py_migration_reconcile_procs<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "migration_patch_records_plan")]
+fn py_migration_patch_records_plan<'py>(
+    py: Python<'py>,
+    path: &str,
+    data: &Bound<'py, PyBytes>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let facts = patch_records_facts_from_pydict(facts)?;
+    let plan = core_migration_patch_records_plan(path, data.as_bytes(), &facts);
+    migration_value_to_py(py, &plan)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_patch_records_apply")]
+fn py_migration_patch_records_apply<'py>(
+    py: Python<'py>,
+    path: &str,
+    data: &Bound<'py, PyBytes>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let facts = patch_records_facts_from_pydict(facts)?;
+    let applied =
+        core_migration_patch_records_apply(path, data.as_bytes(), &facts);
+    migration_value_to_py(py, &applied)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_patch_records_verify")]
+fn py_migration_patch_records_verify<'py>(
+    py: Python<'py>,
+    path: &str,
+    original: &Bound<'py, PyBytes>,
+    converted: &Bound<'py, PyBytes>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let facts = patch_records_facts_from_pydict(facts)?;
+    let verified = core_migration_patch_records_verify(
+        path,
+        original.as_bytes(),
+        converted.as_bytes(),
+        &facts,
+    );
+    migration_value_to_py(py, &verified)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_gate_bundles_plan")]
+fn py_migration_gate_bundles_plan<'py>(
+    py: Python<'py>,
+    envelope: &Bound<'py, PyDict>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let envelope = json_value_from_pydict(envelope)?;
+    let facts = gate_bundle_facts_from_pydict(facts)?;
+    let plan = core_migration_gate_bundles_plan(&envelope, &facts);
+    migration_value_to_py(py, &plan)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_gate_bundles_apply")]
+fn py_migration_gate_bundles_apply<'py>(
+    py: Python<'py>,
+    envelope: &Bound<'py, PyDict>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let envelope = json_value_from_pydict(envelope)?;
+    let facts = gate_bundle_facts_from_pydict(facts)?;
+    let applied = core_migration_gate_bundles_apply(&envelope, &facts);
+    migration_value_to_py(py, &applied)
+}
+
+#[pyfunction]
+#[pyo3(name = "migration_gate_bundles_verify")]
+fn py_migration_gate_bundles_verify<'py>(
+    py: Python<'py>,
+    original: &Bound<'py, PyDict>,
+    converted: &Bound<'py, PyDict>,
+    facts: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let original = json_value_from_pydict(original)?;
+    let converted = json_value_from_pydict(converted)?;
+    let facts = gate_bundle_facts_from_pydict(facts)?;
+    let verified =
+        core_migration_gate_bundles_verify(&original, &converted, &facts);
+    migration_value_to_py(py, &verified)
+}
+
+#[pyfunction]
 #[pyo3(name = "migration_acquire_bounded_lock")]
 fn py_migration_acquire_bounded_lock(
     py: Python<'_>,
@@ -7483,6 +7599,32 @@ fn migration_residue_facts_from_pydict(
             "facts is not a valid MigrationResidueFactsWire dict: {error}"
         ))
     })
+}
+
+fn patch_records_facts_from_pydict(
+    facts: &Bound<'_, PyDict>,
+) -> PyResult<PatchRecordsConvertFactsWire> {
+    serde_json::from_value(py_to_json_value(facts.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "facts is not a valid PatchRecordsConvertFactsWire dict: {error}"
+        ))
+    })
+}
+
+fn gate_bundle_facts_from_pydict(
+    facts: &Bound<'_, PyDict>,
+) -> PyResult<GateBundleConvertFactsWire> {
+    serde_json::from_value(py_to_json_value(facts.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "facts is not a valid GateBundleConvertFactsWire dict: {error}"
+        ))
+    })
+}
+
+fn json_value_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<serde_json::Value> {
+    py_to_json_value(dict.as_any())
 }
 
 fn migration_legacy_proc_rows_from_py_list(
@@ -12159,6 +12301,12 @@ fn py_provider_usage_public_schema_version() -> u32 {
 }
 
 #[pyfunction]
+#[pyo3(name = "provider_usage_indicator_schema_version")]
+fn py_provider_usage_indicator_schema_version() -> u32 {
+    PROVIDER_USAGE_INDICATOR_SCHEMA_VERSION
+}
+
+#[pyfunction]
 #[pyo3(name = "provider_usage_store_schema_version")]
 fn py_provider_usage_store_schema_version() -> u32 {
     PROVIDER_USAGE_STORE_SCHEMA_VERSION
@@ -12411,6 +12559,34 @@ fn py_provider_usage_project_snapshot<'py>(
     )
     .map_err(provider_usage_error_to_pyerr)?;
     serialize_to_py(py, &snapshot)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_validate_indicator_config")]
+#[pyo3(signature = (indicator = None))]
+fn py_provider_usage_validate_indicator_config<'py>(
+    py: Python<'py>,
+    indicator: Option<&Bound<'_, PyAny>>,
+) -> PyResult<PyObject> {
+    let raw = match indicator {
+        Some(value) if !value.is_none() => Some(py_to_json_value(value)?),
+        _ => None,
+    };
+    let validation = core_validate_usage_indicator_config(raw);
+    serialize_to_py(py, &validation)
+}
+
+#[pyfunction]
+#[pyo3(name = "provider_usage_project_indicator")]
+fn py_provider_usage_project_indicator<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: UsageIndicatorProjectionRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let projection = core_project_usage_indicator(request)
+        .map_err(provider_usage_error_to_pyerr)?;
+    serialize_to_py(py, &projection)
 }
 
 #[pyfunction]
@@ -13706,6 +13882,30 @@ fn py_plan_agent_launch_fanout<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Bind no-argument batch waits to a supplied predecessor launch identity.
+#[pyfunction]
+#[pyo3(name = "bind_batch_predecessor_waits")]
+fn py_bind_batch_predecessor_waits<'py>(
+    py: Python<'py>,
+    prompt: &str,
+    predecessor: &Bound<'py, PyAny>,
+) -> PyResult<PyObject> {
+    let predecessor: BatchPredecessorContextWire = serde_json::from_value(
+        py_to_json_value(predecessor)?,
+    )
+    .map_err(|err| {
+        PyValueError::new_err(format!(
+            "invalid batch predecessor context: {err}"
+        ))
+    })?;
+    let binding = core_bind_batch_predecessor_waits(prompt, &predecessor)
+        .map_err(|err| PyValueError::new_err(format!("{err}")))?;
+    let value = serde_json::to_value(&binding).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 /// Plan a pure typed Agent/Proc launch graph without launching children.
 #[pyfunction]
 #[pyo3(name = "plan_typed_launch_units")]
@@ -13901,6 +14101,31 @@ fn py_format_queue_directive(
 #[pyo3(name = "queue_directive_flag_key")]
 fn py_queue_directive_flag_key() -> &'static str {
     core_queue_directive_flag_key()
+}
+
+#[pyfunction]
+#[pyo3(name = "runner_capacity_policy_schema_version")]
+fn py_runner_capacity_policy_schema_version() -> u32 {
+    core_runner_capacity_policy_schema_version()
+}
+
+#[pyfunction]
+#[pyo3(name = "runner_capacity_snapshot")]
+fn py_runner_capacity_snapshot<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyAny>,
+) -> PyResult<PyObject> {
+    let request: RunnerCapacityRequestWire =
+        serde_json::from_value(py_to_json_value(request)?).map_err(|err| {
+            PyValueError::new_err(format!(
+                "invalid runner capacity request: {err}"
+            ))
+        })?;
+    let snapshot = core_runner_capacity_snapshot(&request);
+    let value = serde_json::to_value(&snapshot).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
 }
 
 #[pyfunction]
@@ -15989,6 +16214,12 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_migration_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(py_migration_residue_classify, m)?)?;
     m.add_function(wrap_pyfunction!(py_migration_reconcile_procs, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_patch_records_plan, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_patch_records_apply, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_patch_records_verify, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_gate_bundles_plan, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_gate_bundles_apply, m)?)?;
+    m.add_function(wrap_pyfunction!(py_migration_gate_bundles_verify, m)?)?;
     m.add_function(wrap_pyfunction!(py_migration_acquire_bounded_lock, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_ready, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_blocked, m)?)?;
@@ -16101,6 +16332,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_collect_queue_fields, m)?)?;
     m.add_function(wrap_pyfunction!(py_format_queue_directive, m)?)?;
     m.add_function(wrap_pyfunction!(py_queue_directive_flag_key, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_runner_capacity_policy_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_runner_capacity_snapshot, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_overrun_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_chop_overrun, m)?)?;
     m.add_function(wrap_pyfunction!(py_axe_status_wire_schema_version, m)?)?;
@@ -16193,6 +16429,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
+        py_provider_usage_indicator_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
         py_provider_usage_store_schema_version,
         m
     )?)?;
@@ -16221,6 +16461,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_provider_usage_project_snapshot, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_provider_usage_validate_indicator_config,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_provider_usage_project_indicator, m)?)?;
     m.add_function(wrap_pyfunction!(py_provider_usage_remaining_percent, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_provider_usage_format_remaining_text,
@@ -16352,6 +16597,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_spawn_prepared_agent_process, m)?)?;
     m.add_function(wrap_pyfunction!(py_allocate_launch_timestamp_batch, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_agent_launch_fanout, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bind_batch_predecessor_waits, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_typed_launch_units, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_launch_admission_journal_schema_version,
@@ -16646,6 +16892,55 @@ mod tests {
                 .unwrap();
             let reconcile = py_to_json_value(&reconcile).unwrap();
             assert_eq!(reconcile["matched"].as_array().unwrap().len(), 1);
+
+            let legacy = "\
+## ChangeSpec
+NAME: alpha
+STATUS: WIP
+CL: https://example.test/1
+COMMITS:
+  (1) first
+";
+            let facts = json_value_to_py(py, &json!({})).unwrap();
+            let facts = facts.bind(py).downcast::<PyDict>().unwrap();
+            let bytes = PyBytes::new_bound(py, legacy.as_bytes());
+            let patch_plan = module
+                .getattr("migration_patch_records_plan")
+                .unwrap()
+                .call1(("proj.sase", bytes, facts))
+                .unwrap();
+            let patch_plan = py_to_json_value(&patch_plan).unwrap();
+            assert_eq!(patch_plan["intended_action"], "convert");
+
+            let envelope = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 2,
+                    "kind": "plan",
+                    "request_id": "req-1",
+                    "branches": [["approve"], ["reject"]],
+                    "hashes": {"request": "dead", "resources": {}}
+                }),
+            )
+            .unwrap();
+            let envelope = envelope.bind(py).downcast::<PyDict>().unwrap();
+            let settled = json_value_to_py(
+                py,
+                &json!({
+                    "has_response": true,
+                    "has_cancellation": false,
+                    "deadline_passed": false
+                }),
+            )
+            .unwrap();
+            let settled = settled.bind(py).downcast::<PyDict>().unwrap();
+            let gate_plan = module
+                .getattr("migration_gate_bundles_plan")
+                .unwrap()
+                .call1((envelope, settled))
+                .unwrap();
+            let gate_plan = py_to_json_value(&gate_plan).unwrap();
+            assert_eq!(gate_plan["intended_action"], "convert");
         });
     }
 
@@ -18705,7 +19000,7 @@ mod tests {
             let context = module
                 .getattr("model_shortcut_context")
                 .unwrap()
-                .call1(("🙂 **gp", position.clone_ref(py)))
+                .call1(("🙂 ==gp", position.clone_ref(py)))
                 .unwrap();
             assert_eq!(
                 py_to_json_value(&context).unwrap(),
@@ -18713,7 +19008,7 @@ mod tests {
                     "schema_version": 1,
                     "kind": "model",
                     "query": "gp",
-                    "token": "**gp",
+                    "token": "==gp",
                     "caret": {"line": 0, "character": 7},
                     "token_range": {
                         "start": {"line": 0, "character": 3},
@@ -18725,6 +19020,13 @@ mod tests {
                     }
                 })
             );
+
+            let legacy_star_context = module
+                .getattr("model_shortcut_context")
+                .unwrap()
+                .call1(("🙂 **gp", position.clone_ref(py)))
+                .unwrap();
+            assert!(legacy_star_context.is_none());
 
             let filtered = module
                 .getattr("filter_explicit_model_shortcut_entries")
@@ -18749,7 +19051,7 @@ mod tests {
                 .getattr("model_shortcut_edit")
                 .unwrap()
                 .call1((
-                    "🙂 **codex/gp",
+                    "🙂 ==codex/gp",
                     scoped_position.clone_ref(py),
                     entries.clone_ref(py),
                     "codex/gpt-5.6-sol",
@@ -18777,7 +19079,7 @@ mod tests {
                 .getattr("model_shortcut_edit")
                 .unwrap()
                 .call1((
-                    "🙂 **codex/gp",
+                    "🙂 ==codex/gp",
                     scoped_position,
                     entries,
                     "gpt-5.6-sol",
@@ -18813,7 +19115,7 @@ mod tests {
                     .getattr("model_shortcut_edit")
                     .unwrap()
                     .call1((
-                        "Use **gpt",
+                        "Use ==gpt",
                         unsafe_position.clone_ref(py),
                         unsafe_entries.clone_ref(py),
                         unsafe_value,
@@ -18833,7 +19135,7 @@ mod tests {
         Python::with_gil(|py| {
             let position_error = py_model_shortcut_context(
                 py,
-                "**",
+                "==",
                 PyDict::new_bound(py).as_any(),
             )
             .unwrap_err()
@@ -18909,14 +19211,14 @@ mod tests {
             let context = module
                 .getattr("model_alias_shortcut_context")
                 .unwrap()
-                .call1(("🙂 *la", position.clone_ref(py)))
+                .call1(("🙂 =la", position.clone_ref(py)))
                 .unwrap();
             assert_eq!(
                 py_to_json_value(&context).unwrap(),
                 json!({
                     "schema_version": 1,
                     "query": "la",
-                    "token": "*la",
+                    "token": "=la",
                     "caret": {"line": 0, "character": 6},
                     "token_range": {
                         "start": {"line": 0, "character": 3},
@@ -18929,11 +19231,18 @@ mod tests {
                 })
             );
 
+            let legacy_star_context = module
+                .getattr("model_alias_shortcut_context")
+                .unwrap()
+                .call1(("🙂 *la", position.clone_ref(py)))
+                .unwrap();
+            assert!(legacy_star_context.is_none());
+
             let edit = module
                 .getattr("model_alias_shortcut_edit")
                 .unwrap()
                 .call1((
-                    "🙂 *la",
+                    "🙂 =la",
                     position.clone_ref(py),
                     entries.clone_ref(py),
                     "@large",
@@ -18959,7 +19268,7 @@ mod tests {
             let stale = module
                 .getattr("model_alias_shortcut_edit")
                 .unwrap()
-                .call1(("🙂 *la", position, entries, "@small"))
+                .call1(("🙂 =la", position, entries, "@small"))
                 .unwrap();
             assert!(stale.is_none());
         });
@@ -18971,7 +19280,7 @@ mod tests {
         Python::with_gil(|py| {
             let error = py_model_alias_shortcut_context(
                 py,
-                "*",
+                "=",
                 PyDict::new_bound(py).as_any(),
             )
             .unwrap_err()
@@ -25868,13 +26177,19 @@ MENTORS:
                 .unwrap();
             assert_eq!(queue["alias"], json!("q"));
             assert_eq!(queue.get("feature_flag"), None);
+            assert!(queue["keywords"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|keyword| keyword["name"] == "weight"
+                    && keyword["value_role"] == "positive_float"));
             assert_eq!(py_queue_directive_flag_key(), "queue_directive");
             let occurrences = json_value_to_py(
                 py,
                 &json!([{
-                    "source": "%q:5",
-                    "source_span": [0, 4],
-                    "args": [{"value": "5"}],
+                    "source": "%q(5, w=0.25)",
+                    "source_span": [0, 14],
+                    "args": [{"value": "5"}, {"name": "w", "value": "0.25"}],
                     "has_plus_suffix": false
                 }]),
             )
@@ -25883,16 +26198,53 @@ MENTORS:
                 py_collect_queue_fields(py, occurrences.bind(py)).unwrap();
             let collected = py_to_json_value(collected.bind(py)).unwrap();
             assert_eq!(collected["fields"]["runners"], json!(5));
+            assert_eq!(collected["fields"]["weight"], json!(0.25));
             assert!(collected["errors"].as_array().unwrap().is_empty());
             let formatted = py_format_queue_directive(
-                json_value_to_py(py, &json!({"runners": 5, "priority": 20}))
-                    .unwrap()
-                    .bind(py),
+                json_value_to_py(
+                    py,
+                    &json!({"runners": 5, "priority": 20, "weight": 2.0}),
+                )
+                .unwrap()
+                .bind(py),
             )
             .unwrap();
             assert_eq!(
                 formatted.as_deref(),
-                Some("%queue(runners=5, priority=20)")
+                Some("%queue(runners=5, priority=20, weight=2)")
+            );
+            assert_eq!(py_runner_capacity_policy_schema_version(), 1);
+            let capacity_request = json_value_to_py(
+                py,
+                &json!({
+                    "effective_limit": 1.0,
+                    "records": [
+                        {
+                            "artifact_dir": "/tmp/running",
+                            "project_name": "proj",
+                            "timestamp": "20260910000000",
+                            "run_started_at": "2026-09-10T00:00:00Z",
+                            "queue_weight": 0.75
+                        },
+                        {
+                            "artifact_dir": "/tmp/waiting",
+                            "project_name": "proj",
+                            "timestamp": "20260910000001",
+                            "slot_requested_at": "2026-09-10T00:00:01Z",
+                            "queue_weight": 0.25
+                        }
+                    ]
+                }),
+            )
+            .unwrap();
+            let capacity =
+                py_runner_capacity_snapshot(py, capacity_request.bind(py))
+                    .unwrap();
+            let capacity = py_to_json_value(capacity.bind(py)).unwrap();
+            assert_eq!(capacity["occupied_capacity"], json!(0.75));
+            assert_eq!(
+                capacity["first_eligible_artifact_dir"],
+                json!("/tmp/waiting")
             );
 
             let wait = contract
@@ -26006,6 +26358,7 @@ MENTORS:
             let now = 1_800_000_000.0;
             assert_eq!(py_provider_usage_observation_schema_version(), 1);
             assert_eq!(py_provider_usage_public_schema_version(), 1);
+            assert_eq!(py_provider_usage_indicator_schema_version(), 1);
             assert_eq!(py_provider_usage_collector_failing_threshold(), 3);
             assert_eq!(
                 py_provider_usage_remaining_percent(12.5).unwrap(),
@@ -26080,6 +26433,55 @@ MENTORS:
             );
             assert_eq!(
                 snapshot_value["providers"][0]["summary"]["remaining_percent"],
+                json!(6.0)
+            );
+            let invalid_indicator = json_value_to_py(
+                py,
+                &json!({
+                    "default": true,
+                    "weekly_all": "always",
+                }),
+            )
+            .unwrap();
+            let validation = py_provider_usage_validate_indicator_config(
+                py,
+                Some(invalid_indicator.bind(py)),
+            )
+            .unwrap();
+            let validation_value =
+                py_to_json_value(validation.bind(py)).unwrap();
+            assert_eq!(validation_value["schema_version"], json!(1));
+            assert_eq!(
+                validation_value["diagnostics"][0]["path"],
+                json!("indicator.default")
+            );
+
+            let request = json!({
+                "schema_version": 1,
+                "snapshot": snapshot_value,
+                "indicator": {
+                    "default": {"below_remaining_percent": 10},
+                    "weekly_all": "always"
+                },
+                "now": now,
+                "cadence_seconds": 300.0,
+                "warn_percent": 75.0,
+                "critical_percent": 90.0
+            });
+            let request_obj = json_value_to_py(py, &request).unwrap();
+            let request_dict =
+                request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let indicator_projection =
+                py_provider_usage_project_indicator(py, request_dict).unwrap();
+            let indicator_value =
+                py_to_json_value(indicator_projection.bind(py)).unwrap();
+            assert_eq!(indicator_value["schema_version"], json!(1));
+            assert_eq!(
+                indicator_value["entries"][0]["window_key"],
+                json!("week")
+            );
+            assert_eq!(
+                indicator_value["entries"][0]["remaining_percent"],
                 json!(6.0)
             );
 

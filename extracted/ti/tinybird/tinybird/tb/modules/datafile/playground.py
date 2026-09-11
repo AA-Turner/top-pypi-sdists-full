@@ -902,7 +902,7 @@ def process_file(
 
         return resources
 
-    elif DataFileExtensions.PIPE in filename:
+    if DataFileExtensions.PIPE in filename:
         doc, warnings = parse_pipe(filename)
         version = f"__v{doc.version}" if doc.version is not None else ""
         name = os.path.basename(filename).split(".")[0]
@@ -999,11 +999,10 @@ def process_file(
                 "filtering_tags": doc.filtering_tags,
             }
         ]
-    elif DataFileExtensions.CONNECTION in filename:
+    if DataFileExtensions.CONNECTION in filename:
         return []
 
-    else:
-        raise click.ClickException(FeedbackManager.error_file_extension(filename=filename))
+    raise click.ClickException(FeedbackManager.error_file_extension(filename=filename))
 
 
 def sizeof_fmt(num: float, suffix: str = "b") -> str:

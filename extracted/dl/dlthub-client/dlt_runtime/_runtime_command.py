@@ -32,17 +32,14 @@ from dlt_runtime.exceptions import (
     handle_client_exceptions,
 )
 from dlt_runtime.runtime import (
+    AuthenticationMethod,
     AuthInfo,
     RuntimeAuthService,
     get_api_client,
     get_auth_client,
 )
-from dlt_runtime.runtime_clients.api.api.runs import (
-    bulk_cancel_runs,
-    cancel_run,
-    get_run,
-)
-from dlt_runtime.runtime_clients.api.api.scripts import (
+from dlthub_sdk._gen.api.api.runs import bulk_cancel_runs, cancel_run, get_run
+from dlthub_sdk._gen.api.api.scripts import (
     disable_public_url,
     enable_public_url,
     get_script,
@@ -50,30 +47,29 @@ from dlt_runtime.runtime_clients.api.api.scripts import (
     resume_script,
     trigger_jobs,
 )
-from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models import (
+from dlthub_sdk._gen.api.client import Client as ApiClient
+from dlthub_sdk._gen.api.models import (
     BulkCancelRequest,
+    PrincipalKind,
     RunStatus,
     TriggerJobsRequest,
 )
-from dlt_runtime.runtime_clients.api.types import UNSET, Unset
-from dlt_runtime.runtime_clients.auth.api.workos import (
+from dlthub_sdk._gen.api.types import UNSET, Unset
+from dlthub_sdk._gen.auth.api.workos import (
     workos_auth_code_exchange,
     workos_auth_code_start,
     workos_device_flow_complete,
     workos_device_flow_start,
 )
-from dlt_runtime.runtime_clients.auth.errors import (
-    UnexpectedStatus as AuthUnexpectedStatus,
-)
-from dlt_runtime.runtime_clients.dataplane_api.models import (
+from dlthub_sdk._gen.auth.errors import UnexpectedStatus as AuthUnexpectedStatus
+from dlthub_sdk._gen.dataplane_api.models import (
     PlainVariableUpsert,
     SecretVariableUpsert,
     VariableChangeResultStatus,
 )
 
 if TYPE_CHECKING:
-    from dlt_runtime.runtime_clients.api.models import TriggeredJob
+    from dlthub_sdk._gen.api.models import TriggeredJob
 
 # Other libraries
 from dlt._workspace.deployment._run_helpers import (
@@ -134,13 +130,13 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _resolve_trigger_selectors,
     _resolve_workspace_id,
     _resolve_workspace_name,
-    _scope_user_info_to_org,
+    _scope_caller_info_to_org,
     _sole_active_org_id,
     _tls_verify,
     _to_uuid,
     _validate_org_id,
     _validate_pinned_org_id,
-    requires_login,
+    requires_auth,
     requires_workspace,
 )
 from dlt_runtime._runtime_command_views import (
@@ -187,14 +183,21 @@ from dlt_runtime.strings import (
     JOB_NO_SELECTOR_MATCH,
     JOB_SCHEDULE_TOGGLE_FAILED,
     LOGIN_CANCELLED_RESUME_HINT,
+    PERSONAL_API_KEY_CONNECT_REQUIRES_NAME,
     VARIABLE_SECRET_NEEDS_VALUE,
+    WORKSPACE_API_KEY_CANNOT_CREATE,
+    WORKSPACE_API_KEY_NO_ACCESS,
+    WORKSPACE_API_KEY_ORG_MISMATCH,
+    WORKSPACE_API_KEY_PIN_MISMATCH,
+    WORKSPACE_API_KEY_WRONG_ORG,
+    WORKSPACE_API_KEY_WRONG_WORKSPACE,
     WORKSPACE_CONNECT_CREATE_DECLINED,
-    WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY,
     WORKSPACE_CREATE_REQUIRES_NAME,
     WORKSPACE_NAME_ALREADY_EXISTS,
     WORKSPACE_NAME_NOT_FOUND,
 )
 from dlt_runtime.typing import (
+    CallerInfo,
     ConnectedWorkspaceInfo,
     CreateInOrgChoice,
     DeviceFlowStartResult,
@@ -204,7 +207,6 @@ from dlt_runtime.typing import (
     SyncResult,
     TriggerSkipInfo,
     TriggerStatus,
-    UserInfo,
     WorkspaceInfo,
 )
 
@@ -498,7 +500,7 @@ def _perform_loopback_login(
         jwt_token, refresh_token = _exchange_auth_code(code, code_verifier)
     finally:
         server.server_close()
-    auth_info, _ = auth_service.login(jwt_token, refresh_token=refresh_token)
+    auth_info = auth_service.login(jwt_token, refresh_token=refresh_token)
     return auth_service, _login_complete_result(
         auth_info, web_ui_url, is_new_login=True
     )
@@ -527,7 +529,7 @@ def _perform_login(
     auth_service = RuntimeAuthService(run_context=active())
     web_ui_url = urls.web_ui_base()
 
-    if auth_service.has_api_key():
+    if auth_service.authentication_method() is AuthenticationMethod.API_KEY:
         raise CliCommandInnerException(
             cmd="dlthub",
             msg=(
@@ -539,7 +541,7 @@ def _perform_login(
     # Phase 2: resume an in-flight device flow.
     if resume is not None:
         jwt_token, refresh_token = _poll_device_flow(resume, interval=5)
-        resumed_auth, _ = auth_service.login(jwt_token, refresh_token=refresh_token)
+        resumed_auth = auth_service.login(jwt_token, refresh_token=refresh_token)
         return auth_service, _login_complete_result(
             resumed_auth, web_ui_url, is_new_login=True
         )
@@ -588,7 +590,7 @@ def _perform_login(
         flow["device_code"],
         flow["interval"],
     )
-    auth_info, _ = auth_service.login(jwt_token, refresh_token=refresh_token)
+    auth_info = auth_service.login(jwt_token, refresh_token=refresh_token)
     return auth_service, _login_complete_result(
         auth_info, web_ui_url, is_new_login=True
     )
@@ -630,19 +632,18 @@ def logout() -> None:
     fmt.echo("Logged out")
 
 
-@requires_login
+@requires_auth
 @track_command(operation="workspace", suboperation="list")
 def workspace_list(*, auth_service: RuntimeAuthService) -> None:
-    """List all workspaces the authenticated user has access to.
+    """List all workspaces the caller has access to.
 
-    Requires login but NOT a connected workspace — the user may be picking one.
+    Requires auth but NOT a connected workspace, since the user may be picking one.
     """
-    user_info = auth_service.fetch_user_info()
-    workspaces, current_ws_id = _fetch_workspaces(auth_service, user_info)
+    workspaces, current_ws_id = _fetch_workspaces(auth_service)
     _print_workspaces(workspaces, current_ws_id)
 
 
-@requires_login
+@requires_auth
 @track_command(operation="workspace", suboperation="connect")
 def workspace_connect(
     workspace: Optional[str] = None,
@@ -652,25 +653,35 @@ def workspace_connect(
     auth_service: RuntimeAuthService,
 ) -> None:
     """Connect this project to a remote workspace by name/ID, or `--create` a new one"""
-    if workspace is None and not create and auth_service.has_api_key():
+    if auth_service.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
+        if create:
+            raise CliCommandInnerException(
+                cmd="workspace", msg=WORKSPACE_API_KEY_CANNOT_CREATE
+            )
+        _connect_bound_workspace(auth_service, workspace, org_id)
+        return
+    if (
+        workspace is None
+        and not create
+        and auth_service.authentication_method() is AuthenticationMethod.API_KEY
+    ):
         raise CliCommandInnerException(
-            cmd="workspace",
-            msg=WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY,
+            cmd="workspace", msg=PERSONAL_API_KEY_CONNECT_REQUIRES_NAME
         )
     # Persists workspace_id (always) + organization_id (write-once) to
     # [runtime], plus workspace name to [workspace.settings] in
     # .dlt/config.toml. Org precedence: pinned org in config > --org-id flag >
     # sole active org > none (multi-org picker / non-interactive error).
-    user_info = auth_service.fetch_user_info()
+    caller_info = auth_service.fetch_caller_info()
     pinned_org_id = auth_service.organization_id
-    effective_org_id = _resolve_effective_org_id(user_info, pinned_org_id, org_id)
+    effective_org_id = _resolve_effective_org_id(caller_info, pinned_org_id, org_id)
 
     # Scope visible workspaces to the effective org (for picker, name lookup,
     # and ambiguity detection).
-    scoped_user_info = (
-        _scope_user_info_to_org(user_info, effective_org_id)
+    scoped_caller_info = (
+        _scope_caller_info_to_org(caller_info, effective_org_id)
         if effective_org_id
-        else user_info
+        else caller_info
     )
 
     if create:
@@ -680,9 +691,9 @@ def workspace_connect(
                 cmd="workspace",
                 msg=WORKSPACE_CREATE_REQUIRES_NAME,
             )
-        if any(ws["name"] == workspace for ws in scoped_user_info["workspaces"]):
+        if any(ws["name"] == workspace for ws in scoped_caller_info["workspaces"]):
             org_label = (
-                _org_label(user_info, effective_org_id)
+                _org_label(caller_info, effective_org_id)
                 if effective_org_id
                 else "your organization"
             )
@@ -693,13 +704,13 @@ def workspace_connect(
                 ),
             )
         create_org_id = _resolve_create_org_or_raise(
-            user_info,
+            caller_info,
             effective_org_id,
             workspace=workspace,
         )
         workspace_id = _create_workspace(
             auth_service,
-            user_info,
+            caller_info,
             workspace,
             create_org_id,
         )
@@ -708,18 +719,18 @@ def workspace_connect(
         # No args. Bootstrap path on zero owned workspaces in scope (the only
         # auto-create CLI path); otherwise fire the picker.
         owned = [
-            ws for ws in scoped_user_info["workspaces"] if ws.get("role") == "owner"
+            ws for ws in scoped_caller_info["workspaces"] if ws.get("role") == "owner"
         ]
         if not owned:
             workspace_id = _create_workspace_with_default_name(
                 auth_service,
-                user_info,
+                caller_info,
                 effective_org_id,
             )
             created = True
         else:
             workspace_id, created = _select_or_create_workspace(
-                auth_service, scoped_user_info
+                auth_service, scoped_caller_info
             )
     else:
         # connect to existing workspace
@@ -729,7 +740,7 @@ def workspace_connect(
             cross_org_match = next(
                 (
                     ws
-                    for ws in user_info["workspaces"]
+                    for ws in caller_info["workspaces"]
                     if ws["id"] == workspace
                     and ws.get("organization_id")
                     and ws.get("organization_id") != effective_org_id
@@ -737,9 +748,9 @@ def workspace_connect(
                 None,
             )
             if cross_org_match is not None:
-                _raise_cross_org(user_info, cross_org_match, effective_org_id)
+                _raise_cross_org(caller_info, cross_org_match, effective_org_id)
         try:
-            workspace_id = _resolve_workspace_id(scoped_user_info, workspace)
+            workspace_id = _resolve_workspace_id(scoped_caller_info, workspace)
         except WorkspaceNotFound as e:
             if e.is_uuid:
                 raise CliCommandInnerException(
@@ -749,27 +760,27 @@ def workspace_connect(
                         "owned workspaces."
                     ),
                 ) from e
-            connect_create_org_id = effective_org_id or _sole_active_org_id(user_info)
+            connect_create_org_id = effective_org_id or _sole_active_org_id(caller_info)
             if not fmt.is_interactive() or connect_create_org_id is None:
                 raise CliCommandInnerException(
                     cmd="workspace",
                     msg=WORKSPACE_NAME_NOT_FOUND.format(name=workspace),
                 ) from e
             if not _prompt_create_missing_workspace_in_org(
-                workspace, _org_label(user_info, connect_create_org_id)
+                workspace, _org_label(caller_info, connect_create_org_id)
             ):
                 raise CliCommandInnerException(
                     cmd="workspace",
                     msg=WORKSPACE_CONNECT_CREATE_DECLINED.format(name=workspace),
                 ) from e
             workspace_id = _create_workspace(
-                auth_service, user_info, workspace, connect_create_org_id
+                auth_service, caller_info, workspace, connect_create_org_id
             )
             created = True
 
     # CLI never overwrites a pinned `organization_id`.
     resolved_ws = next(
-        (ws for ws in user_info["workspaces"] if ws["id"] == workspace_id), None
+        (ws for ws in caller_info["workspaces"] if ws["id"] == workspace_id), None
     )
     if (
         effective_org_id
@@ -777,14 +788,14 @@ def workspace_connect(
         and resolved_ws.get("organization_id")
         and resolved_ws.get("organization_id") != effective_org_id
     ):
-        _raise_cross_org(user_info, resolved_ws, effective_org_id)
+        _raise_cross_org(caller_info, resolved_ws, effective_org_id)
 
     auth_service.write_connection(
         workspace_id,
-        _org_id_to_persist(user_info, resolved_ws, effective_org_id),
+        _org_id_to_persist(caller_info, resolved_ws, effective_org_id),
     )
 
-    ws_name = _get_workspace_name(user_info, workspace_id)
+    ws_name = _get_workspace_name(caller_info["workspaces"], workspace_id)
     if ws_name:
         auth_service.write_workspace_name(ws_name)
 
@@ -793,15 +804,71 @@ def workspace_connect(
         info["created"] = True
     if ws_name:
         info["workspace_name"] = ws_name
-    org_name = _get_workspace_org_name(user_info, workspace_id)
+    org_name = _get_workspace_org_name(caller_info["workspaces"], workspace_id)
     if org_name:
         info["organization_name"] = org_name
     _print_workspace_connected(info)
 
 
-def _raise_unscoped_multi_org_error(user_info: UserInfo) -> None:
+def _connect_bound_workspace(
+    auth_service: RuntimeAuthService, workspace: Optional[str], org_id: Optional[str]
+) -> None:
+    """Pin the workspace the API key is bound to; an argument or existing pin may only confirm it."""
+    workspaces = auth_service.fetch_caller_info()["workspaces"]
+    if not workspaces:
+        raise CliCommandInnerException(cmd="workspace", msg=WORKSPACE_API_KEY_NO_ACCESS)
+    bound = workspaces[0]
+    if workspace is not None and workspace not in (bound["id"], bound["name"]):
+        raise CliCommandInnerException(
+            cmd="workspace",
+            msg=WORKSPACE_API_KEY_WRONG_WORKSPACE.format(
+                bound_workspace_name=bound["name"],
+                bound_workspace_id=bound["id"],
+                workspace=workspace,
+            ),
+        )
+    if org_id is not None and org_id != bound["organization_id"]:
+        raise CliCommandInnerException(
+            cmd="workspace",
+            msg=WORKSPACE_API_KEY_WRONG_ORG.format(
+                key_org_name=bound["organization_name"],
+                key_org_id=bound["organization_id"],
+                org_id=org_id,
+            ),
+        )
+    if auth_service.has_workspace() and auth_service.workspace_id != bound["id"]:
+        raise CliCommandInnerException(
+            cmd="workspace",
+            msg=WORKSPACE_API_KEY_PIN_MISMATCH.format(
+                workspace_id=auth_service.workspace_id,
+                bound_workspace_id=bound["id"],
+            ),
+        )
+    pinned_org_id = auth_service.organization_id
+    if pinned_org_id is not None and pinned_org_id != bound["organization_id"]:
+        raise CliCommandInnerException(
+            cmd="workspace",
+            msg=WORKSPACE_API_KEY_ORG_MISMATCH.format(
+                organization_id=pinned_org_id,
+                key_org_name=bound["organization_name"],
+                key_org_id=bound["organization_id"],
+            ),
+        )
+    auth_service.write_connection(bound["id"], bound["organization_id"])
+    auth_service.write_workspace_name(bound["name"])
+    info: ConnectedWorkspaceInfo = {
+        "workspace_id": bound["id"],
+        "workspace_name": bound["name"],
+    }
+    org_name = bound.get("organization_name")
+    if org_name:
+        info["organization_name"] = org_name
+    _print_workspace_connected(info)
+
+
+def _raise_unscoped_multi_org_error(caller_info: CallerInfo) -> None:
     """Render the picker layout in non-interactive mode and raise."""
-    groups = _group_workspaces_by_org(user_info)
+    groups = _group_workspaces_by_org(caller_info)
     _print_org_groups_non_interactive(groups)
     raise RuntimeClientException(
         "You belong to multiple organizations and no `organization_id` is "
@@ -812,7 +879,7 @@ def _raise_unscoped_multi_org_error(user_info: UserInfo) -> None:
 
 
 def _resolve_create_org_or_raise(
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     effective_org_id: Optional[str],
     *,
     workspace: str,
@@ -820,10 +887,10 @@ def _resolve_create_org_or_raise(
     """Choose the org id new-workspace creation will use, or raise."""
     if effective_org_id:
         return effective_org_id
-    sole = _sole_active_org_id(user_info)
+    sole = _sole_active_org_id(caller_info)
     if sole:
         return sole
-    _raise_unscoped_multi_org_error(user_info)
+    _raise_unscoped_multi_org_error(caller_info)
     raise AssertionError("unreachable")
 
 
@@ -844,21 +911,20 @@ def _prompt_and_set_org_region(
 
 def _create_workspace(
     auth_service: RuntimeAuthService,
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     name: str,
     organization_id: str,
     *,
     description: Optional[str] = None,
     organization_name: Optional[str] = None,
 ) -> str:
-    """Create a workspace via the API and stamp it onto user_info.
+    """Create a workspace via the API and stamp it onto caller_info.
 
     On a region-less org the create is gated (409); the owner is prompted to set
     the region, then the create is retried once.
     """
     try:
         new_ws_id = auth_service.create_new_workspace(
-            user_info,
             name,
             description,
             organization_id=organization_id,
@@ -866,7 +932,6 @@ def _create_workspace(
     except OrgRegionRequired:
         _prompt_and_set_org_region(auth_service, organization_id)
         new_ws_id = auth_service.create_new_workspace(
-            user_info,
             name,
             description,
             organization_id=organization_id,
@@ -875,7 +940,7 @@ def _create_workspace(
         organization_name = next(
             (
                 org["name"]
-                for org in user_info["organizations"]
+                for org in caller_info["organizations"]
                 if org["id"] == organization_id
             ),
             None,
@@ -891,13 +956,13 @@ def _create_workspace(
         new_ws["organization_name"] = organization_name
     if description:
         new_ws["description"] = description
-    user_info["workspaces"].append(new_ws)
+    caller_info["workspaces"].append(new_ws)
     return new_ws_id
 
 
 def _create_workspace_with_default_name(
     auth_service: RuntimeAuthService,
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     effective_org_id: Optional[str],
 ) -> str:
     """Auto-create a workspace named `ctx.name` in the effective/sole org."""
@@ -905,13 +970,13 @@ def _create_workspace_with_default_name(
     # single auto-create path that doesn't require explicit `--create`.
     ws_name = _default_workspace_name()
     create_org_id = _resolve_create_org_or_raise(
-        user_info,
+        caller_info,
         effective_org_id,
         workspace=ws_name,
     )
     return _create_workspace(
         auth_service,
-        user_info,
+        caller_info,
         ws_name,
         create_org_id,
     )
@@ -919,24 +984,24 @@ def _create_workspace_with_default_name(
 
 def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
     """Use picker to connect to remote workspace; auto-connect when there is no choice."""
-    user_info = auth_service.fetch_user_info()
+    caller_info = auth_service.fetch_caller_info()
     pinned_org_id = auth_service.organization_id
     if pinned_org_id:
         # Stale pin → clear remediation message before scoping yields nothing.
-        _validate_pinned_org_id(user_info, pinned_org_id)
+        _validate_pinned_org_id(caller_info, pinned_org_id)
     scoped = (
-        _scope_user_info_to_org(user_info, pinned_org_id)
+        _scope_caller_info_to_org(caller_info, pinned_org_id)
         if pinned_org_id
-        else user_info
+        else caller_info
     )
     owned = [ws for ws in scoped["workspaces"] if ws.get("role") == "owner"]
 
     if not owned:
         # Bootstrap path: auto-create with ctx.name + bind locally.
         new_ws_id = _create_workspace_with_default_name(
-            auth_service, user_info, pinned_org_id
+            auth_service, caller_info, pinned_org_id
         )
-        selected = next(ws for ws in user_info["workspaces"] if ws["id"] == new_ws_id)
+        selected = next(ws for ws in caller_info["workspaces"] if ws["id"] == new_ws_id)
         auth_service.write_connection(new_ws_id, selected["organization_id"])
         auth_service.write_workspace_name(selected["name"])
         info: ConnectedWorkspaceInfo = {
@@ -955,10 +1020,7 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
         # Single owned workspace in scope — typically the auto-created
         # playground in a fresh org. Connect without prompting.
         single = owned[0]
-        auth_service.write_connection(
-            single["id"],
-            single.get("organization_id") or user_info["default_organization_id"],
-        )
+        auth_service.write_connection(single["id"], single["organization_id"])
         auth_service.write_workspace_name(single["name"])
         auto_info: ConnectedWorkspaceInfo = {
             "workspace_id": single["id"],
@@ -974,17 +1036,14 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
     # 1+ workspaces in scope: picker (interactive) or non-interactive error.
     selected_id, created = _select_or_create_workspace(auth_service, scoped)
     # The picker may have created a new workspace, which stamps it onto
-    # `user_info["workspaces"]` (not `scoped`). Look up there in the created
+    # `caller_info["workspaces"]` (not `scoped`). Look up there in the created
     # case so the new entry is visible.
     selected = next(
         ws
-        for ws in (user_info["workspaces"] if created else scoped["workspaces"])
+        for ws in (caller_info["workspaces"] if created else scoped["workspaces"])
         if ws["id"] == selected_id
     )
-    org_id_to_write = (
-        selected.get("organization_id") or user_info["default_organization_id"]
-    )
-    auth_service.write_connection(selected["id"], org_id_to_write)
+    auth_service.write_connection(selected["id"], selected["organization_id"])
     auth_service.write_workspace_name(selected["name"])
     picker_info: ConnectedWorkspaceInfo = {"workspace_id": selected["id"]}
     if created:
@@ -998,7 +1057,7 @@ def _connect_workspace_with_picker(auth_service: RuntimeAuthService) -> None:
 
 def _create_workspace_from_prompt(
     auth_service: RuntimeAuthService,
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     *,
     organization_id: str,
     organization_name: Optional[str] = None,
@@ -1008,7 +1067,7 @@ def _create_workspace_from_prompt(
     name, description = _prompt_new_workspace(default_name=default_name)
     return _create_workspace(
         auth_service,
-        user_info,
+        caller_info,
         name,
         organization_id,
         description=description,
@@ -1018,12 +1077,12 @@ def _create_workspace_from_prompt(
 
 def _select_or_create_workspace(
     auth_service: RuntimeAuthService,
-    org_scoped_user_info: UserInfo,
+    org_scoped_caller_info: CallerInfo,
 ) -> tuple[str, bool]:
     """Pick or create an owned workspace interactively; returns (id, created)."""
-    groups = _group_workspaces_by_org(org_scoped_user_info)
+    groups = _group_workspaces_by_org(org_scoped_caller_info)
     viewer_only = [
-        ws for ws in org_scoped_user_info["workspaces"] if ws.get("role") != "owner"
+        ws for ws in org_scoped_caller_info["workspaces"] if ws.get("role") != "owner"
     ]
 
     if viewer_only:
@@ -1035,7 +1094,7 @@ def _select_or_create_workspace(
         fmt.echo("")
 
     if not groups:
-        # No active orgs at all — should be impossible if /me succeeded, but
+        # No active orgs at all — should be impossible if /user succeeded, but
         # don't silently auto-create in the user's default org. Raise a
         # diagnostic the user can act on.
 
@@ -1057,17 +1116,17 @@ def _select_or_create_workspace(
     if "id" in selected:
         existing: WorkspaceInfo = selected  # type: ignore[assignment]
         return existing["id"], False
-    create_choice: CreateInOrgChoice = selected  # type: ignore[assignment]
+    create_choice: CreateInOrgChoice = selected
     new_ws_id = _create_workspace_from_prompt(
         auth_service,
-        org_scoped_user_info,
+        org_scoped_caller_info,
         organization_id=create_choice["organization_id"],
         organization_name=create_choice["organization_name"],
     )
     return new_ws_id, True
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="deploy")
 def deploy_manifest(
@@ -1144,7 +1203,7 @@ def _deploy_default_dashboard(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.deployment", suboperation="sync")
 def sync_deployment(
@@ -1183,7 +1242,7 @@ def _sync_deployment(
     return result
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.configuration", suboperation="sync")
 def sync_configuration(
@@ -1222,7 +1281,7 @@ def _sync_configuration(
     return result
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job.runs", suboperation="info")
 def get_job_run_info(
@@ -1246,7 +1305,7 @@ def get_job_run_info(
     _print_job_run_info(run)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="logs")
 def logs(
@@ -1266,7 +1325,7 @@ def logs(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job.runs", suboperation="logs")
 def job_run_logs(
@@ -1371,7 +1430,7 @@ def _fetch_run_logs(
         _show_final_run_status(run_id, auth_service=auth_service, api_client=api_client)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job.runs", suboperation="list")
 def get_runs(
@@ -1406,7 +1465,7 @@ def get_runs(
     _print_runs(runs, running_only=running)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.deployment", suboperation="list")
 def get_deployments(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
@@ -1414,7 +1473,7 @@ def get_deployments(*, auth_service: RuntimeAuthService, api_client: ApiClient) 
     _print_deployments(deployments)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.deployment", suboperation="info")
 def get_deployment_info(
@@ -1427,7 +1486,7 @@ def get_deployment_info(
     _print_deployment_info(deployment)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="cancel")
 def cancel(
@@ -1456,7 +1515,7 @@ def cancel(
         raise exception_from_response("Failed to cancel runs", result)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job.runs", suboperation="cancel")
 def cancel_job_run(
@@ -1524,7 +1583,7 @@ def _request_run_cancel(
         )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.configuration", suboperation="list")
 def get_configurations(
@@ -1534,7 +1593,7 @@ def get_configurations(
     _print_configurations(configurations)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.configuration", suboperation="info")
 def get_configuration_info(
@@ -1800,7 +1859,7 @@ def _do_launch(
         fmt.echo(f"To follow logs: dlthub job logs {triggered.job_ref} --follow")
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="run")
 def launch(
@@ -1831,7 +1890,7 @@ def launch(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="serve")
 def serve(
@@ -1860,7 +1919,7 @@ def serve(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="trigger")
 def trigger(
@@ -1945,7 +2004,7 @@ def trigger(
         raise exception_from_response("Failed to trigger jobs", result)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="pipeline", suboperation="run")
 def run_pipeline(
@@ -1969,7 +2028,7 @@ def run_pipeline(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="publish")
 def publish(
@@ -2158,7 +2217,7 @@ def _follow_job_run(
         fmt.echo("\nInterrupted.")
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="unpublish")
 def unpublish(
@@ -2169,7 +2228,7 @@ def unpublish(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="show")
 def open_workspace(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
@@ -2179,7 +2238,7 @@ def open_workspace(*, auth_service: RuntimeAuthService, api_client: ApiClient) -
     _print_show_url("Workspace", url, _browser_url_for(url, auth_service))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="dashboard")
 def open_dashboard(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
@@ -2223,7 +2282,7 @@ def open_dashboard(*, auth_service: RuntimeAuthService, api_client: ApiClient) -
     _print_show_url("Dashboard", script_url, _browser_url_for(script_url, auth_service))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="show")
 def show_job(
@@ -2242,7 +2301,7 @@ def show_job(
     _print_show_url("Job", url, _browser_url_for(url, auth_service))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job.runs", suboperation="show")
 def show_job_run(
@@ -2271,7 +2330,7 @@ def show_job_run(
     _print_show_url("Job run", url, _browser_url_for(url, auth_service))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="pipeline", suboperation="show")
 def show_pipeline(
@@ -2285,7 +2344,7 @@ def show_pipeline(
     _print_show_url("Pipeline", url, _browser_url_for(url, auth_service))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace", suboperation="info")
 def runtime_info(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> None:
@@ -2338,7 +2397,7 @@ def runtime_info(*, auth_service: RuntimeAuthService, api_client: ApiClient) -> 
 # Power user: jobs and job-runs
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="list")
 def jobs_list(
@@ -2357,7 +2416,7 @@ def jobs_list(
     _print_jobs(jobs)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="info")
 def job_info(
@@ -2429,7 +2488,7 @@ def _toggle_schedule_pause(
         )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="pause")
 def pause_job(
@@ -2443,7 +2502,7 @@ def pause_job(
     )
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="job", suboperation="resume")
 def resume_job(
@@ -2461,7 +2520,7 @@ def _variable_scope_label(profile: Optional[str]) -> str:
     return f"profile '{profile}'" if profile else "the workspace scope"
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.variable", suboperation="list")
 def variable_list(
@@ -2480,7 +2539,7 @@ def variable_list(
     _print_variables(scopes)
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.variable", suboperation="set")
 def variable_set(
@@ -2509,7 +2568,7 @@ def variable_set(
     _print_variable_change(response.results, scope_label=_variable_scope_label(profile))
 
 
-@requires_login
+@requires_auth
 @requires_workspace
 @track_command(operation="workspace.variable", suboperation="delete")
 def variable_delete(

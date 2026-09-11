@@ -127,6 +127,28 @@ def test_match_rules_no_trailing_slash_matches_files_too() -> None:
     assert match_rules(["src/gtk_helpers.c"], rules) == ["gtk"]
 
 
+def test_match_rules_suffix_wildcard_matches_at_any_depth() -> None:
+    """#3233: `*.tf` is a suffix wildcard, not a directory prefix — terraform
+    files aren't confined to one directory tree the way GTK/browser sources
+    are, so a root-level and a deeply-nested `.tf` file must both match."""
+    rules = [SmokeRule(files=["*.tf"], requires=["azure"])]
+    caps = match_rules(["main.tf", "infra/network/subnet.tf"], rules)
+    assert caps == ["azure"]
+
+
+def test_match_rules_suffix_wildcard_does_not_match_other_extensions() -> None:
+    rules = [SmokeRule(files=["*.tf"], requires=["azure"])]
+    assert match_rules(["main.tfvars", "src/cli.py"], rules) == []
+
+
+def test_match_rules_bare_star_is_never_a_suffix_wildcard() -> None:
+    """A pattern of exactly `"*"` isn't treated specially — `pattern[1:]`
+    would be empty and match everything, which is never what an explicit
+    rule author meant."""
+    rules = [SmokeRule(files=["*"], requires=["azure"])]
+    assert match_rules(["anything.py"], rules) == []
+
+
 # ── Partitioning (#3177) ─────────────────────────────────────────────────────
 #
 # The quadraui shape from the issue: `precision` has gtk, `dell64` has
@@ -291,6 +313,20 @@ def test_resolve_rule_command_first_declared_match_wins() -> None:
     resolved2 = resolve_rule_command(touched, rules_reordered)
     assert resolved2 is not None
     assert resolved2.command == "cargo xwin test"
+
+
+def test_resolve_rule_command_honours_the_suffix_wildcard_too() -> None:
+    """#3233: `resolve_rule_command` used to re-derive its own prefix-only
+    match instead of calling `_rule_matches` — a second implementation of
+    the same "does this rule apply" question (#2096's split-brain shape).
+    Now that they share one function, a `*.tf` rule with a `command`
+    override must route through here exactly like `match_rules` does."""
+    rules = [
+        SmokeRule(files=["*.tf"], requires=["azure"], command="terraform validate"),
+    ]
+    resolved = resolve_rule_command(["infra/network/subnet.tf"], rules)
+    assert resolved is not None
+    assert resolved.command == "terraform validate"
 
 
 def test_resolve_rule_command_skips_a_matching_rule_with_no_command() -> None:
@@ -1142,6 +1178,37 @@ def test_dispatch_smoke_dispatches_for_mock_author_type(
     assert result is not None
     assert result.type == "smoke"
     assert result.review_of_assignment_id == "ma1"
+
+
+def test_dispatch_smoke_dispatches_for_epic_decompose_when_no_rule_matches(
+    gtk_and_server_config: Config,
+) -> None:
+    """claude-coordinator#3239/#3226: an `epic-decompose` completion is a
+    REAL implementation diff against ordinary source (the epic's first
+    slice — see `coord.models.CLOSES_ISSUE_TYPES`'s docstring), not a
+    sealed-path contract/fixture like mock-author/test-author. Before this
+    fix, `dispatch_smoke`'s capability-rule-miss branch read
+    `completed.type != "work"` and silently folded `epic-decompose` (added
+    to `WORK_LIKE_TYPES` by #3132, after that line was written) into the
+    SAME skip-on-miss bucket as mock-author/test-author — so a repo like
+    this one, where no `capability_rules` entry ever matches plain
+    `coord/**`-style source, never dispatched a Test-stage leg for an
+    epic-decompose completion at all. `test_state` then sat at `""`
+    forever: nothing downstream resolves it, so `coord drive` polled the
+    already-`done`, pushed, unreviewed work row for a full 240-minute
+    deadline (twice) before giving up. `epic-decompose` must dispatch here
+    exactly like `type="work"` already does."""
+    epic_decompose = replace(
+        _completed(), type="epic-decompose", assignment_id="ed1",
+    )
+    result = dispatch_smoke(
+        epic_decompose, Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "smoke-ed"}),
+        diff_lookup=lambda repo, branch: ["docs/README.md"],
+    )
+    assert result is not None
+    assert result.type == "smoke"
+    assert result.review_of_assignment_id == "ed1"
 
 
 def test_dispatch_smoke_sends_to_capable_different_machine(

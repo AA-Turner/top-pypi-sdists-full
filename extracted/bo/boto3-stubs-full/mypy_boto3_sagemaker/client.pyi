@@ -124,6 +124,8 @@ from .type_defs import (
     AddTagsOutputTypeDef,
     AssociateTrialComponentRequestTypeDef,
     AssociateTrialComponentResponseTypeDef,
+    AttachClusterNodeNetworkInterfaceRequestTypeDef,
+    AttachClusterNodeNetworkInterfaceResponseTypeDef,
     AttachClusterNodeVolumeRequestTypeDef,
     AttachClusterNodeVolumeResponseTypeDef,
     BatchAddClusterNodesRequestTypeDef,
@@ -940,6 +942,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/associate_trial_component.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#associate_trial_component)
+        """
+
+    def attach_cluster_node_network_interface(
+        self, **kwargs: Unpack[AttachClusterNodeNetworkInterfaceRequestTypeDef]
+    ) -> AttachClusterNodeNetworkInterfaceResponseTypeDef:
+        """
+        Attaches an elastic network interface (ENI) to a node in a HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/attach_cluster_node_network_interface.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#attach_cluster_node_network_interface)
         """
 
     def attach_cluster_node_volume(

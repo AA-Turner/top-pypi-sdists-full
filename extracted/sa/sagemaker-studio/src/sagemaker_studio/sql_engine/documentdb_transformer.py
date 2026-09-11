@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote_plus
+
+from sqlalchemy.engine import URL
 
 from .database_transformer import DatabaseTransformer
 
@@ -26,10 +27,17 @@ class DocumentDBTransformer(DatabaseTransformer):
         """
         Transform DocumentDB connection data into SQLAlchemy configuration.
 
-        Creates a SQLAlchemy connection string using the pymongosql driver.
+        Builds the connection URL with SQLAlchemy ``URL.create()``, which safely
+        encodes every component (host, database, credentials and query options).
+        This prevents connection-string injection: URI metacharacters in an
+        attacker-influenced host or database are percent-encoded (or confined to
+        the host field) rather than interpreted, so they can never inject query
+        options such as ``tls=false`` that would override the hardcoded security
+        parameters below.
+
         Handles both BASIC auth (username/password) and IAM auth (MONGODB-AWS mechanism).
 
-        The connection string follows AWS DocumentDB recommended patterns:
+        The connection follows AWS DocumentDB recommended patterns:
         - retryWrites=false (DocumentDB does not support retryable writes)
         - replicaSet=rs0 (connect as replica set for cluster endpoints)
         - readPreference=secondaryPreferred (distribute reads to replicas)
@@ -46,7 +54,7 @@ class DocumentDBTransformer(DatabaseTransformer):
 
         Returns:
             Dict[str, Any]: SQLAlchemy configuration with:
-                - connection_string: mongodb:// URL for the given connection configuration
+                - connection_string: SQLAlchemy ``URL`` object for the connection
 
         Raises:
             ValueError: If required fields are missing.
@@ -61,36 +69,40 @@ class DocumentDBTransformer(DatabaseTransformer):
         auth_mechanism = connection_data.get("auth_mechanism")
         tls = connection_data.get("tls", True)
 
-        # Build query parameters following AWS DocumentDB best practices
-        params = [
-            "retryWrites=false",
-            "replicaSet=rs0",
-            "readPreference=secondaryPreferred",
-        ]
+        # Query parameters following AWS DocumentDB best practices. URL.create()
+        # encodes these values, so no manual escaping is required.
+        query: Dict[str, str] = {
+            "retryWrites": "false",
+            "replicaSet": "rs0",
+            "readPreference": "secondaryPreferred",
+        }
 
         if tls:
-            params.append("tls=true")
+            query["tls"] = "true"
 
+        username: Optional[str] = None
+        password: Optional[str] = None
         if auth_mechanism == "MONGODB-AWS":
-            # IAM auth — no credentials in URL, pymongo picks them up from environment
-            params.append("authMechanism=MONGODB-AWS")
-            params.append("authSource=%24external")
-            query_string = "&".join(params)
-            connection_string = f"mongodb://{host}:{port}/{database}?{query_string}"
+            # IAM auth — no credentials in the URL; pymongo picks up AWS
+            # credentials from the environment via the MONGODB-AWS mechanism.
+            query["authMechanism"] = "MONGODB-AWS"
+            query["authSource"] = "$external"
         else:
-            # BASIC auth — embed credentials in URL
-            user = connection_data.get("user", "")
-            password = connection_data.get("password", "")
-            # URL-encode credentials to handle special characters
-            encoded_user = quote_plus(str(user)) if user else ""
-            encoded_password = quote_plus(str(password)) if password else ""
-            query_string = "&".join(params)
-            connection_string = (
-                f"mongodb://{encoded_user}:{encoded_password}@{host}:{port}"
-                f"/{database}?{query_string}"
-            )
+            # BASIC auth — URL.create() encodes the credentials safely.
+            username = connection_data.get("user")
+            password = connection_data.get("password")
 
-        return {"connection_string": connection_string}
+        connection_url = URL.create(
+            drivername="mongodb",
+            username=username,
+            password=password,
+            host=host,
+            port=int(port),
+            database=database,
+            query=query,
+        )
+
+        return {"connection_string": connection_url}
 
     @staticmethod
     def get_loggers() -> List[str]:

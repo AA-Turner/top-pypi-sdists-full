@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use itertools::Itertools;
 use pyrefly_types::heap::TypeHeap;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::quantified::QuantifiedKind;
@@ -32,19 +33,18 @@ use crate::alt::unwrap::HintRef;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::types::callable::Callable;
-use crate::types::callable::Function;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::PrefixParam;
 use crate::types::callable::Required;
-use crate::types::types::BoundMethodType;
+use crate::types::function::Function;
 use crate::types::types::Forallable;
 use crate::types::types::Overload;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     /// Handle a `functools.partial(func, ...)` call, synthesizing the residual signature instead of
     /// deferring to the typeshed stub.
     pub fn call_functools_partial(
@@ -252,30 +252,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // in the residual and are re-scoped into a `Forall` below, so a partial over a generic
         // function (including decorator use) preserves its genericity instead of leaking a residual
         // through the stub. Class objects, bound methods, and unions defer.
-        let (tparams, mut sig) = match &target_ty {
-            Type::Callable(c) => (None, (**c).clone()),
-            Type::Function(f) => (None, f.signature.clone()),
+        let Ok((sig, tparams)) = target_ty.toplevel_callable_signatures().exactly_one() else {
+            return fallback(self);
+        };
+        let mut sig = if matches!(target_ty, Type::BoundMethod(_)) {
             // Strip the already-bound `self`/`cls` so the residual is the remaining parameters;
             // bound-argument checking against `target_ty` still binds the receiver as usual.
-            Type::BoundMethod(bm) => match &bm.func {
-                BoundMethodType::Function(f) => match f.signature.strip_first_param() {
-                    Some(sig) => (None, sig),
-                    None => return fallback(self),
-                },
-                BoundMethodType::Forall(forall) => {
-                    match forall.body.signature.strip_first_param() {
-                        Some(sig) => (Some(forall.tparams.clone()), sig),
-                        None => return fallback(self),
-                    }
-                }
-                BoundMethodType::Overload(_) => return fallback(self),
-            },
-            Type::Forall(forall) => match &forall.body {
-                Forallable::Function(f) => (Some(forall.tparams.clone()), f.signature.clone()),
-                Forallable::Callable(c) => (Some(forall.tparams.clone()), c.clone()),
-                Forallable::TypeAlias(_) => return fallback(self),
-            },
-            _ => return fallback(self),
+            match sig.strip_first_param() {
+                Some(stripped_sig) => stripped_sig,
+                None => return fallback(self),
+            }
+        } else {
+            sig.clone()
         };
         // Only plain type variables are re-scoped correctly; a `ParamSpec` or `TypeVarTuple` target
         // needs structural residual handling we don't do, so defer it to the stub.
@@ -317,7 +305,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let sig = match &tparams {
             None => {
                 let mut callee = target_ty.clone();
-                callee.transform_toplevel_callable(&mut |c: &mut Callable| {
+                callee.transform_toplevel_callable_signatures(|c: &mut Callable, _| {
                     self.expand_unpack_kwargs(c);
                     make_params_optional(c);
                 });
@@ -341,7 +329,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .zip(tparams.iter().cloned())
                     .collect();
                 let mut callee = self.heap.mk_callable_from(inst.clone());
-                callee.transform_toplevel_callable(&mut |c: &mut Callable| {
+                callee.transform_toplevel_callable_signatures(|c: &mut Callable, _| {
                     self.expand_unpack_kwargs(c);
                     make_params_optional(c);
                 });
@@ -423,7 +411,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let callable = Callable::partial(residual, ret);
         match tparams {
             None => self.heap.mk_callable_from(callable),
-            Some(tparams) => restore_partial_generics(self.heap, callable, &tparams),
+            Some(tparams) => restore_partial_generics(self.heap, callable, tparams),
         }
     }
 
@@ -463,7 +451,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut expanded: Vec<Param> = Vec::with_capacity(params.items().len());
         for param in params.items() {
             match param {
-                Param::Kwargs(_, Type::Unpack(inner)) if let Type::TypedDict(td) = &**inner => {
+                Param::Kwargs(_, ty) if let Some(td) = ty.unpacked_typed_dict() => {
                     for (name, ty, required) in self.typed_dict_kw_param_info(td) {
                         expanded.push(Param::KwOnly(name, ty, required));
                     }

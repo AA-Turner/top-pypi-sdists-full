@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,13 +68,13 @@ class TestExpressPromptGenerator(unittest.TestCase):
         )
         self.assertIn("You are a helpful assistant.", prompt)
         self.assertIn("Please adhere to constraints.", prompt)
-        self.assertIn("# A2UI Express Output Contract", prompt)
+        self.assertIn("# A2UI Express DSL Output Contract", prompt)
         self.assertIn("Text(", prompt)
 
     def test_catalog_description_before_generate(self):
         express_format = ExpressFormat(catalog=self.catalog)
         generator = express_format.prompt_generator
-        desc = generator.catalog_description(include_schema=True)
+        desc = generator.generate_catalog_instructions(include_schema=True)
         self.assertIn("Text(", desc)
 
     def test_express_allowed_components_pruning(self):
@@ -210,9 +210,61 @@ class TestExpressPromptGenerator(unittest.TestCase):
             },
         )
         fmt = ExpressFormat(catalog=cat_map_obj)
-        sigs = fmt.prompt_generator.generate_component_signatures()
+        sigs = fmt.prompt_generator._generate_component_signatures()
         self.assertIn("MapComp", sigs)
         self.assertIn("Map with keys:", sigs)
+
+    def test_express_schema_helper_methods(self):
+        from a2ui.inference_formats.experimental.express.schema_helper import CatalogSchemaHelper as ExpressCatalogSchemaHelper
+
+        cat = A2uiCatalog(
+            version=VERSION_1_0,
+            name="express_helper_catalog",
+            experiments={"version_1_0"},
+            s2c_schema={},
+            common_types_schema={},
+            catalog_schema={
+                "catalogId": "test",
+                "components": {
+                    "Button": {
+                        "description": "Button component",
+                        "properties": {
+                            "label": {"type": "string"},
+                            "action": {"$ref": "common_types.json#/$defs/Action"},
+                            "children": {"$ref": "common_types.json#/$defs/ChildList"},
+                            "child": {"$ref": "common_types.json#/$defs/Child"},
+                        },
+                    },
+                    "Card": {
+                        "properties": {
+                            "content": {
+                                "oneOf": [
+                                    {"$ref": "common_types.json#/$defs/ChildList"}
+                                ]
+                            }
+                        }
+                    },
+                },
+                "functions": {
+                    "openUrl": {
+                        "description": "Opens URL",
+                        "properties": {
+                            "args": {"properties": {"url": {"type": "string"}}}
+                        },
+                    }
+                },
+            },
+        )
+        helper = ExpressCatalogSchemaHelper(cat)
+        self.assertEqual(helper.get_component_description("Button"), "Button component")
+        self.assertEqual(helper.get_function_description("openUrl"), "Opens URL")
+        self.assertEqual(helper.get_property_type("Button", "action"), "Action")
+        self.assertEqual(helper.get_property_type("Button", "children"), "ChildList")
+        self.assertEqual(helper.get_property_type("Button", "child"), "Child")
+        self.assertEqual(helper.get_property_type("Card", "content"), "ChildList")
+        self.assertEqual(
+            helper.get_function_property_schema("openUrl", "url"), {"type": "string"}
+        )
 
 
 if __name__ == "__main__":

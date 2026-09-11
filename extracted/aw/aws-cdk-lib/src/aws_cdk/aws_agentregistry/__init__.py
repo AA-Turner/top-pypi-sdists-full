@@ -1274,12 +1274,12 @@ class CfnRegistryRecord(
             ),
             name="name",
             record_type="recordType",
-            registry_id="registryId",
         
             # the properties below are optional
             description="description",
             display_name="displayName",
             record_version="recordVersion",
+            registry_id="registryId",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1295,10 +1295,10 @@ class CfnRegistryRecord(
         descriptors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.DescriptorsProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         record_type: builtins.str,
-        registry_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         record_version: typing.Optional[builtins.str] = None,
+        registry_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AgentRegistry::RegistryRecord``.
@@ -1308,10 +1308,10 @@ class CfnRegistryRecord(
         :param descriptors: The typed set of descriptors for a registry record. Exactly one descriptor field is populated based on the record type.
         :param name: The name of the registry record.
         :param record_type: The type of the registry record.
-        :param registry_id: The identifier of the registry containing the record.
         :param description: The description of the registry record.
         :param display_name: The human-readable display name of the registry record.
         :param record_version: The version of the registry record.
+        :param registry_id: The identifier of the registry in which to create the record. You can specify either the registry ID or the registry Amazon Resource Name (ARN). Use the ARN form to reference a registry shared from another account via AWS Resource Access Manager (RAM).
         :param tags: Tags to assign to the registry record.
         '''
         if __debug__:
@@ -1322,10 +1322,10 @@ class CfnRegistryRecord(
             descriptors=descriptors,
             name=name,
             record_type=record_type,
-            registry_id=registry_id,
             description=description,
             display_name=display_name,
             record_version=record_version,
+            registry_id=registry_id,
             tags=tags,
         )
 
@@ -1496,19 +1496,6 @@ class CfnRegistryRecord(
         jsii.set(self, "recordType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="registryId")
-    def registry_id(self) -> builtins.str:
-        '''The identifier of the registry containing the record.'''
-        return typing.cast(builtins.str, jsii.get(self, "registryId"))
-
-    @registry_id.setter
-    def registry_id(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__d4a1f651ea2d1dea12707fff754c90bddf57ff13a28d3826dea56199a5971c15)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "registryId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the registry record.'''
@@ -1546,6 +1533,19 @@ class CfnRegistryRecord(
             type_hints = cached_type_hints(_typecheckingstub__c03f3fe0d25f7024efbcefface95c2d9aad0137a0613c75161e23fa68d4a24af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "recordVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="registryId")
+    def registry_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the registry in which to create the record.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "registryId"))
+
+    @registry_id.setter
+    def registry_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d4a1f651ea2d1dea12707fff754c90bddf57ff13a28d3826dea56199a5971c15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "registryId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -3145,10 +3145,10 @@ class CfnRegistryRecord(
         "descriptors": "descriptors",
         "name": "name",
         "record_type": "recordType",
-        "registry_id": "registryId",
         "description": "description",
         "display_name": "displayName",
         "record_version": "recordVersion",
+        "registry_id": "registryId",
         "tags": "tags",
     },
 )
@@ -3159,10 +3159,10 @@ class CfnRegistryRecordProps:
         descriptors: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.DescriptorsProperty", typing.Dict[builtins.str, typing.Any]]],
         name: builtins.str,
         record_type: builtins.str,
-        registry_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
         record_version: typing.Optional[builtins.str] = None,
+        registry_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRegistryRecord``.
@@ -3170,10 +3170,10 @@ class CfnRegistryRecordProps:
         :param descriptors: The typed set of descriptors for a registry record. Exactly one descriptor field is populated based on the record type.
         :param name: The name of the registry record.
         :param record_type: The type of the registry record.
-        :param registry_id: The identifier of the registry containing the record.
         :param description: The description of the registry record.
         :param display_name: The human-readable display name of the registry record.
         :param record_version: The version of the registry record.
+        :param registry_id: The identifier of the registry in which to create the record. You can specify either the registry ID or the registry Amazon Resource Name (ARN). Use the ARN form to reference a registry shared from another account via AWS Resource Access Manager (RAM).
         :param tags: Tags to assign to the registry record.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registryrecord.html
@@ -3277,12 +3277,12 @@ class CfnRegistryRecordProps:
                 ),
                 name="name",
                 record_type="recordType",
-                registry_id="registryId",
             
                 # the properties below are optional
                 description="description",
                 display_name="displayName",
                 record_version="recordVersion",
+                registry_id="registryId",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -3294,16 +3294,15 @@ class CfnRegistryRecordProps:
             check_type(argname="argument descriptors", value=descriptors, expected_type=type_hints["descriptors"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument record_type", value=record_type, expected_type=type_hints["record_type"])
-            check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
             check_type(argname="argument record_version", value=record_version, expected_type=type_hints["record_version"])
+            check_type(argname="argument registry_id", value=registry_id, expected_type=type_hints["registry_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "descriptors": descriptors,
             "name": name,
             "record_type": record_type,
-            "registry_id": registry_id,
         }
         if description is not None:
             self._values["description"] = description
@@ -3311,6 +3310,8 @@ class CfnRegistryRecordProps:
             self._values["display_name"] = display_name
         if record_version is not None:
             self._values["record_version"] = record_version
+        if registry_id is not None:
+            self._values["registry_id"] = registry_id
         if tags is not None:
             self._values["tags"] = tags
 
@@ -3349,16 +3350,6 @@ class CfnRegistryRecordProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def registry_id(self) -> builtins.str:
-        '''The identifier of the registry containing the record.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registryrecord.html#cfn-agentregistry-registryrecord-registryid
-        '''
-        result = self._values.get("registry_id")
-        assert result is not None, "Required property 'registry_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the registry record.
 
@@ -3383,6 +3374,17 @@ class CfnRegistryRecordProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registryrecord.html#cfn-agentregistry-registryrecord-recordversion
         '''
         result = self._values.get("record_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def registry_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the registry in which to create the record.
+
+        You can specify either the registry ID or the registry Amazon Resource Name (ARN). Use the ARN form to reference a registry shared from another account via AWS Resource Access Manager (RAM).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registryrecord.html#cfn-agentregistry-registryrecord-registryid
+        '''
+        result = self._values.get("registry_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -3565,10 +3567,10 @@ def _typecheckingstub__7ef8b3afdf0d8fa2a57531ae35ed0ed172ca12f519f3a312e79d540a7
     descriptors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.DescriptorsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     record_type: builtins.str,
-    registry_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     record_version: typing.Optional[builtins.str] = None,
+    registry_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3610,12 +3612,6 @@ def _typecheckingstub__ddafdbd3f82f53f2237ad280e72be884e39e4be52bec5ebb50731242e
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d4a1f651ea2d1dea12707fff754c90bddf57ff13a28d3826dea56199a5971c15(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__0c6a9aae0bf922e08911fd3846f325f960d7df0f0cbb9e1057371b443377e605(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3629,6 +3625,12 @@ def _typecheckingstub__4837f51052d31d643559b181dcf50bb6914aea97770549487a7166473
     pass
 
 def _typecheckingstub__c03f3fe0d25f7024efbcefface95c2d9aad0137a0613c75161e23fa68d4a24af(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4a1f651ea2d1dea12707fff754c90bddf57ff13a28d3826dea56199a5971c15(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -3785,10 +3787,10 @@ def _typecheckingstub__68bc3c29ea26d0372a7ccb8f399a09e4970aca187d9f42a8210b96465
     descriptors: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.DescriptorsProperty, typing.Dict[builtins.str, typing.Any]]],
     name: builtins.str,
     record_type: builtins.str,
-    registry_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
     record_version: typing.Optional[builtins.str] = None,
+    registry_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

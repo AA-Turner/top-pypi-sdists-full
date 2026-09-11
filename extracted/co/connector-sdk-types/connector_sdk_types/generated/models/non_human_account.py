@@ -33,7 +33,17 @@ class NonHumanAccount(BaseModel):
         description="Integration specific identifier that uniquely identifies the non-human account.",
         json_schema_extra={"x-semantic": "non-human-account-id"},
     )
-    label: StrictStr = Field(description="A human-readable label for the non-human account.")
+    label: StrictStr = Field(
+        description="A human-readable label for the non-human account: the name of the account/role/principal itself. Do not combine it with the workload name - that belongs in `workload_name`."
+    )
+    workload_name: Optional[StrictStr] = Field(
+        default=None,
+        description="Name of the workload the principal is bound to (e.g. an ECS service or a Lambda function), when the account represents a (workload, identity) pair. Omit for standalone principals (IAM users, service principals, service accounts).",
+    )
+    workload_id: Optional[StrictStr] = Field(
+        default=None,
+        description="Integration-specific identifier of the workload the principal is bound to (e.g. its ARN), when the account represents a (workload, identity) pair. Omit for standalone principals.",
+    )
     type: StrictStr = Field(
         description='Source-specific account kind (e.g. "github_app_installation", "iam_role") - connector-only data.'
     )
@@ -64,6 +74,8 @@ class NonHumanAccount(BaseModel):
         "resource_id",
         "id",
         "label",
+        "workload_name",
+        "workload_id",
         "type",
         "status",
         "created_at",
@@ -119,6 +131,8 @@ class NonHumanAccount(BaseModel):
                 "resource_id": obj.get("resource_id"),
                 "id": obj.get("id"),
                 "label": obj.get("label"),
+                "workload_name": obj.get("workload_name"),
+                "workload_id": obj.get("workload_id"),
                 "type": obj.get("type"),
                 "status": obj.get("status"),
                 "created_at": obj.get("created_at"),

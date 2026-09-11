@@ -11,6 +11,7 @@ import json
 import re
 from collections import defaultdict
 from contextlib import contextmanager, suppress
+from copy import copy
 from fractions import Fraction
 from functools import cached_property, lru_cache
 from itertools import chain, starmap
@@ -18,7 +19,7 @@ from math import gcd, lcm
 from pathlib import Path
 from string import digits
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Optional, Union, cast
-from urllib.parse import ParseResult, unquote, urlparse
+from urllib.parse import ParseResult, unquote, urljoin, urlparse
 from warnings import warn
 
 from pydantic import (
@@ -62,6 +63,7 @@ from datamodel_code_generator.model.base import UNDEFINED, c3_merge, get_inherit
 from datamodel_code_generator.model.enum import (
     NULL_ENUM_MEMBER_VALUE,
     SPECIALIZED_ENUM_TYPE_MATCH,
+    SUBCLASS_BASE_CLASSES,
     Enum,
     EnumMemberValue,
     StrEnum,
@@ -104,6 +106,7 @@ from datamodel_code_generator.parser.base import (
 from datamodel_code_generator.parser.schema_version import get_data_formats
 from datamodel_code_generator.python_literal import _semantic_value_text
 from datamodel_code_generator.reference import (
+    _ALIAS_RESOLUTION_CLASS_NAME_KEY,
     SPECIAL_PATH_MARKER,
     ModelType,
     Reference,
@@ -1276,6 +1279,37 @@ EXCLUDE_FIELD_KEYS = (set(JsonSchemaObject.get_fields()) - DEFAULT_FIELD_KEYS - 
 
 
 _DEFAULT_SCHEMA_PATHS = ("#/definitions", "#/$defs")
+_REGEX_META_CHARACTERS = frozenset(r"\.^$*+?{}[]|()")
+
+
+def _literal_pattern_value(pattern: str) -> str | None:
+    """Recognize plain characters and escaped regex metacharacters only."""
+    if _REGEX_META_CHARACTERS.isdisjoint(pattern):
+        return pattern
+    if re.fullmatch(r"(?:[^\\.^$*+?{}\[\]|()]|\\[\\.^$*+?{}\[\]|()])*", pattern) is None:
+        return None
+    return re.sub(r"\\(.)", r"\1", pattern)
+
+
+def _intersect_patterns(patterns: Sequence[str]) -> str:
+    """Preserve pairwise output unless literal searches need independent positions."""
+    match patterns:
+        case [pattern]:
+            return pattern
+        case [left, right] if left == right:
+            return left
+    literals = [_literal_pattern_value(pattern) for pattern in patterns]
+    if all(literal is not None for literal in literals):
+        longest = max((literal for literal in literals if literal is not None), key=str.__len__)
+        if any(literal is not None and not longest.startswith(literal) for literal in literals):
+            return r"\A" + "".join(rf"(?=[\s\S]*{pattern})" for pattern in dict.fromkeys(patterns))
+    match patterns:
+        case [left, right]:
+            return f"(?={left})(?={right})"
+    result = patterns[0]
+    for pattern in patterns[1:]:
+        result = _intersect_patterns((result, pattern))
+    return result
 
 
 @snooper_to_methods()  # noqa: PLR0904
@@ -1343,6 +1377,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self.raw_obj: dict[str, YamlValue] = {}
         self._all_of_root_value_ref_stack: set[tuple[str, ...]] | None = None
         self._root_pattern_string_constraints: JsonSchemaObject | None = None
+        self._init_schema_resources()
         self._root_id: Optional[str] = None  # noqa: UP045
         self._root_id_base_path: Optional[str] = None  # noqa: UP045
         self._output_model_context = OutputModelContext.from_generation_types(
@@ -4070,8 +4105,6 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 if v1 is not None and v2 is not None:
                     return val1 if v1 <= v2 else val2
                 return val1  # pragma: no cover
-            case "pattern":
-                return f"(?={val1})(?={val2})" if val1 != val2 else val1
             case "uniqueItems":
                 return val1 or val2
             case "multipleOf":
@@ -4086,14 +4119,22 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         *,
         intersect: bool,
     ) -> None:
+        patterns: list[str] | None = None
         for item in items:
             for field in JsonSchemaObject.__constraint_fields__:
                 if (value := cls._schema_constraint_value(item, field)) is None:
+                    continue
+                if intersect and field == "pattern":
+                    if patterns is None:
+                        patterns = [] if (base_pattern := base_dict.get(field)) is None else [base_pattern]
+                    patterns.append(value)
                     continue
                 if intersect and field in base_dict and base_dict[field] is not None:
                     base_dict[field] = cls._intersect_constraint(field, base_dict[field], value)
                 else:
                     base_dict[field] = value
+        if patterns:
+            base_dict["pattern"] = _intersect_patterns(patterns)
 
     def _build_allof_type(  # noqa: PLR0911, PLR0912, PLR0913, PLR0915, PLR0917
         self,
@@ -6276,11 +6317,28 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         if merged_schema is None:
             return None
 
-        if obj.description:
+        has_literals = (
+            self.generate_schema_validators
+            and hasattr(self.data_model_root_type, "add_literal_validation")
+            and ("enum" in obj.model_fields_set or "const" in obj.extras)
+        )
+        if obj.has_constraint or obj.description or obj.format or has_literals:
             merged_dict = merged_schema.model_dump(exclude_unset=True, by_alias=True)
-            merged_dict["description"] = obj.description
+            if obj.has_constraint:
+                self._merge_schema_constraints(merged_dict, [obj], intersect=True)
+            if obj.format and not merged_schema.format:
+                merged_dict["format"] = obj.format
+            if has_literals:
+                self._merge_all_of_root_validation_keywords(merged_dict, [*all_items, obj])
+            if obj.description:
+                merged_dict["description"] = obj.description
             merged_schema = self.SCHEMA_OBJECT_TYPE.model_validate(merged_dict)
 
+        if has_literals or obj.format:
+            with self._temporarily_enable_field_constraints():
+                if has_literals:
+                    return self._parse_all_of_root_value(name, merged_schema, path)
+                return self.parse_root_type(name, merged_schema, path)
         return self.parse_root_type(name, merged_schema, path)
 
     def _merge_all_of_schema(
@@ -6933,12 +6991,26 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self,
         obj: JsonSchemaObject,
         visited_refs: frozenset[str] = frozenset(),
+        *,
+        include_references: bool = True,
     ) -> Iterator[JsonSchemaObject]:
         yield obj
         for item in obj.allOf:
             if not isinstance(item, JsonSchemaObject):
                 continue
             if item.ref:
+                if self._ref_sibling_keywords_enabled:
+                    has_sibling_constraints = (
+                        item.patternProperties
+                        or item.additionalProperties is not None
+                        or item.unevaluatedProperties is not None
+                    )
+                    if item.allOf or item.oneOf or item.anyOf or "if" in item.extras or has_sibling_constraints:
+                        yield from self._iter_schema_validation_sources(
+                            item.model_copy(update={"ref": None}), visited_refs, include_references=False
+                        )
+                if not include_references:
+                    continue
                 resolved_ref = self.model_resolver.resolve_ref(item.ref)
                 if resolved_ref in visited_refs:
                     continue
@@ -6947,7 +7019,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     visited_refs | {resolved_ref},
                 )
                 continue
-            yield from self._iter_schema_validation_sources(item, visited_refs)
+            yield from self._iter_schema_validation_sources(item, visited_refs, include_references=include_references)
 
     def _schema_item_may_accept_container(
         self,
@@ -7683,27 +7755,36 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             base_classes,
             is_root_model=False,
         )
-        runtime_validation = self.extra_template_data[reference_path].get("schema_runtime_validation")
-        if not _is_internal_schema_runtime_validation(runtime_validation) or not self._has_core_schema_runtime_rules(
-            runtime_validation
-        ):
+        if not obj.allOf:
             return
-        for source in self._iter_schema_validation_sources(obj):
-            if source is obj:
+        # Inline rules belong to this model even when it has no other runtime rules.
+        # Once it defines core rules, also merge those shadowed on referenced bases.
+        for include_references in (False, True):
+            runtime_validation = self.extra_template_data[reference_path].get("schema_runtime_validation")
+            has_core_rules = _is_internal_schema_runtime_validation(
+                runtime_validation
+            ) and self._has_core_schema_runtime_rules(runtime_validation)
+            if include_references:
+                if not has_core_rules:
+                    return
+            elif has_core_rules:
                 continue
-            self._add_required_groups_validator(
-                reference_path,
-                "oneOf",
-                self._get_required_groups(source.oneOf),
-                names_by_property,
-            )
-            self._add_required_groups_validator(
-                reference_path,
-                "anyOf",
-                self._get_required_groups(source.anyOf),
-                names_by_property,
-            )
-            self._add_conditional_validator(reference_path, source, names_by_property)
+            for source in self._iter_schema_validation_sources(obj, include_references=include_references):
+                if source is obj:
+                    continue
+                self._add_required_groups_validator(
+                    reference_path,
+                    "oneOf",
+                    self._get_required_groups(source.oneOf),
+                    names_by_property,
+                )
+                self._add_required_groups_validator(
+                    reference_path,
+                    "anyOf",
+                    self._get_required_groups(source.anyOf),
+                    names_by_property,
+                )
+                self._add_conditional_validator(reference_path, source, names_by_property)
 
     def _parse_object_common_part(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         self,
@@ -7799,6 +7880,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 if self.model_resolver.default_value_overrides:
                     field.__dict__[_DEFERRED_INHERITED_CLASS_KEY] = name
                 self.generation_store.replace_field_type(field, self.data_type())
+        original_class_name = name
         name = self._apply_title_as_name(name, obj)  # pragma: no cover
         reference = self.model_resolver.add(path, name, class_name=True, loaded=True)
         extra_field = self._get_typed_additional_properties_field(reference.name, obj, path)
@@ -7834,6 +7916,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 field_name_to_field[required_name] = field
         for field in fields:
             self._finalize_required_inherited_field(field)
+        self._apply_final_class_field_aliases(fields, reference.name, original_class_name)
         if extra_field is not None:
             fields.insert(0, extra_field)
         self._set_schema_metadata(reference.path, obj)
@@ -8526,6 +8609,9 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     class_name=class_name,
                 )
             )
+        if self.config.aliases:
+            for field in fields:
+                field.__dict__[_ALIAS_RESOLUTION_CLASS_NAME_KEY] = class_name
         return fields
 
     def _get_typed_additional_properties_field(
@@ -8951,7 +9037,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 merged_property_names.pattern = (
                     merged_pattern
                     if merged_property_names.pattern is None
-                    else self._intersect_constraint("pattern", merged_property_names.pattern, merged_pattern)
+                    else _intersect_patterns((merged_property_names.pattern, merged_pattern))
                 )
                 if merged_property_names.ref:
                     merged_property_names = self._merge_ref_with_schema(merged_property_names)
@@ -9920,6 +10006,36 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             is_optional=has_null,
         )
 
+    def _get_unsupported_msgspec_enum_member(self, enum_values: list[Any]) -> str | None:  # noqa: PLR6301
+        """Find unsupported bool/float members, using a linear ordinary-integer fast path.
+
+        This is an instance method because snooper_to_methods does not preserve
+        staticmethod descriptors.
+        """
+        seen_ints: set[int] | None = None
+        for index, value in enumerate(enum_values):
+            if isinstance(value, (bool, float)):
+                if seen_ints is None:
+                    seen_ints = {previous for i in range(index) if isinstance(previous := enum_values[i], int)}
+                if value not in seen_ints:
+                    return type(value).__name__
+            elif isinstance(value, int):
+                if type(value) is not int and (
+                    type(value).__eq__ is not int.__eq__ or type(value).__hash__ is not int.__hash__
+                ):
+                    # Preserve first-equal aliases for public API values with custom equality or hashing.
+                    return next(
+                        (
+                            type(member).__name__
+                            for position, member in enumerate(enum_values)
+                            if isinstance(member, (bool, float)) and enum_values.index(member) == position
+                        ),
+                        None,
+                    )
+                if seen_ints is not None:
+                    seen_ints.add(value)
+        return None
+
     def _get_enum_model_class(self, type_: Types | None, enum_values: list[Any]) -> tuple[type[Enum], Types | None]:
         """Return the enum model class and remaining subtype for schema enum generation."""
         if not (self.use_specialized_enum and type_ and (specialized_type := SPECIALIZED_ENUM_TYPE_MATCH.get(type_))):
@@ -10077,6 +10193,19 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 self._get_type_with_mappings(obj.type, obj.format) if isinstance(obj.type, str) else None
             )
             enum_cls, type_ = self._get_enum_model_class(type_, enum_times)
+            # Enum subclasses coerce values; plain Enum aliases retain the first equal value.
+            if (
+                self.field_name_model_type is ModelType.MSGSPEC
+                and enum_cls is Enum
+                and not (self.use_subclass_enum and type_ and SUBCLASS_BASE_CLASSES.get(type_) in {"int", "str"})
+                and (
+                    unsupported := "float"
+                    if self.use_subclass_enum and type_ and SUBCLASS_BASE_CLASSES.get(type_) == "float"
+                    else self._get_unsupported_msgspec_enum_member(enum_times)
+                )
+            ):
+                msg = f"msgspec.Struct does not support {unsupported} Enum members in {reference_.name!r}."
+                raise Error(msg)
             self._set_schema_metadata(reference_.path, obj)
             self.set_schema_extensions(reference_.path, obj)
 
@@ -10171,8 +10300,8 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                         ),
                         stacklevel=2,
                     )
-            return self._get_ref_body_from_url(resolved_ref)
-        return self._get_ref_body_from_remote(resolved_ref)
+            return self._prepare_schema_resources(self._get_ref_body_from_url(resolved_ref), [resolved_ref])
+        return self._prepare_schema_resources(self._get_ref_body_from_remote(resolved_ref), [resolved_ref])
 
     def _normalize_external_ref(self, ref: str) -> str:
         """Resolve an external anchor before falling back to legacy shorthand pointers."""
@@ -10346,6 +10475,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             reference.loaded = True
             return reference
 
+        if self._has_embedded_schema_resources:
+            document = self._schema_resource_document(list(self.model_resolver.current_root))
+            object_ref = self._resolve_schema_resource_ref(
+                object_ref, self._schema_resource_root_bases.get(document, document), document, nested_scope=False
+            )
         # https://swagger.io/docs/specification/using-ref/
         object_ref = self._normalize_external_ref(object_ref)
         ref = self.model_resolver.resolve_ref(object_ref)
@@ -10516,6 +10650,155 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """Resolve $ref in schema object."""
         if obj.ref:
             self.resolve_ref(obj.ref)
+
+    def _init_schema_resources(self) -> None:
+        """Initialize the document-local resource indexes and normalization cache."""
+        self._schema_resource_locations: dict[str, str] = {}
+        self._schema_resource_document_aliases: dict[str, str] = {}
+        self._schema_resource_root_bases: dict[str, str] = {}
+        self._schema_resource_cache: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+        self._schema_resource_keys: dict[str, set[str]] = {}
+        self._has_embedded_schema_resources = False
+
+    def _schema_resource_document(self, path_parts: list[str]) -> str:
+        """Identify one physical schema document without changing its public reference names."""
+        document = self.model_resolver.join_path(tuple(path_parts)).split("#", 1)[0]
+        if (location := self._schema_resource_document_aliases.get(document)) is None:
+            location = (
+                document if not document or is_url(document) else (self.base_path / document).resolve().as_posix()
+            )
+            self._schema_resource_document_aliases[document] = location
+        return location
+
+    def _iter_schema_resource_children(
+        self, schema: dict[str, Any]
+    ) -> Iterator[tuple[tuple[str | int, ...], dict[str, Any]]]:
+        """Visit schema-valued keywords without inspecting examples, defaults or extensions."""
+        for keyword, value in schema.items():
+            if keyword in {"$defs", "definitions"} and isinstance(value, dict):
+                for _name, child, path in self._iter_schema_definition_entries(value, [keyword]):
+                    if isinstance(child, dict):
+                        yield tuple(path), child
+            elif keyword in _JSON_SCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+                for name, child in value.items():
+                    if isinstance(child, dict):
+                        yield (keyword, str(name)), child
+            elif (
+                keyword in _JSON_SCHEMA_SEQUENCE_KEYWORDS or keyword in _JSON_SCHEMA_SINGLE_OR_SEQUENCE_KEYWORDS
+            ) and isinstance(value, list):
+                for index, sequence_child in enumerate(value):
+                    if isinstance(sequence_child, dict):
+                        yield (keyword, index), cast("dict[str, Any]", sequence_child)
+            elif (
+                keyword in _JSON_SCHEMA_SINGLE_KEYWORDS or keyword in _JSON_SCHEMA_SINGLE_OR_SEQUENCE_KEYWORDS
+            ) and isinstance(value, dict):
+                yield (keyword,), value
+
+    def _register_schema_resources(
+        self, schema: dict[str, Any], document: str, pointer: str, base: str, keys: set[str]
+    ) -> bool:
+        """Index resource URIs and resource-scoped anchors once for each document."""
+        identifier = schema.get(self.schema_features.id_field) or schema.get("$id") or schema.get("id")
+        nested = bool(pointer and isinstance(identifier, str) and not identifier.startswith("#"))
+        location = f"{document}#{pointer}"
+        if isinstance(identifier, str):
+            absolute = urljoin(base, identifier)
+            self._schema_resource_locations[absolute] = location
+            keys.add(absolute)
+            base = absolute.split("#", 1)[0]
+        if not pointer:
+            self._schema_resource_root_bases[document] = base
+            self._schema_resource_locations.setdefault(base, location)
+            keys.add(base)
+        for keyword in ("$anchor", "$dynamicAnchor"):
+            if isinstance(anchor := schema.get(keyword), str):
+                absolute = urljoin(base, f"#{anchor}")
+                self._schema_resource_locations[absolute] = location
+                keys.add(absolute)
+        for path, child in self._iter_schema_resource_children(schema):
+            child_pointer = pointer + "".join(f"/{str(part).replace('~', '~0').replace('/', '~1')}" for part in path)
+            nested |= self._register_schema_resources(child, document, child_pointer, base, keys)
+        return nested
+
+    def _resolve_schema_resource_ref(self, reference: str, base: str, document: str, *, nested_scope: bool) -> str:
+        """Resolve registered resources before considering a physical document fetch."""
+        absolute = urljoin(base, reference)
+        resource, _, fragment = absolute.partition("#")
+        location = self._schema_resource_locations.get(absolute)
+        if (
+            location is None
+            and (not fragment or fragment.startswith("/"))
+            and (root := self._schema_resource_locations.get(resource)) is not None
+        ):
+            location = f"{root}{fragment}" if fragment else root
+        if (
+            location is None
+            and fragment
+            and not fragment.startswith("/")
+            and (root := self._schema_resource_locations.get(resource)) is not None
+            and root.split("#", 1)[1]
+        ):
+            msg = f"Embedded schema resource has no anchor {fragment!r}: {reference!r}"
+            raise Error(msg)
+        if location is not None:
+            target_document, pointer = location.split("#", 1)
+            return f"#{pointer}" if target_document == document else location
+        if nested_scope and resource.startswith("file://") and not reference.startswith("file://"):
+            from urllib.request import url2pathname  # noqa: PLC0415
+
+            absolute = Path(url2pathname(resource[5:])).as_posix() + absolute[len(resource) :]
+        return absolute if nested_scope else reference
+
+    def _rewrite_schema_resource_refs(
+        self, schema: dict[str, Any], document: str, base: str, root_base: str
+    ) -> dict[str, Any]:
+        """Copy only schema containers whose resource-relative references change."""
+        identifier = schema.get(self.schema_features.id_field) or schema.get("$id") or schema.get("id")
+        if isinstance(identifier, str):
+            base = urljoin(base, identifier).split("#", 1)[0]
+        result = schema
+        if isinstance(reference := schema.get("$ref"), str):
+            resolved = self._resolve_schema_resource_ref(reference, base, document, nested_scope=base != root_base)
+            if resolved != reference:
+                result = {**schema, "$ref": resolved}
+        for path, child in self._iter_schema_resource_children(schema):
+            rewritten = self._rewrite_schema_resource_refs(child, document, base, root_base)
+            if rewritten is child:
+                continue
+            if result is schema:
+                result = dict(schema)
+            parent: Any = result
+            original: Any = schema
+            for part in path[:-1]:
+                if parent[part] is original[part]:
+                    parent[part] = copy(original[part])
+                parent, original = parent[part], original[part]
+            if isinstance(parent, list):
+                parent[cast("int", path[-1])] = rewritten
+            else:
+                cast("dict[str, Any]", parent)[cast("str", path[-1])] = rewritten
+        return result
+
+    def _prepare_schema_resources(self, raw: dict[str, Any], path_parts: list[str]) -> dict[str, Any]:
+        """Cache resource indexing and normalization instead of rescanning on each reference."""
+        document = self._schema_resource_document(path_parts)
+        if (cached := self._schema_resource_cache.get(document)) is not None and (raw is cached[0] or raw is cached[1]):
+            return cached[1]
+        for key in self._schema_resource_keys.get(document, ()):
+            if self._schema_resource_locations.get(key, "").split("#", 1)[0] == document:
+                self._schema_resource_locations.pop(key, None)
+        keys: set[str] = set()
+        base = document if is_url(document) else Path(document).as_uri() if document else f"{self.base_path.as_uri()}/"
+        nested = self._register_schema_resources(raw, document, "", base, keys)
+        self._schema_resource_keys[document] = keys
+        prepared = raw
+        if nested:
+            self._has_embedded_schema_resources = True
+            prepared = self._rewrite_schema_resource_refs(
+                raw, document, base, self._schema_resource_root_bases[document]
+            )
+        self._schema_resource_cache[document] = raw, prepared
+        return prepared
 
     def _add_id_callback(self, obj: JsonSchemaObject, path: list[str]) -> None:
         """Add $id and $anchor to model resolver."""
@@ -11099,6 +11382,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             else path_parts
         )
         with self.model_resolver.current_root_context(path_parts):
+            raw = self._prepare_schema_resources(raw, path_parts)
             obj_name = self.model_resolver.add(
                 path,
                 obj_name,

@@ -53,6 +53,45 @@ MIN_BRANCHES_FOR_LLM_SUMMARY = 3
 # and acquire a *different* lock object (which would defeat the run guard).
 _RUN_LOCK_INIT_GUARD = threading.Lock()
 
+
+class _WriteTrackingDict(dict):
+    """A ``dict`` that records which keys were assigned after construction.
+
+    A parallel branch runs against its own deep copy of the shared variables and
+    the branch's writes must be merged back (see ``_merge_branch_variables``). The
+    only reliable way to know *which* keys a branch wrote - not equality (drops an
+    equal-valued write, mis-flags a value whose ``!=`` is not a bool) nor identity
+    (blind to a rebind to an interned immutable like ``x = "SAME"``) - is to record
+    the assignment as it happens. Keys set at construction time seed the branch's
+    starting scope and are deliberately *not* counted as writes.
+    """
+
+    __slots__ = ("written_keys",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A set, not a copy of the values: only the identity of *which* keys were
+        # written matters, and the current value is read from the dict at merge.
+        self.written_keys = set()
+
+    def __setitem__(self, key, value):
+        self.written_keys.add(key)
+        super().__setitem__(key, value)
+
+    def update(self, *args, **kwargs):
+        # dict.update does NOT route through __setitem__, so a StepResult.variables
+        # merge (``all_variables.update(result.variables)``) would otherwise be an
+        # invisible write. Record its keys explicitly.
+        merged = dict(*args, **kwargs)
+        self.written_keys.update(merged)
+        super().update(merged)
+
+    def setdefault(self, key, default=None):
+        # setdefault also bypasses __setitem__ and creates the key when absent.
+        if key not in self:
+            self.written_keys.add(key)
+        return super().setdefault(key, default)
+
 class WorkflowStepError(Exception):
     """Exception raised when workflow step execution fails."""
     def __init__(self, message: str, cause: Exception = None, errors: List = None):
@@ -340,6 +379,53 @@ class Loop:
         self.parallel = parallel
         self.max_workers = max_workers
         self.output_variable = output_variable
+
+class Discussion:
+    """N agents take turns on the same thread until a criterion is met.
+
+    PraisonAI had no N-agent conversation loop at all -- no round-robin, no
+    speaker selection -- so having three agents debate for a few turns meant
+    writing the loop by hand. ``repeat([a, b])`` was the obvious workaround and
+    silently misbehaved until it was fixed, which is what made this worth
+    building rather than documenting around.
+
+        Discussion([critic, author], rounds=3,
+                   until=lambda ctx: "AGREED" in (ctx.previous_result or ""))
+
+    Each turn receives the previous turn's output via ``ctx.previous_result``,
+    so this is a conversation rather than N independent answers. The full
+    running transcript is exposed as the ``discussion_transcript`` variable --
+    a speaker action sees the whole thread only when it references
+    ``{{discussion_transcript}}``. ``rounds`` counts full passes over the
+    speakers; it defaults to a bounded 3 and must be >= 1 -- an unbounded
+    debate is a bill, not a feature.
+    """
+
+    def __init__(
+        self,
+        agents=None,
+        rounds: int = 3,
+        until=None,
+        select=None,
+        name: str = "discussion",
+    ):
+        speakers = list(agents or [])
+        if not speakers:
+            raise ValueError(
+                "Discussion needs at least one speaker; an empty discussion would "
+                "run zero turns and report success."
+            )
+        if rounds < 1:
+            raise ValueError("Discussion rounds must be >= 1.")
+        self.agents = speakers
+        self.rounds = rounds
+        #: Stop early when this returns True, checked after every turn.
+        self.until = until
+        #: Choose the next speaker: (turn_index, context) -> agent. Defaults to
+        #: round-robin, which is the behaviour people expect from "discussion".
+        self.select = select
+        self.name = name
+
 
 @dataclass
 class Repeat:
@@ -662,7 +748,15 @@ class AgentFlow:
     # Status tracking
     status: str = "not_started"  # not_started, running, completed, failed
     step_statuses: Dict[str, str] = field(default_factory=dict)  # {step_name: status}
-    
+
+    #: Optional type for ``variables``: a Pydantic model or a dataclass. When
+    #: set, the initial variables are validated and ``flow.state`` gives typed
+    #: access, so a misspelled variable is an error instead of a value written
+    #: once and never read. Without it nothing changes -- ``variables`` stays
+    #: the untyped dict it has always been. Declared last so it never shifts
+    #: the positional binding of existing fields like ``file_path``.
+    state_model: Optional[type] = None
+
     # Private resolved fields (set in __post_init__)
     _verbose: bool = field(default=False, repr=False)
     _stream: bool = field(default=True, repr=False)
@@ -709,6 +803,13 @@ class AgentFlow:
     def __post_init__(self):
         """Resolve consolidated params to internal values."""
         from ..utils.model_alias import resolve_model_name
+
+        # Validate the declared state up front. A misspelled variable found when
+        # the flow is BUILT costs nothing; found mid-run it has already burned
+        # the steps before it, and may never be found at all.
+        if self.state_model is not None:
+            from .state import validate_variables as _validate_state
+            _validate_state(self.state_model, self.variables)
 
         # One rule for the alias pair, shared with Agent and AgentTeam. Must
         # UNWRAP an LLMConfig to its model string: this value seeds the agents
@@ -1163,6 +1264,40 @@ class AgentFlow:
         finally:
             self._execution_lock.release()
 
+    def to_mermaid(self) -> str:
+        """Render this flow's DEFINITION as a mermaid diagram.
+
+        Unlike the telemetry diagrams, which need a captured execution trace,
+        this reads the step list -- so a flow can be checked before it is run
+        and before it costs anything. Mermaid needs no extra dependency and
+        renders inline on GitHub and in the docs.
+
+            print(flow.to_mermaid())
+        """
+        from .diagram import flow_to_mermaid
+        return flow_to_mermaid(self)
+
+    @property
+    def state(self):
+        """The flow's variables as the declared ``state_model``.
+
+        Returns None when no model was declared, so callers can tell "untyped"
+        from "typed and empty" rather than being handed a misleading blank.
+        """
+        from .state import build_state
+        if self.state_model is None:
+            return None
+        return build_state(self.state_model, self.variables)
+
+    def validate_variables(self) -> None:
+        """Raise unless the current variables fit ``state_model``.
+
+        Called for you at construction; exposed so a step that writes variables
+        can re-check before the next step reads them.
+        """
+        from .state import validate_variables
+        validate_variables(self.state_model, self.variables)
+
     def __repr__(self):
         """Show where this workflow's steps run.
 
@@ -1218,6 +1353,9 @@ class AgentFlow:
             if isinstance(step, Loop):
                 visit(step.step)
                 visit(step.steps)
+                return
+            if isinstance(step, Discussion):
+                visit(step.agents)
                 return
             if isinstance(step, Repeat):
                 visit(step.step)
@@ -1393,6 +1531,23 @@ class AgentFlow:
                 i += 1
                 continue
                 
+            elif isinstance(step, Discussion):
+                discussion_result = self._execute_discussion(
+                    step, previous_output, input, all_variables, model, verbose, stream
+                )
+                results.extend(discussion_result["steps"])
+                previous_output = discussion_result["output"]
+                all_variables.update(discussion_result.get("variables", {}))
+                # A speaker with on_error="stop" halts the whole workflow, not
+                # just the discussion: honor the propagated stop signal here.
+                if discussion_result.get("stop"):
+                    self.status = "failed"
+                    if verbose:
+                        print("🛑 Workflow stopped by nested discussion step")
+                    break
+                i += 1
+                continue
+
             elif isinstance(step, Repeat):
                 # Repeat until condition
                 repeat_result = self._execute_repeat(
@@ -1689,11 +1844,29 @@ class AgentFlow:
             # a failure too, even though no exception was raised. Treat it like
             # step_error so on_error flow control and the final status are honored
             # instead of silently reporting the step "completed".
-            step_failed = bool(step_error) or guardrail_failed
+            #
+            # So is an LLM-backed step that produced no output at all. `chat()`
+            # returns None when the underlying call failed and the agent
+            # swallowed the error (an auth 401 is the common case): the engine
+            # already logs "Output is None" a few lines below, so it knows the
+            # step produced nothing — it just used to report the run
+            # "completed" anyway, and every consumer (CLI, API server, Python
+            # callers) was told the run succeeded. Only agent/action steps are
+            # judged this way: a custom `handler` may legitimately return None,
+            # and a skipped step never reaches here.
+            produced_nothing = (
+                output is None
+                and not step_error
+                and not step.handler
+                and (step.agent is not None or bool(step.action))
+            )
+            step_failed = bool(step_error) or guardrail_failed or produced_nothing
             failure_reason = (
                 str(step_error) if step_error
                 else (f"guardrail validation failed: {validation_feedback}"
-                      if guardrail_failed else None)
+                      if guardrail_failed
+                      else ("agent produced no output (None) — the model call "
+                            "most likely failed" if produced_nothing else None))
             )
 
             # Update step status
@@ -1761,13 +1934,19 @@ class AgentFlow:
                 except Exception as e:
                     logger.error(f"Failed to save output to file: {e}")
             
-            # Store result
-            results.append({
+            # Store result. A step that failed under on_error="continue" reaches
+            # here (the on_error="stop" branch above already returned); carry its
+            # failure_reason through so the final result surfaces *why* it failed
+            # rather than the generic "step(s) failed: <name>" fallback.
+            step_record = {
                 "step": step.name,
                 "output": output,
                 "status": self.step_statuses.get(step.name, "completed"),
                 "retries": retry_count
-            })
+            }
+            if step_failed and failure_reason:
+                step_record["error"] = failure_reason
+            results.append(step_record)
             previous_output = output
             
             if verbose:
@@ -1827,6 +2006,26 @@ class AgentFlow:
             "variables": all_variables,
             "status": self.status
         }
+        # Surface *why* a failed run failed. Callers (the CLI included) read
+        # result["error"]; without it a genuine failure printed
+        # "Workflow failed: Unknown error".
+        if self.status == "failed":
+            reasons = [
+                f"{r.get('step')}: {r.get('error')}"
+                for r in results
+                if r.get("status") == "failed" and r.get("error")
+            ]
+            if reasons:
+                final_result["error"] = "; ".join(reasons)
+            else:
+                failed_names = [
+                    str(r.get("step")) for r in results
+                    if r.get("status") == "failed"
+                ]
+                final_result["error"] = (
+                    "step(s) failed: " + ", ".join(failed_names)
+                    if failed_names else "workflow failed"
+                )
         
         # Call on_workflow_complete callback
         if self.on_workflow_complete:
@@ -1935,13 +2134,43 @@ class AgentFlow:
                 step_vars = step_result_internal.get("variables", {})
                 all_variables.update(step_vars)
                 
+                # An LLM-backed step that produced nothing is a failure here
+                # too, exactly as in the sequential path: `chat()` returns None
+                # when the model call failed and the agent swallowed the error.
+                # This loop used to mark every non-raising step "completed"
+                # before the manager ever saw it.
+                produced_nothing = (
+                    output is None
+                    and not getattr(step, 'handler', None)
+                    and (getattr(step, 'agent', None) is not None
+                         or bool(getattr(step, 'action', None)))
+                )
+
                 step_result = {
                     "step": step_name,
                     "output": output,
-                    "status": "completed"
+                    "status": "failed" if produced_nothing else "completed"
                 }
                 results.append(step_result)
-                
+
+                if produced_nothing:
+                    failure_reason = (
+                        f"Step '{step_name}' produced no output (None) -- the "
+                        f"model call most likely failed"
+                    )
+                    logger.error(failure_reason)
+                    self.status = "failed"
+                    if hasattr(step, 'status'):
+                        step.status = "failed"
+                    self.step_statuses[step_name] = "failed"
+                    step_result["failure_reason"] = failure_reason
+                    if self.on_step_error:
+                        try:
+                            self.on_step_error(self, step, Exception(failure_reason))
+                        except Exception as callback_e:
+                            logger.error(f"on_step_error callback failed: {callback_e}")
+                    break
+
                 if hasattr(step, 'status'):
                     step.status = "completed"
                 self.step_statuses[step_name] = "completed"
@@ -2000,16 +2229,26 @@ Respond with JSON: {{"approved": true/false, "reason": "Brief explanation"}}
                         output_json=True
                     )
                     
-                    if isinstance(validation_response, str):
-                        import json
-                        try:
-                            decision_data = json.loads(validation_response)
-                        except json.JSONDecodeError:
-                            decision_data = {"approved": True, "reason": "Could not parse response, assuming success"}
-                    elif isinstance(validation_response, dict):
-                        decision_data = validation_response
-                    else:
-                        decision_data = {"approved": True, "reason": "Unknown response format, assuming success"}
+                    # Parse the manager's verdict with the module's own JSON
+                    # helper, which already strips the ```json fences models
+                    # routinely emit. A bare json.loads() raised JSONDecodeError
+                    # on every fenced reply, and the handler then FAILED OPEN --
+                    # turning "approved": false into "assuming success". A
+                    # manager rejection was therefore silently discarded and the
+                    # run reported completed, which is the same class of defect
+                    # as an all-None run reporting success.
+                    decision_data = _parse_json_output(
+                        validation_response, step_name
+                    )
+                    if not isinstance(decision_data, dict):
+                        # Fail CLOSED: an unreadable verdict is not approval.
+                        decision_data = {
+                            "approved": False,
+                            "reason": (
+                                "Manager validation response could not be "
+                                f"parsed: {str(validation_response)[:200]!r}"
+                            ),
+                        }
                     
                     approved = decision_data.get("approved", True)
                     reason = decision_data.get("reason", "No reason provided")
@@ -2035,8 +2274,31 @@ Respond with JSON: {{"approved": true/false, "reason": "Brief explanation"}}
                         break
                         
                 except Exception as e:
-                    logger.warning(f"Manager validation failed for step '{step_name}': {e}. Continuing workflow.")
-                
+                    # The manager is a GATE. If it could not run, it has not
+                    # passed -- reporting "completed successfully" because the
+                    # quality check itself failed is the same lie as approving a
+                    # rejection. This block already fails closed on an
+                    # unparseable verdict two lines up, so failing open here
+                    # would be incoherent. Hierarchical mode is opt-in: a caller
+                    # who asked for manager validation wants it enforced.
+                    failure_reason = (
+                        f"Manager validation could not run for step "
+                        f"'{step_name}': {e}"
+                    )
+                    logger.error(failure_reason)
+                    self.status = "failed"
+                    if hasattr(step, 'status'):
+                        step.status = "failed"
+                    self.step_statuses[step_name] = "failed"
+                    step_result["status"] = "failed"
+                    step_result["failure_reason"] = failure_reason
+                    if self.on_step_error:
+                        try:
+                            self.on_step_error(self, step, e)
+                        except Exception as callback_e:
+                            logger.error(f"on_step_error callback failed: {callback_e}")
+                    break
+
                 previous_output = output
                 
                 # Store output in variables for next step's variable substitution
@@ -2083,6 +2345,10 @@ Respond with JSON: {{"approved": true/false, "reason": "Brief explanation"}}
         
         if failure_reason:
             final_result["failure_reason"] = failure_reason
+            # Also expose it as `error`, the key every caller (the CLI
+            # included) reads. Without it a genuine hierarchical failure
+            # printed "Workflow failed: Unknown error".
+            final_result.setdefault("error", failure_reason)
         
         if self.on_workflow_complete:
             try:
@@ -2455,6 +2721,21 @@ Create a brief execution plan (2-3 sentences) describing how to best accomplish 
                 "output": repeat_result.get("output", ""),
                 "stop": repeat_result.get("stop", False),
                 "variables": repeat_result.get("variables", all_variables)
+            }
+        
+        if isinstance(step, Discussion):
+            discussion_result = self._execute_discussion(
+                step, previous_output, input, all_variables, model, verbose, stream, depth=depth+1
+            )
+            return {
+                "step": f"discussion_{index}",
+                "output": discussion_result.get("output", ""),
+                # Propagate a nested stop request so a speaker with
+                # on_error="stop" halts the enclosing workflow, not just the
+                # discussion, and so a nested Discussion is not stringified into
+                # a Task action by _normalize_single_step.
+                "stop": discussion_result.get("stop", False),
+                "variables": discussion_result.get("variables", all_variables)
             }
         
         if isinstance(step, If):
@@ -2855,6 +3136,155 @@ CONCISE SUMMARY:"""
             return min(user_max, n)
         return min(DEFAULT_MAX_PARALLEL_WORKERS, n)
     
+    @staticmethod
+    def _branch_variable_delta(
+        branch_variables: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Return only the variables a parallel branch actually wrote.
+
+        A branch runs against its *own* ``copy.deepcopy`` of the shared scope, so
+        merging the whole returned dict back would copy every untouched key as
+        well - replacing the parent's objects with per-branch clones and letting a
+        stale copy overwrite a value some other part of the run had moved on from.
+        Only the delta is merged: the keys the branch actually assigned.
+
+        Writes are read from ``_WriteTrackingDict.written_keys`` - the exact set of
+        keys the branch bound via ``variables[name] = ...`` (an ``output_variable``
+        write, a ``StepResult.variables`` merge, or a nested pattern's own merge).
+        Recording the assignment itself is the only detection that is always right:
+
+        * value **equality** dropped an equal-valued write (writing a variable back
+          to the value it already held), losing declaration-order semantics on a
+          reused ``output_variable``, and it misclassified an untouched value whose
+          ``!=`` is not a bool (numpy arrays, some ORM/pydantic objects) as a write;
+        * object **identity** still could not see a write whose value is an interned
+          immutable (``x = "SAME"`` rebinds to the very object already there).
+
+        Tracking the assignment sidesteps both: an untouched key is never in
+        ``written_keys`` (so the parent keeps its own object and no ``!=`` is ever
+        evaluated), and every real write is present regardless of its value.
+        """
+        if not branch_variables:
+            return {}
+        written = getattr(branch_variables, "written_keys", None)
+        if written is None:
+            # Not a tracking dict (a branch replaced ``ctx.variables`` wholesale, or
+            # a nested pattern returned a plain dict). Fall back to merging every
+            # key so a real write is never dropped - the bug this method prevents.
+            return dict(branch_variables)
+        return {key: branch_variables[key] for key in written if key in branch_variables}
+
+    @staticmethod
+    def _loop_control_variables(
+        loop_step: Any, item: Any, idx: int
+    ) -> Dict[str, Any]:
+        """The variables a ``Loop`` injects itself for one iteration.
+
+        ``item`` (or the loop's ``var_name``), ``loop_index`` and the flattened
+        ``item.<key>`` accessors are loop *machinery*, not results the loop body
+        produced, so they stay scoped to the loop in **both** execution modes:
+        the sequential path restores whatever those names held before the loop,
+        and the parallel path drops them from the merged delta. Keeping the two
+        modes identical here is what lets the loop body's own writes - which do
+        escape - be compared between them.
+        """
+        control: Dict[str, Any] = {loop_step.var_name: item, "loop_index": idx}
+        # Also expand nested item properties for template access (e.g., {{item.title}})
+        if isinstance(item, dict):
+            for key, value in item.items():
+                control[f"{loop_step.var_name}.{key}"] = value
+        return control
+
+    @classmethod
+    def _loop_variable_delta(
+        cls, loop_variables: Optional[Dict[str, Any]], control: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Writes one parallel-loop iteration made, minus the loop's control vars."""
+        delta = cls._branch_variable_delta(loop_variables)
+        for key in control:
+            delta.pop(key, None)
+        return delta
+
+    @staticmethod
+    def _restore_loop_scope(
+        all_variables: Dict[str, Any],
+        saved: Dict[str, Any],
+        introduced: set,
+        preexisting_writes: set
+    ) -> None:
+        """Undo a sequential loop's own control variables once the loop is done.
+
+        The sequential loop runs against the shared scope (see ``_execute_loop``),
+        so ``item``/``loop_index`` would otherwise leak out of the loop - and, when
+        the loop sits inside a ``Parallel`` branch, would be merged back into the
+        enclosing workflow as if the branch had written them. Restore the previous
+        value (or remove the name) and un-record the write.
+        """
+        for key in introduced:
+            if key in saved:
+                all_variables[key] = saved[key]
+            else:
+                all_variables.pop(key, None)
+        written = getattr(all_variables, "written_keys", None)
+        if written is not None:
+            for key in introduced:
+                if key not in preexisting_writes:
+                    written.discard(key)
+
+    @staticmethod
+    def _merge_branch_variables(
+        all_variables: Dict[str, Any],
+        branch_deltas: List[Tuple[int, Dict[str, Any]]],
+        warn_on_collision: bool = True
+    ) -> None:
+        """Merge concurrent branches' variable writes back into the shared scope.
+
+        Used by ``Parallel`` (branch declaration order) and by the parallel
+        ``Loop`` (iteration order). ``warn_on_collision`` is the only difference
+        between them: two *branches* writing one variable is almost certainly an
+        authoring accident worth a warning, whereas N *iterations* of one loop
+        body necessarily write the loop body's ``output_variable`` N times - that
+        is the normal shape of a loop, not a mistake, so the loop passes False
+        rather than emitting a warning per item.
+
+        THE MERGE RULE (please do not "simplify" this back into a race):
+
+        1. Branches never share a variables dict - each gets a deep copy - because
+           concurrent writes to one dict is a data race. Isolation is the safe half
+           of the design; this function is the missing other half, the merge back.
+        2. Deltas are applied in **branch declaration order**, never completion
+           order, so the result does not depend on thread scheduling. Two runs of
+           the same workflow produce the same variables.
+        3. On a **key collision** - two branches writing the same variable with
+           different values - the later branch in declaration order wins, which is
+           exactly what would happen if the same steps ran sequentially (Parallel
+           is meant to be a faster way to run steps, not a different semantics).
+           The collision is logged as a warning naming the key and both branches,
+           because a silently discarded branch result is the bug this fixes; the
+           workflow author has almost certainly reused an ``output_variable`` or a
+           step name by accident.
+        4. Only real writes are merged (see ``_branch_variable_delta``), so an
+           untouched key keeps the parent's own object.
+        """
+        winners: Dict[str, int] = {}
+        for idx, delta in branch_deltas:
+            for key, value in delta.items():
+                previous_idx = winners.get(key)
+                if previous_idx is not None:
+                    try:
+                        conflicting = bool(all_variables[key] != value)
+                    except Exception:
+                        conflicting = True
+                    if conflicting and warn_on_collision:
+                        logger.warning(
+                            f"Parallel branches {previous_idx} and {idx} both wrote "
+                            f"variable '{key}' with different values; branch {idx} wins "
+                            f"(declaration order). Give the branches distinct "
+                            f"output_variable names to avoid losing a result."
+                        )
+                winners[key] = idx
+                all_variables[key] = value
+
     def _execute_parallel(
         self,
         parallel_step: Parallel,
@@ -2906,6 +3336,8 @@ CONCISE SUMMARY:"""
         # Use ThreadPoolExecutor for parallel execution
         from ..trace.context_events import copy_context_to_callable, get_context_emitter
         
+        branch_deltas = []  # [(branch_idx, {var: value}), ...] in declaration order
+
         # Determine effective workers based on user configuration
         user_max = getattr(parallel_step, 'max_workers', None)
         effective_workers = self._effective_workers(user_max, len(parallel_step.steps), label="Parallel")
@@ -2913,12 +3345,21 @@ CONCISE SUMMARY:"""
             futures = []
             for idx, step in enumerate(parallel_step.steps):
                 # Wrap execution to propagate context and set branch_id for parallel tracking
-                def execute_with_branch(step=step, idx=idx, opt_prev=optimized_previous):
+                # Each branch writes into its OWN deep copy: concurrent writes to
+                # one shared dict would be a data race. The copy is a
+                # _WriteTrackingDict so the merge back (see _merge_branch_variables)
+                # knows exactly which keys the branch assigned - the branch's
+                # output_variable writes are not thrown away, and untouched keys are
+                # not merged as per-branch clones. Keys present at construction seed
+                # the scope and are not counted as writes.
+                branch_vars = _WriteTrackingDict(copy.deepcopy(all_variables))
+
+                def execute_with_branch(step=step, idx=idx, opt_prev=optimized_previous, branch_vars=branch_vars):
                     emitter = get_context_emitter()
                     emitter.set_branch(f"parallel_{idx}")
                     try:
                         return self._execute_single_step_internal(
-                            step, opt_prev, input, copy.deepcopy(all_variables), model, False, idx, stream, depth=depth+1
+                            step, opt_prev, input, branch_vars, model, False, idx, stream, depth=depth+1
                         )
                     finally:
                         emitter.clear_branch()
@@ -2952,6 +3393,9 @@ CONCISE SUMMARY:"""
                 if branch_error is None:
                     results.append({"step": step_result["step"], "output": step_result["output"]})
                     outputs.append(step_result["output"])
+                    branch_deltas.append(
+                        (idx, self._branch_variable_delta(step_result.get("variables")))
+                    )
                     continue
 
                 logger.error(f"Parallel branch {idx} failed: {branch_error}")
@@ -2973,6 +3417,15 @@ CONCISE SUMMARY:"""
                     # Record the failure but continue with other branches. Do not
                     # fold the exception text into outputs as if it were data.
                     results.append({"step": f"parallel_{idx}", "output": None, "error": str(branch_error)})
+                    # "partial_ok" means partial results are kept, so the variables
+                    # the branch's *completed* steps wrote are kept too. (The failed
+                    # step itself never reaches the output_variable write, so nothing
+                    # from it can leak in here.) fail_fast/fail_all raise instead, so
+                    # nothing from a failed branch is merged under those modes.
+                    if step_result is not None:
+                        branch_deltas.append(
+                            (idx, self._branch_variable_delta(step_result.get("variables")))
+                        )
                     # Keep `outputs` index-aligned with parallel_step.steps so a
                     # downstream reader of parallel_outputs[idx] cannot silently
                     # receive a later branch's result once an earlier one fails.
@@ -2990,6 +3443,11 @@ CONCISE SUMMARY:"""
                     f"{len(errors)} parallel branches failed", errors=errors, cause=cause
                 ) from cause
         
+        # Merge each branch's variable writes back into the shared scope. Without
+        # this every `output_variable` set inside a Parallel block was written to a
+        # deep copy that was discarded when the branch returned (silent data loss).
+        self._merge_branch_variables(all_variables, branch_deltas)
+
         # Combine outputs
         combined_output = "\n---\n".join(str(o) for o in outputs)
         all_variables["parallel_outputs"] = outputs
@@ -3087,16 +3545,19 @@ CONCISE SUMMARY:"""
                 emitter.set_branch(f"loop_{idx}")
                 
                 try:
-                    # CRITICAL: Deep copy variables to ensure thread isolation (per-branch context isolation)
-                    import copy
-                    loop_vars = copy.deepcopy(all_variables)
-                    loop_vars[loop_step.var_name] = item
-                    loop_vars["loop_index"] = idx
-                    
-                    # Also expand nested item properties for template access (e.g., {{item.title}})
-                    if isinstance(item, dict):
-                        for key, value in item.items():
-                            loop_vars[f"{loop_step.var_name}.{key}"] = value
+                    # CRITICAL: Deep copy variables to ensure thread isolation
+                    # (concurrent iterations writing one dict is a data race).
+                    # Isolation is only half of the design: whatever the iteration
+                    # writes must still be merged back, or every output_variable
+                    # set inside the loop body is silently discarded. The copy is a
+                    # _WriteTrackingDict so the merge (see below) knows exactly
+                    # which keys this iteration assigned. The loop's own control
+                    # variables are seeded at construction time and are therefore
+                    # deliberately not counted as writes.
+                    control = self._loop_control_variables(loop_step, item, idx)
+                    seed = copy.deepcopy(all_variables)
+                    seed.update(control)
+                    loop_vars = _WriteTrackingDict(seed)
                     
                     # Execute all steps sequentially within this iteration
                     iteration_output = opt_prev
@@ -3108,9 +3569,13 @@ CONCISE SUMMARY:"""
                         )
                         iteration_output = step_result.get("output")
                         iteration_results.append(step_result)
-                        # Update variables if step set any
-                        if step_result.get("variables"):
-                            loop_vars.update(step_result["variables"])
+                        # Update variables if step set any. _execute_single_step_internal
+                        # writes into - and returns - the very dict it was handed, so
+                        # ``loop_vars.update(loop_vars)`` would record every key as
+                        # written and defeat the delta detection below.
+                        step_vars = step_result.get("variables")
+                        if step_vars and step_vars is not loop_vars:
+                            loop_vars.update(step_vars)
                         # A failed step with on_error="stop" signals a stop; halt
                         # this iteration instead of feeding later steps forward.
                         if step_result.get("stop"):
@@ -3123,7 +3588,11 @@ CONCISE SUMMARY:"""
                         "step": f"loop_{idx}",
                         "output": iteration_output,
                         "steps": iteration_results,
-                        "stop": iteration_stopped
+                        "stop": iteration_stopped,
+                        # Only what this iteration actually wrote, so untouched
+                        # variables keep the parent's own objects instead of being
+                        # replaced by this iteration's deep-copied clones.
+                        "variable_delta": self._loop_variable_delta(loop_vars, control),
                     }
                     return idx, final_result
                 finally:
@@ -3154,11 +3623,25 @@ CONCISE SUMMARY:"""
                 # Sort by index to maintain order
                 indexed_results.sort(key=lambda x: x[0])
                 
+                iteration_deltas = []  # [(iteration_idx, {var: value}), ...] in item order
                 for idx, step_result in indexed_results:
                     results.append({"step": f"{step_result['step']}_{idx}", "output": step_result["output"]})
                     outputs.append(step_result["output"])
+                    iteration_deltas.append((idx, step_result.get("variable_delta") or {}))
                     if step_result.get("stop"):
                         loop_stopped = True
+
+            # Merge each iteration's writes back into the shared scope. Without
+            # this every output_variable set inside the loop body was written to a
+            # deep copy discarded when the iteration returned (silent data loss).
+            # Deltas are applied in *item* order, never completion order, so the
+            # surviving value does not depend on thread scheduling - it is the
+            # last item's, exactly what the sequential loop above produces. A
+            # cross-iteration collision is inherent to looping, so unlike Parallel
+            # it is not warned about.
+            self._merge_branch_variables(
+                all_variables, iteration_deltas, warn_on_collision=False
+            )
             
             if verbose:
                 print(f"✅ Parallel loop complete: {len(outputs)} results")
@@ -3168,44 +3651,71 @@ CONCISE SUMMARY:"""
                 step_info = f" ({len(steps_to_run)} steps each)" if is_multi_step else ""
                 print(f"🔁 Looping over {num_items} items{step_info}...")
             
-            for idx, item in enumerate(items):
-                # Add current item to variables
-                import copy
-                loop_vars = copy.deepcopy(all_variables)
-                loop_vars[loop_step.var_name] = item
-                loop_vars["loop_index"] = idx
-                
-                # Also expand nested item properties for template access (e.g., {{item.title}})
-                if isinstance(item, dict):
-                    for key, value in item.items():
-                        loop_vars[f"{loop_step.var_name}.{key}"] = value
-                
-                # Execute all steps sequentially within this iteration
-                iteration_output = previous_output
-                iteration_stopped = False
-                for step_idx, step in enumerate(steps_to_run):
-                    step_result = self._execute_single_step_internal(
-                        step, iteration_output, input, loop_vars, model, verbose, step_idx, stream=stream, depth=depth+1
-                    )
-                    iteration_output = step_result.get("output")
-                    # Update variables if step set any
-                    if step_result.get("variables"):
-                        loop_vars.update(step_result["variables"])
-                    # A failed step with on_error="stop" signals a stop; halt this
-                    # iteration instead of feeding later steps the error forward.
-                    if step_result.get("stop"):
-                        iteration_stopped = True
-                        break
-                
-                results.append({"step": f"loop_{idx}", "output": iteration_output})
-                outputs.append(iteration_output)
-                previous_output = iteration_output
+            # A sequential loop is simply its body unrolled, so - like Repeat,
+            # If and Route - it runs against the shared scope. There is no
+            # concurrency to isolate from here, and the per-iteration
+            # ``copy.deepcopy(all_variables)`` that used to sit in this loop
+            # bought no safety while silently discarding every output_variable
+            # the body wrote and hiding iteration N-1's writes from iteration N.
+            # Only the loop's own control variables stay loop-scoped; they are
+            # saved here and restored in the finally below.
+            control_saved: Dict[str, Any] = {}
+            control_introduced = set()
+            preexisting_writes = set(getattr(all_variables, "written_keys", None) or ())
+            prev_control_keys: set = set()
+            try:
+                for idx, item in enumerate(items):
+                    # Add current item (and loop_index / item.<key>) to variables
+                    control = self._loop_control_variables(loop_step, item, idx)
+                    # Drop the previous item's flattened ``item.<key>`` accessors
+                    # that this item does not have. Because the loop runs against
+                    # the shared scope, ``update`` alone would leave a stale
+                    # ``item.k`` visible while iterating an item that only has
+                    # ``item.m`` - the body would read the previous item's value.
+                    # ``_restore_loop_scope`` already cleans these up after the
+                    # loop; this keeps each iteration's view correct too.
+                    for stale_key in prev_control_keys - control.keys():
+                        all_variables.pop(stale_key, None)
+                    prev_control_keys = set(control.keys())
+                    for key in control:
+                        if key not in control_introduced:
+                            control_introduced.add(key)
+                            if key in all_variables:
+                                control_saved[key] = all_variables[key]
+                    all_variables.update(control)
 
-                # Abort the remaining items too: a step that asked to stop the
-                # workflow (on_error="stop") must not silently keep looping.
-                if iteration_stopped:
-                    loop_stopped = True
-                    break
+                    # Execute all steps sequentially within this iteration
+                    iteration_output = previous_output
+                    iteration_stopped = False
+                    for step_idx, step in enumerate(steps_to_run):
+                        step_result = self._execute_single_step_internal(
+                            step, iteration_output, input, all_variables, model, verbose, step_idx, stream=stream, depth=depth+1
+                        )
+                        iteration_output = step_result.get("output")
+                        # Update variables if step set any. The step writes into the
+                        # dict it was handed, so guard against self-update.
+                        step_vars = step_result.get("variables")
+                        if step_vars and step_vars is not all_variables:
+                            all_variables.update(step_vars)
+                        # A failed step with on_error="stop" signals a stop; halt this
+                        # iteration instead of feeding later steps the error forward.
+                        if step_result.get("stop"):
+                            iteration_stopped = True
+                            break
+
+                    results.append({"step": f"loop_{idx}", "output": iteration_output})
+                    outputs.append(iteration_output)
+                    previous_output = iteration_output
+
+                    # Abort the remaining items too: a step that asked to stop the
+                    # workflow (on_error="stop") must not silently keep looping.
+                    if iteration_stopped:
+                        loop_stopped = True
+                        break
+            finally:
+                self._restore_loop_scope(
+                    all_variables, control_saved, control_introduced, preexisting_writes
+                )
         # Store outputs in user-specified variable or default to loop_outputs
         output_var_name = loop_step.output_variable or "loop_outputs"
         all_variables[output_var_name] = outputs
@@ -3325,6 +3835,89 @@ CONCISE SUMMARY:"""
         # 4. Fallback: wrap as single item
         return [text]
     
+    def _execute_discussion(
+        self, discussion, previous_output, input, all_variables, model, verbose, stream=True, depth=0
+    ):
+        """Run a round-robin discussion and return the same shape as the other patterns."""
+        results = []
+        output = previous_output
+        transcript = []
+        stopped = False
+        discussion_stopped = False
+
+        if verbose:
+            names = [getattr(a, "name", getattr(a, "__name__", str(a))) for a in discussion.agents]
+            print(f"💬 Discussion: {' → '.join(names)} for {discussion.rounds} round(s)")
+
+        turn = 0
+        for round_index in range(discussion.rounds):
+            for position in range(len(discussion.agents)):
+                context = WorkflowContext(
+                    input=input,
+                    previous_result=str(output) if output else None,
+                    current_step=f"{discussion.name}_r{round_index}",
+                    variables=all_variables.copy(),
+                )
+                # A custom selector may repeat or skip a speaker; round-robin is
+                # only the default, not an assumption baked into the loop.
+                speaker = (
+                    discussion.select(turn, context) if discussion.select
+                    else discussion.agents[position]
+                )
+                step_result = self._execute_single_step_internal(
+                    speaker, output, input, all_variables, model, verbose,
+                    turn, stream=stream, depth=depth + 1,
+                )
+                output = step_result["output"]
+                speaker_name = getattr(speaker, "name", getattr(speaker, "__name__", step_result["step"]))
+                # The transcript is what makes this a conversation rather than N
+                # independent answers: each speaker is handed what came before.
+                transcript.append(f"{speaker_name}: {output}")
+                all_variables.update(step_result.get("variables", {}))
+                all_variables["discussion_transcript"] = "\n".join(transcript)
+                results.append({
+                    "step": f"{discussion.name}_r{round_index}_{speaker_name}",
+                    "output": output,
+                })
+                turn += 1
+
+                # A speaker with on_error="stop" (the Task default) halts the
+                # whole workflow, not just the discussion: honor its stop signal
+                # rather than burning the rest of the round budget.
+                if step_result.get("stop"):
+                    stopped = True
+                    discussion_stopped = True
+                    break
+
+                if discussion.until:
+                    check = WorkflowContext(
+                        input=input,
+                        previous_result=str(output) if output else None,
+                        current_step=discussion.name,
+                        variables=all_variables.copy(),
+                    )
+                    try:
+                        if discussion.until(check):
+                            stopped = True
+                            break
+                    except Exception as exc:
+                        # A broken until() must not silently mean "never stop":
+                        # that turns a bounded discussion into rounds of spend.
+                        raise ValueError(
+                            f"Discussion until() raised {type(exc).__name__}: {exc}. "
+                            f"It is checked after every turn, so a failing "
+                            f"condition would run the full round budget."
+                        ) from exc
+            if stopped:
+                break
+
+        return {
+            "steps": results,
+            "output": output,
+            "variables": {"discussion_transcript": "\n".join(transcript)},
+            "stop": discussion_stopped,
+        }
+
     def _execute_repeat(
         self,
         repeat_step: Repeat,
@@ -4515,7 +5108,21 @@ class WorkflowManager:
                         "continuing at the same step index because --rebase-checkpoint was set."
                     )
                 results = checkpoint_data.get("results", [])
-                all_variables = checkpoint_data.get("variables", all_variables)
+                # Layer, do not replace. The checkpoint's variables used to
+                # overwrite the caller's outright, so a value supplied ON the
+                # resume was accepted and silently thrown away:
+                #
+                #   praisonai workflow run wf --resume --var reviewer_decision=approved
+                #
+                # which is precisely how a human hands their answer back to a
+                # run that paused for review. Precedence is workflow defaults,
+                # then the checkpoint, then whatever the caller supplied now --
+                # the freshest statement of intent wins.
+                all_variables = {
+                    **all_variables,
+                    **(checkpoint_data.get("variables") or {}),
+                    **(variables or {}),
+                }
                 start_step = checkpoint_data.get("completed_steps", 0)
                 resumed_from_step = start_step
                 self._log(f"Resuming workflow from step {start_step + 1}")

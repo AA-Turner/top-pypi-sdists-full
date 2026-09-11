@@ -59,14 +59,27 @@ YIELD_CPT = [(0, "#fff7ec"), (0.5, "#fee8c8"), (1.0, "#fdd49e"),
 # Transparent pattern BACKGROUND (+b-) is the whole trick: with +bwhite the
 # hatch is opaque and wipes out the choropleth underneath. Low +r = coarse,
 # open hatch, so the fill still reads through the gaps.
-NOSKILL_PATTERN = "p8+r100+fblack+b-"
-# Regions whose record is too short to judge get their own mark: saying
-# "no skill" about a region we cannot score is a claim we have not earned.
-# A BACK-slanting line hatch, mirroring the forward no-skill hatch — the
-# two read as the same family of caveat and are still separable at a
-# glance. (Pattern 19 was tried first and draws DOTS, which read as
-# plotted data rather than as an overlay.)
-UNKNOWN_PATTERN = "p9+r100+fgray35+b-"
+# +r sets the pattern resolution: a COARSE hatch (low dpi) skips
+# small polygons entirely — a 40 km district can fall between two
+# lines and render as though it had no verdict. 300 dpi puts
+# several lines across the smallest admin unit in the set.
+NOSKILL_PATTERN = "p8+r300+fblack+b-"
+# Legends go BELOW the frame, not inside it. `JBL+jBL` put the box in the
+# open Atlantic on the continent-wide extent, but the same anchor lands on
+# the Western Cape once the map is cropped to southern Africa — a legend
+# box sitting over a forecast region hides the thing the map is for.
+# 0.9c, not 0.25c: the frame's longitude annotations occupy the first
+# ~0.6c below it, and a smaller offset put the box on top of "10E"/"20E".
+LEGEND_POS = "JBL+jTL+o0c/0.9c+w{w}c"
+# ...which pushes the shared colorbar down to clear the legend.
+CBAR_OFFSET = "+o0c/3.3c+e"
+#: Land outside the analysis. Near-white so the map reads as open ground the
+#: way the single-country outlook maps do, but not white, which reads as
+#: water. Distinct from NODATA, which means "admin unit in the analysis with
+#: no forecast this cycle" and is the darker grey the legend names.
+LAND = "#f2f2f2"
+#: t/ha map: units whose trend baseline extrapolates too far to publish.
+WITHHELD = "#bdbdbd"
 MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 REAL_YEARS = list(range(1994, 2018))     # real S2S hindcast members
@@ -114,6 +127,12 @@ def _style_ctx():
         return plt.style.context(["science", "no-latex"])
     except Exception:
         return plt.style.context("default")
+
+
+def _despine(*axes):
+    for ax in axes:
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
 
 
 def month_span(months):
@@ -199,9 +218,7 @@ def charts(out):
         ax2.set_xlabel("Bad-year discrimination (AUC)")
         ax2.set_title("Skill at the issued lead", loc="left")
         ax2.legend(loc="lower right", fontsize=7, frameon=False)
-        for a in (ax, ax2):
-            for s in ("top", "right"):
-                a.spines[s].set_visible(False)
+        _despine(ax, ax2)
         save(fig, "risk_ranking", "risk_ranking.csv",
              "risk per combination beside its hindcast AUC and permutation null")
 
@@ -228,8 +245,7 @@ def charts(out):
         ax.set_ylabel("Hindcast AUC")
         ax.set_title("Bad-year discrimination by lead time", loc="left")
         ax.legend(loc="lower left", fontsize=7, frameon=False)
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
+        _despine(ax)
         save(fig, "skill_vs_lead", "skill_vs_lead.csv",
              "AUC vs lead per combination, against the permutation null")
 
@@ -265,8 +281,7 @@ def charts(out):
                 ax.set_xlim(0.05, 0.95)
                 ax.set_xlabel("AUC")
                 ax.set_title(ttl, loc="left", fontsize=9)
-                for sp in ("top", "right"):
-                    ax.spines[sp].set_visible(False)
+                _despine(ax)
             axes[0].set_yticks(y, dec.index)
             save(fig, "skill_decomposition", "skill_decomposition.csv",
                  "national vs spatial skill, each against its own null "
@@ -293,8 +308,7 @@ def charts(out):
         ax.set_xlim(0, 1)
         ax.set_xlabel("P(bottom tercile) per admin unit")
         ax.set_title("Spread of risk within each country", loc="left")
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
+        _despine(ax)
         save(fig, "risk_spread", "risk_spread.csv",
              "per-unit P(bottom tercile) distribution within each combination")
 
@@ -312,8 +326,7 @@ def charts(out):
                 "Worst predictor exceedance of the training range (sd)")
             ax.set_title("Forecast predictors outside the fitted range",
                          loc="left")
-            for sp in ("top", "right"):
-                ax.spines[sp].set_visible(False)
+            _despine(ax)
             save(fig, "out_of_support", "out_of_support.csv",
                  "worst predictor exceedance of training support, per combination")
 
@@ -335,8 +348,7 @@ def charts(out):
                 height=.62)
         ax.set_xlabel("Country × crop × season combinations")
         ax.set_title("Coverage of the HarvestStat footprint", loc="left")
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
+        _despine(ax)
         save(fig, "coverage", "coverage.csv",
              "why each HarvestStat combination is or is not forecastable")
 
@@ -349,14 +361,20 @@ def charts(out):
 # maps
 # ---------------------------------------------------------------------------
 def _write_cpt(path, stops):
-    """Discrete CPT with over/under set so clipped tails stay visible."""
-    lines = [f"{lo}\t{c}\t{hi}\t{c}"
-             for (lo, c), (hi, _) in zip(stops[:-1], stops[1:])]
+    """Continuous CPT with over/under set so clipped tails stay visible.
+
+    Each segment interpolates between its two stop colours (`lo cA hi cB`)
+    rather than repeating one (`lo cA hi cA`, the stepped form this used to
+    write). The single-country outlook maps carry a smooth ramp, and a
+    stepped bar beside a smooth one reads as a different product.
+    """
+    lines = [f"{lo}\t{ca}\t{hi}\t{cb}"
+             for (lo, ca), (hi, cb) in zip(stops[:-1], stops[1:])]
     lines += [f"B\t{stops[0][1]}", f"F\t{stops[-1][1]}", f"N\t{NODATA}"]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def maps(out, gpkg, title_year=None):
+def maps(out, gpkg, title_year=None, extent=None, label=""):
     """PyGMT choropleths, per crop and diagnostic.
 
     Per crop: P(lower tercile) — the classification product; predicted
@@ -371,33 +389,86 @@ def maps(out, gpkg, title_year=None):
     import pygmt
 
     from geocif.experiments.s2s_africa import TREND_EXTRAP_MAX_PCT
+    # Imported HERE, not at module scope: _pygmt_render imports pygmt at its
+    # top (it doubles as a standalone subprocess renderer), and this module
+    # must stay importable on a machine with no GMT so the charts and
+    # heatmaps still render.
+    from geocif.viz._pygmt_render import (
+        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT, BORDER_PEN,
+        CBAR_POS, COAST_KW, POLY_PEN,
+    )
 
     out = Path(out)
     base, dir_plots, dir_csvs = _dirs(out, "maps")
+    # The extent comes from the run's config ([ML] s2s_map_extent), so a
+    # regional config crops its own maps. Falls back to all of Africa.
+    extent, proj, sfx = (extent or REGION), PROJ, ""
+    where = f" in {label}" if label else ""
     fc = pd.read_csv(out / "forecasts.csv")
     cb = pd.read_csv(out / "combinations.csv")
     if fc.empty:
         logger.info("no forecasts to map")
         return base
     year = title_year or int(fc["harvest_year"].mode().iloc[0])
-    gdf = gpd.read_file(gpkg)[["FNID", "ADMIN0", "geometry"]].rename(
+    # ADMIN1/ADMIN2 come along for the region name labels; the gpkg carries
+    # both, and _annotate() picks the finer one that is actually populated.
+    gdf = gpd.read_file(gpkg)[
+        ["FNID", "ADMIN0", "ADMIN1", "ADMIN2", "geometry"]].rename(
         columns={"FNID": "fnid"})
     lookup = []
 
     def basemap(fig, title):
-        pygmt.config(MAP_FRAME_TYPE="plain", FONT_TITLE="13p,Helvetica,black",
-                     FONT_ANNOT_PRIMARY="9p", FONT_LABEL="10p")
-        fig.basemap(region=REGION, projection=PROJ, frame=["af", f"+t{title}"])
-        fig.coast(land=NODATA, water="white", shorelines="0.3p,gray40",
-                  area_thresh=5000, borders="1/0.5p,gray55")
+        # Default (fancy) frame and the shared coast styling, so these read
+        # as the same product as the single-country outlook maps. `land` is
+        # ours: those maps cover one country and leave everything else white,
+        # but this one spans a continent and white would read as ocean.
+        # Only the title is overridden. FONT_LABEL / FONT_ANNOT_PRIMARY keep
+        # their GMT defaults so the colorbar label and axis annotations are
+        # the same size as on the single-country outlook maps; the title is
+        # shrunk because these carry a crop, a region and a year, where the
+        # outlook titles carry one metric.
+        pygmt.config(FONT_TITLE="15p,Helvetica,black")
+        fig.basemap(region=extent, projection=proj,
+                    frame=["af", f"+t{title}"])
+        fig.coast(land=LAND, water="white", **COAST_KW)
 
     def finish(fig, stem, csv_name, desc):
         # National borders drawn last and heavier than the admin-unit pens, so
         # the country outline stays legible over a dense choropleth.
-        fig.coast(shorelines="0.5p,gray20", area_thresh=5000,
-                  borders="1/0.9p,gray25")
+        fig.coast(borders=BORDER_PEN, area_thresh=5000)
         fig.savefig(dir_plots / f"{stem}.png", dpi=350)
         lookup.append((f"{stem}.png", csv_name, desc))
+
+    def _annotate(fig, frame, val_col, fmt="{:.2f}"):
+        """Region name over its value, at the polygon centroid.
+
+        Gated by the same label-fit heuristic the outlook maps use
+        (`[ML] annotate_regions_auto`): region COUNT alone is a poor proxy
+        for legibility, so it also checks whether each polygon is actually
+        wide enough to hold its own name. On a continent-wide map with a few
+        hundred admin units this suppresses everything, which is the point.
+        """
+        from geocif.viz.plot import effective_annotate_regions
+
+        name_col = ("ADMIN2" if frame.get("ADMIN2") is not None
+                    and frame["ADMIN2"].notna().any() else "ADMIN1")
+        if name_col not in frame.columns:
+            return
+        lab = frame.assign(_label=frame[name_col].astype(str).str.title())
+        lab = lab[lab["_label"].str.lower().ne("nan")]
+        if lab.empty or not effective_annotate_regions(
+                True, len(lab), gdf=lab, label_col="_label"):
+            return
+        for _, row in lab.iterrows():
+            c = row["geometry"].centroid
+            if c.is_empty:
+                continue
+            fig.text(x=c.x, y=c.y, text=row["_label"], font=ANNOT_FONT,
+                     offset=ANNOT_OFFSET, **ANNOT_BOX)
+            v = row.get(val_col)
+            if pd.notna(v):
+                fig.text(x=c.x, y=c.y, text=fmt.format(v),
+                         font=ANNOT_VAL_FONT, offset="0c/-0.16c", **ANNOT_BOX)
 
     def _hatch_by_region(fig, frame, td):
         """Mark each polygon on ITS OWN verdict, not the country's.
@@ -415,58 +486,101 @@ def maps(out, gpkg, title_year=None):
             frame = frame.assign(region_skill=np.where(
                 frame["has_skill"].astype(bool), "skill", "no_skill"))
             col = "region_skill"
-        for state, patt in (("no_skill", NOSKILL_PATTERN),
-                            ("insufficient", UNKNOWN_PATTERN)):
-            sub = frame[frame[col] == state]
-            if sub.empty:
-                continue
-            f = Path(td) / f"{state}.gmt"
-            sub[["fnid", "geometry"]].to_file(f, driver="OGR_GMT")
-            fig.plot(data=str(f), fill=patt, pen="0.15p,gray30", close=True)
+        sub = frame[frame[col] == "no_skill"]
+        if sub.empty:
+            return
+        f = Path(td) / "noskill.gmt"
+        sub[["fnid", "geometry"]].to_file(f, driver="OGR_GMT")
+        fig.plot(data=str(f), fill=NOSKILL_PATTERN, pen=POLY_PEN,
+                 close=True)
+
+    def _sq(fill, text):
+        """One legend row: a filled square beside its meaning."""
+        return f"S 0.3c s 0.32c {fill} 0.2p,gray40 0.75c {text}"
+
+    BASE_LEGEND = [_sq(NODATA, "No forecast or data available"),
+                   _sq(NOSKILL_PATTERN, "No forecast skill at this lead")]
+
+    def _legend(fig, td, rows, width):
+        spec = Path(td) / "legend.txt"
+        spec.write_text("\n".join(["G 0.05c"] + rows) + "\n",
+                        encoding="utf-8")
+        fig.legend(spec=str(spec), position=LEGEND_POS.format(w=width),
+                   box="+gwhite+p0.4p,gray50")
+
+    def _join(d, csv_name, nd=4):
+        """Merge onto the boundary frame and write the companion CSV."""
+        g = gdf.merge(d, on="fnid", how="inner")
+        if g.empty:
+            return None
+        tab = g.drop(columns="geometry")
+        (tab.round(nd) if nd else tab).to_csv(dir_csvs / csv_name,
+                                              index=False)
+        return g
+
+    def _value_map(g, *, stem, title, value_col, cpt_stops, cbar_label,
+                   csv_name, desc, fmt="{:.2f}", hatch=True,
+                   legend_rows=None, legend_w=6.6, withheld=None):
+        """The one shape every value choropleth shares.
+
+        CPT -> polygons coloured by ``value_col`` -> per-region hatch ->
+        centroid labels -> colorbar -> legend. The five value maps differ
+        only in these parameters, so the shape lives once and a styling fix
+        lands on all of them.
+        """
+        fig = pygmt.Figure()
+        basemap(fig, title)
+        with tempfile.TemporaryDirectory() as td:
+            cpt = Path(td) / "v.cpt"
+            _write_cpt(cpt, cpt_stops)
+            if withheld is not None and not withheld.empty:
+                # under the choropleth, so a unit both withheld and coloured
+                # can never happen silently — the caller splits the frame
+                w = Path(td) / "held.gmt"
+                withheld[["fnid", "geometry"]].to_file(w, driver="OGR_GMT")
+                fig.plot(data=str(w), fill=WITHHELD, pen=POLY_PEN,
+                         close=True)
+            poly = Path(td) / "poly.gmt"
+            g[["fnid", value_col, "geometry"]].to_file(poly,
+                                                       driver="OGR_GMT")
+            fig.plot(data=str(poly), fill="+z", cmap=str(cpt), pen=POLY_PEN,
+                     close=True, aspatial=f"Z={value_col}")
+            if hatch:
+                _hatch_by_region(fig, g, td)
+            _annotate(fig, g, value_col, fmt)
+            # no legend to clear -> the bar keeps the tight default offset;
+            # +e extenders stay on either way, the tails carry real values
+            fig.colorbar(cmap=str(cpt), frame=f"x+l{cbar_label}",
+                         position=CBAR_POS + (CBAR_OFFSET if legend_rows
+                                              else "+e"))
+            if legend_rows:
+                _legend(fig, td, legend_rows, legend_w)
+        finish(fig, stem, csv_name, desc)
 
     def choropleth(crop):
         d = fc[fc.crop == crop]
         if d.empty:
             return
-        keep = [c for c in ("fnid", "country", "season_name", "P_low", "P_mid",
-                            "P_high", "ahat", "offset_used", "skill_auc",
-                            "null_auc", "perm_p", "has_skill", "in_support",
-                            "oos_max_sigma", "n_clipped", "oos_feature",
-                            "region_auc", "region_r2",
-                            "region_n_low", "region_skill")
-                if c in d.columns]
-        d = d.sort_values("P_low", ascending=False).drop_duplicates("fnid")[keep]
-        g = gdf.merge(d, on="fnid", how="inner")
-        if g.empty:
+        d = (d.sort_values("P_low", ascending=False).drop_duplicates("fnid")
+             .filter(items=["fnid", "country", "season_name", "P_low",
+                            "P_mid", "P_high", "ahat", "offset_used",
+                            "skill_auc", "null_auc", "perm_p", "has_skill",
+                            "in_support", "oos_max_sigma", "n_clipped",
+                            "oos_feature", "region_auc", "region_r2",
+                            "region_n_low", "region_skill"]))
+        csv_name = f"map_p_low_{crop}{sfx}.csv"
+        g = _join(d, csv_name)
+        if g is None:
             return
-        csv_name = f"map_p_low_{crop}.csv"
-        g.drop(columns="geometry").round(4).to_csv(dir_csvs / csv_name,
-                                                   index=False)
-        fig = pygmt.Figure()
-        basemap(fig, f"Probability of lower tercile {crop} yields, {year}")
-        with tempfile.TemporaryDirectory() as td:
-            cpt = Path(td) / "fews.cpt"
-            _write_cpt(cpt, FEWS_CPT)
-            poly = Path(td) / "poly.gmt"
-            g[["fnid", "P_low", "geometry"]].to_file(poly, driver="OGR_GMT")
-            fig.plot(data=str(poly), fill="+z", cmap=str(cpt),
-                     pen="0.15p,gray30", close=True, aspatial="Z=P_low")
-            _hatch_by_region(fig, g, td)
-            fig.colorbar(cmap=str(cpt),
-                         frame="x+lProbability of lower tercile crop yields",
-                         position="JBC+w10c/0.35c+h+o0c/1.1c+e")
-            spec = Path(td) / "legend.txt"
-            spec.write_text("\n".join([
-                "G 0.05c",
-                f"S 0.3c s 0.32c {NODATA} 0.2p,gray40 0.75c "
-                f"No forecast or data available",
-                f"S 0.3c s 0.32c {NOSKILL_PATTERN} 0.2p,gray40 0.75c "
-                f"No forecast skill at this lead",
-            ]) + "\n", encoding="utf-8")
-            fig.legend(spec=str(spec), position="JBL+jBL+o0.3c/0.3c+w6.6c",
-                       box="+gwhite+p0.4p,gray50")
-        finish(fig, f"map_p_low_{crop}", csv_name,
-               f"P(lower tercile) {crop} {year}, hatched where skill fails")
+        _value_map(
+            g, stem=f"map_p_low_{crop}{sfx}", csv_name=csv_name,
+            title=f"Probability of lower tercile {crop} yields{where}, "
+                  f"{year}",
+            value_col="P_low", cpt_stops=FEWS_CPT,
+            cbar_label="Probability of lower tercile crop yields",
+            legend_rows=BASE_LEGEND,
+            desc=f"P(lower tercile) {crop} {year}, hatched where skill "
+                 f"fails")
 
     def anomaly_map(crop):
         """The regression prediction: % departure from trend per unit.
@@ -477,45 +591,25 @@ def maps(out, gpkg, title_year=None):
         d = fc[fc.crop == crop]
         if d.empty or "ahat" not in d.columns:
             return
-        keep = [c for c in ("fnid", "country", "season_name", "ahat",
+        d = (d.sort_values("ahat").drop_duplicates("fnid")
+             .filter(items=["fnid", "country", "season_name", "ahat",
                             "r2", "perm_r2_p", "r2_within",
                             "perm_r2_within_p", "has_skill", "in_support",
                             "oos_max_sigma", "region_auc", "region_r2",
-                            "region_n_low", "region_skill") if c in d.columns]
-        d = (d.sort_values("ahat").drop_duplicates("fnid")[keep].copy())
+                            "region_n_low", "region_skill"]).copy())
         d["ahat_pct"] = (100 * d["ahat"]).round(1)
-        g = gdf.merge(d, on="fnid", how="inner")
-        if g.empty:
+        csv_name = f"map_anomaly_{crop}{sfx}.csv"
+        g = _join(d, csv_name)
+        if g is None:
             return
-        csv_name = f"map_anomaly_{crop}.csv"
-        g.drop(columns="geometry").round(4).to_csv(dir_csvs / csv_name,
-                                                   index=False)
-        fig = pygmt.Figure()
-        basemap(fig, f"Predicted {crop} yield departure from trend, {year}")
-        with tempfile.TemporaryDirectory() as td:
-            cpt = Path(td) / "anom.cpt"
-            _write_cpt(cpt, ANOM_CPT)
-            poly = Path(td) / "poly.gmt"
-            g[["fnid", "ahat_pct", "geometry"]].to_file(poly,
-                                                        driver="OGR_GMT")
-            fig.plot(data=str(poly), fill="+z", cmap=str(cpt),
-                     pen="0.15p,gray30", close=True, aspatial="Z=ahat_pct")
-            _hatch_by_region(fig, g, td)
-            fig.colorbar(cmap=str(cpt),
-                         frame="x+lPredicted yield departure from trend (%)",
-                         position="JBC+w10c/0.35c+h+o0c/1.1c+e")
-            spec = Path(td) / "legend.txt"
-            spec.write_text("\n".join([
-                "G 0.05c",
-                f"S 0.3c s 0.32c {NODATA} 0.2p,gray40 0.75c "
-                f"No forecast or data available",
-                f"S 0.3c s 0.32c {NOSKILL_PATTERN} 0.2p,gray40 0.75c "
-                f"No forecast skill at this lead",
-            ]) + "\n", encoding="utf-8")
-            fig.legend(spec=str(spec), position="JBL+jBL+o0.3c/0.3c+w6.6c",
-                       box="+gwhite+p0.4p,gray50")
-        finish(fig, f"map_anomaly_{crop}", csv_name,
-               f"predicted {crop} yield anomaly {year}, % vs trend")
+        _value_map(
+            g, stem=f"map_anomaly_{crop}{sfx}", csv_name=csv_name,
+            title=f"Predicted {crop} yield departure from trend{where}, "
+                  f"{year}",
+            value_col="ahat_pct", cpt_stops=ANOM_CPT, fmt="{:+.0f}%",
+            cbar_label="Predicted yield departure from trend (%)",
+            legend_rows=BASE_LEGEND,
+            desc=f"predicted {crop} yield anomaly {year}, % vs trend")
 
     def yield_map(crop, max_err=TREND_EXTRAP_MAX_PCT):
         """Predicted yield in t/ha — only where the baseline is defensible.
@@ -532,121 +626,113 @@ def maps(out, gpkg, title_year=None):
         d = fc[fc.crop == crop].dropna(subset=["yhat_tha"])
         if d.empty:
             return
-        d = d.sort_values("yhat_tha").drop_duplicates("fnid").copy()
+        d = d.sort_values("yhat_tha").drop_duplicates("fnid")
         ok = d["trend_extrap_err_pct"].notna() & (
             d["trend_extrap_err_pct"] <= max_err)
         if not ok.any():
             logger.info(f"no {crop} combination has a trend extrapolation "
                         f"within {max_err}% — t/ha map skipped")
             return
-        keep = [c for c in ("fnid", "country", "season_name", "ahat",
+        d = d.filter(items=["fnid", "country", "season_name", "ahat",
                             "trend_tha", "yhat_tha", "extrap_years",
-                            "trend_extrap_err_pct", "has_skill")
-                if c in d.columns]
-        g = gdf.merge(d[keep], on="fnid", how="inner")
-        if g.empty:
+                            "trend_extrap_err_pct", "has_skill"])
+        csv_name = f"map_yield_tha_{crop}{sfx}.csv"
+        g = _join(d, csv_name)
+        if g is None:
             return
-        csv_name = f"map_yield_tha_{crop}.csv"
-        g.drop(columns="geometry").round(4).to_csv(dir_csvs / csv_name,
-                                                   index=False)
-        pub = g[g["trend_extrap_err_pct"] <= max_err]
-        held = g[g["trend_extrap_err_pct"] > max_err]
-
-        fig = pygmt.Figure()
-        basemap(fig, f"Predicted {crop} yield, {year}")
-        with tempfile.TemporaryDirectory() as td:
-            cpt = Path(td) / "yield.cpt"
-            _write_cpt(cpt, YIELD_CPT)
-            if not held.empty:
-                p = Path(td) / "held.gmt"
-                held[["fnid", "geometry"]].to_file(p, driver="OGR_GMT")
-                fig.plot(data=str(p), fill="#bdbdbd", pen="0.15p,gray40",
-                         close=True)
-            poly = Path(td) / "poly.gmt"
-            pub[["fnid", "yhat_tha", "geometry"]].to_file(poly,
-                                                          driver="OGR_GMT")
-            fig.plot(data=str(poly), fill="+z", cmap=str(cpt),
-                     pen="0.15p,gray30", close=True, aspatial="Z=yhat_tha")
-            _hatch_by_region(fig, pub, td)
-            fig.colorbar(cmap=str(cpt),
-                         frame="x+lPredicted yield (t/ha)",
-                         position="JBC+w10c/0.35c+h+o0c/1.1c+e")
-            spec = Path(td) / "legend.txt"
-            spec.write_text("\n".join([
-                "G 0.05c",
-                f"S 0.3c s 0.32c {NODATA} 0.2p,gray40 0.75c "
-                f"No forecast or data available",
-                f"S 0.3c s 0.32c #bdbdbd 0.2p,gray40 0.75c "
-                f"Withheld: trend baseline extrapolated too far",
-                f"S 0.3c s 0.32c {NOSKILL_PATTERN} 0.2p,gray40 0.75c "
-                f"No forecast skill at this lead",
-            ]) + "\n", encoding="utf-8")
-            fig.legend(spec=str(spec), position="JBL+jBL+o0.3c/0.3c+w8.0c",
-                       box="+gwhite+p0.4p,gray50")
-        finish(fig, f"map_yield_tha_{crop}", csv_name,
-               f"predicted {crop} yield t/ha {year}, withheld where the "
-               f"trend baseline extrapolates beyond {max_err}%")
+        _value_map(
+            g[g["trend_extrap_err_pct"] <= max_err],
+            withheld=g[g["trend_extrap_err_pct"] > max_err],
+            stem=f"map_yield_tha_{crop}{sfx}", csv_name=csv_name,
+            title=f"Predicted {crop} yield{where}, {year}",
+            value_col="yhat_tha", cpt_stops=YIELD_CPT,
+            cbar_label="Predicted yield (t/ha)",
+            legend_rows=[BASE_LEGEND[0],
+                         _sq(WITHHELD, "Withheld: trend baseline "
+                                       "extrapolated too far"),
+                         BASE_LEGEND[1]],
+            legend_w=8.0,
+            desc=f"predicted {crop} yield t/ha {year}, withheld where the "
+                 f"trend baseline extrapolates beyond {max_err}%")
 
     def region_roc_map(crop):
         """Per-region hindcast ROC — how well each polygon has been called.
 
         The companion to the forecast maps: those say what we expect, this
         says where the record supports expecting anything. Diverging on 0.5,
-        with the 0.6 skill bar on a colour break.
+        with the 0.6 skill bar on a colour break. No hatch: the values ARE
+        the verdict here.
         """
         if "region_auc" not in fc.columns:
             return
         d = fc[fc.crop == crop].dropna(subset=["region_auc"])
         if d.empty:
             return
-        keep = [c for c in ("fnid", "country", "season_name", "region_auc",
-                            "region_r2", "region_n_years", "region_n_low",
-                            "region_skill") if c in d.columns]
-        d = d.drop_duplicates("fnid")[keep]
+        d = d.drop_duplicates("fnid").filter(
+            items=["fnid", "country", "season_name", "region_auc",
+                   "region_r2", "region_n_years", "region_n_low",
+                   "region_skill"])
+        csv_name = f"map_region_roc_{crop}{sfx}.csv"
+        g = _join(d, csv_name)
+        if g is None:
+            return
+        _value_map(
+            g, stem=f"map_region_roc_{crop}{sfx}", csv_name=csv_name,
+            title=f"Hindcast skill by region, {crop}{where} ({year} lead)",
+            value_col="region_auc", cpt_stops=ROC_CPT, hatch=False,
+            cbar_label="Hindcast ROC for bottom-tercile years",
+            legend_rows=BASE_LEGEND[:1], legend_w=7.4,
+            desc=f"per-region hindcast ROC for bottom-tercile {crop} years")
+
+    def season_map(crop):
+        """Which season index was forecast for each country.
+
+        HarvestStat carries a second season for 13 countries and only a
+        first for the rest, and the season chosen sets the planting month,
+        the aggregation window and the forecast leads — so it belongs on
+        the page rather than buried in combinations.csv.
+        """
+        from geocif.experiments.s2s_africa import season_index
+
+        d = fc[fc.crop == crop]
+        if d.empty:
+            return
+        d = d.drop_duplicates("fnid")[["fnid", "country", "season_name"]].copy()
+        d["season_idx"] = d.season_name.map(season_index)
         g = gdf.merge(d, on="fnid", how="inner")
         if g.empty:
             return
-        csv_name = f"map_region_roc_{crop}.csv"
-        g.drop(columns="geometry").round(4).to_csv(dir_csvs / csv_name,
-                                                   index=False)
+        csv_name = f"map_season_{crop}{sfx}.csv"
+        g.drop(columns="geometry").to_csv(dir_csvs / csv_name, index=False)
+        cols = {1: ("#2c6fa8", "Season 1 (primary)"),
+                2: ("#c26a1b", "Season 2 (secondary)")}
         fig = pygmt.Figure()
-        basemap(fig, f"Hindcast skill by region, {crop} ({year} forecast lead)")
+        basemap(fig, f"Season forecast for each {crop} area{where}, {year}")
         with tempfile.TemporaryDirectory() as td:
-            cpt = Path(td) / "roc.cpt"
-            _write_cpt(cpt, ROC_CPT)
-            poly = Path(td) / "poly.gmt"
-            g[["fnid", "region_auc", "geometry"]].to_file(poly,
-                                                          driver="OGR_GMT")
-            fig.plot(data=str(poly), fill="+z", cmap=str(cpt),
-                     pen="0.15p,gray30", close=True, aspatial="Z=region_auc")
-            if "region_skill" in g.columns:
-                unk = g[g.region_skill == "insufficient"]
-                if not unk.empty:
-                    f = Path(td) / "unk.gmt"
-                    unk[["fnid", "geometry"]].to_file(f, driver="OGR_GMT")
-                    fig.plot(data=str(f), fill=UNKNOWN_PATTERN,
-                             pen="0.15p,gray30", close=True)
-            fig.colorbar(cmap=str(cpt),
-                         frame="x+lHindcast ROC for bottom-tercile years",
-                         position="JBC+w10c/0.35c+h+o0c/1.1c+e")
-            spec = Path(td) / "legend.txt"
-            spec.write_text("\n".join([
-                "G 0.05c",
-                f"S 0.3c s 0.32c {NODATA} 0.2p,gray40 0.75c "
-                f"No forecast or data available",
-                f"S 0.3c s 0.32c {UNKNOWN_PATTERN} 0.2p,gray40 0.75c "
-                f"Too few poor years on record to judge",
-            ]) + "\n", encoding="utf-8")
-            fig.legend(spec=str(spec), position="JBL+jBL+o0.3c/0.3c+w7.4c",
-                       box="+gwhite+p0.4p,gray50")
-        finish(fig, f"map_region_roc_{crop}", csv_name,
-               f"per-region hindcast ROC for bottom-tercile {crop} years")
+            for idx, (col, _) in cols.items():
+                sub = g[g.season_idx == idx]
+                if sub.empty:
+                    continue
+                f = Path(td) / f"s{idx}.gmt"
+                sub[["fnid", "geometry"]].to_file(f, driver="OGR_GMT")
+                fig.plot(data=str(f), fill=col, pen=POLY_PEN, close=True)
+            rows = []
+            for idx, (col, lab) in cols.items():
+                if int((g.season_idx == idx).sum()):
+                    names = ", ".join(sorted(set(
+                        g.loc[g.season_idx == idx, "season_name"])))
+                    rows.append(_sq(col, f"{lab}: {names}"))
+            rows.append(_sq(NODATA, "Not forecast this cycle"))
+            _legend(fig, td, rows, 9.4)
+        finish(fig, f"map_season_{crop}{sfx}", csv_name,
+               f"which HarvestStat season was forecast for each {crop} area")
 
     def support_map():
         """How far outside the fitted range the forecast predictors sat.
 
         ``in_support`` can be False everywhere, in which case the binary flag
-        carries no spatial information and only the magnitude does.
+        carries no spatial information and only the magnitude does. No hatch
+        and no legend: a diagnostic, not a forecast.
         """
         if "oos_max_sigma" not in fc.columns:
             return
@@ -654,58 +740,42 @@ def maps(out, gpkg, title_year=None):
                .drop_duplicates("fnid")[["fnid", "country", "crop",
                                          "season_name", "oos_max_sigma",
                                          "oos_feature", "n_clipped"]])
-        g = gdf.merge(d, on="fnid", how="inner")
-        if g.empty:
+        csv_name = f"map_out_of_support{sfx}.csv"
+        g = _join(d, csv_name, nd=3)
+        if g is None:
             return
-        csv_name = "map_out_of_support.csv"
-        g.drop(columns="geometry").round(3).to_csv(dir_csvs / csv_name,
-                                                   index=False)
-        fig = pygmt.Figure()
-        basemap(fig, f"Distance of the {year} S2S predictors outside "
-                     f"training range")
-        with tempfile.TemporaryDirectory() as td:
-            cpt = Path(td) / "oos.cpt"
-            _write_cpt(cpt, OOS_CPT)
-            poly = Path(td) / "poly.gmt"
-            g[["fnid", "oos_max_sigma", "geometry"]].to_file(
-                poly, driver="OGR_GMT")
-            fig.plot(data=str(poly), fill="+z", cmap=str(cpt),
-                     pen="0.15p,gray30", close=True,
-                     aspatial="Z=oos_max_sigma")
-            fig.colorbar(
-                cmap=str(cpt),
-                frame="x+lStandard deviations beyond the training range",
-                position="JBC+w10c/0.35c+h+o0c/1.1c+e")
-        finish(fig, "map_out_of_support", csv_name,
-               "worst per-unit predictor exceedance of the training range, in sd")
+        _value_map(
+            g, stem=f"map_out_of_support{sfx}", csv_name=csv_name,
+            title=f"Distance of the {year} S2S predictors outside "
+                  f"training range{where}",
+            value_col="oos_max_sigma", cpt_stops=OOS_CPT, fmt="{:.1f}",
+            hatch=False,
+            cbar_label="Standard deviations beyond the training range",
+            desc="worst per-unit predictor exceedance of the training "
+                 "range, in sd")
 
     def coverage_map():
         st = cb.groupby("country")["status"].apply(
             lambda s: "forecast" if (s == "forecast").any()
             else ("in_season" if (s == "in_season").any() else "not_forecast"))
         tab = st.rename("coverage").reset_index()
-        csv_name = "map_coverage.csv"
+        csv_name = f"map_coverage{sfx}.csv"
         tab.to_csv(dir_csvs / csv_name, index=False)
         cols = {"forecast": ("#1b7837", "forecast issued"),
                 "in_season": ("#7fb3d5", "season already under way"),
                 "not_forecast": (NODATA, "not forecastable yet")}
         g = gdf.merge(tab, left_on="ADMIN0", right_on="country", how="left")
         fig = pygmt.Figure()
-        basemap(fig, f"Pre-season forecast coverage, {year}")
+        basemap(fig, f"Pre-season forecast coverage{where}, {year}")
         for key, (col, _) in cols.items():
             sub = g[g["coverage"] == key]
             if not sub.empty:
-                fig.plot(data=sub[["geometry"]], fill=col, pen="0.15p,gray40",
+                fig.plot(data=sub[["geometry"]], fill=col, pen=POLY_PEN,
                          close=True)
         with tempfile.TemporaryDirectory() as td:
-            spec = Path(td) / "legend.txt"
-            spec.write_text("\n".join(
-                ["G 0.05c"] + [f"S 0.3c s 0.35c {c} 0.2p,gray40 0.75c {lab}"
-                               for c, lab in cols.values()]) + "\n",
-                encoding="utf-8")
-            fig.legend(spec=str(spec), position="JBL+jBL+o0.4c/0.4c+w5.4c",
-                       box="+gwhite+p0.4p,gray50")
-        finish(fig, "map_coverage", csv_name,
+            _legend(fig, td, [_sq(c, lab) for c, lab in cols.values()],
+                    5.4)
+        finish(fig, f"map_coverage{sfx}", csv_name,
                "which HarvestStat country x crop x season could be forecast")
 
     for crop in sorted(fc["crop"].unique()):
@@ -713,6 +783,7 @@ def maps(out, gpkg, title_year=None):
         anomaly_map(crop)     # regression: % vs trend
         yield_map(crop)       # regression: t/ha, where the baseline holds
         region_roc_map(crop)  # where the record supports a call at all
+        season_map(crop)      # which season index was forecast
     support_map()
     coverage_map()
     _write_lookup(lookup, dir_plots, dir_csvs)
@@ -956,7 +1027,7 @@ Re-running after each new S2S initialization publishes will pick them up.
 
 
 def render_all(out, root, hvstat_csv, gpkg=None, version=None,
-               threshold_dir="crop_t0"):
+               threshold_dir="crop_t0", extent=None, label=""):
     """Every figure family plus the README, each failing independently.
 
     A missing GMT library or an unreadable boundary file must not cost the
@@ -966,7 +1037,8 @@ def render_all(out, root, hvstat_csv, gpkg=None, version=None,
             ("charts", lambda: charts(out)),
             ("predictor heatmaps",
              lambda: predictor_heatmaps(out, root, hvstat_csv, threshold_dir)),
-            ("maps", lambda: maps(out, gpkg) if gpkg else None),
+            ("maps", lambda: maps(out, gpkg, extent=extent, label=label)
+             if gpkg else None),
             ("README", lambda: readme(out, version))):
         try:
             fn()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.54.0
+Version: 1.55.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -77,6 +77,7 @@ Requires-Dist: snowflake.core<2,>=1.0.0; extra == "development"
 Requires-Dist: psutil; extra == "development"
 Requires-Dist: lxml; extra == "development"
 Requires-Dist: pyarrow; extra == "development"
+Requires-Dist: polars>=1.0; extra == "development"
 Provides-Extra: modin-development
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin-development"
 Requires-Dist: pandas<3.0.0; extra == "modin-development"
@@ -103,6 +104,7 @@ Requires-Dist: snowflake.core<2,>=1.0.0; extra == "modin-development"
 Requires-Dist: psutil; extra == "modin-development"
 Requires-Dist: lxml; extra == "modin-development"
 Requires-Dist: pyarrow; extra == "modin-development"
+Requires-Dist: polars>=1.0; extra == "modin-development"
 Requires-Dist: scipy<=1.16.3; extra == "modin-development"
 Requires-Dist: statsmodels; extra == "modin-development"
 Requires-Dist: scikit-learn; extra == "modin-development"

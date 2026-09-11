@@ -21,7 +21,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-from xbsl import engine, i18n, scaffold, terms
+from xbsl import engine, i18n, libs, scaffold, terms
 from xbsl.rules.yaml_schema import _parsed, object_kind
 from xbsl.translation import names as project_names_module
 from xbsl.translation.code import Resolver, has_cyrillic, translate_code
@@ -89,6 +89,16 @@ class ProjectReport:
     #: Fatal-for-the-tree problems: a path collision, a swap without the target language.
     problems: list[str] = field(default_factory=list)
     written: int = 0
+    #: Where the tree was actually written - the PROJECT directory, which is not the `out`
+    #: the caller named: a build demands `{repository}/{Vendor}/{Name}`, so an `out` that is
+    #: a repository root gets those two directories under it (see `_destination`).
+    out_dir: Path | None = None
+    #: {entry key: the platform's own spelling} - dictionary entries the PLATFORM answers
+    #: itself everywhere they were used. Not a problem of the tree: it comes out the same
+    #: without them. They are named because of what they HIDE - an entry that repeats the
+    #: platform keeps a hole in the platform data or in this engine out of sight, and the
+    #: half-translated languages of a project stayed invisible behind exactly one such pair.
+    echoed: dict[str, str] = field(default_factory=dict)
 
     def merged_missing_tokens(self) -> dict[str, dict]:
         out: dict[str, dict] = {}
@@ -189,15 +199,26 @@ class ProjectReport:
             "collisions": sum(len(r.collided()) for r in self.files.values()),
             "data_keys": sum(r.data_keys for r in self.files.values()),
             "data_keys_missing": sum(r.data_keys_missing for r in self.files.values()),
+            # Counted apart from everything above: this is not a gap of the project and not a
+            # defect of the tree, but the size of the dictionary's own dead weight.
+            "echoed_entries": len(self.echoed),
         }
 
     def collect_collisions(self) -> None:
-        """Lift every name collision into `problems` - a translated tree with one would not apply."""
+        """Lift every name collision into `problems` - a translated tree with one would not apply.
+
+        Each colliding name carries its own place: the namespace alone named a method and left
+        the reader to find two words among the fifteen it declares, and the two are rarely
+        neighbours. A name whose place nothing recorded is printed bare rather than with a
+        zero, so a line number in the message is always a line of the file.
+        """
         for rel, report in sorted(self.files.items()):
             for namespace, translated, sources in report.collided():
-                self.problems.append(
-                    f"{rel}: {namespace} - '{translated}' <- {', '.join(sources)}"
+                places = ", ".join(
+                    f"{name} ({rel}:{line}:{col})" if line else name
+                    for name, line, col in sources
                 )
+                self.problems.append(f"{namespace} - '{translated}' <- {places}")
 
     def collect_dictionary_defects(self) -> None:
         """Lift what the pass learned about the DICTIONARY itself into `problems`.
@@ -289,8 +310,16 @@ def translate_project(
     out: Path | None = None,
     *,
     swap_localization: bool = True,
+    layout: str = "project",
 ) -> ProjectReport:
-    """Translate the tree under `root`; write it under `out` when one is given."""
+    """Translate the tree under `root`; write it under `out` when one is given.
+
+    `layout` says what `out` names. "project" - the project directory itself, the files land
+    straight in it. "repository" - a repository root, and the project lands in the
+    `{Vendor}/{Name}` the TRANSLATED descriptor names: that is the layout a build demands
+    (and the one `project/path-matches-descriptor` checks), so only a tree written that way
+    deploys without being moved by hand. `report.out_dir` says where the files actually went.
+    """
     files = _iter_files(root, dictionary)
     resolver = Resolver(
         dictionary,
@@ -336,9 +365,17 @@ def translate_project(
     _apply_language_flip(root, outputs, swaps, dictionary, report)
     report.collect_collisions()
     report.collect_dictionary_defects()
+    # The last word on the entries the pass USED: an entry the platform answers itself at
+    # every place it answered. A key the project declares is left out whatever the tables
+    # say - there the platform is gated off and the entry is the only answer - which also
+    # covers the surfaces that read the dictionary without going through the resolver.
+    report.echoed = {
+        key: value for key, value in resolver.echoes().items()
+        if key.rpartition(".")[2] not in resolver.project_names
+    }
 
     if out is not None:
-        _write_tree(out, outputs, report)
+        _write_tree(_destination(out, outputs, layout), outputs, report)
     return report
 
 
@@ -587,7 +624,43 @@ def _canonical_section(name: str) -> str:
 # --- writing ----------------------------------------------------------------------------------
 
 
+def _project_coordinates(outputs) -> tuple[str, str] | None:
+    """(Vendor, Name) of the TRANSLATED descriptor - the two directories a build demands.
+
+    Read from the output rather than from the source: the descriptor goes through the pass
+    like every other file, and a project whose own name is a Russian word comes out under the
+    English one - the directories have to follow it, or the build refuses the tree it was
+    just given. None when the tree carries no descriptor (a fragment translated on its own).
+    """
+    for new_rel, (_rel, translated, _source) in outputs.items():
+        if len(new_rel.parts) != 1 or new_rel.name not in scaffold.PROJECT_FILES:
+            continue
+        text = translated.decode("utf-8-sig", "replace") if isinstance(translated, bytes) else translated
+        return libs.project_coordinates(text)
+    return None
+
+
+def _destination(out: Path, outputs, layout: str) -> Path:
+    """The directory the files go to - `out` itself, or the project directory under it.
+
+    Under the "repository" layout `out` is a repository root and the project belongs in
+    `{Vendor}/{Name}`. An `out` that ALREADY ends in those two names is taken as the project
+    directory itself: naming the full path is how the layout was reached by hand before it
+    existed, and answering that with `.../acme/tasks/acme/tasks` would be a trap.
+    """
+    if layout != "repository":
+        return out
+    coordinates = _project_coordinates(outputs)
+    if coordinates is None:
+        return out
+    vendor, name = coordinates
+    if out.name == name and out.parent.name == vendor:
+        return out
+    return out / vendor / name
+
+
 def _write_tree(out: Path, outputs, report: ProjectReport) -> None:
+    report.out_dir = out
     if out.exists() and any(out.iterdir()):
         marker = any((out / name).exists() for name in (scaffold.PROJECT_FILE_EN, scaffold.PROJECT_FILE))
         if not marker:

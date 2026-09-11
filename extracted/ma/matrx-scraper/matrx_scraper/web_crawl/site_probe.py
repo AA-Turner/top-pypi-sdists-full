@@ -69,6 +69,7 @@ from matrx_scraper.db.models_web import Site as WebSite
 from matrx_scraper.robots_txt import ROBOTS_MAX_BYTES, RobotsDocument, parse_robots_txt
 from matrx_scraper.utils.url import validate_public_http_url
 from matrx_scraper.web_crawl.url_verify import HEAD_FALLBACK_STATUSES
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -375,7 +376,7 @@ async def _probe_url(client: httpx.AsyncClient, url: str, *, method: str = "GET"
         await validate_public_http_url(url)
     except Exception as exc:
         probe.fetch_error = f"blocked: {type(exc).__name__}"
-        logger.warning("site probe BLOCKED %s: %s", url, exc)
+        logger.warning("site probe BLOCKED %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return probe
     try:
         response = await client.request(method, url)
@@ -389,7 +390,7 @@ async def _probe_url(client: httpx.AsyncClient, url: str, *, method: str = "GET"
         await validate_public_http_url(str(response.url))
     except Exception as exc:
         probe.fetch_error = f"blocked after redirect: {type(exc).__name__}"
-        logger.warning("site probe discarded a non-public final url for %s: %s", url, exc)
+        logger.warning("site probe discarded a non-public final url for %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return probe
     history = list(response.history)
     probe.http_status = history[0].status_code if history else response.status_code
@@ -406,7 +407,7 @@ async def _probe_robots(client: httpx.AsyncClient, root_url: str) -> RobotsCaptu
         await validate_public_http_url(url)
     except Exception as exc:
         capture.fetch_error = f"blocked: {type(exc).__name__}"
-        logger.warning("robots probe BLOCKED %s: %s", url, exc)
+        logger.warning("robots probe BLOCKED %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return capture
     try:
         response = await client.get(url)
@@ -417,7 +418,7 @@ async def _probe_robots(client: httpx.AsyncClient, root_url: str) -> RobotsCaptu
         await validate_public_http_url(str(response.url))
     except Exception as exc:
         capture.fetch_error = f"blocked after redirect: {type(exc).__name__}"
-        logger.warning("robots probe discarded a non-public final url for %s: %s", url, exc)
+        logger.warning("robots probe discarded a non-public final url for %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return capture
     capture.http_status = response.status_code
     if 200 <= response.status_code < 300:
@@ -446,7 +447,7 @@ async def _capture_tls(root_url: str) -> TlsCapture | None:
         await validate_public_http_url(root_url)
     except Exception as exc:
         capture.fetch_error = f"blocked: {type(exc).__name__}"
-        logger.warning("TLS probe BLOCKED %s: %s", root_url, exc)
+        logger.warning("TLS probe BLOCKED %s: %s", redact_url_secrets(root_url), redact_url_secrets(exc))
         return capture
     context = ssl.create_default_context()
     try:

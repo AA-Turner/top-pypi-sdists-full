@@ -1,23 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: trame-router
-Version: 2.3.0
+Version: 2.4.0
 Summary: Vue Router widgets for trame
 Author: Kitware Inc.
 License: MIT
-Keywords: Python,Interactive,Web,Application,Framework
+License-File: LICENSE
+Keywords: Application,Framework,Interactive,Python,Web
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: JavaScript
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: trame-client
+Provides-Extra: dev
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-asyncio; extra == 'dev'
+Requires-Dist: pytest-cov>=3; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: trame; extra == 'dev'
+Requires-Dist: trame-client[test]; extra == 'dev'
+Requires-Dist: trame-vuetify; extra == 'dev'
 Description-Content-Type: text/x-rst
-License-File: LICENSE
 
-trame-router brings multi-page navigation to trame
+.. |pypi_download| image:: https://kitware.github.io/trame/downloads/trame-router.svg
+
+trame-router enable multi-page navigation |pypi_download|
 ===========================================================================
 
 .. image:: https://github.com/Kitware/trame-router/actions/workflows/test_and_release.yml/badge.svg
@@ -35,13 +48,31 @@ trame-router can be installed with `pip <https://pypi.org/project/trame-router/>
 
 .. code-block:: bash
 
-    pip install --upgrade trame-router
+    pip install trame-router
+
+Development
+-----------------------------------------------------------
+
+.. code-block:: bash
+
+   # Create venv and install all dependencies
+   uv sync --all-extras --dev
+
+   # Activate environment
+   source .venv/bin/activate
+
+   # Install commit analysis
+   pre-commit install
+   pre-commit install --hook-type commit-msg
+
+   # Run pre-commit
+   pre-commit run --all-files
 
 
 Usage
 -----------------------------------------------------------
 
-The `Trame Tutorial <https://kitware.github.io/trame/docs/tutorial.html>`_ is the place to go to learn how to use the library and start building your own application.
+The `Trame Tutorial <https://kitware.github.io/trame/guide/tutorial>`_ is the place to go to learn how to use the library and start building your own application.
 
 The `API Reference <https://trame.readthedocs.io/en/latest/index.html>`_ documentation provides API-level documentation.
 
@@ -84,7 +115,7 @@ Environment variables
 -----------------------------------------------------------
 
 With vue3 and docker, trame-router can leverage the html5 history mode but by default we use the "hash" mode.
-To enable it, you need to define a __TRAME_ROUTER_HISTORY_MODE__ environment variable that should either be set to "html5" or "hash".
+To enable it, you need to define a **TRAME_ROUTER_HISTORY_MODE** environment variable that should either be set to "html5" or "hash".
 This can only work if using our docker bundle or with a proper web server configuration when delivering the static HTML/JS/CSS content yourself.
 
 
@@ -98,7 +129,7 @@ This license has been chosen to match the one use by `Vue Router <https://github
 Community
 -----------------------------------------------------------
 
-`Trame <https://kitware.github.io/trame/>`_ | `Discussions <https://github.com/Kitware/trame/discussions>`_ | `Issues <https://github.com/Kitware/trame/issues>`_ | `RoadMap <https://github.com/Kitware/trame/projects/1>`_ | `Contact Us <https://www.kitware.com/contact-us/>`_
+`Trame <https://kitware.github.io/trame/>`_ | `Discussions <https://github.com/Kitware/trame/discussions>`_ | `Issues <https://github.com/Kitware/trame/issues>`_ | `Contact Us <https://www.kitware.com/contact-us/>`_
 
 .. image:: https://zenodo.org/badge/410108340.svg
     :target: https://zenodo.org/badge/latestdoi/410108340
@@ -108,3 +139,10 @@ Enjoying trame?
 -----------------------------------------------------------
 
 Share your experience `with a testimonial <https://github.com/Kitware/trame/issues/18>`_ or `with a brand approval <https://github.com/Kitware/trame/issues/19>`_.
+
+
+JavaScript dependency
+-----------------------------------------------------------
+
+This Python package bundle the following vue-router libraries. For ``client_type="vue2"``, it exposes ``vue-router@3.5.1`` and for ``client_type="vue3"``, it exposes ``vue-router@5.3.1``.
+If you would like us to upgrade any of those dependencies, `please reach out <https://www.kitware.com/trame/>`_.

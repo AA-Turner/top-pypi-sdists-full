@@ -5009,6 +5009,8 @@ class TestUpdateSkillOptOut:
         with (
             patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
             patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            # `hf update` refuses to self-update a pip install on Windows: pretend we're not on Windows.
+            patch("huggingface_hub.cli.system.sys.platform", "linux"),
             patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
         ):
             yield mock_run_update
@@ -5138,6 +5140,7 @@ class TestExtensionsGitHubAccess:
             ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
         ],
     )
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_uses_head_refs_and_a_single_api_call(
         self, github: _FakeGitHubSession, about: str, expected_description: str | None
     ) -> None:
@@ -5159,6 +5162,7 @@ class TestExtensionsGitHubAccess:
         raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
         assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
 
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {

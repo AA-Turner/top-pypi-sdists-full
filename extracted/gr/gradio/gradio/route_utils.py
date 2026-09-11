@@ -6,6 +6,8 @@ import hashlib
 import hmac
 import importlib.resources
 import json
+import logging
+import math
 import mimetypes
 import os
 import pickle
@@ -32,7 +34,7 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import anyio
 import fastapi
@@ -61,7 +63,7 @@ from starlette.responses import (
 )
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from gradio import processing_utils, utils
+from gradio import history, processing_utils, utils
 from gradio.data_classes import (
     BlocksConfigDict,
     DeveloperPath,
@@ -86,6 +88,8 @@ API_PREFIX = "/gradio_api"
 
 
 mimetypes.init()
+
+logger = logging.getLogger(__name__)
 
 
 class Obj:
@@ -402,6 +406,9 @@ async def call_process_api(
     if batch_in_single_out:
         inputs = [inputs]
 
+    submitted_inputs = body.data
+    started_at = history.now_utc_iso()
+
     try:
         from gradio.profiling import trace_phase
 
@@ -424,22 +431,59 @@ async def call_process_api(
         iterator = output.pop("iterator", None)
         if event_id is not None:
             app.iterators[event_id] = iterator  # type: ignore
+        elif iterator is not None:
+            # Only the queue continues a generator, and it always carries an
+            # event id, so nobody will come back for this run: its streams are
+            # completed here, or they hold an encoder for the session's lifetime
+            # with the tail of the only chunk it will ever get still inside.
+            await app.get_blocks()._finish_run_streams(session_hash, iterator)
         if isinstance(output, Error):
             raise output
     except BaseException:
         iterator = app.iterators.get(event_id) if event_id is not None else None
-        if iterator is not None:  # close off any streams that are still open
-            run_id = id(iterator)
-            pending_streams: dict[int, MediaStream] = (
-                app.get_blocks().pending_streams.get(session_hash, {}).get(run_id, {})
-            )
-            for stream in pending_streams.values():
-                stream.end_stream()
+        app.get_blocks()._drop_run_streams(session_hash, iterator)
         raise
 
     if batch_in_single_out:
         output["data"] = output["data"][0]
+
+    _record_run_history(
+        app,
+        fn=fn,
+        gr_request=gr_request,
+        inputs=submitted_inputs,
+        outputs=output.get("data"),
+        started_at=started_at,
+        is_final=not output.get("is_generating"),
+    )
     return output
+
+
+def _record_run_history(
+    app: App,
+    *,
+    fn: BlockFunction,
+    gr_request: Union[Request, list[Request]],
+    inputs: Any,
+    outputs: Any,
+    started_at: str,
+    is_final: bool = True,
+) -> None:
+    """Hand a finished run to the recorder; records only public endpoints."""
+    if not is_final or fn.is_cancel_function or fn.api_visibility != "public":
+        return
+    try:
+        history.schedule_record_run(
+            app,
+            request=gr_request,
+            inputs=inputs,
+            outputs=outputs,
+            api_name=fn.api_name,
+            fn_index=fn._id,
+            started_at=started_at,
+        )
+    except Exception:
+        logger.debug("history: scheduling failed", exc_info=True)
 
 
 def get_first_header_value(request: fastapi.Request, header_name: str):
@@ -643,7 +687,8 @@ class GradioMultiPartParser:
 
     Made the following modifications
         - Use GradioUploadFile instead of UploadFile
-        - Use NamedTemporaryFile instead of SpooledTemporaryFile
+        - Use NamedTemporaryFile instead of SpooledTemporaryFile, optionally
+          placing it in Gradio's upload directory
         - Compute hash of data as the request is streamed
 
     """
@@ -657,6 +702,7 @@ class GradioMultiPartParser:
         *,
         max_files: Union[int, float] = 1000,
         max_fields: Union[int, float] = 1000,
+        upload_dir: str | Path | None = None,
         upload_id: str | None = None,
         upload_progress: FileUploadProgress | None = None,
         max_file_size: int | float,
@@ -666,6 +712,7 @@ class GradioMultiPartParser:
         self.stream = stream
         self.max_files = max_files
         self.max_fields = max_fields
+        self.upload_dir = upload_dir
         self.items: list[tuple[str, Union[str, UploadFile]]] = []
         self.upload_id = upload_id
         self.upload_progress = upload_progress
@@ -761,7 +808,7 @@ class GradioMultiPartParser:
                     f"Too many files. Maximum number of files is {self.max_files}."
                 )
             filename = _user_safe_decode(options[b"filename"], str(self._charset))
-            tempfile = NamedTemporaryFile(delete=False)
+            tempfile = NamedTemporaryFile(delete=False, dir=self.upload_dir)
             self._files_to_close_on_error.append(tempfile)
             self._current_part.file = GradioUploadFile(
                 file=tempfile,  # type: ignore[arg-type]
@@ -1139,10 +1186,12 @@ class MediaStream:
         self.segments: list[MediaStreamChunk] = []
         self.combined_file: str | None = None
         self.ended = False
-        self.segment_index = 0
-        self.playlist = "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-TARGETDURATION:10\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n"
-        self.max_duration = 5
+        self.max_duration = 1
         self.desired_output_format = desired_output_format
+        # Cleanup for resources tied to this stream, such as a component's
+        # encoder process. It hangs off the stream because `end_stream()` is
+        # reached from several places, not just normal completion.
+        self.on_end: list[Callable[[], None]] = []
 
     async def add_segment(self, data: MediaStreamChunk | None):
         if not data:
@@ -1150,10 +1199,18 @@ class MediaStream:
 
         segment_id = str(uuid.uuid4())
         self.segments.append({"id": segment_id, **data})  # type: ignore
-        self.max_duration = max(self.max_duration, data["duration"]) + 1
+        self.max_duration = max(self.max_duration, math.ceil(data["duration"]))
 
     def end_stream(self):
         self.ended = True
+        while self.on_end:
+            callback = self.on_end.pop()
+            try:
+                callback()
+            except Exception:
+                # This runs inside exception handling, so a teardown failure
+                # must not replace the error being propagated. It leaks, though.
+                logger.warning("stream cleanup callback failed", exc_info=True)
 
 
 def create_url_safe_hash(data: bytes, digest_size=8):
@@ -1193,6 +1250,24 @@ STATIC_ROUTE_PREFIXES = (
     "/upload",
     "/custom_component/",
 )
+
+
+def requote_proxied_url(url_path: str) -> str:
+    """Restore the encoding of a URL that reached the `/proxy=` route.
+
+    The ASGI server percent-decodes the request path once before routing, so a
+    filename that legitimately contains `%`, `#` or `?` arrives here with those
+    characters literal. Re-encoding everything after the authority hands the
+    upstream server the same path we were originally asked to proxy, instead of
+    one that decodes a level too far (or, for `#`, gets truncated as a fragment).
+    """
+    scheme, separator, rest = url_path.partition("://")
+    if not separator:
+        return url_path
+    authority, slash, path = rest.partition("/")
+    if not slash:
+        return url_path
+    return f"{scheme}://{authority}/{quote(path, safe='/=')}"
 
 
 def routes_safe_join(directory: DeveloperPath, path: UserProvidedPath) -> str:
@@ -1481,6 +1556,7 @@ async def upload_fn(
     if content_type != b"multipart/form-data":
         raise HTTPException(status_code=400, detail="Invalid content type.")
 
+    Path(upload_dir).mkdir(exist_ok=True, parents=True)
     if upload_id and upload_progress:
         upload_progress.track(upload_id)
 
@@ -1489,6 +1565,7 @@ async def upload_fn(
         request.stream(),
         max_files=1000,
         max_fields=1000,
+        upload_dir=upload_dir,
         max_file_size=max_file_size,
         upload_id=upload_id,
         upload_progress=upload_progress,

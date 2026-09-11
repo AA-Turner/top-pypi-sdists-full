@@ -35,8 +35,11 @@ class GatewayCreateProducerRedis(object):
     """
     openapi_types = {
         'acl_rules': 'str',
+        'ara_enabled': 'bool',
         'custom_username_template': 'str',
         'delete_protection': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'host': 'str',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
@@ -47,6 +50,7 @@ class GatewayCreateProducerRedis(object):
         'password_length': 'str',
         'port': 'str',
         'producer_encryption_key_name': 'str',
+        'skip_dry_run': 'str',
         'ssl': 'bool',
         'ssl_certificate': 'str',
         'tags': 'list[str]',
@@ -63,8 +67,11 @@ class GatewayCreateProducerRedis(object):
 
     attribute_map = {
         'acl_rules': 'acl-rules',
+        'ara_enabled': 'ara-enabled',
         'custom_username_template': 'custom-username-template',
         'delete_protection': 'delete_protection',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'host': 'host',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
@@ -75,6 +82,7 @@ class GatewayCreateProducerRedis(object):
         'password_length': 'password-length',
         'port': 'port',
         'producer_encryption_key_name': 'producer-encryption-key-name',
+        'skip_dry_run': 'skip_dry_run',
         'ssl': 'ssl',
         'ssl_certificate': 'ssl-certificate',
         'tags': 'tags',
@@ -89,15 +97,18 @@ class GatewayCreateProducerRedis(object):
         'username': 'username'
     }
 
-    def __init__(self, acl_rules=None, custom_username_template=None, delete_protection=None, host='127.0.0.1', input_rule=None, item_custom_fields=None, json=False, name=None, output_rule=None, password=None, password_length=None, port='6379', producer_encryption_key_name=None, ssl=False, ssl_certificate=None, tags=None, target_name=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='60m', username=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, acl_rules=None, ara_enabled=None, custom_username_template=None, delete_protection=None, enable_agentic_runtime_authority=None, enable_ai_quorum=None, host='127.0.0.1', input_rule=None, item_custom_fields=None, json=False, name=None, output_rule=None, password=None, password_length=None, port='6379', producer_encryption_key_name=None, skip_dry_run=None, ssl=False, ssl_certificate=None, tags=None, target_name=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='60m', username=None, local_vars_configuration=None):  # noqa: E501
         """GatewayCreateProducerRedis - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._acl_rules = None
+        self._ara_enabled = None
         self._custom_username_template = None
         self._delete_protection = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._host = None
         self._input_rule = None
         self._item_custom_fields = None
@@ -108,6 +119,7 @@ class GatewayCreateProducerRedis(object):
         self._password_length = None
         self._port = None
         self._producer_encryption_key_name = None
+        self._skip_dry_run = None
         self._ssl = None
         self._ssl_certificate = None
         self._tags = None
@@ -124,10 +136,16 @@ class GatewayCreateProducerRedis(object):
 
         if acl_rules is not None:
             self.acl_rules = acl_rules
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if custom_username_template is not None:
             self.custom_username_template = custom_username_template
         if delete_protection is not None:
             self.delete_protection = delete_protection
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if host is not None:
             self.host = host
         if input_rule is not None:
@@ -147,6 +165,8 @@ class GatewayCreateProducerRedis(object):
             self.port = port
         if producer_encryption_key_name is not None:
             self.producer_encryption_key_name = producer_encryption_key_name
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if ssl is not None:
             self.ssl = ssl
         if ssl_certificate is not None:
@@ -196,6 +216,29 @@ class GatewayCreateProducerRedis(object):
         self._acl_rules = acl_rules
 
     @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this GatewayCreateProducerRedis.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :return: The ara_enabled of this GatewayCreateProducerRedis.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this GatewayCreateProducerRedis.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this GatewayCreateProducerRedis.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
+
+    @property
     def custom_username_template(self):
         """Gets the custom_username_template of this GatewayCreateProducerRedis.  # noqa: E501
 
@@ -240,6 +283,52 @@ class GatewayCreateProducerRedis(object):
         """
 
         self._delete_protection = delete_protection
+
+    @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this GatewayCreateProducerRedis.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this GatewayCreateProducerRedis.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this GatewayCreateProducerRedis.
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this GatewayCreateProducerRedis.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this GatewayCreateProducerRedis.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this GatewayCreateProducerRedis.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this GatewayCreateProducerRedis.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this GatewayCreateProducerRedis.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
 
     @property
     def host(self):
@@ -472,6 +561,29 @@ class GatewayCreateProducerRedis(object):
         """
 
         self._producer_encryption_key_name = producer_encryption_key_name
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this GatewayCreateProducerRedis.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this GatewayCreateProducerRedis.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this GatewayCreateProducerRedis.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this GatewayCreateProducerRedis.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
 
     @property
     def ssl(self):

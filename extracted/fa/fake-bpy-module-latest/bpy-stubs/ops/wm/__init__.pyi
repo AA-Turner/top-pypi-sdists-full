@@ -940,12 +940,14 @@ class drop_blend_file(bpy.ops._BPyOpsSubModOp):
         /,
         *,
         filepath: str = "",
+        use_scripts: bool | None = False,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Undocumented, consider contributing.
 
         :param execution_context:
         :param undo:
         :param filepath: filepath, (optional, never None)
+        :param use_scripts: Trusted Source, (optional)
         :return: Result of the operator call.
         """
 

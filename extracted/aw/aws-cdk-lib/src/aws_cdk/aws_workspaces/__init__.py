@@ -900,7 +900,7 @@ class CfnWorkspaceIpGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_workspaces.CfnWorkspaceIpGroup",
 ):
-    '''Resource type definition for an IP access control group for Amazon WorkSpaces.
+    '''Resource Type definition for an IP access control group for Amazon WorkSpaces.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html
     :cloudformationResource: AWS::WorkSpaces::WorkspaceIpGroup

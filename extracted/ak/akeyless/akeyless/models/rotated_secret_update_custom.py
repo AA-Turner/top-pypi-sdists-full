@@ -34,19 +34,26 @@ class RotatedSecretUpdateCustom(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'provider_type': 'str',
         'add_tag': 'list[str]',
+        'ara_enabled': 'bool',
         'authentication_credentials': 'str',
         'auto_rotate': 'str',
         'custom_payload': 'str',
         'delete_protection': 'str',
         'description': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'enable_password_policy': 'str',
+        'host_provider': 'str',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
         'keep_prev_version': 'str',
         'key': 'str',
         'lock_during_sra_session': 'str',
+        'lock_on_read': 'str',
+        'lock_ttl': 'str',
         'max_versions': 'str',
         'name': 'str',
         'new_name': 'str',
@@ -54,6 +61,7 @@ class RotatedSecretUpdateCustom(object):
         'password_length': 'str',
         'rm_tag': 'list[str]',
         'rotate_after_disconnect': 'str',
+        'rotate_on_unlock': 'str',
         'rotation_event_in': 'list[str]',
         'rotation_hour': 'int',
         'rotation_interval': 'str',
@@ -61,6 +69,7 @@ class RotatedSecretUpdateCustom(object):
         'secure_access_bastion_issuer': 'str',
         'secure_access_certificate_issuer': 'str',
         'secure_access_enable': 'str',
+        'secure_access_enforce_hosts_restriction': 'bool',
         'secure_access_host': 'list[str]',
         'secure_access_rdp_domain': 'str',
         'secure_access_rdp_user': 'str',
@@ -69,6 +78,8 @@ class RotatedSecretUpdateCustom(object):
         'secure_access_web': 'bool',
         'secure_access_web_browsing': 'bool',
         'secure_access_web_proxy': 'bool',
+        'skip_dry_run': 'str',
+        'target': 'list[str]',
         'timeout_sec': 'int',
         'token': 'str',
         'uid_token': 'str',
@@ -79,19 +90,26 @@ class RotatedSecretUpdateCustom(object):
     }
 
     attribute_map = {
+        'provider_type': 'ProviderType',
         'add_tag': 'add-tag',
+        'ara_enabled': 'ara-enabled',
         'authentication_credentials': 'authentication-credentials',
         'auto_rotate': 'auto-rotate',
         'custom_payload': 'custom-payload',
         'delete_protection': 'delete_protection',
         'description': 'description',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'enable_password_policy': 'enable-password-policy',
+        'host_provider': 'host-provider',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
         'keep_prev_version': 'keep-prev-version',
         'key': 'key',
         'lock_during_sra_session': 'lock-during-sra-session',
+        'lock_on_read': 'lock-on-read',
+        'lock_ttl': 'lock-ttl',
         'max_versions': 'max-versions',
         'name': 'name',
         'new_name': 'new-name',
@@ -99,6 +117,7 @@ class RotatedSecretUpdateCustom(object):
         'password_length': 'password-length',
         'rm_tag': 'rm-tag',
         'rotate_after_disconnect': 'rotate-after-disconnect',
+        'rotate_on_unlock': 'rotate-on-unlock',
         'rotation_event_in': 'rotation-event-in',
         'rotation_hour': 'rotation-hour',
         'rotation_interval': 'rotation-interval',
@@ -106,6 +125,7 @@ class RotatedSecretUpdateCustom(object):
         'secure_access_bastion_issuer': 'secure-access-bastion-issuer',
         'secure_access_certificate_issuer': 'secure-access-certificate-issuer',
         'secure_access_enable': 'secure-access-enable',
+        'secure_access_enforce_hosts_restriction': 'secure-access-enforce-hosts-restriction',
         'secure_access_host': 'secure-access-host',
         'secure_access_rdp_domain': 'secure-access-rdp-domain',
         'secure_access_rdp_user': 'secure-access-rdp-user',
@@ -114,6 +134,8 @@ class RotatedSecretUpdateCustom(object):
         'secure_access_web': 'secure-access-web',
         'secure_access_web_browsing': 'secure-access-web-browsing',
         'secure_access_web_proxy': 'secure-access-web-proxy',
+        'skip_dry_run': 'skip_dry_run',
+        'target': 'target',
         'timeout_sec': 'timeout-sec',
         'token': 'token',
         'uid_token': 'uid-token',
@@ -123,25 +145,32 @@ class RotatedSecretUpdateCustom(object):
         'use_special_characters': 'use-special-characters'
     }
 
-    def __init__(self, add_tag=None, authentication_credentials='use-user-creds', auto_rotate=None, custom_payload=None, delete_protection=None, description='default_metadata', enable_password_policy=None, input_rule=None, item_custom_fields=None, json=False, keep_prev_version=None, key=None, lock_during_sra_session=None, max_versions=None, name=None, new_name=None, output_rule=None, password_length=None, rm_tag=None, rotate_after_disconnect=None, rotation_event_in=None, rotation_hour=None, rotation_interval=None, secure_access_allow_external_user=False, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_enable=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_ssh_user=None, secure_access_url=None, secure_access_web=False, secure_access_web_browsing=False, secure_access_web_proxy=False, timeout_sec=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, provider_type=None, add_tag=None, ara_enabled=None, authentication_credentials='use-user-creds', auto_rotate=None, custom_payload=None, delete_protection=None, description='default_metadata', enable_agentic_runtime_authority=None, enable_ai_quorum=None, enable_password_policy=None, host_provider=None, input_rule=None, item_custom_fields=None, json=False, keep_prev_version=None, key=None, lock_during_sra_session=None, lock_on_read=None, lock_ttl=None, max_versions=None, name=None, new_name=None, output_rule=None, password_length=None, rm_tag=None, rotate_after_disconnect=None, rotate_on_unlock=None, rotation_event_in=None, rotation_hour=None, rotation_interval=None, secure_access_allow_external_user=False, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_enable=None, secure_access_enforce_hosts_restriction=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_ssh_user=None, secure_access_url=None, secure_access_web=False, secure_access_web_browsing=False, secure_access_web_proxy=False, skip_dry_run=None, target=None, timeout_sec=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
         """RotatedSecretUpdateCustom - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._provider_type = None
         self._add_tag = None
+        self._ara_enabled = None
         self._authentication_credentials = None
         self._auto_rotate = None
         self._custom_payload = None
         self._delete_protection = None
         self._description = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._enable_password_policy = None
+        self._host_provider = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
         self._keep_prev_version = None
         self._key = None
         self._lock_during_sra_session = None
+        self._lock_on_read = None
+        self._lock_ttl = None
         self._max_versions = None
         self._name = None
         self._new_name = None
@@ -149,6 +178,7 @@ class RotatedSecretUpdateCustom(object):
         self._password_length = None
         self._rm_tag = None
         self._rotate_after_disconnect = None
+        self._rotate_on_unlock = None
         self._rotation_event_in = None
         self._rotation_hour = None
         self._rotation_interval = None
@@ -156,6 +186,7 @@ class RotatedSecretUpdateCustom(object):
         self._secure_access_bastion_issuer = None
         self._secure_access_certificate_issuer = None
         self._secure_access_enable = None
+        self._secure_access_enforce_hosts_restriction = None
         self._secure_access_host = None
         self._secure_access_rdp_domain = None
         self._secure_access_rdp_user = None
@@ -164,6 +195,8 @@ class RotatedSecretUpdateCustom(object):
         self._secure_access_web = None
         self._secure_access_web_browsing = None
         self._secure_access_web_proxy = None
+        self._skip_dry_run = None
+        self._target = None
         self._timeout_sec = None
         self._token = None
         self._uid_token = None
@@ -173,8 +206,12 @@ class RotatedSecretUpdateCustom(object):
         self._use_special_characters = None
         self.discriminator = None
 
+        if provider_type is not None:
+            self.provider_type = provider_type
         if add_tag is not None:
             self.add_tag = add_tag
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if authentication_credentials is not None:
             self.authentication_credentials = authentication_credentials
         if auto_rotate is not None:
@@ -185,8 +222,14 @@ class RotatedSecretUpdateCustom(object):
             self.delete_protection = delete_protection
         if description is not None:
             self.description = description
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if enable_password_policy is not None:
             self.enable_password_policy = enable_password_policy
+        if host_provider is not None:
+            self.host_provider = host_provider
         if input_rule is not None:
             self.input_rule = input_rule
         if item_custom_fields is not None:
@@ -199,6 +242,10 @@ class RotatedSecretUpdateCustom(object):
             self.key = key
         if lock_during_sra_session is not None:
             self.lock_during_sra_session = lock_during_sra_session
+        if lock_on_read is not None:
+            self.lock_on_read = lock_on_read
+        if lock_ttl is not None:
+            self.lock_ttl = lock_ttl
         if max_versions is not None:
             self.max_versions = max_versions
         self.name = name
@@ -212,6 +259,8 @@ class RotatedSecretUpdateCustom(object):
             self.rm_tag = rm_tag
         if rotate_after_disconnect is not None:
             self.rotate_after_disconnect = rotate_after_disconnect
+        if rotate_on_unlock is not None:
+            self.rotate_on_unlock = rotate_on_unlock
         if rotation_event_in is not None:
             self.rotation_event_in = rotation_event_in
         if rotation_hour is not None:
@@ -226,6 +275,8 @@ class RotatedSecretUpdateCustom(object):
             self.secure_access_certificate_issuer = secure_access_certificate_issuer
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
+        if secure_access_enforce_hosts_restriction is not None:
+            self.secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
         if secure_access_host is not None:
             self.secure_access_host = secure_access_host
         if secure_access_rdp_domain is not None:
@@ -242,6 +293,10 @@ class RotatedSecretUpdateCustom(object):
             self.secure_access_web_browsing = secure_access_web_browsing
         if secure_access_web_proxy is not None:
             self.secure_access_web_proxy = secure_access_web_proxy
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
+        if target is not None:
+            self.target = target
         if timeout_sec is not None:
             self.timeout_sec = timeout_sec
         if token is not None:
@@ -256,6 +311,27 @@ class RotatedSecretUpdateCustom(object):
             self.use_numbers = use_numbers
         if use_special_characters is not None:
             self.use_special_characters = use_special_characters
+
+    @property
+    def provider_type(self):
+        """Gets the provider_type of this RotatedSecretUpdateCustom.  # noqa: E501
+
+
+        :return: The provider_type of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._provider_type
+
+    @provider_type.setter
+    def provider_type(self, provider_type):
+        """Sets the provider_type of this RotatedSecretUpdateCustom.
+
+
+        :param provider_type: The provider_type of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._provider_type = provider_type
 
     @property
     def add_tag(self):
@@ -279,6 +355,29 @@ class RotatedSecretUpdateCustom(object):
         """
 
         self._add_tag = add_tag
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :return: The ara_enabled of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this RotatedSecretUpdateCustom.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def authentication_credentials(self):
@@ -394,6 +493,52 @@ class RotatedSecretUpdateCustom(object):
         self._description = description
 
     @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this RotatedSecretUpdateCustom.
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this RotatedSecretUpdateCustom.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
+
+    @property
     def enable_password_policy(self):
         """Gets the enable_password_policy of this RotatedSecretUpdateCustom.  # noqa: E501
 
@@ -415,6 +560,29 @@ class RotatedSecretUpdateCustom(object):
         """
 
         self._enable_password_policy = enable_password_policy
+
+    @property
+    def host_provider(self):
+        """Gets the host_provider of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
+
+        :return: The host_provider of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._host_provider
+
+    @host_provider.setter
+    def host_provider(self, host_provider):
+        """Sets the host_provider of this RotatedSecretUpdateCustom.
+
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
+
+        :param host_provider: The host_provider of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._host_provider = host_provider
 
     @property
     def input_rule(self):
@@ -551,6 +719,52 @@ class RotatedSecretUpdateCustom(object):
         """
 
         self._lock_during_sra_session = lock_during_sra_session
+
+    @property
+    def lock_on_read(self):
+        """Gets the lock_on_read of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :return: The lock_on_read of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_on_read
+
+    @lock_on_read.setter
+    def lock_on_read(self, lock_on_read):
+        """Sets the lock_on_read of this RotatedSecretUpdateCustom.
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :param lock_on_read: The lock_on_read of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_on_read = lock_on_read
+
+    @property
+    def lock_ttl(self):
+        """Gets the lock_ttl of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Lock TTL in minutes  # noqa: E501
+
+        :return: The lock_ttl of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_ttl
+
+    @lock_ttl.setter
+    def lock_ttl(self, lock_ttl):
+        """Sets the lock_ttl of this RotatedSecretUpdateCustom.
+
+        Lock TTL in minutes  # noqa: E501
+
+        :param lock_ttl: The lock_ttl of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_ttl = lock_ttl
 
     @property
     def max_versions(self):
@@ -716,6 +930,29 @@ class RotatedSecretUpdateCustom(object):
         self._rotate_after_disconnect = rotate_after_disconnect
 
     @property
+    def rotate_on_unlock(self):
+        """Gets the rotate_on_unlock of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :return: The rotate_on_unlock of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._rotate_on_unlock
+
+    @rotate_on_unlock.setter
+    def rotate_on_unlock(self, rotate_on_unlock):
+        """Sets the rotate_on_unlock of this RotatedSecretUpdateCustom.
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :param rotate_on_unlock: The rotate_on_unlock of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._rotate_on_unlock = rotate_on_unlock
+
+    @property
     def rotation_event_in(self):
         """Gets the rotation_event_in of this RotatedSecretUpdateCustom.  # noqa: E501
 
@@ -871,6 +1108,29 @@ class RotatedSecretUpdateCustom(object):
         """
 
         self._secure_access_enable = secure_access_enable
+
+    @property
+    def secure_access_enforce_hosts_restriction(self):
+        """Gets the secure_access_enforce_hosts_restriction of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :return: The secure_access_enforce_hosts_restriction of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_enforce_hosts_restriction
+
+    @secure_access_enforce_hosts_restriction.setter
+    def secure_access_enforce_hosts_restriction(self, secure_access_enforce_hosts_restriction):
+        """Sets the secure_access_enforce_hosts_restriction of this RotatedSecretUpdateCustom.
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :param secure_access_enforce_hosts_restriction: The secure_access_enforce_hosts_restriction of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
 
     @property
     def secure_access_host(self):
@@ -1055,6 +1315,52 @@ class RotatedSecretUpdateCustom(object):
         """
 
         self._secure_access_web_proxy = secure_access_web_proxy
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this RotatedSecretUpdateCustom.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
+
+    @property
+    def target(self):
+        """Gets the target of this RotatedSecretUpdateCustom.  # noqa: E501
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :return: The target of this RotatedSecretUpdateCustom.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._target
+
+    @target.setter
+    def target(self, target):
+        """Sets the target of this RotatedSecretUpdateCustom.
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :param target: The target of this RotatedSecretUpdateCustom.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._target = target
 
     @property
     def timeout_sec(self):

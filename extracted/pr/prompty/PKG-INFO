@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: prompty
-Version: 2.0.0
+Version: 2.0.1
 Summary: Prompty is an asset class and format for LLM prompts
 Author-email: Seth Juarez <seth.juarez@microsoft.com>
 Requires-Python: >=3.11

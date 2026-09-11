@@ -13,6 +13,7 @@ import string
 import sys
 import threading
 import time
+import uuid
 import warnings
 import weakref
 import webbrowser
@@ -725,7 +726,7 @@ class BlocksConfig:
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
             api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
-            js: Optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values that will be passed as inputs to the Python function (`fn`)
+            js: Optional frontend JavaScript to run before 'fn', provided as either a function or a raw code string. A function receives the values of 'inputs' and 'outputs' as arguments; raw code can access them through `arguments`. Return a list of values to pass as inputs to the Python function (`fn`).
             no_target: if True, sets "targets" to [], used for the Blocks.load() event and .then() events
             queue: If True, will place the request on the queue, if the queue has been enabled. If False, will not put this event on the queue, even if the queue has been enabled. If None, will use the queue setting of the gradio app.
             batch: whether this function takes in a batch of inputs
@@ -1115,6 +1116,13 @@ class Blocks(BlockContext, BlocksEvents, metaclass=BlocksMeta):
         self.max_threads = 40
         self.pending_streams = defaultdict(dict)
         self.pending_diff_streams = defaultdict(dict)
+        # Per-run keys for streaming outputs, held weakly against the iterator
+        # so that a finished run's key goes away with it. The iterators are
+        # what call_function hands back, a generator, an async generator or a
+        # SyncToAsyncIterator, all weak-referenceable and hashed by identity.
+        self._stream_run_ids: weakref.WeakKeyDictionary[Any, str] = (
+            weakref.WeakKeyDictionary()
+        )
         self.show_error = True
         self.fill_height = fill_height
         self.fill_width = fill_width
@@ -2124,20 +2132,105 @@ Received inputs:
 
         return output
 
+    def _stream_run_key(self, iterator: Any) -> str:
+        """Return the key of the streaming run that `iterator` is driving.
+
+        The key goes into the playlist URL, so it has to hold for every chunk of
+        a run and never repeat. `id()` only holds while the object is alive, so
+        the key is held weakly against the iterator and dies with it instead.
+        """
+        run = self._stream_run_ids.get(iterator)
+        if run is None:
+            run = uuid.uuid4().hex
+            self._stream_run_ids[iterator] = run
+        return run
+
+    def _drop_run_streams(self, session_hash: str | None, iterator: Any) -> None:
+        """Close out the streaming state of the run `iterator` was driving.
+
+        For a run that reaches no final chunk: it raised, was cancelled, or its
+        client went away. Its streams are ended but stay, since the playlist is
+        fetched after the run ends; its diff state goes, nothing reads it again.
+        """
+        if session_hash is None or iterator is None:
+            return
+        run = self._stream_run_ids.get(iterator)
+        if run is None:
+            return
+        self._drop_run(session_hash, run)
+
+    def _drop_run(self, session_hash: str, run: str) -> None:
+        for stream in self.pending_streams.get(session_hash, {}).get(run, {}).values():
+            stream.end_stream()
+        self._pop_run_diffs(session_hash, run)
+
+    async def _finish_run_streams(
+        self, session_hash: str | None, iterator: Any
+    ) -> None:
+        """Complete the streams of a run nobody will continue: a generator called
+        through the run route yields once and is dropped, so what it produced is
+        all there is, and it has to come out whole rather than be cut off."""
+        if session_hash is None or iterator is None:
+            return
+        run = self._stream_run_ids.get(iterator)
+        if run is None:
+            return
+        streams = self.pending_streams.get(session_hash, {}).get(run, {})
+        try:
+            for output_id, stream in streams.items():
+                block = self.blocks[output_id]
+                if isinstance(block, components.StreamingOutput):
+                    await self._finish_stream(
+                        block, stream, self._stream_id(session_hash, run, output_id)
+                    )
+                else:
+                    stream.end_stream()
+        finally:
+            # A flush that raises must not strand the streams after it: without
+            # an event id the caller's handler cannot resolve this run either.
+            self._drop_run(session_hash, run)
+
+    @staticmethod
+    def _stream_id(session_hash: str, run: str, output_id: int) -> str:
+        return f"{session_hash}/{run}/{output_id}/playlist.m3u8"
+
+    @staticmethod
+    async def _finish_stream(
+        block: components.StreamingOutput, stream: MediaStream, stream_id: str
+    ) -> None:
+        try:
+            await stream.add_segment(await block.flush_stream_output(stream_id))
+        finally:
+            # A flush that fails still has to end the stream, or the playlist
+            # never gets its #EXT-X-ENDLIST and the client polls something that
+            # will not grow again.
+            stream.end_stream()
+
+    def _pop_run_diffs(self, session_hash: str, run: str) -> None:
+        """Drop a run's diff state, and its session's dict if that leaves it empty."""
+        runs = self.pending_diff_streams.get(session_hash)
+        if runs is None:
+            return
+        runs.pop(run, None)
+        if not runs:
+            del self.pending_diff_streams[session_hash]
+
     async def handle_streaming_outputs(
         self,
         block_fn: BlockFunction,
         data: list,
         session_hash: str | None,
-        run: int | None,
+        run: str | None,
         root_path: str | None = None,
         final: bool = False,
     ) -> list:
         if session_hash is None or run is None:
             return data
-        if run not in self.pending_streams[session_hash]:
-            self.pending_streams[session_hash][run] = {}
-        stream_run: dict[int, MediaStream] = self.pending_streams[session_hash][run]
+        # Filed only once an output opens a stream, so a run with no streaming
+        # output never touches this dict
+        stream_run: dict[int, MediaStream] = self.pending_streams.get(
+            session_hash, {}
+        ).get(run, {})
 
         for i, block in enumerate(block_fn.outputs):
             output_id = block._id
@@ -2146,31 +2239,38 @@ Received inputs:
                 and block.streaming
                 and not utils.is_prop_update(data[i])
             ):
-                if final:
-                    # Nothing to finalize if this output never opened a stream —
-                    # the session may have been dropped on disconnect, or every
-                    # chunk before this one may have been a prop update. Falling
-                    # through would leave `first_chunk` true and build a fresh
-                    # stream that nothing ever ends.
-                    if (existing := stream_run.get(output_id)) is None:
-                        continue
-                    existing.end_stream()
+                # Nothing to finalize if this output never opened a stream:
+                # the session may have been dropped on disconnect, or every
+                # chunk before this one may have been a prop update. Falling
+                # through would leave `first_chunk` true and build a fresh
+                # stream that nothing ever ends.
+                if final and stream_run.get(output_id) is None:
+                    continue
+                stream_id = self._stream_id(session_hash, run, output_id)
                 first_chunk = output_id not in stream_run
                 binary_data, output_data = await block.stream_output(
                     data[i],
-                    f"{session_hash}/{run}/{output_id}/playlist.m3u8",
+                    stream_id,
                     first_chunk,
                 )
                 if first_chunk:
                     desired_output_format = None
                     if orig_name := output_data.get("orig_name"):
                         desired_output_format = Path(orig_name).suffix[1:]
-                    stream_run[output_id] = MediaStream(
-                        desired_output_format=desired_output_format
+                    stream_run = self.pending_streams[session_hash].setdefault(run, {})
+                    stream = MediaStream(desired_output_format=desired_output_format)
+                    stream_run[output_id] = stream
+                    # A finalize handle runs once and disarms, so ending the
+                    # stream releases the encoder and leaves nothing armed; the
+                    # unarmed case is interpreter exit, since a discarded
+                    # stream is ended by the session cleanup first.
+                    stream.on_end.append(
+                        weakref.finalize(stream, block.end_stream_output, stream_id)
                     )
-                    stream_run[output_id]
 
                 await stream_run[output_id].add_segment(binary_data)
+                if final:
+                    await self._finish_stream(block, stream_run[output_id], stream_id)
                 output_data = await processing_utils.async_move_files_to_cache(
                     output_data,
                     block,
@@ -2189,7 +2289,7 @@ Received inputs:
         block_fn: BlockFunction,
         data: list,
         session_hash: str | None,
-        run: int | None,
+        run: str | None,
         final: bool,
         simple_format: bool = False,
     ) -> list:
@@ -2218,7 +2318,7 @@ Received inputs:
                     data[i] = utils.diff(prev_chunk, data[i])
 
         if final:
-            del self.pending_diff_streams[session_hash][run]
+            self._pop_run_diffs(session_hash, run)
 
         return data
 
@@ -2357,24 +2457,40 @@ Received inputs:
                 data = processing_utils.add_root_url(data, root_path, None)
             is_generating, iterator = result["is_generating"], result["iterator"]
             if is_generating or was_generating:
-                run = id(old_iterator) if was_generating else id(iterator)
-                async with trace_phase("streaming_diff"):
-                    data = await self.handle_streaming_outputs(
-                        block_fn,
-                        data,
-                        session_hash=session_hash,
-                        run=run,
-                        root_path=root_path,
-                        final=not is_generating,
-                    )
-                    data = self.handle_streaming_diffs(
-                        block_fn,
-                        data,
-                        session_hash=session_hash,
-                        run=run,
-                        final=not is_generating,
-                        simple_format=simple_format,
-                    )
+                run = (
+                    self._stream_run_key(old_iterator if was_generating else iterator)
+                    if session_hash is not None
+                    else None
+                )
+                try:
+                    async with trace_phase("streaming_diff"):
+                        data = await self.handle_streaming_outputs(
+                            block_fn,
+                            data,
+                            session_hash=session_hash,
+                            run=run,
+                            root_path=root_path,
+                            final=not is_generating,
+                        )
+                        # Diff state serves the later chunks of a run, which
+                        # can only be fetched under an event id. A call without
+                        # one gets full values, which is what its clients
+                        # expect.
+                        data = self.handle_streaming_diffs(
+                            block_fn,
+                            data,
+                            session_hash=session_hash,
+                            run=run if event_id is not None else None,
+                            final=not is_generating,
+                            simple_format=simple_format,
+                        )
+                except BaseException:
+                    # The callers' handlers find a run through
+                    # `app.iterators`, which is assigned only once this has
+                    # returned, so on a first call they cannot.
+                    if session_hash is not None and run is not None:
+                        self._drop_run(session_hash, run)
+                    raise
 
         if not manual_cache_used:
             block_fn.total_runtime += result["duration"]
@@ -2736,7 +2852,7 @@ Received inputs:
             ssl_verify: If False, skips certificate validation which allows self-signed certificates to be used.
             quiet: If True, suppresses most print statements.
             footer_links: The links to display in the footer of the app. Accepts a list, where each element of the list must be one of "api", "gradio", "settings", or "runs" corresponding to the API docs, "built with Gradio", the settings page, and the run history page respectively. The "runs" link only appears if `run_history` is True and the browser has at least one saved run for this app. If None, all four links will be shown in the footer. An empty list means that no footer is shown.
-            run_history: If True, each user's browser saves the inputs and outputs of their own calls to this app, which they can review and reload from the run history page at /gradio_api/runs. The runs are kept in that browser's local storage, are scoped to the logged-in user if the app uses `auth`, and are never sent to the server. If False, nothing is recorded, the run history page is disabled, and any runs previously saved by this app are deleted from the browser. If None, will use the GRADIO_RUN_HISTORY environment variable or default to True.
+            run_history: If True, users can review and reload calls from the run history page at /gradio_api/runs. Runs are saved privately in the browser by default; from that page, a user can instead connect a Hugging Face bucket and save future runs there. Browser history is scoped to the logged-in user if the app uses `auth`. If False, nothing is recorded, the run history page is disabled, and any runs previously saved by this app are deleted from the browser. If None, will use the GRADIO_RUN_HISTORY environment variable or default to True.
             allowed_paths: List of complete filepaths or parent directories that gradio is allowed to serve. Must be absolute paths. Warning: if you provide directories, any files in these directories or their subdirectories are accessible to all users of your app. Can be set by comma separated environment variable GRADIO_ALLOWED_PATHS. These files are generally assumed to be secure and will be displayed in the browser when possible.
             blocked_paths: List of complete filepaths or parent directories that gradio is not allowed to serve (i.e. users of your app are not allowed to access). Must be absolute paths. Warning: takes precedence over `allowed_paths` and all other directories exposed by Gradio by default. Can be set by comma separated environment variable GRADIO_BLOCKED_PATHS.
             root_path: The root path (or "mount point") of the application, if it's not served from the root ("/") of the domain. Often used when the application is behind a reverse proxy that forwards requests to the application. For example, if the application is served at "https://example.com/myapp", the `root_path` should be set to "/myapp". A full URL beginning with http:// or https:// can be provided, which will be used as the root path in its entirety. Can be set by environment variable GRADIO_ROOT_PATH. Defaults to "".
@@ -2757,7 +2873,7 @@ Received inputs:
             theme: A Theme object or a string representing a theme. If a string, will look for a built-in theme with that name (e.g. "soft" or "default"), or will attempt to load a theme from the Hugging Face Hub (e.g. "gradio/monochrome"). If None, will use the Default theme.
             css: Custom css as a code string. This css will be included in the demo webpage.
             css_paths: Custom css as a pathlib.Path to a css file or a list of such paths. This css files will be read, concatenated, and included in the demo webpage. If the `css` parameter is also set, the css from `css` will be included first.
-            js: Custom js as a code string. The js code will automatically be executed when the page loads. For more flexibility, use the head parameter to insert js inside <script> tags.
+            js: Custom JavaScript provided as either a function or a raw code string. A function is automatically invoked; otherwise the code is executed directly when the page loads. To run JavaScript as a document-level `<script>` tag, use the `head` parameter.
             head: Custom html code to insert into the head of the demo webpage. This can be used to add custom meta tags, multiple scripts, stylesheets, etc. to the page.
             head_paths: Custom html code as a pathlib.Path to a html file or a list of such paths. This html files will be read, concatenated, and included in the head of the demo webpage. If the `head` parameter is also set, the html from `head` will be included first.
         Returns:
@@ -3298,6 +3414,15 @@ Received inputs:
 
                 elif self.is_colab:
                     # modified from /usr/local/lib/python3.7/dist-packages/google/colab/output/_util.py within Colab environment
+                    # In production SSR mode, Node owns the user-facing port and
+                    # proxies to Python on ``self.server_port``. Exposing the
+                    # Python port here bypasses SSR and gives the browser a config
+                    # rooted at Colab's internal runtime hostname.
+                    colab_port = (
+                        self.node_port
+                        if self._node_is_proxy and self.node_port is not None
+                        else self.server_port
+                    )
                     code = """(async (port, path, width, height, cache, element) => {
                         if (!google.colab.kernel.accessAllowed && !cache) {
                             return;
@@ -3323,7 +3448,7 @@ Received inputs:
                         iframe.style.border = 0;
                         element.appendChild(iframe);
                     })""" + "({port}, {path}, {width}, {height}, {cache}, window.element)".format(
-                        port=json.dumps(self.server_port),
+                        port=json.dumps(colab_port),
                         path=json.dumps("/"),
                         width=json.dumps(self.width),
                         height=json.dumps(self.height),

@@ -23,6 +23,7 @@ import time
 import json
 import xml.etree.ElementTree as ET
 from ..errors import AgentErrorKind, FailoverDecision, IdleTimeoutBreaker, ToolExecutionError
+from ..model_harness.guard import check_model_request
 # Gap 2: Tool call execution imports
 from ..tools.call_executor import ToolCall, create_tool_call_executor
 from ..tools.schema import build_tool_definition
@@ -124,6 +125,9 @@ except ImportError:
 # NOTE: The custom-LLM path (Agent.chat → get_response) and OpenAI path
 # (Agent.chat → _chat_completion) are separate code paths, not duplicate
 # API calls per request. This is a DRY/maintenance concern, not a billing issue.
+from ..tools.hosted import is_hosted_tool  # noqa: E402
+
+
 class LLMResponseError(Exception):
     """Raised when the LLM tool-calling loop fails and cannot produce a response.
 
@@ -250,6 +254,14 @@ class LLM:
         "results already gathered."
     )
     STEP_LIMIT_FALLBACK_MESSAGE = "Reached the step limit before finishing this task."
+
+    # Stalled-tool-loop finalisation: used when a provider re-emits an
+    # identical tool call with no prose, so the loop cannot make progress.
+    TOOL_LOOP_STALL_PROMPT = (
+        "The tools have already been called and their results are above. "
+        "Do not call any tools. Answer the original question now using "
+        "those results."
+    )
     
     # Force tool usage prompt template (used when model ignores tools)
     FORCE_TOOL_USAGE_PROMPT = """You MUST use one of the available tools to answer this question.
@@ -1502,7 +1514,14 @@ Respond with ONLY a valid JSON tool call in this format:
             
         Returns:
             The completion response from litellm
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        # Last gate before the network. A ScriptedModel overrides this method
+        # entirely, so scripted turns never reach (or trip) the guard.
+        check_model_request(self.model, "litellm.completion")
         import litellm
         response = self._call_with_retry(litellm.completion, **completion_params)
         if not completion_params.get("stream"):
@@ -1520,7 +1539,12 @@ Respond with ONLY a valid JSON tool call in this format:
             
         Returns:
             The completion response from litellm
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        check_model_request(self.model, "litellm.acompletion")
         import litellm
         response = await self._call_with_retry_async(
             litellm.acompletion,
@@ -2094,7 +2118,8 @@ Respond with ONLY a valid JSON tool call in this format:
             logging.debug("Deferred registration skipped (non-fatal): %s", e)
 
     def _finalise_on_limit(self, messages: List[Dict], response_text: str,
-                           temperature: float = 0.2, **kwargs) -> str:
+                           temperature: float = 0.2,
+                           wrap_up_prompt: Optional[str] = None, **kwargs) -> str:
         """
         Force a final tools-disabled answer when the tool-calling loop hits max_iter.
 
@@ -2114,7 +2139,8 @@ Respond with ONLY a valid JSON tool call in this format:
         Returns:
             The synthesised final answer, or a safe fallback string.
         """
-        wrap_up = {"role": "user", "content": self.STEP_LIMIT_WRAP_UP_PROMPT}
+        wrap_up = {"role": "user",
+                   "content": wrap_up_prompt or self.STEP_LIMIT_WRAP_UP_PROMPT}
         try:
             safe_kwargs = {k: v for k, v in kwargs.items() if k != 'reasoning_steps'}
             final_params = self._build_completion_params(
@@ -2408,7 +2434,16 @@ Respond with ONLY a valid JSON tool call in this format:
         # Create a simple hash based on tool names/content
         tool_parts = []
         for tool in tools:
-            if isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
+            # A hosted tool must contribute its FULL spec to the cache key, or
+            # two tool lists differing only by hosted config (e.g. file_search
+            # over vs_1 vs vs_2, or different MCP server_urls) would share a key
+            # and the second call would reuse the first's formatted definition.
+            if isinstance(tool, dict) and is_hosted_tool(tool):
+                try:
+                    tool_parts.append(f"hosted:{json.dumps(tool, sort_keys=True)}")
+                except (TypeError, ValueError):
+                    tool_parts.append(f"hosted:{tool.get('type')}:{id(tool)}")
+            elif isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
                 if 'function' in tool and isinstance(tool['function'], dict) and 'name' in tool['function']:
                     tool_parts.append(f"openai:{tool['function']['name']}")
             elif callable(tool) and hasattr(tool, '__name__'):
@@ -2449,7 +2484,16 @@ Respond with ONLY a valid JSON tool call in this format:
         formatted_tools = []
         for tool in tools:
             # Check if the tool is already in OpenAI format (e.g. from MCP.to_openai_tool())
-            if isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
+            # Provider-hosted tools (web search, code interpreter, file search,
+            # hosted MCP) have no local callable: the provider runs them, so
+            # they carry no 'function' block and fell through to the "malformed"
+            # branch below -- the tool vanished from the request and the model
+            # simply never had it. Forward them untouched, allowlisted by type
+            # so a genuinely malformed tool is still reported.
+            if isinstance(tool, dict) and is_hosted_tool(tool):
+                logging.debug(f"Forwarding provider-hosted tool: {tool.get('type')}")
+                formatted_tools.append(tool)
+            elif isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
                 # Validate nested dictionary structure before accessing
                 if 'function' in tool and isinstance(tool['function'], dict) and 'name' in tool['function']:
                     logging.debug(f"Using pre-formatted OpenAI tool: {tool['function']['name']}")
@@ -2463,7 +2507,10 @@ Respond with ONLY a valid JSON tool call in this format:
             # Handle lists of tools (e.g. from MCP.to_openai_tool())
             elif isinstance(tool, list):
                 for subtool in tool:
-                    if isinstance(subtool, dict) and 'type' in subtool and subtool['type'] == 'function':
+                    if isinstance(subtool, dict) and is_hosted_tool(subtool):
+                        logging.debug(f"Forwarding provider-hosted tool from list: {subtool.get('type')}")
+                        formatted_tools.append(subtool)
+                    elif isinstance(subtool, dict) and 'type' in subtool and subtool['type'] == 'function':
                         # Validate nested dictionary structure before accessing
                         if 'function' in subtool and isinstance(subtool['function'], dict) and 'name' in subtool['function']:
                             logging.debug(f"Using pre-formatted OpenAI tool from list: {subtool['function']['name']}")
@@ -2503,6 +2550,18 @@ Respond with ONLY a valid JSON tool call in this format:
                 logging.error(f"Tools are not JSON serializable: {e}")
                 return None
         
+        # Let the provider adapter rewrite anything its server cannot parse.
+        # Ollama 400s the entire request on a union-typed parameter, which is
+        # what an Optional[str] tool argument produces; hosted providers get
+        # the schema untouched.
+        if formatted_tools:
+            try:
+                adapter = getattr(self, '_provider_adapter', None)
+                if adapter is not None:
+                    formatted_tools = adapter.format_tools(formatted_tools)
+            except Exception as e:  # noqa: BLE001 -- never break tool formatting
+                logging.debug(f"Adapter tool formatting skipped: {e}")
+
         # Cache the formatted tools
         result = formatted_tools if formatted_tools else None
         if len(self._formatted_tools_cache) < self._max_cache_size:
@@ -4581,6 +4640,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     is_ollama = self._is_ollama_provider()
                     fallback_iterations = 0
                     tool_call_count = 0
+                    last_tool_call_fingerprint = None
+                    stall_reason = None
                     max_fallback_iterations = kwargs.pop("max_iterations", self.max_iter)
                     while fallback_iterations < max_fallback_iterations:
                         fallback_iterations += 1
@@ -4605,11 +4666,28 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
 
                         if not tool_calls or not execute_tool_fn:
                             # Nothing to dispatch: emit whatever prose we have.
-                            # An answer with no content AND no tool calls is the
-                            # provider's business, not ours to invent.
                             if content:
                                 yield content
+                            elif tool_call_count:
+                                # Tools ran, but the provider ended the turn
+                                # without writing an answer.
+                                stall_reason = "empty final answer"
                             break
+
+                        # A provider that re-emits the identical tool call with
+                        # no prose is not making progress: those results are
+                        # already in `messages`, so running the tool again
+                        # cannot add information. Stop before dispatching.
+                        fingerprint = self._tool_call_fingerprint(tool_calls, is_ollama)
+                        if (not content and tool_call_count
+                                and fingerprint == last_tool_call_fingerprint):
+                            logging.warning(
+                                "Provider repeated the same tool call with no answer at "
+                                f"fallback iteration {fallback_iterations}; finalising "
+                                "with tools disabled.")
+                            stall_reason = "repeated tool call"
+                            break
+                        last_tool_call_fingerprint = fingerprint
 
                         # Record the assistant turn before the tool replies, so
                         # the follow-up request is a valid conversation.
@@ -4634,6 +4712,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             logging.warning(
                                 f"Tool call limit reached ({max_tool_calls_per_turn}). "
                                 "Stopping to prevent infinite loop.")
+                            stall_reason = "tool call limit"
                             break
                         if tool_call_count + len(tool_calls) > max_tool_calls_per_turn:
                             remaining_calls = max_tool_calls_per_turn - tool_call_count
@@ -4685,8 +4764,28 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         # Loop: ask again now the results are in the messages.
                     else:
                         logging.warning(
-                            f"Tool call limit reached ({max_fallback_iterations}) on the "
+                            f"Iteration limit reached ({max_fallback_iterations}) on the "
                             "non-streaming fallback.")
+                        stall_reason = "iteration limit"
+
+                    # The loop ended without the provider ever writing an answer,
+                    # but every tool result is in `messages`. Ask once more with
+                    # tools disabled: the provider cannot emit another tool call,
+                    # so it has to answer. This is the same bounded finalisation
+                    # get_response and get_response_async already perform -- the
+                    # stream path was the only one that skipped it.
+                    if stall_reason and tool_call_count:
+                        final_text = self._finalise_on_limit(
+                            messages, "", temperature=temperature,
+                            wrap_up_prompt=self.TOOL_LOOP_STALL_PROMPT,
+                            **kwargs)
+                        if (final_text and final_text.strip()
+                                and final_text != self.STEP_LIMIT_FALLBACK_MESSAGE):
+                            yield final_text
+                        else:
+                            raise LLMResponseError(
+                                f"Provider produced no answer after {tool_call_count} "
+                                f"tool call(s) on the streaming path ({stall_reason}).")
 
                 except Exception as e:
                     logging.error(f"Non-streaming fallback failed: {e}")
@@ -5161,6 +5260,19 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         response_content = tool_response.choices[0].message.get("content")
                         response_text = response_content if response_content is not None else ""
                         tool_calls = tool_response.choices[0].message.get("tool_calls", [])
+
+                        # Recover a tool call the provider emitted as response
+                        # text instead of in the tool_calls field. The sync path
+                        # has done this since the adapter seam landed; without it
+                        # here, the same agent silently loses tool calling the
+                        # moment the caller awaits instead of calling.
+                        if not tool_calls and response_text and formatted_tools:
+                            recovered = self._provider_adapter.recover_tool_calls_from_text(
+                                response_text, formatted_tools)
+                            if recovered:
+                                tool_calls = recovered
+                                logging.debug(
+                                    f"Recovered tool calls from response text: {tool_calls}")
                         
                         # Debug logging for Gemini responses
                         if self._is_gemini_model():
@@ -5958,7 +6070,17 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         bare model under subscription auth does not reach LiteLLM unprefixed.
         """
         model = self.model
-        if not isinstance(model, str) or "/" in model:
+        if not isinstance(model, str):
+            return model
+        # llama.cpp's llama-server speaks OpenAI, but litellm knows no
+        # "llama_cpp/" provider -- it raised "LLM Provider NOT provided" and
+        # then retried four times before returning None. We accept the prefix
+        # because it names a real local engine, so we must also make it
+        # routable: strip it and let the OpenAI client handle the base_url.
+        for _local_prefix in ("llama_cpp/", "llamacpp/"):
+            if model.startswith(_local_prefix):
+                return f"openai/{model[len(_local_prefix):]}"
+        if "/" in model:
             return model
         effective_base_url = self.base_url
         if not effective_base_url:
@@ -5970,6 +6092,30 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         if self._detect_provider() != "openai":
             return model
         return f"openai/{model}"
+
+    def _guard_format_with_tools(self, params: Dict[str, Any]) -> None:
+        """Refuse a combination that makes the model fabricate.
+
+        On Ollama a JSON grammar makes the tool-call tag unemittable, so the
+        model cannot call the tool and instead invents a confident answer,
+        returned with HTTP 200 and no warning. Measured: the same request
+        without the grammar calls the tool correctly; with it the model
+        returned an invented temperature having never run the tool.
+
+        Raising is what this package's own quirk table prescribes -- a
+        fabricated answer that looks right is worse than an error.
+        """
+        adapter = getattr(self, '_provider_adapter', None)
+        if adapter is None or not getattr(adapter, 'format_and_tools_conflict', False):
+            return
+        if params.get("tools") and params.get("response_format"):
+            raise ValueError(
+                "This local provider cannot honour a structured-output schema and "
+                "tools in the same request: the JSON grammar makes the tool call "
+                "unemittable, so the model silently fabricates an answer instead "
+                "of calling your tool. Send tools without output_json/output_pydantic, "
+                "or drop the tools for this call."
+            )
 
     def _build_completion_params(self, **override_params) -> Dict[str, Any]:
         """Build parameters for litellm completion calls with all necessary config"""
@@ -6219,6 +6365,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 
                 logging.debug(f"Claude memory tool enabled with beta header: {beta_header}")
         
+        self._guard_format_with_tools(params)
         return params
 
     # ── Responses API support ───────────────────────────────────────────
@@ -6437,7 +6584,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         """
         Call ``litellm.responses()`` synchronously with retry support.
         Returns a ``ResponsesAPIResponse`` object.
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        check_model_request(self.model, "litellm.responses")
         import litellm
         return self._call_with_retry(litellm.responses, **params)
 
@@ -6445,7 +6597,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         """
         Call ``litellm.aresponses()`` asynchronously with retry support.
         Returns a ``ResponsesAPIResponse`` object.
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        check_model_request(self.model, "litellm.aresponses")
         import litellm
         response = await self._call_with_retry_async(litellm.aresponses, **params)
         self._track_token_usage(response, self._response_model_for_tracking(response))
@@ -6537,7 +6694,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
 
         Returns the same (response_text, tool_calls) tuple as the Chat
         Completions streaming path.  Emits StreamEvents when configured.
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        check_model_request(self.model, "litellm.responses")
         import litellm
 
         params["stream"] = True
@@ -6664,7 +6826,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         """
         Async streaming for Responses API.
         Returns (response_text, tool_calls).
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
         """
+        check_model_request(self.model, "litellm.aresponses")
         import litellm
 
         params["stream"] = True
@@ -6832,6 +6999,25 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     }
                 })
         return serializable_tool_calls
+
+    def _tool_call_fingerprint(self, tool_calls, is_ollama: bool = False) -> tuple:
+        """Stable identity for a batch of tool calls, ignoring provider call ids.
+
+        Two consecutive batches with the same fingerprint and no prose between
+        them mean the provider is repeating itself, not making progress. Call
+        ids are excluded deliberately: Ollama mints a fresh one every turn, so
+        an id-sensitive comparison would never match.
+        """
+        fingerprint = []
+        for tool_call in tool_calls:
+            function_name, arguments, _ = self._extract_tool_call_info(
+                tool_call, is_ollama)
+            try:
+                rendered = json.dumps(arguments, sort_keys=True, default=str)
+            except (TypeError, ValueError):
+                rendered = str(arguments)
+            fingerprint.append((function_name, rendered))
+        return tuple(fingerprint)
 
     def _extract_tool_call_info(self, tool_call, is_ollama: bool = False) -> tuple:
         """Extract function name, arguments, and tool_call_id from a tool call.

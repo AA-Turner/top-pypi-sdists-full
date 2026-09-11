@@ -10,7 +10,7 @@ import logging
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Union
+from typing import Any, Final, Union, cast, overload
 from weakref import WeakValueDictionary
 
 from openai.types import Completion
@@ -185,7 +185,7 @@ class GuardrailsResponse:
 class GuardrailsBaseClient:
     """Base class with shared functionality for guardrails clients."""
 
-    def _extract_latest_user_message(self, messages: list) -> tuple[str, int]:
+    def _extract_latest_user_message(self, messages: list[Any]) -> tuple[str, int]:
         """Extract the latest user message text and its index from a list of message-like items.
 
         Supports both dict-based messages (OpenAI) and object models with
@@ -257,9 +257,13 @@ class GuardrailsBaseClient:
         self.context = self._create_default_context() if context is None else context
         self._validate_context(self.context)
 
-    def _apply_preflight_modifications(
-        self, data: list[dict[str, str]] | str, preflight_results: list[GuardrailResult]
-    ) -> list[dict[str, str]] | str:
+    @overload
+    def _apply_preflight_modifications(self, data: str, preflight_results: list[GuardrailResult]) -> str: ...
+
+    @overload
+    def _apply_preflight_modifications(self, data: list[Any], preflight_results: list[GuardrailResult]) -> list[Any]: ...
+
+    def _apply_preflight_modifications(self, data: list[Any] | str, preflight_results: list[GuardrailResult]) -> list[Any] | str:
         """Apply pre-flight modifications to messages or text.
 
         Args:
@@ -315,7 +319,7 @@ class GuardrailsBaseClient:
         # Unknown content type, return unchanged
         return data
 
-    def _update_message_content(self, data: list[dict[str, str]], user_idx: int, new_content: Any) -> list[dict[str, str]]:
+    def _update_message_content(self, data: list[Any], user_idx: int, new_content: Any) -> list[Any]:
         """Update message content at the specified index.
 
         Args:
@@ -341,11 +345,11 @@ class GuardrailsBaseClient:
 
     def _apply_pii_masking_to_structured_content(
         self,
-        data: list[dict[str, str]],
+        data: list[Any],
         pii_result: GuardrailResult,
         user_idx: int,
-        current_content: list,
-    ) -> list[dict[str, str]]:
+        current_content: list[Any],
+    ) -> list[Any]:
         """Apply PII masking to structured content parts using Presidio.
 
         Args:
@@ -357,112 +361,22 @@ class GuardrailsBaseClient:
         Returns:
             Modified messages with PII masking applied to each text part
         """
-        from guardrails.utils.anonymizer import OperatorConfig, anonymize
+        from .checks.text.pii import PIIConfig, PIIEntity, _detect_pii, _mask_pii
 
-        # Extract detected entity types and config
         detected = pii_result.info.get("detected_entities", {})
         if not detected:
             return data
 
-        detect_encoded_pii = pii_result.info.get("detect_encoded_pii", False)
-
-        # Get analyzer engine - entity types are guaranteed valid from detection
-        from .checks.text.pii import _get_analyzer_engine
-
-        analyzer = _get_analyzer_engine()
-        entity_types = list(detected.keys())
-
-        # Create operators for each entity type
-        operators = {entity_type: OperatorConfig("replace", {"new_value": f"<{entity_type}>"}) for entity_type in entity_types}
-
         def _mask_text(text: str) -> str:
-            """Mask using custom anonymizer with Unicode normalization.
-
-            Handles both plain and encoded PII consistently with main detection path.
-            """
+            """Use the main masking pipeline so each encoded span is replaced once."""
             if not text:
                 return text
-
-            # Import functions from pii module
-            from .checks.text.pii import _build_decoded_text, _normalize_unicode
-
-            # Normalize to prevent bypasses
-            normalized = _normalize_unicode(text)
-
-            # Check for plain PII
-            analyzer_results = analyzer.analyze(normalized, entities=entity_types, language="en")
-            has_plain_pii = bool(analyzer_results)
-
-            # Check for encoded PII if enabled
-            has_encoded_pii = False
-            encoded_candidates = []
-
-            if detect_encoded_pii:
-                decoded_text, encoded_candidates = _build_decoded_text(normalized)
-                if encoded_candidates:
-                    # Analyze decoded text
-                    decoded_results = analyzer.analyze(decoded_text, entities=entity_types, language="en")
-                    has_encoded_pii = bool(decoded_results)
-
-            # If no PII found at all, return original text
-            if not has_plain_pii and not has_encoded_pii:
-                return text
-
-            # Mask plain PII
-            masked = normalized
-            if has_plain_pii:
-                masked = anonymize(text=masked, analyzer_results=analyzer_results, operators=operators).text
-
-            # Mask encoded PII if found
-            if has_encoded_pii:
-                # Re-analyze to get positions in the (potentially) masked text
-                decoded_text_for_masking, candidates_for_masking = _build_decoded_text(masked)
-                decoded_results = analyzer.analyze(decoded_text_for_masking, entities=entity_types, language="en")
-
-                if decoded_results:
-                    # Build list of (candidate, entity_type) pairs to mask
-                    candidates_to_mask = []
-
-                    for result in decoded_results:
-                        detected_value = decoded_text_for_masking[result.start : result.end]
-                        entity_type = result.entity_type
-
-                        # Find candidate that overlaps with this PII
-                        # Use comprehensive overlap logic matching pii.py implementation
-                        for candidate in candidates_for_masking:
-                            if not candidate.decoded_text:
-                                continue
-
-                            candidate_lower = candidate.decoded_text.lower()
-                            detected_lower = detected_value.lower()
-
-                            # Check if candidate's decoded text overlaps with the detection
-                            # Handle partial encodings where encoded span may include extra characters
-                            # e.g., %3A%6a%6f%65%40 → ":joe@" but only "joe@" is in email "joe@domain.com"
-                            has_overlap = (
-                                candidate_lower in detected_lower  # Candidate is substring of detection
-                                or detected_lower in candidate_lower  # Detection is substring of candidate
-                                or (
-                                    len(candidate_lower) >= 3
-                                    and any(  # Any 3-char chunk overlaps
-                                        candidate_lower[i : i + 3] in detected_lower for i in range(len(candidate_lower) - 2)
-                                    )
-                                )
-                            )
-
-                            if has_overlap:
-                                candidates_to_mask.append((candidate, entity_type))
-                                break
-
-                    # Sort by position (reverse) to mask from end to start
-                    # This preserves position validity for subsequent replacements
-                    candidates_to_mask.sort(key=lambda x: x[0].start, reverse=True)
-
-                    # Mask from end to start
-                    for candidate, entity_type in candidates_to_mask:
-                        entity_marker = f"<{entity_type}_ENCODED>"
-                        masked = masked[: candidate.start] + entity_marker + masked[candidate.end :]
-
+            config = PIIConfig(
+                entities=[PIIEntity(entity_type) for entity_type in detected],
+                detect_encoded_pii=pii_result.info.get("detect_encoded_pii", False),
+            )
+            detection = _detect_pii(text, config)
+            masked, _ = _mask_pii(text, detection, config)
             return masked
 
         # Mask each text part
@@ -488,7 +402,7 @@ class GuardrailsBaseClient:
 
         return self._update_message_content(data, user_idx, modified_content)
 
-    def _instantiate_all_guardrails(self) -> dict[str, list]:
+    def _instantiate_all_guardrails(self) -> dict[str, list[Any]]:
         """Instantiate guardrails for all stages."""
         from .registry import default_spec_registry
         from .runtime import instantiate_guardrails
@@ -546,11 +460,17 @@ class GuardrailsBaseClient:
             context = get_context()
             if context and hasattr(context, "guardrail_llm"):
                 # Use the context's guardrail_llm
-                return context
+                # ContextVars also accepts the released frozen GuardrailsContext.
+                # Checks only read it; preserve the public protocol's writable field.
+                return cast(GuardrailLLMContextProto, context)
 
         # Fall back to using the main client (self) for guardrails
         # Note: This will be overridden by subclasses to provide the correct type
         raise NotImplementedError("Subclasses must implement _create_default_context")
+
+    def _override_resources(self) -> None:
+        """Install resources supplied by the concrete client."""
+        raise NotImplementedError("Subclasses must implement _override_resources")
 
     def _initialize_client(self, config: str | Path | dict[str, Any], openai_kwargs: dict[str, Any], client_class: type) -> None:
         """Initialize client with common setup.

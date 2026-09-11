@@ -2,6 +2,7 @@
 import os
 import time
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Generator, Optional, Union
 from uuid import UUID
 
@@ -30,35 +31,50 @@ from dlt_runtime.exceptions import (
     exception_from_response,
     handle_client_exceptions,
 )
-from dlt_runtime.runtime_clients.api.api.me import me
-from dlt_runtime.runtime_clients.api.api.organizations import set_organization_region
-from dlt_runtime.runtime_clients.api.api.workspaces import create_workspace
-from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models import (
+from dlt_runtime.strings import API_KEY_UNRECOGNIZED
+from dlt_runtime.typing import CallerInfo, WorkspaceInfo
+from dlt_runtime.urls import normalize_api_base_url
+from dlt_runtime.version import __version__
+from dlthub_sdk._gen.api.api.me import get_current_user, organization_me
+from dlthub_sdk._gen.api.api.organizations import (
+    list_organizations,
+    set_organization_region,
+)
+from dlthub_sdk._gen.api.api.workspaces import create_workspace
+from dlthub_sdk._gen.api.client import Client as ApiClient
+from dlthub_sdk._gen.api.models import (
     CreateWorkspaceResponse409,
+    CurrentUserResponse,
     ErrorCode,
-    MeResponse,
-    OrganizationMembershipResponse,
+    ListOrganizationsResponse200,
+    OrganizationMeResponse,
     OrganizationResponse,
+    PrincipalKind,
     SetOrganizationRegionRequest,
     WorkspaceCreateRequest,
     WorkspaceResponse,
-    WorkspaceWithMembershipResponse,
 )
-from dlt_runtime.runtime_clients.auth.api.default import (
+from dlthub_sdk._gen.auth.api.default import (
     create_session_swap_code as swap_code_api,
     refresh as refresh_api,
 )
-from dlt_runtime.runtime_clients.auth.client import Client as AuthClient
-from dlt_runtime.runtime_clients.auth.models import (
+from dlthub_sdk._gen.auth.client import Client as AuthClient
+from dlthub_sdk._gen.auth.models import (
     RefreshRequest,
     RefreshResponse,
     SwapCodeRequest,
     SwapCodeResponse,
 )
-from dlt_runtime.typing import OrganizationInfo, UserInfo, WorkspaceInfo
-from dlt_runtime.urls import normalize_api_base_url
-from dlt_runtime.version import __version__
+
+PERSONAL_API_KEY_PREFIX = "dlt_u_"
+WORKSPACE_API_KEY_PREFIX = "dlt_sa_"
+
+
+class AuthenticationMethod(str, Enum):
+    """How the CLI authenticates. API keys are static: no JWT, no refresh token."""
+
+    JWT = "jwt"
+    API_KEY = "api_key"
 
 
 def _tls_verify() -> bool:
@@ -130,13 +146,23 @@ class RuntimeAuthService:
         except RuntimeOperationNotAuthorized:
             return False
 
-    def has_api_key(self) -> bool:
-        """True iff an API key is configured."""
-        return bool(self.workspace_run_context.runtime_config.api_key)
+    def authentication_method(self) -> AuthenticationMethod:
+        if self.workspace_run_context.runtime_config.api_key:
+            return AuthenticationMethod.API_KEY
+        return AuthenticationMethod.JWT
+
+    def principal_kind(self) -> PrincipalKind:
+        """Who the credential acts as. Raises on an API key with an unknown prefix."""
+        api_key = self.workspace_run_context.runtime_config.api_key
+        if api_key is None or api_key.startswith(PERSONAL_API_KEY_PREFIX):
+            return PrincipalKind.HUMAN
+        if api_key.startswith(WORKSPACE_API_KEY_PREFIX):
+            return PrincipalKind.SERVICE_ACCOUNT
+        raise ApiKeyInvalid(API_KEY_UNRECOGNIZED)
 
     @property
     def organization_id(self) -> Optional[str]:
-        """Return the organization_id pinned in `.dlt/config.toml`, or None."""
+        """Return the pinned organization_id from the dlt config, or None."""
         # Org pinning is write-once: `workspace connect` filters
         # listings and creates new workspaces in this org, but the CLI never
         # mutates this value — user removes it manually to switch orgs.
@@ -155,12 +181,10 @@ class RuntimeAuthService:
                 pass  # refresh failed — fall through to re-raise original
             raise
 
-    def login(
-        self, token: str, refresh_token: Optional[str] = None
-    ) -> tuple[AuthInfo, UserInfo]:
+    def login(self, token: str, refresh_token: Optional[str] = None) -> AuthInfo:
         auth_info = self._save_token_and_refresh_token(token, refresh_token)
-        user_info = self.fetch_user_info()
-        return auth_info, user_info
+        self._bootstrap_caller()
+        return auth_info
 
     def logout(self) -> None:
         self._delete_token()
@@ -295,66 +319,92 @@ class RuntimeAuthService:
         secrets.write_toml()
         return self.auth_info
 
-    def fetch_user_info(self) -> UserInfo:
-        """Fetch user info from /me, which self-bootstraps the caller's org on first call."""
+    def _bootstrap_caller(self) -> None:
+        """Call /user at login to self-bootstrap the caller's org, then validate local state."""
         error_message = "Failed to get your user info from the dltHub API. Run 'dlthub login' or update your API key"
         client = get_api_client(self)
         with handle_client_exceptions(error_message):
-            me_response = me.sync_detailed(client=client)
+            user_response = get_current_user.sync_detailed(client=client)
 
-        if isinstance(me_response.parsed, MeResponse):
-            return self._me_response_to_user_info(me_response.parsed)
+        if not isinstance(user_response.parsed, CurrentUserResponse):
+            raise exception_from_response(error_message, user_response)
 
-        raise exception_from_response(error_message, me_response)
+        self.fetch_caller_info()
 
-    def _me_response_to_user_info(self, parsed: MeResponse) -> UserInfo:
-        last_workspace = (
-            parsed.last_workspace
-            if isinstance(parsed.last_workspace, WorkspaceResponse)
-            else None
-        )
+    def fetch_caller_info(self) -> CallerInfo:
+        """Workspaces and organizations of the caller, via org endpoints available to all principals."""
+        error_message = "Failed to get workspace info from the dltHub API. Run 'dlthub login' or update your API key"
+        client = get_api_client(self)
+        with handle_client_exceptions(error_message):
+            orgs_response = list_organizations.sync_detailed(client=client)
 
-        workspaces_list: list[WorkspaceInfo]
-        if isinstance(parsed.workspaces, list):
-            workspaces_list = [
-                self._convert_workspace_membership(wm) for wm in parsed.workspaces
-            ]
-        elif last_workspace is not None:
-            # Fallback: just the last workspace if workspaces not returned.
-            # Assume owner role since this is the user's own default workspace.
-            ws_info = self._convert_workspace(last_workspace)
-            ws_info["role"] = "owner"
-            workspaces_list = [ws_info]
-        else:
-            workspaces_list = []
+        orgs_page = orgs_response.parsed
+        if not isinstance(orgs_page, ListOrganizationsResponse200):
+            raise exception_from_response(error_message, orgs_response)
+        orgs = list(orgs_page.items) if orgs_page.items else []
 
-        assert isinstance(parsed.organizations, list), (
-            "MeResponse.organizations missing — server contract requires it"
-        )
-        organizations_list = [
-            self._convert_organization_membership(om) for om in parsed.organizations
-        ]
+        org_mes: list[OrganizationMeResponse] = []
+        for org in orgs:
+            with handle_client_exceptions(error_message):
+                org_me_response = organization_me.sync_detailed(
+                    organization_id=org.id, client=client
+                )
+            org_me = org_me_response.parsed
+            if not isinstance(org_me, OrganizationMeResponse):
+                raise exception_from_response(error_message, org_me_response)
+            org_mes.append(org_me)
 
-        user_info: UserInfo = {
-            "email": parsed.email,
-            "user_id": str(parsed.user_id),
-            "identity_id": str(parsed.identity_id),
-            "default_organization_id": str(parsed.primary_organization.id),
-            "workspaces": workspaces_list,
-            "organizations": organizations_list,
+        caller_info: CallerInfo = {
+            "workspaces": [
+                ws
+                for org_me in org_mes
+                for ws in self._org_me_response_to_workspace_infos(org_me)
+            ],
+            # list_organizations only returns active memberships.
+            "organizations": [
+                {
+                    "id": str(org_me.organization.id),
+                    "name": org_me.organization.name,
+                    "role": org_me.role,
+                    "active": True,
+                }
+                for org_me in org_mes
+            ],
         }
-        if last_workspace is not None:
-            user_info["default_workspace"] = self._convert_workspace(last_workspace)
-        self._validate_local_workspace(user_info)
-        return user_info
+        if org_mes:
+            caller_info["identity"] = {
+                "email": org_mes[0].email,
+                "user_id": str(org_mes[0].user_id),
+                "identity_id": str(org_mes[0].identity_id),
+            }
+        if self.principal_kind() is PrincipalKind.HUMAN:
+            self._validate_local_workspace(caller_info)
+        return caller_info
 
-    def _validate_local_workspace(self, user_info: UserInfo) -> None:
+    def _org_me_response_to_workspace_infos(
+        self, org_me: OrganizationMeResponse
+    ) -> list[WorkspaceInfo]:
+        """Workspaces in an OrganizationMe response, each stamped with its organization."""
+        assert isinstance(org_me.workspaces, list), (
+            "OrganizationMe must return workspaces. Server contract requires it"
+        )
+        workspaces = []
+        for wm in org_me.workspaces:
+            info = self._convert_workspace(wm.workspace)
+            info["role"] = wm.role
+            info["organization_id"] = str(org_me.organization.id)
+            info["organization_name"] = org_me.organization.name
+            workspaces.append(info)
+        return workspaces
+
+    def _validate_local_workspace(self, caller_info: CallerInfo) -> None:
         """Wipe stale workspace_id from .dlt/config.toml."""
-        # Runs after every successful login / token refresh that hits `/me`.
+        # Runs on every human caller-info fetch; workspace-key pins are instead
+        # validated explicitly by `workspace connect` (pin-mismatch errors).
         # `organization_id` is write-once and the user removes it manually to
         # switch orgs — the CLI never overwrites it (matches `write_connection`).
         cfg = self.workspace_run_context.runtime_config
-        accessible_ws = {ws["id"] for ws in user_info["workspaces"]}
+        accessible_ws = {ws["id"] for ws in caller_info["workspaces"]}
         if not cfg.workspace_id or cfg.workspace_id in accessible_ws:
             return
         self._write_runtime_config(workspace_id=None)
@@ -365,7 +415,7 @@ class RuntimeAuthService:
 
     def _convert_workspace(self, workspace: WorkspaceResponse) -> WorkspaceInfo:
         # Current package
-        from dlt_runtime.runtime_clients.api.types import Unset
+        from dlthub_sdk._gen.api.types import Unset
 
         info: WorkspaceInfo = {
             "id": str(workspace.id),
@@ -379,41 +429,17 @@ class RuntimeAuthService:
             )
         return info
 
-    def _convert_workspace_membership(
-        self, wm: WorkspaceWithMembershipResponse
-    ) -> WorkspaceInfo:
-        """Convert a WorkspaceWithMembershipResponse to WorkspaceInfo."""
-        info = self._convert_workspace(wm.workspace)
-        info["role"] = wm.role
-        info["organization_id"] = str(wm.organization.id)
-        info["organization_name"] = wm.organization.name
-        return info
-
-    def _convert_organization_membership(
-        self, om: OrganizationMembershipResponse
-    ) -> OrganizationInfo:
-        return {
-            "id": str(om.organization.id),
-            "name": om.organization.name,
-            "role": om.role,
-            "active": om.active,
-        }
-
     def create_new_workspace(
         self,
-        user_info: UserInfo,
         name: str,
         description: Optional[str],
         *,
-        organization_id: Optional[str] = None,
+        organization_id: str,
     ) -> str:
         """Create a new workspace via the API."""
-        # `organization_id` overrides the user's default org so a pinned-org
-        # `workspace connect` keeps creates within that org.
-        org_id = organization_id or user_info["default_organization_id"]
         with handle_client_exceptions("Failed to create workspace"):
             create_result = create_workspace.sync_detailed(
-                organization_id=UUID(org_id),
+                organization_id=UUID(organization_id),
                 client=get_api_client(self),
                 body=WorkspaceCreateRequest(name=name, description=description),
             )
@@ -453,7 +479,7 @@ class RuntimeAuthService:
         value, _ = secrets.get_value(
             "refresh_token", str, "", RuntimeConfiguration.__section__
         )
-        return value if value else None
+        return str(value) if value else None
 
     def _delete_refresh_token(self) -> None:
         """Remove the refresh token from the global secrets.toml."""

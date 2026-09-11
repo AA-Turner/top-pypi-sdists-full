@@ -289,7 +289,25 @@ async def _known_missing_key_result(
             try:
                 lookup = get_ext("lookup_prior_attached_document")
                 prior = await lookup(conversation_id, key)
-            except Exception:
+            except Exception as exc:
+                # Degrade the MODEL's guidance to the cheap tier, but never
+                # silently: the operator must learn the lookup is failing.
+                logger.warning(
+                    "[context] lookup_prior_attached_document failed for %r; "
+                    "degrading to unconfirmed guidance",
+                    key,
+                    exc_info=True,
+                )
+                from matrx_connect.streaming.error_capture import capture_error
+
+                await capture_error(
+                    exc,
+                    kind="context_prior_document_lookup_failed",
+                    conversation_id=conversation_id,
+                    route="matrx_ai.tools.context/known_missing_key",
+                    error_type=type(exc).__name__,
+                    payload={"key": key},
+                )
                 prior = None
             if prior:
                 confirmed = True
@@ -827,6 +845,11 @@ async def _run_summary_agent(
             agent,
             label=f"summary:{agent_id}",
             source_feature="context_summary",
+            # NESTED-AGENT STREAM LEAK: this runs inside the ctx_get
+            # (mode="summary") TOOL while the calling agent streams to a user;
+            # unmuted, the summary tokens ride the caller's user-facing NDJSON
+            # stream. The summary still returns via AgentRunResult.output.
+            suppress_stream=True,
         )
         if not result.success:
             return None, f"Summary agent failed: {result.error}"

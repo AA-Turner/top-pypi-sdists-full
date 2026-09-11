@@ -33,6 +33,7 @@ import logging
 from typing import Any
 from urllib.parse import urlparse
 
+from matrx_scraper.utils.proxy import playwright_proxy, redact_url_secrets
 from matrx_scraper.utils.url import validate_public_http_url
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ async def guard_target(url: str) -> str:
     try:
         return await validate_public_http_url(url)
     except Exception as exc:
-        logger.warning("browser session BLOCKED target %r: %s", url, exc)
+        logger.warning("browser session BLOCKED target %r: %s", redact_url_secrets(url), redact_url_secrets(exc))
         raise UnsafeUrlError(BLOCKED_TARGET_MESSAGE) from exc
 
 
@@ -71,7 +72,13 @@ async def guard_proxy(proxy: str | None) -> None:
     try:
         await validate_public_http_url(proxy)
     except Exception as exc:
-        logger.warning("browser session BLOCKED proxy %r: %s", proxy, exc)
+        # A proxy URL carries live account credentials, and the validator's
+        # message echoes the URL it rejected — log the address, never the login.
+        logger.warning(
+            "browser session BLOCKED proxy %s: %s",
+            redact_url_secrets(playwright_proxy(proxy)["server"]),
+            redact_url_secrets(exc),
+        )
         raise UnsafeUrlError("proxy must be a publicly routable http(s) address") from exc
 
 

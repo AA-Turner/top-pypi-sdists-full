@@ -129,7 +129,9 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
         emr_override_config = self.config.overrides.get("emr", {})
         self.endpoint_url = emr_override_config.get("endpoint_url")
 
-        self.sts_client = boto3.client("sts", region_name=self.region)
+        self.sts_client = boto3.client(
+            "sts", region_name=self.region, config=self._client_retry_config()
+        )
         self._emr_client = self._create_emr_client()
 
     def _create_emr_client(self):
@@ -154,7 +156,7 @@ class EmrEc2SparkSessionManager(SparkSessionManager):
             )
             boto_session = boto3.Session()
 
-        client_kwargs = {"region_name": self.region}
+        client_kwargs = {"region_name": self.region, "config": self._client_retry_config()}
         if self.endpoint_url:
             client_kwargs["endpoint_url"] = self.endpoint_url
 

@@ -57,6 +57,7 @@ from matrx_scraper.ai_browser.actions import (
     TypeResult,
     WaitForResult,
 )
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -144,17 +145,17 @@ class RemoteBrowserClient:
         try:
             resp = await client.post(url, json=json, headers=self._headers())
         except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {url}: {exc}") from exc
+            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
             except Exception:
                 detail = resp.text[:500]
-            raise BrowserClientError(f"{url} returned {resp.status_code}: {detail}")
+            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
         try:
             return resp.json()
         except Exception as exc:
-            raise BrowserClientError(f"non-JSON response from {url}: {exc}") from exc
+            raise BrowserClientError(f"non-JSON response from {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
 
     async def _delete(self, path: str) -> dict[str, Any]:
         client = await self._ensure_client()
@@ -162,17 +163,17 @@ class RemoteBrowserClient:
         try:
             resp = await client.delete(url, headers=self._headers())
         except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {url}: {exc}") from exc
+            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
             except Exception:
                 detail = resp.text[:500]
-            raise BrowserClientError(f"{url} returned {resp.status_code}: {detail}")
+            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
         try:
             return resp.json()
         except Exception as exc:
-            raise BrowserClientError(f"non-JSON response from {url}: {exc}") from exc
+            raise BrowserClientError(f"non-JSON response from {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
 
     # ── Actions ────────────────────────────────────────────────────────────
 
@@ -448,13 +449,13 @@ class RemoteBrowserClient:
         try:
             resp = await client.get(url, headers=self._headers())
         except httpx.HTTPError as exc:
-            raise BrowserClientError(f"transport error calling {url}: {exc}") from exc
+            raise BrowserClientError(f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc)}") from exc
         if resp.status_code >= 400:
             try:
                 detail = resp.json()
             except Exception:
                 detail = resp.text[:500]
-            raise BrowserClientError(f"{url} returned {resp.status_code}: {detail}")
+            raise BrowserClientError(f"{redact_url_secrets(url)} returned {resp.status_code}: {detail}")
         return resp.json()
 
 

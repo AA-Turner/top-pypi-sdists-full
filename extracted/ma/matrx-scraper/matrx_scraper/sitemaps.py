@@ -11,6 +11,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 from matrx_scraper.utils.url import validate_public_http_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 _MAX_SITEMAP_BYTES = 20 * 1024 * 1024
 
@@ -85,7 +86,7 @@ async def _safe_get(
         if not location:
             return current, response
         current = urljoin(current, location)
-    raise RuntimeError(f"too many redirects while fetching {url}")
+    raise RuntimeError(f"too many redirects while fetching {redact_url_secrets(url)}")
 
 
 def _local_name(tag: str) -> str:

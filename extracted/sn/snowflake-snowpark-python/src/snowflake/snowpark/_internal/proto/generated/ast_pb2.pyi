@@ -11413,6 +11413,7 @@ class WritePandas(_message.Message):
     auto_create_table: _builtins.bool
     compression: _builtins.str
     create_temp_table: _builtins.bool
+    """Deprecated: use table_type instead."""
     on_error: _builtins.str
     overwrite: _builtins.bool
     parallel: _builtins.int
@@ -11616,6 +11617,7 @@ class WriteTable(_message.Message):
     column_order: _builtins.str
     copy_grants: _builtins.bool
     create_temp_table: _builtins.bool
+    """Deprecated: use table_type instead."""
     table_type: _builtins.str
     @_builtins.property
     def change_tracking(self) -> _wrappers_pb2.BoolValue: ...

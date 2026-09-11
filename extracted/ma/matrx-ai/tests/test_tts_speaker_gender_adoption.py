@@ -191,11 +191,11 @@ def test_gender_round_trips_and_stays_optional():
     assert spoken.to_dict() == {"name": "Sarah", "voice": "kore", "gender": "female"}
 
 
-def test_to_google_still_sends_only_name_and_voice(pool):
-    """Gender is an internal pairing signal — it must never reach the provider."""
-    pytest.importorskip("google.genai")
+def test_to_google_builds_neutral_shape_with_only_name_and_voice(pool):
+    """Gender is internal; config emits a provider-neutral payload only."""
     cfg = _mixed_cast()
     speech = cfg.to_google(_contents("Marcus: A.\n\nElena: B."))
-    configs = speech.multi_speaker_voice_config.speaker_voice_configs
-    assert {c.speaker for c in configs} == {"Marcus", "Elena"}
-    assert not any(hasattr(c, "gender") for c in configs)
+    assert speech is not None
+    configs = speech["multi_speaker_voice_config"]["speaker_voice_configs"]
+    assert {c["speaker"] for c in configs} == {"Marcus", "Elena"}
+    assert all("gender" not in c for c in configs)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bashkit
-Version: 0.17.1
+Version: 0.18.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Interpreters
 Classifier: Topic :: Security
-Requires-Dist: deepagents>=0.3.11 ; extra == 'deepagents'
+Requires-Dist: deepagents>=0.7.13 ; extra == 'deepagents'
 Requires-Dist: langchain-anthropic>=0.3 ; extra == 'deepagents'
 Requires-Dist: pytest>=7.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.23 ; extra == 'dev'
@@ -600,9 +600,21 @@ tool = create_bash_tool()
 
 ### Deep Agents
 
+Requires Python 3.11+ and `pip install 'bashkit[deepagents]'`.
+
 ```python
-from bashkit.deepagents import BashkitBackend, BashkitMiddleware
+from bashkit.deepagents import BashkitBackend
+
+backend = BashkitBackend(timeout_seconds=30)
+backend.write("/tmp/example.py", "print(42)")
+assert backend.read("/tmp/example.py").file_data["content"] == "print(42)"
+assert backend.grep("print", "/tmp", glob="*.py").matches[0]["line"] == 1
+middleware = backend.create_middleware()  # Shares the same virtual filesystem
 ```
+
+Uses the structured Deep Agents 0.7.13+ backend protocol. Shell execution reports
+native output truncation; file operations preserve exact VFS contents. Configure
+execution timeouts on the backend constructor.
 
 ## API Reference
 

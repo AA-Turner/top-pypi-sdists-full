@@ -9,7 +9,8 @@ use crate::rule::{
 use crate::utils::frontmatter_values;
 use crate::utils::range_utils::byte_to_char_count;
 use crate::workspace_index::{
-    FileIndex, LinkOrigin, Md057LinkTarget, extract_cross_file_links, normalize_relative_path,
+    FileIndex, LinkOrigin, Md057LinkTarget, URL_EXTRACT_ANGLE_BRACKET_REGEX, URL_EXTRACT_REGEX,
+    extract_cross_file_links, normalize_relative_path,
 };
 use pulldown_cmark::LinkType;
 use regex::Regex;
@@ -78,17 +79,6 @@ fn resolve_existing_target(path: &Path) -> Option<PathBuf> {
 
 // Regex to match the start of a link - simplified for performance
 static LINK_START_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!?\[[^\]]*\]").unwrap());
-
-/// Regex to extract the URL from an angle-bracketed markdown link
-/// Format: `](<URL>)` or `](<URL> "title")`
-/// This handles URLs with parentheses like `](<path/(with)/parens.md>)`
-static URL_EXTRACT_ANGLE_BRACKET_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"\]\(\s*<([^>]+)>(#[^\)\s]*)?\s*(?:"[^"]*")?\s*\)"#).unwrap());
-
-/// Regex to extract the URL from a normal markdown link (without angle brackets)
-/// Format: `](URL)` or `](URL "title")`
-static URL_EXTRACT_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("\\]\\(\\s*([^>\\)\\s#]+)(#[^)\\s]*)?\\s*(?:\"[^\"]*\")?\\s*\\)").unwrap());
 
 /// Regex to detect URLs with explicit schemes (should not be checked as relative links)
 /// Matches: scheme:// or scheme: (per RFC 3986)
@@ -2459,6 +2449,57 @@ This is a [real missing link](missing.md) that should be flagged.
         assert!(
             result[0].message.contains("app/(missing)/file.md"),
             "Warning should mention app/(missing)/file.md"
+        );
+    }
+
+    #[test]
+    fn test_balanced_parentheses_in_link_paths() {
+        // Reproduces https://github.com/rvben/rumdl/issues/830:
+        // links whose file path contains balanced parentheses used to be
+        // truncated at the first ')' and reported as missing even when the
+        // target exists on disk.
+        let temp_dir = tempdir().unwrap();
+        let base_path = temp_dir.path();
+
+        // Existing file with parens in its name
+        let paren_file = base_path.join("file(inner).md");
+        File::create(&paren_file)
+            .unwrap()
+            .write_all(b"# file(inner).md\n")
+            .unwrap();
+
+        // Existing file inside a folder with parens in its name
+        let folder = base_path.join("folder(inner)");
+        std::fs::create_dir(&folder).unwrap();
+        File::create(folder.join("file.md"))
+            .unwrap()
+            .write_all(b"# folder(inner)/file.md\n")
+            .unwrap();
+
+        let content = r#"
+# Test cases
+
+[File with parenthesis exists](file(inner).md)
+[Folder with parenthesis exists](folder(inner)/file.md)
+[Missing with parenthesis](missing(inner).md)
+"#;
+
+        let rule = MD057ExistingRelativeLinks::new().with_path(base_path);
+
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // The two existing targets must not warn, and the missing one must be
+        // reported with its full, untruncated path.
+        assert_eq!(
+            result.len(),
+            1,
+            "Expected exactly one warning (the missing file). Got: {result:?}"
+        );
+        assert!(
+            result[0].message.contains("missing(inner).md"),
+            "Warning should name the full path `missing(inner).md`, got: {}",
+            result[0].message
         );
     }
 

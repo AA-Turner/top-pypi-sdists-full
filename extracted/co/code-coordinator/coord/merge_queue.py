@@ -39,6 +39,7 @@ from coord.ci_store import (
     in_flight_checks,
     is_unreadable_check,
     is_verdictless_job,
+    shrunk_check_names,
     summarize,
     summarize_counts,
 )
@@ -335,6 +336,55 @@ def _log_superseded(row) -> None:
     )
 
 
+# ── Gate registry lookups (#3261 S-3) ───────────────────────────────────────
+#
+# `coord.pipeline` imports `requires_uat`/`evaluate_uat_verdict` from THIS
+# module at module level (#3261 S-2's `GATE_REGISTRY` wraps them) — so a
+# module-level `from coord.pipeline import GATE_REGISTRY` here would
+# deadlock the cycle (whichever module loads first would hit the other
+# still mid-initialization). The import below is deferred into the
+# functions that need it instead; both modules are always fully loaded by
+# the time a gate check actually runs, so it's a cheap `sys.modules` cache
+# hit, not a real re-import.
+#
+# Only "uat" has a `GateSpec` row today (#3261 S-2) — "review"/"test" don't
+# yet (the epic explicitly allows deferring their registry rows to a later
+# slice; see the #3261 issue). `_registry_gate_name` is a passthrough for
+# any key without a row, so `requires_review`/`requires_smoke` keep their
+# exact current behaviour, and picking up a future "review"/"test"
+# `GateSpec` needs no further change here — just the registry row.
+
+
+def _registry_gate_name(key: str) -> str:
+    """Resolve *key* to its canonical name via
+    :data:`coord.pipeline.GATE_REGISTRY` when *key* has a row there, else
+    return *key* unchanged (see the module comment above this function)."""
+    from coord.pipeline import GATE_REGISTRY
+
+    spec = GATE_REGISTRY.get(key)
+    return spec.name if spec is not None else key
+
+
+def _gate_in_effective_gates(gate_key: str, entry: "QueuedMerge", config) -> bool:
+    """True when *gate_key* (registry-resolved, see :func:`_registry_gate_name`)
+    is present in *entry*'s effective gate list.
+
+    Effective gate list: ``entry``'s own ``required_gates`` when set, falling
+    back to ``config.pipeline.default_gates`` otherwise (#1213) — the
+    resolution rule :func:`requires_review`/:func:`requires_smoke`/
+    :func:`requires_uat` all share. Extracted here once (#2096: one question,
+    one answer) instead of repeating ``gates = ...; return X in gates`` at
+    each call site. Caller is responsible for the ``config.pipeline is None``
+    short-circuit — its return value differs per gate (True for review,
+    False for smoke/uat), so it can't live in this shared helper.
+    """
+    pipeline = getattr(config, "pipeline", None)
+    if pipeline is None:
+        return False
+    gates = getattr(entry, "required_gates", None) or (pipeline.default_gates or [])
+    return _registry_gate_name(gate_key) in gates
+
+
 # ── Review gate (#253) ──────────────────────────────────────────────────────
 
 def requires_review(entry: "QueuedMerge", config) -> bool:
@@ -358,8 +408,7 @@ def requires_review(entry: "QueuedMerge", config) -> bool:
     pipeline = getattr(config, "pipeline", None)
     if pipeline is None:
         return True
-    gates = getattr(entry, "required_gates", None) or (pipeline.default_gates or [])
-    return "review" in gates
+    return _gate_in_effective_gates("review", entry, config)
 
 
 def _backfill_branch_patch_id(entry: "QueuedMerge", gh_ops: "GhOps | None") -> str | None:
@@ -912,8 +961,7 @@ def requires_smoke(entry: "QueuedMerge", config) -> bool:
     pipeline = getattr(config, "pipeline", None)
     if pipeline is None:
         return False
-    gates = getattr(entry, "required_gates", None) or (pipeline.default_gates or [])
-    return "test" in gates
+    return _gate_in_effective_gates("test", entry, config)
 
 
 # ── UAT gate (#2687) ─────────────────────────────────────────────────────────
@@ -980,8 +1028,7 @@ def requires_uat(entry: "QueuedMerge", config) -> bool:
     pipeline = getattr(config, "pipeline", None)
     if pipeline is None or config is None:
         return False
-    gates = getattr(entry, "required_gates", None) or (pipeline.default_gates or [])
-    if "uat" not in gates:
+    if not _gate_in_effective_gates("uat", entry, config):
         return False
     repo = _uat_repo_for(entry, config)
     if repo is None:
@@ -1154,9 +1201,9 @@ def evaluate_uat_verdict(
     resolution = _resolve_uat_preview_url(entry, config, gh_ops)
     if uat_state == "failed":
         reason_part = f": {uat_reason}" if (uat_reason or "").strip() else ""
-        message = f"uat verdict FAILED{reason_part}"
+        message = f"{UAT_GATE_REASON_PREFIX} FAILED{reason_part}"
     else:
-        message = "uat verdict missing"
+        message = f"{UAT_GATE_REASON_PREFIX} missing"
     if resolution.url:
         message += f" — preview: {resolution.url}"
     else:
@@ -1239,6 +1286,16 @@ def _run_declared_uat_checks(
 
 
 # ── Gate-bypass auditing (#1213) ────────────────────────────────────────────
+#
+# #3261 S-3 scope note: this function's literal ``"review"``/``"test"``/
+# ``"uat"`` checks are deliberately NOT routed through
+# ``_gate_in_effective_gates``/``GATE_REGISTRY``. It asks a different
+# question than ``requires_review``/``requires_smoke``/``requires_uat`` —
+# "which named gates does the DEFAULT list carry that entry's own resolved
+# list dropped" (comparing two lists against each other), not "does entry
+# require gate X" (one list against a name) — so it isn't one of the three
+# membership tests S-3 targets, and folding it into the shared helper would
+# just be a name coincidence, not the same question in #2096's sense.
 
 def _bypassed_gates(entry: "QueuedMerge", config) -> list[str]:
     """Which of the default pipeline's gates *entry*'s resolved gate list
@@ -2086,7 +2143,18 @@ def is_ci_absent_reason(reason: str | None) -> bool:
     """True when *reason* names a PR whose CI was expected to run but never
     reported a single check (#1904) — as opposed to one that ran and failed
     (``checks_failed``), is still running (:func:`is_ci_pending_reason`), or
-    ran stale (``CI_STALE_PREFIX``)."""
+    ran stale (``CI_STALE_PREFIX``).
+
+    #3254: UNLIKE its four siblings above (`is_ci_pending_reason`,
+    `is_ci_infra_reason`, `is_ci_flaky_reason`, `is_ci_unreadable_reason`),
+    this condition is NOT self-refreshing — no amount of waiting or
+    retrying ever makes GitHub build a check suite retroactively for the
+    SAME head; only a new commit re-fires the `pull_request` webhook that
+    creates one. `coord.drive_queue` consumes this (via
+    `IssueFacts.merge_ci_absent`) to fail fast — block without spending a
+    launch attempt — rather than parking on a reading that can never
+    resolve itself.
+    """
     return (reason or "").startswith(CI_ABSENT_PREFIX)
 
 
@@ -2225,6 +2293,87 @@ def ci_rollup_all_clear(summary: Any) -> bool:
     return running == 0 and failed == 0 and passed > 0
 
 
+# ── Check-set shrinkage guard (#3263) ────────────────────────────────────────
+#
+# See `coord.ci_store.shrunk_check_names`'s module-level comment for the full
+# incident. This is the persistence half: `QueuedMerge.ci_seen_checks_sha`/
+# `ci_seen_check_names_json`, scoped to `entry.branch_head_sha`.
+def _ci_seen_check_names(entry: "QueuedMerge") -> frozenset[str]:
+    """The cumulative check-run name set previously observed for *entry*'s
+    CURRENT ``branch_head_sha`` (#3263) — empty when nothing has been
+    recorded yet for this commit (a fresh push, or the very first live CI
+    read this entry has ever had; see :func:`coord.ci_store.
+    shrunk_check_names`'s docstring for why that read can't be caught by
+    this guard alone).
+
+    Read-only: never mutates *entry*. Safe to call from every CI-check call
+    site — the live merge path, the ``--dry-run`` preview, and
+    :func:`_entry_gate_status` — so all three ask the identical question
+    over the identical persisted state; only the live path
+    (:func:`_ci_record_seen_check_names`) ever writes it, mirroring every
+    other CI-tracking mutation in this module.
+    """
+    sha = entry.branch_head_sha or ""
+    if not sha or entry.ci_seen_checks_sha != sha or not entry.ci_seen_check_names_json:
+        return frozenset()
+    try:
+        names = json.loads(entry.ci_seen_check_names_json)
+    except (TypeError, ValueError):
+        return frozenset()
+    if not isinstance(names, list):
+        return frozenset()
+    return frozenset(str(n) for n in names)
+
+
+def _ci_record_seen_check_names(entry: "QueuedMerge", checks: list[CheckRun]) -> None:
+    """Persist *checks*' names onto *entry* for its CURRENT
+    ``branch_head_sha`` (#3263) — the write half of the shrinkage guard.
+
+    Only ever called from the LIVE merge path in :func:`process` — mirrors
+    every other CI-tracking mutation in this module (``ci_infra_reruns``,
+    ``ci_flaky_pending``, ...), which likewise only ever changes on a real
+    attempt, never on a ``--dry-run`` preview or a board-render
+    ``_entry_gate_status`` call (:mod:`coord.gate_snapshot`'s Invariant 1:
+    the read path performs no mutation either).
+
+    Resets to exactly *checks*' own names — discarding any prior commit's
+    tracking — when ``branch_head_sha`` has changed since the last recorded
+    read; otherwise unions with whatever was already recorded, so a name
+    that disappears for more than one consecutive tick keeps being flagged
+    rather than being silently dropped from the record the moment it first
+    vanishes.
+    """
+    sha = entry.branch_head_sha or ""
+    current_names = {c.name for c in checks}
+    if entry.ci_seen_checks_sha != sha:
+        entry.ci_seen_checks_sha = sha
+        entry.ci_seen_check_names_json = json.dumps(sorted(current_names))
+        return
+    seen = set(_ci_seen_check_names(entry))
+    entry.ci_seen_check_names_json = json.dumps(sorted(seen | current_names))
+
+
+def _ci_check_shrinkage_message(missing: "Iterable[str]") -> str:
+    """The shared #3263 message for a read that dropped a previously-observed
+    check name.
+
+    Reuses :data:`CI_PENDING_PREFIX` — not a new prefix — so
+    :mod:`coord.drive_queue`'s "self-refreshing, no attempt spent" park
+    handling (keyed on :func:`is_ci_pending_reason`) extends to this reading
+    for free: a read that just lost track of a check it already knew about
+    answers exactly as little as one that is genuinely still running, and
+    should be waited out the same way, not treated as a resolved verdict of
+    any kind.
+    """
+    names = ", ".join(sorted(missing))
+    return (
+        f"{CI_PENDING_PREFIX} check(s) {names} were previously observed for "
+        "this commit but are missing from the latest read — likely a "
+        "partial CI re-run still registering (#3263); treating the read as "
+        "incomplete rather than resolved"
+    )
+
+
 # #1892: auto-reruns `process()` will trigger for a single entry's verdictless
 # CI failure (via `CiStore.rerun_for_pr`) before giving up and parking it for
 # a human instead of the queue's own #1891 machinery. A workflow genuinely
@@ -2234,17 +2383,29 @@ def ci_rollup_all_clear(summary: Any) -> bool:
 # standing breakage.
 MAX_CI_INFRA_RERUNS = 2
 
-# #2197: same shape as MAX_CI_INFRA_RERUNS above, but for the OTHER CI
-# auto-rerun trigger `process()` supports — a PASSING check recorded against
-# a base that has since moved (:data:`CI_STALE_PREFIX`, #1851's staleness
-# signal), not a failure. Deliberately a SEPARATE constant/counter from
-# `ci_infra_reruns`: the two triggers answer opposite readings of CI ("this
-# failed and needs to prove itself again" vs. "this passed but predates the
-# base and needs a fresh answer") and must be independently capped and
-# independently legible in the audit trail. A base that keeps moving out
-# from under one PR (a busy queue, or a genuinely wedged branch) would
-# otherwise auto-rerun forever; two tries rides out an ordinary busy tick
-# without masking a PR that just isn't going to catch up unattended.
+# #2197: originally the same shape as MAX_CI_INFRA_RERUNS above, but for a
+# PASSING check recorded against a base that has since moved
+# (:data:`CI_STALE_PREFIX`, #1851's staleness signal) rather than a failure.
+#
+# #3266: `process()` no longer spends this budget — a same-run
+# `CiStore.rerun_for_pr` replays the SAME event payload against the SAME
+# base the stale checks already used, so it can never answer a "has the base
+# moved" question, on a busy tick or a quiet one. Unlike the sibling
+# `ci_infra_reruns`/`ci_flaky_reruns` triggers, where "run the identical
+# thing again and see" genuinely is the remedy, staleness has no re-run
+# remedy at all; `process()` now parks on the FIRST stale reading (see the
+# `_ci_checks_are_stale` block in `process()` and `ci_stale_reason`'s
+# rebase-and-push wording). `coord.commands.drive_queue
+# ._run_auto_revalidate_checks_stale` — the unattended periodic call site
+# (#2535) that shared this exact broken primitive from a second, independent
+# call site — was fixed identically in the same change (#3266): it no
+# longer fires a rerun either, and no longer reads or writes this budget at
+# all. Kept defined — rather than deleted — because `QueuedMerge.
+# ci_stale_reruns` still exists for rows written before this fix (see its
+# own comment) and because `coord.commands.merge._apply_ci_revalidation`
+# (the opt-in ``--revalidate`` CLI arm) still references it; that caller is
+# lower severity (opt-in, human-invoked) and is a tracked follow-up, not
+# something this fix's file scope covers.
 MAX_CI_STALE_RERUNS = 2
 
 # #2252: at most one auto-rerun per failure streak before a genuinely-
@@ -2555,24 +2716,31 @@ def ci_stale_reason(
     gh_ops: "GhOps | None",
     repo_github: str | None,
     target_branch: str | None,
-    *,
-    suffix: str = "",
 ) -> str:
     """The single rendering of a CI-stale refusal (#1826).
 
-    ``_entry_gate_status`` (board/plan render) and ``process()`` (the live
-    merge attempt) both call this, so the two can never print different prose
-    for the same condition — the #1141 lesson :data:`CI_STALE_PREFIX` already
-    encodes for the machine-readable half, applied to the human half too.
+    ``_entry_gate_status`` (board/plan render), the dry-run preview, and
+    ``process()`` (the live merge attempt) all call this, so none of the
+    three can ever print different prose for the same condition — the #1141
+    lesson :data:`CI_STALE_PREFIX` already encodes for the machine-readable
+    half, applied to the human half too.
 
-    *suffix* is the extra clause the live path adds once its #2197 auto-rerun
-    budget is spent; it lands before the remedy so the remedy stays the last
-    thing an operator reads.
+    #3266: the remedy used to be ``coord merge --revalidate``, whose CI arm
+    is :meth:`coord.ci_store.CiStore.rerun_for_pr` — a same-run ``gh run
+    rerun`` that replays the SAME event payload against the SAME base the
+    stale checks already used. A staleness reading is *defined* by the base
+    having moved, so that replay cannot, even in principle, produce a check
+    against the new base; recommending it here was pointing an operator at a
+    guaranteed no-op. The only thing that actually re-tests against the
+    current base is a rebase (``git push --force-with-lease`` after
+    rebasing onto *target_branch*) — that's what this now says.
     """
     note = ci_staleness_note(checks, gh_ops, repo_github, target_branch)
+    branch = target_branch or "the target branch"
     return (
-        f"{CI_STALE_PREFIX} checks predate the current base{note}{suffix} — "
-        "re-run CI (`coord merge --revalidate`) before merging"
+        f"{CI_STALE_PREFIX} checks predate the current base{note} — rebase "
+        f"onto {branch} and push (`git push --force-with-lease`); a CI "
+        "re-run against the same base cannot see a moved base"
     )
 
 
@@ -3363,6 +3531,22 @@ def ci_revalidation_candidates(
     :class:`RevalidationCandidate`, there is no local verdict to re-record —
     the remedy is :meth:`coord.ci_store.CiStore.rerun_for_pr`, keyed off
     ``entry.repo_github``/``entry.pr_number`` alone).
+
+    #3266: that remedy is a known no-op for exactly the condition this
+    selects candidates for — a staleness reading means the base moved, and
+    `rerun_for_pr` replays the same run against the same base it already
+    used, so it can never see the new one. `process()`'s OWN #2197
+    auto-rerun for this trigger was dropped for that reason (see
+    `MAX_CI_STALE_RERUNS`'s comment), and `coord.commands.drive_queue
+    ._run_auto_revalidate_checks_stale` (the unattended periodic call site)
+    was fixed the same way in the same change — it still calls this
+    function to find the candidates, but only to report them, never to
+    rerun anything. The one remaining caller that still calls
+    `rerun_for_pr` on what this returns is `coord.commands.merge
+    ._apply_ci_revalidation` (the opt-in ``--revalidate`` CI arm) — equally
+    unable to clear the block, but lower severity since a human has to
+    explicitly ask for it. Left as-is here: fixing it is a change to that
+    module, out of this function's/file's scope, and a tracked follow-up.
     """
     if ci_store is None or not ci_store.is_available:
         return []
@@ -3400,7 +3584,41 @@ _STALE_GATE_ERROR_PREFIXES = ("smoke test verdict is stale:",)
 # can't be matched by equality; both variants (missing/failed) share this
 # prefix and go stale the same #420 way: `coord uat --passed` outside a
 # merge attempt doesn't touch the stored `entry.error` string.
-_UAT_GATE_ERROR_PREFIX = "uat verdict"
+#
+# #3272 (S-4 of #3261): this is the ONLY place the UAT gate's identity
+# prefix is spelled out. `evaluate_uat_verdict` (and the board-unavailable
+# stand-in in `process()`) build their messages off THIS constant rather
+# than a second hardcoded literal, and `is_uat_gate_reason` below — the
+# function `coord.pipeline`'s "uat" `GateSpec` row exposes as its
+# `identifies_reason` field, which `coord.drive._merge_gate_kind` looks up
+# through the registry — classifies off it too. Before this, `coord/drive.py`
+# kept its OWN independently-hardcoded copy of this same string
+# (`_UAT_GATE_MARKERS`); rewording the message here without remembering
+# that second copy existed would silently stop `_merge_gate_kind` from
+# recognizing a UAT block, and with it the #3214 UAT fix-up dispatch. One
+# question ("is this reason the UAT gate's?"), one answer (#2096).
+UAT_GATE_REASON_PREFIX = "uat verdict"
+
+
+def is_uat_gate_reason(reason: str | None) -> bool:
+    """True when *reason* names a UAT-gate refusal — built off
+    :data:`UAT_GATE_REASON_PREFIX`, the single source both
+    :func:`evaluate_uat_verdict` (message construction) and this predicate
+    (classification) key off, so the two can never drift apart the way
+    #3272 (S-4 of #3261) found `coord.drive._merge_gate_kind`'s private,
+    independently-hardcoded copy already had.
+
+    A case-insensitive SUBSTRING match, not an anchored prefix: *reason* is
+    sometimes the bare message (`entry.error`/`state.merge_reason`, which
+    does start with the prefix) and sometimes a whole diagnostic LINE that
+    wraps it — `coord merge --only` echoes ``  gate uat: <reason> — will
+    block this merge`` (see `coord.drive._extract_gate_refusal_reason`) —
+    so the prefix can legitimately appear mid-string. Mirrors
+    `_SMOKE_GATE_MARKERS`/`_REVIEW_GATE_MARKERS` in `coord/drive.py`, which
+    are substring markers for exactly the same reason.
+    """
+    return UAT_GATE_REASON_PREFIX.lower() in (reason or "").lower()
+
 
 # #2085: the honest third answer for the review gate on a read-only surface —
 # neither "not approved" (unconfirmed failure) nor cleared (unconfirmed
@@ -3417,7 +3635,7 @@ def _is_recomputable_gate_error(err: str | None) -> bool:
     return (
         err in _STALE_GATE_ERRORS
         or err.startswith(_STALE_GATE_ERROR_PREFIXES)
-        or err.startswith(_UAT_GATE_ERROR_PREFIX)
+        or is_uat_gate_reason(err)
     )
 
 
@@ -3486,7 +3704,7 @@ def display_error(entry: "QueuedMerge", board, config) -> str | None:
         if entry.error.startswith(_STALE_GATE_ERROR_PREFIXES):
             return entry.error
         return None
-    if entry.error.startswith(_UAT_GATE_ERROR_PREFIX):
+    if is_uat_gate_reason(entry.error):
         # #2687: no staleness nuance to preserve here (unlike the smoke
         # branch above) — a UAT verdict carries no SHA anchor that can go
         # stale, so a fresh recompute is always the right answer: cleared
@@ -3585,14 +3803,33 @@ class QueuedMerge:
     # forever. 0 for every entry that has never hit a verdictless failure,
     # and for rows predating this column.
     ci_infra_reruns: int = 0
-    # #2197: count of automatic `CiStore.rerun_for_pr` calls `process()` has
-    # issued for this entry's CURRENT run of CI staleness (#1851) — a
-    # PASSING check recorded against a base that has since moved. Kept
-    # separate from `ci_infra_reruns` above on purpose (see
-    # `MAX_CI_STALE_RERUNS`'s comment): the two triggers must be
-    # independently capped and independently legible in the audit trail.
-    # Capped at `MAX_CI_STALE_RERUNS`. 0 for every entry that has never gone
-    # CI-stale, and for rows predating this column.
+    # #2197: originally a count of automatic `CiStore.rerun_for_pr` calls
+    # `process()` had issued for this entry's CURRENT run of CI staleness
+    # (#1851) — a PASSING check recorded against a base that has since
+    # moved, capped at `MAX_CI_STALE_RERUNS`.
+    #
+    # #3266: NEITHER of this module's two call sites increments this any
+    # more — see `MAX_CI_STALE_RERUNS`'s comment for why a same-run re-run
+    # can never answer a staleness reading. `process()` now parks on the
+    # FIRST stale reading instead of spending this budget, and
+    # `coord.commands.drive_queue._run_auto_revalidate_checks_stale` (the
+    # unattended periodic call site — #2535) was fixed the same way in the
+    # same change: it reports a `checks_stale` block for visibility but no
+    # longer reads OR writes this field at all. Left in place (rather than
+    # dropped from the schema) so a row written before this fix, still
+    # carrying a nonzero count from the old behaviour, has somewhere to
+    # decode it — `process()`'s "genuinely fresh" reset still zeroes it, so
+    # it converges to 0 and stays there for good. 0 for every entry that has
+    # never gone CI-stale under the old behaviour, and for rows predating
+    # this column.
+    #
+    # `coord.commands.merge._apply_ci_revalidation` (the opt-in
+    # ``--revalidate`` CLI arm) is the one remaining caller of
+    # `ci_revalidation_candidates` that still calls `rerun_for_pr` for this
+    # exact condition — it does not touch this counter (no budget, no cap;
+    # a human invoked it once, on purpose), but it is equally unable to
+    # clear a staleness block for the reason above, and is a tracked,
+    # lower-severity follow-up (see its own docstring).
     ci_stale_reruns: int = 0
     # #2252: count of automatic `CiStore.rerun_failed_for_pr` calls
     # `process()` has issued for this entry's CURRENT streak of genuinely-
@@ -3701,6 +3938,33 @@ class QueuedMerge:
     # CURRENT `branch_head_sha` — a stale cache entry from a since-moved
     # SHA is simply refetched, never served.
     ci_fix_detail_json: str | None = None
+    # #3263: `branch_head_sha` (see the field above) that `ci_seen_check_
+    # names_json` was last recorded against, together with the JSON-encoded
+    # (sorted list) cumulative set of CI check-run NAMES observed for that
+    # commit across every live `process()` read so far. Mirrors the
+    # `ci_fix_detail_sha`/`ci_fix_detail_json` pairing immediately above:
+    # trusted only when this matches the CURRENT `branch_head_sha` — a new
+    # push resets tracking to that push's own first read rather than
+    # comparing against a since-superseded commit's check set, which a
+    # legitimate workflow edit (a split/renamed/added job) would otherwise
+    # misread as a vanished check forever.
+    #
+    # This is the persisted half of the #3263 check-set shrinkage guard: a
+    # partial GitHub Actions re-run ("Re-run failed jobs") briefly drops
+    # the re-running check's OWN record out of `list_checks_for_pr` while
+    # leaving its already-green siblings untouched, so the read stays
+    # non-empty and entirely-passing — vacuously satisfying every gate
+    # predicate exactly the way #1904's EMPTY list used to. Comparing each
+    # read's check names against this cumulative record (never just the
+    # immediately-prior read — see `coord.ci_store.shrunk_check_names`'s
+    # docstring) catches a name that disappears for one tick or several.
+    #
+    # '' / `None` for every entry that has never had a live CI read for its
+    # current commit, and for rows predating this migration — read
+    # identically to "nothing observed yet", which is exactly right: there
+    # is nothing to contradict on the very first read of a fresh SHA.
+    ci_seen_checks_sha: str = ""
+    ci_seen_check_names_json: str | None = None
 
 
 class GhOps(Protocol):
@@ -4095,6 +4359,10 @@ def load_queue() -> list[QueuedMerge]:
             # as a fresh entry's own defaults.
             ci_fix_detail_sha=row["ci_fix_detail_sha"] or "",
             ci_fix_detail_json=row["ci_fix_detail_json"],
+            # #3263: same NULL-to-''/None decoding as ci_fix_detail_sha/
+            # ci_fix_detail_json above, for rows predating this migration.
+            ci_seen_checks_sha=row["ci_seen_checks_sha"] or "",
+            ci_seen_check_names_json=row["ci_seen_check_names_json"],
         )
         for row in rows
     ]
@@ -4118,8 +4386,9 @@ def save_queue(items: list[QueuedMerge]) -> None:
                         ci_stale_reruns, ci_flaky_reruns, ci_flaky_pending,
                         ci_unreadable_reruns, ci_fix_dispatches,
                         ci_fix_head_sha, ci_fix_noop_streak,
-                        ci_fix_detail_sha, ci_fix_detail_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        ci_fix_detail_sha, ci_fix_detail_json,
+                        ci_seen_checks_sha, ci_seen_check_names_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         item.assignment_id, item.repo_name, item.repo_github,
                         item.branch, item.target_branch, item.issue_number,
@@ -4131,6 +4400,7 @@ def save_queue(items: list[QueuedMerge]) -> None:
                         item.ci_unreadable_reruns, item.ci_fix_dispatches,
                         item.ci_fix_head_sha, item.ci_fix_noop_streak,
                         item.ci_fix_detail_sha, item.ci_fix_detail_json,
+                        item.ci_seen_checks_sha, item.ci_seen_check_names_json,
                     ),
                 )
 
@@ -5205,8 +5475,18 @@ def _entry_gate_status(
                 return (
                     PLAN_BLOCKED,
                     f"{CI_ABSENT_PREFIX} no checks reported for PR #{entry.pr_number} "
-                    "though this repo declares CI — merging would run untested code",
+                    "though this repo declares CI — merging would run untested code; "
+                    "push a new commit — no amount of retrying clears this (#3254)",
                 )
+        # #3263: a previously-observed check missing from THIS non-empty
+        # read — the partial-re-run window's signature (see
+        # `coord.ci_store.shrunk_check_names`'s docstring). Read-only here
+        # (never records — see `_ci_seen_check_names`'s docstring); the live
+        # merge path below is the only writer.
+        if checks:
+            missing = shrunk_check_names(_ci_seen_check_names(entry), checks)
+            if missing:
+                return PLAN_BLOCKED, _ci_check_shrinkage_message(missing)
         failed = failed_checks(checks)
         if failed:
             # #2347: classify a bare check-list FETCH failure (GitHub
@@ -6949,6 +7229,21 @@ def process(
                                 "this repo declares CI",
                             ))
                             continue
+                        # #3263: same shrinkage guard the live path applies
+                        # below — preview-only, never records (the live path
+                        # is the sole writer; see `_ci_seen_check_names`'s
+                        # docstring).
+                        if checks:
+                            missing = shrunk_check_names(
+                                _ci_seen_check_names(entry), checks
+                            )
+                            if missing:
+                                events.append(MergeEvent(
+                                    entry, "checks_pending",
+                                    f"(dry run) would be blocked: "
+                                    f"{_ci_check_shrinkage_message(missing)}",
+                                ))
+                                continue
                         failed = failed_checks(checks)
                         if failed:
                             # #1892/#2347: preview-only — never mutates,
@@ -7323,7 +7618,7 @@ def process(
                     else _run_declared_uat_checks(entry, board, config, gh_ops)
                 )
                 uat_ok, uat_msg = (
-                    (False, "uat verdict required but board unavailable to confirm")
+                    (False, f"{UAT_GATE_REASON_PREFIX} required but board unavailable to confirm")
                     if board is None
                     else evaluate_uat_verdict(entry, board, config, gh_ops)
                 )
@@ -7378,10 +7673,28 @@ def process(
                         msg = (
                             f"{CI_ABSENT_PREFIX} no checks reported for PR "
                             f"#{entry.pr_number} though this repo declares CI "
-                            "— merging would run untested code"
+                            "— merging would run untested code; push a new "
+                            "commit — no amount of retrying clears this (#3254)"
                         )
                         entry.error = msg
                         events.append(MergeEvent(entry, "checks_absent", msg))
+                        continue  # #292: skip, don't halt the group
+                # #3263: check-set shrinkage guard. Compute against what was
+                # recorded BEFORE this read, then record this read's names —
+                # in that order, so `missing` reflects an actual regression
+                # (a name seen before, gone now) rather than being emptied by
+                # the very update meant to detect it next time. This is the
+                # ONLY call site that writes `ci_seen_checks_sha`/
+                # `ci_seen_check_names_json` — see `_ci_record_seen_check_
+                # names`'s docstring for why the preview/board-render sites
+                # only ever read it.
+                if checks:
+                    missing = shrunk_check_names(_ci_seen_check_names(entry), checks)
+                    _ci_record_seen_check_names(entry, checks)
+                    if missing:
+                        msg = _ci_check_shrinkage_message(missing)
+                        entry.error = msg
+                        events.append(MergeEvent(entry, "checks_pending", msg))
                         continue  # #292: skip, don't halt the group
                 failed = failed_checks(checks)
                 if failed:
@@ -7661,73 +7974,52 @@ def process(
                 # #1851: a green CI result can itself be stale relative to the
                 # base — see `_ci_checks_are_stale`'s docstring. Named
                 # distinctly (`checks_stale`) from checks_failed/
-                # checks_pending above so an operator (and `coord merge
-                # --revalidate`, the remedy) can tell the three apart.
+                # checks_pending above so an operator can tell the three
+                # apart and reach for `ci_stale_reason`'s actual remedy
+                # (#3266: a rebase, not `--revalidate`) rather than one of
+                # the other two's.
                 #
-                # #2197: this used to always block here, escalating to a
-                # human (or, via `coord drive`, spending a merge attempt)
-                # for a condition a re-run resolves on its own — the exact
-                # #2170 regression (a docs-only base move stales a
-                # perfectly good green PR). Mirror #1892's shape exactly:
-                # auto-rerun via the SAME `CiStore.rerun_for_pr` this
-                # module already calls unattended for verdictless
-                # failures, up to `MAX_CI_STALE_RERUNS` — but track it
-                # with its OWN counter (`ci_stale_reruns`), never
-                # `ci_infra_reruns`, so a failed-then-stale (or
-                # stale-then-failed) PR does not have one trigger silently
-                # spend the other's budget, and so the audit trail can
-                # always tell which condition an auto-rerun was answering.
+                # #2197 used to auto-rerun here, mirroring #1892's
+                # verdictless-failure arm exactly: `CiStore.rerun_for_pr`, up
+                # to `MAX_CI_STALE_RERUNS` tries, before escalating.
+                #
+                # #3266: that can never work for THIS trigger. A staleness
+                # reading is defined by the base having moved (see
+                # `_ci_checks_are_stale`'s docstring); `rerun_for_pr` is a
+                # `gh run rerun`, which replays the SAME Actions run against
+                # the SAME event payload — so the re-run lands against the
+                # SAME base the stale checks already used. It cannot, even in
+                # principle, produce a check against the new base. Unlike the
+                # `ci_infra_reruns`/`ci_flaky_reruns` triggers above — where
+                # "run the identical thing again and see" is exactly the
+                # right remedy for a verdictless or suspected-flaky failure
+                # — this trigger's question ("is this fresh against the NEW
+                # base?") is never answered by that primitive. Two guaranteed
+                # no-op re-runs just spent a full CI cycle each
+                # (claude-coordinator#2972: ~2 hours of runner time) with no
+                # chance of ever clearing the block. Park immediately
+                # instead — same terminal outcome, cheaper and sooner.
+                # `ci_stale_reason`'s remedy names the thing that actually
+                # works: rebase onto the current base and push.
                 if checks and _ci_checks_are_stale(
                     checks, gh_ops, entry.repo_github, entry.target_branch, smoke,
                 ):
-                    if entry.ci_stale_reruns < MAX_CI_STALE_RERUNS:
-                        entry.ci_stale_reruns += 1
-                        reran = ci.rerun_for_pr(entry.repo_github, entry.pr_number)
-                        _log.info(
-                            "#2197 auto-rerun %d/%d for stale CI on %s#%d "
-                            "(PR #%s) (rerun_for_pr %s)",
-                            entry.ci_stale_reruns, MAX_CI_STALE_RERUNS,
-                            entry.repo_name, entry.issue_number,
-                            entry.pr_number,
-                            "triggered" if reran else "FAILED",
-                        )
-                        # #1891: same `CI_PENDING_PREFIX` wording the
-                        # genuinely-still-running case uses above — this is
-                        # what lets `coord drive`'s `is_ci_pending_reason`
-                        # check (coord/drive.py) treat a re-run THIS auto-
-                        # trigger just kicked off exactly like any other
-                        # in-flight CI: a bare wait, never a spent merge
-                        # attempt. The queue resumes it automatically once
-                        # the re-run reports, no operator needed.
-                        msg = (
-                            f"{CI_PENDING_PREFIX} re-run triggered for CI "
-                            "checks that predate the current base (#2197 "
-                            f"auto-rerun {entry.ci_stale_reruns}/"
-                            f"{MAX_CI_STALE_RERUNS} "
-                            f"{'triggered' if reran else 'failed to trigger'})"
-                        )
-                        entry.error = msg
-                        events.append(MergeEvent(entry, "checks_stale_rerun", msg))
-                        continue  # #292: skip, don't halt the group
-                    # #1826: same renderer the plan path uses, so the two
-                    # surfaces can never describe this condition differently.
+                    # #1826: same renderer the plan/dry-run paths use, so all
+                    # three surfaces can never describe this condition
+                    # differently.
                     msg = ci_stale_reason(
                         checks, gh_ops, entry.repo_github, entry.target_branch,
-                        suffix=(
-                            f"; auto-rerun budget exhausted "
-                            f"({entry.ci_stale_reruns}/{MAX_CI_STALE_RERUNS})"
-                        ),
                     )
                     entry.error = msg
                     events.append(MergeEvent(entry, "checks_stale", msg))
                     continue  # #292: skip, don't halt the group
-                # #2197: reached only once the checks are genuinely fresh
-                # (or the smoke-side #1738/#1778/#1847 base-move exemption
-                # spared them) — mirrors the `ci_infra_reruns = 0` reset
-                # above and for the identical reason: whatever staleness
-                # streak the budget was tracking has now actually resolved,
-                # so a LATER base move starts its own budget from zero
-                # rather than inheriting an unrelated exhausted count.
+                # #2197/#3266: reached only once the checks are genuinely
+                # fresh (or the smoke-side #1738/#1778/#1847 base-move
+                # exemption spared them). `ci_stale_reruns` is no longer
+                # incremented anywhere (#3266 dropped the auto-rerun it
+                # counted) — this reset now only converges a row that
+                # predates the fix, and still carries a nonzero count from
+                # the old behaviour, back to 0.
                 entry.ci_stale_reruns = 0
             elif force_merge and ci.is_available:
                 # #1826: the override still overrides — but it says so. A

@@ -25,7 +25,7 @@ def _dispatch(action: Callable[[], Any]) -> None:
         action()
     except RuntimeNotAuthenticated as e:
         # Mid-command 401: token wiped by httpx auth_flow → next invocation
-        # will re-trigger device flow via @requires_login(auto_login=True).
+        # will re-trigger device flow via @requires_auth(auto_login=True).
         raise CliCommandInnerException(
             cmd="dlthub",
             msg=str(e) or "Authentication required. Run 'dlthub login'.",
@@ -406,8 +406,7 @@ class WorkspaceCommand(SupportsCliCommand):
             default=None,
             help=(
                 "Workspace name or ID to connect to. When omitted interactive "
-                "picker will allow to select existing or create a new one. "
-                "Required when using an API key."
+                "picker will allow to select existing or create a new one."
             ),
         )
         connect_p.add_argument(

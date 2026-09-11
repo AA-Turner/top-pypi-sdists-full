@@ -3,16 +3,9 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
 from matrx_utils import vcprint
-from openai.types.responses import (
-    ResponseOutputItem as OpenAIResponseOutputItem,
-)
 
 from .enums import Role
-from .extra_config import (
-    CodeExecutionContent,
-    CodeExecutionResultContent,
-    WebSearchCallContent,
-)
+from .extra_config import WebSearchCallContent
 from .media_config import (
     AudioContent,
     ImageContent,
@@ -322,7 +315,7 @@ class UnifiedMessage:
         )
 
     @classmethod
-    def from_openai_item(cls, item: OpenAIResponseOutputItem) -> Optional["UnifiedMessage"]:
+    def from_openai_item(cls, item: Any) -> Optional["UnifiedMessage"]:
         content = []
         assigned_role = "output"
         item_type = item.type

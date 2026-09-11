@@ -31,11 +31,6 @@
 
 cdef class BaseConnImpl:
 
-    def __init__(self, str dsn, ConnectParamsImpl params):
-        self.dsn = dsn
-        self.username = params.user
-        self.proxy_user = params.proxy_user
-
     cdef object _check_value(self, OracleMetadata metadata, object value,
                              bint* is_ok):
         """
@@ -106,18 +101,6 @@ cdef class BaseConnImpl:
                                       actual_type_name=lob_impl.dbtype.name,
                                       expected_type_name=metadata.dbtype.name)
                 return value
-            elif self._allow_bind_str_to_lob \
-                    and db_type_num != DB_TYPE_NUM_BFILE \
-                    and isinstance(value, (bytes, str)):
-                if db_type_num == DB_TYPE_NUM_BLOB:
-                    if isinstance(value, str):
-                        value = value.encode()
-                elif isinstance(value, bytes):
-                    value = value.decode()
-                lob_impl = self.create_temp_lob_impl(metadata.dbtype)
-                if value:
-                    lob_impl.write(value, 1)
-                return PY_TYPE_LOB._from_impl(lob_impl)
         elif db_type_num == DB_TYPE_NUM_OBJECT:
             if isinstance(value, PY_TYPE_DB_OBJECT):
                 if value._impl.type != metadata.objtype:
@@ -180,6 +163,29 @@ cdef class BaseConnImpl:
                       uint32_t attr_type):
         errors._raise_not_supported("getting a connection OCI attribute")
 
+    cdef object _invoke_operation_callback(self, object method,
+                                           str name, object args,
+                                           object kwargs):
+        """
+        Invoke the callback for an operation and return its completion.
+        """
+        cdef object bound_args, completion
+        bound_args = inspect.signature(method.__func__).bind(
+            method.__self__, *args, **kwargs
+        )
+        bound_args.apply_defaults()
+        completion = self.operation_callback(name, bound_args.arguments)
+        if completion is not None and not callable(completion):
+            errors._raise_err(errors.ERR_INVALID_CALLABLE_FUN)
+        return completion
+
+    cdef int _process_sync_operation_sub_op(self, object sub_op) except -1:
+        """
+        Processes a sub operation of a synchronous operation. These may either
+        be round trips to the database or driver operations.
+        """
+        sub_op.process()
+
     def _set_oci_attr(self, uint32_t handle_type, uint32_t attr_num,
                       uint32_t attr_type, object value):
         errors._raise_not_supported("setting a connection OCI attribute")
@@ -208,7 +214,10 @@ cdef class BaseConnImpl:
     def get_is_healthy(self):
         errors._raise_not_supported("checking if the connection is healthy")
 
-    def close(self, in_del=False):
+    def clear_app_context(self, str namespace):
+        errors._raise_not_supported("clearing application context")
+
+    def close(self):
         errors._raise_not_supported("closing a connection")
 
     def commit(self):
@@ -265,6 +274,9 @@ cdef class BaseConnImpl:
     def get_db_name(self):
         errors._raise_not_supported("getting the database name")
 
+    def get_db_unique_name(self):
+        errors._raise_not_supported("getting the database unique name")
+
     def get_edition(self):
         errors._raise_not_supported("getting the edition")
 
@@ -273,6 +285,9 @@ cdef class BaseConnImpl:
 
     def get_handle(self):
         errors._raise_not_supported("getting the OCI service context handle")
+
+    def get_host(self):
+        errors._raise_not_supported("getting the host name")
 
     def get_instance_name(self):
         errors._raise_not_supported("getting the instance name")
@@ -290,6 +305,12 @@ cdef class BaseConnImpl:
         errors._raise_not_supported(
             "getting the maximum number of open cursors"
         )
+
+    def get_port(self):
+        errors._raise_not_supported("getting the port")
+
+    def get_protocol(self):
+        errors._raise_not_supported("getting the protocol")
 
     def get_sdu(self):
         errors._raise_not_supported("getting the session data unit (SDU)")
@@ -309,17 +330,138 @@ cdef class BaseConnImpl:
     def get_transaction_in_progress(self):
         errors._raise_not_supported("getting if a transaction is in progress")
 
+    def get_transaction_priority(self):
+        errors._raise_not_supported("getting the transaction priority")
+
     def get_type(self, object conn, str name):
         errors._raise_not_supported("getting an object type")
 
+    def invoke_on_connect_callbacks(self, object conn, object pool):
+        """
+        Returns sub operations for running the on connect callback and the
+        pool's session calblack, if applicable.
+        """
+        cdef:
+            SessionCallbackSubOp session_callback_sub_op
+            OnConnectCallbackSubOp on_connect_sub_op
+        if self.connect_params.on_connect_callback is not None:
+            on_connect_sub_op = \
+                    OnConnectCallbackSubOp.__new__(OnConnectCallbackSubOp)
+            on_connect_sub_op.f = self.connect_params.on_connect_callback
+            on_connect_sub_op.conn = conn
+            yield on_connect_sub_op
+        if (
+            self.invoke_session_callback
+            and pool is not None
+            and pool.session_callback is not None
+            and callable(pool.session_callback)
+        ):
+            session_callback_sub_op = \
+                    SessionCallbackSubOp.__new__(SessionCallbackSubOp)
+            session_callback_sub_op.f = pool.session_callback
+            session_callback_sub_op.conn = conn
+            session_callback_sub_op.tag = self.connect_params.tag
+            yield session_callback_sub_op
+            self.invoke_session_callback = False
+
     def ping(self):
         errors._raise_not_supported("pinging the database")
+
+    def prepare_connect_args(self, str dsn, object pool, object params,
+                             dict kwargs):
+        """
+        Prepares arguments for establishing a connection to the database. This
+        needs to be done prior to the connect operation taking place so that
+        the callbacks will be invoked, if applicable.
+        """
+        if params is None:
+            self.connect_params = ConnectParamsImpl()
+        elif not isinstance(params, PY_TYPE_CONNECT_PARAMS):
+            errors._raise_err(errors.ERR_INVALID_CONNECT_PARAMS)
+        else:
+            self.connect_params = params._impl.copy()
+        self.dsn = self.connect_params.process_args(dsn, kwargs, self.thin)
+        self.operation_callback = self.connect_params.operation_callback
+        self.round_trip_callback = self.connect_params.round_trip_callback
+
+    async def process_async_operation(self,
+                                      object method_owner, str name,
+                                      object args, object kwargs):
+        """
+        Processes a database operation asynchronously. The method that is
+        acquired from the method owner is expected to be a generator function
+        which returns sub operations. This allows the code for sync and async
+        to be identical except for this function.
+        """
+        cdef object generator, method, result, sub_op, completion = None
+        method = getattr(method_owner, f"_{name}")
+        if self.operation_callback is not None:
+            completion = self._invoke_operation_callback(
+                method, name, args, kwargs
+            )
+        generator = method(*args, **kwargs)
+        try:
+            while True:
+                try:
+                    sub_op = next(generator)
+                    if sub_op is not None:
+                        await self._process_async_operation_sub_op(sub_op)
+                except StopIteration as e:
+                    result = e.value
+                    break
+                except BaseException as e:
+                    generator.throw(e)
+        except BaseException as operation_error:
+            if completion is not None:
+                completion(operation_error)
+            raise
+        if completion is not None:
+            completion(result)
+        return result
+
+    def process_sync_operation(self,
+                               object method_owner, str name, object args,
+                               object kwargs):
+        """
+        Processes a database operation synchronously. The method that is
+        acquired from the method owner is expected to be a generator function
+        which returns sub operations. In thick mode, which doesn't support sub
+        operations, a single sub operation is returned and discarded.
+        """
+        cdef object generator, method, result, sub_op, completion = None
+        method = getattr(method_owner, f"_{name}")
+        if self.operation_callback is not None:
+            completion = self._invoke_operation_callback(
+                method, name, args, kwargs
+            )
+        generator = method(*args, **kwargs)
+        try:
+            while True:
+                try:
+                    sub_op = next(generator)
+                    if sub_op is not None:
+                        self._process_sync_operation_sub_op(sub_op)
+                except StopIteration as e:
+                    result = e.value
+                    break
+                except BaseException as e:
+                    generator.throw(e)
+        except BaseException as operation_error:
+            if completion is not None:
+                completion(operation_error)
+            raise
+        if completion is not None:
+            completion(result)
+        return result
 
     def rollback(self):
         errors._raise_not_supported("rolling back a transaction")
 
     def set_action(self, value):
         errors._raise_not_supported("setting the action")
+
+    def set_app_context(self, str namespace, **values):
+        errors._raise_not_supported("setting application context")
 
     def set_call_timeout(self, value):
         errors._raise_not_supported("setting the call timeout")
@@ -350,6 +492,9 @@ cdef class BaseConnImpl:
 
     def set_stmt_cache_size(self, value):
         errors._raise_not_supported("setting the statement cache size")
+
+    def set_transaction_priority(self, value):
+        errors._raise_not_supported("setting the transaction priority")
 
     def shutdown(self, uint32_t mode):
         errors._raise_not_supported("shutting down the database")
@@ -389,3 +534,42 @@ cdef class BaseConnImpl:
         errors._raise_not_supported(
             "rolling back a TPC (two-phase commit) transaction"
         )
+
+
+@cython.final
+cdef class OnConnectCallbackSubOp(SubOperation):
+    cdef:
+        object conn
+        object f
+
+    def process(self):
+        """
+        Runs the callback synchronously.
+        """
+        self.f(self.conn)
+
+    async def process_async(self):
+        """
+        Runs the callback asynchronously.
+        """
+        await self.f(self.conn)
+
+
+@cython.final
+cdef class SessionCallbackSubOp(SubOperation):
+    cdef:
+        object conn
+        object f
+        str tag
+
+    def process(self):
+        """
+        Runs the callback synchronously.
+        """
+        self.f(self.conn, self.tag)
+
+    async def process_async(self):
+        """
+        Runs the callback asynchronously.
+        """
+        await self.f(self.conn, self.tag)

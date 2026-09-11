@@ -142,8 +142,7 @@ class Local:
             storage = self._get_storage()
             if key in storage:
                 return storage[key]
-            else:
-                raise AttributeError(f"{self!r} object has no attribute {key!r}")
+            raise AttributeError(f"{self!r} object has no attribute {key!r}")
 
     def __setattr__(self, key, value):
         if key in ("_context_refs", "_thread_critical", "_thread_lock", "_attr_name"):
@@ -151,6 +150,7 @@ class Local:
         with self._thread_lock:
             storage = self._get_storage()
             storage[key] = value
+        return None
 
     def __delattr__(self, key):
         with self._thread_lock:
@@ -252,13 +252,12 @@ def _iscoroutinefunction_or_partial(func: Any) -> bool:
     # this to exist. Code taken from CPython.
     if sys.version_info >= (3, 8):
         return asyncio.iscoroutinefunction(func)
-    else:
-        while inspect.ismethod(func):
-            func = func.__func__
-        while isinstance(func, functools.partial):
-            func = func.func
+    while inspect.ismethod(func):
+        func = func.__func__
+    while isinstance(func, functools.partial):
+        func = func.func
 
-        return asyncio.iscoroutinefunction(func)
+    return asyncio.iscoroutinefunction(func)
 
 
 class ThreadSensitiveContext:
@@ -660,9 +659,8 @@ class SyncToAsync:
             if hasattr(asyncio, "current_task"):
                 # Python 3.7 and up
                 return asyncio.current_task()
-            else:
-                # Python 3.6
-                return asyncio.Task.current_task()
+            # Python 3.6
+            return asyncio.Task.current_task()
         except RuntimeError:
             return None
 

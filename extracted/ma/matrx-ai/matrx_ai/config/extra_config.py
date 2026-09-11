@@ -119,16 +119,12 @@ class WebSearchCallContent:
     action: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    from openai.types.responses import (
-        ResponseFunctionWebSearch as OpenAIResponseFunctionWebSearch,
-    )
-
     def get_output(self) -> str | None:
         return json.dumps(self.action)
 
     @classmethod
     def from_openai(
-        cls, content_item: OpenAIResponseFunctionWebSearch
+        cls, content_item: Any
     ) -> Optional["WebSearchCallContent"]:
         id = content_item.id
         status = content_item.status

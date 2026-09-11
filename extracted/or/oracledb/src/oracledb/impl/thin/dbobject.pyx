@@ -98,14 +98,14 @@ cdef class DbObjectPickleBuffer(GrowableBuffer):
         else:
             length[0] = short_length
 
-    cdef object read_xmltype(self, BaseThinConnImpl conn_impl):
+    cdef object read_xmltype(self, ThinConnImpl conn_impl):
         """
         Reads an XML type from the buffer. This is similar to reading a
         database object but with specialized processing.
         """
         cdef:
             uint8_t image_flags, image_version
-            BaseThinLobImpl lob_impl
+            ThinLobImpl lob_impl
             const char* encoding
             const char_type *ptr
             ssize_t bytes_left
@@ -252,9 +252,9 @@ cdef class ThinDbObjectImpl(BaseDbObjectImpl):
         """
         cdef:
             uint8_t ora_type_num = metadata.dbtype._ora_type_num
-            BaseThinConnImpl conn_impl
+            ThinConnImpl conn_impl
             ThinDbObjectImpl obj_impl
-            BaseThinLobImpl lob_impl
+            ThinLobImpl lob_impl
             const char* encoding
             bytes temp_bytes
         if value is None:
@@ -292,7 +292,7 @@ cdef class ThinDbObjectImpl(BaseDbObjectImpl):
                               ORA_TYPE_NUM_TIMESTAMP_LTZ):
             buf.write_oracle_date(value, metadata.dbtype._buffer_size_factor)
         elif ora_type_num in (ORA_TYPE_NUM_CLOB, ORA_TYPE_NUM_BLOB):
-            lob_impl = <BaseThinLobImpl> value._impl
+            lob_impl = <ThinLobImpl> value._impl
             buf.write_bytes_with_length(lob_impl._locator)
         elif ora_type_num == ORA_TYPE_NUM_OBJECT:
             obj_impl = value._impl
@@ -359,12 +359,12 @@ cdef class ThinDbObjectImpl(BaseDbObjectImpl):
         """
         cdef:
             uint8_t ora_type_num = metadata.dbtype._ora_type_num
-            BaseThinConnImpl conn_impl = self.type._conn_impl
+            ThinConnImpl conn_impl = self.type._conn_impl
             uint8_t csfrm = metadata.dbtype._csfrm
             DbObjectPickleBuffer xml_buf
             bint is_null, is_collection
             ThinDbObjectImpl obj_impl
-            BaseThinLobImpl lob_impl
+            ThinLobImpl lob_impl
             const char* encoding
             OracleData data
             bytes locator

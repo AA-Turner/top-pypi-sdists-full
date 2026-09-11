@@ -124,7 +124,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
     ) -> dict[str, Any]:
-        """List Google Ads portfolio bid strategies"""
+        """List portfolio bid strategies"""
         params = self._build_params(
             account_id=account_id,
             customer_id=customer_id,
@@ -143,7 +143,7 @@ class AdCampaignsResource:
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> dict[str, Any]:
-        """Create a Google Ads portfolio bid strategy"""
+        """Create portfolio bid strategy"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -165,7 +165,7 @@ class AdCampaignsResource:
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> dict[str, Any]:
-        """Update a Google Ads portfolio bid strategy"""
+        """Update portfolio bid strategy"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -217,7 +217,7 @@ class AdCampaignsResource:
         *,
         negative: bool | None = False,
     ) -> dict[str, Any]:
-        """Add Search keywords to an ad group"""
+        """Add Search ad-group keywords"""
         payload = self._build_payload(
             account_id=account_id,
             ad_set_id=ad_set_id,
@@ -284,7 +284,7 @@ class AdCampaignsResource:
         idempotency_key: str | None = None,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: Any | None = None,
-        buying_type: str | None = None,
+        buying_type: str | None = "AUCTION",
         validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
@@ -582,7 +582,7 @@ class AdCampaignsResource:
     def get_ad_set_details(
         self, ad_set_id: str, account_id: str, *, fields: str | None = None
     ) -> dict[str, Any]:
-        """Live ad-set details incl. learning phase"""
+        """Get live ad-set details"""
         params = self._build_params(
             account_id=account_id,
             fields=fields,
@@ -961,6 +961,10 @@ class AdCampaignsResource:
         )
         return self._client._post("/v1/ads/boost", data=payload)
 
+    def list_google_asset_groups(self, campaign_id: str) -> dict[str, Any]:
+        """List Performance Max asset groups"""
+        return self._client._get(f"/v1/ads/campaigns/{campaign_id}/asset-groups")
+
     def create_standalone_ad(
         self,
         account_id: str,
@@ -974,7 +978,7 @@ class AdCampaignsResource:
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
-        buying_type: str | None = None,
+        buying_type: str | None = "AUCTION",
         rf_prediction_id: str | None = None,
         promotion: Any | None = None,
         creative_features: Any | None = None,
@@ -1039,6 +1043,7 @@ class AdCampaignsResource:
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
+        asset_group: Any | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
@@ -1145,6 +1150,7 @@ class AdCampaignsResource:
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,
+            asset_group=asset_group,
             keywords=keywords,
             negative_keywords=negative_keywords,
             campaign_negative_keywords=campaign_negative_keywords,
@@ -1225,7 +1231,7 @@ class AdCampaignsResource:
         from_date: str | None = None,
         to_date: str | None = None,
     ) -> dict[str, Any]:
-        """List Google Ads portfolio bid strategies (async)"""
+        """List portfolio bid strategies (async)"""
         params = self._build_params(
             account_id=account_id,
             customer_id=customer_id,
@@ -1244,7 +1250,7 @@ class AdCampaignsResource:
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> dict[str, Any]:
-        """Create a Google Ads portfolio bid strategy (async)"""
+        """Create portfolio bid strategy (async)"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -1266,7 +1272,7 @@ class AdCampaignsResource:
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> dict[str, Any]:
-        """Update a Google Ads portfolio bid strategy (async)"""
+        """Update portfolio bid strategy (async)"""
         payload = self._build_payload(
             account_id=account_id,
             customer_id=customer_id,
@@ -1318,7 +1324,7 @@ class AdCampaignsResource:
         *,
         negative: bool | None = False,
     ) -> dict[str, Any]:
-        """Add Search keywords to an ad group (async)"""
+        """Add Search ad-group keywords (async)"""
         payload = self._build_payload(
             account_id=account_id,
             ad_set_id=ad_set_id,
@@ -1387,7 +1393,7 @@ class AdCampaignsResource:
         idempotency_key: str | None = None,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: Any | None = None,
-        buying_type: str | None = None,
+        buying_type: str | None = "AUCTION",
         validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
@@ -1691,7 +1697,7 @@ class AdCampaignsResource:
     async def aget_ad_set_details(
         self, ad_set_id: str, account_id: str, *, fields: str | None = None
     ) -> dict[str, Any]:
-        """Live ad-set details incl. learning phase (async)"""
+        """Get live ad-set details (async)"""
         params = self._build_params(
             account_id=account_id,
             fields=fields,
@@ -2078,6 +2084,10 @@ class AdCampaignsResource:
         )
         return await self._client._apost("/v1/ads/boost", data=payload)
 
+    async def alist_google_asset_groups(self, campaign_id: str) -> dict[str, Any]:
+        """List Performance Max asset groups (async)"""
+        return await self._client._aget(f"/v1/ads/campaigns/{campaign_id}/asset-groups")
+
     async def acreate_standalone_ad(
         self,
         account_id: str,
@@ -2091,7 +2101,7 @@ class AdCampaignsResource:
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
-        buying_type: str | None = None,
+        buying_type: str | None = "AUCTION",
         rf_prediction_id: str | None = None,
         promotion: Any | None = None,
         creative_features: Any | None = None,
@@ -2156,6 +2166,7 @@ class AdCampaignsResource:
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
+        asset_group: Any | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
@@ -2262,6 +2273,7 @@ class AdCampaignsResource:
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,
+            asset_group=asset_group,
             keywords=keywords,
             negative_keywords=negative_keywords,
             campaign_negative_keywords=campaign_negative_keywords,

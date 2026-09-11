@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: Pint
-Version: 0.25.3
+Version: 0.26.1
 Summary: Physical quantities module
 Project-URL: Homepage, https://github.com/hgrecco/pint
 Project-URL: Documentation, https://pint.readthedocs.io/
@@ -18,12 +18,12 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Requires-Dist: flexcache>=0.3
 Requires-Dist: flexparser>=0.4
 Requires-Dist: platformdirs>=2.1.0
@@ -32,7 +32,8 @@ Provides-Extra: all
 Requires-Dist: babel<=2.8; extra == 'all'
 Requires-Dist: dask<2025.3.0; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
-Requires-Dist: numpy>=1.23; extra == 'all'
+Requires-Dist: numpy>=2.0.0; extra == 'all'
+Requires-Dist: optype[numpy]; extra == 'all'
 Requires-Dist: pint-pandas>=0.3; extra == 'all'
 Requires-Dist: scipy; extra == 'all'
 Requires-Dist: uncertainties>=3.1.6; extra == 'all'
@@ -52,12 +53,19 @@ Provides-Extra: docs
 Requires-Dist: babel; extra == 'docs'
 Requires-Dist: commonmark==0.8.1; extra == 'docs'
 Requires-Dist: currencyconverter; extra == 'docs'
+Requires-Dist: dask[complete]<2025.3.0; extra == 'docs'
 Requires-Dist: docutils; extra == 'docs'
 Requires-Dist: graphviz; extra == 'docs'
 Requires-Dist: ipykernel; extra == 'docs'
 Requires-Dist: ipython<=8.12; extra == 'docs'
 Requires-Dist: jupyter-client; extra == 'docs'
+Requires-Dist: jupyterlite-pyodide-kernel>=0.4; extra == 'docs'
+Requires-Dist: jupyterlite-sphinx>=0.20; extra == 'docs'
+Requires-Dist: matplotlib; extra == 'docs'
 Requires-Dist: nbsphinx; extra == 'docs'
+Requires-Dist: numba>=0.59; extra == 'docs'
+Requires-Dist: numpy<2.5; extra == 'docs'
+Requires-Dist: optype[numpy]; extra == 'docs'
 Requires-Dist: pooch; extra == 'docs'
 Requires-Dist: pygments>=2.4; extra == 'docs'
 Requires-Dist: recommonmark==0.5.0; extra == 'docs'
@@ -69,10 +77,13 @@ Requires-Dist: sphinx-book-theme>=1.1.0; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx<8.2,>=6; extra == 'docs'
+Requires-Dist: xarray; extra == 'docs'
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib; extra == 'matplotlib'
 Provides-Extra: numpy
-Requires-Dist: numpy>=1.23; extra == 'numpy'
+Requires-Dist: numpy>=2.0.0; extra == 'numpy'
+Provides-Extra: optype
+Requires-Dist: optype[numpy]; extra == 'optype'
 Provides-Extra: pandas
 Requires-Dist: pint-pandas>=0.3; extra == 'pandas'
 Provides-Extra: scipy
@@ -146,7 +157,7 @@ and constants. Due to its modular design, you can extend (or even rewrite!)
 the complete list without changing the source code. It supports a lot of
 numpy mathematical operations **without monkey patching or wrapping numpy**.
 
-It has a complete test coverage. It runs in Python 3.9+ with no other dependency.
+It has a complete test coverage. It runs in Python 3.12+ with minimal dependencies.
 It is licensed under BSD.
 
 It is extremely easy and natural to use:
@@ -156,7 +167,7 @@ It is extremely easy and natural to use:
     >>> import pint
     >>> ureg = pint.UnitRegistry()
     >>> 3 * ureg.meter + 4 * ureg.cm
-    <Quantity(3.04, 'meter')>
+    Quantity(3.04, "meter")
 
 and you can make good use of numpy if you want:
 
@@ -164,9 +175,9 @@ and you can make good use of numpy if you want:
 
     >>> import numpy as np
     >>> [3, 4] * ureg.meter + [4, 3] * ureg.cm
-    <Quantity([ 3.04  4.03], 'meter')>
+    Quantity([ 3.04  4.03], "meter")
     >>> np.sum(_)
-    <Quantity(7.07, 'meter')>
+    Quantity(7.07, "meter")
 
 
 Quick Installation
@@ -237,8 +248,9 @@ package`_.
 **Handle temperature**: conversion between units with different reference
 points, like positions on a map or absolute temperature scales.
 
-**Dependency free**: it depends only on Python and its standard library. It interacts with other packages
-like numpy and uncertainties if they are installed
+**Minimal dependencies**: it depends only on Python, its standard library and a couple small packages that
+implement essential features (e.g. parsing unit definition files and caching).
+It only interacts with other external packages, like numpy and uncertainties, if they are installed.
 
 **Pandas integration**: Thanks to `Pandas Extension Types`_ it is now possible to use Pint with Pandas. Operations on DataFrames and between columns are units aware, providing even more convenience for users of Pandas DataFrames. For full details, see the `pint-pandas Jupyter notebook`_.
 

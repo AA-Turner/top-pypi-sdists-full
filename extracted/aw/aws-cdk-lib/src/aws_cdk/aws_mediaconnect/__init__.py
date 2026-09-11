@@ -15700,6 +15700,9 @@ class CfnRouterOutput(
         
             # the properties below are optional
             availability_zone="availabilityZone",
+            fabric_configuration=mediaconnect.CfnRouterOutput.FabricConfigurationProperty(
+                recovery_latency_mode="recoveryLatencyMode"
+            ),
             maintenance_configuration=mediaconnect.CfnRouterOutput.MaintenanceConfigurationProperty(
                 default=default_,
                 preferred_day_time=mediaconnect.CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty(
@@ -15726,6 +15729,7 @@ class CfnRouterOutput(
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
+        fabric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.FabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -15740,6 +15744,7 @@ class CfnRouterOutput(
         :param routing_scope: Indicates whether the router output is configured for Regional or global routing.
         :param tier: The tier level of the router output.
         :param availability_zone: The Availability Zone of the router output.
+        :param fabric_configuration: The fabric configuration settings for the router output.
         :param maintenance_configuration: The maintenance configuration settings applied to this router output.
         :param region_name: The AWS Region where the router output is located.
         :param tags: Key-value pairs that can be used to tag and organize this router output.
@@ -15755,6 +15760,7 @@ class CfnRouterOutput(
             routing_scope=routing_scope,
             tier=tier,
             availability_zone=availability_zone,
+            fabric_configuration=fabric_configuration,
             maintenance_configuration=maintenance_configuration,
             region_name=region_name,
             tags=tags,
@@ -16005,6 +16011,24 @@ class CfnRouterOutput(
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="fabricConfiguration")
+    def fabric_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FabricConfigurationProperty"]]:
+        '''The fabric configuration settings for the router output.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FabricConfigurationProperty"]], jsii.get(self, "fabricConfiguration"))
+
+    @fabric_configuration.setter
+    def fabric_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FabricConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__06d9e791367a30697b42cbe238effd386b1af741cf2747eb12997407b51ddf7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "fabricConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="maintenanceConfiguration")
     def maintenance_configuration(
         self,
@@ -16050,6 +16074,57 @@ class CfnRouterOutput(
             type_hints = cached_type_hints(_typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.FabricConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"recovery_latency_mode": "recoveryLatencyMode"},
+    )
+    class FabricConfigurationProperty:
+        def __init__(self, *, recovery_latency_mode: builtins.str) -> None:
+            '''The fabric configuration settings for the router output.
+
+            :param recovery_latency_mode: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-fabricconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediaconnect as mediaconnect
+                
+                fabric_configuration_property = mediaconnect.CfnRouterOutput.FabricConfigurationProperty(
+                    recovery_latency_mode="recoveryLatencyMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8d72d674b29d325a3cef4ccd5dad6d51e59a38d24abd5ba54a5ec52ffbabf377)
+                check_type(argname="argument recovery_latency_mode", value=recovery_latency_mode, expected_type=type_hints["recovery_latency_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "recovery_latency_mode": recovery_latency_mode,
+            }
+
+        @builtins.property
+        def recovery_latency_mode(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-fabricconfiguration.html#cfn-mediaconnect-routeroutput-fabricconfiguration-recoverylatencymode
+            '''
+            result = self._values.get("recovery_latency_mode")
+            assert result is not None, "Required property 'recovery_latency_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "FabricConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediaconnect.CfnRouterOutput.FlowTransitEncryptionKeyConfigurationProperty",
@@ -17714,6 +17789,7 @@ class CfnRouterOutput(
         "routing_scope": "routingScope",
         "tier": "tier",
         "availability_zone": "availabilityZone",
+        "fabric_configuration": "fabricConfiguration",
         "maintenance_configuration": "maintenanceConfiguration",
         "region_name": "regionName",
         "tags": "tags",
@@ -17729,6 +17805,7 @@ class CfnRouterOutputProps:
         routing_scope: builtins.str,
         tier: builtins.str,
         availability_zone: typing.Optional[builtins.str] = None,
+        fabric_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.FabricConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         maintenance_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRouterOutput.MaintenanceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         region_name: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -17741,6 +17818,7 @@ class CfnRouterOutputProps:
         :param routing_scope: Indicates whether the router output is configured for Regional or global routing.
         :param tier: The tier level of the router output.
         :param availability_zone: The Availability Zone of the router output.
+        :param fabric_configuration: The fabric configuration settings for the router output.
         :param maintenance_configuration: The maintenance configuration settings applied to this router output.
         :param region_name: The AWS Region where the router output is located.
         :param tags: Key-value pairs that can be used to tag and organize this router output.
@@ -17849,6 +17927,9 @@ class CfnRouterOutputProps:
             
                 # the properties below are optional
                 availability_zone="availabilityZone",
+                fabric_configuration=mediaconnect.CfnRouterOutput.FabricConfigurationProperty(
+                    recovery_latency_mode="recoveryLatencyMode"
+                ),
                 maintenance_configuration=mediaconnect.CfnRouterOutput.MaintenanceConfigurationProperty(
                     default=default_,
                     preferred_day_time=mediaconnect.CfnRouterOutput.PreferredDayTimeMaintenanceConfigurationProperty(
@@ -17871,6 +17952,7 @@ class CfnRouterOutputProps:
             check_type(argname="argument routing_scope", value=routing_scope, expected_type=type_hints["routing_scope"])
             check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument fabric_configuration", value=fabric_configuration, expected_type=type_hints["fabric_configuration"])
             check_type(argname="argument maintenance_configuration", value=maintenance_configuration, expected_type=type_hints["maintenance_configuration"])
             check_type(argname="argument region_name", value=region_name, expected_type=type_hints["region_name"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -17883,6 +17965,8 @@ class CfnRouterOutputProps:
         }
         if availability_zone is not None:
             self._values["availability_zone"] = availability_zone
+        if fabric_configuration is not None:
+            self._values["fabric_configuration"] = fabric_configuration
         if maintenance_configuration is not None:
             self._values["maintenance_configuration"] = maintenance_configuration
         if region_name is not None:
@@ -17950,6 +18034,17 @@ class CfnRouterOutputProps:
         '''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def fabric_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FabricConfigurationProperty"]]:
+        '''The fabric configuration settings for the router output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-routeroutput.html#cfn-mediaconnect-routeroutput-fabricconfiguration
+        '''
+        result = self._values.get("fabric_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRouterOutput.FabricConfigurationProperty"]], result)
 
     @builtins.property
     def maintenance_configuration(
@@ -20007,6 +20102,7 @@ def _typecheckingstub__d0723832b1d0cb17f5bcd9018d140834abd5e94bc96fb3fb67d22f77f
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
+    fabric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.FabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20074,6 +20170,12 @@ def _typecheckingstub__8b8371a3dd1aa326607abab281477f883dfadb45d27717b05bafb937c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__06d9e791367a30697b42cbe238effd386b1af741cf2747eb12997407b51ddf7b(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterOutput.FabricConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e2d9d66ea8cc6f7fb9f2d963cee39b38487405038346bed562a4282d170af87a(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRouterOutput.MaintenanceConfigurationProperty]],
 ) -> None:
@@ -20088,6 +20190,13 @@ def _typecheckingstub__f23a2bac43b9e1bd96cf5c900f5ae7d229b5b15428c990a76f5392b36
 
 def _typecheckingstub__cb6937ae740be264a96755b4785a6121ef85f3be99b91fb48ef0d32ab567b808(
     value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d72d674b29d325a3cef4ccd5dad6d51e59a38d24abd5ba54a5ec52ffbabf377(
+    *,
+    recovery_latency_mode: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20246,6 +20355,7 @@ def _typecheckingstub__47e40b68b394725a4935bfc1b6ffcf51630ed2e6a0f1075f0c8289595
     routing_scope: builtins.str,
     tier: builtins.str,
     availability_zone: typing.Optional[builtins.str] = None,
+    fabric_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.FabricConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     maintenance_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRouterOutput.MaintenanceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     region_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

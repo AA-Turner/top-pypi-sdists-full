@@ -42523,6 +42523,48 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "MISTRAL_SMALL_V0_1"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_4")
+    def OPENAI_GPT_5_4(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.4".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_5")
+    def OPENAI_GPT_5_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_5"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_6_CYBER")
+    def OPENAI_GPT_5_6_CYBER(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.6-cyber".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_CYBER"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_6_LUNA")
+    def OPENAI_GPT_5_6_LUNA(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.6-luna".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_LUNA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_6_SOL")
+    def OPENAI_GPT_5_6_SOL(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.6-sol".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_SOL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_5_6_TERRA")
+    def OPENAI_GPT_5_6_TERRA(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-5.6-terra".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_TERRA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL")
+    def OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-daybreak-blue-5.6-sol".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_OSS_120B_1")
     def OPENAI_GPT_OSS_120_B_1(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-120b-1:0".'''
@@ -42533,6 +42575,18 @@ class FoundationModelIdentifier(
     def OPENAI_GPT_OSS_20_B_1(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-oss-20b-1:0".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_20B_1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_SAFEGUARD_120B")
+    def OPENAI_GPT_OSS_SAFEGUARD_120_B(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-safeguard-120b".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_SAFEGUARD_120B"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_OSS_SAFEGUARD_20B")
+    def OPENAI_GPT_OSS_SAFEGUARD_20_B(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-oss-safeguard-20b".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_OSS_SAFEGUARD_20B"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="QWEN_QWEN3_235B_A22B_2507_V1_0")

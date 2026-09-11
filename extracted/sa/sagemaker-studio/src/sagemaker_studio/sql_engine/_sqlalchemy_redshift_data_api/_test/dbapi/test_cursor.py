@@ -5,6 +5,7 @@ This module tests the statement execution and polling mechanism
 with mocked boto3 responses.
 """
 
+from decimal import Decimal
 from unittest.mock import Mock, patch
 
 import pytest
@@ -793,6 +794,29 @@ class TestResultConverter:
         field = {"stringValue": "test string"}
         result = ResultConverter._convert_field_value(field, "varchar")
         assert result == "test string"
+
+    def test_convert_field_value_decimal(self):
+        """Test NUMERIC/DECIMAL stringValue is returned as an exact Decimal."""
+        convert = ResultConverter._convert_field_value
+
+        assert convert({"stringValue": "0.0875"}, "numeric") == Decimal("0.0875")
+        assert convert({"stringValue": "-0.35"}, "decimal") == Decimal("-0.35")
+
+        full_precision = convert({"stringValue": "1234567890.1234567890"}, "numeric")
+        assert str(full_precision) == "1234567890.1234567890"
+
+    def test_convert_field_value_decimal_invalid_falls_back_to_string(self):
+        """Test an unparseable DECIMAL value falls back to the raw string."""
+        assert ResultConverter._convert_field_value({"stringValue": "n/a"}, "numeric") == "n/a"
+
+    def test_convert_records_decimal_column(self):
+        """Test DECIMAL conversion through the convert_records path."""
+        records = [[{"stringValue": "123.45"}, {"stringValue": "0.0875"}]]
+        column_metadata = [{"typeName": "numeric"}, {"typeName": "decimal"}]
+
+        assert ResultConverter.convert_records(records, column_metadata) == [
+            [Decimal("123.45"), Decimal("0.0875")]
+        ]
 
     def test_convert_field_value_numbers(self):
         """Test conversion of numeric field values."""

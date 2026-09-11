@@ -6,14 +6,12 @@ from seltz_public_api.proto.v1 import agent_pb2 as seltz__public__api_dot_proto_
 
 
 class AgentServiceStub:
-    """AgentService answers a natural-language question by researching it with
-    Seltz search and returning a grounded, cited result, optionally also
-    shaped to an `output_schema` you supply. Runs are asynchronous: CreateAgentRun returns at once
-    and you poll GetAgentRun until the run completes, which typically takes a few
-    minutes and at most around 45. A run you no longer need can be stopped
-    with CancelAgentRun. Every request is authenticated with an API key —
-    the `x-api-key` header on REST, the request message's `api_key` field on
-    gRPC; runs are scoped to the organization that owns the key.
+    """AgentService researches a natural-language question over the Seltz index
+    and returns a grounded, cited result, optionally shaped to an
+    `output_schema`. Runs are asynchronous: create one, then poll it until it
+    reaches a terminal state. Every request is authenticated with an API key
+    (the `x-api-key` header on REST, the `api_key` field on gRPC), and runs are
+    scoped to the organization that owns the key.
     """
 
     def __init__(self, channel):
@@ -45,50 +43,38 @@ class AgentServiceStub:
 
 
 class AgentServiceServicer:
-    """AgentService answers a natural-language question by researching it with
-    Seltz search and returning a grounded, cited result, optionally also
-    shaped to an `output_schema` you supply. Runs are asynchronous: CreateAgentRun returns at once
-    and you poll GetAgentRun until the run completes, which typically takes a few
-    minutes and at most around 45. A run you no longer need can be stopped
-    with CancelAgentRun. Every request is authenticated with an API key —
-    the `x-api-key` header on REST, the request message's `api_key` field on
-    gRPC; runs are scoped to the organization that owns the key.
+    """AgentService researches a natural-language question over the Seltz index
+    and returns a grounded, cited result, optionally shaped to an
+    `output_schema`. Runs are asynchronous: create one, then poll it until it
+    reaches a terminal state. Every request is authenticated with an API key
+    (the `x-api-key` header on REST, the `api_key` field on gRPC), and runs are
+    scoped to the organization that owns the key.
     """
 
     def CreateAgentRun(self, request, context):
-        """Start an agent run. Returns right away with the new run in
-        `pending` state; poll GetAgentRun with its id until it completes. The
-        request is validated first, so an invalid one is rejected before
-        anything is billed.
+        """Start an agent run. Returns the new run in `pending` state.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def GetAgentRun(self, request, context):
-        """Retrieve a run by id. Poll until `status` reaches a terminal state
-        (completed / failed / cancelled). An unknown id, or one owned by another
-        organization, is the request error `run_not_found`.
+        """Retrieve a run by id.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListAgentRuns(self, request, context):
-        """List the organization's runs, newest first. Pages are cursor-linked:
-        pass one page's `next` as the following request's `after`. Runs of
-        other organizations are never listed.
+        """List the organization's runs, newest first.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def CancelAgentRun(self, request, context):
-        """Stop a run that has not finished. A pending run is cancelled at once; a
-        running one stops at its next step. Either way the run ends as
-        `cancelled` with `stop_reason` `cancelled` and no output. Returns the
-        run — unchanged if it had already reached a terminal state, so
-        cancelling is safe to retry and safe to race against completion.
+        """Stop a run that has not finished. Returns the run, unchanged if it had
+        already ended.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -126,14 +112,12 @@ def add_AgentServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class AgentService:
-    """AgentService answers a natural-language question by researching it with
-    Seltz search and returning a grounded, cited result, optionally also
-    shaped to an `output_schema` you supply. Runs are asynchronous: CreateAgentRun returns at once
-    and you poll GetAgentRun until the run completes, which typically takes a few
-    minutes and at most around 45. A run you no longer need can be stopped
-    with CancelAgentRun. Every request is authenticated with an API key —
-    the `x-api-key` header on REST, the request message's `api_key` field on
-    gRPC; runs are scoped to the organization that owns the key.
+    """AgentService researches a natural-language question over the Seltz index
+    and returns a grounded, cited result, optionally shaped to an
+    `output_schema`. Runs are asynchronous: create one, then poll it until it
+    reaches a terminal state. Every request is authenticated with an API key
+    (the `x-api-key` header on REST, the `api_key` field on gRPC), and runs are
+    scoped to the organization that owns the key.
     """
 
     @staticmethod

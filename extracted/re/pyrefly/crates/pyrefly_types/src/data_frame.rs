@@ -5,11 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-//! Column-schema representation for DataFrame values.
-//!
-//! A `DataFrameSchema` projects the per-column names and types out of an
-//! otherwise-opaque DataFrame instance. Every type-machinery site delegates to
-//! `underlying`.
+//! Column schemas attached to otherwise-opaque DataFrame instances.
 
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::Visit;
@@ -20,42 +16,51 @@ use crate::class::ClassType;
 use crate::polars_dtype::PolarsDType;
 use crate::types::Type;
 
-/// Whether `columns` captures every column of the DataFrame or only a known
-/// subset. A subset arises when a construction argument can't be resolved
-/// statically (e.g. a spread or a non-literal column key).
+/// Whether `columns` is exhaustive.
 #[derive(
-    Debug, PartialOrd, Ord, Clone, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
+    Debug, PartialOrd, Ord, Clone, Copy, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
 )]
 pub enum SchemaCompleteness {
     Complete,
     Partial,
 }
 
-/// Which library produced the DataFrame. Only Polars frames get the column transforms,
-/// since pandas `drop` and `rename` act on rows rather than columns.
+impl SchemaCompleteness {
+    pub fn combine(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Complete, Self::Complete) => Self::Complete,
+            _ => Self::Partial,
+        }
+    }
+}
+
 #[derive(
-    Debug, PartialOrd, Ord, Clone, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
+    Debug, PartialOrd, Ord, Clone, Copy, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
 )]
 pub enum DataFrameKind {
     Polars,
     Pandas,
 }
 
-/// A DataFrame instance with an inferred column schema.
-///
-/// `columns` is an order-sensitive `Vec` and every trait is derived, so column
-/// order is part of the type's identity.
+/// Whether a schema is inferred or declared by an explicit annotation.
+#[derive(
+    Debug, PartialOrd, Ord, Clone, Copy, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
+)]
+pub enum SchemaRole {
+    Inferred,
+    Contract,
+}
+
+/// A DataFrame with ordered column information.
 #[derive(
     Debug, PartialOrd, Ord, Clone, Eq, PartialEq, Hash, Visit, VisitMut, TypeEq
 )]
 pub struct DataFrameSchema {
-    /// The opaque DataFrame class instance (e.g. `pl.DataFrame`). All behavior
-    /// delegates here.
     pub underlying: ClassType,
-    /// Columns in definition order, each with its Polars dtype.
     pub columns: Vec<(Name, PolarsDType)>,
     pub completeness: SchemaCompleteness,
     pub kind: DataFrameKind,
+    pub role: SchemaRole,
 }
 
 impl DataFrameSchema {
@@ -63,7 +68,6 @@ impl DataFrameSchema {
         Type::DataFrame(Box::new(self))
     }
 
-    /// The underlying instance as a `Type`, for delegating behavior to it.
     pub fn underlying_type(&self) -> Type {
         Type::ClassType(self.underlying.clone())
     }
@@ -72,9 +76,29 @@ impl DataFrameSchema {
         self.completeness == SchemaCompleteness::Complete
     }
 
-    /// Whether a column with this name exists in the schema.
+    pub fn is_contract(&self) -> bool {
+        self.role == SchemaRole::Contract
+    }
+
     pub fn has_column(&self, name: &Name) -> bool {
         self.columns.iter().any(|(c, _)| c == name)
+    }
+
+    /// Whether this schema guarantees the contract described by `target`.
+    pub fn satisfies(&self, target: &Self) -> bool {
+        if self.kind != target.kind {
+            return false;
+        }
+        match target.completeness {
+            SchemaCompleteness::Complete => {
+                self.completeness == SchemaCompleteness::Complete && self.columns == target.columns
+            }
+            SchemaCompleteness::Partial => target.columns.iter().all(|required| {
+                self.columns
+                    .iter()
+                    .any(|actual| actual.0 == required.0 && actual.1 == required.1)
+            }),
+        }
     }
 }
 
@@ -100,6 +124,7 @@ mod tests {
     use crate::class::Class;
     use crate::class::ClassDefIndex;
     use crate::class::ClassType;
+    use crate::class::PrecomputedTParams;
     use crate::equality::TypeEq;
     use crate::equality::TypeEqCtx;
     use crate::types::TArgs;
@@ -116,7 +141,7 @@ mod tests {
                 Identifier::new(Name::new("DataFrame"), TextRange::empty(TextSize::new(0))),
                 NestingContext::toplevel(),
                 module,
-                None,
+                PrecomputedTParams::NotGeneric,
                 false,
             ),
             TArgs::default(),
@@ -136,6 +161,7 @@ mod tests {
             columns,
             completeness,
             kind: DataFrameKind::Polars,
+            role: SchemaRole::Inferred,
         }
     }
 
@@ -170,13 +196,11 @@ mod tests {
             SchemaCompleteness::Complete,
         );
 
-        // Reordered columns are a distinct type under every relation.
         assert_ne!(ab, ba);
         assert_ne!(hash_of(&ab), hash_of(&ba));
         assert_ne!(ab.cmp(&ba), Ordering::Equal);
         assert!(!ab.type_eq(&ba, &mut TypeEqCtx::default()));
 
-        // Identical columns in the same order are equal under every relation.
         let ab2 = schema(
             vec![col("a", PolarsDType::Int64), col("b", PolarsDType::String)],
             SchemaCompleteness::Complete,
@@ -202,6 +226,109 @@ mod tests {
     }
 
     #[test]
+    fn role_is_part_of_identity() {
+        let inferred = schema(
+            vec![col("a", PolarsDType::Int64)],
+            SchemaCompleteness::Complete,
+        );
+        let contract = DataFrameSchema {
+            role: SchemaRole::Contract,
+            ..inferred.clone()
+        };
+        assert_ne!(inferred, contract);
+        assert!(!inferred.type_eq(&contract, &mut TypeEqCtx::default()));
+    }
+
+    #[test]
+    fn combining_completeness_requires_both_schemas_to_be_complete() {
+        assert_eq!(
+            SchemaCompleteness::Complete.combine(SchemaCompleteness::Complete),
+            SchemaCompleteness::Complete
+        );
+        assert_eq!(
+            SchemaCompleteness::Complete.combine(SchemaCompleteness::Partial),
+            SchemaCompleteness::Partial
+        );
+        assert_eq!(
+            SchemaCompleteness::Partial.combine(SchemaCompleteness::Complete),
+            SchemaCompleteness::Partial
+        );
+        assert_eq!(
+            SchemaCompleteness::Partial.combine(SchemaCompleteness::Partial),
+            SchemaCompleteness::Partial
+        );
+    }
+
+    #[test]
+    fn exact_schema_requires_identical_complete_columns() {
+        let target = schema(
+            vec![col("a", PolarsDType::Int64), col("b", PolarsDType::String)],
+            SchemaCompleteness::Complete,
+        );
+        assert!(target.satisfies(&target));
+        assert!(
+            !schema(
+                vec![col("b", PolarsDType::String), col("a", PolarsDType::Int64)],
+                SchemaCompleteness::Complete,
+            )
+            .satisfies(&target)
+        );
+        assert!(
+            !schema(
+                vec![col("a", PolarsDType::Int64), col("b", PolarsDType::String)],
+                SchemaCompleteness::Partial,
+            )
+            .satisfies(&target)
+        );
+        assert!(
+            !schema(
+                vec![
+                    col("a", PolarsDType::Int64),
+                    col("b", PolarsDType::String),
+                    col("c", PolarsDType::Boolean),
+                ],
+                SchemaCompleteness::Complete,
+            )
+            .satisfies(&target)
+        );
+    }
+
+    #[test]
+    fn open_schema_requires_known_columns_by_name_and_dtype() {
+        let target = schema(
+            vec![col("a", PolarsDType::Int64), col("b", PolarsDType::String)],
+            SchemaCompleteness::Partial,
+        );
+        for completeness in [SchemaCompleteness::Complete, SchemaCompleteness::Partial] {
+            assert!(
+                schema(
+                    vec![
+                        col("extra", PolarsDType::Boolean),
+                        col("b", PolarsDType::String),
+                        col("a", PolarsDType::Int64),
+                    ],
+                    completeness,
+                )
+                .satisfies(&target)
+            );
+        }
+        assert!(
+            !schema(
+                vec![col("a", PolarsDType::Int64)],
+                SchemaCompleteness::Complete,
+            )
+            .satisfies(&target)
+        );
+        assert!(
+            !schema(
+                vec![col("a", PolarsDType::Int64), col("b", PolarsDType::Unknown)],
+                SchemaCompleteness::Partial,
+            )
+            .satisfies(&target)
+        );
+    }
+
+    #[test]
     fn kind_is_part_of_identity() {
         let cols = || vec![col("a", PolarsDType::Int64)];
         let polars = schema(cols(), SchemaCompleteness::Complete);
@@ -217,7 +344,6 @@ mod tests {
     fn strip_library_schemas_replaces_every_schema_with_its_class() {
         let underlying = Type::ClassType(underlying_class());
 
-        // Every completeness collapses to the plain class, including empty and partial.
         for (columns, completeness) in [
             (
                 vec![col("a", PolarsDType::Int64)],
@@ -235,7 +361,6 @@ mod tests {
             assert_eq!(stripped, underlying);
         }
 
-        // A pandas frame strips the same way.
         let pandas = DataFrameSchema {
             kind: DataFrameKind::Pandas,
             ..schema(
@@ -246,7 +371,6 @@ mod tests {
         .to_type();
         assert_eq!(pandas.strip_library_schemas(), underlying);
 
-        // The strip recurses into nested positions and leaves non-DataFrame types untouched.
         let optional = Type::optional(
             schema(
                 vec![col("a", PolarsDType::Int64)],
@@ -263,7 +387,6 @@ mod tests {
 
     #[test]
     fn traversal_preserves_underlying() {
-        // Columns are Polars dtypes, not `Type`s, so type traversal reaches only `underlying`.
         let df = schema(
             vec![col("a", PolarsDType::Int64)],
             SchemaCompleteness::Complete,

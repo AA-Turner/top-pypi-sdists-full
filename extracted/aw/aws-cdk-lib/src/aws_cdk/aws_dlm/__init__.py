@@ -386,6 +386,15 @@ class CfnLifecyclePolicy(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The identifier of the lifecycle policy.
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -1443,7 +1452,7 @@ class CfnLifecyclePolicy(
             target_region: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param target_region: 
+            :param target_region: The target Region, for example ``us-east-1``.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-crossregioncopytarget.html
             :exampleMetadata: fixture=_generated
@@ -1467,7 +1476,8 @@ class CfnLifecyclePolicy(
 
         @builtins.property
         def target_region(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The target Region, for example ``us-east-1``.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-crossregioncopytarget.html#cfn-dlm-lifecyclepolicy-crossregioncopytarget-targetregion
             '''
             result = self._values.get("target_region")
@@ -1973,7 +1983,7 @@ class CfnLifecyclePolicy(
 
             You can enable fast snapshot restore based on either a count or a time interval.
 
-            :param availability_zone_ids: 
+            :param availability_zone_ids: The Availability Zone IDs in which to enable fast snapshot restore.
             :param availability_zones: The Availability Zones in which to enable fast snapshot restore.
             :param count: The number of snapshots to be enabled with fast snapshot restore.
             :param interval: The amount of time to enable fast snapshot restore. The maximum is 100 years. This is equivalent to 1200 months, 5200 weeks, or 36500 days.
@@ -2017,7 +2027,8 @@ class CfnLifecyclePolicy(
 
         @builtins.property
         def availability_zone_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''The Availability Zone IDs in which to enable fast snapshot restore.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-fastrestorerule.html#cfn-dlm-lifecyclepolicy-fastrestorerule-availabilityzoneids
             '''
             result = self._values.get("availability_zone_ids")

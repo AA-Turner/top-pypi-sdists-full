@@ -38,6 +38,9 @@ class HarnessCli(str, Enum):
 
     ClaudeCode = "claude-code"
     Codex = "codex"
+    OpenCode = "opencode"
+    # the built-in xpander (agno) loop running inside the harness container
+    Xpander = "xpander"
 
 
 HARNESS_CLIS = frozenset(HarnessCli)
@@ -102,8 +105,9 @@ def normalize_harness_cli(
             a plain string, or None.
 
     Returns:
-        ``"claude-code"`` or ``"codex"``; None for ``external-harness``, any other
-        framework, unsupported strings, blank input and None.
+        ``"claude-code"``, ``"codex"``, ``"opencode"`` or ``"xpander"``; None for
+        ``external-harness``, any other framework, unsupported strings, blank input
+        and None.
     """
     raw = _wire(value)
     return raw if raw in {c.value for c in HARNESS_CLIS} else None

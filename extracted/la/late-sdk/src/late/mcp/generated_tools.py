@@ -1777,7 +1777,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="High demand periods / budget schedules",
+            title="List high-demand periods",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -1790,7 +1790,7 @@ def register_generated_tools(mcp, _get_client):
         limit: int = 25,
         after: str | None = None,
     ) -> str:
-        """High demand periods / budget schedules
+        """List high-demand periods
 
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
@@ -2549,6 +2549,72 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Create Meta ad account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_create_ad_account(
+        account_id: str,
+        business_id: str,
+        name: str,
+        currency: str,
+        timezone_id: int,
+        end_advertiser: str = "NONE",
+        media_agency: str = "NONE",
+        partner: str = "NONE",
+        invoice: bool | None = None,
+        invoice_group_id: str | None = None,
+        invoicing_emails: list[str] | None = None,
+        io: bool | None = None,
+        po_number: str | None = None,
+        funding_id: str | None = None,
+        ad_account_created_from_bm_flag: bool | None = None,
+    ) -> str:
+        """Create Meta ad account
+
+        Args:
+            account_id: Zernio metaads SocialAccount ID. (required)
+            business_id: Business portfolio that will own the account. (required)
+            name: Ad account name. Whitespace is trimmed. (required)
+            currency: Uppercase ISO 4217 currency supported by Meta. (required)
+            timezone_id: Numeric Meta timezone ID from the linked timezone list. For example 1 is America/Los_Angeles. (required)
+            end_advertiser: End advertiser business or page ID. NONE uses the owning business.
+            media_agency: Media agency business or page ID. NONE for self-serve customers.
+            partner: Partner business or page ID. NONE for self-serve customers.
+            invoice: Request Meta invoicing. Eligibility is determined by Meta.
+            invoice_group_id: Existing Meta invoice group ID.
+            invoicing_emails: Addresses for Meta invoices.
+            io: Meta insertion-order invoicing option.
+            po_number: Purchase order number.
+            funding_id: Existing Meta funding reference. Does not add a payment method.
+            ad_account_created_from_bm_flag: Meta Business Manager creation flag."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.create_ad_account(
+                account_id=account_id,
+                business_id=business_id,
+                name=name,
+                currency=currency,
+                timezone_id=timezone_id,
+                end_advertiser=end_advertiser,
+                media_agency=media_agency,
+                partner=partner,
+                invoice=invoice,
+                invoice_group_id=invoice_group_id,
+                invoicing_emails=invoicing_emails,
+                io=io,
+                po_number=po_number,
+                funding_id=funding_id,
+                ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List ad accounts",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2631,14 +2697,14 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="List DSA beneficiary/payor suggestions",
+            title="Get DSA recommendations",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def ad_accounts_get_dsa_recommendations(account_id: str, ad_account_id: str) -> str:
-        """List DSA beneficiary/payor suggestions
+        """Get DSA recommendations
 
         Args:
             account_id: Account ID (metaads, or a facebook/instagram posting account) (required)
@@ -2677,7 +2743,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create or reuse a custom conversion",
+            title="Create custom conversion",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -2691,7 +2757,7 @@ def register_generated_tools(mcp, _get_client):
         custom_event_type: str,
         rule: dict[str, Any] | None,
     ) -> str:
-        """Create or reuse a custom conversion
+        """Create custom conversion
 
         Args:
             account_id: Meta ads SocialAccount id. (required)
@@ -2709,6 +2775,32 @@ def register_generated_tools(mcp, _get_client):
                 pixel_id=pixel_id,
                 custom_event_type=custom_event_type,
                 rule=rule,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List TikTok ad pixels",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_tik_tok_ad_pixels(
+        account_id: str, advertiser_id: str | None = None, code: str | None = None
+    ) -> str:
+        """List TikTok ad pixels
+
+        Args:
+            account_id: Zernio SocialAccount ID. (required)
+            advertiser_id: Advertiser belonging to this connection.
+            code: Filter by a Pixel Code."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_tik_tok_ad_pixels(
+                account_id=account_id, advertiser_id=advertiser_id, code=code
             )
             return _format_response(response)
         except Exception as e:
@@ -2962,7 +3054,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="List Google Ads portfolio bid strategies",
+            title="List portfolio bid strategies",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -2974,7 +3066,7 @@ def register_generated_tools(mcp, _get_client):
         from_date: str | None = None,
         to_date: str | None = None,
     ) -> str:
-        """List Google Ads portfolio bid strategies
+        """List portfolio bid strategies
 
         Args:
             account_id: Google ads SocialAccount id. (required)
@@ -2995,7 +3087,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create a Google Ads portfolio bid strategy",
+            title="Create portfolio bid strategy",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -3009,7 +3101,7 @@ def register_generated_tools(mcp, _get_client):
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> str:
-        """Create a Google Ads portfolio bid strategy
+        """Create portfolio bid strategy
 
         Args:
             account_id: Google ads SocialAccount id. (required)
@@ -3034,7 +3126,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Update a Google Ads portfolio bid strategy",
+            title="Update portfolio bid strategy",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -3049,7 +3141,7 @@ def register_generated_tools(mcp, _get_client):
         target_cpa: float | None = None,
         target_roas: float | None = None,
     ) -> str:
-        """Update a Google Ads portfolio bid strategy
+        """Update portfolio bid strategy
 
         Args:
             strategy_id: Numeric Google Ads bid strategy id. (required)
@@ -3130,7 +3222,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Add Search keywords to an ad group",
+            title="Add Search ad-group keywords",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -3142,7 +3234,7 @@ def register_generated_tools(mcp, _get_client):
         keywords: list[Any] | None,
         negative: bool = False,
     ) -> str:
-        """Add Search keywords to an ad group
+        """Add Search ad-group keywords
 
         Args:
             account_id: Account ID (Google Ads) (required)
@@ -3282,7 +3374,7 @@ def register_generated_tools(mcp, _get_client):
         goal: str,
         is_skadnetwork_attribution: bool | None = None,
         promoted_object: dict[str, Any] | None = None,
-        buying_type: str | None = None,
+        buying_type: str = "AUCTION",
         validate_only: bool | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
@@ -3302,7 +3394,7 @@ def register_generated_tools(mcp, _get_client):
             goal: Mapped to the ODAX objective (same mapping as POST /v1/ads/create). (required)
             is_skadnetwork_attribution: Meta app promotion only. Immutable campaign flag. Set true for iOS 14+ SKAdNetwork campaigns and supply promotedObject.applicationId plus promotedObject.objectStoreUrl. The campaign receives promotedObject only when this flag is true. Cannot be changed on an existing campaign.
             promoted_object
-            buying_type: Meta only. SKAdNetwork app promotion requires AUCTION.
+            buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. SKAdNetwork app promotion requires AUCTION.
             validate_only: Meta only. Runs campaign validation without creating or persisting a campaign; Idempotency-Key storage is bypassed. Returns HTTP 200 with validateOnly true and status VALIDATED.
             special_ad_categories
             budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
@@ -3815,7 +3907,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Live ad-set details incl. learning phase",
+            title="Get live ad-set details",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -3824,7 +3916,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_get_ad_set_details(
         ad_set_id: str, account_id: str, fields: str | None = None
     ) -> str:
-        """Live ad-set details incl. learning phase
+        """Get live ad-set details
 
         Args:
             ad_set_id: Meta ad set id (platformAdSetId). (required)
@@ -4732,6 +4824,28 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List Performance Max asset groups",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_list_google_asset_groups(campaign_id: str) -> str:
+        """List Performance Max asset groups
+
+        Args:
+            campaign_id: Google Ads campaign id. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.list_google_asset_groups(
+                campaign_id=campaign_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Create standalone ad",
             readOnlyHint=False,
             destructiveHint=True,
@@ -4749,7 +4863,7 @@ def register_generated_tools(mcp, _get_client):
         goal: str | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
-        buying_type: str | None = None,
+        buying_type: str = "AUCTION",
         rf_prediction_id: str | None = None,
         promotion: str | None = None,
         creative_features: dict[str, Any] | None = None,
@@ -4814,6 +4928,7 @@ def register_generated_tools(mcp, _get_client):
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str = "display",
+        asset_group: dict[str, Any] | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
         campaign_negative_keywords: list[Any] | None = None,
@@ -4876,15 +4991,15 @@ def register_generated_tools(mcp, _get_client):
         - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 422.
                 optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
-                buying_type: Meta only. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
+                buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED.
                 promotion
                 creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an enhancement; an explicit offer uses promotion.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
-                validate_only: Meta only. Validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, existing video.id or existingCreativeId; media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error.
-                budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
-                budget_type: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
-                status: Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
+                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error.
+                budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
+                budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
+                status: Google Performance Max accepts PAUSED only and always creates a paused campaign. Meta, TikTok, and LinkedIn: publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
                 campaign_status: Meta only. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
           - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
@@ -4892,6 +5007,10 @@ def register_generated_tools(mcp, _get_client):
           - `campaign`: CBO (Campaign Budget Optimization / Advantage Campaign Budget). The
             budget AND `bidStrategy` are set on the CAMPAIGN, and Meta distributes spend
             across ad sets automatically.
+        The returned ad stores the applied `budgetLevel` and budget in `campaignBudget`
+        for CBO or `adSetBudget` for ABO. Edit CBO budgets with
+        `PUT /v1/ads/campaigns/{campaignId}` and ABO budgets with
+        `PUT /v1/ads/ad-sets/{adSetId}`.
         Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
         this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
                 currency: ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
@@ -4907,7 +5026,7 @@ def register_generated_tools(mcp, _get_client):
         `body` field is used as the `object_story_spec.link_data.message` (the preview text) and
         `headlines` must also be present. On a video creative the copy lands in
         `video_data.message` / `video_data.title` instead of `link_data`. Mutually exclusive
-        with `dynamicCreative`, `placementAssets`, `carouselCards`, and `creatives[]`.
+        with `dynamicCreative`, `placementAssets`, `carouselCards`, and `creatives[]`. For placement-specific copy, use the singular `placementAssets.rules[].body` and `headline` fields instead.
                 headlines: Meta only. Headline variations for Multiple Text Options. Must be sent alongside `bodies`.
         The top-level `headline` field is used as the `object_story_spec.link_data.name`
         (`video_data.title` on a video creative).
@@ -5130,22 +5249,27 @@ def register_generated_tools(mcp, _get_client):
         on the legacy single shape AND the attach shape (`adSetId` + placementAssets adds one
         placement-customized ad to an existing ad set, the way to build N per-placement ads
         sharing one ad set: create the first normally, attach the rest). Cannot be combined
-        with `creatives[]`. Shared copy (headline, body, link,
-        CTA) comes from the top-level single-creative fields since only the asset varies by
-        placement. Each rule's `placements` accepts the same fields as the top-level
+        with `creatives[]` or top-level `bodies`/`headlines`/`descriptions` arrays. Each rule
+        can override `headline`, `body` and `description` with one string per field. Omitted
+        fields and unmatched placements use the top-level copy; `linkUrl` and `callToAction`
+        remain shared. Zernio emits labelled text with `optimization_type: PLACEMENT`.
+        Multiple text options rotating within a placement are not supported by this input. Each rule's `placements` accepts the same fields as the top-level
         `placements` object; Meta enforces co-selection rules and returns an actionable error.
 
-        Note on text rendering: Meta suppresses primary text and headline on fullscreen
-        placements (Stories and Reels) in actual ad delivery; the fields are accepted and
-        the ad publishes, but the copy is not shown to users. For visible copy on those
-        placements, bake the text into the creative image or video itself.
+        Meta controls text rendering by placement and format. Validation accepts these fields
+        but does not prove that every field appears in delivery. Preview the ad; put copy that
+        must always be visible into the image or video itself.
+
+        `validateOnly: true` supports all-image placementAssets without uploading or creating
+        anything. Video placement validation remains unsupported because it requires uploads.
 
         A block is all-image OR all-video, never mixed (Meta's asset_feed_spec carries one ad
         format). Image mode: `defaultImageUrl` + `rules[].imageUrl`. Video mode:
         `defaultVideoUrl` + `rules[].videoUrl` (optional `thumbnailUrl`/`defaultThumbnailUrl`
         posters; Meta auto-generates when omitted). Exactly one catch-all default is required.
                 audience_id: Custom audience ID for targeting
-                campaign_type: Google only
+                campaign_type: Google only. Performance Max requires assetGroup and is always created PAUSED.
+                asset_group
                 keywords: Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
                 negative_keywords: Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
                 campaign_negative_keywords: Google Search only; other platforms return 400. Campaign-level negative keywords (campaign_criterion.negative), created alongside the ad group. Editable later via PUT /v1/ads/campaigns/{campaignId}/negative-keywords.
@@ -5204,7 +5328,7 @@ def register_generated_tools(mcp, _get_client):
         `bid_constraints.roas_average_floor` × 10000. Known gap: a CBO campaign's
         ROAS floor lives on the campaign only (set via `POST /v1/ads/campaigns`);
         there is no supported way to set it while joining a CBO campaign here.
-                portfolio_bid_strategy_id: Google only. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy.
+                portfolio_bid_strategy_id: Google Search and Display only. Performance Max rejects portfolio bidding. Attach an existing portfolio bid strategy (numeric id from GET /v1/ads/bid-strategies) to the new campaign instead of a standard one. Exclusive with bidStrategy.
                 value_rule_set_id: Meta only (facebook, instagram; other platforms return 400). Value rule set
         to attach to the new ad set, from `/v1/ads/value-rule-sets`. Attachment is
         driven by this id, so `valueRulesApplied` is optional alongside it.
@@ -5364,6 +5488,7 @@ def register_generated_tools(mcp, _get_client):
                 placement_assets=placement_assets,
                 audience_id=audience_id,
                 campaign_type=campaign_type,
+                asset_group=asset_group,
                 keywords=keywords,
                 negative_keywords=negative_keywords,
                 campaign_negative_keywords=campaign_negative_keywords,
@@ -5865,6 +5990,90 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List partnership ad content",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_creatives_list_partnership_ad_content(
+        account_id: str,
+        creator_username: str | None = None,
+        post_url: str | None = None,
+        only_allowlisted: bool | None = None,
+    ) -> str:
+        """List partnership ad content
+
+        Args:
+            account_id: Zernio SocialAccount ID. (required)
+            creator_username: Creator username. Required unless postUrl is supplied.
+            post_url: Instagram post permalink. Required unless creatorUsername is supplied.
+            only_allowlisted: Return only creators with account-level permission."""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.list_partnership_ad_content(
+                account_id=account_id,
+                creator_username=creator_username,
+                post_url=post_url,
+                only_allowlisted=only_allowlisted,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List partnership permissions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_creatives_list_partnership_ad_permissions(
+        account_id: str, creator_username: str | None = None
+    ) -> str:
+        """List partnership permissions
+
+        Args:
+            account_id: Zernio SocialAccount ID. (required)
+            creator_username: Filter by creator username."""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.list_partnership_ad_permissions(
+                account_id=account_id, creator_username=creator_username
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set partnership permission",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_creatives_set_partnership_ad_permission(
+        account_id: str, creator_username: str, revoke: bool | None = None
+    ) -> str:
+        """Set partnership permission
+
+        Args:
+            account_id: (required)
+            creator_username: (required)
+            revoke"""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.set_partnership_ad_permission(
+                account_id=account_id, creator_username=creator_username, revoke=revoke
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # AD_INSIGHTS
 
     @mcp.tool(
@@ -5956,7 +6165,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Conversations of a Local Services lead",
+            title="List lead conversations",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -5968,7 +6177,7 @@ def register_generated_tools(mcp, _get_client):
         customer_id: str | None = None,
         page_token: str | None = None,
     ) -> str:
-        """Conversations of a Local Services lead
+        """List lead conversations
 
         Args:
             lead_id: Numeric lead id from /v1/ads/local-services/leads. (required)
@@ -6033,7 +6242,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Generate keyword ideas (Google Keyword Planner)",
+            title="Generate keyword ideas",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -6051,7 +6260,7 @@ def register_generated_tools(mcp, _get_client):
         page_size: int | None = None,
         page_token: str | None = None,
     ) -> str:
-        """Generate keyword ideas (Google Keyword Planner)
+        """Generate keyword ideas
 
         Args:
             account_id: Zernio googleads SocialAccount id. (required)
@@ -6084,7 +6293,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Historical keyword metrics (Google Keyword Planner)",
+            title="Get historical keyword metrics",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -6100,7 +6309,7 @@ def register_generated_tools(mcp, _get_client):
         include_adult_keywords: bool | None = None,
         include_average_cpc: bool | None = None,
     ) -> str:
-        """Historical keyword metrics (Google Keyword Planner)
+        """Get historical keyword metrics
 
         Args:
             account_id: Zernio googleads SocialAccount id. (required)
@@ -6207,7 +6416,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Submit an async insights report run",
+            title="Submit async insights report",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -6229,7 +6438,7 @@ def register_generated_tools(mcp, _get_client):
         to_date: str | None = None,
         time_increment: str | None = None,
     ) -> str:
-        """Submit an async insights report run
+        """Submit async insights report
 
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant). (required)
@@ -6563,7 +6772,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Impressions, clicks and spend forecast",
+            title="Forecast ad delivery",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -6586,7 +6795,7 @@ def register_generated_tools(mcp, _get_client):
         enable_audience_expansion: bool | None = None,
         connected_television_only: bool | None = None,
     ) -> str:
-        """Impressions, clicks and spend forecast
+        """Forecast ad delivery
 
         Args:
             account_id: (required)
@@ -6662,7 +6871,7 @@ def register_generated_tools(mcp, _get_client):
             to_date: Inclusive upper bound (YYYY-MM-DD). Defaults to today if omitted.
             limit: Page size (default 50)
             page: Page number (default 1)
-            sort_by: Sort by date, engagement, or a specific metric. Instagram-only metrics (follows, reposts, reels_skip_rate, ig_reels_*) sort a null value as 0.
+            sort_by: Sort by date, engagement, or a specific metric. Platform-specific metrics (follows, reposts, reels_skip_rate, ig_reels_*, completion_rate, profile_views) sort a null value as 0.
             order: Sort order"""
         client = _get_client()
         try:
@@ -9811,7 +10020,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Instagram or Facebook account ID (required)
             trigger: What fires the automation. 'comment' (keyword comment on a post) or 'story_reply' (keyword reply to an Instagram story). For 'story_reply', platformPostId is the story media id (omit for any story).
             platform_post_id: Platform media/post ID (or story media id when trigger=story_reply). Omit for an account-wide (any-post / any-story) automation.
-            post_id: Zernio post ID. Optional and never required. Use it INSTEAD of platformPostId to bind a per-post automation to a not-yet-published Zernio post: the automation stays pending and arms itself when that post publishes. For a post already live on the platform, pass platformPostId alone and omit this.
+            post_id: Zernio post ID (24 hexadecimal characters); platform IDs return 400. Optional and never required. Use it INSTEAD of platformPostId to bind a per-post automation to a not-yet-published Zernio post: the automation stays pending and arms itself when that post publishes. For a post already live on the platform, pass platformPostId alone and omit this.
             post_title: Post content snippet for display
             name: Automation label (required)
             keywords: Trigger keywords (empty = any comment triggers)
@@ -10092,7 +10301,7 @@ def register_generated_tools(mcp, _get_client):
             subreddit: (Reddit only) Subreddit name
             limit: Maximum number of comments to return
             cursor: Pagination cursor, returned by a previous call as `pagination.cursor`. This is the platform's own opaque paging value passed through verbatim: never construct, decode or validate it client-side.
-            comment_id: (Reddit only) Get replies to a specific comment"""
+            comment_id: (Reddit and TikTok only) Get replies to a specific comment"""
         client = _get_client()
         try:
             response = client.comments.get_inbox_post_comments(
@@ -10295,6 +10504,58 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.comments.unhide_inbox_comment(
+                post_id=post_id, comment_id=comment_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Pin comment",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_pin_inbox_comment(
+        post_id: str, comment_id: str, account_id: str
+    ) -> str:
+        """Pin comment
+
+        Args:
+            post_id: (required)
+            comment_id: (required)
+            account_id: The social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.comments.pin_inbox_comment(
+                post_id=post_id, comment_id=comment_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unpin comment",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_unpin_inbox_comment(
+        post_id: str, comment_id: str, account_id: str
+    ) -> str:
+        """Unpin comment
+
+        Args:
+            post_id: (required)
+            comment_id: (required)
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.comments.unpin_inbox_comment(
                 post_id=post_id, comment_id=comment_id, account_id=account_id
             )
             return _format_response(response)
@@ -10653,6 +10914,8 @@ def register_generated_tools(mcp, _get_client):
     def connect_ads(
         platform: str,
         profile_id: str,
+        login_mode: str = "classic",
+        page_id: str | None = None,
         account_id: str | None = None,
         redirect_url: str | None = None,
         headless: bool = False,
@@ -10663,9 +10926,11 @@ def register_generated_tools(mcp, _get_client):
         """Connect ads for a platform
 
             Args:
+                login_mode: Meta ads authorization mode. Business login is opt-in for Facebook and Instagram; classic preserves the posting-account flow.
+                page_id: Business login only. Facebook Page ID to select from the token grants for ad creatives and lead forms.
                 platform: Platform to connect ads for. Only platforms with ads support are accepted.
 
-        `instagram` requires an Instagram account connected with loginMethod=facebook_login whose
+        In classic mode, `instagram` requires an Instagram account connected with loginMethod=facebook_login whose
         token carries ads_management and ads_read. With an account connected through the default
         instagram_login flow no ads account can be created; do not use this value for those accounts.
          (required)
@@ -10697,7 +10962,9 @@ def register_generated_tools(mcp, _get_client):
         Completing the returned OAuth refreshes the stored token
         on the existing posting and ads accounts in place.
                 ad_account_id: Scope ad sync to a single platform ad account. Without this param,
-        sync covers every ad account the connected token can see. Supported
+        sync covers every ad account the connected token can see. Business-login reconnects
+        preserve the existing scope; supplied IDs are checked against the new grant. To change
+        that scope after migration, call this endpoint with the IDs and omit loginMode. Supported
         on `facebook`/`instagram` (Meta, `act_<digits>`), `linkedin` (bare
         numeric sponsored-account id), `googleads` (bare customer id digits)
         and `twitter` (X Ads, base36 account id). `tiktok` scopes advertisers
@@ -10716,6 +10983,8 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.connect.connect_ads(
+                login_mode=login_mode,
+                page_id=page_id,
                 platform=platform,
                 profile_id=profile_id,
                 account_id=account_id,
@@ -10724,6 +10993,32 @@ def register_generated_tools(mcp, _get_client):
                 force=force,
                 ad_account_id=ad_account_id,
                 ad_account_ids=ad_account_ids,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Complete Meta business login",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_complete_meta_ads_business_login(
+        state: str, code: str | None = None, error: str | None = None
+    ) -> str:
+        """Complete Meta business login
+
+        Args:
+            state: Authenticated state from the initial connectAds response. (required)
+            code: Single-use authorization code returned by Meta.
+            error: Meta authorization error when the user declines the dialog."""
+        client = _get_client()
+        try:
+            response = client.connect.complete_meta_ads_business_login(
+                state=state, code=code, error=error
             )
             return _format_response(response)
         except Exception as e:
@@ -10815,16 +11110,23 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_list_facebook_pages(profile_id: str, temp_token: str) -> str:
+    def connect_list_facebook_pages(
+        profile_id: str | None = None,
+        temp_token: str | None = None,
+        selection_token: str | None = None,
+    ) -> str:
         """List Facebook pages
 
         Args:
-            profile_id: Profile ID from your connection flow (required)
-            temp_token: Temporary Facebook access token from the OAuth callback redirect (required)"""
+            profile_id: Profile ID from your classic connection flow. Required with tempToken.
+            temp_token: Temporary Facebook access token from the classic OAuth callback. Required with profileId.
+            selection_token: Encrypted dashboard business-login grant. Send alone instead of profileId and tempToken. Expires after ten minutes."""
         client = _get_client()
         try:
             response = client.connect.list_facebook_pages(
-                profile_id=profile_id, temp_token=temp_token
+                profile_id=profile_id,
+                temp_token=temp_token,
+                selection_token=selection_token,
             )
             return _format_response(response)
         except Exception as e:
@@ -10838,30 +11140,14 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_select_facebook_page(
-        profile_id: str,
-        page_id: str,
-        temp_token: str,
-        user_profile: dict[str, Any] | None,
-        redirect_url: str | None = None,
-    ) -> str:
+    def connect_select_facebook_page(body: dict[str, Any]) -> str:
         """Select Facebook page
 
         Args:
-            profile_id: Profile ID from your connection flow (required)
-            page_id: The Facebook Page ID selected by the user (required)
-            temp_token: Temporary Facebook access token from OAuth (required)
-            user_profile: Decoded user profile object from the OAuth callback (required)
-            redirect_url: Optional custom redirect URL to return to after selection"""
+            body: Full request body as documented in the API reference. (required)"""
         client = _get_client()
         try:
-            response = client.connect.select_facebook_page(
-                profile_id=profile_id,
-                page_id=page_id,
-                temp_token=temp_token,
-                user_profile=user_profile,
-                redirect_url=redirect_url,
-            )
+            response = client.connect.select_facebook_page(body=body)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -12480,7 +12766,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="List conversion actions and their tag snippets",
+            title="List conversion actions",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -12489,7 +12775,7 @@ def register_generated_tools(mcp, _get_client):
     def conversions_list_conversion_actions(
         account_id: str, customer_id: str | None = None, type: str | None = None
     ) -> str:
-        """List conversion actions and their tag snippets
+        """List conversion actions
 
         Args:
             account_id: SocialAccount _id (must be a googleads account). (required)
@@ -12506,7 +12792,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create a website conversion action",
+            title="Create website conversion action",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -12520,7 +12806,7 @@ def register_generated_tools(mcp, _get_client):
         default_value: float | None = None,
         always_use_default_value: bool | None = None,
     ) -> str:
-        """Create a website conversion action
+        """Create website conversion action
 
         Args:
             account_id: SocialAccount ID. Must be a `googleads` account. (required)
@@ -14409,7 +14695,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: Filter to a single connected account. LinkedIn ads accounts switch to the live fetch.
             ad_account_id: LinkedIn only: the LinkedIn ad account id whose responses to read (owner-scoped finder).
             limit
-            since: Unix seconds; only leads created at/after this timestamp.
+            since: Unix seconds; only leads created at/after this timestamp. Millisecond timestamps return 400 with instructions to divide by 1000.
             cursor: Keyset cursor from a previous response's pagination.cursor (Meta: AdLead id; LinkedIn: numeric start offset)."""
         client = _get_client()
         try:
@@ -14442,7 +14728,7 @@ def register_generated_tools(mcp, _get_client):
         """List lead forms
 
         Args:
-            account_id: Connected facebook or linkedin ads account id. (required)
+            account_id: Connected Facebook, Meta ads business-login or LinkedIn ads account ID. (required)
             ad_account_id: LinkedIn only: the LinkedIn ad account id (used to resolve the owning organization). Required for LinkedIn.
             limit
             cursor"""
@@ -14861,6 +15147,7 @@ def register_generated_tools(mcp, _get_client):
         template_language: str | None = None,
         template_params: list[str] | None = None,
         template_button_params: list[dict[str, Any]] | None = None,
+        template_cards: list[dict[str, Any]] | None = None,
         header_media: dict[str, Any] | None = None,
         header_location: dict[str, Any] | None = None,
     ) -> str:
@@ -14878,6 +15165,7 @@ def register_generated_tools(mcp, _get_client):
             template_language: WhatsApp only. Template language code (e.g. en_US).
             template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. For positional templates the list must cover every slot: supplying fewer values than the template's header + body + dynamic URL-button count is rejected with a 400 (code INVALID_TEMPLATE_PARAMS) naming the expected split, rather than delivering a template whose button URL was filled from the wrong value. A dynamic URL button covered by templateButtonParams needs no value here unless another uncovered dynamic URL button follows it, since the override applies after slot numbering. Media headers (image, video, document) are filled automatically from the approved template and take no value here (use headerMedia to override the header asset per send). Buttons that are not dynamic-URL buttons (copy-code, flow) take no value here either; use templateButtonParams.
             template_button_params: WhatsApp only. Values for template buttons that carry one at send time, each addressed by the button's position in the approved template. This is the only way to send a copy-code button's payload (a Pix payment code, a coupon) or a flow token, because templateParams is a flat array of text variables and covers dynamic URL buttons only. Supplying a button here overrides whatever templateParams would have derived for that same index, so the send never carries one button twice; repeating an index within this array is rejected with 400. Each index must name a button of the matching kind on the approved template, which is also checked before the send and returns 400 (INVALID_TEMPLATE_BUTTON_PARAM) rather than a Meta rejection.
+            template_cards: WhatsApp only. Per-card overrides for a CAROUSEL template, each addressed by the card's card_index. Carousel card body variables restart at {{1}} per card, so they cannot be expressed in the flat templateParams slot order; use this instead. A cardIndex naming a card the approved template does not have, a duplicate cardIndex, or a params count that does not match the card body's token count is rejected with 400 (INVALID_TEMPLATE_CARD_PARAM).
             header_media: WhatsApp only. Overrides a media-header template's header asset for THIS send, so a template with an image/video/document header can carry a different asset per message (e.g. each recipient their own invoice PDF). Without it, the template's approved sample asset is sent. Provide exactly one of link or id.
             header_location: WhatsApp only. Required to send a template whose approved header format is LOCATION: Meta only accepts the location's lat/long at send time, never at template creation, so there is nothing to fill in automatically. Cannot be combined with headerMedia (a template has exactly one header)."""
         client = _get_client()
@@ -14894,6 +15182,7 @@ def register_generated_tools(mcp, _get_client):
                 template_language=template_language,
                 template_params=template_params,
                 template_button_params=template_button_params,
+                template_cards=template_cards,
                 header_media=header_media,
                 header_location=header_location,
             )
@@ -16274,6 +16563,7 @@ def register_generated_tools(mcp, _get_client):
         country: str = "US",
         number_type: str | None = None,
         area_code: str | None = None,
+        phone_number: str | None = None,
         connect_whatsapp: bool = True,
         wants_sms: bool = False,
         wants_whatsapp: bool = False,
@@ -16288,6 +16578,7 @@ def register_generated_tools(mcp, _get_client):
                country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl }. The customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
                number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.
                area_code: Area code (national destination code, e.g. 11 for Sao Paulo) the number must be in. Hard constraint: when the area has no deliverable inventory the purchase fails with 409 code AREA_CODE_UNAVAILABLE instead of assigning a number from another area, and later replacements stay in this area too. Omit for any area. Get live options from GET /v1/phone-numbers/availability (areaOptions).
+               phone_number: One exact number to buy, in E.164, taken from GET /v1/phone-numbers/available. Hard constraint: when it is no longer available (bought by someone else, or WhatsApp's buy-time check rejects it) the purchase fails with 409 code PHONE_NUMBER_UNAVAILABLE instead of assigning another number; search again and pick another. Only for countries and types that activate instantly: a regulated one (202 kyc_required) returns 400 when phoneNumber is set.
                connect_whatsapp: A phone number is the unit; WhatsApp is one optional feature. Pass false to buy a STANDALONE number (Calls/SMS only): provisioning skips the Meta pre-verify/OTP steps and the number activates immediately. Omitted defaults to the WhatsApp provisioning path. WhatsApp can be connected to a standalone number later from the connect flow.
                wants_sms: SMS capability is per-number, not per-country. Pass true to provision from the SMS-capable inventory pool so the number can actually text (see also GET /v1/phone-numbers/available with sms=true, and smsAvailable on GET /v1/phone-numbers/countries).
                wants_whatsapp: Declare WhatsApp intent on a STANDALONE purchase (connectWhatsapp:false). The number still activates and bills immediately, but if WhatsApp's buy-time check rejects the assigned number, it is automatically swapped for a WhatsApp-eligible one during the purchase instead of being delivered with WhatsApp unavailable. Ignored on the WhatsApp provisioning path (connectWhatsapp omitted or true), which always delivers a WhatsApp-verified number.
@@ -16300,6 +16591,7 @@ def register_generated_tools(mcp, _get_client):
                 country=country,
                 number_type=number_type,
                 area_code=area_code,
+                phone_number=phone_number,
                 connect_whatsapp=connect_whatsapp,
                 wants_sms=wants_sms,
                 wants_whatsapp=wants_whatsapp,
@@ -17699,7 +17991,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create a Reach & Frequency prediction",
+            title="Create reach-frequency prediction",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -17716,7 +18008,7 @@ def register_generated_tools(mcp, _get_client):
         targeting: dict[str, Any] | None = None,
         placements: dict[str, Any] | None = None,
     ) -> str:
-        """Create a Reach & Frequency prediction
+        """Create reach-frequency prediction
 
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant). (required)
@@ -17747,7 +18039,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Read a Reach & Frequency prediction",
+            title="Get reach-frequency prediction",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -17756,7 +18048,7 @@ def register_generated_tools(mcp, _get_client):
     def reach_and_frequency_get_rf_prediction(
         prediction_id: str, account_id: str, ad_account_id: str
     ) -> str:
-        """Read a Reach & Frequency prediction
+        """Get reach-frequency prediction
 
         Args:
             prediction_id: (required)
@@ -17775,7 +18067,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Cancel a Reach & Frequency reservation",
+            title="Cancel reach-frequency booking",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -17784,7 +18076,7 @@ def register_generated_tools(mcp, _get_client):
     def reach_and_frequency_cancel_rf_reservation(
         prediction_id: str, account_id: str, ad_account_id: str
     ) -> str:
-        """Cancel a Reach & Frequency reservation
+        """Cancel reach-frequency booking
 
         Args:
             prediction_id: (required)
@@ -17803,7 +18095,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Reserve a Reach & Frequency prediction",
+            title="Reserve reach-frequency inventory",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -17812,7 +18104,7 @@ def register_generated_tools(mcp, _get_client):
     def reach_and_frequency_reserve_rf_prediction(
         prediction_id: str, account_id: str, ad_account_id: str
     ) -> str:
-        """Reserve a Reach & Frequency prediction
+        """Reserve reach-frequency inventory
 
         Args:
             prediction_id: (required)
@@ -18841,6 +19133,34 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.sms.reuse_sms_registration_for_number(id=id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # TOOLS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Download a TikTok video",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def tools_download_tik_tok_video(
+        url: str, action: str = "download", format_id: str | None = None
+    ) -> str:
+        """Download a TikTok video
+
+        Args:
+            url: TikTok video URL or numeric video ID. (required)
+            action: Return a download URL or the available formats.
+            format_id: Format ID from the formats response. Omit to select the first available format."""
+        client = _get_client()
+        try:
+            response = client.tools.download_tik_tok_video(
+                url=url, action=action, format_id=format_id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -22594,6 +22914,7 @@ def register_generated_tools(mcp, _get_client):
     def whatsapp_phone_numbers_purchase_whats_app_phone_number(
         profile_id: str,
         country: str = "US",
+        phone_number: str | None = None,
         purchase_intent_id: str | None = None,
         allow_multiple: bool = False,
     ) -> str:
@@ -22602,6 +22923,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             profile_id: Profile to associate the number with (required)
             country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl }. The customer must complete KYC at that URL before the number is ordered. See GET /v1/whatsapp/phone-numbers/countries.
+            phone_number: One exact number to buy, in E.164, taken from GET /v1/phone-numbers/available. Fails with 409 code PHONE_NUMBER_UNAVAILABLE when it is no longer available.
             purchase_intent_id: Optional idempotency key. Send the same value when retrying a purchase: if a number was already bought under this key, the API returns { status: "already_purchased", numberId, phoneNumber } instead of provisioning a second number. Generate a fresh key for each genuinely new purchase.
             allow_multiple: Any second purchase within 10 minutes of a previous one is rejected with 409 code PURCHASE_VELOCITY as duplicate protection. Pass true to confirm the additional purchase is intentional (e.g. bulk provisioning)."""
         client = _get_client()
@@ -22609,6 +22931,7 @@ def register_generated_tools(mcp, _get_client):
             response = client.whatsapp_phone_numbers.purchase_whats_app_phone_number(
                 profile_id=profile_id,
                 country=country,
+                phone_number=phone_number,
                 purchase_intent_id=purchase_intent_id,
                 allow_multiple=allow_multiple,
             )

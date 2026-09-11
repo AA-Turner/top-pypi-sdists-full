@@ -675,10 +675,9 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
                     )
                 advance_single_char()
             return schema[begin:i]
-        else:
-            # backticked name
-            advance_single_char()
-            return get_backticked()
+        # backticked name
+        advance_single_char()
+        return get_backticked()
 
     def parse_expr(lookup: Iterable[SyntaxExpr]) -> str:
         nonlocal i, line, pos

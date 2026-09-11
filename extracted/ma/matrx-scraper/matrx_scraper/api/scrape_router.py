@@ -17,6 +17,7 @@ from matrx_connect import AppContext, Emitter, context_dep
 from matrx_connect.streaming import create_streaming_response
 from matrx_connect.context.events import InfoPayload
 from matrx_scraper.service import ScrapeOptions, ScrapeService
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +246,7 @@ async def _capture_backlink_screenshot(
             "screenshot_highlighted": highlighted_count > 0,
         }
     except Exception as exc:
-        logger.warning("backlink screenshot failed for %s: %s", target_url, exc, exc_info=True)
+        logger.warning("backlink screenshot failed for %s: %s", redact_url_secrets(target_url), redact_url_secrets(exc), exc_info=True)
         return {"screenshot_failure_reason": f"{type(exc).__name__}: {exc}"}
 
 
@@ -273,7 +274,7 @@ async def page_capture(
     try:
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:
-        logger.info("page-capture rejected %r: %s", request.url, exc)
+        logger.info("page-capture rejected %r: %s", redact_url_secrets(request.url), redact_url_secrets(exc))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="url must be a publicly routable http(s) address",
@@ -295,8 +296,8 @@ async def page_capture(
     except Exception as exc:
         logger.warning(
             "page-capture discarded a non-public final url (%s -> redacted): %s",
-            target_url,
-            exc,
+            redact_url_secrets(target_url),
+            redact_url_secrets(exc),
         )
         return PageCaptureResult(
             success=False,
@@ -447,7 +448,7 @@ async def browser_fetch(
     try:
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:
-        logger.info("browser-fetch rejected %r: %s", request.url, exc)
+        logger.info("browser-fetch rejected %r: %s", redact_url_secrets(request.url), redact_url_secrets(exc))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="url must be a publicly routable http(s) address",
@@ -471,7 +472,7 @@ async def browser_fetch(
     except Exception as exc:
         # Loud: a render failure is invisible to the calling host beyond a
         # yellow line, so the service that actually failed must say so.
-        logger.warning("browser-fetch render failed for %s: %s", target_url, exc, exc_info=True)
+        logger.warning("browser-fetch render failed for %s: %s", redact_url_secrets(target_url), redact_url_secrets(exc), exc_info=True)
         return BrowserFetchResult(
             success=False, final_url=target_url, error=f"{type(exc).__name__}: {exc}"
         )
@@ -487,8 +488,8 @@ async def browser_fetch(
     except Exception as exc:
         logger.warning(
             "browser-fetch discarded a non-public final url (%s → redacted): %s",
-            target_url,
-            exc,
+            redact_url_secrets(target_url),
+            redact_url_secrets(exc),
         )
         return BrowserFetchResult(
             success=False,
@@ -502,7 +503,7 @@ async def browser_fetch(
         html = html[:BROWSER_FETCH_MAX_HTML_CHARS]
         truncated = True
         logger.warning(
-            "browser-fetch truncated %s at %d chars", final_url, BROWSER_FETCH_MAX_HTML_CHARS
+            "browser-fetch truncated %s at %d chars", redact_url_secrets(final_url), BROWSER_FETCH_MAX_HTML_CHARS
         )
     return BrowserFetchResult(
         success=bool(html) and status_code < 400,
@@ -603,7 +604,7 @@ async def browser_inspect(
     try:
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:
-        logger.info("browser-inspect rejected %r: %s", request.url, exc)
+        logger.info("browser-inspect rejected %r: %s", redact_url_secrets(request.url), redact_url_secrets(exc))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="url must be a publicly routable http(s) address",
@@ -638,14 +639,14 @@ async def browser_inspect(
         )
     except ValueError as exc:
         # Unknown screenshot kind / kinds the caller mis-specified — permanent.
-        logger.info("browser-inspect bad request for %s: %s", target_url, exc)
+        logger.info("browser-inspect bad request for %s: %s", redact_url_secrets(target_url), redact_url_secrets(exc))
         return BrowserInspectResult(
             success=False, final_url=target_url, error=str(exc), retryable=False
         )
     except Exception as exc:
         # Loud: a render failure is invisible to the calling host beyond a
         # yellow line, so the service that actually failed must say so.
-        logger.warning("browser-inspect render failed for %s: %s", target_url, exc, exc_info=True)
+        logger.warning("browser-inspect render failed for %s: %s", redact_url_secrets(target_url), redact_url_secrets(exc), exc_info=True)
         return BrowserInspectResult(
             success=False,
             final_url=target_url,
@@ -661,8 +662,8 @@ async def browser_inspect(
     except Exception as exc:
         logger.warning(
             "browser-inspect discarded a non-public final url (%s → redacted): %s",
-            target_url,
-            exc,
+            redact_url_secrets(target_url),
+            redact_url_secrets(exc),
         )
         return BrowserInspectResult(
             success=False,

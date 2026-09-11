@@ -5658,6 +5658,8 @@ class Client(OpenApiClient):
             query['IoOptimized'] = request.io_optimized
         if not DaraCore.is_null(request.key_pair_name):
             query['KeyPairName'] = request.key_pair_name
+        if not DaraCore.is_null(request.managed_host_id):
+            query['ManagedHostId'] = request.managed_host_id
         if not DaraCore.is_null(request.node_controller_id):
             query['NodeControllerId'] = request.node_controller_id
         if not DaraCore.is_null(request.owner_account):
@@ -5806,6 +5808,8 @@ class Client(OpenApiClient):
             query['IoOptimized'] = request.io_optimized
         if not DaraCore.is_null(request.key_pair_name):
             query['KeyPairName'] = request.key_pair_name
+        if not DaraCore.is_null(request.managed_host_id):
+            query['ManagedHostId'] = request.managed_host_id
         if not DaraCore.is_null(request.node_controller_id):
             query['NodeControllerId'] = request.node_controller_id
         if not DaraCore.is_null(request.owner_account):
@@ -40334,6 +40338,8 @@ class Client(OpenApiClient):
             query['LaunchTemplateName'] = request.launch_template_name
         if not DaraCore.is_null(request.launch_template_version):
             query['LaunchTemplateVersion'] = request.launch_template_version
+        if not DaraCore.is_null(request.managed_host_id):
+            query['ManagedHostId'] = request.managed_host_id
         if not DaraCore.is_null(request.min_amount):
             query['MinAmount'] = request.min_amount
         if not DaraCore.is_null(request.network_interface):
@@ -40518,6 +40524,8 @@ class Client(OpenApiClient):
             query['LaunchTemplateName'] = request.launch_template_name
         if not DaraCore.is_null(request.launch_template_version):
             query['LaunchTemplateVersion'] = request.launch_template_version
+        if not DaraCore.is_null(request.managed_host_id):
+            query['ManagedHostId'] = request.managed_host_id
         if not DaraCore.is_null(request.min_amount):
             query['MinAmount'] = request.min_amount
         if not DaraCore.is_null(request.network_interface):

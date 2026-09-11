@@ -61122,7 +61122,7 @@ class ID(bpy_struct):
 
     @property
     def library_weak_reference(self) -> LibraryWeakReference | None | None:
-        """Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies) (readonly)"""
+        """Weak reference to the data-block in a library .blend file this originated from. For re-use of already appended data and linked editable assets (readonly)"""
 
     name: str
     """ Unique data-block ID name (within a same type and library) (default "", never None)"""

@@ -235,6 +235,59 @@ class GoogleEmbeddingResult(BaseModel):
     vectors: list[list[float]]
 
 
+class GoogleEmbeddingPart(BaseModel):
+    """A public embedding input part translated only at the Google boundary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["text", "uri", "inline"]
+    text: str | None = None
+    uri: str | None = None
+    data: str | None = None
+    mime_type: str | None = None
+
+    @model_validator(mode="after")
+    def validate_payload(self) -> GoogleEmbeddingPart:
+        if self.type == "text" and self.text:
+            return self
+        if self.type == "uri" and self.uri:
+            return self
+        if self.type == "inline" and self.data and self.mime_type:
+            try:
+                base64.b64decode(self.data, validate=True)
+            except ValueError as exc:
+                raise ValueError("inline embedding data must be valid base64") from exc
+            return self
+        raise ValueError(f"Incomplete {self.type!r} embedding part")
+
+    def to_google(self) -> types.Part:
+        if self.type == "text" and self.text:
+            return types.Part.from_text(text=self.text)
+        if self.type == "uri" and self.uri:
+            return types.Part.from_uri(file_uri=self.uri, mime_type=self.mime_type)
+        if self.type == "inline" and self.data and self.mime_type:
+            return types.Part.from_bytes(
+                data=base64.b64decode(self.data, validate=True),
+                mime_type=self.mime_type,
+            )
+        raise AssertionError("GoogleEmbeddingPart was not validated")
+
+
+def embedding_contents(
+    inputs: Sequence[str | Sequence[GoogleEmbeddingPart]],
+) -> list[Any]:
+    """Translate the host's stable embedding envelope at the provider seam."""
+    contents: list[Any] = []
+    for value in inputs:
+        if isinstance(value, str):
+            contents.append(value)
+        else:
+            contents.append(
+                types.Content(role="user", parts=[part.to_google() for part in value])
+            )
+    return contents
+
+
 class GoogleEmbeddingRuntime:
     def __init__(self, profile: ResolvedCallProfile) -> None:
         _require_wire(profile, "google_embeddings")
@@ -309,10 +362,12 @@ class GoogleBackgroundInteractionRuntime:
 
 __all__ = [
     "GoogleBackgroundInteractionRuntime",
+    "GoogleEmbeddingPart",
     "GoogleEmbeddingResult",
     "GoogleEmbeddingRuntime",
     "GoogleLiveOptions",
     "GoogleLiveSession",
     "GoogleMusicSession",
     "WeightedMusicPrompt",
+    "embedding_contents",
 ]

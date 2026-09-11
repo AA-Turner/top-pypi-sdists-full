@@ -8,7 +8,7 @@ import requests
 import secrets
 
 
-MANIFEST_URL = "https://raw.githubusercontent.com/sherlock-project/sherlock/master/sherlock_project/resources/data.json"
+MANIFEST_URL = "https://data.sherlockproject.xyz"
 EXCLUSIONS_URL = "https://raw.githubusercontent.com/sherlock-project/sherlock/refs/heads/exclusions/false_positive_exclusions.txt"
 
 class SiteInformation:
@@ -121,15 +121,10 @@ class SitesInformation:
             # users from creating issue about false positives which has already been fixed or having outdated data
             data_file_path = MANIFEST_URL
 
-        # Ensure that specified data file has correct extension.
-        if not data_file_path.lower().endswith(".json"):
-            raise FileNotFoundError(f"Incorrect JSON file extension for data file '{data_file_path}'.")
-
-        # if "http://"  == data_file_path[:7].lower() or "https://" == data_file_path[:8].lower():
         if data_file_path.lower().startswith("http"):
             # Reference is to a URL.
             try:
-                response = requests.get(url=data_file_path)
+                response = requests.get(url=data_file_path, timeout=30)
             except Exception as error:
                 raise FileNotFoundError(
                     f"Problem while attempting to access data file URL '{data_file_path}':  {error}"
@@ -166,7 +161,7 @@ class SitesInformation:
 
         if honor_exclusions:
             try:
-                response = requests.get(url=EXCLUSIONS_URL)
+                response = requests.get(url=EXCLUSIONS_URL, timeout=10)
                 if response.status_code == 200:
                     exclusions = response.text.splitlines()
                     exclusions = [exclusion.strip() for exclusion in exclusions]

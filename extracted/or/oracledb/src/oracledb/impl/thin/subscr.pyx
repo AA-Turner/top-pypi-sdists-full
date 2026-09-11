@@ -29,7 +29,7 @@
 # thin_impl.pyx).
 #------------------------------------------------------------------------------
 
-cdef class BaseThinSubscrImpl(BaseSubscrImpl):
+cdef class ThinSubscrImpl(BaseSubscrImpl):
 
     cdef:
         ThinConnImpl _conn_impl
@@ -37,19 +37,16 @@ cdef class BaseThinSubscrImpl(BaseSubscrImpl):
         object _bg_task
         object _bg_task_exc
 
-    cdef SubscrMessage _create_subscr_message(self, BaseThinConnImpl conn_impl,
+    cdef SubscrMessage _create_subscr_message(self, ThinConnImpl conn_impl,
                                               uint8_t opcode):
         """
         Create the message for creating the subscription.
         """
         cdef SubscrMessage message
-        message = conn_impl._create_message(SubscrMessage)
+        message = conn_impl._create_message(SubscrMessage, "subscribe")
         message.subscr_impl = self
         message.opcode = opcode
         return message
-
-
-cdef class ThinSubscrImpl(BaseThinSubscrImpl):
 
     def _bg_task_func(self, object subscr, ThinConnImpl conn_impl,
                       object event):
@@ -63,18 +60,15 @@ cdef class ThinSubscrImpl(BaseThinSubscrImpl):
         exception which is ignored if unsubscription is in progress.
         """
         cdef:
-            ConnectParamsImpl params
-            Description description
             NotifyMessage message
             Protocol protocol
-        params = conn_impl._connect_params.copy()
-        for description in params.description_list.children:
-            description.server_type = "emon"
-        self._conn_impl = ThinConnImpl(conn_impl.dsn, params)
+        self._conn_impl = ThinConnImpl()
         try:
-            self._conn_impl.connect(params)
+            self._conn_impl.process_sync_operation(
+                self, "create_connection", (conn_impl,), {},
+            )
             protocol = <Protocol> self._conn_impl._protocol
-            message = self._conn_impl._create_message(NotifyMessage)
+            message = self._conn_impl._create_message(NotifyMessage, "notify")
             message.client_id = self._client_id
             message.subscr = subscr
             message.namespace = self.namespace
@@ -88,6 +82,24 @@ cdef class ThinSubscrImpl(BaseThinSubscrImpl):
         if self._conn_impl is not None:
             self._conn_impl._protocol._disconnect()
 
+    def _create_connection(self, ThinConnImpl conn_impl):
+        """
+        Creates a separate connection to the database (which uses the EMON
+        process).
+        """
+        cdef:
+            ConnectParamsImpl params
+            Description description
+        params = conn_impl.connect_params.copy()
+        params.operation_callback = None
+        params.round_trip_callback = None
+        for description in params.description_list.children:
+            description.server_type = "emon"
+        self._conn_impl.dsn = conn_impl.dsn
+        self._conn_impl.connect_params = params
+        yield from self._conn_impl.connect()
+        self._conn_impl._send_ha_readiness = False
+
     def register_query(self, str sql, object args):
         """
         Internal method for registering a query.
@@ -96,26 +108,24 @@ cdef class ThinSubscrImpl(BaseThinSubscrImpl):
             ThinCursorImpl cursor_impl
             object cursor
         cursor = self.connection.cursor()
-        cursor._prepare_for_execute(sql, args)
         cursor_impl = <ThinCursorImpl> cursor._impl
+        cursor_impl._prepare_for_execute(cursor, sql, args, None)
         if not cursor_impl._statement._is_query:
             errors._raise_err(errors.ERR_NOT_A_QUERY)
         cursor_impl._registration_id = self.id
-        cursor_impl.execute(cursor)
+        yield from cursor_impl.execute(cursor)
         return cursor_impl._query_id
 
-    def subscribe(self, object subscr, BaseThinConnImpl conn_impl):
+    def subscribe(self, object subscr, ThinConnImpl conn_impl):
         """
         Internal method for creating the subscription.
         """
-        cdef:
-            Protocol protocol = <Protocol> conn_impl._protocol
-            SubscrMessage message
+        cdef SubscrMessage message
         if self.namespace == SUBSCR_NAMESPACE_AQ and not self.qos:
             self.qos = TNS_SUBSCR_QOS_SECURE
         message = self._create_subscr_message(conn_impl,
                                               TNS_SUBSCR_OP_REGISTER)
-        protocol._process_single_message(message)
+        yield message
         self._client_id = message.client_id
         self.id = message.registration_id
         event = threading.Event()
@@ -135,14 +145,13 @@ cdef class ThinSubscrImpl(BaseThinSubscrImpl):
         Internal method for destroying the subscription.
         """
         cdef:
-            Protocol protocol = <Protocol> conn_impl._protocol
             ThinConnImpl notification_conn_impl
             SubscrMessage message
         message = self._create_subscr_message(conn_impl,
                                               TNS_SUBSCR_OP_UNREGISTER)
         message.registration_id = self.id
         message.client_id = self._client_id
-        protocol._process_single_message(message)
+        yield message
         notification_conn_impl = self._conn_impl
         self._conn_impl = None
         notification_conn_impl._close_socket()

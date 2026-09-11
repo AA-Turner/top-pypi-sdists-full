@@ -183,6 +183,18 @@ def test_ipy() -> None:
     scooby.in_ipykernel()
 
 
+def test_in_ipykernel_shell_with_a_kernel(monkeypatch) -> None:
+    class Shell:
+        kernel = object()
+
+    monkeypatch.setattr(scooby.knowledge, 'in_ipython', lambda: True)
+    monkeypatch.setitem(scooby.knowledge.__builtins__, 'get_ipython', Shell)
+    assert scooby.in_ipykernel()
+
+    del Shell.kernel
+    assert not scooby.in_ipykernel()
+
+
 def test_get_version() -> None:
     name, version = scooby.get_version(np)
     assert version == np.__version__
@@ -205,7 +217,12 @@ def test_get_version() -> None:
 
 def test_plain_vs_html() -> None:
     report = scooby.Report()
-    text_html = BeautifulSoup(report._repr_html_(), features='html.parser').get_text()
+    soup = BeautifulSoup(report._repr_html_(), features='html.parser')
+    # The copy-button scaffold (hidden <textarea> carrying the plain text and
+    # the <button> label itself) is not part of the visible table.
+    for tag in soup.find_all(['textarea', 'button']):
+        tag.decompose()
+    text_html = soup.get_text()
     text_plain = report.__repr__()
 
     text_plain = ' '.join(re.findall('[a-zA-Z1-9]+', text_plain))
@@ -214,6 +231,35 @@ def test_plain_vs_html() -> None:
     # Plain text currently starts with `Date :`;
     # we should remove that, or add it to the html version too.
     assert text_html[20:].strip() == text_plain[25:].strip()
+
+
+def test_html_copy_button() -> None:
+    """HTML output should embed a copy-to-plain-text button (issue #106)."""
+    report = scooby.Report()
+    html = report._repr_html_()
+    soup = BeautifulSoup(html, features='html.parser')
+
+    wrapper = soup.find('div', class_='scooby-report')
+    assert wrapper is not None, 'expected a .scooby-report wrapper div'
+
+    # Exactly one hidden textarea carrying the plain-text payload.
+    textareas = wrapper.find_all('textarea', attrs={'data-scooby-plain': True})
+    assert len(textareas) == 1
+    payload = textareas[0].get_text()
+    # It should contain the same content as __repr__ (HTML-unescaped by the
+    # parser on read), so a distinctive substring from the plain text must
+    # be present.
+    plain = report.__repr__()
+    distinctive = plain.splitlines()[-2].strip()  # last non-empty line
+    assert distinctive
+    assert distinctive in payload
+
+    # Exactly one copy button with clipboard wiring.
+    buttons = wrapper.find_all('button')
+    assert len(buttons) == 1
+    assert 'Copy as plain text' in buttons[0].get_text()
+    onclick = buttons[0].get('onclick') or ''
+    assert 'navigator.clipboard' in onclick
 
 
 def test_extra_meta() -> None:
@@ -402,6 +448,68 @@ def test_auto_report() -> None:
     report = scooby.AutoReport('pytest')
     assert 'pytest' in report.packages
     assert 'iniconfig' in report.packages
+
+
+@pytest.mark.script_launch_mode('subprocess')
+def test_cli_grep(script_runner: ScriptRunner) -> None:
+    """--grep should list installed packages matching the pattern (issue #100)."""
+    # Substring match (case-insensitive)
+    ret = script_runner.run(['scooby', '--grep', 'pytest'])
+    assert ret.success
+    lines = [line for line in ret.stdout.splitlines() if line]
+    assert lines, 'expected at least one match for "pytest"'
+    assert all('==' in line for line in lines), 'output should be name==version'
+    assert any(line.startswith('pytest==') for line in lines)
+
+    # Glob match
+    ret = script_runner.run(['scooby', '--grep', 'pytest-*'])
+    assert ret.success
+    assert 'pytest-' in ret.stdout
+    # Glob should not match the bare "pytest" entry.
+    assert not any(
+        line == f'pytest=={m}'
+        for line in ret.stdout.splitlines()
+        for m in [line.split('==', 1)[1]]
+        if line.startswith('pytest==')
+    )
+
+    # Case-insensitive
+    ret = script_runner.run(['scooby', '--grep', 'PYTEST'])
+    assert ret.success
+    assert 'pytest==' in ret.stdout
+
+    # No match -> exit 1 (grep convention)
+    ret = script_runner.run(['scooby', '--grep', 'zzz_no_such_package_xyz'])
+    assert not ret.success
+    assert ret.stdout == ''
+
+    # Multiple patterns (repeatable flag), results are deduped and sorted
+    ret = script_runner.run(['scooby', '--grep', 'numpy', '--grep', 'scipy'])
+    assert ret.success
+    names = [line.split('==', 1)[0] for line in ret.stdout.splitlines() if line]
+    assert 'numpy' in names
+    assert 'scipy' in names
+    assert names == sorted(names, key=str.lower)
+
+
+@pytest.mark.script_launch_mode('subprocess')
+def test_cli_track(script_runner: ScriptRunner, tmp_path: Path) -> None:
+    """--track should run a script with import tracking and print a report (issue #100)."""
+    script = tmp_path / 'tracked_script.py'
+    script.write_text(
+        "import sys\nimport numpy  # noqa: F401\nprint('script argv:', sys.argv)\n",
+    )
+
+    ret = script_runner.run(['scooby', '--track', str(script), 'hello', 'world'])
+    assert ret.success, ret.stderr
+    # Script executed with forwarded argv
+    assert 'script argv:' in ret.stdout
+    assert 'hello' in ret.stdout
+    assert 'world' in ret.stdout
+    # Tracked report includes numpy (imported inside the script)
+    assert 'numpy' in ret.stdout
+    # Standard scooby report banner is present
+    assert 'Python' in ret.stdout
 
 
 @pytest.mark.parametrize(

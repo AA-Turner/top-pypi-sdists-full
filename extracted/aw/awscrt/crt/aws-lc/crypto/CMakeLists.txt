@@ -143,6 +143,10 @@ if(PERL_EXECUTABLE)
       set(PERLASM_FLAGS "${PERLASM_FLAGS} -DMY_ASSEMBLER_IS_TOO_OLD_FOR_AVX")
     endif()
 
+    if(MY_ASSEMBLER_IS_TOO_OLD_FOR_ADX_AVX2)
+      set(PERLASM_FLAGS "${PERLASM_FLAGS} -DMY_ASSEMBLER_IS_TOO_OLD_FOR_ADX_AVX2")
+    endif()
+
     if(MY_ASSEMBLER_IS_TOO_OLD_FOR_512AVX)
       set(PERLASM_FLAGS "${PERLASM_FLAGS} -DMY_ASSEMBLER_IS_TOO_OLD_FOR_512AVX")
     endif()
@@ -374,6 +378,7 @@ add_library(
   bytestring/unicode.c
   chacha/chacha.c
   cipher_extra/cipher_extra.c
+  cipher_extra/cts.c
   cipher_extra/derive_key.c
   cipher_extra/e_aesctrhmac.c
   cipher_extra/e_aesgcmsiv.c
@@ -398,6 +403,7 @@ add_library(
   ecdh_extra/ecdh_extra.c
   ecdsa_extra/ecdsa_asn1.c
   ec_extra/ec_asn1.c
+  ec_extra/ec_brainpool.c
   ec_extra/ec_derive.c
   ec_extra/hash_to_curve.c
   err/err.c
@@ -423,6 +429,7 @@ add_library(
   ex_data.c
   hpke/hpke.c
   hrss/hrss.c
+  keccak/keccak.c
   lhash/lhash.c
   md4/md4.c
   mem.c
@@ -632,6 +639,18 @@ function(build_libcrypto)
       VERSION "${SOFTWARE_VERSION}"
       SOVERSION "${ABI_VERSION}")
   endif()
+
+  # Apply symbol versioning for shared libraries. The version script is a
+  # checked-in source file, so if versioning is enabled it must be present;
+  # apply_version_script() fatal-errors if it is missing rather than silently
+  # producing an unversioned library.
+  if(ENABLE_SYMBOL_VERSIONING)
+    apply_version_script(
+      TARGET ${arg_NAME}
+      VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/libcrypto.map"
+      NAMESPACE "${SYMBOL_VERSION_NAMESPACE}"
+    )
+  endif()
 endfunction()
 
 if(FIPS_SHARED)
@@ -762,6 +781,7 @@ if(BUILD_TESTING)
     chacha/chacha_test.cc
     cipher_extra/aead_test.cc
     cipher_extra/cipher_test.cc
+    cipher_extra/cts_test.cc
     compiler_test.cc
     conf/conf_test.cc
     console/console_test.cc
@@ -817,6 +837,7 @@ if(BUILD_TESTING)
     hmac_extra/hmac_test.cc
     hrss/hrss_test.cc
     impl_dispatch_test.cc
+    keccak/keccak256_test.cc
     lhash/lhash_test.cc
     obj/obj_test.cc
     ocsp/ocsp_test.cc
@@ -880,7 +901,7 @@ if(BUILD_TESTING)
   endif()
 
   if (BUILD_SHARED_LIBS AND NOT WIN32)
-    target_compile_options(${DYNAMIC_LOADING_TEST_EXEC} PUBLIC "-DLIBCRYPTO_PATH=$<TARGET_FILE:crypto>")
+    target_compile_options(${DYNAMIC_LOADING_TEST_EXEC} PUBLIC "-DLIBCRYPTO_PATH=\"$<TARGET_FILE:crypto>\"")
     # Do not link to boringssl_gtest_main or any library that might be linked to libcrypto.so.
     if(ANDROID)
       target_link_libraries(${DYNAMIC_LOADING_TEST_EXEC} PUBLIC boringssl_gtest ${DYNAMIC_LINKER_LIB})
@@ -891,19 +912,23 @@ if(BUILD_TESTING)
 
   add_dependencies(all_tests ${DYNAMIC_LOADING_TEST_EXEC})
 
-  message(STATUS "Generating test executable ${RWLOCK_STATIC_INIT_TEST_EXEC}.")
-  add_executable(${RWLOCK_STATIC_INIT_TEST_EXEC} rwlock_static_init.cc)
-  add_dependencies(${RWLOCK_STATIC_INIT_TEST_EXEC} crypto)
-  set_test_location(${RWLOCK_STATIC_INIT_TEST_EXEC})
+  # rwlock_static_init requires threading support (std::thread)
+  # Skip on Generic (WASI) which doesn't have pthreads
+  if(NOT CMAKE_SYSTEM_NAME STREQUAL "Generic")
+    message(STATUS "Generating test executable ${RWLOCK_STATIC_INIT_TEST_EXEC}.")
+    add_executable(${RWLOCK_STATIC_INIT_TEST_EXEC} rwlock_static_init.cc)
+    add_dependencies(${RWLOCK_STATIC_INIT_TEST_EXEC} crypto)
+    set_test_location(${RWLOCK_STATIC_INIT_TEST_EXEC})
 
-  target_link_libraries(${RWLOCK_STATIC_INIT_TEST_EXEC} crypto)
-  target_add_awslc_include_paths(TARGET ${RWLOCK_STATIC_INIT_TEST_EXEC} SCOPE PRIVATE)
-  if(MSVC)
-    target_link_libraries(${RWLOCK_STATIC_INIT_TEST_EXEC} ws2_32)
-  else()
-    target_compile_options(${RWLOCK_STATIC_INIT_TEST_EXEC} PUBLIC -Wno-deprecated-declarations)
+    target_link_libraries(${RWLOCK_STATIC_INIT_TEST_EXEC} crypto)
+    target_add_awslc_include_paths(TARGET ${RWLOCK_STATIC_INIT_TEST_EXEC} SCOPE PRIVATE)
+    if(MSVC)
+      target_link_libraries(${RWLOCK_STATIC_INIT_TEST_EXEC} ws2_32)
+    else()
+      target_compile_options(${RWLOCK_STATIC_INIT_TEST_EXEC} PUBLIC -Wno-deprecated-declarations)
+    endif()
+    add_dependencies(all_tests ${RWLOCK_STATIC_INIT_TEST_EXEC})
   endif()
-  add_dependencies(all_tests ${RWLOCK_STATIC_INIT_TEST_EXEC})
 
 endif()
 

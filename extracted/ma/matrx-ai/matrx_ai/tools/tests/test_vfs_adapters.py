@@ -5,13 +5,13 @@ from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
+from matrx_connect.emitters.console_emitter import ConsoleEmitter
 
 from matrx_ai.context.app_context import (
     AppContext,
     clear_app_context,
     set_app_context,
 )
-from matrx_connect.emitters.console_emitter import ConsoleEmitter
 from matrx_ai.tools.implementations.vfs_filesystem import (
     fs_edit,
     fs_list,
@@ -150,6 +150,7 @@ async def test_fs_list_pattern_filter(ctx: ToolContext) -> None:
 
     result = await fs_list({"path": "/", "pattern": "*.py"}, ctx)
     assert result.success is True
+    assert result.output_self_capped is True
     names = sorted(e["name"] for e in result.output["entries"])
     assert names == ["a.py", "b.py"]
 

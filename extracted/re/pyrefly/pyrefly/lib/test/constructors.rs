@@ -8,6 +8,23 @@
 use crate::testcase;
 
 testcase!(
+    test_generic_decorator_on_dunder_new,
+    r#"
+from collections.abc import Callable
+
+def fn[T](c: Callable[[T], None]) -> T:  # E: missing an explicit `return`
+    pass
+
+class C:
+    @fn  # E: is not assignable to parameter `c`
+    def __new__(cls):
+        pass
+
+C()  # E: `__new__` on `C` resolves back to the same class
+"#,
+);
+
+testcase!(
     test_class_init,
     r#"
 from typing import assert_type
@@ -176,6 +193,36 @@ assert_type(x, int)
 );
 
 testcase!(
+    test_bounded_type_with_metaclass_call_returns_something_else,
+    r#"
+from typing import assert_type
+
+class Meta(type):
+    def __call__(cls, x: int) -> str: ...
+
+class BoundClass(metaclass=Meta):
+    pass
+
+class C[T: BoundClass]:
+    x: type[T]
+    y: type[BoundClass]
+
+    def check(self) -> None:
+        assert_type(self.x(10), str)
+        assert_type(self.y(10), str)
+
+assert_type(BoundClass(10), str)
+
+class OrdinaryBase: ...
+
+def ordinary[T: OrdinaryBase](cls: type[T]) -> T:
+    return cls()
+
+assert_type(ordinary(OrdinaryBase), OrdinaryBase)
+    "#,
+);
+
+testcase!(
     test_metaclass_invalid_generic,
     r#"
 from typing import Any, assert_type
@@ -184,6 +231,18 @@ class Meta[T](type):
 class C[T](metaclass=Meta[T]): # E: Metaclass may not be an unbound generic
     pass
 assert_type(C(), C[Any]) # Correct, because invalid metaclass.
+    "#,
+);
+
+testcase!(
+    test_metaclass_invalid_losing_direct_generic,
+    r#"
+from typing import Any
+
+class Meta1[T](type): ...
+class Meta2[T](Meta1[T]): ...
+class A(metaclass=Meta2[Any]): ...
+class B[T](A, metaclass=Meta1[T]): ...  # E: Metaclass may not be an unbound generic
     "#,
 );
 
@@ -257,6 +316,15 @@ class Parent(Grandparent, kw="x"): ...
 # `Child` inherits `Grandparent.__init_subclass__`, which requires `kw`, so this
 # reports a missing argument even though `Child` passes no keywords.
 class Child(Parent): ...  # E: Missing argument `kw`
+    "#,
+);
+
+testcase!(
+    test_cannot_inherit_noncallable_init_subclass,
+    r#"
+class Foo:
+    __init_subclass__: None = None
+class Bar(Foo): ...  # E: Expected `__init_subclass__` to be a callable, got `None`
     "#,
 );
 
@@ -974,108 +1042,9 @@ assert_type(out2, C[str])
 );
 
 testcase!(
-    test_init_class_scoped_typevars_in_self,
-    r#"
-from typing import Generic, TypeVar
-
-T1 = TypeVar("T1")
-T2 = TypeVar("T2")
-
-class Class8(Generic[T1, T2]):
-    def __init__(self: "Class8[T2, T1]") -> None:  # E: `__init__` method self type cannot reference class type parameters `T2`, `T1`
-        pass
-"#,
-);
-
-testcase!(
-    test_constructor_typevar_scope,
-    r#"
-from typing import Generic, TypeVar
-T = TypeVar("T")
-class Ok1(Generic[T]):
-    def __init__(self: "Ok1[int]") -> None:
-        pass
-class Ok2[T]:
-    def __init__(self: "Ok2[int]") -> None:
-        pass
-class Ok3(Generic[T]):
-    def __init__(self) -> None:
-        pass
-class Ok4[T]:
-    def __init__(self) -> None:
-        pass
-class Ok5(Generic[T]):
-    def __init__[V](self: "Ok5[V]", arg: V) -> None:
-        pass
-class Ok6[T]:
-    def __init__[V](self: "Ok6[V]", arg: V) -> None:
-        pass
-class Bad1(Generic[T]):
-    def __init__(self: "Bad1[T]") -> None: # E: `__init__` method self type cannot reference class type parameter `T`
-        pass
-class Bad2[T]:
-    def __init__(self: "Bad2[T]") -> None: # E: `__init__` method self type cannot reference class type parameter `T`
-        pass
-"#,
-);
-
-testcase!(
-    test_constructor_typevar_scope_nested,
-    r#"
-from typing import Generic, TypeVar
-T = TypeVar("T")
-# Nested type variables should also be detected (e.g., Foo[list[T]])
-class Bad1(Generic[T]):
-    def __init__(self: "Bad1[list[T]]") -> None: # E: `__init__` method self type cannot reference class type parameter `T`
-        pass
-class Bad2[T]:
-    def __init__(self: "Bad2[tuple[T, int]]") -> None: # E: `__init__` method self type cannot reference class type parameter `T`
-        pass
-"#,
-);
-
-testcase!(
-    test_constructor_typevar_scope_overload,
-    r#"
-from typing import Generic, TypeVar, overload
-T = TypeVar("T")
-# Overloaded __init__ methods should also be checked
-class Bad1(Generic[T]):
-    @overload
-    def __init__(self: "Bad1[T]", x: int) -> None: # E: `__init__` method self type cannot reference class type parameter `T`
-        ...
-    @overload
-    def __init__(self: "Bad1[str]", x: str) -> None:
-        ...
-    def __init__(self, x: int | str) -> None:
-        pass
-class Ok1(Generic[T]):
-    @overload
-    def __init__(self: "Ok1[int]", x: int) -> None:
-        ...
-    @overload
-    def __init__(self: "Ok1[str]", x: str) -> None:
-        ...
-    def __init__(self, x: int | str) -> None:
-        pass
-"#,
-);
-
-testcase!(
-    test_class_scoped_typevar_in_decorated_init,
-    r#"
-from typing import Any
-def decorate(f) -> Any: ...
-class A[T]:
-    @decorate
-    def __init__(self: A[T]): ...  # E: self type cannot reference class type parameter `T`
-    "#,
-);
-
-testcase!(
     test_new_returns_concrete_inside_method,
     r#"
-from typing import Self, reveal_type
+from typing import Self, assert_type, reveal_type
 
 class C:
     def __new__(cls) -> "C": ...
@@ -1087,14 +1056,14 @@ class C:
 class D(C): ...
 
 def check_subclass(d: D) -> None:
-    reveal_type(type(d)())  # E: revealed type: C
+    assert_type(type(d)(), C)
     "#,
 );
 
 testcase!(
     test_new_returns_list_self_inside_method,
     r#"
-from typing import Self, reveal_type
+from typing import Self, assert_type, reveal_type
 
 class C:
     def __new__(cls) -> list[Self]: ...
@@ -1106,7 +1075,7 @@ class C:
 class D(C): ...
 
 def check_subclass(d: D) -> None:
-    reveal_type(type(d)())  # E: revealed type: list[D]
+    assert_type(type(d)(), list[D])
     "#,
 );
 
@@ -1289,5 +1258,134 @@ class C[T: int | list[str]]:
     def __new__(cls, data: T | Sequence[T]) -> Self: ...
 x = C([1, 2])
 assert_type(x, C[int])
+    "#,
+);
+
+// A class defining both `__new__` and `__init__` has its args checked twice, so
+// nesting cost `O(2^depth)` (below test would be 2^18 checks without the fix).
+testcase!(
+    test_deeply_nested_new_and_init_ctor_calls,
+    r#"
+from typing import Self, assert_type
+class D:
+    def __new__(cls, x: "D | None" = None) -> Self: ...
+    def __init__(self, x: "D | None" = None) -> None: ...
+x = D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(None))))))))))))))))))
+assert_type(x, D)
+    "#,
+);
+
+// The `dict` stubs declare `__new__` alongside `__init__`, so subclasses
+// inherit both https://github.com/facebook/pyrefly/issues/4276.
+testcase!(
+    test_deeply_nested_dict_subclass_ctor_calls,
+    r#"
+from typing import Any, assert_type
+class D(dict[str, Any]):
+    def __init__(self, x: "D | None" = None) -> None: ...
+x = D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(D(None))))))))))))))))))
+assert_type(x, D)
+    "#,
+);
+
+// Confirm that flattening resolves by type (ensure aliases still collapse).
+testcase!(
+    test_deeply_nested_aliased_ctor_calls,
+    r#"
+from typing import Self, assert_type
+class D:
+    def __new__(cls, x: "D | None" = None) -> Self: ...
+    def __init__(self, x: "D | None" = None) -> None: ...
+E = D
+x = E(E(E(E(E(E(E(E(E(E(E(E(E(E(E(E(E(E(None))))))))))))))))))
+assert_type(x, D)
+    "#,
+);
+
+// A shallow generic construction is not flattened, so the parameter still pins the type argument.
+testcase!(
+    test_nested_generic_ctor_keeps_contextual_targs,
+    r#"
+from typing import Self
+class G[T]:
+    def __new__(cls, xs: list[T]) -> Self: ...
+    def __init__(self, xs: list[T]) -> None: ...
+class A: ...
+class B(A): ...
+class Outer:
+    def __new__(cls, g: "G[A]") -> Self: ...
+    def __init__(self, g: "G[A]") -> None: ...
+Outer(G([B()]))
+def takes_float(g: "G[float]") -> None: ...
+takes_float(G([1]))
+    "#,
+);
+
+// Past `FLATTEN_CALL_DEPTH` the argument is inferred without the parameter as a hint, so the
+// inner `G`'s type argument is pinned by the list literal alone.
+testcase!(
+    test_deeply_nested_generic_ctor_loses_contextual_targs,
+    r#"
+from typing import Self
+class G[T]:
+    def __new__(cls, xs: list[T]) -> Self: ...
+    def __init__(self, xs: list[T]) -> None: ...
+class A: ...
+class B(A): ...
+class Outer:
+    def __new__(cls, g: "G[G[G[A]]]") -> Self: ...
+    def __init__(self, g: "G[G[G[A]]]") -> None: ...
+Outer(G([G([G([B()])])]))  # E: Argument `G[G[G[B]]]` is not assignable to parameter `g` with type `G[G[G[A]]]`
+    "#,
+);
+
+testcase!(
+    test_generic_class_object_as_callable,
+    r#"
+from typing import Callable, Generic, TypeVar
+T = TypeVar("T")
+
+class NewAndInit(Generic[T]):
+    def __new__(cls, x: T) -> "NewAndInit[T]": ...
+    def __init__(self, x: T) -> None: ...
+
+both_ok: Callable[[int], NewAndInit[int]] = NewAndInit
+both_bad: Callable[[int], NewAndInit[str]] = NewAndInit  # E: `type[NewAndInit]` is not assignable to `(int) -> NewAndInit[str]`
+
+# A class that defines no constructor of its own is constructed with no arguments, and its type
+# parameters are gradual because there is nothing to infer them from.
+class Bare(Generic[T]): ...
+
+bare_ok: Callable[[], Bare[int]] = Bare
+bare_bad: Callable[[int], Bare[int]] = Bare  # E: `type[Bare]` is not assignable to `(int) -> Bare[int]`
+
+# A type parameter that the constructor does not mention is likewise gradual.
+class Unused(Generic[T]):
+    def __init__(self, x: int) -> None: ...
+
+unused_ok: Callable[[int], Unused[str]] = Unused
+    "#,
+);
+
+testcase!(
+    test_class_object_as_callable_with_cls_annotation,
+    r#"
+from typing import Callable, TypeVar
+S = TypeVar("S")
+class C:
+    def __new__(cls: type[S], x: int) -> list[S]: ...
+ok: Callable[[int], list[C]] = C
+    "#,
+);
+
+testcase!(
+    test_generic_class_object_as_callable_with_cls_annotation,
+    r#"
+from typing import Callable, Generic, TypeVar
+T = TypeVar("T")
+S = TypeVar("S")
+class C(Generic[T]):
+    def __new__(cls: type[S], x: T) -> list[S]: ...
+ok: Callable[[int], list[C[int]]] = C
     "#,
 );

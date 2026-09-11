@@ -10,6 +10,7 @@ import datetime
 import logging
 import os
 import struct
+import warnings
 from glob import glob
 from io import BytesIO, StringIO
 
@@ -26,7 +27,7 @@ from prov.serializers.provrdf import (
     ProvRDFSerializer,
     literal_rdf_representation,
 )
-from prov.tests.conftest import roundtrip_document
+from prov.tests.conftest import add_ordered_namespaces, roundtrip_document
 
 logger = logging.getLogger(__name__)
 
@@ -363,7 +364,7 @@ def test_decode_multi_valued_qualified_relation_produces_cartesian_product():
     # legally repeat a formal-attribute predicate on the same qualified-
     # relation bnode; decode_container()'s walk() helper must expand
     # that into one new_record() call per combination rather than
-    # silently overwriting (docs/test-gap-checklist.md, T13 item under
+    # silently overwriting (planning/test-gap-checklist.md, T13 item under
     # provrdf.py: "multi-valued unique-set walking").
     turtle = """
     @prefix prov: <http://www.w3.org/ns/prov#> .
@@ -1107,3 +1108,148 @@ def test_trailing_metacharacter_encode_output_unchanged():
     for ch in _TRAILING_METACHARS:
         expected.add((URIRef(ns + "a" + ch), RDF.type, URIRef(prov + "Entity")))
     assert isomorphic(reparsed, expected)
+
+
+# _resolve_iri()'s step 1 (a namespace bound in the *graph* being decoded,
+# not the document) only matters when the document hasn't already resolved
+# the IRI some other way. decode_document() hoists every one of a Dataset's
+# namespaces onto the document before decoding any statement (so
+# valid_identifier() -- itself a first-match, not longest-match, namespace
+# scan -- already succeeds by the time a real subject/object is decoded, and
+# _resolve_iri() is never reached with a matching graph namespace). Driving
+# these cases through decode_container() directly -- the same method
+# decode_document() calls per (sub)graph, and the real caller of
+# _resolve_iri() via _decode_type_triples() -- keeps a document with no
+# pre-hoisted namespaces, so _resolve_iri()'s own graph-namespace scan is
+# actually exercised, honestly reaching the branch under test.
+def _decode_via_container(turtle: str) -> ProvDocument:
+    graph = Graph().parse(data=turtle, format="turtle")
+    doc = ProvDocument()
+    ProvRDFSerializer(document=doc).decode_container(graph, doc)
+    return doc
+
+
+def test_resolve_iri_reuses_namespace_bound_in_graph_for_metacharacter_local_part():
+    # Step 1 of _resolve_iri(): an IRI under a namespace bound in the graph
+    # (but not on the document) must resolve against that namespace and reuse
+    # its declared prefix, rather than falling through to compute_qname's
+    # ValueError (#294's motivating case: a local part ending in a PROV-N
+    # metacharacter) and then minting a throwaway "ns" prefix in step 3.
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix ex: <http://example.org/> .
+    <http://example.org/thing;> a prov:Entity .
+    """
+    doc = _decode_via_container(turtle)
+
+    (record,) = doc.get_records()
+    identifier = record.identifier
+    assert identifier.uri == "http://example.org/thing;"
+    assert identifier.namespace.uri == "http://example.org/"
+    assert identifier.namespace.prefix == "ex"
+    assert identifier.localpart == "thing;"
+
+
+def test_resolve_iri_picks_longest_matching_bound_namespace():
+    # Step 1 must pick the *longest* bound namespace that prefixes the IRI,
+    # not merely the first one found: with "http://example.org/" and
+    # "http://example.org/sub/" both bound, an IRI under the longer namespace
+    # must split there, not against the shorter one it also happens to match.
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix ex: <http://example.org/> .
+    @prefix exsub: <http://example.org/sub/> .
+    <http://example.org/sub/thing> a prov:Entity .
+    """
+    doc = _decode_via_container(turtle)
+
+    (record,) = doc.get_records()
+    identifier = record.identifier
+    assert identifier.uri == "http://example.org/sub/thing"
+    assert identifier.namespace.uri == "http://example.org/sub/"
+    assert identifier.namespace.prefix == "exsub"
+    assert identifier.localpart == "thing"
+
+
+def test_resolve_iri_skips_bound_namespace_equal_to_the_iri_itself():
+    # The `iri != uri` guard: an IRI that exactly equals a bound namespace
+    # URI must not match against *that* namespace (which would produce a
+    # degenerate empty local part) even though it is also bound in the
+    # graph. It must fall through to a shorter namespace that is a genuine
+    # (non-equal) prefix, giving a real, non-empty local part instead.
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix top: <http://example.org/> .
+    @prefix full: <http://example.org/thing> .
+    <http://example.org/thing> a prov:Entity .
+    """
+    doc = _decode_via_container(turtle)
+
+    (record,) = doc.get_records()
+    identifier = record.identifier
+    assert identifier.uri == "http://example.org/thing"
+    assert identifier.namespace.uri == "http://example.org/"
+    assert identifier.namespace.prefix == "top"
+    assert identifier.localpart == "thing"
+
+
+def test_bundle_namespace_order_follows_registration_in_rdf():
+    # #337: bundle namespaces are bound on the bundle graph in registration
+    # order. rdflib sorts prefixes when it serializes, so the bound order on
+    # the graph is the observable.
+    document = ProvDocument()
+    document.set_default_namespace("http://example.org/")
+    bundle = document.bundle("b1")
+    prefixes = add_ordered_namespaces(bundle)
+
+    serializer = ProvRDFSerializer(document)
+    graph = serializer.encode_container(
+        bundle, identifier=URIRef("http://example.org/b1")
+    )
+
+    bound = [
+        prefix
+        for prefix, _ in graph.namespace_manager.namespaces()
+        if prefix in prefixes
+    ]
+    assert bound == prefixes
+
+
+NOT_CONVERTED = "The following attributes were not converted"
+
+
+def test_clean_round_trip_emits_no_not_converted_warning():
+    document = ProvDocument()
+    document.set_default_namespace("http://example.org/")
+    document.entity("e1", other_attributes={"prov:label": "an entity"})
+    document.activity("a1")
+    document.wasGeneratedBy("e1", "a1")
+    document.wasAttributedTo("e1", "ag1")
+    rdf_text = document.serialize(format="rdf", rdf_format="trig")
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=NOT_CONVERTED)
+        reloaded = ProvDocument.deserialize(
+            content=rdf_text, format="rdf", rdf_format="trig"
+        )
+
+    assert reloaded == document
+
+
+def test_unmapped_subject_still_warns_and_is_named():
+    turtle = """
+    @prefix prov: <http://www.w3.org/ns/prov#> .
+    @prefix ex: <http://example.org/> .
+    ex:e1 a prov:Entity .
+    ex:orphan a ex:Custom .
+    """
+
+    with pytest.warns(UserWarning, match=NOT_CONVERTED) as record:
+        ProvDocument.deserialize(content=turtle, format="rdf", rdf_format="turtle")
+
+    # Filter to UserWarnings only (rdflib may emit DeprecationWarnings)
+    user_warnings = [r for r in record if issubclass(r.category, UserWarning)]
+    assert len(user_warnings) == 1
+    message = str(user_warnings[0].message)
+    assert "http://example.org/orphan" in message
+    assert "http://example.org/e1" not in message

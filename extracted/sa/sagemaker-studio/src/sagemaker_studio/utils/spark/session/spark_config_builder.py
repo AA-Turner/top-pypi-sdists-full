@@ -184,6 +184,10 @@ def _generate_irc_spark_configs(proj):
             conf[f"{catalog_prefix}.warehouse"] = catalog_name
             conf[f"{catalog_prefix}.token"] = access_token
             conf[f"{catalog_prefix}.header.X-Iceberg-Access-Delegation"] = "vended-credentials"
+            # IRC catalogs vend S3 credentials for data files that may reside in a
+            # different region than the Spark session. Without cross-region access the
+            # S3 client returns a 301 Moved Permanently instead of following the redirect.
+            conf[f"{catalog_prefix}.s3.cross-region-access-enabled"] = "true"
             if realm:
                 conf[f"{catalog_prefix}.header.Polaris-Realm"] = realm
 
@@ -237,10 +241,11 @@ def build_spark_configs(
 
 
 def extract_connection_spark_configs(connection) -> dict:
-    """Extract SparkConfiguration properties from a DataZone connection object.
+    """Extract Spark properties from a DataZone connection object.
 
-    Looks for a classification entry named "SparkConfiguration" in the connection's
-    configurations list and returns its properties dict.
+    Merges properties from classification entries named "SparkConfiguration" or
+    "spark-defaults" in the connection's configurations list. Later entries override
+    duplicate keys from earlier entries.
 
     Args:
         connection: A resolved Connection object.
@@ -252,13 +257,14 @@ def extract_connection_spark_configs(connection) -> dict:
         configurations = getattr(connection, "_Connection__connection_data", {}).get(
             "configurations", []
         )
+        spark_configs = {}
         if isinstance(configurations, list):
             for config in configurations:
-                if config.get("classification") == "SparkConfiguration":
-                    props = config.get("properties", {})
-                    if props:
-                        logger.info(f"Loaded {len(props)} connection-level spark configs")
-                    return props
+                if config.get("classification") in ("SparkConfiguration", "spark-defaults"):
+                    spark_configs.update(config.get("properties", {}) or {})
+        if spark_configs:
+            logger.info(f"Loaded {len(spark_configs)} connection-level spark configs")
+        return spark_configs
     except Exception as e:
         logger.warning(f"Error reading connection spark configs: {e}")
     return {}

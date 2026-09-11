@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2021, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -35,7 +35,7 @@
 
 import functools
 import ssl
-from typing import Union, Callable, Any, Optional
+from typing import Callable, Any
 
 import oracledb
 
@@ -56,60 +56,63 @@ class ConnectParams(metaclass=BaseMetaClass):
     def __init__(
         self,
         *,
-        user: Optional[str] = None,
-        proxy_user: Optional[str] = None,
-        password: Optional[str] = None,
-        newpassword: Optional[str] = None,
-        wallet_password: Optional[str] = None,
-        access_token: Optional[Union[str, tuple, Callable]] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        protocol: Optional[str] = None,
-        https_proxy: Optional[str] = None,
-        https_proxy_port: Optional[int] = None,
-        service_name: Optional[str] = None,
-        instance_name: Optional[str] = None,
-        sid: Optional[str] = None,
-        server_type: Optional[str] = None,
-        cclass: Optional[str] = None,
-        purity: Optional[oracledb.Purity] = None,
-        expire_time: Optional[int] = None,
-        retry_count: Optional[int] = None,
-        retry_delay: Optional[int] = None,
-        tcp_connect_timeout: Optional[float] = None,
-        ssl_server_dn_match: Optional[bool] = None,
-        ssl_server_cert_dn: Optional[str] = None,
-        wallet_location: Optional[str] = None,
-        events: Optional[bool] = None,
-        externalauth: Optional[bool] = None,
-        mode: Optional[oracledb.AuthMode] = None,
-        disable_oob: Optional[bool] = None,
-        stmtcachesize: Optional[int] = None,
-        edition: Optional[str] = None,
-        tag: Optional[str] = None,
-        matchanytag: Optional[bool] = None,
-        config_dir: Optional[str] = None,
-        appcontext: Optional[list] = None,
-        shardingkey: Optional[list] = None,
-        supershardingkey: Optional[list] = None,
-        debug_jdwp: Optional[str] = None,
-        connection_id_prefix: Optional[str] = None,
-        ssl_context: Optional[Any] = None,
-        sdu: Optional[int] = None,
-        pool_boundary: Optional[str] = None,
-        use_tcp_fast_open: Optional[bool] = None,
-        ssl_version: Optional[ssl.TLSVersion] = None,
-        program: Optional[str] = None,
-        machine: Optional[str] = None,
-        terminal: Optional[str] = None,
-        osuser: Optional[str] = None,
-        driver_name: Optional[str] = None,
-        use_sni: Optional[bool] = None,
-        thick_mode_dsn_passthrough: Optional[bool] = None,
-        extra_auth_params: Optional[dict] = None,
-        pool_name: Optional[str] = None,
-        on_connect_callback: Optional[Callable] = None,
-        handle: Optional[int] = None,
+        user: str | None = None,
+        proxy_user: str | None = None,
+        password: str | None = None,
+        newpassword: str | None = None,
+        wallet_password: str | None = None,
+        access_token: str | tuple | Callable | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        protocol: str | None = None,
+        https_proxy: str | None = None,
+        https_proxy_port: int | None = None,
+        service_name: str | None = None,
+        instance_name: str | None = None,
+        sid: str | None = None,
+        server_type: str | None = None,
+        cclass: str | None = None,
+        purity: oracledb.Purity | None = None,
+        expire_time: int | None = None,
+        retry_count: int | None = None,
+        retry_delay: int | None = None,
+        tcp_connect_timeout: float | None = None,
+        ssl_server_dn_match: bool | None = None,
+        ssl_server_cert_dn: str | None = None,
+        wallet_location: str | None = None,
+        events: bool | None = None,
+        externalauth: bool | None = None,
+        mode: oracledb.AuthMode | None = None,
+        disable_oob: bool | None = None,
+        stmtcachesize: int | None = None,
+        edition: str | None = None,
+        tag: str | None = None,
+        matchanytag: bool | None = None,
+        config_dir: str | None = None,
+        appcontext: list | None = None,
+        shardingkey: list | None = None,
+        supershardingkey: list | None = None,
+        debug_jdwp: str | None = None,
+        connection_id_prefix: str | None = None,
+        ssl_context: Any | None = None,
+        sdu: int | None = None,
+        pool_boundary: str | None = None,
+        use_tcp_fast_open: bool | None = None,
+        ssl_version: ssl.TLSVersion | None = None,
+        program: str | None = None,
+        machine: str | None = None,
+        terminal: str | None = None,
+        osuser: str | None = None,
+        driver_name: str | None = None,
+        use_sni: bool | None = None,
+        thick_mode_dsn_passthrough: bool | None = None,
+        extra_auth_params: dict | None = None,
+        pool_name: str | None = None,
+        on_connect_callback: Callable | None = None,
+        operation_callback: Callable | None = None,
+        round_trip_callback: Callable | None = None,
+        transaction_priority: oracledb.TransactionPriority | None = None,
+        handle: int | None = None,
     ):
         """
         All parameters are optional. A brief description of each parameter
@@ -224,9 +227,12 @@ class ConnectParams(metaclass=BaseMetaClass):
           (default: None)
 
         - ``wallet_location``: the directory where the wallet can be found. In
-          python-oracledb Thin mode this must be the directory containing the
-          PEM-encoded wallet file ewallet.pem. In python-oracledb Thick mode
-          this must be the directory containing the file cwallet.sso
+          python-oracledb Thin mode, a directory must contain the PEM-encoded
+          wallet file ewallet.pem. In python-oracledb Thick mode, a directory
+          must contain the file cwallet.sso. If the value specified is the
+          keyword ``SYSTEM``, it is handled the same way as an empty string or
+          as not specifying ``wallet_location``, and the system trust store is
+          used
           (default: None)
 
         - ``events``: a boolean specifying whether events mode should be
@@ -392,12 +398,34 @@ class ConnectParams(metaclass=BaseMetaClass):
           context object for DeepSec support
           (default: None)
 
+        - ``operation_callback``: a callable invoked before each database
+          operation. It receives the operation name followed by a mapping of
+          the operation arguments. It may return a completion callable, which
+          receives the result or raised exception
+          (default: None)
+
+        - ``round_trip_callback``: a callable invoked before each Thin mode
+          round trip. It receives the round trip name and may return a
+          completion callable, which receives the raised exception or *None*
+          when the round trip succeeds
+          (default: None)
+
+        - ``transaction_priority``: a member of the
+          oracledb.TransactionPriority enumeration that specifies the priority
+          of any transaction that is created by the connection
+          (default: None)
+
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick
           mode. It should be used with extreme caution
           (default: 0)
         """
         pass
+
+    def __eq__(self, other):
+        if isinstance(other, ConnectParams):
+            return other._impl == self._impl
+        return NotImplemented
 
     def __repr__(self):
         return (
@@ -450,7 +478,10 @@ class ConnectParams(metaclass=BaseMetaClass):
             f"thick_mode_dsn_passthrough={self.thick_mode_dsn_passthrough!r}, "
             f"extra_auth_params={self.extra_auth_params!r}, "
             f"pool_name={self.pool_name!r}, "
-            f"on_connect_callback={self.on_connect_callback!r}"
+            f"on_connect_callback={self.on_connect_callback!r}, "
+            f"operation_callback={self.operation_callback!r}, "
+            f"round_trip_callback={self.round_trip_callback!r}, "
+            f"transaction_priority={self.transaction_priority!r}"
             ")"
         )
 
@@ -478,7 +509,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def cclass(self) -> Union[list, str]:
+    def cclass(self) -> list | str:
         """
         The connection class to use for Database Resident Connection Pooling
         (DRCP).
@@ -500,7 +531,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def connection_id_prefix(self) -> Union[list, str]:
+    def connection_id_prefix(self) -> list | str:
         """
         An application specific prefix that is added to the connection
         identifier used for tracing.
@@ -556,7 +587,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def expire_time(self) -> Union[list, int]:
+    def expire_time(self) -> list | int:
         """
         The number of minutes between the sending of keepalive probes. If this
         parameter is set to a value greater than zero it enables keepalive.
@@ -581,7 +612,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def host(self) -> Union[list, str]:
+    def host(self) -> list | str:
         """
         The hostname or IP address of the machine hosting the database or the
         database listener.
@@ -590,7 +621,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def https_proxy(self) -> Union[list, str]:
+    def https_proxy(self) -> list | str:
         """
         The hostname or IP address of a proxy host to use for tunneling secure
         connections.
@@ -599,7 +630,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def https_proxy_port(self) -> Union[list, int]:
+    def https_proxy_port(self) -> list | int:
         """
         The port on which to communicate with the proxy host.
         """
@@ -607,7 +638,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def instance_name(self) -> Union[list, str]:
+    def instance_name(self) -> list | str:
         """
         The instance name of the database.
         """
@@ -654,6 +685,16 @@ class ConnectParams(metaclass=BaseMetaClass):
         return self._impl.on_connect_callback
 
     @property
+    def operation_callback(self) -> Callable:
+        """
+        A callable invoked before each database operation. It receives the
+        operation name followed by a mapping of the operation arguments. It may
+        return a completion callable, which receives the result or raised
+        exception.
+        """
+        return self._impl.operation_callback
+
+    @property
     def osuser(self) -> str:
         """
         A string recorded by Oracle Database as the operating system user who
@@ -663,7 +704,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def pool_boundary(self) -> Union[list, str]:
+    def pool_boundary(self) -> list | str:
         """
         One of the values "statement" or "transaction" indicating when pooled
         DRCP connections can be returned to the pool. This requires the use of
@@ -673,7 +714,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def pool_name(self) -> Union[list, str]:
+    def pool_name(self) -> list | str:
         """
         The name of the DRCP pool when using multi-pool DRCP with Oracle
         Database 23.4, or higher.
@@ -682,7 +723,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def port(self) -> Union[list, int]:
+    def port(self) -> list | int:
         """
         The port number on which the database listener is listening.
         """
@@ -698,7 +739,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def protocol(self) -> Union[list, str]:
+    def protocol(self) -> list | str:
         """
         One of the strings "tcp" or "tcps" indicating whether to use
         unencrypted network traffic or encrypted network traffic (TLS).
@@ -716,7 +757,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def purity(self) -> Union[list, oracledb.Purity]:
+    def purity(self) -> list | oracledb.Purity:
         """
         The connection purity to use for Database Resident Connection Pooling
         (DRCP).
@@ -728,7 +769,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def retry_count(self) -> Union[list, int]:
+    def retry_count(self) -> list | int:
         """
         The number of times that initial connection establishment should be
         retried before the connection attempt is terminated.
@@ -737,7 +778,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def retry_delay(self) -> Union[list, int]:
+    def retry_delay(self) -> list | int:
         """
         The number of seconds to wait before retrying to establish a
         connection.
@@ -745,8 +786,17 @@ class ConnectParams(metaclass=BaseMetaClass):
         return [d.retry_delay for d in self._impl.description_list.children]
 
     @property
+    def round_trip_callback(self) -> Callable:
+        """
+        A callable invoked before each Thin mode round trip. It receives the
+        round trip name and may return a completion callable, which receives
+        the raised exception or *None* when the round trip succeeds.
+        """
+        return self._impl.round_trip_callback
+
+    @property
     @_flatten_value
-    def sdu(self) -> Union[list, int]:
+    def sdu(self) -> list | int:
         """
         The requested size of the Session Data Unit (SDU), in bytes. The value
         tunes internal buffers used for communication to the database. Bigger
@@ -759,7 +809,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def server_type(self) -> Union[list, str]:
+    def server_type(self) -> list | str:
         """
         The type of server connection that should be established. If specified,
         it should be one of strings "dedicated", "shared" or "pooled".
@@ -768,7 +818,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def service_name(self) -> Union[list, str]:
+    def service_name(self) -> list | str:
         """
         The service name of the database.
         """
@@ -785,7 +835,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def sid(self) -> Union[list, str]:
+    def sid(self) -> list | str:
         """
         The system identifier (SID) of the database. Note using a service_name
         instead is recommended.
@@ -805,7 +855,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def ssl_server_cert_dn(self) -> Union[list, str]:
+    def ssl_server_cert_dn(self) -> list | str:
         """
         The distinguished name (DN) which should be matched with the server.
         This value is ignored if the ssl_server_dn_match parameter is not set
@@ -818,7 +868,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def ssl_server_dn_match(self) -> Union[list, bool]:
+    def ssl_server_dn_match(self) -> list | bool:
         """
         A boolean indicating whether the server certificate distinguished name
         (DN) should be matched in addition to the regular certificate
@@ -831,7 +881,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def ssl_version(self) -> Union[list, ssl.TLSVersion]:
+    def ssl_version(self) -> list | ssl.TLSVersion:
         """
         One of the values ssl.TLSVersion.TLSv1_2 or ssl.TLSVersion.TLSv1_3
         indicating which TLS version to use.
@@ -864,7 +914,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def tcp_connect_timeout(self) -> Union[list, float]:
+    def tcp_connect_timeout(self) -> list | float:
         """
         A float indicating the maximum number of seconds to wait when
         establishing a connection to the database host.
@@ -893,6 +943,14 @@ class ConnectParams(metaclass=BaseMetaClass):
         return self._impl.thick_mode_dsn_passthrough
 
     @property
+    def transaction_priority(self) -> oracledb.TransactionPriority:
+        """
+        A member of the oracledb.TransactionPriority enumeration that specifies
+        the priority of any transaction that is created by the connection.
+        """
+        return oracledb.TransactionPriority(self._impl.transaction_priority)
+
+    @property
     def user(self) -> str:
         """
         The name of the database user to connect to.
@@ -901,7 +959,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def use_sni(self) -> Union[list, bool]:
+    def use_sni(self) -> list | bool:
         """
         A boolean indicating whether to use the TLS SNI extension to bypass the
         second TLS neogiation that would otherwise be required.
@@ -910,7 +968,7 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def use_tcp_fast_open(self) -> Union[list, bool]:
+    def use_tcp_fast_open(self) -> list | bool:
         """
         A boolean indicating whether to use TCP fast open. This is an Oracle
         Autonomous Database Serverless (ADB-S) specific property for clients
@@ -923,12 +981,14 @@ class ConnectParams(metaclass=BaseMetaClass):
 
     @property
     @_flatten_value
-    def wallet_location(self) -> Union[list, str]:
+    def wallet_location(self) -> list | str:
         """
         The directory where the wallet can be found. In python-oracledb Thin
-        mode this must be the directory containing the PEM-encoded wallet file
-        ewallet.pem. In python-oracledb Thick mode this must be the directory
-        containing the file cwallet.sso.
+        mode, a directory must contain the PEM-encoded wallet file ewallet.pem.
+        In python-oracledb Thick mode, a directory must contain the file
+        cwallet.sso. If the value specified is the keyword ``SYSTEM``, it is
+        handled the same way as an empty string or as not specifying
+        ``wallet_location``, and the system trust store is used.
         """
         return [
             d.wallet_location for d in self._impl.description_list.children
@@ -983,60 +1043,63 @@ class ConnectParams(metaclass=BaseMetaClass):
     def set(
         self,
         *,
-        user: Optional[str] = None,
-        proxy_user: Optional[str] = None,
-        password: Optional[str] = None,
-        newpassword: Optional[str] = None,
-        wallet_password: Optional[str] = None,
-        access_token: Optional[Union[str, tuple, Callable]] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        protocol: Optional[str] = None,
-        https_proxy: Optional[str] = None,
-        https_proxy_port: Optional[int] = None,
-        service_name: Optional[str] = None,
-        instance_name: Optional[str] = None,
-        sid: Optional[str] = None,
-        server_type: Optional[str] = None,
-        cclass: Optional[str] = None,
-        purity: Optional[oracledb.Purity] = None,
-        expire_time: Optional[int] = None,
-        retry_count: Optional[int] = None,
-        retry_delay: Optional[int] = None,
-        tcp_connect_timeout: Optional[float] = None,
-        ssl_server_dn_match: Optional[bool] = None,
-        ssl_server_cert_dn: Optional[str] = None,
-        wallet_location: Optional[str] = None,
-        events: Optional[bool] = None,
-        externalauth: Optional[bool] = None,
-        mode: Optional[oracledb.AuthMode] = None,
-        disable_oob: Optional[bool] = None,
-        stmtcachesize: Optional[int] = None,
-        edition: Optional[str] = None,
-        tag: Optional[str] = None,
-        matchanytag: Optional[bool] = None,
-        config_dir: Optional[str] = None,
-        appcontext: Optional[list] = None,
-        shardingkey: Optional[list] = None,
-        supershardingkey: Optional[list] = None,
-        debug_jdwp: Optional[str] = None,
-        connection_id_prefix: Optional[str] = None,
-        ssl_context: Optional[Any] = None,
-        sdu: Optional[int] = None,
-        pool_boundary: Optional[str] = None,
-        use_tcp_fast_open: Optional[bool] = None,
-        ssl_version: Optional[ssl.TLSVersion] = None,
-        program: Optional[str] = None,
-        machine: Optional[str] = None,
-        terminal: Optional[str] = None,
-        osuser: Optional[str] = None,
-        driver_name: Optional[str] = None,
-        use_sni: Optional[bool] = None,
-        thick_mode_dsn_passthrough: Optional[bool] = None,
-        extra_auth_params: Optional[dict] = None,
-        pool_name: Optional[str] = None,
-        on_connect_callback: Optional[Callable] = None,
-        handle: Optional[int] = None,
+        user: str | None = None,
+        proxy_user: str | None = None,
+        password: str | None = None,
+        newpassword: str | None = None,
+        wallet_password: str | None = None,
+        access_token: str | tuple | Callable | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        protocol: str | None = None,
+        https_proxy: str | None = None,
+        https_proxy_port: int | None = None,
+        service_name: str | None = None,
+        instance_name: str | None = None,
+        sid: str | None = None,
+        server_type: str | None = None,
+        cclass: str | None = None,
+        purity: oracledb.Purity | None = None,
+        expire_time: int | None = None,
+        retry_count: int | None = None,
+        retry_delay: int | None = None,
+        tcp_connect_timeout: float | None = None,
+        ssl_server_dn_match: bool | None = None,
+        ssl_server_cert_dn: str | None = None,
+        wallet_location: str | None = None,
+        events: bool | None = None,
+        externalauth: bool | None = None,
+        mode: oracledb.AuthMode | None = None,
+        disable_oob: bool | None = None,
+        stmtcachesize: int | None = None,
+        edition: str | None = None,
+        tag: str | None = None,
+        matchanytag: bool | None = None,
+        config_dir: str | None = None,
+        appcontext: list | None = None,
+        shardingkey: list | None = None,
+        supershardingkey: list | None = None,
+        debug_jdwp: str | None = None,
+        connection_id_prefix: str | None = None,
+        ssl_context: Any | None = None,
+        sdu: int | None = None,
+        pool_boundary: str | None = None,
+        use_tcp_fast_open: bool | None = None,
+        ssl_version: ssl.TLSVersion | None = None,
+        program: str | None = None,
+        machine: str | None = None,
+        terminal: str | None = None,
+        osuser: str | None = None,
+        driver_name: str | None = None,
+        use_sni: bool | None = None,
+        thick_mode_dsn_passthrough: bool | None = None,
+        extra_auth_params: dict | None = None,
+        pool_name: str | None = None,
+        on_connect_callback: Callable | None = None,
+        operation_callback: Callable | None = None,
+        round_trip_callback: Callable | None = None,
+        transaction_priority: oracledb.TransactionPriority | None = None,
+        handle: int | None = None,
     ):
         """
         Sets the values for one or more of the parameters of a ConnectParams
@@ -1129,9 +1192,12 @@ class ConnectParams(metaclass=BaseMetaClass):
           hostname will be used
 
         - ``wallet_location``: the directory where the wallet can be found. In
-          python-oracledb Thin mode this must be the directory containing the
-          PEM-encoded wallet file ewallet.pem. In python-oracledb Thick mode
-          this must be the directory containing the file cwallet.sso
+          python-oracledb Thin mode, a directory must contain the PEM-encoded
+          wallet file ewallet.pem. In python-oracledb Thick mode, a directory
+          must contain the file cwallet.sso. If the value specified is the
+          keyword ``SYSTEM``, it is handled the same way as an empty string or
+          as not specifying ``wallet_location``, and the system trust store is
+          used
 
         - ``events``: a boolean specifying whether events mode should be
           enabled. This value is only used in python-oracledb Thick mode and is
@@ -1258,6 +1324,20 @@ class ConnectParams(metaclass=BaseMetaClass):
           connection pool, but before it is returned to the caller. A common
           use of this callback is for creating and setting an end user security
           context object for DeepSec support
+
+        - ``operation_callback``: a callable invoked before each database
+          operation. It receives the operation name followed by a mapping of
+          the operation arguments. It may return a completion callable, which
+          receives the result or raised exception
+
+        - ``round_trip_callback``: a callable invoked before each Thin mode
+          round trip. It receives the round trip name and may return a
+          completion callable, which receives the raised exception or *None*
+          when the round trip succeeds
+
+        - ``transaction_priority``: a member of the
+          oracledb.TransactionPriority enumeration that specifies the priority
+          of any transaction that is created by the connection
 
         - ``handle``: an integer representing a pointer to a valid service
           context handle. This value is only used in python-oracledb Thick

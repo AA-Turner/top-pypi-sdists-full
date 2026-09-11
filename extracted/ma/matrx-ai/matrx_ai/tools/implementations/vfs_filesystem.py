@@ -28,6 +28,7 @@ from matrx_ai.tools.kinds.filesystem import (
     FileWriteResult,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.output_caps import cap_json_list
 from matrx_ai.tools.vfs.mimicry import claude_tool
 from matrx_ai.tools.vfs.paths import dirname, join, normalize
 from matrx_ai.tools.vfs.workspace import get_workspace_fs
@@ -35,6 +36,7 @@ from matrx_ai.tools.vfs.workspace import get_workspace_fs
 MAX_READ_SIZE = 1_048_576  # 1 MB
 MAX_LIST_ENTRIES = 500
 MAX_PATCH_SIZE = 5_242_880  # 5 MB — same cap the local-disk fs_patch enforces
+MAX_LIST_OUTPUT_CHARS = 40_000
 
 
 def _abs(path: str) -> str:
@@ -67,6 +69,7 @@ def _ok(
     return ToolResult(
         success=True,
         output=output,
+        output_self_capped=tool_name == "fs_list",
         started_at=started_at,
         completed_at=time.time(),
         tool_name=tool_name,
@@ -176,6 +179,7 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
         entries: list[dict[str, Any]] = []
+        entry_limit_reached = False
         pattern = parsed.pattern or None
 
         if parsed.recursive:
@@ -196,10 +200,12 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                             "size": info["size"] if info["type"] == "file" else 0,
                         }
                     )
-                    if len(entries) >= MAX_LIST_ENTRIES:
+                    if len(entries) > MAX_LIST_ENTRIES:
+                        entries.pop()
+                        entry_limit_reached = True
                         break
                 _ = files  # used by _walk filter — not needed here
-                if len(entries) >= MAX_LIST_ENTRIES:
+                if entry_limit_reached:
                     break
         else:
             listing = await vfs._ls(path, detail=True)
@@ -215,7 +221,9 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                         "size": info["size"] if info["type"] == "file" else 0,
                     }
                 )
-                if len(entries) >= MAX_LIST_ENTRIES:
+                if len(entries) > MAX_LIST_ENTRIES:
+                    entries.pop()
+                    entry_limit_reached = True
                     break
     except NotADirectoryError as exc:
         return _err(started_at, ctx, "fs_list", "filesystem", str(exc))
@@ -224,14 +232,17 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except OSError as exc:
         return _err(started_at, ctx, "fs_list", "filesystem", f"List failed: {exc}")
 
+    shown, cap = cap_json_list(entries, max_chars=MAX_LIST_OUTPUT_CHARS)
     return _ok(
         started_at,
         ctx,
         "fs_list",
         DirectoryListing(
-            entries=[DirectoryEntry(**e) for e in entries],
-            count=len(entries),
+            entries=[DirectoryEntry(**entry) for entry in shown],
+            count=len(shown),
             path=parsed.path,
+            limit=MAX_LIST_ENTRIES,
+            truncated=entry_limit_reached or cap.truncated,
         ).model_dump(mode="json"),
     )
 

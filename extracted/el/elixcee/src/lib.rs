@@ -917,8 +917,13 @@ impl PyVm {
     ///
     /// The returned nested dictionaries are copies and use 1-based
     /// ``(row, col)`` keys, so mutating the result cannot change this VM.
-    #[pyo3(signature = (include_formulas = false))]
-    fn snapshot(&self, py: Python<'_>, include_formulas: bool) -> PyResult<Py<PyAny>> {
+    #[pyo3(signature = (include_formulas = false, include_dependencies = false))]
+    fn snapshot(
+        &self,
+        py: Python<'_>,
+        include_formulas: bool,
+        include_dependencies: bool,
+    ) -> PyResult<Py<PyAny>> {
         let snapshot = PyDict::new(py);
         snapshot.set_item("schema_version", 1u32)?;
         snapshot.set_item("active_sheet", self.inner.active_sheet.as_str())?;
@@ -1035,6 +1040,60 @@ impl PyVm {
         snapshot.set_item("sheets", sheets)?;
         if let Some(formulas) = formulas {
             snapshot.set_item("formulas", formulas)?;
+        }
+        if include_dependencies {
+            let dependencies = PyList::empty(py);
+            for edge in crate::formula::formula_dependencies(self.inner.sheets()) {
+                let item = PyDict::new(py);
+                item.set_item("sheet", &edge.source_sheet)?;
+                item.set_item("address", cell_address(edge.source_row, edge.source_col))?;
+                item.set_item("target_sheet", &edge.target_sheet)?;
+                item.set_item("target_kind", edge.target_kind)?;
+                item.set_item(
+                    "target_address",
+                    if edge.target_kind == "cell" {
+                        cell_address(edge.target_row, edge.target_col)
+                    } else {
+                        format!(
+                            "{}:{}",
+                            cell_address(edge.target_row, edge.target_col),
+                            cell_address(edge.target_end_row, edge.target_end_col)
+                        )
+                    },
+                )?;
+                dependencies.append(item)?;
+            }
+            snapshot.set_item("dependencies", dependencies)?;
+            let diagnostics = PyList::empty(py);
+            for diagnostic in crate::formula::formula_dependency_diagnostics(self.inner.sheets()) {
+                let item = PyDict::new(py);
+                item.set_item("sheet", &diagnostic.source_sheet)?;
+                item.set_item(
+                    "address",
+                    cell_address(diagnostic.source_row, diagnostic.source_col),
+                )?;
+                item.set_item("kind", diagnostic.kind)?;
+                item.set_item("detail", diagnostic.detail)?;
+                diagnostics.append(item)?;
+            }
+            snapshot.set_item("dependency_diagnostics", diagnostics)?;
+            snapshot.set_item(
+                "has_formula_cycle",
+                crate::formula::workbook_has_formula_cycle(self.inner.sheets()),
+            )?;
+            let (inputs, outputs) = crate::formula::formula_io_candidates(self.inner.sheets());
+            for (key, candidates) in [("input_candidates", inputs), ("output_candidates", outputs)]
+            {
+                let values = PyList::empty(py);
+                for candidate in candidates {
+                    let item = PyDict::new(py);
+                    item.set_item("sheet", &candidate.sheet)?;
+                    item.set_item("address", cell_address(candidate.row, candidate.col))?;
+                    item.set_item("kind", candidate.kind)?;
+                    values.append(item)?;
+                }
+                snapshot.set_item(key, values)?;
+            }
         }
         Ok(snapshot.into_any().unbind())
     }
@@ -1192,6 +1251,50 @@ impl PyVm {
     ) -> PyResult<()> {
         self.inner
             .set_chart_series_formulas(chart_part, series_index, categories, values)
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue a new chart in an existing worksheet Drawing part. Returns the
+    /// generated chart part path. Coordinates are 1-based worksheet cells.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (drawing_part, chart_type, categories, values, title = None, from_row = 1, from_col = 1, to_row = 15, to_col = 8))]
+    fn add_chart(
+        &mut self,
+        drawing_part: &str,
+        chart_type: &str,
+        categories: &str,
+        values: &str,
+        title: Option<&str>,
+        from_row: u32,
+        from_col: u32,
+        to_row: u32,
+        to_col: u32,
+    ) -> PyResult<String> {
+        self.inner
+            .add_chart(
+                drawing_part,
+                chart_type,
+                categories,
+                values,
+                title,
+                from_row,
+                from_col,
+                to_row,
+                to_col,
+            )
+            .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
+    }
+
+    /// Queue another category/value series for a chart created by `add_chart`.
+    fn add_chart_series(
+        &mut self,
+        chart_part: &str,
+        categories: &str,
+        values: &str,
+        title: Option<&str>,
+    ) -> PyResult<()> {
+        self.inner
+            .add_chart_series(chart_part, categories, values, title)
             .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)
     }
 
@@ -4617,6 +4720,222 @@ fn rewrite_chart_sheet_refs(
     Ok(out)
 }
 
+fn render_chart_title(text: &str) -> String {
+    format!(
+        "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:t>{}</a:t></a:r></a:p></c:rich></c:tx></c:title>",
+        xml_escape(text)
+    )
+}
+
+fn chart_cache_value(value: &Variant) -> String {
+    match value {
+        Variant::Integer(value) => value.to_string(),
+        Variant::Float(value) => value.to_string(),
+        Variant::Str(value) => value.clone(),
+        Variant::Boolean(value) => value.to_string(),
+        Variant::Date(value) => value.to_string(),
+        Variant::Error(value) => value.as_str().to_string(),
+        Variant::Empty | Variant::Null => String::new(),
+        Variant::Array(_) | Variant::VbaArray(_) | Variant::Record(_) => String::new(),
+    }
+}
+
+fn chart_numeric_cache_value(value: &Variant) -> String {
+    match value {
+        Variant::Integer(value) => value.to_string(),
+        Variant::Float(value) => value.to_string(),
+        Variant::Boolean(value) => if *value { "1" } else { "0" }.to_string(),
+        Variant::Date(value) => value.to_string(),
+        Variant::Str(_)
+        | Variant::Error(_)
+        | Variant::Empty
+        | Variant::Null
+        | Variant::Array(_)
+        | Variant::VbaArray(_)
+        | Variant::Record(_) => String::new(),
+    }
+}
+
+fn render_chart_cache(values: &[Variant], numeric: bool) -> String {
+    let points = values
+        .iter()
+        .enumerate()
+        .map(|(index, value)| {
+            let rendered = if numeric {
+                chart_numeric_cache_value(value)
+            } else {
+                chart_cache_value(value)
+            };
+            format!(
+                "<c:pt idx=\"{index}\"><c:v>{}</c:v></c:pt>",
+                xml_escape(&rendered)
+            )
+        })
+        .collect::<String>();
+    let body = format!("<c:ptCount val=\"{}\"/>{points}", values.len());
+    if numeric {
+        format!("<c:numCache><c:formatCode>General</c:formatCode>{body}</c:numCache>")
+    } else {
+        format!("<c:strCache>{body}</c:strCache>")
+    }
+}
+
+fn render_chart_reference(formula: &str, values: &[Variant], numeric: bool) -> String {
+    let cache = render_chart_cache(values, numeric);
+    if numeric {
+        format!(
+            "<c:numRef><c:f>{}</c:f>{cache}</c:numRef>",
+            xml_escape(formula)
+        )
+    } else {
+        format!(
+            "<c:strRef><c:f>{}</c:f>{cache}</c:strRef>",
+            xml_escape(formula)
+        )
+    }
+}
+
+fn render_created_chart_xml(chart: &vm::ChartCreation, chart_index: usize) -> String {
+    let title = chart
+        .title
+        .as_deref()
+        .map(render_chart_title)
+        .unwrap_or_default();
+    let mut series = String::new();
+    let marker = if matches!(chart.chart_type.as_str(), "line" | "area") {
+        "<c:marker><c:symbol val=\"none\"/></c:marker>"
+    } else {
+        ""
+    };
+    let series_shape = if chart.chart_type == "bar" {
+        "<c:spPr><a:solidFill><a:schemeClr val=\"accent1\"/></a:solidFill><a:ln><a:noFill/></a:ln><a:effectLst/></c:spPr><c:invertIfNegative val=\"0\"/>"
+    } else {
+        "<c:spPr><a:ln><a:prstDash val=\"solid\"/></a:ln></c:spPr>"
+    };
+    let category_axis_id = 10_000 + chart_index * 2;
+    let value_axis_id = category_axis_id + 1;
+    let mut append_series = |index: usize,
+                             categories: &str,
+                             values: &str,
+                             name: Option<&str>,
+                             category_cache: &[Variant],
+                             value_cache: &[Variant]| {
+        let series_name = name
+            .map(|value| format!("<c:tx><c:v>{}</c:v></c:tx>", xml_escape(value)))
+            .unwrap_or_else(|| "<c:tx><c:v>Series 1</c:v></c:tx>".to_string());
+        let category_ref = render_chart_reference(categories, category_cache, false);
+        let value_ref = render_chart_reference(values, value_cache, true);
+        series.push_str(&format!(
+            "<c:ser><c:idx val=\"{index}\"/><c:order val=\"{index}\"/>{series_name}{series_shape}{marker}<c:cat>{category_ref}</c:cat><c:val>{value_ref}</c:val></c:ser>",
+        ));
+    };
+    append_series(
+        0,
+        &chart.categories,
+        &chart.values,
+        None,
+        &chart.category_cache,
+        &chart.value_cache,
+    );
+    for (index, extra) in chart.additional_series.iter().enumerate() {
+        append_series(
+            index + 1,
+            &extra.categories,
+            &extra.values,
+            extra.title.as_deref(),
+            &extra.category_cache,
+            &extra.value_cache,
+        );
+    }
+    let plot_chart = match chart.chart_type.as_str() {
+        "bar" => format!(
+            "<c:barChart><c:barDir val=\"col\"/><c:grouping val=\"clustered\"/><c:varyColors val=\"0\"/>{series}<c:gapWidth val=\"150\"/><c:overlap val=\"0\"/><c:axId val=\"{category_axis_id}\"/><c:axId val=\"{value_axis_id}\"/></c:barChart>"
+        ),
+        "area" => format!(
+            "<c:areaChart><c:grouping val=\"standard\"/>{series}<c:axId val=\"{category_axis_id}\"/><c:axId val=\"{value_axis_id}\"/></c:areaChart>"
+        ),
+        "pie" => format!("<c:pieChart>{series}</c:pieChart>"),
+        _ => format!(
+            "<c:lineChart><c:grouping val=\"standard\"/><c:varyColors val=\"0\"/>{series}<c:axId val=\"{category_axis_id}\"/><c:axId val=\"{value_axis_id}\"/></c:lineChart>"
+        ),
+    };
+    let axes = if chart.chart_type == "pie" {
+        String::new()
+    } else {
+        format!(
+            "<c:catAx><c:axId val=\"{category_axis_id}\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"b\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"{value_axis_id}\"/><c:crosses val=\"autoZero\"/></c:catAx><c:valAx><c:axId val=\"{value_axis_id}\"/><c:scaling><c:orientation val=\"minMax\"/></c:scaling><c:delete val=\"0\"/><c:axPos val=\"l\"/><c:tickLblPos val=\"nextTo\"/><c:crossAx val=\"{category_axis_id}\"/><c:crosses val=\"autoZero\"/></c:valAx>"
+        )
+    };
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><c:chartSpace xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><c:chart>{title}<c:plotArea><c:layout/>{plot_chart}{axes}</c:plotArea><c:plotVisOnly val=\"1\"/><c:dispBlanksAs val=\"gap\"/></c:chart></c:chartSpace>"
+    )
+}
+
+fn append_created_chart_to_drawing(
+    xml: &str,
+    relationship_id: &str,
+    chart_part: &str,
+    chart: &vm::ChartCreation,
+    chart_index: usize,
+) -> Result<String, String> {
+    let from_row = chart.from_row - 1;
+    let from_col = chart.from_col - 1;
+    let to_row = chart.to_row;
+    let to_col = chart.to_col;
+    let name = format!("elixcee chart {chart_part}");
+    let anchor = format!(
+        "<xdr:twoCellAnchor><xdr:from><xdr:col>{from_col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{from_row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>{to_col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>{to_row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=\"\"><xdr:nvGraphicFramePr><xdr:cNvPr id=\"{}\" name=\"{}\"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm/><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/chart\"><c:chart xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" r:id=\"{}\"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>",
+        10_000 + chart_index,
+        xml_escape(&name),
+        xml_escape(relationship_id),
+    );
+    let pos = xml
+        .rfind("</xdr:wsDr>")
+        .ok_or_else(|| "drawing part is missing </xdr:wsDr>".to_string())?;
+    let mut output = xml.to_string();
+    output.insert_str(pos, &anchor);
+    Ok(output)
+}
+
+fn append_created_chart_relationship(
+    xml: &str,
+    relationship_id: &str,
+    chart_part: &str,
+) -> Result<String, String> {
+    if reader::relationship_ids(xml)
+        .iter()
+        .any(|id| id == relationship_id)
+    {
+        return Err(format!(
+            "drawing relationship id already exists: {relationship_id}"
+        ));
+    }
+    if xml.contains(&format!(
+        "Target=\"../{}\"",
+        chart_part.strip_prefix("xl/").unwrap_or(chart_part)
+    )) {
+        return Err(format!(
+            "drawing relationship target already exists: {chart_part}"
+        ));
+    }
+    let target = chart_part.strip_prefix("xl/").unwrap_or(chart_part);
+    let rel = format!(
+        "<Relationship Id=\"{}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart\" Target=\"../{}\"/>",
+        xml_escape(relationship_id),
+        xml_escape(target),
+    );
+    let pos = xml
+        .rfind("</Relationships>")
+        .ok_or_else(|| "drawing relationships are missing </Relationships>".to_string())?;
+    let mut output = xml.to_string();
+    output.insert_str(pos, &rel);
+    Ok(output)
+}
+
+fn render_created_chart_relationships() -> String {
+    "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.microsoft.com/office/2011/relationships/chartStyle\" Target=\"style1.xml\"/><Relationship Id=\"rId2\" Type=\"http://schemas.microsoft.com/office/2011/relationships/chartColorStyle\" Target=\"colors1.xml\"/></Relationships>".to_string()
+}
+
 /// Rewrite one or more existing chart series' category/value formulas without
 /// touching the surrounding chart XML. Series indexes are zero-based and are
 /// counted by `<c:ser>` order. Missing series or missing references are hard
@@ -5145,10 +5464,7 @@ fn rewrite_chart_title(xml: &str, text: &str) -> Result<String, String> {
             .ok_or_else(|| {
                 "chart title element is missing and plotArea is unavailable".to_string()
             })?;
-        let title = format!(
-            "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>{}</a:t></a:r></a:p></c:rich></c:tx></c:title>",
-            xml_escape(text)
-        );
+        let title = render_chart_title(text);
         let mut out = String::with_capacity(xml.len() + title.len());
         out.push_str(&xml[..plot_area]);
         out.push_str(&title);
@@ -5632,10 +5948,7 @@ fn rewrite_chart_axis_titles(
         let rewritten = if fragment.contains("<c:title") {
             rewrite_chart_title(fragment, text)?
         } else {
-            let title = format!(
-                "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>{}</a:t></a:r></a:p></c:rich></c:tx></c:title>",
-                xml_escape(text)
-            );
+            let title = render_chart_title(text);
             let insertion = [
                 fragment.find("<c:numFmt"),
                 fragment.find("<c:majorTickMark"),
@@ -6941,6 +7254,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     let mut source_workbook_rels_xml: Option<String> = None;
     let mut source_relationship_parts: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
+    let mut original_drawing_relationship_max: std::collections::HashMap<String, u32> =
+        std::collections::HashMap::new();
     let mut surviving_source_parts = std::collections::HashSet::new();
     // Same idea as `carried_rels`, but for the root `_rels/.rels` file (docProps/core.xml,
     // docProps/app.xml, ...) -- see `carried_rels`'s own comment below for why this is
@@ -6984,6 +7299,7 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     let mut reserved_table_part_numbers: Vec<u32> = Vec::new();
     let allow_sheet_rename = vm.ooxml_structural_edit_dirty && vm.sheet_rename_only;
     let has_chart_series_edits = !vm.chart_series_edits.is_empty();
+    let has_chart_creations = !vm.chart_creations.is_empty();
     let has_chart_series_line_color_edits = !vm.chart_series_line_color_edits.is_empty();
     let has_chart_series_fill_color_edits = !vm.chart_series_fill_color_edits.is_empty();
     let has_chart_title_edits = !vm.chart_title_edits.is_empty();
@@ -7023,6 +7339,21 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             if !raw_entries.contains_key(chart_part) {
                 return Err(format!(
                     "chart series edit rejected: source workbook has no {chart_part}"
+                ));
+            }
+        }
+        for chart in &vm.chart_creations {
+            if !raw_entries.contains_key(&chart.drawing_part) {
+                return Err(format!(
+                    "chart creation rejected: source workbook has no {}",
+                    chart.drawing_part
+                ));
+            }
+            let rels = part_rels_name(&chart.drawing_part);
+            if !raw_entries.contains_key(&rels) {
+                return Err(format!(
+                    "chart creation rejected: drawing has no relationship part {}",
+                    rels
                 ));
             }
         }
@@ -7398,7 +7729,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                         chart = rewrite_chart_data_labels_show_value(&chart, show_value)?;
                     }
                     if let Some(show_category) = edit.show_category {
-                        chart = rewrite_chart_data_labels_flag(&chart, "showCat", show_category)?;
+                        chart =
+                            rewrite_chart_data_labels_flag(&chart, "showCatName", show_category)?;
                     }
                     if let Some(show_series_name) = edit.show_series_name {
                         chart = rewrite_chart_data_labels_flag(
@@ -7471,7 +7803,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                     }
                 }
                 pivot.into_bytes()
-            } else if (has_drawing_anchor_edits
+            } else if (has_chart_creations
+                || has_drawing_anchor_edits
                 || has_drawing_shape_name_edits
                 || has_drawing_shape_description_edits
                 || has_drawing_shape_title_edits
@@ -7485,7 +7818,11 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 || has_drawing_shape_line_width_edits
                 || has_drawing_shape_line_dash_edits
                 || has_drawing_shape_geometry_edits)
-                && (vm.drawing_anchor_edits.contains_key(&name)
+                && (vm
+                    .chart_creations
+                    .iter()
+                    .any(|chart| chart.drawing_part == name)
+                    || vm.drawing_anchor_edits.contains_key(&name)
                     || vm.drawing_shape_name_edits.contains_key(&name)
                     || vm.drawing_shape_description_edits.contains_key(&name)
                     || vm.drawing_shape_title_edits.contains_key(&name)
@@ -7589,6 +7926,42 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 } else {
                     drawing
                 };
+                let mut drawing = drawing;
+                for (global_index, chart) in vm
+                    .chart_creations
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, chart)| chart.drawing_part == name)
+                {
+                    let chart_part = format!("xl/charts/chart-new-{}.xml", global_index + 1);
+                    let rels_name = part_rels_name(&name);
+                    let rels = source_relationship_parts
+                        .get(&rels_name)
+                        .ok_or_else(|| format!("drawing relationships are missing: {rels_name}"))?;
+                    let same_drawing_before = vm.chart_creations[..global_index]
+                        .iter()
+                        .filter(|previous| previous.drawing_part == chart.drawing_part)
+                        .count();
+                    let base_max = *original_drawing_relationship_max
+                        .entry(rels_name.clone())
+                        .or_insert_with(|| {
+                            reader::relationship_ids(rels)
+                                .iter()
+                                .filter_map(|id| {
+                                    id.strip_prefix("rId").and_then(|n| n.parse::<u32>().ok())
+                                })
+                                .max()
+                                .unwrap_or(0)
+                        });
+                    let next_id = base_max + same_drawing_before as u32 + 1;
+                    drawing = append_created_chart_to_drawing(
+                        &drawing,
+                        &format!("rId{next_id}"),
+                        &chart_part,
+                        chart,
+                        global_index,
+                    )?;
+                }
                 drawing.into_bytes()
             } else {
                 bytes
@@ -7616,7 +7989,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                 || (has_pivot_source_edits
                     && name.starts_with("xl/pivotCache/")
                     && name.ends_with(".xml"))
-                || ((has_drawing_anchor_edits
+                || ((has_chart_creations
+                    || has_drawing_anchor_edits
                     || has_drawing_shape_name_edits
                     || has_drawing_shape_description_edits
                     || has_drawing_shape_title_edits
@@ -7630,7 +8004,8 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
                     || has_drawing_shape_line_width_edits
                     || has_drawing_shape_line_dash_edits
                     || has_drawing_shape_geometry_edits)
-                    && (vm.drawing_anchor_edits.contains_key(&name)
+                    && (vm.chart_creations.iter().any(|chart| chart.drawing_part == name)
+                        || vm.drawing_anchor_edits.contains_key(&name)
                         || vm.drawing_shape_name_edits.contains_key(&name)
                         || vm.drawing_shape_description_edits.contains_key(&name)
                         || vm.drawing_shape_title_edits.contains_key(&name)
@@ -7689,6 +8064,53 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             if let Some(ct) = resolved {
                 carried_overrides.push((part_name, ct));
             }
+        }
+
+        // Add newly-created charts after the source pass so their parts and the
+        // patched Drawing relationship XML are written through the same
+        // passthrough channel as other surgical OOXML edits.
+        for (index, chart) in vm.chart_creations.iter().enumerate() {
+            let chart_part = format!("xl/charts/chart-new-{}.xml", index + 1);
+            passthrough.push((
+                chart_part.clone(),
+                render_created_chart_xml(chart, index).into_bytes(),
+            ));
+            if surviving_source_parts.contains("xl/charts/style1.xml")
+                && surviving_source_parts.contains("xl/charts/colors1.xml")
+            {
+                passthrough.push((
+                    format!("xl/charts/_rels/chart-new-{}.xml.rels", index + 1),
+                    render_created_chart_relationships().into_bytes(),
+                ));
+            }
+            carried_overrides.push((
+                format!("/{chart_part}"),
+                "application/vnd.openxmlformats-officedocument.drawingml.chart+xml".to_string(),
+            ));
+            let rels_name = part_rels_name(&chart.drawing_part);
+            let rels = source_relationship_parts
+                .get(&rels_name)
+                .ok_or_else(|| format!("drawing relationships are missing: {rels_name}"))?;
+            let same_drawing_before = vm.chart_creations[..index]
+                .iter()
+                .filter(|previous| previous.drawing_part == chart.drawing_part)
+                .count();
+            let base_max = *original_drawing_relationship_max
+                .entry(rels_name.clone())
+                .or_insert_with(|| {
+                    reader::relationship_ids(rels)
+                        .iter()
+                        .filter_map(|id| id.strip_prefix("rId").and_then(|n| n.parse::<u32>().ok()))
+                        .max()
+                        .unwrap_or(0)
+                });
+            let next_id = base_max + same_drawing_before as u32 + 1;
+            let updated_rels =
+                append_created_chart_relationship(rels, &format!("rId{next_id}"), &chart_part)?;
+            source_relationship_parts.insert(rels_name.clone(), updated_rels.clone());
+            passthrough_source_names.retain(|name| name != &rels_name);
+            passthrough.retain(|(name, _)| name != &rels_name);
+            passthrough.push((rels_name, updated_rels.into_bytes()));
         }
 
         // Any OTHER relationship (theme, calcChain, docProps, ...) whose target survived
@@ -8197,7 +8619,20 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
             legacy_drawing: legacy_drawing.as_deref(),
         };
 
-        zip.start_file(plan.output_part_name.as_str(), deflated)
+        // For genuinely large generated worksheets, compression CPU dominates
+        // this save path and the durable write is already the expensive I/O
+        // barrier. Keep the compact Deflate output for small sheets, while
+        // using Stored for dense sheets where the measured throughput win is
+        // material. The threshold also prevents tiny workbooks from growing
+        // unnecessarily.
+        let worksheet_options =
+            if worksheet_prefers_stored_compression(vm.get_sheet_cells(sheet_name)) {
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(CompressionMethod::Stored)
+            } else {
+                deflated
+            };
+        zip.start_file(plan.output_part_name.as_str(), worksheet_options)
             .map_err(|e| e.to_string())?;
         // Batch XML fragments before compression as well as compressed bytes
         // before filesystem writes. Memory remains bounded for large sheets.
@@ -8299,6 +8734,33 @@ fn save_xlsx_impl(vm: &Vm, path: &str, sync: bool) -> Result<(), String> {
     drop(file);
     publish_atomic_output(path, &temporary)?;
     Ok(())
+}
+
+/// Return whether a generated worksheet is a good candidate for ZIP Stored.
+///
+/// Dense numeric sheets are dominated by XML serialization and compression
+/// CPU, while text-heavy sheets benefit much more from Deflate's size
+/// reduction. Keep the fast path deliberately conservative: the threshold and
+/// payload-shape guard are part of the performance/size trade-off and prevent
+/// a large text workbook from unexpectedly expanding just because it has many
+/// populated cells.
+fn worksheet_prefers_stored_compression(
+    cells: Option<&std::collections::HashMap<(u32, u32), types::CellContent>>,
+) -> bool {
+    let Some(cells) = cells else {
+        return false;
+    };
+    cells.len() >= 10_000
+        && cells.values().all(|cell| {
+            matches!(
+                cell.value,
+                Variant::Integer(_)
+                    | Variant::Float(_)
+                    | Variant::Boolean(_)
+                    | Variant::Date(_)
+                    | Variant::Empty
+            )
+        })
 }
 
 fn build_xlsx_root_rels(carried_root_rels: &[(String, String)]) -> String {
@@ -9401,10 +9863,15 @@ fn write_xlsx_sheet<W: XmlSink>(
         // One flat coordinate sort avoids a tree lookup per cell and a separate
         // allocation per row. `None` is style-only; column zero is an empty-row
         // marker, never a cell (including for sparse hidden/height/style rows).
+        // Pack the two 32-bit coordinates into one scalar.  The worksheet
+        // writer only needs lexicographic `(row, col)` order, and the packed
+        // representation has exactly that order while reducing the sort's
+        // comparator work on large dense sheets (one integer comparison
+        // instead of a tuple comparison with a possible second comparison).
         let mut ordered_cells = Vec::with_capacity(cells.len());
         for (&(r, c), v) in cells.iter() {
             if r > 0 && c > 0 {
-                ordered_cells.push(((r, c), Some(v)));
+                ordered_cells.push((((r as u64) << 32) | c as u64, Some(v)));
             }
         }
         // A value-less, pre-formatted cell (e.g. a merged-cell anchor styled but never
@@ -9421,7 +9888,7 @@ fn write_xlsx_sheet<W: XmlSink>(
         if let Some(styles) = style_indices {
             for &(r, c) in styles.keys() {
                 if r > 0 && c > 0 && !cells.contains_key(&(r, c)) {
-                    ordered_cells.push(((r, c), None));
+                    ordered_cells.push((((r as u64) << 32) | c as u64, None));
                 }
             }
         }
@@ -9433,23 +9900,23 @@ fn write_xlsx_sheet<W: XmlSink>(
         // that's what a real <row>-element-per-row source already looks like.
         for iv in hidden_rows {
             for r in iv.start..=iv.end {
-                ordered_cells.push(((r, 0), None));
+                ordered_cells.push(((r as u64) << 32, None));
             }
         }
         if let Some(heights) = row_heights {
             for &r in heights.keys() {
-                ordered_cells.push(((r, 0), None));
+                ordered_cells.push(((r as u64) << 32, None));
             }
         }
         if let Some(styles) = row_styles {
             for &r in styles.keys() {
-                ordered_cells.push(((r, 0), None));
+                ordered_cells.push(((r as u64) << 32, None));
             }
         }
         ordered_cells.sort_unstable_by_key(|&(position, _)| position);
         let mut cell_ref_buffer = [0u8; 17];
-        for row_cells in ordered_cells.chunk_by(|a, b| a.0.0 == b.0.0) {
-            let row = row_cells[0].0.0;
+        for row_cells in ordered_cells.chunk_by(|a, b| a.0 >> 32 == b.0 >> 32) {
+            let row = (row_cells[0].0 >> 32) as u32;
             let row_hidden = hidden_rows
                 .iter()
                 .any(|iv| iv.start <= row && row <= iv.end);
@@ -9466,7 +9933,8 @@ fn write_xlsx_sheet<W: XmlSink>(
             out.xml_fmt(format_args!(
                 "<row r=\"{row}\"{height_attr}{style_attr}{hidden_attr}>\n"
             ))?;
-            for &((_, c), content) in row_cells {
+            for &(position, content) in row_cells {
+                let c = position as u32;
                 if c == 0 {
                     continue;
                 }
@@ -10521,6 +10989,29 @@ mod tests {
     use calamine::{Reader, Xlsx, open_workbook};
 
     #[test]
+    fn stored_worksheet_compression_is_limited_to_large_numeric_payloads() {
+        let mut numeric = std::collections::HashMap::new();
+        for row in 1..=10_000 {
+            numeric.insert(
+                (row, 1),
+                CellContent {
+                    formula: None,
+                    value: Variant::Integer(row as i64),
+                },
+            );
+        }
+        assert!(worksheet_prefers_stored_compression(Some(&numeric)));
+
+        let mut text = numeric.clone();
+        text.get_mut(&(10_000, 1)).unwrap().value = Variant::Str("text".into());
+        assert!(!worksheet_prefers_stored_compression(Some(&text)));
+
+        numeric.remove(&(10_000, 1));
+        assert!(!worksheet_prefers_stored_compression(Some(&numeric)));
+        assert!(!worksheet_prefers_stored_compression(None));
+    }
+
+    #[test]
     fn structural_ooxml_reference_gate_detects_chart_and_pivot_packages() {
         let mut chart = std::collections::HashMap::new();
         chart.insert(
@@ -10776,10 +11267,27 @@ mod tests {
         let source = "<c:chart><c:plotArea><c:layout/></c:plotArea></c:chart>";
         let actual = rewrite_chart_title(source, "New & title").unwrap();
         assert!(actual.contains(
-            "<c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang=\"en-US\"/><a:t>New &amp; title</a:t>"
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:t>New &amp; title</a:t>"
         ));
         assert!(actual.contains("</c:title><c:plotArea><c:layout/></c:plotArea>"));
         assert_eq!(actual.matches("<c:title>").count(), 1);
+    }
+
+    #[test]
+    fn chart_title_renderer_escapes_text_and_uses_compatible_rich_text_shape() {
+        let actual = render_chart_title("A < B & C > D");
+        assert_eq!(
+            actual,
+            "<c:title><c:tx><c:rich><a:bodyPr/><a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:t>A &lt; B &amp; C &gt; D</a:t></a:r></a:p></c:rich></c:tx></c:title>"
+        );
+    }
+
+    #[test]
+    fn chart_numeric_cache_coerces_boolean_and_date_without_text() {
+        assert_eq!(chart_numeric_cache_value(&Variant::Boolean(true)), "1");
+        assert_eq!(chart_numeric_cache_value(&Variant::Boolean(false)), "0");
+        assert_eq!(chart_numeric_cache_value(&Variant::Date(45351)), "45351");
+        assert_eq!(chart_numeric_cache_value(&Variant::Str("text".into())), "");
     }
 
     #[test]
@@ -10896,11 +11404,12 @@ mod tests {
 
     #[test]
     fn chart_data_labels_rewriter_updates_show_category_and_preserves_value() {
-        let source = r#"<c:chart><c:dLbls showVal="1" showCat="0"><c:txPr/></c:dLbls></c:chart>"#;
-        let actual = rewrite_chart_data_labels_flag(source, "showCat", true).unwrap();
-        assert!(actual.contains("showVal=\"1\" showCat=\"1\"") && actual.contains("<c:txPr/>"));
+        let source =
+            r#"<c:chart><c:dLbls showVal="1" showCatName="0"><c:txPr/></c:dLbls></c:chart>"#;
+        let actual = rewrite_chart_data_labels_flag(source, "showCatName", true).unwrap();
+        assert!(actual.contains("showVal=\"1\" showCatName=\"1\"") && actual.contains("<c:txPr/>"));
         let actual = rewrite_chart_data_labels_show_value(&actual, false).unwrap();
-        assert!(actual.contains("showVal=\"0\" showCat=\"1\""));
+        assert!(actual.contains("showVal=\"0\" showCatName=\"1\""));
     }
 
     #[test]
@@ -10917,10 +11426,10 @@ mod tests {
     #[test]
     fn chart_data_labels_rewriter_updates_show_percent() {
         let source =
-            r#"<c:chart><c:dLbls showCat="1"><c:showLeaderLines val="1"/></c:dLbls></c:chart>"#;
+            r#"<c:chart><c:dLbls showCatName="1"><c:showLeaderLines val="1"/></c:dLbls></c:chart>"#;
         let actual = rewrite_chart_data_labels_flag(source, "showPercent", true).unwrap();
         assert!(
-            actual.contains("showCat=\"1\" showPercent=\"1\"")
+            actual.contains("showCatName=\"1\" showPercent=\"1\"")
                 && actual.contains("<c:showLeaderLines val=\"1\"/>")
         );
     }
@@ -10967,9 +11476,11 @@ mod tests {
                 && actual.contains("<c:tx/>")
         );
 
-        let source = r#"<c:chart><c:dLbls showCat="1"></c:dLbls></c:chart>"#;
+        let source = r#"<c:chart><c:dLbls showCatName="1"></c:dLbls></c:chart>"#;
         let actual = rewrite_chart_data_labels_position(source, "ctr").unwrap();
-        assert!(actual.contains("<c:dLblPos val=\"ctr\"/>") && actual.contains("showCat=\"1\""));
+        assert!(
+            actual.contains("<c:dLblPos val=\"ctr\"/>") && actual.contains("showCatName=\"1\"")
+        );
     }
 
     #[test]

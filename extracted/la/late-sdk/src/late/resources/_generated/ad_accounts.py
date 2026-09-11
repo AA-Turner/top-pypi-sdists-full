@@ -269,7 +269,7 @@ class AdAccountsResource:
         limit: int | None = 25,
         after: str | None = None,
     ) -> dict[str, Any]:
-        """High demand periods / budget schedules"""
+        """List high-demand periods"""
         params = self._build_params(
             account_id=account_id,
             campaign_id=campaign_id,
@@ -624,6 +624,45 @@ class AdAccountsResource:
         )
         return self._client._get("/v1/ads/accounts/finance", params=params)
 
+    def create_ad_account(
+        self,
+        account_id: str,
+        business_id: str,
+        name: str,
+        currency: str,
+        timezone_id: int,
+        *,
+        end_advertiser: str | None = "NONE",
+        media_agency: str | None = "NONE",
+        partner: str | None = "NONE",
+        invoice: bool | None = None,
+        invoice_group_id: str | None = None,
+        invoicing_emails: list[str] | None = None,
+        io: bool | None = None,
+        po_number: str | None = None,
+        funding_id: str | None = None,
+        ad_account_created_from_bm_flag: bool | None = None,
+    ) -> dict[str, Any]:
+        """Create Meta ad account"""
+        payload = self._build_payload(
+            account_id=account_id,
+            business_id=business_id,
+            name=name,
+            currency=currency,
+            timezone_id=timezone_id,
+            end_advertiser=end_advertiser,
+            media_agency=media_agency,
+            partner=partner,
+            invoice=invoice,
+            invoice_group_id=invoice_group_id,
+            invoicing_emails=invoicing_emails,
+            io=io,
+            po_number=po_number,
+            funding_id=funding_id,
+            ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
+        )
+        return self._client._post("/v1/ads/accounts", data=payload)
+
     def list_ad_accounts(
         self,
         account_id: str,
@@ -667,7 +706,7 @@ class AdAccountsResource:
     def get_dsa_recommendations(
         self, account_id: str, ad_account_id: str
     ) -> dict[str, Any]:
-        """List DSA beneficiary/payor suggestions"""
+        """Get DSA recommendations"""
         params = self._build_params(
             account_id=account_id,
             ad_account_id=ad_account_id,
@@ -694,7 +733,7 @@ class AdAccountsResource:
         custom_event_type: str,
         rule: dict[str, Any],
     ) -> dict[str, Any]:
-        """Create or reuse a custom conversion"""
+        """Create custom conversion"""
         payload = self._build_payload(
             ad_account_id=ad_account_id,
             name=name,
@@ -705,6 +744,21 @@ class AdAccountsResource:
         return self._client._post(
             f"/v1/accounts/{account_id}/custom-conversions", data=payload
         )
+
+    def list_tik_tok_ad_pixels(
+        self,
+        account_id: str,
+        *,
+        advertiser_id: str | None = None,
+        code: str | None = None,
+    ) -> dict[str, Any]:
+        """List TikTok ad pixels"""
+        params = self._build_params(
+            account_id=account_id,
+            advertiser_id=advertiser_id,
+            code=code,
+        )
+        return self._client._get("/v1/ads/pixels", params=params)
 
     async def aget_ad_comments(
         self,
@@ -906,7 +960,7 @@ class AdAccountsResource:
         limit: int | None = 25,
         after: str | None = None,
     ) -> dict[str, Any]:
-        """High demand periods / budget schedules (async)"""
+        """List high-demand periods (async)"""
         params = self._build_params(
             account_id=account_id,
             campaign_id=campaign_id,
@@ -1267,6 +1321,45 @@ class AdAccountsResource:
         )
         return await self._client._aget("/v1/ads/accounts/finance", params=params)
 
+    async def acreate_ad_account(
+        self,
+        account_id: str,
+        business_id: str,
+        name: str,
+        currency: str,
+        timezone_id: int,
+        *,
+        end_advertiser: str | None = "NONE",
+        media_agency: str | None = "NONE",
+        partner: str | None = "NONE",
+        invoice: bool | None = None,
+        invoice_group_id: str | None = None,
+        invoicing_emails: list[str] | None = None,
+        io: bool | None = None,
+        po_number: str | None = None,
+        funding_id: str | None = None,
+        ad_account_created_from_bm_flag: bool | None = None,
+    ) -> dict[str, Any]:
+        """Create Meta ad account (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            business_id=business_id,
+            name=name,
+            currency=currency,
+            timezone_id=timezone_id,
+            end_advertiser=end_advertiser,
+            media_agency=media_agency,
+            partner=partner,
+            invoice=invoice,
+            invoice_group_id=invoice_group_id,
+            invoicing_emails=invoicing_emails,
+            io=io,
+            po_number=po_number,
+            funding_id=funding_id,
+            ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
+        )
+        return await self._client._apost("/v1/ads/accounts", data=payload)
+
     async def alist_ad_accounts(
         self,
         account_id: str,
@@ -1312,7 +1405,7 @@ class AdAccountsResource:
     async def aget_dsa_recommendations(
         self, account_id: str, ad_account_id: str
     ) -> dict[str, Any]:
-        """List DSA beneficiary/payor suggestions (async)"""
+        """Get DSA recommendations (async)"""
         params = self._build_params(
             account_id=account_id,
             ad_account_id=ad_account_id,
@@ -1339,7 +1432,7 @@ class AdAccountsResource:
         custom_event_type: str,
         rule: dict[str, Any],
     ) -> dict[str, Any]:
-        """Create or reuse a custom conversion (async)"""
+        """Create custom conversion (async)"""
         payload = self._build_payload(
             ad_account_id=ad_account_id,
             name=name,
@@ -1350,3 +1443,18 @@ class AdAccountsResource:
         return await self._client._apost(
             f"/v1/accounts/{account_id}/custom-conversions", data=payload
         )
+
+    async def alist_tik_tok_ad_pixels(
+        self,
+        account_id: str,
+        *,
+        advertiser_id: str | None = None,
+        code: str | None = None,
+    ) -> dict[str, Any]:
+        """List TikTok ad pixels (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            advertiser_id=advertiser_id,
+            code=code,
+        )
+        return await self._client._aget("/v1/ads/pixels", params=params)

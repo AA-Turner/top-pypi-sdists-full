@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -56,6 +57,22 @@ testcase!(
 match None: # E: Missing cases: None
     case {a: 1}: # E: # E: # E:
         pass
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/4631.
+testcase!(
+    test_recursive_alias_mapping_pattern_does_not_overflow,
+    r#"
+from typing import Mapping
+
+def fn(obj: U):
+    match obj:
+        case {'a': {'b': []}}:
+            pass
+
+T = 'T' | str | Mapping[str, 'T']  # E: `|` union syntax does not work with string literals # E: Found cyclic self-reference in `T`
+U = Mapping[str, T]
 "#,
 );
 
@@ -266,6 +283,17 @@ def foo(x: Literal['A'] | Literal['B']):
         case 'A' if condition():
             raise ValueError()
     assert_type(x, Literal['A', 'B'])
+    "#,
+);
+
+testcase!(
+    test_guarded_irrefutable_pattern_is_not_exhaustive,
+    r#"
+def f(x: int, guard: bool) -> int:
+    match x:
+        case _ if guard:
+            return 1
+    return 2
     "#,
 );
 
@@ -890,6 +918,63 @@ def describe(flag: bool):
 "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/3294
+testcase!(
+    test_open_domain_match_not_checked_by_default,
+    r#"
+def describe_int(x: int):
+    match x:
+        case 1:
+            pass
+        case 2:
+            pass
+"#,
+);
+
+testcase!(
+    test_non_exhaustive_match_open_type_reports_open_domains,
+    TestEnv::new().enable_non_exhaustive_match_open_type_error(),
+    r#"
+def describe_int(x: int):
+    match x: # E: Match on `int` is not exhaustive
+        case 1:
+            pass
+
+def describe_str(x: str):
+    match x: # E: Match on `str` is not exhaustive
+        case "a":
+            pass
+        case "b":
+            pass
+
+def describe_list(x: list[int]):
+    match x: # E: Match on `list[int]` is not exhaustive
+        case [1]:
+            pass
+        case [2]:
+            pass
+
+def describe_object(x: object):
+    match x: # E: Match on `object` is not exhaustive
+        case int():
+            pass
+
+def describe_guarded(x: int | bytes | str):
+    match x: # E: Match on `bytes | int | str` is not exhaustive
+        case int():
+            pass
+        case _ if isinstance(x, str):
+            pass
+
+def get_int() -> int:
+    return 0
+
+match get_int(): # E: Match on `get_int()` is not exhaustive
+    case 0:
+        pass
+"#,
+);
+
 testcase!(
     test_exhaustive_union_with_none,
     r#"
@@ -1289,7 +1374,7 @@ testcase!(
     test_match_alias_no_leak_when_no_narrowing_subject,
     r#"
 from enum import Enum
-from typing import reveal_type
+from typing import assert_type
 
 class Color(Enum):
     RED = 1
@@ -1301,7 +1386,7 @@ def f(y: Color) -> None:
     match make_color():  # E: Missing cases: Color.GREEN
         case Color.RED as y:
             return
-    reveal_type(y)  # E: revealed type: Color
+    assert_type(y, Color)
 "#,
 );
 
@@ -1645,6 +1730,35 @@ def f(t: tuple[int, str] | tuple[str, int]) -> int:  # E: one or more paths are 
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/4066
+testcase!(
+    test_match_tuple_subject_exhaustive_rows,
+    r#"
+from typing import assert_never
+class RQ: pass
+class QQ: pass
+class RA: pass
+class QA: pass
+def f(q: RQ | QQ, a: RA | QA) -> None:
+    match q, a:
+        case RQ(), RA(): return
+        case RQ(), _: return
+        case QQ(), QA(): return
+        case QQ(), _: return
+        case unreachable:
+            assert_never(unreachable)
+
+def guarded(q: RQ | QQ, a: RA | QA, flag: bool) -> None:
+    match q, a:
+        case RQ(), RA(): return
+        case RQ(), _ if flag: return
+        case QQ(), QA(): return
+        case QQ(), _: return
+        case reachable:
+            assert_never(reachable)  # E: not assignable to parameter `arg` with type `Never`
+"#,
+);
+
 testcase!(
     test_match_sequence_nested_element_not_exhaustive,
     r#"
@@ -1688,7 +1802,7 @@ def f(t: tuple[object, int] | tuple[object, str]) -> None:
 testcase!(
     test_match_sequence_literal_element,
     r#"
-from typing import Literal, reveal_type
+from typing import Literal, Never, assert_type
 type MyUnion = Literal["a"] | tuple[Literal["b"], int] | tuple[Literal["c"], int]
 def exhaustive(value: MyUnion) -> str:
     match value:
@@ -1698,7 +1812,7 @@ def exhaustive(value: MyUnion) -> str:
             return "b"
         case "c", v:
             return "c"
-    reveal_type(value)  # E: revealed type: Never
+    assert_type(value, Never)
 "#,
 );
 
@@ -1706,13 +1820,13 @@ def exhaustive(value: MyUnion) -> str:
 testcase!(
     test_match_mapping_pattern_else_narrow,
     r#"
-from typing import reveal_type
+from typing import assert_type, reveal_type
 def empty_pattern(x: dict | int) -> None:
     match x:
         case {}:
             reveal_type(x)  # E: revealed type: dict[Unknown, Unknown]
         case _:
-            reveal_type(x)  # E: revealed type: int
+            assert_type(x, int)
 def keyed_pattern_does_not_narrow_else(x: dict | int) -> None:
     # `case {"k": _}` is refutable on key presence: a dict without `"k"` falls through, so
     # the `else` must keep `dict` (only `{}` / `{**rest}` match every mapping).

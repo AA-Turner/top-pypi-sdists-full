@@ -269,9 +269,8 @@ class AgentsforBedrockClient(BaseClient):
         self, **kwargs: Unpack[CreateAgentRequestTypeDef]
     ) -> CreateAgentResponseTypeDef:
         """
-        Creates an agent that orchestrates interactions between foundation models, data
-        sources, software applications, user conversations, and APIs to carry out tasks
-        to help customers.
+        <note> <p>Amazon Bedrock Agents (now Amazon Bedrock Agents Classic) is no
+        longer open to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_agent.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_agent)

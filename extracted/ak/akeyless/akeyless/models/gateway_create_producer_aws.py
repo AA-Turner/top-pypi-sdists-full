@@ -36,6 +36,7 @@ class GatewayCreateProducerAws(object):
     openapi_types = {
         'access_mode': 'str',
         'admin_rotation_interval_days': 'int',
+        'ara_enabled': 'bool',
         'aws_access_key_id': 'str',
         'aws_access_secret_key': 'str',
         'aws_external_id': 'str',
@@ -47,6 +48,8 @@ class GatewayCreateProducerAws(object):
         'custom_username_template': 'str',
         'delete_protection': 'str',
         'enable_admin_rotation': 'bool',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
@@ -65,6 +68,7 @@ class GatewayCreateProducerAws(object):
         'secure_access_web_browsing': 'bool',
         'secure_access_web_proxy': 'bool',
         'session_tags': 'str',
+        'skip_dry_run': 'str',
         'tags': 'list[str]',
         'target_name': 'str',
         'token': 'str',
@@ -80,6 +84,7 @@ class GatewayCreateProducerAws(object):
     attribute_map = {
         'access_mode': 'access-mode',
         'admin_rotation_interval_days': 'admin-rotation-interval-days',
+        'ara_enabled': 'ara-enabled',
         'aws_access_key_id': 'aws-access-key-id',
         'aws_access_secret_key': 'aws-access-secret-key',
         'aws_external_id': 'aws-external-id',
@@ -91,6 +96,8 @@ class GatewayCreateProducerAws(object):
         'custom_username_template': 'custom-username-template',
         'delete_protection': 'delete_protection',
         'enable_admin_rotation': 'enable-admin-rotation',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
@@ -109,6 +116,7 @@ class GatewayCreateProducerAws(object):
         'secure_access_web_browsing': 'secure-access-web-browsing',
         'secure_access_web_proxy': 'secure-access-web-proxy',
         'session_tags': 'session-tags',
+        'skip_dry_run': 'skip_dry_run',
         'tags': 'tags',
         'target_name': 'target-name',
         'token': 'token',
@@ -121,7 +129,7 @@ class GatewayCreateProducerAws(object):
         'user_ttl': 'user-ttl'
     }
 
-    def __init__(self, access_mode=None, admin_rotation_interval_days=0, aws_access_key_id=None, aws_access_secret_key=None, aws_external_id=None, aws_role_arns=None, aws_user_console_access=False, aws_user_groups=None, aws_user_policies=None, aws_user_programmatic_access=True, custom_username_template=None, delete_protection=None, enable_admin_rotation=False, input_rule=None, item_custom_fields=None, json=False, name=None, output_rule=None, password_length=None, producer_encryption_key_name=None, region='us-east-2', secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_delay=None, secure_access_enable=None, secure_access_web=True, secure_access_web_browsing=False, secure_access_web_proxy=False, session_tags=None, tags=None, target_name=None, token=None, transitive_tag_keys=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, access_mode=None, admin_rotation_interval_days=0, ara_enabled=None, aws_access_key_id=None, aws_access_secret_key=None, aws_external_id=None, aws_role_arns=None, aws_user_console_access=False, aws_user_groups=None, aws_user_policies=None, aws_user_programmatic_access=True, custom_username_template=None, delete_protection=None, enable_admin_rotation=False, enable_agentic_runtime_authority=None, enable_ai_quorum=None, input_rule=None, item_custom_fields=None, json=False, name=None, output_rule=None, password_length=None, producer_encryption_key_name=None, region='us-east-2', secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_delay=None, secure_access_enable=None, secure_access_web=True, secure_access_web_browsing=False, secure_access_web_proxy=False, session_tags=None, skip_dry_run=None, tags=None, target_name=None, token=None, transitive_tag_keys=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='60m', local_vars_configuration=None):  # noqa: E501
         """GatewayCreateProducerAws - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -129,6 +137,7 @@ class GatewayCreateProducerAws(object):
 
         self._access_mode = None
         self._admin_rotation_interval_days = None
+        self._ara_enabled = None
         self._aws_access_key_id = None
         self._aws_access_secret_key = None
         self._aws_external_id = None
@@ -140,6 +149,8 @@ class GatewayCreateProducerAws(object):
         self._custom_username_template = None
         self._delete_protection = None
         self._enable_admin_rotation = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
@@ -158,6 +169,7 @@ class GatewayCreateProducerAws(object):
         self._secure_access_web_browsing = None
         self._secure_access_web_proxy = None
         self._session_tags = None
+        self._skip_dry_run = None
         self._tags = None
         self._target_name = None
         self._token = None
@@ -174,6 +186,8 @@ class GatewayCreateProducerAws(object):
             self.access_mode = access_mode
         if admin_rotation_interval_days is not None:
             self.admin_rotation_interval_days = admin_rotation_interval_days
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if aws_access_key_id is not None:
             self.aws_access_key_id = aws_access_key_id
         if aws_access_secret_key is not None:
@@ -196,6 +210,10 @@ class GatewayCreateProducerAws(object):
             self.delete_protection = delete_protection
         if enable_admin_rotation is not None:
             self.enable_admin_rotation = enable_admin_rotation
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if input_rule is not None:
             self.input_rule = input_rule
         if item_custom_fields is not None:
@@ -231,6 +249,8 @@ class GatewayCreateProducerAws(object):
             self.secure_access_web_proxy = secure_access_web_proxy
         if session_tags is not None:
             self.session_tags = session_tags
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if tags is not None:
             self.tags = tags
         if target_name is not None:
@@ -295,6 +315,29 @@ class GatewayCreateProducerAws(object):
         """
 
         self._admin_rotation_interval_days = admin_rotation_interval_days
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this GatewayCreateProducerAws.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :return: The ara_enabled of this GatewayCreateProducerAws.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this GatewayCreateProducerAws.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this GatewayCreateProducerAws.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def aws_access_key_id(self):
@@ -548,6 +591,52 @@ class GatewayCreateProducerAws(object):
         """
 
         self._enable_admin_rotation = enable_admin_rotation
+
+    @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this GatewayCreateProducerAws.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this GatewayCreateProducerAws.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this GatewayCreateProducerAws.
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this GatewayCreateProducerAws.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this GatewayCreateProducerAws.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this GatewayCreateProducerAws.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this GatewayCreateProducerAws.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this GatewayCreateProducerAws.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
 
     @property
     def input_rule(self):
@@ -964,6 +1053,29 @@ class GatewayCreateProducerAws(object):
         """
 
         self._session_tags = session_tags
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this GatewayCreateProducerAws.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this GatewayCreateProducerAws.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this GatewayCreateProducerAws.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this GatewayCreateProducerAws.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
 
     @property
     def tags(self):

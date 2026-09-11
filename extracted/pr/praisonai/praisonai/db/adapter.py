@@ -507,22 +507,34 @@ class PraisonAIDB:
         self._init_stores()
         if not self._conversation_store:
             return
-        
-        # Update session metadata
-        session = self._call_store(
-            self._conversation_store,
-            "get_session",
-            "async_get_session",
-            session_id,
-        )
-        if session:
-            session.metadata = {**(session.metadata or {}), "ended_at": time.time()}
-            self._call_store(
-                self._conversation_store,
-                "update_session",
-                "async_update_session",
-                session,
+
+        store = self._conversation_store
+
+        # Read-modify-write the session's ``ended_at`` as one coroutine so the
+        # ``get_session`` read never has to cross the loop boundary (which raises
+        # from inside a running loop and would silently drop the update). See
+        # #4945 — same failure mode as the state-store completion hooks.
+        async def _do():
+            session = await self._dispatch_async(
+                store, "get_session", "async_get_session", session_id
             )
+            if not session:
+                return None
+            session.metadata = {**(session.metadata or {}), "ended_at": time.time()}
+            await self._dispatch_async(
+                store, "update_session", "async_update_session", session
+            )
+            return session
+
+        from .._async_bridge import DispatchKind, dispatch_maybe_awaitable
+
+        dispatch_maybe_awaitable(
+            _do(),
+            kind=DispatchKind.WRITE,
+            tracker=self._bg_writes,
+            tracker_lock=self._bg_writes_lock,
+            op_name="on_agent_end",
+        )
     
     def on_run_start(
         self,
@@ -558,19 +570,13 @@ class PraisonAIDB:
         self._init_stores()
         if self._state_store:
             run_key = f"run:{session_id}:{run_id}"
-            run_data = self._call_store(
-                self._state_store, "get", "async_get", run_key
-            ) or {}
-            run_data.update({
+            self._merge_and_set(self._state_store, run_key, {
                 "ended_at": time.time(),
                 "output_content": output_content,
                 "status": status,
                 "metrics": metrics or {},
-                "metadata": {**run_data.get("metadata", {}), **(metadata or {})}
+                "metadata": metadata or {},
             })
-            self._call_store(
-                self._state_store, "set", "async_set", run_key, run_data
-            )
     
     def get_runs(
         self,
@@ -727,17 +733,11 @@ class PraisonAIDB:
         self._init_stores()
         if self._state_store:
             trace_key = f"trace:{trace_id}"
-            trace_data = self._call_store(
-                self._state_store, "get", "async_get", trace_key
-            ) or {}
-            trace_data.update({
+            self._merge_and_set(self._state_store, trace_key, {
                 "ended_at": time.time(),
                 "status": status,
-                "metadata": {**trace_data.get("metadata", {}), **(metadata or {})}
+                "metadata": metadata or {},
             })
-            self._call_store(
-                self._state_store, "set", "async_set", trace_key, trace_data
-            )
     
     def on_span_start(
         self,
@@ -772,17 +772,11 @@ class PraisonAIDB:
         self._init_stores()
         if self._state_store:
             span_key = f"span:{span_id}"
-            span_data = self._call_store(
-                self._state_store, "get", "async_get", span_key
-            ) or {}
-            span_data.update({
+            self._merge_and_set(self._state_store, span_key, {
                 "ended_at": time.time(),
                 "status": status,
-                "attributes": {**span_data.get("attributes", {}), **(attributes or {})}
-            })
-            self._call_store(
-                self._state_store, "set", "async_set", span_key, span_data
-            )
+                "attributes": attributes or {},
+            }, merge_keys=("attributes",))
     
     def get_traces(
         self,
@@ -851,6 +845,46 @@ class PraisonAIDB:
     #: is a write, which is uuid-keyed and idempotent and safe to defer.
     _READ_OPS = frozenset({"get", "get_session", "get_messages", "list_sessions"})
 
+    def _merge_and_set(self, store, key, patch, merge_keys=("metadata",)):
+        """Atomic read-modify-write of a state-store record from a sync hook.
+
+        The completion hooks (``on_run_end``/``on_agent_end``/``on_trace_end``/
+        ``on_span_end``) previously did ``get`` then ``set`` through two separate
+        :meth:`_call_store` calls. Inside a running event loop the ``get`` half
+        hits ``_READ_OPS`` and raises (``run_sync_or_offload`` refuses to block a
+        loop), the exception is swallowed by the core caller, and the ``set``
+        never runs — the record stays ``status="running"`` forever. See #4945.
+
+        Running the whole get+merge+set as ONE coroutine keeps the read off the
+        loop boundary, so the write half always executes. The merge is uuid-keyed
+        and idempotent, so deferring it as a tracked fire-and-forget write inside
+        a loop is safe by construction — identical to every other completion
+        write in :meth:`_call_store`.
+        """
+
+        async def _do():
+            current = await self._dispatch_async(store, "get", "async_get", key) or {}
+            merged = dict(current)
+            for mk in merge_keys:
+                if mk in patch:
+                    merged[mk] = {**(current.get(mk) or {}), **(patch[mk] or {})}
+            for pk, pv in patch.items():
+                if pk in merge_keys:
+                    continue
+                merged[pk] = pv
+            await self._dispatch_async(store, "set", "async_set", key, merged)
+            return merged
+
+        from .._async_bridge import DispatchKind, dispatch_maybe_awaitable
+
+        return dispatch_maybe_awaitable(
+            _do(),
+            kind=DispatchKind.WRITE,
+            tracker=self._bg_writes,
+            tracker_lock=self._bg_writes_lock,
+            op_name=f"merge_and_set:{key}",
+        )
+
     def _call_store(self, store, sync_name, async_name, *args, **kwargs):
         """Call a store from a sync hook without ever blocking or losing data.
 
@@ -881,38 +915,21 @@ class PraisonAIDB:
         fn = PraisonAIDB._store_callable(store, sync_name, async_name)
         if fn is None:
             return None
-        result = fn(*args, **kwargs)
-        if not inspect.isawaitable(result):
-            return result
 
-        from .._async_bridge import current_bridge, run_sync
+        from .._async_bridge import DispatchKind, dispatch_maybe_awaitable
 
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return run_sync(result)
-
-        if sync_name in PraisonAIDB._READ_OPS:
-            # Reads must return a real value; never fire-and-forget them.
-            from .._async_bridge import run_sync_or_offload
-
-            return run_sync_or_offload(
-                result, thread_name=f"praisonai-db-read-{sync_name}"
-            )
-
-        bridge = current_bridge()
-        fut = bridge.submit(result)
-        with self._bg_writes_lock:
-            self._bg_writes.add(fut)
-
-        def _on_done(f, name=sync_name):
-            try:
-                f.result()
-            except Exception:
-                logger.warning("Deferred store %s failed", name, exc_info=True)
-
-        fut.add_done_callback(_on_done)
-        return None
+        kind = (
+            DispatchKind.READ
+            if sync_name in PraisonAIDB._READ_OPS
+            else DispatchKind.WRITE
+        )
+        return dispatch_maybe_awaitable(
+            fn(*args, **kwargs),
+            kind=kind,
+            tracker=self._bg_writes,
+            tracker_lock=self._bg_writes_lock,
+            op_name=sync_name,
+        )
 
     def flush_pending_writes(self, timeout: Optional[float] = 5.0) -> None:
         """Give this adapter's in-flight fire-and-forget writes a chance to complete.

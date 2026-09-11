@@ -5,7 +5,8 @@ Modes compose from flags around one pass over the project:
 - no flags: the coverage summary alone - the cheap health check;
 - `--coverage`: plus the per-object breakdown;
 - `--missing FILE`: write the untranslated remainder as a dictionary stub to fill;
-- `--out DIR`: write the translated tree;
+- `--out DIR`: write the translated tree - DIR is the repository ROOT, and the project
+  lands in the `{Vendor}/{Name}` its descriptor names, which is what deploys as it is;
 - `--strict`: exit non-zero unless the coverage is complete, the platform data spells every
   name the sources use, and no problems were found - what a CI gate wants ("publish only a
   fully translated, lint-clean configuration").
@@ -31,8 +32,10 @@ MESSAGES = {
         "en": "the project directory (with its project descriptor)",
     },
     "translate.help.out": {
-        "ru": "куда записать переведённое дерево (без флага – только отчёт)",
-        "en": "where to write the translated tree (without it - report only)",
+        "ru": "корень репозитория, куда записать переведённое дерево: проект ляжет в"
+              " {{Поставщик}}/{{Имя}} (без флага – только отчёт)",
+        "en": "the repository root to write the translated tree to: the project lands in"
+              " {{Vendor}}/{{Name}} (without it - report only)",
     },
     "translate.help.dictionary": {
         "ru": "словарь проекта: файл или каталог (по умолчанию ищется xbsl-translation рядом и выше)",
@@ -100,8 +103,46 @@ MESSAGES = {
               " (same thing: --stale)",
     },
     "translate.help.prune": {
-        "ru": "снять найденные --unused пары из словаря (правит файлы словаря)",
-        "en": "remove the entries --unused found (writes to the dictionary files)",
+        "ru": "снять найденные --unused (или --redundant) пары из словаря (правит файлы словаря)",
+        "en": "remove the entries --unused (or --redundant) found (writes to the dictionary files)",
+    },
+    "translate.help.redundant": {
+        "ru": "показать пары словаря, на которые платформа отвечает сама тем же словом"
+              " (проход по проекту; такая пара прячет пробел данных или движка)",
+        "en": "list the dictionary entries the platform answers itself with the same word"
+              " (runs a pass; such an entry hides a gap in the data or in the engine)",
+    },
+    "translate.redundant-header": {
+        "ru": "пар, на которые платформа отвечает сама: показано {shown} из {total}",
+        "en": "entries the platform answers itself: {shown} of {total} shown",
+    },
+    "translate.redundant-none": {
+        "ru": "таких пар нет: словарь нигде не повторяет ответ платформы",
+        "en": "no such entries: the dictionary repeats the platform's answer nowhere",
+    },
+    "translate.summary-redundant": {
+        "ru": "платформа сама отвечает на пар словаря: {entries} (список – --redundant)",
+        "en": "entries the platform answers itself: {entries} (list them with --redundant)",
+    },
+    "translate.redundant.note": {
+        "ru": "пара, повторяющая ответ платформы, ничего не переводит – но прячет то, чего"
+              " платформа или движок не отвечают сами; снимайте её и смотрите, что вылезет",
+        "en": "an entry that repeats the platform translates nothing - but it hides whatever"
+              " the platform or the engine does not answer on its own; remove it and see",
+    },
+    "translate.help.since": {
+        "ru": "сироты ОДНОЙ правки: оставить в --unused только ключи, которые встречались"
+              " лишь в строках, снятых этой правкой. Ветка или коммит – diff от точки"
+              " расхождения до рабочего дерева (незакоммиченное тоже считается); диапазон"
+              " A..B передаётся git как написан",
+        "en": "the orphans of ONE change: keep in --unused only the keys that occurred"
+              " nowhere but in the lines that change removed. A branch or a commit diffs from"
+              " the fork point to the WORKING TREE (uncommitted work counts too); a range"
+              " A..B is handed to git as written",
+    },
+    "translate.since-header": {
+        "ru": "снятые строки прочитаны по git diff {base} (файлов в правке: {files})",
+        "en": "the removed lines come from git diff {base} ({files} files in the change)",
     },
     "translate.unused-header": {
         "ru": "пар словаря без места в проекте: показано {shown} из {total}",
@@ -110,6 +151,10 @@ MESSAGES = {
     "translate.unused-none": {
         "ru": "пар без места в проекте нет: словарь описывает только то, что в нём есть",
         "en": "no entries without a place in the project: the dictionary describes what is there",
+    },
+    "translate.unused-none-since": {
+        "ru": "сирот у этой правки нет: снятые ей ключи словарь за собой не тянет",
+        "en": "this change left no orphans: the dictionary keeps nothing it took out",
     },
     "translate.pruned": {
         "ru": "снято пар: {removed}",
@@ -300,7 +345,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--entries", action="store_true", help=i18n.t("translate.help.entries"))
     parser.add_argument("--unused", "--stale", action="store_true",
                         help=i18n.t("translate.help.unused"))
+    parser.add_argument("--redundant", action="store_true",
+                        help=i18n.t("translate.help.redundant"))
     parser.add_argument("--prune", action="store_true", help=i18n.t("translate.help.prune"))
+    parser.add_argument("--since", default="", help=i18n.t("translate.help.since"))
     parser.add_argument("--table", action="store_true", help=i18n.t("translate.help.table"))
     parser.add_argument("--set", dest="set_file", help=i18n.t("translate.help.set"))
     parser.add_argument("--suggest", action="store_true", help=i18n.t("translate.help.suggest"))
@@ -367,6 +415,8 @@ def cli_main(argv: list[str] | None = None) -> int:
         return _list_table(args, root, loaded)
     if args.entries:
         return _list_entries(args, root, loaded)
+    if args.redundant:
+        return _list_redundant(args, root, loaded)
     if args.unused or args.prune:
         return _list_unused(args, root, loaded)
     if args.gaps:
@@ -384,6 +434,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         root, loaded,
         Path(args.out) if args.out else None,
         swap_localization=not args.no_localization_swap,
+        layout="repository",
     )
 
     missing_tokens = report.merged_missing_tokens()
@@ -484,7 +535,9 @@ def _as_json(report, args, dictionary: Path | None, lag: dict | None = None) -> 
         "missing_phrases": report.merged_missing_phrases(),
         "missing_literals": report.merged_missing_literals(),
         "platform_gaps": report.merged_platform_gaps(),
+        "redundant_entries": report.echoed,
         "renames": report.renames,
+        "out_dir": str(report.out_dir) if report.out_dir else None,
         "warnings": {
             rel: [list(w) for w in fr.warnings]
             for rel, fr in report.files.items() if fr.warnings
@@ -565,6 +618,8 @@ def _print_text(report, args, missing_tokens, missing_phrases, missing_literals,
         ))
     if totals["data_keys"]:
         print(i18n.t("translate.summary-data-keys", keys=totals["data_keys"]))
+    if totals["echoed_entries"]:
+        print(i18n.t("translate.summary-redundant", entries=totals["echoed_entries"]))
     if totals["warnings"]:
         # The details, not only the count: a warning asks a person to look at ONE place, and
         # a bare number sends them hunting for it with the json mode.
@@ -601,7 +656,8 @@ def _print_text(report, args, missing_tokens, missing_phrases, missing_literals,
             literals=len(missing_literals),
         ))
     if args.out:
-        print(i18n.t("translate.written", count=report.written, out=args.out))
+        print(i18n.t("translate.written", count=report.written,
+                     out=report.out_dir if report.out_dir else args.out))
     # Last on purpose - whatever else the report prints, the tail of the log is the verdict.
     print(_verdict(report))
 
@@ -678,15 +734,26 @@ def _list_unused(args, root: Path, loaded) -> int:
     `--prune` writes, so it removes exactly what it just listed - the same query, the same
     page. A page cut by `--limit` is called out: removing "everything" while looking at fifty
     of three thousand is not what the flag looks like it does.
+
+    `--since` narrows the answer to the orphans of one change, which is what a task cleaning
+    up after itself actually asks: a live project answered the plain question with three
+    thousand rows, every one of them somebody's old deletion.
     """
     from xbsl.translation import entries as entries_module
 
     path = _dictionary_path(args, root)
     if path is None:
         return _no_dictionary(root)
+    removed = None
+    if args.since:
+        try:
+            removed = entries_module.removed_surfaces(root, args.since)
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     needle = args.filter.casefold()
     rows = [
-        entry for entry in entries_module.unused_entries(root, path, loaded)
+        entry for entry in entries_module.unused_entries(root, path, loaded, removed)
         if (args.kind in ("any", entry.kind))
         and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
     ]
@@ -696,23 +763,90 @@ def _list_unused(args, root: Path, loaded) -> int:
         "dictionary": str(path), "total": total,
         "unused": [entry.as_dict() for entry in page],
     }
+    if removed is not None:
+        payload["since"] = {"base": removed.base, "files": removed.files}
+    elif not needle:
+        # Said in the answer rather than in the documentation: the number is large enough to
+        # read as a worklist, and the run that treats it as one prunes the project's history.
+        payload["note"] = i18n.t("translate.unused.textual", option="--since")
     if args.prune and page:
         removed = entries_module.write_entries(
             path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
         )
         payload["removed"] = removed["removed"]
-    return _emit(args, payload, page,
-                 lambda _rows: _render_unused(args, page, total, payload.get("removed")))
+    return _emit(args, payload, page, lambda _rows: _render_unused(args, page, total, payload))
 
 
-def _render_unused(args, page: list, total: int, removed) -> None:
+def _render_unused(args, page: list, total: int, payload: dict) -> None:
+    since = payload.get("since")
+    if since:
+        print(i18n.t("translate.since-header", base=since["base"][:12], files=since["files"]))
     if not total:
-        print(i18n.t("translate.unused-none"))
+        print(i18n.t("translate.unused-none-since" if since else "translate.unused-none"))
         return
     print(i18n.t("translate.unused-header", shown=len(page), total=total))
     for entry in page:
         print(f"  {entry.kind:7} {entry.key}  ->  {entry.value}   "
               f"{Path(entry.file).name}:{entry.line}")
+    if payload.get("note"):
+        print(payload["note"])
+    removed = payload.get("removed")
+    if removed is not None:
+        if len(page) < total:
+            print(i18n.t("translate.prune-partial", shown=len(page), total=total))
+        print(i18n.t("translate.pruned", removed=removed))
+
+
+def _list_redundant(args, root: Path, loaded) -> int:
+    """Pairs the PLATFORM answers itself; `--prune` takes them out.
+
+    The mirror of `--unused`: there a key the project has no place for, here one it has a
+    place for where the platform spells the same word anyway. Nothing breaks while such a
+    pair stands - that is the trouble with it: it answers in place of the platform data, and
+    whatever the data or this engine fails to spell stays hidden behind it until someone
+    happens to translate the project without a dictionary.
+
+    Unlike `--unused` this runs the PASS: the verdict is evidence, not a second reading of
+    the tables - an entry is listed only when every place it answered would have come out
+    the same without it.
+    """
+    from xbsl.translation import entries as entries_module
+
+    path = _dictionary_path(args, root)
+    if path is None:
+        return _no_dictionary(root)
+    needle = args.filter.casefold()
+    rows = [
+        entry for entry in entries_module.echoed_entries(root, path, loaded)
+        if (args.kind in ("any", entry.kind))
+        and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
+    ]
+    total = len(rows)
+    page = _page(rows, args)
+    payload = {
+        "dictionary": str(path), "total": total,
+        "redundant": [entry.as_dict() for entry in page],
+    }
+    if total:
+        payload["note"] = i18n.t("translate.redundant.note")
+    if args.prune and page:
+        removed = entries_module.write_entries(
+            path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
+        )
+        payload["removed"] = removed["removed"]
+    return _emit(args, payload, page, lambda _rows: _render_redundant(args, page, total, payload))
+
+
+def _render_redundant(args, page: list, total: int, payload: dict) -> None:
+    if not total:
+        print(i18n.t("translate.redundant-none"))
+        return
+    print(i18n.t("translate.redundant-header", shown=len(page), total=total))
+    for entry in page:
+        print(f"  {entry.kind:7} {entry.key}  ->  {entry.value}   "
+              f"{Path(entry.file).name}:{entry.line}")
+    print(payload["note"])
+    removed = payload.get("removed")
     if removed is not None:
         if len(page) < total:
             print(i18n.t("translate.prune-partial", shown=len(page), total=total))

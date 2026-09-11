@@ -37,10 +37,13 @@ class GatewayCreateProducerSnowflake(object):
         'account': 'str',
         'account_password': 'str',
         'account_username': 'str',
+        'ara_enabled': 'bool',
         'auth_mode': 'str',
         'custom_username_template': 'str',
         'db_name': 'str',
         'delete_protection': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
@@ -51,6 +54,7 @@ class GatewayCreateProducerSnowflake(object):
         'private_key': 'str',
         'private_key_passphrase': 'str',
         'role': 'str',
+        'skip_dry_run': 'str',
         'tags': 'list[str]',
         'target_name': 'str',
         'token': 'str',
@@ -67,10 +71,13 @@ class GatewayCreateProducerSnowflake(object):
         'account': 'account',
         'account_password': 'account-password',
         'account_username': 'account-username',
+        'ara_enabled': 'ara-enabled',
         'auth_mode': 'auth-mode',
         'custom_username_template': 'custom-username-template',
         'db_name': 'db-name',
         'delete_protection': 'delete_protection',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
@@ -81,6 +88,7 @@ class GatewayCreateProducerSnowflake(object):
         'private_key': 'private-key',
         'private_key_passphrase': 'private-key-passphrase',
         'role': 'role',
+        'skip_dry_run': 'skip_dry_run',
         'tags': 'tags',
         'target_name': 'target-name',
         'token': 'token',
@@ -93,7 +101,7 @@ class GatewayCreateProducerSnowflake(object):
         'warehouse': 'warehouse'
     }
 
-    def __init__(self, account=None, account_password=None, account_username=None, auth_mode='password', custom_username_template=None, db_name=None, delete_protection=None, input_rule=None, item_custom_fields=None, json=False, key_algo=None, name=None, output_rule=None, password_length=None, private_key=None, private_key_passphrase=None, role=None, tags=None, target_name=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='24h', warehouse=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, account=None, account_password=None, account_username=None, ara_enabled=None, auth_mode='password', custom_username_template=None, db_name=None, delete_protection=None, enable_agentic_runtime_authority=None, enable_ai_quorum=None, input_rule=None, item_custom_fields=None, json=False, key_algo=None, name=None, output_rule=None, password_length=None, private_key=None, private_key_passphrase=None, role=None, skip_dry_run=None, tags=None, target_name=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, user_ttl='24h', warehouse=None, local_vars_configuration=None):  # noqa: E501
         """GatewayCreateProducerSnowflake - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -102,10 +110,13 @@ class GatewayCreateProducerSnowflake(object):
         self._account = None
         self._account_password = None
         self._account_username = None
+        self._ara_enabled = None
         self._auth_mode = None
         self._custom_username_template = None
         self._db_name = None
         self._delete_protection = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
@@ -116,6 +127,7 @@ class GatewayCreateProducerSnowflake(object):
         self._private_key = None
         self._private_key_passphrase = None
         self._role = None
+        self._skip_dry_run = None
         self._tags = None
         self._target_name = None
         self._token = None
@@ -134,6 +146,8 @@ class GatewayCreateProducerSnowflake(object):
             self.account_password = account_password
         if account_username is not None:
             self.account_username = account_username
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if auth_mode is not None:
             self.auth_mode = auth_mode
         if custom_username_template is not None:
@@ -142,6 +156,10 @@ class GatewayCreateProducerSnowflake(object):
             self.db_name = db_name
         if delete_protection is not None:
             self.delete_protection = delete_protection
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if input_rule is not None:
             self.input_rule = input_rule
         if item_custom_fields is not None:
@@ -161,6 +179,8 @@ class GatewayCreateProducerSnowflake(object):
             self.private_key_passphrase = private_key_passphrase
         if role is not None:
             self.role = role
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if tags is not None:
             self.tags = tags
         if target_name is not None:
@@ -250,6 +270,29 @@ class GatewayCreateProducerSnowflake(object):
         """
 
         self._account_username = account_username
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this GatewayCreateProducerSnowflake.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :return: The ara_enabled of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this GatewayCreateProducerSnowflake.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. Mirrors commands.AgenticRulesParams.AraEnabled.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def auth_mode(self):
@@ -342,6 +385,52 @@ class GatewayCreateProducerSnowflake(object):
         """
 
         self._delete_protection = delete_protection
+
+    @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this GatewayCreateProducerSnowflake.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this GatewayCreateProducerSnowflake.
+
+        EnableAra is the documented spelling of AraEnabled; --ara-enabled shipped first and stays as an undocumented alias.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this GatewayCreateProducerSnowflake.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this GatewayCreateProducerSnowflake.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
 
     @property
     def input_rule(self):
@@ -572,6 +661,29 @@ class GatewayCreateProducerSnowflake(object):
         """
 
         self._role = role
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this GatewayCreateProducerSnowflake.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this GatewayCreateProducerSnowflake.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this GatewayCreateProducerSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
 
     @property
     def tags(self):

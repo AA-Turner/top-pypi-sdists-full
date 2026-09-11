@@ -38,8 +38,11 @@ class UscSyncInfo(object):
         'jq_secret_filter': 'str',
         'last_error': 'str',
         'namespace': 'str',
+        'project': 'str',
         'secret_id': 'str',
-        'secret_name': 'str'
+        'secret_name': 'str',
+        'selected_environments': 'str',
+        'selected_repositories': 'str'
     }
 
     attribute_map = {
@@ -47,11 +50,14 @@ class UscSyncInfo(object):
         'jq_secret_filter': 'jq_secret_filter',
         'last_error': 'last_error',
         'namespace': 'namespace',
+        'project': 'project',
         'secret_id': 'secret_id',
-        'secret_name': 'secret_name'
+        'secret_name': 'secret_name',
+        'selected_environments': 'selected_environments',
+        'selected_repositories': 'selected_repositories'
     }
 
-    def __init__(self, delete_remote=None, jq_secret_filter=None, last_error=None, namespace=None, secret_id=None, secret_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, delete_remote=None, jq_secret_filter=None, last_error=None, namespace=None, project=None, secret_id=None, secret_name=None, selected_environments=None, selected_repositories=None, local_vars_configuration=None):  # noqa: E501
         """UscSyncInfo - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -61,8 +67,11 @@ class UscSyncInfo(object):
         self._jq_secret_filter = None
         self._last_error = None
         self._namespace = None
+        self._project = None
         self._secret_id = None
         self._secret_name = None
+        self._selected_environments = None
+        self._selected_repositories = None
         self.discriminator = None
 
         if delete_remote is not None:
@@ -73,10 +82,16 @@ class UscSyncInfo(object):
             self.last_error = last_error
         if namespace is not None:
             self.namespace = namespace
+        if project is not None:
+            self.project = project
         if secret_id is not None:
             self.secret_id = secret_id
         if secret_name is not None:
             self.secret_name = secret_name
+        if selected_environments is not None:
+            self.selected_environments = selected_environments
+        if selected_repositories is not None:
+            self.selected_repositories = selected_repositories
 
     @property
     def delete_remote(self):
@@ -163,6 +178,27 @@ class UscSyncInfo(object):
         self._namespace = namespace
 
     @property
+    def project(self):
+        """Gets the project of this UscSyncInfo.  # noqa: E501
+
+
+        :return: The project of this UscSyncInfo.  # noqa: E501
+        :rtype: str
+        """
+        return self._project
+
+    @project.setter
+    def project(self, project):
+        """Sets the project of this UscSyncInfo.
+
+
+        :param project: The project of this UscSyncInfo.  # noqa: E501
+        :type: str
+        """
+
+        self._project = project
+
+    @property
     def secret_id(self):
         """Gets the secret_id of this UscSyncInfo.  # noqa: E501
 
@@ -203,6 +239,48 @@ class UscSyncInfo(object):
         """
 
         self._secret_name = secret_name
+
+    @property
+    def selected_environments(self):
+        """Gets the selected_environments of this UscSyncInfo.  # noqa: E501
+
+
+        :return: The selected_environments of this UscSyncInfo.  # noqa: E501
+        :rtype: str
+        """
+        return self._selected_environments
+
+    @selected_environments.setter
+    def selected_environments(self, selected_environments):
+        """Sets the selected_environments of this UscSyncInfo.
+
+
+        :param selected_environments: The selected_environments of this UscSyncInfo.  # noqa: E501
+        :type: str
+        """
+
+        self._selected_environments = selected_environments
+
+    @property
+    def selected_repositories(self):
+        """Gets the selected_repositories of this UscSyncInfo.  # noqa: E501
+
+
+        :return: The selected_repositories of this UscSyncInfo.  # noqa: E501
+        :rtype: str
+        """
+        return self._selected_repositories
+
+    @selected_repositories.setter
+    def selected_repositories(self, selected_repositories):
+        """Sets the selected_repositories of this UscSyncInfo.
+
+
+        :param selected_repositories: The selected_repositories of this UscSyncInfo.  # noqa: E501
+        :type: str
+        """
+
+        self._selected_repositories = selected_repositories
 
     def to_dict(self):
         """Returns the model properties as a dict"""

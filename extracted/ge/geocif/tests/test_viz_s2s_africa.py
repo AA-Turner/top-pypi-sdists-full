@@ -286,3 +286,206 @@ class TestRunWiring(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestConfigDrivenExtent(unittest.TestCase):
+    """Southern and eastern Africa are separate RUNS from separate configs.
+
+    The viz layer therefore knows about exactly one extent, handed to it by
+    the caller, and never carries a list of regions of its own.
+    """
+
+    def test_maps_takes_an_extent_and_label(self):
+        import inspect
+        from geocif.viz import s2s_africa as viz
+
+        sig = inspect.signature(viz.maps)
+        self.assertIn("extent", sig.parameters)
+        self.assertIn("label", sig.parameters)
+        self.assertIsNone(sig.parameters["extent"].default)
+        self.assertEqual(sig.parameters["label"].default, "")
+
+    def test_absent_extent_falls_back_to_all_africa(self):
+        import inspect
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        self.assertIn("extent or REGION", src)
+        self.assertEqual(viz.REGION, [-20, 52, -36, 25])
+
+    def test_render_all_threads_the_extent_through(self):
+        import inspect
+        from geocif.viz import s2s_africa as viz
+
+        sig = inspect.signature(viz.render_all)
+        for k in ("extent", "label"):
+            self.assertIn(k, sig.parameters)
+        src = inspect.getsource(viz.render_all)
+        self.assertIn("extent=extent", src)
+        self.assertIn("label=label", src)
+
+    def test_no_view_registry_survives_in_the_viz_layer(self):
+        """A leftover region list here would be a second, competing source
+        of truth against the configs."""
+        from geocif.viz import s2s_africa as viz
+
+        for attr in ("MAP_VIEWS", "DEFAULT_MAP_VIEWS", "_maps_one_view"):
+            self.assertFalse(hasattr(viz, attr), attr)
+
+
+class TestLegendPlacement(unittest.TestCase):
+    """The legend must not sit on top of a forecast region.
+
+    `JBL+jBL` anchors it INSIDE the frame at bottom-left, which is open
+    Atlantic on the continent-wide extent and the Western Cape once the map
+    is cropped to southern Africa. Regional extents make inside-the-frame
+    placement unsafe in general, so every legend moved to the margin.
+    """
+
+    def test_legends_are_outside_the_frame(self):
+        from geocif.viz import s2s_africa as viz
+
+        self.assertTrue(viz.LEGEND_POS.startswith("JBL+jTL"))
+        self.assertNotIn("jBL", viz.LEGEND_POS)
+
+    def test_no_legend_is_anchored_inside_the_frame(self):
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        # the comment naming the old anchor lives at module scope, not here
+        self.assertNotIn("JBL+jBL", src)
+        self.assertNotIn('position="JBL', src)
+
+    def test_colorbars_clear_the_legend_they_share_the_margin_with(self):
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        # one renderer, one colorbar call: pushed down when a legend shares
+        # the margin, tight when there is none
+        self.assertNotIn("o0c/1.1c+e", src)
+        self.assertIn("CBAR_OFFSET if legend_rows", src)
+        self.assertIn("no legend to clear", src)
+        # extenders stay on both paths: P_low spans 0.005-0.945 against a
+        # 0.15-0.50 ramp, so the bar's tails carry real values
+        self.assertTrue(viz.CBAR_OFFSET.endswith("+e"))
+
+    def test_every_legend_declares_a_width(self):
+        """A missing +w makes GMT guess, and it guesses too narrow."""
+        import inspect
+        import re
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        # exactly ONE fig.legend call survives, inside the shared _legend
+        # helper, and it always formats an explicit width
+        self.assertEqual(src.count("fig.legend("), 1)
+        self.assertIn("LEGEND_POS.format(w=width)", src)
+        # every caller hands _legend its width (def + at least 3 call sites)
+        self.assertGreaterEqual(src.count("_legend(fig, td,"), 4)
+
+
+class TestSharedOutlookStyling(unittest.TestCase):
+    """These maps and the single-country yield_outlook maps are one product.
+
+    The styling constants live in `viz/_pygmt_render` and are imported, not
+    restated, so the two families cannot drift apart on frame, pen, coast or
+    colorbar geometry.
+    """
+
+    def test_style_constants_come_from_the_shared_renderer(self):
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        self.assertIn("from geocif.viz._pygmt_render import", src)
+        for k in ("POLY_PEN", "COAST_KW", "CBAR_POS", "BORDER_PEN",
+                  "ANNOT_FONT", "ANNOT_BOX"):
+            self.assertIn(k, src, k)
+
+    def test_the_import_is_lazy(self):
+        """_pygmt_render imports pygmt at its top (it doubles as a standalone
+        subprocess renderer), so a module-scope import here would make the
+        charts and heatmaps unrenderable on a machine with no GMT."""
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        head = inspect.getsource(viz).split("def _dirs")[0]
+        self.assertNotIn("_pygmt_render", head)
+
+    def test_frame_is_the_gmt_default_not_plain(self):
+        """The outlook maps use the fancy (checkered) frame."""
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        self.assertNotIn("MAP_FRAME_TYPE", inspect.getsource(viz.maps))
+
+    def test_land_is_lighter_than_the_nodata_class(self):
+        """Land outside the analysis and an admin unit with no forecast are
+        different statements, and only the second one is in the legend."""
+        from geocif.viz import s2s_africa as viz
+
+        self.assertNotEqual(viz.LAND, viz.NODATA)
+        self.assertGreater(int(viz.LAND[1:3], 16), int(viz.NODATA[1:3], 16))
+        self.assertNotEqual(viz.LAND.lower(), "#ffffff")
+
+    def test_cpt_segments_interpolate_between_stops(self):
+        """A stepped bar beside the outlook maps' smooth one reads as a
+        different product."""
+        import tempfile
+
+        from geocif.viz.s2s_africa import FEWS_CPT, _write_cpt
+
+        with tempfile.TemporaryDirectory() as td:
+            f = Path(td) / "c.cpt"
+            _write_cpt(f, FEWS_CPT)
+            rows = [ln.split("\t") for ln in f.read_text().strip().splitlines()
+                    if not ln.startswith(("B", "F", "N"))]
+        self.assertEqual(len(rows), len(FEWS_CPT) - 1)
+        for lo, ca, hi, cb in rows:
+            self.assertNotEqual(ca, cb, f"{lo}-{hi} is a flat step")
+        self.assertEqual(rows[0][1], FEWS_CPT[0][1])
+        self.assertEqual(rows[-1][3], FEWS_CPT[-1][1])
+
+    def test_every_value_map_routes_through_the_one_renderer(self):
+        """Five choropleths, one skeleton: a styling fix must land on all
+        of them, so none may hand-roll its own plot/colorbar/legend."""
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        # def + choropleth + anomaly + yield + region_roc + support
+        self.assertEqual(src.count("_value_map("), 6)
+        # the renderer annotates every map, via the shared fit heuristic
+        self.assertIn("_annotate(fig, g, value_col, fmt)", src)
+        self.assertIn("effective_annotate_regions", src)
+        # and no wrapper bypasses it with its own colorbar
+        self.assertEqual(src.count("fig.colorbar("), 1)
+
+
+class TestFontsMatchTheOutlookMaps(unittest.TestCase):
+    def test_only_the_title_font_is_overridden(self):
+        """Shrinking FONT_LABEL made the colorbar caption smaller than the
+        same caption on a yield_outlook map."""
+        import inspect
+        import re
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        # the pygmt.config CALL, not the whole source: the comment above it
+        # names the settings it deliberately leaves alone
+        m = re.search(r"pygmt\.config\((.*?)\)", src, re.S)
+        self.assertIsNotNone(m)
+        cfg = m.group(1)
+        self.assertIn("FONT_TITLE", cfg)
+        self.assertNotIn("FONT_LABEL", cfg)
+        self.assertNotIn("FONT_ANNOT", cfg)

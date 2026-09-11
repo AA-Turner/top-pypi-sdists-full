@@ -98,6 +98,9 @@ pub enum ErrorKind {
     BadClassDefinition,
     /// Attempting to use a type that cannot be used as a contextmanager in a `with` statement.
     BadContextManager,
+    /// A dataclass field is typed as a descriptor whose read-back type does not match
+    /// what the synthesized `__init__` writes.
+    BadDataclassDescriptor,
     /// An entry in user-defined `__all__` does not exist in the module.
     BadDunderAll,
     /// A function definition has some typing-related error.
@@ -149,6 +152,8 @@ pub enum ErrorKind {
     /// An error caused by unpacking.
     /// e.g. attempting to unpack an iterable into the wrong number of variables.
     BadUnpacking,
+    /// A Polars DataFrame's data columns do not match the column set declared by its `schema=`.
+    ColumnSchemaMismatch,
     /// A Polars DataFrame column literal has an element that does not fit the column's first-element dtype.
     ColumnTypeMismatch,
     /// A symbol has no type coverage. Emitted only by `pyrefly coverage check`.
@@ -162,12 +167,15 @@ pub enum ErrorKind {
     DirectAbstractBaseInstantiation,
     /// Division, floor division, or modulo by a literal zero value.
     DivisionByZero,
+    /// A Polars operation produces more than one column with the same name.
+    DuplicateColumn,
     /// A function has an empty body despite declaring a non-None return type.
     EmptyBody,
     /// Explicit usage of `typing.Any` in an annotation.
     ExplicitAny,
-    /// Raised when a class implicitly becomes abstract by defining abstract members without
-    /// inheriting from `abc.ABC` or using `abc.ABCMeta`.
+    /// Raised when a class that inherits from an abstract class but is not itself explicitly
+    /// abstract (for example, it does not directly inherit from abc.ABC or use abc.ABCMeta) has
+    /// unimplemented abstract members.
     ImplicitAbstractClass,
     /// Umbrella error kind for cases where Pyrefly infers an implicit `Any`.
     /// Most concrete sites emit one of the more specific sub-kinds below;
@@ -285,6 +293,9 @@ pub enum ErrorKind {
     MissingArgument,
     /// Attempting to access an attribute that does not exist.
     MissingAttribute,
+    /// A `unittest.mock.patch` target names an attribute that does not exist.
+    /// This is a sub-kind of [MissingAttribute].
+    MissingAttributePatchTarget,
     /// Failed to import a module.
     MissingImport,
     /// Accessing an attribute that does not exist on a module.
@@ -314,8 +325,12 @@ pub enum ErrorKind {
     /// The SCC fixpoint iteration did not converge within the maximum number of
     /// iterations. The inferred type may be incorrect; adding annotations can help.
     NonConvergentRecursion,
-    /// Matching on an enum without covering all possible cases.
+    /// Matching on a closed type without covering all possible cases.
     NonExhaustiveMatch,
+    /// Matching on an open type without covering all possible cases.
+    /// This is a sub-kind of [NonExhaustiveMatch]: suppressing `non-exhaustive-match` also
+    /// suppresses this error.
+    NonExhaustiveMatchOpenType,
     /// Attempting to use something that isn't a type where a type is expected.
     /// This is a very general error and should be used sparingly.
     NotAType,
@@ -340,17 +355,26 @@ pub enum ErrorKind {
     ProtocolImplicitlyDefinedAttribute,
     /// Calling `.cuda()` on a `torch.Tensor` hard-codes the target device.
     /// Use `.to(device)` instead for device-agnostic code.
+    /// This is a sub-kind of [PytorchEfficiencyLints].
     PytorchEfficiencyLintCudaCall,
     /// Calling `.item()` on a `torch.Tensor` forces GPU→CPU synchronization,
     /// blocking the training loop until all pending GPU operations complete.
+    /// This is a sub-kind of [PytorchEfficiencyLints].
     PytorchEfficiencyLintItemCall,
     /// Passing a `torch.Tensor` to `print()` triggers `__repr__`, which forces
     /// GPU→CPU synchronization.
+    /// This is a sub-kind of [PytorchEfficiencyLints].
     PytorchEfficiencyLintPrintTensor,
     /// Calling `.to(device)` on a tensor returned by a factory function like
     /// `torch.zeros()` that already accepts a `device=` parameter. Passing
     /// `device=` directly avoids allocating the tensor on CPU first.
+    /// This is a sub-kind of [PytorchEfficiencyLints].
     PytorchEfficiencyLintRedundantToCall,
+    /// Umbrella error kind for PyTorch GPU performance anti-patterns. Every
+    /// concrete site emits one of the more specific sub-kinds above;
+    /// `pytorch-efficiency-lints` itself is reserved for the umbrella
+    /// suppression/config code (suppressing it suppresses every sub-kind).
+    PytorchEfficiencyLints,
     /// The attribute exists but cannot be modified.
     ReadOnly,
     /// Attempting to annotate or redefine a name with a type that conflicts with an existing annotation in scope.
@@ -359,6 +383,8 @@ pub enum ErrorKind {
     RedundantCast,
     /// Attempting to use value that is equivalent to True or always False in boolean context.
     RedundantCondition,
+    /// An invalid regex pattern or regex group access.
+    Regex,
     /// Raised by a call to reveal_type().
     RevealType,
     /// Passing a string to something that expects an iterable of strings.
@@ -454,12 +480,6 @@ impl std::str::FromStr for ErrorKind {
 /// Also means we can grab error code names without allocation, which is nice.
 static ERROR_KIND_CACHE: LazyLock<SmallMap<String, ErrorKind>> = LazyLock::new(ErrorKind::cache);
 
-static PYTORCH_EFFICIENCY_LINTS: LazyLock<Vec<ErrorKind>> = LazyLock::new(|| {
-    enum_iterator::all::<ErrorKind>()
-        .filter(|k| k.to_name().starts_with("pytorch-efficiency-lint-"))
-        .collect()
-});
-
 impl ErrorKind {
     fn cache() -> SmallMap<String, ErrorKind> {
         let mut map = SmallMap::new();
@@ -470,11 +490,6 @@ impl ErrorKind {
         }
 
         map
-    }
-
-    /// All error kinds with the `pytorch-efficiency-lint-` prefix.
-    pub fn pytorch_efficiency_lints() -> &'static [ErrorKind] {
-        &PYTORCH_EFFICIENCY_LINTS
     }
 
     pub fn to_name(self) -> &'static str {
@@ -498,8 +513,16 @@ impl ErrorKind {
             | ErrorKind::ImplicitAnyLambda
             | ErrorKind::ImplicitAnyParameter
             | ErrorKind::ImplicitAnyTypeArgument => Some(ErrorKind::ImplicitAny),
+            ErrorKind::MissingAttributePatchTarget => Some(ErrorKind::MissingAttribute),
             ErrorKind::NoAnyReturnExplicit | ErrorKind::NoAnyReturnImplicit => {
                 Some(ErrorKind::NoAnyReturn)
+            }
+            ErrorKind::NonExhaustiveMatchOpenType => Some(ErrorKind::NonExhaustiveMatch),
+            ErrorKind::PytorchEfficiencyLintCudaCall
+            | ErrorKind::PytorchEfficiencyLintItemCall
+            | ErrorKind::PytorchEfficiencyLintPrintTensor
+            | ErrorKind::PytorchEfficiencyLintRedundantToCall => {
+                Some(ErrorKind::PytorchEfficiencyLints)
             }
             _ => None,
         }
@@ -549,6 +572,7 @@ impl ErrorKind {
             ErrorKind::InvalidCast => Severity::Ignore,
             ErrorKind::InvalidDecorator => Severity::Warn,
             ErrorKind::MisplacedIgnore => Severity::Warn,
+            ErrorKind::MissingAttributePatchTarget => Severity::Warn,
             ErrorKind::MissingOverrideDecorator => Severity::Ignore,
             ErrorKind::MissingSuperCall => Severity::Ignore,
             ErrorKind::MissingSource => Severity::Ignore,
@@ -557,6 +581,7 @@ impl ErrorKind {
             ErrorKind::NoAnyReturnExplicit => Severity::Ignore,
             ErrorKind::NoAnyReturnImplicit => Severity::Ignore,
             ErrorKind::NonExhaustiveMatch => Severity::Warn,
+            ErrorKind::NonExhaustiveMatchOpenType => Severity::Ignore,
             ErrorKind::NonConvergentRecursion => Severity::Warn,
             ErrorKind::NotRequiredKeyAccess => Severity::Ignore,
             ErrorKind::OpenUnpacking => Severity::Ignore,
@@ -564,6 +589,7 @@ impl ErrorKind {
             ErrorKind::PytorchEfficiencyLintItemCall => Severity::Ignore,
             ErrorKind::PytorchEfficiencyLintPrintTensor => Severity::Ignore,
             ErrorKind::PytorchEfficiencyLintRedundantToCall => Severity::Ignore,
+            ErrorKind::PytorchEfficiencyLints => Severity::Ignore,
             ErrorKind::RedundantCast => Severity::Warn,
             ErrorKind::RedundantCondition => Severity::Warn,
             ErrorKind::RevealType => Severity::Info,
@@ -602,26 +628,31 @@ impl ErrorKind {
         matches!(self, ErrorKind::RevealType)
     }
 
+    /// Returns true if this error kind reports a suppression comment that
+    /// suppresses nothing, covering both Pyrefly/Pyre ignores and
+    /// `# type: ignore`.
+    pub fn is_unused_ignore(self) -> bool {
+        matches!(self, ErrorKind::UnusedIgnore | ErrorKind::UnusedTypeIgnore)
+    }
+
     /// Returns whether `--suppress-errors` may write a suppression comment for
     /// this kind. Unused-ignore diagnostics are excluded because suppressing one
     /// would only leave behind another unused ignore.
     pub fn is_suppressable(self) -> bool {
-        match self {
-            ErrorKind::UnusedIgnore | ErrorKind::UnusedTypeIgnore => false,
-            _ => true,
-        }
+        !self.is_unused_ignore()
     }
 
-    /// A soft error is a warning that should not influence overload selection
+    /// A soft error is a diagnostic that should not influence overload selection
     /// or other type-inference decisions. The type check itself passed, but the
     /// code pattern is suspicious.
     pub fn is_soft(self) -> bool {
-        matches!(
-            self,
-            ErrorKind::ImplicitAnyLambda
-                | ErrorKind::StringAsIterable
-                | ErrorKind::UnknownArgumentType
-        )
+        self.default_severity() == Severity::Ignore
+            || matches!(
+                self,
+                ErrorKind::Deprecated
+                    | ErrorKind::RedundantCast
+                    | ErrorKind::UnnecessaryTypeConversion
+            )
     }
 
     /// Coverage kinds are emitted only by `pyrefly coverage check`.
@@ -669,33 +700,16 @@ mod tests {
     }
 
     #[test]
-    fn test_unknown_column_kind_exists() {
-        assert_eq!(ErrorKind::UnknownColumn.to_name(), "unknown-column");
+    fn test_duplicate_column_kind_exists() {
+        assert_eq!(ErrorKind::DuplicateColumn.to_name(), "duplicate-column");
         assert_eq!(
-            "unknown-column".parse::<ErrorKind>(),
-            Ok(ErrorKind::UnknownColumn)
-        );
-    }
-
-    #[test]
-    fn test_column_type_mismatch_kind_exists() {
-        assert_eq!(
-            ErrorKind::ColumnTypeMismatch.to_name(),
-            "column-type-mismatch"
+            "duplicate-column".parse::<ErrorKind>(),
+            Ok(ErrorKind::DuplicateColumn)
         );
         assert_eq!(
-            "column-type-mismatch".parse::<ErrorKind>(),
-            Ok(ErrorKind::ColumnTypeMismatch)
-        );
-        assert_eq!(
-            ErrorKind::ColumnTypeMismatch.default_severity(),
+            ErrorKind::DuplicateColumn.default_severity(),
             Severity::Error
         );
-    }
-
-    #[test]
-    fn test_unknown_column_default_severity() {
-        assert_eq!(ErrorKind::UnknownColumn.default_severity(), Severity::Error);
     }
 
     #[test]

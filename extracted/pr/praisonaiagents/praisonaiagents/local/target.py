@@ -110,7 +110,11 @@ def parse_ollama_host(value: str) -> Optional[str]:
         if not parsed.hostname:
             return None
         port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        return f"{parsed.scheme}://{parsed.hostname}:{port}"
+        # Keep any path prefix. A reverse proxy commonly mounts the server under
+        # one (http://gateway:8000/ollama); rebuilding from host+port alone
+        # silently rewrote the URL and sent every request to the proxy root.
+        path = parsed.path.rstrip("/")
+        return f"{parsed.scheme}://{parsed.hostname}:{port}{path}"
     if raw.isdigit():
         return f"http://127.0.0.1:{raw}"
     if raw.startswith(":") and raw[1:].isdigit():
@@ -184,6 +188,16 @@ def _negate_iso(value: str):
     return tuple(-ord(c) for c in value) if value else ()
 
 
+def _openai_base(base_url: str) -> str:
+    """Return the OpenAI-compatible root for a base URL, without doubling /v1.
+
+    Users routinely paste the URL their server prints, which for LM Studio and
+    vLLM already ends in /v1. Appending unconditionally produced /v1/v1.
+    """
+    trimmed = base_url.rstrip("/")
+    return trimmed if trimmed.endswith("/v1") else trimmed + "/v1"
+
+
 def build_target(discovery: Discovery, model_id, *, caps=None,
                  caps_evidence=Evidence.TABLE, model_evidence=Evidence.SERVER,
                  extra=()) -> LocalTarget:
@@ -202,10 +216,21 @@ def build_target(discovery: Discovery, model_id, *, caps=None,
         "model_id": model_evidence if model_id else Evidence.UNKNOWN,
         "engine_version": Evidence.SERVER if discovery.engine_version else Evidence.UNKNOWN,
     }
+    # Keep the facts the probe already learned reachable by callers that must
+    # not probe: the token budgeter and the embedder factory.
+    if model_id:
+        from .embed import remember_model_facts
+        _facts = dict(extra)
+        remember_model_facts(
+            model_id,
+            context_length=_facts.get("context_length"),
+            embedding_dimension=_facts.get("embedding_length"),
+        )
+
     return LocalTarget(
         engine=engine,
         base_url=discovery.base_url,
-        openai_base_url=discovery.base_url + "/v1",
+        openai_base_url=_openai_base(discovery.base_url),
         api_style=discovery.api_style,
         model_id=model_id,
         caps=resolved_caps,

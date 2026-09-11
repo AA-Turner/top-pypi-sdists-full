@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.99.0
+Version: 0.102.0
 Summary: The XBSL (1C:Element) toolkit: a linter with autofixes, LSP, MCP server, documentation search, project index, metadata scaffolding, translation into English spellings, and a VS Code extension
 Author: xbsl contributors
 License-Expression: MIT

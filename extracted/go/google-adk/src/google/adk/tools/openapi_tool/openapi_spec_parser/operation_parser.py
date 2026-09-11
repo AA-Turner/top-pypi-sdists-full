@@ -20,6 +20,7 @@ from typing import Any
 from typing import cast
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from fastapi.encoders import jsonable_encoder
 from fastapi.openapi.models import Operation
@@ -34,6 +35,24 @@ from ..common.common import _schema_from_openapi
 from ..common.common import ApiParameter
 from ..common.common import PydocHelper
 from ..common.common import rename_python_keywords
+
+
+def _required_scheme_name(
+    security: Optional[List[Dict[str, List[str]]]],
+) -> str:
+  """Returns the scheme name a security list requires, or '' if it requires none.
+
+  An empty requirement object is the OpenAPI idiom for optional authentication.
+  A tool that carries an auth scheme stops and asks the caller for a credential
+  instead of sending the request, so an optional requirement resolves to no
+  scheme; a caller that does want to authenticate passes auth_scheme and
+  auth_credential to the toolset.
+  """
+  if not security:
+    return ''
+  if any(not requirement for requirement in security):
+    return ''
+  return next(iter(security[0]), '')
 
 
 class OperationParser:
@@ -289,9 +308,7 @@ class OperationParser:
 
   def get_auth_scheme_name(self) -> str:
     """Returns the name of the auth scheme for this operation from the spec."""
-    if self._operation.security:
-      return next(iter(self._operation.security[0]), '')
-    return ''
+    return _required_scheme_name(self._operation.security)
 
   def get_pydoc_string(self) -> str:
     """Returns the generated PyDoc string."""

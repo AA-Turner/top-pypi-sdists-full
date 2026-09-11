@@ -145,6 +145,7 @@ async def _capture_tool_output_contract_drift(
     tool_name: str,
     output_kind: str,
     error_count: int,
+    validation_sources: tuple[str, ...],
 ) -> None:
     """Durably capture a successful result that violates its output contract."""
     from matrx_connect.streaming.error_capture import capture_error
@@ -165,6 +166,7 @@ async def _capture_tool_output_contract_drift(
             "tool_name": tool_name,
             "output_kind": output_kind,
             "error_count": error_count,
+            "validation_sources": list(validation_sources),
         },
     )
 
@@ -1580,6 +1582,9 @@ class ToolExecutor:
             else result.output
         )
         curated_kind = kind_of(serialized_output)
+        output_drift_sources: list[str] = []
+        output_drift_error_count = 0
+        output_drift_kind: str | None = None
         if curated_kind == "json":
             # 'json' is a format word, never an identity — the same refusal the
             # scheduler makes when adopting a kind from a payload.
@@ -1599,6 +1604,9 @@ class ToolExecutor:
                     curated_kind,
                     kind_check.errors,
                 )
+                output_drift_sources.append("declared_kind")
+                output_drift_error_count += len(kind_check.errors)
+                output_drift_kind = curated_kind
             elif not kind_check.checked:
                 degraded_reason = (
                     kind_check.degraded_reason.value
@@ -1636,12 +1644,22 @@ class ToolExecutor:
                     output_contract.kind,
                     output_kind_verdict.errors,
                 )
-                await _capture_tool_output_contract_drift(
-                    ctx=ctx,
-                    tool_name=canonical_name,
-                    output_kind=output_contract.kind,
-                    error_count=len(output_kind_verdict.errors),
-                )
+                output_drift_sources.append("generated_output_contract")
+                output_drift_error_count += len(output_kind_verdict.errors)
+                output_drift_kind = output_drift_kind or output_contract.kind
+
+        # One successful tool result may violate both its self-described kind
+        # and its generated output schema. They are distinct diagnostics, but
+        # one durable repair signal must describe the one bad result rather
+        # than creating duplicate queue work.
+        if result.success and output_drift_sources and output_drift_kind is not None:
+            await _capture_tool_output_contract_drift(
+                ctx=ctx,
+                tool_name=canonical_name,
+                output_kind=output_drift_kind,
+                error_count=output_drift_error_count,
+                validation_sources=tuple(output_drift_sources),
+            )
 
         # The RUNTIME half of the reconciled tool measure (§10g GAP 3). A tool
         # listed in ``TOOL_RESULT_KINDS`` has a stored ``output_schema`` derived

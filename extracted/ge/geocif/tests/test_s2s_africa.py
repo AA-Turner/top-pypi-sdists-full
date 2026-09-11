@@ -588,14 +588,11 @@ class TestSkillReportedIsTheIssuedLead(unittest.TestCase):
         self.assertGreater(i_has, i_sk)
 
     def test_skill_gate_prefers_the_permutation_test_over_a_threshold(self):
-        """0.5 is never the benchmark: the LOYO null sits near 0.445. When a
-        permutation p-value exists the gate uses it; with n_perm=0 it falls
-        back to Anderson et al.'s ROC > 0.6, not to 0.5.
+        """The permutation p-value is used whenever one exists; only with
+        n_perm=0 does the gate fall back to a bare ROC bar.
 
-        The ROC bar is the weaker test — on a 22-year record with ~7 low
-        years a PURE NOISE region clears 0.6 about 22% of the time (the AUC
-        sampling sd is 0.135) — so it must never take precedence when a
-        p-value is available.
+        0.5 is never the right benchmark for LOYO AUC on its own — the null
+        sits near 0.445 — so the p-value branch must come first.
         """
         import inspect
         from geocif.experiments import s2s_africa as sa
@@ -604,11 +601,10 @@ class TestSkillReportedIsTheIssuedLead(unittest.TestCase):
         self.assertIn("sk[p_key] < PERM_ALPHA", src)
         self.assertIn("SKILL_ROC_THRESHOLD", src)
         self.assertNotIn('sk["auc"] > 0.5', src)
-        self.assertLessEqual(sa.PERM_ALPHA, 0.05)
-        self.assertEqual(sa.SKILL_ROC_THRESHOLD, 0.6)
-        # the p-value branch must come first inside _gate
         gate = src[src.find("def _gate("):]
-        self.assertLess(gate.find("PERM_ALPHA"), gate.find("SKILL_ROC_THRESHOLD"))
+        self.assertLess(gate.find("PERM_ALPHA"),
+                        gate.find("SKILL_ROC_THRESHOLD"))
+        self.assertLessEqual(sa.PERM_ALPHA, 0.05)
 
 
 class TestPermutationNull(unittest.TestCase):
@@ -661,94 +657,217 @@ class TestPermutationNull(unittest.TestCase):
             self.assertEqual(ev, int(_to_class(te.iloc[0], e) == 0))
 
 
-class TestPerRegionSkill(unittest.TestCase):
-    """The map hatches per polygon, so each region needs its OWN verdict.
+class TestClimatologyFillIsExcludedFromTraining(unittest.TestCase):
+    """NOAA's archive stops at the 1993-2016 hindcast; geoprepare gap-fills
+    every later init with the hindcast MEAN, byte-identical per year.
 
-    A country-level flag paints every region with one brush: South Africa
-    was stamped "no skill" wholesale while four Highveld provinces carried
-    the signal (North West 0.857, Free State 0.752, Gauteng 0.717).
+    Those rows reach the model as ONE repeated design point (all four
+    predictors ~0) paired with genuinely varying yields, so they act as
+    shrinkage toward the origin and FLATTER every skill metric. For
+    Zimbabwe maize 48 of 224 training rows were fill; removing them moved
+    R2 from -0.151 to -0.390 and mean P_low from 0.618 to 0.487, flipping
+    4 of 8 provinces across the 0.5 line. The predecessor
+    (s2s_simple_model.REAL_HARVESTS) filtered these; the filter was lost
+    when this module was written.
     """
 
-    def _lo(self, good_units, seed=3):
-        """Units in `good_units` get a real signal, the rest get noise."""
+    def test_wrapped_season_keeps_harvests_through_init_2016(self):
+        from geocif.experiments.s2s_africa import real_harvest_years
+
+        years = list(range(1994, 2027))
+        keep = real_harvest_years(11, 3, True, years)
+        # planting Nov, wraps: harvest H maps to init H-1, so the last real
+        # harvest is 2017 (init 2016)
+        self.assertIn(2017, keep)
+        self.assertNotIn(2018, keep)
+        self.assertNotIn(2026, keep)
+        self.assertEqual(max(keep), 2017)
+
+    def test_unwrapped_season_stops_a_year_earlier(self):
+        from geocif.experiments.s2s_africa import real_harvest_years
+
+        years = list(range(1994, 2027))
+        keep = real_harvest_years(6, 3, False, years)
+        # no wrap: harvest H maps to init H, so the last real harvest is 2016
+        self.assertIn(2016, keep)
+        self.assertNotIn(2017, keep)
+
+    def test_run_filters_both_the_offset_loop_and_the_forecast_fit(self):
+        import inspect
+        from geocif.experiments import s2s_africa as sa
+
+        src = inspect.getsource(sa.run)
+        self.assertEqual(src.count("real_harvest_years("), 2)
+        self.assertIn("n_climfill_dropped", src)
+
+
+class TestPermutationCoreMatchesTheObserved(unittest.TestCase):
+    """A permutation p-value is only exchangeability-based if the null and
+    the observed statistic are computed on the SAME panel.
+
+    The panel is unbalanced (units have different year spans), so a global
+    year->year map sent some rows to a (fnid, year) the unit never had;
+    reindex returned NaN and the row was deleted. That lost ~15% of rows
+    per draw and biased p CONSERVATIVELY, under-declaring skill. The fix
+    restricts to the rectangular core and rescores the observed statistic
+    on it.
+    """
+
+    def _unbalanced(self, seed=2):
         rng = np.random.default_rng(seed)
         rows = []
-        for u in [f"U{i}" for i in range(6)]:
+        for i in range(10):                     # long records
             for y in range(1995, 2017):
+                rows.append(("L%d" % i, y))
+        for i in range(10):                     # short records
+            for y in range(2004, 2017):
+                rows.append(("S%d" % i, y))
+        out = []
+        for fnid, y in rows:
+            a = float(rng.normal())
+            out.append({"fnid": fnid, "year": y, "anom": a,
+                        "obs": 2.0 * (1 + a), "trend": 2.0,
+                        "z_PRCPTOT": float(rng.normal()),
+                        "z_TMEAN": float(rng.normal())})
+        d = pd.DataFrame(out)
+        d["DRYHEAT"] = d.z_PRCPTOT * d.z_TMEAN
+        return d
+
+    def test_core_is_rectangular_and_reported(self):
+        from geocif.experiments.s2s_africa import (
+            decomposed_auc, decomposed_r2, edge_table, loyo, permutation_auc)
+
+        d = self._unbalanced()
+        anoms = d[["fnid", "year", "obs", "trend", "anom"]]
+        edges = edge_table(anoms)
+        feats = ["z_PRCPTOT"]
+        yrs = list(range(1995, 2017))
+        obs = {**decomposed_auc(loyo(d, feats, yrs), anoms, edges),
+               **decomposed_r2(loyo(d, feats, yrs))}
+        r = permutation_auc(d, feats, yrs, anoms, edges, obs, n_perm=25)
+        # the core keeps only the units spanning every year
+        self.assertEqual(r["perm_core_units"], 10)
+        self.assertEqual(r["perm_core_years"], 22)
+        self.assertEqual(r["perm_core_rows"], 220)
+        # no draw may be discarded for missing features on the core
+        self.assertNotIn("perm_draws_dropped", r)
+        # and the observed value the p-value compares against is the CORE one
+        self.assertIn("auc_core", r)
+
+    def test_p_value_is_against_the_core_observed_not_the_full_panel(self):
+        import inspect
+        from geocif.experiments import s2s_africa as sa
+
+        src = inspect.getsource(sa.permutation_auc)
+        self.assertIn("obs_core[k]", src)
+        self.assertNotIn("(arr >= obs[k])", src)
+
+
+class TestSeasonIndexMatchesPrefixedNames(unittest.TestCase):
+    """HarvestStat writes 'North 2nd Season' while the shared list holds
+    '2nd Season', so an exact test missed it and the default of 1 handed a
+    SECOND-season crop the maize_1 EWCM sheet - wrong planting month,
+    wrong window, wrong leads."""
+
+    def test_prefixed_second_season_is_secondary(self):
+        from geocif.experiments.s2s_africa import season_index
+
+        self.assertEqual(season_index("North 2nd Season"), 2)
+        self.assertEqual(season_index("South 2nd Season"), 2)
+
+    def test_prefixed_first_season_stays_primary(self):
+        from geocif.experiments.s2s_africa import season_index
+
+        self.assertEqual(season_index("North 1st Season"), 1)
+
+    def test_off_season_variants_are_secondary(self):
+        """'-off' mirrors Main-off and Cold-off, already listed secondary."""
+        from geocif.experiments.s2s_africa import season_index
+
+        self.assertEqual(season_index("Gu-off"), 2)
+        self.assertEqual(season_index("Main-off"), 2)
+
+    def test_exact_list_membership_still_wins(self):
+        from geocif.experiments.s2s_africa import season_index
+
+        for name in ("Main", "Long", "Gu", "Meher", "Season A", "Summer",
+                     "Wet"):
+            self.assertEqual(season_index(name), 1, name)
+        for name in ("Short", "Deyr", "Season B", "Second", "Winter"):
+            self.assertEqual(season_index(name), 2, name)
+
+    def test_unknown_names_still_default_primary(self):
+        from geocif.experiments.s2s_africa import season_index
+
+        self.assertEqual(season_index("Annual"), 1)
+        self.assertEqual(season_index("Rice season"), 1)
+
+
+class TestRegionVerdictIsTwoStates(unittest.TestCase):
+    """Per-region skill is skill / no_skill and nothing else.
+
+    The earlier third state ("too few poor years to judge") was removed by
+    request. A region whose AUC cannot be computed at all keeps a null
+    verdict, so the map leaves it unhatched rather than asserting no-skill
+    about a region it never scored.
+    """
+
+    def _lo(self, seed=4):
+        rng = np.random.default_rng(seed)
+        rows = []
+        for u, n in (("SHORT", 11), ("LONG", 22)):
+            for i in range(n):
                 a = float(rng.normal())
-                ah = (0.9 * a if u in good_units else float(rng.normal()))
-                rows.append({"fnid": u, "year": y, "anom": a,
-                             "obs": 2.0 * (1 + a), "trend": 2.0, "ahat": ah})
+                rows.append({"fnid": u, "year": 2000 + i, "anom": a,
+                             "obs": 2.0 * (1 + a), "trend": 2.0,
+                             "ahat": float(rng.normal())})
         return pd.DataFrame(rows)
 
-    def test_only_the_informed_regions_are_marked_skilful(self):
+    def test_only_two_verdicts_are_ever_emitted(self):
         from geocif.experiments.s2s_africa import edge_table, per_region_skill
 
-        lo = self._lo({"U0", "U1"})
+        lo = self._lo()
+        anoms = lo[["fnid", "year", "obs", "trend", "anom"]]
+        for rec in per_region_skill(lo, anoms, edge_table(anoms)).values():
+            self.assertIn(rec["region_skill"], ("skill", "no_skill", None))
+
+    def test_short_record_is_still_judged_not_set_aside(self):
+        from geocif.experiments.s2s_africa import edge_table, per_region_skill
+
+        lo = self._lo()
         anoms = lo[["fnid", "year", "obs", "trend", "anom"]]
         r = per_region_skill(lo, anoms, edge_table(anoms))
-        # informed regions must be found
-        self.assertEqual(r["U0"]["region_skill"], "skill")
-        self.assertEqual(r["U1"]["region_skill"], "skill")
-        self.assertGreater(r["U0"]["region_auc"], 0.6)
-        # Noise regions are NOT asserted individually: with ~22 years and
-        # ~7 low-tercile events a pure-noise region clears ROC > 0.6 about
-        # 22% of the time (sd of the AUC is 0.135), so a bare threshold
-        # mislabels roughly one noise region in five. Assert the informed
-        # ones score higher than the noise ones instead.
-        good = np.mean([r[u]["region_auc"] for u in ("U0", "U1")])
-        noise = np.mean([r[u]["region_auc"] for u in ("U2", "U3", "U4", "U5")])
-        self.assertGreater(good, noise + 0.2)
+        for rec in r.values():
+            self.assertNotEqual(rec["region_skill"], "insufficient")
 
-    def test_unjudgeable_regions_are_insufficient_not_no_skill(self):
-        """Marking a region we cannot score as "no skill" claims more than
-        the record supports, so it gets its own state.
-
-        The trigger is a short record or a degenerate event count (0 makes
-        the AUC undefined, 1 gives sd 0.30) — NOT a "too few events" cut,
-        which the noise simulation showed has no cliff to justify it.
-        """
+    def test_verdict_follows_the_threshold(self):
         from geocif.experiments.s2s_africa import (
-            MIN_LOW_YEARS, MIN_YEARS, edge_table, per_region_skill)
+            SKILL_ROC_THRESHOLD, edge_table, per_region_skill)
 
-        lo = self._lo(set())
+        lo = self._lo()
         anoms = lo[["fnid", "year", "obs", "trend", "anom"]]
-        r = per_region_skill(lo, anoms, edge_table(anoms))
-        for u, rec in r.items():
-            unjudgeable = (rec["region_n_years"] < MIN_YEARS
-                           or rec["region_n_low"] < MIN_LOW_YEARS
-                           or rec.get("region_auc") is None)
-            self.assertEqual(rec["region_skill"] == "insufficient",
-                             unjudgeable, u)
+        for rec in per_region_skill(lo, anoms, edge_table(anoms)).values():
+            if rec.get("region_auc") is None:
+                continue
+            self.assertEqual(rec["region_skill"] == "skill",
+                             rec["region_auc"] > SKILL_ROC_THRESHOLD)
 
-    def test_forecast_rows_carry_the_region_verdict(self):
-        import inspect
+    def test_threshold_is_half_by_request_with_its_cost_recorded(self):
         from geocif.experiments import s2s_africa as sa
 
-        src = inspect.getsource(sa.run)
-        self.assertIn("reg_skill = per_region_skill(", src)
-        self.assertIn("reg_skill.get(r.fnid", src)
-
-
-class TestSkillGateFallsBackToRocThreshold(unittest.TestCase):
-    """With the permutation test switched off (n_perm=0) the gate becomes
-    Anderson et al.'s ROC > 0.6 rather than silently passing everything."""
-
-    def test_gate_uses_the_threshold_when_no_p_value(self):
+        self.assertEqual(sa.SKILL_ROC_THRESHOLD, 0.5)
+        # a pure-noise region clears 0.5 about 36% of the time at 22 years
+        # (22% at 0.6) - the constant's docstring must say so
         import inspect
-        from geocif.experiments import s2s_africa as sa
-
-        src = inspect.getsource(sa.run)
-        self.assertIn("def _gate(", src)
-        self.assertIn("SKILL_ROC_THRESHOLD", src)
-        self.assertEqual(sa.SKILL_ROC_THRESHOLD, 0.6)
+        src = inspect.getsource(sa)
+        head = src[:src.find("EVAL_SPAN")]
+        self.assertIn("36%", head)
 
 
 class TestDegenerateTercileEdges(unittest.TestCase):
     """pd.qcut(duplicates="drop") collapses bins when anomalies tie, and
-    nothing raises — the labels just stop being terciles. With constant
-    yields EVERY year comes back "low". Those folds must be excluded, not
-    scored against a boundary that no longer means what it says."""
+    nothing raises - the labels just stop being terciles. With constant
+    yields EVERY year comes back "low"."""
 
     def _anoms(self, vals):
         return pd.DataFrame({
@@ -762,66 +881,212 @@ class TestDegenerateTercileEdges(unittest.TestCase):
     def test_constant_yields_produce_no_labels_at_all(self):
         from geocif.experiments.s2s_africa import edge_table
 
-        tab = edge_table(self._anoms([0.0] * 20))
-        self.assertEqual(len(tab), 0, "constant series must yield no labels")
+        self.assertEqual(len(edge_table(self._anoms([0.0] * 20))), 0)
 
-    def test_heavily_tied_series_is_excluded(self):
+    def test_every_retained_fold_has_two_inner_edges(self):
         from geocif.experiments.s2s_africa import edge_table
 
         rng = np.random.default_rng(0)
         vals = [0.0] * 14 + list(rng.normal(size=6))
-        tab = edge_table(self._anoms(vals))
-        # a single inner edge is a median split, not a tercile
-        for e, _ in tab.values():
+        for e, _ in edge_table(self._anoms(vals)).values():
             self.assertGreaterEqual(len(e), 2)
 
-    def test_distinct_series_labels_about_a_third_low(self):
-        from geocif.experiments.s2s_africa import edge_table
 
-        rng = np.random.default_rng(1)
-        tab = edge_table(self._anoms(list(rng.normal(size=24))))
-        self.assertEqual(len(tab), 24)
-        share = np.mean([ev for _, ev in tab.values()])
-        self.assertGreater(share, 0.2)
-        self.assertLess(share, 0.5)
+class TestPerRegionSkillFindsTheInformedRegions(unittest.TestCase):
+    """The map hatches per polygon, so each region needs its own verdict.
+    A country-level flag painted every region with one brush: South Africa
+    was stamped no-skill wholesale while four Highveld provinces carried
+    the signal."""
 
+    def _lo(self, good, seed=3):
+        rng = np.random.default_rng(seed)
+        rows = []
+        for u in ["U%d" % i for i in range(6)]:
+            for y in range(1995, 2017):
+                a = float(rng.normal())
+                ah = 0.9 * a if u in good else float(rng.normal())
+                rows.append({"fnid": u, "year": y, "anom": a,
+                             "obs": 2.0 * (1 + a), "trend": 2.0, "ahat": ah})
+        return pd.DataFrame(rows)
 
-class TestRegionGateIsRecordLength(unittest.TestCase):
-    """The limit on a per-region AUC is record LENGTH, not event count.
+    def test_informed_regions_score_well_above_the_noise_ones(self):
+        from geocif.experiments.s2s_africa import edge_table, per_region_skill
 
-    Measured on pure noise the AUC sd falls smoothly with events — 0.304
-    (1), 0.220 (2), 0.185 (3), 0.166 (4), 0.152 (5), 0.139 (7) — with no
-    cliff, so a low-event threshold is an arbitrary proxy. Regions it
-    flagged had an ordinary low-year share (median 0.300) and merely short
-    records (median 12 years vs 19).
-    """
+        lo = self._lo({"U0", "U1"})
+        anoms = lo[["fnid", "year", "obs", "trend", "anom"]]
+        r = per_region_skill(lo, anoms, edge_table(anoms))
+        self.assertEqual(r["U0"]["region_skill"], "skill")
+        self.assertEqual(r["U1"]["region_skill"], "skill")
+        good = np.mean([r[u]["region_auc"] for u in ("U0", "U1")])
+        noise = np.mean([r[u]["region_auc"] for u in ("U2", "U3", "U4", "U5")])
+        self.assertGreater(good, noise + 0.2)
 
-    def test_gate_is_on_years_with_only_a_degenerate_event_guard(self):
+    def test_forecast_rows_carry_the_region_verdict(self):
         import inspect
         from geocif.experiments import s2s_africa as sa
 
-        src = inspect.getsource(sa.per_region_skill)
-        self.assertIn('rec["region_n_years"] < MIN_YEARS', src)
-        self.assertIn('rec["region_n_low"] < MIN_LOW_YEARS', src)
-        # the event guard now covers only n_low of 0 (AUC undefined) and 1
-        self.assertEqual(sa.MIN_LOW_YEARS, 2)
-        self.assertGreaterEqual(sa.MIN_YEARS, 12)
+        src = inspect.getsource(sa.run)
+        self.assertIn("reg_skill = per_region_skill(", src)
+        self.assertIn("reg_skill.get(r.fnid", src)
 
-    def test_short_record_is_insufficient_even_with_enough_events(self):
-        from geocif.experiments.s2s_africa import edge_table, per_region_skill
 
-        rng = np.random.default_rng(4)
-        rows = []
-        for u, n in (("SHORT", 11), ("LONG", 22)):
-            for i in range(n):
-                a = float(rng.normal())
-                rows.append({"fnid": u, "year": 2000 + i, "anom": a,
-                             "obs": 2.0 * (1 + a), "trend": 2.0,
-                             "ahat": float(rng.normal())})
-        lo = pd.DataFrame(rows)
-        anoms = lo[["fnid", "year", "obs", "trend", "anom"]]
-        r = per_region_skill(lo, anoms, edge_table(anoms))
-        self.assertEqual(r["SHORT"]["region_skill"], "insufficient")
-        self.assertNotEqual(r["LONG"]["region_skill"], "insufficient")
-        # and the short one was excluded for LENGTH, not for lack of events
-        self.assertGreaterEqual(r["SHORT"]["region_n_low"], 2)
+class TestSelectableFeatureSets(unittest.TestCase):
+    """The predictor set is a switch, not a fork.
+
+    z_TMEAN correlates with YEAR at mean r = +0.593 and significantly in
+    16 of 16 combinations, while the target is detrended per unit and so
+    carries no year-index component at all. De-trending z_TMEAN does not
+    rescue it (mean R2 -0.174 -> -0.150); dropping temperature does
+    (-0.174 -> -0.064).
+    """
+
+    def test_rain_set_has_no_temperature_or_interaction(self):
+        from geocif.experiments.s2s_africa import FEATURE_SETS
+
+        rain = FEATURE_SETS["rain"]
+        self.assertNotIn("z_TMEAN", rain)
+        self.assertNotIn("DRYHEAT", rain)
+        self.assertEqual(rain, ["z_PRCPTOT", "z_P_GF"])
+
+    def test_rain_is_the_default_and_full_is_still_available(self):
+        """`rain` became the default once the side-by-side landed: better
+        AUC and R2, and the median forecast unit sits INSIDE the fitted
+        range (2.97 sd outside -> 0.00). `full` stays selectable."""
+        from geocif.experiments.s2s_africa import (
+            DEFAULT_FEATURE_SET, FEATURE_SETS)
+        from geocif.experiments.s2s_simple_model import FEATURES
+
+        self.assertEqual(DEFAULT_FEATURE_SET, "rain")
+        self.assertNotIn("z_TMEAN", FEATURE_SETS[DEFAULT_FEATURE_SET])
+        # the historical four-term model must remain reachable, unchanged
+        self.assertEqual(FEATURE_SETS["full"], list(FEATURES))
+
+    def test_offset_four_drops_grainfill_in_every_set(self):
+        """Beyond offset 3 the grain-fill window sits past lead 6."""
+        from geocif.experiments.s2s_africa import (
+            FEATURE_SETS, features_for_offset)
+
+        for name in FEATURE_SETS:
+            self.assertNotIn("z_P_GF", features_for_offset(4, name), name)
+            if "z_P_GF" in FEATURE_SETS[name]:
+                self.assertIn("z_P_GF", features_for_offset(3, name), name)
+
+    def test_rain_at_offset_four_is_rainfall_alone(self):
+        from geocif.experiments.s2s_africa import features_for_offset
+
+        self.assertEqual(features_for_offset(4, "rain"), ["z_PRCPTOT"])
+
+    def test_unknown_set_falls_back_to_the_default(self):
+        """features_for_offset is called per offset inside the loop, so it
+        must not raise mid-run; run() is where an unknown name is rejected
+        loudly. The fallback is the DEFAULT set, not a hardcoded one."""
+        from geocif.experiments.s2s_africa import (
+            DEFAULT_FEATURE_SET, FEATURE_SETS, features_for_offset)
+
+        self.assertEqual(features_for_offset(3, "nonsense"),
+                         FEATURE_SETS[DEFAULT_FEATURE_SET])
+
+    def test_run_validates_the_set_and_names_the_output_dir(self):
+        import inspect
+        from geocif.experiments import s2s_africa as sa
+
+        src = inspect.getsource(sa.run)
+        self.assertIn("s2s_feature_set", src)          # config-readable
+        self.assertIn("unknown feature_set", src)      # explicit rejection
+        self.assertIn('f"s2s_africa{suffix}"', src)    # arms cannot collide
+        self.assertIn("feature_set=feature_set", src)  # recorded in combos
+        self.assertIn('"feature_set": feature_set', src)  # and in forecasts
+        self.assertIn("feature_set", inspect.signature(sa.run).parameters)
+
+
+class TestRegionalConfigKeys(unittest.TestCase):
+    """`[ML] s2s_countries` / `s2s_map_extent` / `s2s_region_label` are what
+    make a regional run regional. They are optional, so a config without
+    them must still mean "all of Africa"."""
+
+    @staticmethod
+    def _parser(**ml):
+        import configparser
+
+        cp = configparser.ConfigParser()
+        cp.read_dict({"ML": {k: str(v) for k, v in ml.items()}})
+        return cp
+
+    def test_list_accepts_a_python_literal(self):
+        from geocif.experiments.s2s_africa import config_list
+
+        cp = self._parser(s2s_countries='["Zambia", "Zimbabwe"]')
+        self.assertEqual(config_list(cp, "s2s_countries"),
+                         ["Zambia", "Zimbabwe"])
+
+    def test_list_accepts_a_bare_comma_string(self):
+        """Hand-edited configs are written this way as often as not."""
+        from geocif.experiments.s2s_africa import config_list
+
+        cp = self._parser(s2s_countries="Zambia, Zimbabwe")
+        self.assertEqual(config_list(cp, "s2s_countries"),
+                         ["Zambia", "Zimbabwe"])
+
+    def test_country_names_with_commas_need_the_literal_form(self):
+        """'Tanzania, United Republic of' is one country, and the literal
+        form is the only one that can say so."""
+        from geocif.experiments.s2s_africa import config_list
+
+        cp = self._parser(
+            s2s_countries='["Tanzania, United Republic of", "Kenya"]')
+        self.assertEqual(config_list(cp, "s2s_countries"),
+                         ["Tanzania, United Republic of", "Kenya"])
+
+    def test_absent_or_blank_means_all_africa(self):
+        from geocif.experiments.s2s_africa import config_extent, config_list
+
+        for kw in ({}, {"s2s_countries": ""}, {"s2s_map_extent": "   "}):
+            cp = self._parser(**kw)
+            self.assertIsNone(config_list(cp, "s2s_countries"), kw)
+            self.assertIsNone(config_extent(cp), kw)
+
+    def test_extent_parses_to_pygmt_order(self):
+        from geocif.experiments.s2s_africa import config_extent
+
+        cp = self._parser(s2s_map_extent="[10, 52, -36, -4]")
+        self.assertEqual(config_extent(cp), [10.0, 52.0, -36.0, -4.0])
+
+    def test_malformed_extent_raises_rather_than_defaulting(self):
+        """Falling back to the continent would draw a regional config's map
+        Africa-wide and read as 'no forecast outside this region'."""
+        from geocif.experiments.s2s_africa import config_extent
+
+        for bad in ("[10, 52, -36]", "[52, 10, -36, -4]",
+                    "[10, 52, -4, -36]", "[10, 52, -36, -4, 1]"):
+            cp = self._parser(s2s_map_extent=bad)
+            with self.assertRaises(ValueError, msg=bad):
+                config_extent(cp)
+
+    def test_run_prefers_the_explicit_argument_over_the_config(self):
+        import inspect
+
+        from geocif.experiments import s2s_africa as mod
+
+        src = inspect.getsource(mod.run)
+        # `if countries is None`, not `if not countries`: an explicit
+        # countries=[] means "no countries", not "fall back to the config".
+        self.assertIn("if countries is None:", src)
+        self.assertIn('config_list(parser, "s2s_countries")', src)
+
+    def test_region_label_lands_in_the_output_directory_name(self):
+        """Two regional runs launched in the same minute share a timestamp."""
+        import inspect
+
+        from geocif.experiments import s2s_africa as mod
+
+        src = inspect.getsource(mod.run)
+        self.assertIn("if region_label:", src)
+        self.assertIn("suffix +=", src)
+
+    def test_unknown_country_is_warned_not_dropped_silently(self):
+        import inspect
+
+        from geocif.experiments import s2s_africa as mod
+
+        src = inspect.getsource(mod.run)
+        self.assertIn("s2s_countries not in the yield table", src)

@@ -1,18 +1,62 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
+
+from typing_extensions import TypedDict
+
 
 import grpc
 from grpc import aio
 
 from .._types import OMIT, Omit, is_given
 from ..exceptions import map_rpc_error
+from ._json_union import from_json_unions
 from . import (
     DEFAULT_TIMEOUT_SECONDS,
-    Fields,
+    ContentOptions,
     SearchRequest,
     SearchResponse,
     SeltzServiceStub,
+    SnippetOptions,
     auth_metadata,
 )
+from . import FieldsMessage
+
+
+# A bag of ceilings is accepted as the generated message or as a plain mapping.
+ContentOptionsInput = Union[ContentOptions, Mapping[str, Any]]
+SnippetOptionsInput = Union[SnippetOptions, Mapping[str, Any]]
+
+
+class Fields(TypedDict, total=False):
+    """Which members of each result document to populate, and how much of each.
+
+    Each member takes ``True``, ``False``, or a bag of ceilings, so both of these ask
+    for content capped at 500 characters per result::
+
+        Fields(content={"max_characters_per_result": 500})
+        Fields(content=ContentOptions(max_characters_per_result=500))
+
+    Naming only one member switches the other off. Naming neither returns content and
+    no snippets. ``False`` is not the same as leaving a member out.
+    """
+
+    content: Union[bool, ContentOptionsInput]
+    snippets: Union[bool, SnippetOptionsInput]
+
+
+# The convenience form or the generated message. No `Mapping[str, Any]` arm: a
+# `TypedDict` is one, so a loose arm would match every dict and mypy would stop
+# checking the member names. A dict literal still satisfies `Fields` on its own.
+FieldsInput = Union[Fields, FieldsMessage]
+
+
+def _to_fields(selection: FieldsInput) -> FieldsMessage:
+    """Projects a caller's selection onto `Fields`' generated oneof members.
+
+    The rule is read from the schema rather than written here: see
+    `_json_union.from_json_unions`. This only names the message and the parameter.
+    """
+    return from_json_unions(FieldsMessage, selection, "fields")
+
 
 # The tier names the service accepts, and what a caller passes here. The wire
 # field is a plain string, so there is nothing to map: the name is forwarded as
@@ -40,7 +84,7 @@ def _build_search_request(
     from_date: Union[str, None, Omit],
     to_date: Union[str, None, Omit],
     tier: Union[SearchTierName, None, Omit],
-    fields: Union[Fields, None, Omit],
+    fields: Union["FieldsInput", None, Omit],
 ) -> SearchRequest:
     """Build a SearchRequest, leaving any field passed as OMIT unset.
 
@@ -80,7 +124,7 @@ def _build_search_request(
             Pass OMIT to leave the field unset on the request, which defaults
             to "pro".
 
-        fields (Fields, optional):
+        fields (Fields or mapping, optional):
             Which members of each result document to populate.
             Pass OMIT to leave the field unset on the request, which returns
             content only.
@@ -118,7 +162,7 @@ def _build_search_request(
         request_fields["tier"] = tier
 
     if is_given(fields) and fields is not None:
-        request_fields["fields"] = fields
+        request_fields["fields"] = _to_fields(fields)
 
     return SearchRequest(**request_fields)
 
@@ -150,7 +194,7 @@ class SearchService:
         from_date: Union[str, None, Omit] = OMIT,
         to_date: Union[str, None, Omit] = OMIT,
         tier: Union[SearchTierName, None, Omit] = OMIT,
-        fields: Union[Fields, None, Omit] = OMIT,
+        fields: Union["FieldsInput", None, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search query.
 
@@ -193,10 +237,10 @@ class SearchService:
                 names the accepted tiers in the error. The SDK holds no list of
                 tier names, so it needs no update when they change.
 
-            fields (Fields, optional):
+            fields (Fields or mapping, optional):
                 Which members of each result document to populate.
-                `Fields(snippets=True)` returns passages and no content: a
-                member you do not set is off, so pass
+                `Fields(snippets=True)` returns passages and no content:
+                naming only one member switches the other off, so pass
                 `Fields(content=True, snippets=True)` to get both.
                 Omitted from the request when not provided, which returns
                 content only.
@@ -265,7 +309,7 @@ class AsyncSearchService:
         from_date: Union[str, None, Omit] = OMIT,
         to_date: Union[str, None, Omit] = OMIT,
         tier: Union[SearchTierName, None, Omit] = OMIT,
-        fields: Union[Fields, None, Omit] = OMIT,
+        fields: Union["FieldsInput", None, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search query.
 
@@ -308,10 +352,10 @@ class AsyncSearchService:
                 names the accepted tiers in the error. The SDK holds no list of
                 tier names, so it needs no update when they change.
 
-            fields (Fields, optional):
+            fields (Fields or mapping, optional):
                 Which members of each result document to populate.
-                `Fields(snippets=True)` returns passages and no content: a
-                member you do not set is off, so pass
+                `Fields(snippets=True)` returns passages and no content:
+                naming only one member switches the other off, so pass
                 `Fields(content=True, snippets=True)` to get both.
                 Omitted from the request when not provided, which returns
                 content only.

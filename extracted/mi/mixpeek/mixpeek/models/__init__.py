@@ -255,7 +255,6 @@ from mixpeek.models.components_config import ComponentsConfig
 from mixpeek.models.compound_index_pattern import CompoundIndexPattern
 from mixpeek.models.compound_index_response import CompoundIndexResponse
 from mixpeek.models.compute_cost_summary import ComputeCostSummary
-from mixpeek.models.compute_tier import ComputeTier
 from mixpeek.models.confidence_distribution import ConfidenceDistribution
 from mixpeek.models.confidence_response import ConfidenceResponse
 from mixpeek.models.config import Config
@@ -1148,6 +1147,7 @@ from mixpeek.models.sync_metrics_response import SyncMetricsResponse
 from mixpeek.models.sync_mode import SyncMode
 from mixpeek.models.sync_performance_response import SyncPerformanceResponse
 from mixpeek.models.sync_run_metric import SyncRunMetric
+from mixpeek.models.sync_stats_model import SyncStatsModel
 from mixpeek.models.sync_update_request import SyncUpdateRequest
 from mixpeek.models.system_condition import SystemCondition
 from mixpeek.models.system_condition_type import SystemConditionType

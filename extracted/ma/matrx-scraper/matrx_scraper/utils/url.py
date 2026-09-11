@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 import tldextract
 from pydantic import BaseModel
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 
 class URLInfo(BaseModel):
@@ -250,18 +251,18 @@ def validate_and_correct_url(url: str) -> str:
         raise ValueError("URL domain is missing")
 
     if hostname == "localhost" or hostname.startswith("127."):
-        raise ValueError(f"URL points to localhost: {url}")
+        raise ValueError(f"URL points to localhost: {redact_url_secrets(url)}")
     if hostname.endswith((".local", ".internal", ".intranet", ".corp")):
-        raise ValueError(f"URL points to internal network: {url}")
+        raise ValueError(f"URL points to internal network: {redact_url_secrets(url)}")
     if hostname == "::1":
-        raise ValueError(f"URL points to localhost IPv6: {url}")
+        raise ValueError(f"URL points to localhost IPv6: {redact_url_secrets(url)}")
 
     try:
         ip = ipaddress.ip_address(hostname)
     except ValueError:
         ip = None
     if ip is not None and not ip.is_global:
-        raise ValueError(f"URL points to a non-public IP address: {url}")
+        raise ValueError(f"URL points to a non-public IP address: {redact_url_secrets(url)}")
 
     netloc_lower = parsed.netloc.lower()
 

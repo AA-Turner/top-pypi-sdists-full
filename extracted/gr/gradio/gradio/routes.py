@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 import hashlib
 import inspect
 import io
@@ -21,6 +22,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Annotated,
     Any,
     Literal,
     Union,
@@ -56,6 +58,7 @@ from gradio_client.documentation import document
 from gradio_client.snippet import generate_code_snippets
 from gradio_client.utils import ServerMessage
 from hf_gradio.cli import _condense_info, generate_cli_snippet
+from huggingface_hub import HfApi
 from jinja2.exceptions import TemplateNotFound
 from python_multipart.multipart import parse_options_header
 from starlette.background import BackgroundTask
@@ -66,6 +69,7 @@ from starlette.responses import RedirectResponse
 import gradio
 from gradio import (
     caching,
+    history,
     route_utils,
     themes,
     utils,
@@ -291,7 +295,7 @@ class App(FastAPI):
         return self.blocks
 
     def build_proxy_request(self, url_path):
-        url = httpx.URL(url_path)
+        url = httpx.URL(route_utils.requote_proxied_url(url_path))
         assert self.blocks  # noqa: S101
         # Don't proxy a URL unless it's a URL specifically loaded by the user using
         # gr.load() to prevent SSRF or harvesting of HF tokens by malicious Spaces.
@@ -725,6 +729,73 @@ class App(FastAPI):
                 raise HTTPException(status_code=404, detail="Not found")
             return main(request, user)
 
+        if getattr(blocks, "run_history", True):
+            history.init_history_state(app)
+
+            @router.post("/run-history/connect")
+            async def connect_history(
+                request: fastapi.Request,
+                body: history.ConnectBody,
+                token: history.TokenDep,
+            ):
+                """Create the bucket if needed and confirm it is writable."""
+                blocks = request.app.get_blocks()
+                try:
+                    target = history.HistoryTarget.build(
+                        body.bucket_id, token, history.app_id_of(blocks)
+                    )
+                except ValueError as exc:
+                    raise HTTPException(422, "invalid bucket id") from exc
+                await history.offload(history.ensure_bucket, target)
+                return {"ok": True}
+
+            @router.get("/run-history/buckets")
+            async def list_history_buckets(token: history.TokenDep):
+                """The buckets the signed-in user can write to."""
+
+                def _list():
+                    return [b.id for b in HfApi(token=token).list_buckets(token=token)]
+
+                try:
+                    return {"buckets": await anyio.to_thread.run_sync(_list)}
+                except Exception as exc:
+                    raise HTTPException(502, "hub error") from exc
+
+            @router.get("/run-history/records")
+            async def list_history_records(
+                target: history.TargetDep,
+                limit: Annotated[
+                    int, fastapi.Query(ge=1, le=history.MAX_RECORDS_PER_PAGE)
+                ] = 50,
+            ):
+                """The newest runs for this app, newest first."""
+                records = await history.offload(history.list_records, target, limit)
+                return {"records": [dataclasses.asdict(r) for r in records]}
+
+            @router.get("/run-history/records/{endpoint}/{record_id}/assets/{asset_id}")
+            async def get_history_asset(
+                target: history.TargetDep,
+                endpoint: history.Segment,
+                record_id: history.RecordId,
+                asset_id: history.Segment,
+            ):
+                """Proxy one stored asset, which the browser cannot fetch itself."""
+                data, guessed = await history.offload(
+                    history.get_asset_bytes, target, endpoint, record_id, asset_id
+                )
+                if guessed in route_utils.XSS_SAFE_MIMETYPES:
+                    content_type, disposition = guessed, "inline"
+                else:
+                    content_type, disposition = "application/octet-stream", "attachment"
+                return Response(
+                    content=data,
+                    media_type=content_type,
+                    headers={
+                        "Content-Disposition": disposition,
+                        "Cache-Control": "private, max-age=31536000, immutable",
+                    },
+                )
+
         @app.get("/gradio_api/deep_link")
         def deep_link(session_hash: str):
             if session_hash in app.state_holder:
@@ -1146,7 +1217,7 @@ class App(FastAPI):
             return {"msg": "success"}
 
         @router.get("/stream/{session_hash}/{run}/{component_id}/playlist.m3u8")
-        async def _(session_hash: str, run: int, component_id: int):
+        async def _(session_hash: str, run: str, component_id: int):
             stream: route_utils.MediaStream | None = (
                 app.get_blocks()
                 .pending_streams.get(session_hash, {})
@@ -1160,7 +1231,9 @@ class App(FastAPI):
             playlist = f"#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-TARGETDURATION:{stream.max_duration}\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n"
 
             for segment in stream.segments:
-                playlist += f"#EXTINF:{segment['duration']:.3f},\n"
+                # Packed audio has no timestamps of its own, so a player places
+                # each segment by accumulating these and the rounding adds up.
+                playlist += f"#EXTINF:{segment['duration']:.6f},\n"
                 playlist += f"{segment['id']}{segment['extension']}\n"  # type: ignore
                 # HLS expects the start time of the video segments to be continuous
                 # Instead of re-encoding the user video chunks, we add a discontinuity tag
@@ -1171,12 +1244,14 @@ class App(FastAPI):
                 playlist += "#EXT-X-ENDLIST\n"
 
             return Response(
-                content=playlist, media_type="application/vnd.apple.mpegurl"
+                content=playlist,
+                media_type="application/vnd.apple.mpegurl",
+                headers={"Cache-Control": "no-store"},
             )
 
         @router.get("/stream/{session_hash}/{run}/{component_id}/{segment_id}.{ext}")
         async def _(
-            session_hash: str, run: int, component_id: int, segment_id: str, ext: str
+            session_hash: str, run: str, component_id: int, segment_id: str, ext: str
         ):
             if ext not in ["aac", "ts"]:
                 return Response(status_code=400, content="Unsupported file extension")
@@ -1201,7 +1276,7 @@ class App(FastAPI):
                 return Response(content=segment["data"], media_type="video/MP2T")
 
         @router.get("/stream/{session_hash}/{run}/{component_id}/playlist-file")
-        async def _(session_hash: str, run: int, component_id: int):
+        async def _(session_hash: str, run: str, component_id: int):
             stream: route_utils.MediaStream | None = (
                 app.get_blocks()
                 .pending_streams.get(session_hash, {})
@@ -1295,6 +1370,8 @@ class App(FastAPI):
                         if session_hash in app.state_holder.session_data:
                             app.state_holder.session_data[session_hash].is_closed = True
                         caching.clear_session_caches(session_hash)
+                        # Streams only; diff state is dropped by the queue when
+                        # the run ends
                         for run in (
                             app.get_blocks()
                             .pending_streams.pop(session_hash, {})
@@ -1330,6 +1407,9 @@ class App(FastAPI):
             username: str = Depends(get_current_user),
         ):
             body = PredictBodyInternal(**body.model_dump(), request=request)  # type: ignore
+            # The queue mints its own event id, so one arriving in the body of
+            # a direct call names no job and nothing would continue the run.
+            body.event_id = None
             fn = route_utils.get_fn(
                 blocks=app.get_blocks(), api_name=api_name, body=body
             )
@@ -2598,7 +2678,7 @@ def mount_gradio_app(
         show_error: If True, any errors in the gradio app will be displayed in an alert modal and printed in the browser console log. Otherwise, errors will only be visible in the terminal session running the Gradio app.
         max_file_size: The maximum file size in bytes that can be uploaded. Can be a string of the form "<value><unit>", where value is any positive integer and unit is one of "b", "kb", "mb", "gb", "tb". If None, no limit is set.
         footer_links: The links to display in the footer of the app. Accepts a list, where each element of the list must be one of "api", "gradio", "settings", or "runs" corresponding to the API docs, "built with Gradio", the settings page, and the run history page respectively. The "runs" link only appears if `run_history` is True and the browser has at least one saved run for this app. If None, all four links will be shown in the footer. An empty list means that no footer is shown.
-        run_history: If True, each user's browser saves the inputs and outputs of their own calls to this app, which they can review and reload from the run history page at /gradio_api/runs. The runs are kept in that browser's local storage, are scoped to the logged-in user if the app uses `auth`, and are never sent to the server. If False, nothing is recorded, the run history page is disabled, and any runs previously saved by this app are deleted from the browser. If None, will use the GRADIO_RUN_HISTORY environment variable or default to True.
+        run_history: If True, users can review and reload calls from the run history page at /gradio_api/runs. Runs are saved privately in the browser by default; from that page, a user can instead connect a Hugging Face bucket and save future runs there. Browser history is scoped to the logged-in user if the app uses `auth`. If False, nothing is recorded, the run history page is disabled, and any runs previously saved by this app are deleted from the browser. If None, will use the GRADIO_RUN_HISTORY environment variable or default to True.
         ssr_mode: If True, the Gradio app will be rendered using server-side rendering mode, which is typically more performant and provides better SEO, but this requires Node 20+ to be installed on the system. If False, the app will be rendered using client-side rendering mode. If None, will use GRADIO_SSR_MODE environment variable or default to False.
         node_server_name: The name of the Node server to use for SSR. If None, will use GRADIO_NODE_SERVER_NAME environment variable or search for a node binary in the system.
         i18n: If provided, the i18n instance to use for this gradio app.
@@ -2607,7 +2687,7 @@ def mount_gradio_app(
         theme: A Theme object or a string representing a theme. If a string, will look for a built-in theme with that name (e.g. "soft" or "default"), or will attempt to load a theme from the Hugging Face Hub (e.g. "gradio/monochrome"). If None, will use the Default theme.
         css: Custom css as a code string. This css will be included in the demo webpage.
         css_paths: Custom css as a pathlib.Path to a css file or a list of such paths. This css files will be read, concatenated, and included in the demo webpage. If the `css` parameter is also set, the css from `css` will be included first.
-        js: Custom js as a code string. The custom js should be in the form of a single js function. This function will automatically be executed when the page loads. For more flexibility, use the head parameter to insert js inside <script> tags.
+        js: Custom JavaScript provided as either a function or a raw code string. A function is automatically invoked; otherwise the code is executed directly when the page loads. To run JavaScript as a document-level `<script>` tag, use the `head` parameter.
         head: Custom html code to insert into the head of the demo webpage. This can be used to add custom meta tags, multiple scripts, stylesheets, etc. to the page.
         head_paths: Custom html code as a pathlib.Path to a html file or a list of such paths. This html files will be read, concatenated, and included in the head of the demo webpage. If the `head` parameter is also set, the html from `head` will be included first.
     Example:

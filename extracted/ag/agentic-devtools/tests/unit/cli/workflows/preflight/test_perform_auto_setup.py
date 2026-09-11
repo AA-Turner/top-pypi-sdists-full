@@ -20,6 +20,58 @@ def temp_state_dir(tmp_path):
 class TestPerformAutoSetup:
     """Tests for perform_auto_setup function."""
 
+    @pytest.mark.parametrize(
+        "configured_timeout, expected_timeout",
+        [
+            (0, 0),
+            ("0", 0),
+            (1200, 1200),
+            ("1200", 1200),
+            (" +1200 ", 1200),
+        ],
+    )
+    @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
+    def test_accepts_non_negative_integer_state_timeouts(
+        self,
+        mock_start_background,
+        temp_state_dir,
+        configured_timeout,
+        expected_timeout,
+    ):
+        """Test that non-negative integer state values override the workflow default."""
+        mock_start_background.return_value = "task-valid-state-timeout"
+        state.set_value("worktree_setup.auto_execute_timeout", configured_timeout)
+
+        perform_auto_setup(issue_key="TEST-VALID", workflow_name="pull-request-review")
+
+        assert mock_start_background.call_args.kwargs["auto_execute_timeout"] == expected_timeout
+
+    @pytest.mark.parametrize(
+        "configured_timeout",
+        [
+            -1,
+            "-1",
+            True,
+            False,
+            1.5,
+            "1.5",
+            "",
+            "   ",
+            "not-a-timeout",
+            [],
+            {},
+        ],
+    )
+    @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
+    def test_rejects_invalid_state_timeouts(self, mock_start_background, temp_state_dir, configured_timeout):
+        """Test that invalid state values fall back to the normalized workflow default."""
+        mock_start_background.return_value = "task-invalid-state-timeout"
+        state.set_value("worktree_setup.auto_execute_timeout", configured_timeout)
+
+        perform_auto_setup(issue_key="TEST-INVALID", workflow_name="pull-request-review")
+
+        assert mock_start_background.call_args.kwargs["auto_execute_timeout"] == 1800
+
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_starts_background_task_successfully(self, mock_start_background, capsys):
         """Test successful background task start."""
@@ -341,8 +393,8 @@ class TestPerformAutoSetup:
         assert call_kwargs["model"] is None
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
-    def test_pr_review_workflow_uses_600s_timeout(self, mock_start_background, temp_state_dir):
-        """Test that pull-request-review workflow uses 600s timeout by default."""
+    def test_pr_review_workflow_uses_1800s_timeout(self, mock_start_background, temp_state_dir):
+        """Test that pull-request-review workflow uses 1800s timeout by default."""
         mock_start_background.return_value = "task-pr-review"
 
         perform_auto_setup(
@@ -352,11 +404,11 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
-    def test_apply_suggestions_workflow_uses_300s_timeout(self, mock_start_background, temp_state_dir):
-        """Test that apply-pull-request-review-suggestions workflow uses 300s timeout."""
+    def test_apply_suggestions_workflow_uses_1800s_timeout(self, mock_start_background, temp_state_dir):
+        """Test that apply-pull-request-review-suggestions uses 1800s timeout."""
         mock_start_background.return_value = "task-apply"
 
         perform_auto_setup(
@@ -366,7 +418,7 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 300
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_explicit_timeout_overrides_workflow_default(self, mock_start_background, temp_state_dir):
@@ -455,7 +507,7 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_signed_non_integer_state_timeout_uses_workflow_default(self, mock_start_background, temp_state_dir):
@@ -470,7 +522,7 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_negative_state_timeout_uses_workflow_default(self, mock_start_background, temp_state_dir):
@@ -485,7 +537,7 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_float_state_timeout_uses_workflow_default(self, mock_start_background, temp_state_dir):
@@ -500,7 +552,7 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.start_worktree_setup_background")
     def test_boolean_state_timeout_uses_workflow_default(self, mock_start_background, temp_state_dir):
@@ -515,4 +567,4 @@ class TestPerformAutoSetup:
 
         mock_start_background.assert_called_once()
         call_kwargs = mock_start_background.call_args[1]
-        assert call_kwargs["auto_execute_timeout"] == 600
+        assert call_kwargs["auto_execute_timeout"] == 1800

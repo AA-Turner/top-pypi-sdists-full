@@ -3694,7 +3694,23 @@ class CfnConfiguredTable(
         
                             # the properties below are optional
                             additional_analyses="additionalAnalyses",
+                            aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                                allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                identity_columns=["identityColumns"],
+                                minimum_identity_count=123,
+                                type="type",
+        
+                                # the properties below are optional
+                                output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                                    minimum_identity_count=123,
+                                    output_column_name="outputColumnName"
+                                )]
+                            )],
                             allowed_analysis_providers=["allowedAnalysisProviders"],
+                            comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                                allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                            ),
                             differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                                 columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                                     name="name"
@@ -4155,6 +4171,129 @@ class CfnConfiguredTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.AggregationThresholdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_aggregate_expression_type": "allowedAggregateExpressionType",
+            "identity_columns": "identityColumns",
+            "minimum_identity_count": "minimumIdentityCount",
+            "type": "type",
+            "output_column_thresholds": "outputColumnThresholds",
+        },
+    )
+    class AggregationThresholdProperty:
+        def __init__(
+            self,
+            *,
+            allowed_aggregate_expression_type: builtins.str,
+            identity_columns: typing.Sequence[builtins.str],
+            minimum_identity_count: jsii.Number,
+            type: builtins.str,
+            output_column_thresholds: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.OutputColumnThresholdProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param allowed_aggregate_expression_type: 
+            :param identity_columns: 
+            :param minimum_identity_count: 
+            :param type: 
+            :param output_column_thresholds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                aggregation_threshold_property = cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                    identity_columns=["identityColumns"],
+                    minimum_identity_count=123,
+                    type="type",
+                
+                    # the properties below are optional
+                    output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                        minimum_identity_count=123,
+                        output_column_name="outputColumnName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__68eb9361d6dc36341c21a1048f87b157ef3c2b6174869fdb86e78ccb2c974055)
+                check_type(argname="argument allowed_aggregate_expression_type", value=allowed_aggregate_expression_type, expected_type=type_hints["allowed_aggregate_expression_type"])
+                check_type(argname="argument identity_columns", value=identity_columns, expected_type=type_hints["identity_columns"])
+                check_type(argname="argument minimum_identity_count", value=minimum_identity_count, expected_type=type_hints["minimum_identity_count"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument output_column_thresholds", value=output_column_thresholds, expected_type=type_hints["output_column_thresholds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_aggregate_expression_type": allowed_aggregate_expression_type,
+                "identity_columns": identity_columns,
+                "minimum_identity_count": minimum_identity_count,
+                "type": type,
+            }
+            if output_column_thresholds is not None:
+                self._values["output_column_thresholds"] = output_column_thresholds
+
+        @builtins.property
+        def allowed_aggregate_expression_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html#cfn-cleanrooms-configuredtable-aggregationthreshold-allowedaggregateexpressiontype
+            '''
+            result = self._values.get("allowed_aggregate_expression_type")
+            assert result is not None, "Required property 'allowed_aggregate_expression_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def identity_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html#cfn-cleanrooms-configuredtable-aggregationthreshold-identitycolumns
+            '''
+            result = self._values.get("identity_columns")
+            assert result is not None, "Required property 'identity_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def minimum_identity_count(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html#cfn-cleanrooms-configuredtable-aggregationthreshold-minimumidentitycount
+            '''
+            result = self._values.get("minimum_identity_count")
+            assert result is not None, "Required property 'minimum_identity_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html#cfn-cleanrooms-configuredtable-aggregationthreshold-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_column_thresholds(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.OutputColumnThresholdProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-aggregationthreshold.html#cfn-cleanrooms-configuredtable-aggregationthreshold-outputcolumnthresholds
+            '''
+            result = self._values.get("output_column_thresholds")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.OutputColumnThresholdProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AggregationThresholdProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.AnalysisRuleAggregationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4349,7 +4488,9 @@ class CfnConfiguredTable(
         name_mapping={
             "allowed_analyses": "allowedAnalyses",
             "additional_analyses": "additionalAnalyses",
+            "aggregation_thresholds": "aggregationThresholds",
             "allowed_analysis_providers": "allowedAnalysisProviders",
+            "comparison_controls": "comparisonControls",
             "differential_privacy": "differentialPrivacy",
             "disallowed_output_columns": "disallowedOutputColumns",
         },
@@ -4360,7 +4501,9 @@ class CfnConfiguredTable(
             *,
             allowed_analyses: typing.Sequence[builtins.str],
             additional_analyses: typing.Optional[builtins.str] = None,
+            aggregation_thresholds: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.AggregationThresholdProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            comparison_controls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.ComparisonControlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             differential_privacy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnConfiguredTable.DifferentialPrivacyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
@@ -4370,7 +4513,9 @@ class CfnConfiguredTable(
 
             :param allowed_analyses: The ARN of the analysis templates that are allowed by the custom analysis rule.
             :param additional_analyses: An indicator as to whether additional analyses (such as AWS Clean Rooms ML) can be applied to the output of the direct query.
+            :param aggregation_thresholds: 
             :param allowed_analysis_providers: The IDs of the AWS accounts that are allowed to query by the custom analysis rule. Required when ``allowedAnalyses`` is ``ANY_QUERY`` .
+            :param comparison_controls: 
             :param differential_privacy: The differential privacy configuration.
             :param disallowed_output_columns: A list of columns that aren't allowed to be shown in the query output.
 
@@ -4388,7 +4533,23 @@ class CfnConfiguredTable(
                 
                     # the properties below are optional
                     additional_analyses="additionalAnalyses",
+                    aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                        allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                        identity_columns=["identityColumns"],
+                        minimum_identity_count=123,
+                        type="type",
+                
+                        # the properties below are optional
+                        output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                            minimum_identity_count=123,
+                            output_column_name="outputColumnName"
+                        )]
+                    )],
                     allowed_analysis_providers=["allowedAnalysisProviders"],
+                    comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                        allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                        allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                    ),
                     differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                         columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                             name="name"
@@ -4401,7 +4562,9 @@ class CfnConfiguredTable(
                 type_hints = cached_type_hints(_typecheckingstub__fb34762d0bf6ed014ff8964f15e74deaeb8d3d74c070c1dc20496ef94ed7c8ec)
                 check_type(argname="argument allowed_analyses", value=allowed_analyses, expected_type=type_hints["allowed_analyses"])
                 check_type(argname="argument additional_analyses", value=additional_analyses, expected_type=type_hints["additional_analyses"])
+                check_type(argname="argument aggregation_thresholds", value=aggregation_thresholds, expected_type=type_hints["aggregation_thresholds"])
                 check_type(argname="argument allowed_analysis_providers", value=allowed_analysis_providers, expected_type=type_hints["allowed_analysis_providers"])
+                check_type(argname="argument comparison_controls", value=comparison_controls, expected_type=type_hints["comparison_controls"])
                 check_type(argname="argument differential_privacy", value=differential_privacy, expected_type=type_hints["differential_privacy"])
                 check_type(argname="argument disallowed_output_columns", value=disallowed_output_columns, expected_type=type_hints["disallowed_output_columns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4409,8 +4572,12 @@ class CfnConfiguredTable(
             }
             if additional_analyses is not None:
                 self._values["additional_analyses"] = additional_analyses
+            if aggregation_thresholds is not None:
+                self._values["aggregation_thresholds"] = aggregation_thresholds
             if allowed_analysis_providers is not None:
                 self._values["allowed_analysis_providers"] = allowed_analysis_providers
+            if comparison_controls is not None:
+                self._values["comparison_controls"] = comparison_controls
             if differential_privacy is not None:
                 self._values["differential_privacy"] = differential_privacy
             if disallowed_output_columns is not None:
@@ -4436,6 +4603,16 @@ class CfnConfiguredTable(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def aggregation_thresholds(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.AggregationThresholdProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-analysisrulecustom.html#cfn-cleanrooms-configuredtable-analysisrulecustom-aggregationthresholds
+            '''
+            result = self._values.get("aggregation_thresholds")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.AggregationThresholdProperty"]]]], result)
+
+        @builtins.property
         def allowed_analysis_providers(
             self,
         ) -> typing.Optional[typing.List[builtins.str]]:
@@ -4447,6 +4624,16 @@ class CfnConfiguredTable(
             '''
             result = self._values.get("allowed_analysis_providers")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def comparison_controls(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.ComparisonControlsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-analysisrulecustom.html#cfn-cleanrooms-configuredtable-analysisrulecustom-comparisoncontrols
+            '''
+            result = self._values.get("comparison_controls")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnConfiguredTable.ComparisonControlsProperty"]], result)
 
         @builtins.property
         def differential_privacy(
@@ -4644,7 +4831,23 @@ class CfnConfiguredTable(
                 
                                 # the properties below are optional
                                 additional_analyses="additionalAnalyses",
+                                aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                    identity_columns=["identityColumns"],
+                                    minimum_identity_count=123,
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                                        minimum_identity_count=123,
+                                        output_column_name="outputColumnName"
+                                    )]
+                                )],
                                 allowed_analysis_providers=["allowedAnalysisProviders"],
+                                comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                                ),
                                 differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                                     columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                                         name="name"
@@ -4849,6 +5052,77 @@ class CfnConfiguredTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.ComparisonControlsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_column_comparison_columns": "allowedColumnComparisonColumns",
+            "allowed_literal_comparison_columns": "allowedLiteralComparisonColumns",
+        },
+    )
+    class ComparisonControlsProperty:
+        def __init__(
+            self,
+            *,
+            allowed_column_comparison_columns: typing.Sequence[builtins.str],
+            allowed_literal_comparison_columns: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param allowed_column_comparison_columns: 
+            :param allowed_literal_comparison_columns: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-comparisoncontrols.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                comparison_controls_property = cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5193b4084ace5a176f3faa237eb22e2a3f48709a7f3927871e06111357593990)
+                check_type(argname="argument allowed_column_comparison_columns", value=allowed_column_comparison_columns, expected_type=type_hints["allowed_column_comparison_columns"])
+                check_type(argname="argument allowed_literal_comparison_columns", value=allowed_literal_comparison_columns, expected_type=type_hints["allowed_literal_comparison_columns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_column_comparison_columns": allowed_column_comparison_columns,
+                "allowed_literal_comparison_columns": allowed_literal_comparison_columns,
+            }
+
+        @builtins.property
+        def allowed_column_comparison_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-comparisoncontrols.html#cfn-cleanrooms-configuredtable-comparisoncontrols-allowedcolumncomparisoncolumns
+            '''
+            result = self._values.get("allowed_column_comparison_columns")
+            assert result is not None, "Required property 'allowed_column_comparison_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def allowed_literal_comparison_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-comparisoncontrols.html#cfn-cleanrooms-configuredtable-comparisoncontrols-allowedliteralcomparisoncolumns
+            '''
+            result = self._values.get("allowed_literal_comparison_columns")
+            assert result is not None, "Required property 'allowed_literal_comparison_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComparisonControlsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.ConfiguredTableAnalysisRulePolicyProperty",
         jsii_struct_bases=[],
         name_mapping={"v1": "v1"},
@@ -4898,7 +5172,23 @@ class CfnConfiguredTable(
                 
                             # the properties below are optional
                             additional_analyses="additionalAnalyses",
+                            aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                                allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                identity_columns=["identityColumns"],
+                                minimum_identity_count=123,
+                                type="type",
+                
+                                # the properties below are optional
+                                output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                                    minimum_identity_count=123,
+                                    output_column_name="outputColumnName"
+                                )]
+                            )],
                             allowed_analysis_providers=["allowedAnalysisProviders"],
+                            comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                                allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                            ),
                             differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                                 columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                                     name="name"
@@ -5004,7 +5294,23 @@ class CfnConfiguredTable(
                 
                         # the properties below are optional
                         additional_analyses="additionalAnalyses",
+                        aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                            allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                            identity_columns=["identityColumns"],
+                            minimum_identity_count=123,
+                            type="type",
+                
+                            # the properties below are optional
+                            output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                                minimum_identity_count=123,
+                                output_column_name="outputColumnName"
+                            )]
+                        )],
                         allowed_analysis_providers=["allowedAnalysisProviders"],
+                        comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                            allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                            allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                        ),
                         differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                             columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                                 name="name"
@@ -5292,6 +5598,77 @@ class CfnConfiguredTable(
 
         def __repr__(self) -> str:
             return "GlueTableReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "minimum_identity_count": "minimumIdentityCount",
+            "output_column_name": "outputColumnName",
+        },
+    )
+    class OutputColumnThresholdProperty:
+        def __init__(
+            self,
+            *,
+            minimum_identity_count: jsii.Number,
+            output_column_name: builtins.str,
+        ) -> None:
+            '''
+            :param minimum_identity_count: 
+            :param output_column_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-outputcolumnthreshold.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                output_column_threshold_property = cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                    minimum_identity_count=123,
+                    output_column_name="outputColumnName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__106abdda70be46c5e35362c3b09e10012417b30c25d8f2403cc257a16ba5563b)
+                check_type(argname="argument minimum_identity_count", value=minimum_identity_count, expected_type=type_hints["minimum_identity_count"])
+                check_type(argname="argument output_column_name", value=output_column_name, expected_type=type_hints["output_column_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "minimum_identity_count": minimum_identity_count,
+                "output_column_name": output_column_name,
+            }
+
+        @builtins.property
+        def minimum_identity_count(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-outputcolumnthreshold.html#cfn-cleanrooms-configuredtable-outputcolumnthreshold-minimumidentitycount
+            '''
+            result = self._values.get("minimum_identity_count")
+            assert result is not None, "Required property 'minimum_identity_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def output_column_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-outputcolumnthreshold.html#cfn-cleanrooms-configuredtable-outputcolumnthreshold-outputcolumnname
+            '''
+            result = self._values.get("output_column_name")
+            assert result is not None, "Required property 'output_column_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OutputColumnThresholdProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6793,7 +7170,23 @@ class CfnConfiguredTableProps:
             
                                 # the properties below are optional
                                 additional_analyses="additionalAnalyses",
+                                aggregation_thresholds=[cleanrooms.CfnConfiguredTable.AggregationThresholdProperty(
+                                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                    identity_columns=["identityColumns"],
+                                    minimum_identity_count=123,
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    output_column_thresholds=[cleanrooms.CfnConfiguredTable.OutputColumnThresholdProperty(
+                                        minimum_identity_count=123,
+                                        output_column_name="outputColumnName"
+                                    )]
+                                )],
                                 allowed_analysis_providers=["allowedAnalysisProviders"],
+                                comparison_controls=cleanrooms.CfnConfiguredTable.ComparisonControlsProperty(
+                                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                                ),
                                 differential_privacy=cleanrooms.CfnConfiguredTable.DifferentialPrivacyProperty(
                                     columns=[cleanrooms.CfnConfiguredTable.DifferentialPrivacyColumnProperty(
                                         name="name"
@@ -8321,8 +8714,24 @@ class CfnIntermediateTable(
         
                             # the properties below are optional
                             additional_analyses="additionalAnalyses",
+                            aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                                allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                identity_columns=["identityColumns"],
+                                minimum_identity_count=123,
+                                type="type",
+        
+                                # the properties below are optional
+                                output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                                    minimum_identity_count=123,
+                                    output_column_name="outputColumnName"
+                                )]
+                            )],
                             allowed_analysis_providers=["allowedAnalysisProviders"],
                             allowed_result_receivers=["allowedResultReceivers"],
+                            comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                                allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                            ),
                             differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                                 columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                                     name="name"
@@ -8610,6 +9019,200 @@ class CfnIntermediateTable(
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.AggregationThresholdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_aggregate_expression_type": "allowedAggregateExpressionType",
+            "identity_columns": "identityColumns",
+            "minimum_identity_count": "minimumIdentityCount",
+            "type": "type",
+            "output_column_thresholds": "outputColumnThresholds",
+        },
+    )
+    class AggregationThresholdProperty:
+        def __init__(
+            self,
+            *,
+            allowed_aggregate_expression_type: builtins.str,
+            identity_columns: typing.Sequence[builtins.str],
+            minimum_identity_count: jsii.Number,
+            type: builtins.str,
+            output_column_thresholds: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.OutputColumnThresholdProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param allowed_aggregate_expression_type: 
+            :param identity_columns: 
+            :param minimum_identity_count: 
+            :param type: 
+            :param output_column_thresholds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                aggregation_threshold_property = cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                    identity_columns=["identityColumns"],
+                    minimum_identity_count=123,
+                    type="type",
+                
+                    # the properties below are optional
+                    output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                        minimum_identity_count=123,
+                        output_column_name="outputColumnName"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a0f0c3a566182df1dd4ed3eab1a1eedcf918bcd627ad8f054b5224255c73133a)
+                check_type(argname="argument allowed_aggregate_expression_type", value=allowed_aggregate_expression_type, expected_type=type_hints["allowed_aggregate_expression_type"])
+                check_type(argname="argument identity_columns", value=identity_columns, expected_type=type_hints["identity_columns"])
+                check_type(argname="argument minimum_identity_count", value=minimum_identity_count, expected_type=type_hints["minimum_identity_count"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+                check_type(argname="argument output_column_thresholds", value=output_column_thresholds, expected_type=type_hints["output_column_thresholds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_aggregate_expression_type": allowed_aggregate_expression_type,
+                "identity_columns": identity_columns,
+                "minimum_identity_count": minimum_identity_count,
+                "type": type,
+            }
+            if output_column_thresholds is not None:
+                self._values["output_column_thresholds"] = output_column_thresholds
+
+        @builtins.property
+        def allowed_aggregate_expression_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html#cfn-cleanrooms-intermediatetable-aggregationthreshold-allowedaggregateexpressiontype
+            '''
+            result = self._values.get("allowed_aggregate_expression_type")
+            assert result is not None, "Required property 'allowed_aggregate_expression_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def identity_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html#cfn-cleanrooms-intermediatetable-aggregationthreshold-identitycolumns
+            '''
+            result = self._values.get("identity_columns")
+            assert result is not None, "Required property 'identity_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def minimum_identity_count(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html#cfn-cleanrooms-intermediatetable-aggregationthreshold-minimumidentitycount
+            '''
+            result = self._values.get("minimum_identity_count")
+            assert result is not None, "Required property 'minimum_identity_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html#cfn-cleanrooms-intermediatetable-aggregationthreshold-type
+            '''
+            result = self._values.get("type")
+            assert result is not None, "Required property 'type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def output_column_thresholds(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.OutputColumnThresholdProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html#cfn-cleanrooms-intermediatetable-aggregationthreshold-outputcolumnthresholds
+            '''
+            result = self._values.get("output_column_thresholds")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.OutputColumnThresholdProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AggregationThresholdProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.ComparisonControlsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "allowed_column_comparison_columns": "allowedColumnComparisonColumns",
+            "allowed_literal_comparison_columns": "allowedLiteralComparisonColumns",
+        },
+    )
+    class ComparisonControlsProperty:
+        def __init__(
+            self,
+            *,
+            allowed_column_comparison_columns: typing.Sequence[builtins.str],
+            allowed_literal_comparison_columns: typing.Sequence[builtins.str],
+        ) -> None:
+            '''
+            :param allowed_column_comparison_columns: 
+            :param allowed_literal_comparison_columns: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-comparisoncontrols.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                comparison_controls_property = cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__4391f6f947cd24cef030692b8b86527719ff7c5bd6e902ceec90a26cc7dc7630)
+                check_type(argname="argument allowed_column_comparison_columns", value=allowed_column_comparison_columns, expected_type=type_hints["allowed_column_comparison_columns"])
+                check_type(argname="argument allowed_literal_comparison_columns", value=allowed_literal_comparison_columns, expected_type=type_hints["allowed_literal_comparison_columns"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "allowed_column_comparison_columns": allowed_column_comparison_columns,
+                "allowed_literal_comparison_columns": allowed_literal_comparison_columns,
+            }
+
+        @builtins.property
+        def allowed_column_comparison_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-comparisoncontrols.html#cfn-cleanrooms-intermediatetable-comparisoncontrols-allowedcolumncomparisoncolumns
+            '''
+            result = self._values.get("allowed_column_comparison_columns")
+            assert result is not None, "Required property 'allowed_column_comparison_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def allowed_literal_comparison_columns(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-comparisoncontrols.html#cfn-cleanrooms-intermediatetable-comparisoncontrols-allowedliteralcomparisoncolumns
+            '''
+            result = self._values.get("allowed_literal_comparison_columns")
+            assert result is not None, "Required property 'allowed_literal_comparison_columns' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComparisonControlsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty",
         jsii_struct_bases=[],
         name_mapping={"name": "name"},
@@ -8723,8 +9326,10 @@ class CfnIntermediateTable(
         name_mapping={
             "allowed_analyses": "allowedAnalyses",
             "additional_analyses": "additionalAnalyses",
+            "aggregation_thresholds": "aggregationThresholds",
             "allowed_analysis_providers": "allowedAnalysisProviders",
             "allowed_result_receivers": "allowedResultReceivers",
+            "comparison_controls": "comparisonControls",
             "differential_privacy": "differentialPrivacy",
             "disallowed_output_columns": "disallowedOutputColumns",
         },
@@ -8735,16 +9340,20 @@ class CfnIntermediateTable(
             *,
             allowed_analyses: typing.Sequence[builtins.str],
             additional_analyses: typing.Optional[builtins.str] = None,
+            aggregation_thresholds: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.AggregationThresholdProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
             allowed_result_receivers: typing.Optional[typing.Sequence[builtins.str]] = None,
+            comparison_controls: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.ComparisonControlsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             differential_privacy: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntermediateTable.DifferentialPrivacyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''
             :param allowed_analyses: 
             :param additional_analyses: 
+            :param aggregation_thresholds: 
             :param allowed_analysis_providers: 
             :param allowed_result_receivers: 
+            :param comparison_controls: 
             :param differential_privacy: 
             :param disallowed_output_columns: 
 
@@ -8762,8 +9371,24 @@ class CfnIntermediateTable(
                 
                     # the properties below are optional
                     additional_analyses="additionalAnalyses",
+                    aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                        allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                        identity_columns=["identityColumns"],
+                        minimum_identity_count=123,
+                        type="type",
+                
+                        # the properties below are optional
+                        output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                            minimum_identity_count=123,
+                            output_column_name="outputColumnName"
+                        )]
+                    )],
                     allowed_analysis_providers=["allowedAnalysisProviders"],
                     allowed_result_receivers=["allowedResultReceivers"],
+                    comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                        allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                        allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                    ),
                     differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                         columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                             name="name"
@@ -8776,8 +9401,10 @@ class CfnIntermediateTable(
                 type_hints = cached_type_hints(_typecheckingstub__976d081a2763017b50cbfff4e2482583d83b0eee53a15c09ec1736fd371b0fae)
                 check_type(argname="argument allowed_analyses", value=allowed_analyses, expected_type=type_hints["allowed_analyses"])
                 check_type(argname="argument additional_analyses", value=additional_analyses, expected_type=type_hints["additional_analyses"])
+                check_type(argname="argument aggregation_thresholds", value=aggregation_thresholds, expected_type=type_hints["aggregation_thresholds"])
                 check_type(argname="argument allowed_analysis_providers", value=allowed_analysis_providers, expected_type=type_hints["allowed_analysis_providers"])
                 check_type(argname="argument allowed_result_receivers", value=allowed_result_receivers, expected_type=type_hints["allowed_result_receivers"])
+                check_type(argname="argument comparison_controls", value=comparison_controls, expected_type=type_hints["comparison_controls"])
                 check_type(argname="argument differential_privacy", value=differential_privacy, expected_type=type_hints["differential_privacy"])
                 check_type(argname="argument disallowed_output_columns", value=disallowed_output_columns, expected_type=type_hints["disallowed_output_columns"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8785,10 +9412,14 @@ class CfnIntermediateTable(
             }
             if additional_analyses is not None:
                 self._values["additional_analyses"] = additional_analyses
+            if aggregation_thresholds is not None:
+                self._values["aggregation_thresholds"] = aggregation_thresholds
             if allowed_analysis_providers is not None:
                 self._values["allowed_analysis_providers"] = allowed_analysis_providers
             if allowed_result_receivers is not None:
                 self._values["allowed_result_receivers"] = allowed_result_receivers
+            if comparison_controls is not None:
+                self._values["comparison_controls"] = comparison_controls
             if differential_privacy is not None:
                 self._values["differential_privacy"] = differential_privacy
             if disallowed_output_columns is not None:
@@ -8812,6 +9443,16 @@ class CfnIntermediateTable(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def aggregation_thresholds(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.AggregationThresholdProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-aggregationthresholds
+            '''
+            result = self._values.get("aggregation_thresholds")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.AggregationThresholdProperty"]]]], result)
+
+        @builtins.property
         def allowed_analysis_providers(
             self,
         ) -> typing.Optional[typing.List[builtins.str]]:
@@ -8830,6 +9471,16 @@ class CfnIntermediateTable(
             '''
             result = self._values.get("allowed_result_receivers")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def comparison_controls(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.ComparisonControlsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html#cfn-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom-comparisoncontrols
+            '''
+            result = self._values.get("comparison_controls")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntermediateTable.ComparisonControlsProperty"]], result)
 
         @builtins.property
         def differential_privacy(
@@ -8892,8 +9543,24 @@ class CfnIntermediateTable(
                 
                             # the properties below are optional
                             additional_analyses="additionalAnalyses",
+                            aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                                allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                identity_columns=["identityColumns"],
+                                minimum_identity_count=123,
+                                type="type",
+                
+                                # the properties below are optional
+                                output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                                    minimum_identity_count=123,
+                                    output_column_name="outputColumnName"
+                                )]
+                            )],
                             allowed_analysis_providers=["allowedAnalysisProviders"],
                             allowed_result_receivers=["allowedResultReceivers"],
+                            comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                                allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                            ),
                             differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                                 columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                                     name="name"
@@ -8962,8 +9629,24 @@ class CfnIntermediateTable(
                 
                         # the properties below are optional
                         additional_analyses="additionalAnalyses",
+                        aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                            allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                            identity_columns=["identityColumns"],
+                            minimum_identity_count=123,
+                            type="type",
+                
+                            # the properties below are optional
+                            output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                                minimum_identity_count=123,
+                                output_column_name="outputColumnName"
+                            )]
+                        )],
                         allowed_analysis_providers=["allowedAnalysisProviders"],
                         allowed_result_receivers=["allowedResultReceivers"],
+                        comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                            allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                            allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                        ),
                         differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                             columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                                 name="name"
@@ -9035,8 +9718,24 @@ class CfnIntermediateTable(
                 
                                 # the properties below are optional
                                 additional_analyses="additionalAnalyses",
+                                aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                    identity_columns=["identityColumns"],
+                                    minimum_identity_count=123,
+                                    type="type",
+                
+                                    # the properties below are optional
+                                    output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                                        minimum_identity_count=123,
+                                        output_column_name="outputColumnName"
+                                    )]
+                                )],
                                 allowed_analysis_providers=["allowedAnalysisProviders"],
                                 allowed_result_receivers=["allowedResultReceivers"],
+                                comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                                ),
                                 differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                                     columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                                         name="name"
@@ -9086,6 +9785,77 @@ class CfnIntermediateTable(
 
         def __repr__(self) -> str:
             return "IntermediateTableAnalysisRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "minimum_identity_count": "minimumIdentityCount",
+            "output_column_name": "outputColumnName",
+        },
+    )
+    class OutputColumnThresholdProperty:
+        def __init__(
+            self,
+            *,
+            minimum_identity_count: jsii.Number,
+            output_column_name: builtins.str,
+        ) -> None:
+            '''
+            :param minimum_identity_count: 
+            :param output_column_name: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-outputcolumnthreshold.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cleanrooms as cleanrooms
+                
+                output_column_threshold_property = cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                    minimum_identity_count=123,
+                    output_column_name="outputColumnName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e50d8942456bbfb045b9a1eeea2fa5cd136bd4da3403c18268d7ea243711faad)
+                check_type(argname="argument minimum_identity_count", value=minimum_identity_count, expected_type=type_hints["minimum_identity_count"])
+                check_type(argname="argument output_column_name", value=output_column_name, expected_type=type_hints["output_column_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "minimum_identity_count": minimum_identity_count,
+                "output_column_name": output_column_name,
+            }
+
+        @builtins.property
+        def minimum_identity_count(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-outputcolumnthreshold.html#cfn-cleanrooms-intermediatetable-outputcolumnthreshold-minimumidentitycount
+            '''
+            result = self._values.get("minimum_identity_count")
+            assert result is not None, "Required property 'minimum_identity_count' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def output_column_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-outputcolumnthreshold.html#cfn-cleanrooms-intermediatetable-outputcolumnthreshold-outputcolumnname
+            '''
+            result = self._values.get("output_column_name")
+            assert result is not None, "Required property 'output_column_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "OutputColumnThresholdProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9282,8 +10052,24 @@ class CfnIntermediateTableProps:
             
                                 # the properties below are optional
                                 additional_analyses="additionalAnalyses",
+                                aggregation_thresholds=[cleanrooms.CfnIntermediateTable.AggregationThresholdProperty(
+                                    allowed_aggregate_expression_type="allowedAggregateExpressionType",
+                                    identity_columns=["identityColumns"],
+                                    minimum_identity_count=123,
+                                    type="type",
+            
+                                    # the properties below are optional
+                                    output_column_thresholds=[cleanrooms.CfnIntermediateTable.OutputColumnThresholdProperty(
+                                        minimum_identity_count=123,
+                                        output_column_name="outputColumnName"
+                                    )]
+                                )],
                                 allowed_analysis_providers=["allowedAnalysisProviders"],
                                 allowed_result_receivers=["allowedResultReceivers"],
+                                comparison_controls=cleanrooms.CfnIntermediateTable.ComparisonControlsProperty(
+                                    allowed_column_comparison_columns=["allowedColumnComparisonColumns"],
+                                    allowed_literal_comparison_columns=["allowedLiteralComparisonColumns"]
+                                ),
                                 differential_privacy=cleanrooms.CfnIntermediateTable.DifferentialPrivacyProperty(
                                     columns=[cleanrooms.CfnIntermediateTable.DifferentialPrivacyColumnProperty(
                                         name="name"
@@ -12257,6 +13043,17 @@ def _typecheckingstub__63f1cc4359753a41914fdd91e80c9746bf76bc8ab990f1c207bf52719
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__68eb9361d6dc36341c21a1048f87b157ef3c2b6174869fdb86e78ccb2c974055(
+    *,
+    allowed_aggregate_expression_type: builtins.str,
+    identity_columns: typing.Sequence[builtins.str],
+    minimum_identity_count: jsii.Number,
+    type: builtins.str,
+    output_column_thresholds: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.OutputColumnThresholdProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7c88de0a4314f12e0bbceae5eb6edd232a937dc4a6b95c8eb383dabc0231d87e(
     *,
     aggregate_columns: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.AggregateColumnProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -12275,7 +13072,9 @@ def _typecheckingstub__fb34762d0bf6ed014ff8964f15e74deaeb8d3d74c070c1dc20496ef94
     *,
     allowed_analyses: typing.Sequence[builtins.str],
     additional_analyses: typing.Optional[builtins.str] = None,
+    aggregation_thresholds: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.AggregationThresholdProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    comparison_controls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.ComparisonControlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     differential_privacy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfiguredTable.DifferentialPrivacyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -12308,6 +13107,14 @@ def _typecheckingstub__58a53beb1a0a90ec538b0213243c8721465a73c73f8bf745778a09f20
     catalog_name: typing.Optional[builtins.str] = None,
     output_location: typing.Optional[builtins.str] = None,
     region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5193b4084ace5a176f3faa237eb22e2a3f48709a7f3927871e06111357593990(
+    *,
+    allowed_column_comparison_columns: typing.Sequence[builtins.str],
+    allowed_literal_comparison_columns: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12347,6 +13154,14 @@ def _typecheckingstub__ad49810a315ae1c04064504cefbb3e0bc6fec52a1add50545955db56f
     database_name: builtins.str,
     table_name: builtins.str,
     region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__106abdda70be46c5e35362c3b09e10012417b30c25d8f2403cc257a16ba5563b(
+    *,
+    minimum_identity_count: jsii.Number,
+    output_column_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12842,6 +13657,25 @@ def _typecheckingstub__069b08c7309aca84ad2a4f55366e4c42962578ad29e184297dcab9bdf
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a0f0c3a566182df1dd4ed3eab1a1eedcf918bcd627ad8f054b5224255c73133a(
+    *,
+    allowed_aggregate_expression_type: builtins.str,
+    identity_columns: typing.Sequence[builtins.str],
+    minimum_identity_count: jsii.Number,
+    type: builtins.str,
+    output_column_thresholds: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.OutputColumnThresholdProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4391f6f947cd24cef030692b8b86527719ff7c5bd6e902ceec90a26cc7dc7630(
+    *,
+    allowed_column_comparison_columns: typing.Sequence[builtins.str],
+    allowed_literal_comparison_columns: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__663e7e2a057ec5e46da1a5565885420ea98bcdc4d2c1bbe69333d6b8f0089c3f(
     *,
     name: builtins.str,
@@ -12860,8 +13694,10 @@ def _typecheckingstub__976d081a2763017b50cbfff4e2482583d83b0eee53a15c09ec1736fd3
     *,
     allowed_analyses: typing.Sequence[builtins.str],
     additional_analyses: typing.Optional[builtins.str] = None,
+    aggregation_thresholds: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.AggregationThresholdProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     allowed_analysis_providers: typing.Optional[typing.Sequence[builtins.str]] = None,
     allowed_result_receivers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    comparison_controls: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.ComparisonControlsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     differential_privacy: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.DifferentialPrivacyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     disallowed_output_columns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -12886,6 +13722,14 @@ def _typecheckingstub__d300154998d5e94f5dd6755e1f6f1374c60339a5adc1e3d5ae027ec0a
     *,
     policy: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntermediateTable.IntermediateTableAnalysisRulePolicyProperty, typing.Dict[builtins.str, typing.Any]]],
     type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e50d8942456bbfb045b9a1eeea2fa5cd136bd4da3403c18268d7ea243711faad(
+    *,
+    minimum_identity_count: jsii.Number,
+    output_column_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

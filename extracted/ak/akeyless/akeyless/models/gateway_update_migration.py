@@ -73,6 +73,8 @@ class GatewayUpdateMigration(object):
         'conjur_url': 'str',
         'conjur_username': 'str',
         'delete_remote': 'bool',
+        'enable_password_policy': 'str',
+        'exclude_hosts': 'str',
         'expiration_event_in': 'list[str]',
         'gcp_key': 'str',
         'gcp_project_id': 'str',
@@ -95,6 +97,7 @@ class GatewayUpdateMigration(object):
         'k8s_username': 'str',
         'name': 'str',
         'new_name': 'str',
+        'password_length': 'str',
         'port_ranges': 'str',
         'protection_key': 'str',
         'si_auto_rotate': 'str',
@@ -105,7 +108,9 @@ class GatewayUpdateMigration(object):
         'si_user_groups': 'str',
         'si_users_ignore': 'str',
         'si_users_path_template': 'str',
+        'skip_dry_run': 'str',
         'target_location': 'str',
+        'target_name': 'str',
         'token': 'str',
         'uid_token': 'str',
         'usc_name': 'str',
@@ -152,6 +157,8 @@ class GatewayUpdateMigration(object):
         'conjur_url': 'conjur-url',
         'conjur_username': 'conjur-username',
         'delete_remote': 'delete-remote',
+        'enable_password_policy': 'enable-password-policy',
+        'exclude_hosts': 'exclude-hosts',
         'expiration_event_in': 'expiration-event-in',
         'gcp_key': 'gcp-key',
         'gcp_project_id': 'gcp-project-id',
@@ -174,6 +181,7 @@ class GatewayUpdateMigration(object):
         'k8s_username': 'k8s-username',
         'name': 'name',
         'new_name': 'new-name',
+        'password_length': 'password-length',
         'port_ranges': 'port-ranges',
         'protection_key': 'protection-key',
         'si_auto_rotate': 'si-auto-rotate',
@@ -184,14 +192,16 @@ class GatewayUpdateMigration(object):
         'si_user_groups': 'si-user-groups',
         'si_users_ignore': 'si-users-ignore',
         'si_users_path_template': 'si-users-path-template',
+        'skip_dry_run': 'skip-dry-run',
         'target_location': 'target-location',
+        'target_name': 'target-name',
         'token': 'token',
         'uid_token': 'uid-token',
         'usc_name': 'usc-name',
         'use_gw_cloud_identity': 'use-gw-cloud-identity'
     }
 
-    def __init__(self, service_account_key_decoded=None, ad_auto_rotate=None, ad_cert_expiration_event_in=None, ad_certificates_path_template=None, ad_computer_base_dn=None, ad_discover_iis_app='false', ad_discover_services='false', ad_discovery_types=None, ad_domain_name=None, ad_domain_users_path_template=None, ad_local_users_ignore=None, ad_local_users_path_template=None, ad_os_filter=None, ad_rotation_hour=None, ad_rotation_interval=None, ad_sra_enable_rdp=None, ad_ssh_port='22', ad_target_format='linked', ad_target_name=None, ad_targets_path_template=None, ad_targets_type='windows', ad_user_base_dn=None, ad_user_groups=None, ad_winrm_over_http='false', ad_winrm_port='5986', ad_discover_local_users=None, ai_certificate_discovery=None, aws_key=None, aws_key_id=None, aws_region='us-east-2', azure_client_id=None, azure_kv_name=None, azure_secret=None, azure_tenant_id=None, conjur_account=None, conjur_api_key=None, conjur_url=None, conjur_username=None, delete_remote=None, expiration_event_in=None, gcp_key=None, gcp_project_id=None, hashi_json='true', hashi_metadata_mode=None, hashi_ns=None, hashi_token=None, hashi_url=None, hosts=None, id=None, json=False, k8s_ca_certificate=None, k8s_client_certificate=None, k8s_client_key=None, k8s_namespace=None, k8s_password=None, k8s_skip_system=None, k8s_token=None, k8s_url=None, k8s_username=None, name=None, new_name=None, port_ranges='443', protection_key=None, si_auto_rotate=None, si_rotation_hour=None, si_rotation_interval=None, si_sra_enable_rdp='false', si_target_name=None, si_user_groups=None, si_users_ignore=None, si_users_path_template=None, target_location=None, token=None, uid_token=None, usc_name=None, use_gw_cloud_identity=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, service_account_key_decoded=None, ad_auto_rotate=None, ad_cert_expiration_event_in=None, ad_certificates_path_template=None, ad_computer_base_dn=None, ad_discover_iis_app='false', ad_discover_services='false', ad_discovery_types=None, ad_domain_name=None, ad_domain_users_path_template=None, ad_local_users_ignore=None, ad_local_users_path_template=None, ad_os_filter=None, ad_rotation_hour=None, ad_rotation_interval=None, ad_sra_enable_rdp=None, ad_ssh_port='22', ad_target_format='linked', ad_target_name=None, ad_targets_path_template=None, ad_targets_type='windows', ad_user_base_dn=None, ad_user_groups=None, ad_winrm_over_http='false', ad_winrm_port='5986', ad_discover_local_users=None, ai_certificate_discovery=None, aws_key=None, aws_key_id=None, aws_region='us-east-2', azure_client_id=None, azure_kv_name=None, azure_secret=None, azure_tenant_id=None, conjur_account=None, conjur_api_key=None, conjur_url=None, conjur_username=None, delete_remote=None, enable_password_policy='false', exclude_hosts=None, expiration_event_in=None, gcp_key=None, gcp_project_id=None, hashi_json='true', hashi_metadata_mode=None, hashi_ns=None, hashi_token=None, hashi_url=None, hosts=None, id=None, json=False, k8s_ca_certificate=None, k8s_client_certificate=None, k8s_client_key=None, k8s_namespace=None, k8s_password=None, k8s_skip_system=None, k8s_token=None, k8s_url=None, k8s_username=None, name=None, new_name=None, password_length=None, port_ranges='443', protection_key=None, si_auto_rotate=None, si_rotation_hour=None, si_rotation_interval=None, si_sra_enable_rdp='false', si_target_name=None, si_user_groups=None, si_users_ignore=None, si_users_path_template=None, skip_dry_run='false', target_location=None, target_name=None, token=None, uid_token=None, usc_name=None, use_gw_cloud_identity=None, local_vars_configuration=None):  # noqa: E501
         """GatewayUpdateMigration - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -236,6 +246,8 @@ class GatewayUpdateMigration(object):
         self._conjur_url = None
         self._conjur_username = None
         self._delete_remote = None
+        self._enable_password_policy = None
+        self._exclude_hosts = None
         self._expiration_event_in = None
         self._gcp_key = None
         self._gcp_project_id = None
@@ -258,6 +270,7 @@ class GatewayUpdateMigration(object):
         self._k8s_username = None
         self._name = None
         self._new_name = None
+        self._password_length = None
         self._port_ranges = None
         self._protection_key = None
         self._si_auto_rotate = None
@@ -268,7 +281,9 @@ class GatewayUpdateMigration(object):
         self._si_user_groups = None
         self._si_users_ignore = None
         self._si_users_path_template = None
+        self._skip_dry_run = None
         self._target_location = None
+        self._target_name = None
         self._token = None
         self._uid_token = None
         self._usc_name = None
@@ -353,6 +368,10 @@ class GatewayUpdateMigration(object):
             self.conjur_username = conjur_username
         if delete_remote is not None:
             self.delete_remote = delete_remote
+        if enable_password_policy is not None:
+            self.enable_password_policy = enable_password_policy
+        if exclude_hosts is not None:
+            self.exclude_hosts = exclude_hosts
         if expiration_event_in is not None:
             self.expiration_event_in = expiration_event_in
         if gcp_key is not None:
@@ -396,6 +415,8 @@ class GatewayUpdateMigration(object):
             self.name = name
         if new_name is not None:
             self.new_name = new_name
+        if password_length is not None:
+            self.password_length = password_length
         if port_ranges is not None:
             self.port_ranges = port_ranges
         if protection_key is not None:
@@ -414,7 +435,11 @@ class GatewayUpdateMigration(object):
         if si_users_ignore is not None:
             self.si_users_ignore = si_users_ignore
         self.si_users_path_template = si_users_path_template
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         self.target_location = target_location
+        if target_name is not None:
+            self.target_name = target_name
         if token is not None:
             self.token = token
         if uid_token is not None:
@@ -1320,6 +1345,52 @@ class GatewayUpdateMigration(object):
         self._delete_remote = delete_remote
 
     @property
+    def enable_password_policy(self):
+        """Gets the enable_password_policy of this GatewayUpdateMigration.  # noqa: E501
+
+        Enable password policy for rotated secrets created for Local and Domain users (Relevant only for Active Directory migration)  # noqa: E501
+
+        :return: The enable_password_policy of this GatewayUpdateMigration.  # noqa: E501
+        :rtype: str
+        """
+        return self._enable_password_policy
+
+    @enable_password_policy.setter
+    def enable_password_policy(self, enable_password_policy):
+        """Sets the enable_password_policy of this GatewayUpdateMigration.
+
+        Enable password policy for rotated secrets created for Local and Domain users (Relevant only for Active Directory migration)  # noqa: E501
+
+        :param enable_password_policy: The enable_password_policy of this GatewayUpdateMigration.  # noqa: E501
+        :type: str
+        """
+
+        self._enable_password_policy = enable_password_policy
+
+    @property
+    def exclude_hosts(self):
+        """Gets the exclude_hosts of this GatewayUpdateMigration.  # noqa: E501
+
+        A comma separated list of IPs, CIDR ranges, or DNS names to exclude from the scan  # noqa: E501
+
+        :return: The exclude_hosts of this GatewayUpdateMigration.  # noqa: E501
+        :rtype: str
+        """
+        return self._exclude_hosts
+
+    @exclude_hosts.setter
+    def exclude_hosts(self, exclude_hosts):
+        """Sets the exclude_hosts of this GatewayUpdateMigration.
+
+        A comma separated list of IPs, CIDR ranges, or DNS names to exclude from the scan  # noqa: E501
+
+        :param exclude_hosts: The exclude_hosts of this GatewayUpdateMigration.  # noqa: E501
+        :type: str
+        """
+
+        self._exclude_hosts = exclude_hosts
+
+    @property
     def expiration_event_in(self):
         """Gets the expiration_event_in of this GatewayUpdateMigration.  # noqa: E501
 
@@ -1828,6 +1899,29 @@ class GatewayUpdateMigration(object):
         self._new_name = new_name
 
     @property
+    def password_length(self):
+        """Gets the password_length of this GatewayUpdateMigration.  # noqa: E501
+
+        The length of the password to be generated (between 8 and 50). Relevant only for Active Directory migration when enable-password-policy is true.  # noqa: E501
+
+        :return: The password_length of this GatewayUpdateMigration.  # noqa: E501
+        :rtype: str
+        """
+        return self._password_length
+
+    @password_length.setter
+    def password_length(self, password_length):
+        """Sets the password_length of this GatewayUpdateMigration.
+
+        The length of the password to be generated (between 8 and 50). Relevant only for Active Directory migration when enable-password-policy is true.  # noqa: E501
+
+        :param password_length: The password_length of this GatewayUpdateMigration.  # noqa: E501
+        :type: str
+        """
+
+        self._password_length = password_length
+
+    @property
     def port_ranges(self):
         """Gets the port_ranges of this GatewayUpdateMigration.  # noqa: E501
 
@@ -2062,6 +2156,29 @@ class GatewayUpdateMigration(object):
         self._si_users_path_template = si_users_path_template
 
     @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this GatewayUpdateMigration.  # noqa: E501
+
+        Skip dry-run validation for rotated secrets created for Local and Domain users (Relevant only for Active Directory migration)  # noqa: E501
+
+        :return: The skip_dry_run of this GatewayUpdateMigration.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this GatewayUpdateMigration.
+
+        Skip dry-run validation for rotated secrets created for Local and Domain users (Relevant only for Active Directory migration)  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this GatewayUpdateMigration.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
+
+    @property
     def target_location(self):
         """Gets the target_location of this GatewayUpdateMigration.  # noqa: E501
 
@@ -2085,6 +2202,29 @@ class GatewayUpdateMigration(object):
             raise ValueError("Invalid value for `target_location`, must not be `None`")  # noqa: E501
 
         self._target_location = target_location
+
+    @property
+    def target_name(self):
+        """Gets the target_name of this GatewayUpdateMigration.  # noqa: E501
+
+        Name of existing target to use to create the migration  # noqa: E501
+
+        :return: The target_name of this GatewayUpdateMigration.  # noqa: E501
+        :rtype: str
+        """
+        return self._target_name
+
+    @target_name.setter
+    def target_name(self, target_name):
+        """Sets the target_name of this GatewayUpdateMigration.
+
+        Name of existing target to use to create the migration  # noqa: E501
+
+        :param target_name: The target_name of this GatewayUpdateMigration.  # noqa: E501
+        :type: str
+        """
+
+        self._target_name = target_name
 
     @property
     def token(self):

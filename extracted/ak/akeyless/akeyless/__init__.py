@@ -15,7 +15,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "5.0.28"
+__version__ = "5.0.37"
 
 # import apis into sdk package
 from akeyless.api.v2_api import V2Api
@@ -52,11 +52,15 @@ from akeyless.models.active_directory_migration import ActiveDirectoryMigration
 from akeyless.models.active_directory_payload import ActiveDirectoryPayload
 from akeyless.models.add_gateway_allowed_access_id import AddGatewayAllowedAccessId
 from akeyless.models.admins_config_part import AdminsConfigPart
+from akeyless.models.aerospike_target_details import AerospikeTargetDetails
 from akeyless.models.agentic_rule import AgenticRule
 from akeyless.models.agentic_rules import AgenticRules
 from akeyless.models.ai_insights_config_part import AiInsightsConfigPart
 from akeyless.models.ai_insights_setting import AiInsightsSetting
+from akeyless.models.ai_model_entry import AiModelEntry
+from akeyless.models.ai_quorum_setting import AiQuorumSetting
 from akeyless.models.akeyless_gateway_config import AkeylessGatewayConfig
+from akeyless.models.ali_cloud_access_rules import AliCloudAccessRules
 from akeyless.models.alias_details import AliasDetails
 from akeyless.models.alias_details_output import AliasDetailsOutput
 from akeyless.models.all_analytics_data import AllAnalyticsData
@@ -64,6 +68,7 @@ from akeyless.models.allowed_access import AllowedAccess
 from akeyless.models.allowed_access_old import AllowedAccessOld
 from akeyless.models.allowed_client_type import AllowedClientType
 from akeyless.models.allowed_ip_settings import AllowedIpSettings
+from akeyless.models.anthropic_target_details import AnthropicTargetDetails
 from akeyless.models.artifactory_target_details import ArtifactoryTargetDetails
 from akeyless.models.assoc_role_auth_method import AssocRoleAuthMethod
 from akeyless.models.assoc_target_item import AssocTargetItem
@@ -73,6 +78,7 @@ from akeyless.models.auth_expiration_event import AuthExpirationEvent
 from akeyless.models.auth_method import AuthMethod
 from akeyless.models.auth_method_access_info import AuthMethodAccessInfo
 from akeyless.models.auth_method_additional_data import AuthMethodAdditionalData
+from akeyless.models.auth_method_create_ali_cloud import AuthMethodCreateAliCloud
 from akeyless.models.auth_method_create_api_key import AuthMethodCreateApiKey
 from akeyless.models.auth_method_create_aws_iam import AuthMethodCreateAwsIam
 from akeyless.models.auth_method_create_azure_ad import AuthMethodCreateAzureAD
@@ -93,6 +99,7 @@ from akeyless.models.auth_method_delete_output import AuthMethodDeleteOutput
 from akeyless.models.auth_method_get import AuthMethodGet
 from akeyless.models.auth_method_list import AuthMethodList
 from akeyless.models.auth_method_role_association import AuthMethodRoleAssociation
+from akeyless.models.auth_method_update_ali_cloud import AuthMethodUpdateAliCloud
 from akeyless.models.auth_method_update_api_key import AuthMethodUpdateApiKey
 from akeyless.models.auth_method_update_aws_iam import AuthMethodUpdateAwsIam
 from akeyless.models.auth_method_update_azure_ad import AuthMethodUpdateAzureAD
@@ -125,6 +132,7 @@ from akeyless.models.batch_encryption_request_line import BatchEncryptionRequest
 from akeyless.models.batch_encryption_response_line import BatchEncryptionResponseLine
 from akeyless.models.batch_tokenization_request_line import BatchTokenizationRequestLine
 from akeyless.models.batch_tokenization_response_line import BatchTokenizationResponseLine
+from akeyless.models.bedrock_target_details import BedrockTargetDetails
 from akeyless.models.cf_config_part import CFConfigPart
 from akeyless.models.ca_certificates_config_part import CaCertificatesConfigPart
 from akeyless.models.cache_config_part import CacheConfigPart
@@ -212,6 +220,8 @@ from akeyless.models.create_esm import CreateESM
 from akeyless.models.create_esm_output import CreateESMOutput
 from akeyless.models.create_event_forwarder import CreateEventForwarder
 from akeyless.models.create_event_forwarder_output import CreateEventForwarderOutput
+from akeyless.models.create_f5_big_ip_target import CreateF5BigIpTarget
+from akeyless.models.create_f5_big_ip_target_output import CreateF5BigIpTargetOutput
 from akeyless.models.create_gke_target import CreateGKETarget
 from akeyless.models.create_gke_target_output import CreateGKETargetOutput
 from akeyless.models.create_gcp_target import CreateGcpTarget
@@ -236,6 +246,9 @@ from akeyless.models.create_ldap_target import CreateLdapTarget
 from akeyless.models.create_ldap_target_output import CreateLdapTargetOutput
 from akeyless.models.create_linked_target import CreateLinkedTarget
 from akeyless.models.create_linked_target_output import CreateLinkedTargetOutput
+from akeyless.models.create_mcp_secret_bearer_token import CreateMcpSecretBearerToken
+from akeyless.models.create_mcp_secret_o_auth_auth_code import CreateMcpSecretOAuthAuthCode
+from akeyless.models.create_mcp_secret_o_auth_client_creds import CreateMcpSecretOAuthClientCreds
 from akeyless.models.create_native_k8_s_target import CreateNativeK8STarget
 from akeyless.models.create_native_k8_s_target_output import CreateNativeK8STargetOutput
 from akeyless.models.create_oidc_app import CreateOidcApp
@@ -273,6 +286,7 @@ from akeyless.models.create_windows_target import CreateWindowsTarget
 from akeyless.models.create_windows_target_output import CreateWindowsTargetOutput
 from akeyless.models.create_zero_ssl_target import CreateZeroSSLTarget
 from akeyless.models.create_zero_ssl_target_output import CreateZeroSSLTargetOutput
+from akeyless.models.custom_dns_target_details import CustomDnsTargetDetails
 from akeyless.models.custom_target_details import CustomTargetDetails
 from akeyless.models.customer_fragment_config import CustomerFragmentConfig
 from akeyless.models.customer_fragments_config_json import CustomerFragmentsConfigJson
@@ -329,6 +343,7 @@ from akeyless.models.detokenize import Detokenize
 from akeyless.models.detokenize_output import DetokenizeOutput
 from akeyless.models.digi_cert_target_details import DigiCertTargetDetails
 from akeyless.models.dockerhub_target_details import DockerhubTargetDetails
+from akeyless.models.dynamic_secret_create_aerospike import DynamicSecretCreateAerospike
 from akeyless.models.dynamic_secret_create_artifactory import DynamicSecretCreateArtifactory
 from akeyless.models.dynamic_secret_create_aws import DynamicSecretCreateAws
 from akeyless.models.dynamic_secret_create_azure import DynamicSecretCreateAzure
@@ -369,6 +384,7 @@ from akeyless.models.dynamic_secret_producer_info import DynamicSecretProducerIn
 from akeyless.models.dynamic_secret_tmp_creds_delete import DynamicSecretTmpCredsDelete
 from akeyless.models.dynamic_secret_tmp_creds_get import DynamicSecretTmpCredsGet
 from akeyless.models.dynamic_secret_tmp_creds_update import DynamicSecretTmpCredsUpdate
+from akeyless.models.dynamic_secret_update_aerospike import DynamicSecretUpdateAerospike
 from akeyless.models.dynamic_secret_update_artifactory import DynamicSecretUpdateArtifactory
 from akeyless.models.dynamic_secret_update_aws import DynamicSecretUpdateAws
 from akeyless.models.dynamic_secret_update_azure import DynamicSecretUpdateAzure
@@ -401,6 +417,9 @@ from akeyless.models.dynamic_secret_update_snowflake import DynamicSecretUpdateS
 from akeyless.models.dynamic_secret_update_venafi import DynamicSecretUpdateVenafi
 from akeyless.models.eks_target_details import EKSTargetDetails
 from akeyless.models.elasticsearch_log_forwarding_config import ElasticsearchLogForwardingConfig
+from akeyless.models.email_customization import EmailCustomization
+from akeyless.models.email_customization_account_information import EmailCustomizationAccountInformation
+from akeyless.models.email_customization_account_information_values import EmailCustomizationAccountInformationValues
 from akeyless.models.email_entry import EmailEntry
 from akeyless.models.email_error import EmailError
 from akeyless.models.email_pass_access_rules import EmailPassAccessRules
@@ -443,6 +462,9 @@ from akeyless.models.export_classic_key import ExportClassicKey
 from akeyless.models.export_classic_key_output import ExportClassicKeyOutput
 from akeyless.models.extension import Extension
 from akeyless.models.external_kms_key_id import ExternalKMSKeyId
+from akeyless.models.f5_big_ip_target_details import F5BigIpTargetDetails
+from akeyless.models.file_download_instructions import FileDownloadInstructions
+from akeyless.models.file_info import FileInfo
 from akeyless.models.folder_create import FolderCreate
 from akeyless.models.folder_create_output import FolderCreateOutput
 from akeyless.models.folder_delete import FolderDelete
@@ -696,6 +718,7 @@ from akeyless.models.global_sign_gcc_target_details import GlobalSignGCCTargetDe
 from akeyless.models.godaddy_target_details import GodaddyTargetDetails
 from akeyless.models.google_chronicle_forwarding_config import GoogleChronicleForwardingConfig
 from akeyless.models.google_trust_target_details import GoogleTrustTargetDetails
+from akeyless.models.grok_target_details import GrokTargetDetails
 from akeyless.models.group import Group
 from akeyless.models.gw_cluster_identity import GwClusterIdentity
 from akeyless.models.gw_update_remote_access_session_logs_aws_s3 import GwUpdateRemoteAccessSessionLogsAwsS3
@@ -734,6 +757,8 @@ from akeyless.models.k8_s_auths_config_last_change import K8SAuthsConfigLastChan
 from akeyless.models.k8_s_auths_config_part import K8SAuthsConfigPart
 from akeyless.models.k8_s_migration import K8SMigration
 from akeyless.models.k8_s_payload import K8SPayload
+from akeyless.models.kmipca import KMIPCA
+from akeyless.models.kmipca_list_entry import KMIPCAListEntry
 from akeyless.models.kmip_client import KMIPClient
 from akeyless.models.kmip_client_get_response import KMIPClientGetResponse
 from akeyless.models.kmip_client_list_response import KMIPClientListResponse
@@ -744,6 +769,7 @@ from akeyless.models.kmip_server import KMIPServer
 from akeyless.models.kerberos_access_rules import KerberosAccessRules
 from akeyless.models.kerberos_auth_method_info import KerberosAuthMethodInfo
 from akeyless.models.kerberos_config_part import KerberosConfigPart
+from akeyless.models.keycloak_target_details import KeycloakTargetDetails
 from akeyless.models.kmip_client_delete_rule import KmipClientDeleteRule
 from akeyless.models.kmip_client_set_rule import KmipClientSetRule
 from akeyless.models.kmip_client_update import KmipClientUpdate
@@ -755,6 +781,10 @@ from akeyless.models.kmip_delete_server import KmipDeleteServer
 from akeyless.models.kmip_describe_client import KmipDescribeClient
 from akeyless.models.kmip_describe_server import KmipDescribeServer
 from akeyless.models.kmip_describe_server_output import KmipDescribeServerOutput
+from akeyless.models.kmip_get_ca_bundle import KmipGetCABundle
+from akeyless.models.kmip_get_ca_bundle_output import KmipGetCABundleOutput
+from akeyless.models.kmip_list_c_as import KmipListCAs
+from akeyless.models.kmip_list_c_as_output import KmipListCAsOutput
 from akeyless.models.kmip_list_clients import KmipListClients
 from akeyless.models.kmip_move_server import KmipMoveServer
 from akeyless.models.kmip_move_server_output import KmipMoveServerOutput
@@ -762,11 +792,15 @@ from akeyless.models.kmip_renew_client_certificate import KmipRenewClientCertifi
 from akeyless.models.kmip_renew_client_certificate_output import KmipRenewClientCertificateOutput
 from akeyless.models.kmip_renew_server_certificate import KmipRenewServerCertificate
 from akeyless.models.kmip_renew_server_certificate_output import KmipRenewServerCertificateOutput
+from akeyless.models.kmip_rotate_ca import KmipRotateCA
+from akeyless.models.kmip_rotate_ca_output import KmipRotateCAOutput
 from akeyless.models.kmip_server_setup import KmipServerSetup
 from akeyless.models.kmip_server_update import KmipServerUpdate
 from akeyless.models.kmip_server_update_output import KmipServerUpdateOutput
 from akeyless.models.kmip_set_server_state import KmipSetServerState
 from akeyless.models.kmip_set_server_state_output import KmipSetServerStateOutput
+from akeyless.models.kmip_sunset_ca import KmipSunsetCA
+from akeyless.models.kmip_sunset_ca_output import KmipSunsetCAOutput
 from akeyless.models.kube_config_value import KubeConfigValue
 from akeyless.models.kubeconfig_cluster import KubeconfigCluster
 from akeyless.models.kubeconfig_context import KubeconfigContext
@@ -810,6 +844,10 @@ from akeyless.models.locking_info import LockingInfo
 from akeyless.models.log_forwarding_config_part import LogForwardingConfigPart
 from akeyless.models.logstash_log_forwarding_config import LogstashLogForwardingConfig
 from akeyless.models.logz_io_log_forwarding_config import LogzIoLogForwardingConfig
+from akeyless.models.migration_download_job import MigrationDownloadJob
+from akeyless.models.migration_download_report import MigrationDownloadReport
+from akeyless.models.migration_download_secret import MigrationDownloadSecret
+from akeyless.models.migration_download_summary import MigrationDownloadSummary
 from akeyless.models.migration_general import MigrationGeneral
 from akeyless.models.migration_items import MigrationItems
 from akeyless.models.migration_status import MigrationStatus
@@ -834,6 +872,7 @@ from akeyless.models.oidc_access_rules import OIDCAccessRules
 from akeyless.models.oidc_custom_claim import OIDCCustomClaim
 from akeyless.models.object_version_settings_output import ObjectVersionSettingsOutput
 from akeyless.models.oidc_client_info import OidcClientInfo
+from akeyless.models.okta_target_details import OktaTargetDetails
 from akeyless.models.one_password_migration import OnePasswordMigration
 from akeyless.models.one_password_payload import OnePasswordPayload
 from akeyless.models.open_ai_target_details import OpenAITargetDetails
@@ -888,11 +927,13 @@ from akeyless.models.rotate_key_output import RotateKeyOutput
 from akeyless.models.rotate_oidc_client_output import RotateOidcClientOutput
 from akeyless.models.rotate_oidc_client_secret import RotateOidcClientSecret
 from akeyless.models.rotate_secret import RotateSecret
+from akeyless.models.rotated_secret_create_aerospike import RotatedSecretCreateAerospike
 from akeyless.models.rotated_secret_create_aws import RotatedSecretCreateAws
 from akeyless.models.rotated_secret_create_azure import RotatedSecretCreateAzure
 from akeyless.models.rotated_secret_create_cassandra import RotatedSecretCreateCassandra
 from akeyless.models.rotated_secret_create_custom import RotatedSecretCreateCustom
 from akeyless.models.rotated_secret_create_dockerhub import RotatedSecretCreateDockerhub
+from akeyless.models.rotated_secret_create_f5_big_ip import RotatedSecretCreateF5BigIp
 from akeyless.models.rotated_secret_create_gcp import RotatedSecretCreateGcp
 from akeyless.models.rotated_secret_create_hanadb import RotatedSecretCreateHanadb
 from akeyless.models.rotated_secret_create_hashi_vault import RotatedSecretCreateHashiVault
@@ -918,6 +959,7 @@ from akeyless.models.rotated_secret_get_value import RotatedSecretGetValue
 from akeyless.models.rotated_secret_list import RotatedSecretList
 from akeyless.models.rotated_secret_output import RotatedSecretOutput
 from akeyless.models.rotated_secret_sync import RotatedSecretSync
+from akeyless.models.rotated_secret_update_aerospike import RotatedSecretUpdateAerospike
 from akeyless.models.rotated_secret_update_aws import RotatedSecretUpdateAws
 from akeyless.models.rotated_secret_update_azure import RotatedSecretUpdateAzure
 from akeyless.models.rotated_secret_update_cassandra import RotatedSecretUpdateCassandra
@@ -951,6 +993,7 @@ from akeyless.models.saml_attribute import SAMLAttribute
 from akeyless.models.ssh_certificate_issue_details import SSHCertificateIssueDetails
 from akeyless.models.ssh_target_details import SSHTargetDetails
 from akeyless.models.salesforce_target_details import SalesforceTargetDetails
+from akeyless.models.saml_sp_config_part import SamlSpConfigPart
 from akeyless.models.scan_results import ScanResults
 from akeyless.models.secret_info import SecretInfo
 from akeyless.models.secret_sync_output import SecretSyncOutput
@@ -1002,14 +1045,19 @@ from akeyless.models.syslog_log_forwarding_config import SyslogLogForwardingConf
 from akeyless.models.system_access_credentials_reply_obj import SystemAccessCredentialsReplyObj
 from akeyless.models.system_access_creds_settings import SystemAccessCredsSettings
 from akeyless.models.target import Target
+from akeyless.models.target_create_aerospike import TargetCreateAerospike
+from akeyless.models.target_create_anthropic import TargetCreateAnthropic
 from akeyless.models.target_create_artifactory import TargetCreateArtifactory
 from akeyless.models.target_create_aws import TargetCreateAws
 from akeyless.models.target_create_azure import TargetCreateAzure
+from akeyless.models.target_create_bedrock import TargetCreateBedrock
 from akeyless.models.target_create_cloudflare import TargetCreateCloudflare
+from akeyless.models.target_create_custom_dns import TargetCreateCustomDns
 from akeyless.models.target_create_db import TargetCreateDB
 from akeyless.models.target_create_digi_cert import TargetCreateDigiCert
 from akeyless.models.target_create_dockerhub import TargetCreateDockerhub
 from akeyless.models.target_create_eks import TargetCreateEks
+from akeyless.models.target_create_f5_big_ip import TargetCreateF5BigIp
 from akeyless.models.target_create_gcp import TargetCreateGcp
 from akeyless.models.target_create_gemini import TargetCreateGemini
 from akeyless.models.target_create_github import TargetCreateGithub
@@ -1019,11 +1067,14 @@ from akeyless.models.target_create_global_sign import TargetCreateGlobalSign
 from akeyless.models.target_create_global_sign_atlas import TargetCreateGlobalSignAtlas
 from akeyless.models.target_create_godaddy import TargetCreateGodaddy
 from akeyless.models.target_create_google_trust import TargetCreateGoogleTrust
+from akeyless.models.target_create_grok import TargetCreateGrok
 from akeyless.models.target_create_hashi_vault import TargetCreateHashiVault
 from akeyless.models.target_create_k8s import TargetCreateK8s
+from akeyless.models.target_create_keycloak import TargetCreateKeycloak
 from akeyless.models.target_create_ldap import TargetCreateLdap
 from akeyless.models.target_create_lets_encrypt import TargetCreateLetsEncrypt
 from akeyless.models.target_create_linked import TargetCreateLinked
+from akeyless.models.target_create_okta import TargetCreateOkta
 from akeyless.models.target_create_open_ai import TargetCreateOpenAI
 from akeyless.models.target_create_output import TargetCreateOutput
 from akeyless.models.target_create_ping import TargetCreatePing
@@ -1044,14 +1095,19 @@ from akeyless.models.target_item_version import TargetItemVersion
 from akeyless.models.target_list import TargetList
 from akeyless.models.target_name_with_hosts import TargetNameWithHosts
 from akeyless.models.target_type_details_input import TargetTypeDetailsInput
+from akeyless.models.target_update_aerospike import TargetUpdateAerospike
+from akeyless.models.target_update_anthropic import TargetUpdateAnthropic
 from akeyless.models.target_update_artifactory import TargetUpdateArtifactory
 from akeyless.models.target_update_aws import TargetUpdateAws
 from akeyless.models.target_update_azure import TargetUpdateAzure
+from akeyless.models.target_update_bedrock import TargetUpdateBedrock
 from akeyless.models.target_update_cloudflare import TargetUpdateCloudflare
+from akeyless.models.target_update_custom_dns import TargetUpdateCustomDns
 from akeyless.models.target_update_db import TargetUpdateDB
 from akeyless.models.target_update_digi_cert import TargetUpdateDigiCert
 from akeyless.models.target_update_dockerhub import TargetUpdateDockerhub
 from akeyless.models.target_update_eks import TargetUpdateEks
+from akeyless.models.target_update_f5_big_ip import TargetUpdateF5BigIp
 from akeyless.models.target_update_gcp import TargetUpdateGcp
 from akeyless.models.target_update_gemini import TargetUpdateGemini
 from akeyless.models.target_update_github import TargetUpdateGithub
@@ -1061,11 +1117,14 @@ from akeyless.models.target_update_global_sign import TargetUpdateGlobalSign
 from akeyless.models.target_update_global_sign_atlas import TargetUpdateGlobalSignAtlas
 from akeyless.models.target_update_godaddy import TargetUpdateGodaddy
 from akeyless.models.target_update_google_trust import TargetUpdateGoogleTrust
+from akeyless.models.target_update_grok import TargetUpdateGrok
 from akeyless.models.target_update_hashi_vault import TargetUpdateHashiVault
 from akeyless.models.target_update_k8s import TargetUpdateK8s
+from akeyless.models.target_update_keycloak import TargetUpdateKeycloak
 from akeyless.models.target_update_ldap import TargetUpdateLdap
 from akeyless.models.target_update_lets_encrypt import TargetUpdateLetsEncrypt
 from akeyless.models.target_update_linked import TargetUpdateLinked
+from akeyless.models.target_update_okta import TargetUpdateOkta
 from akeyless.models.target_update_open_ai import TargetUpdateOpenAI
 from akeyless.models.target_update_output import TargetUpdateOutput
 from akeyless.models.target_update_ping import TargetUpdatePing
@@ -1084,6 +1143,7 @@ from akeyless.models.tokenizer_info import TokenizerInfo
 from akeyless.models.uid_token_details import UIDTokenDetails
 from akeyless.models.uid_create_child_token import UidCreateChildToken
 from akeyless.models.uid_create_child_token_output import UidCreateChildTokenOutput
+from akeyless.models.uid_expiration_event import UidExpirationEvent
 from akeyless.models.uid_generate_token import UidGenerateToken
 from akeyless.models.uid_generate_token_output import UidGenerateTokenOutput
 from akeyless.models.uid_list_children import UidListChildren
@@ -1135,6 +1195,8 @@ from akeyless.models.update_dockerhub_target_output import UpdateDockerhubTarget
 from akeyless.models.update_eks_target import UpdateEKSTarget
 from akeyless.models.update_eks_target_output import UpdateEKSTargetOutput
 from akeyless.models.update_event_forwarder import UpdateEventForwarder
+from akeyless.models.update_f5_big_ip_target import UpdateF5BigIpTarget
+from akeyless.models.update_f5_big_ip_target_output import UpdateF5BigIpTargetOutput
 from akeyless.models.update_gke_target import UpdateGKETarget
 from akeyless.models.update_gke_target_output import UpdateGKETargetOutput
 from akeyless.models.update_gcp_target import UpdateGcpTarget
@@ -1159,6 +1221,9 @@ from akeyless.models.update_ldap_target import UpdateLdapTarget
 from akeyless.models.update_ldap_target_details import UpdateLdapTargetDetails
 from akeyless.models.update_ldap_target_output import UpdateLdapTargetOutput
 from akeyless.models.update_linked_target import UpdateLinkedTarget
+from akeyless.models.update_mcp_secret_bearer_token import UpdateMcpSecretBearerToken
+from akeyless.models.update_mcp_secret_o_auth_auth_code import UpdateMcpSecretOAuthAuthCode
+from akeyless.models.update_mcp_secret_o_auth_client_creds import UpdateMcpSecretOAuthClientCreds
 from akeyless.models.update_native_k8_s_target import UpdateNativeK8STarget
 from akeyless.models.update_native_k8_s_target_output import UpdateNativeK8STargetOutput
 from akeyless.models.update_oidc_app import UpdateOidcApp

@@ -272,14 +272,13 @@ class TinyB:
 
     def alter_tokens(self, name: str, scopes: List[str]):
         if not scopes:
-            return
+            return None
         scopes_url: str = "&".join([f"scope={scope}" for scope in scopes])
         url = f"/v0/tokens/{name}"
         if len(url + "?" + scopes_url) > TinyB.MAX_GET_LENGTH:
             return self._req(url, method="PUT", data=scopes_url)
-        else:
-            url = url + "?" + scopes_url
-            return self._req(url, method="PUT", data="")
+        url = url + "?" + scopes_url
+        return self._req(url, method="PUT", data="")
 
     def datasources(self, branch: Optional[str] = None, attrs: Optional[str] = None) -> List[Dict[str, Any]]:
         params = {}
@@ -300,16 +299,13 @@ class TinyB:
         return self._req(f"/v0/variables/{name}")
 
     def create_secret(self, name: str, value: str):
-        response = self._req("/v0/variables", method="POST", data={"name": name, "value": value})
-        return response
+        return self._req("/v0/variables", method="POST", data={"name": name, "value": value})
 
     def update_secret(self, name: str, value: str):
-        response = self._req(f"/v0/variables/{name}", method="PUT", data={"value": value})
-        return response
+        return self._req(f"/v0/variables/{name}", method="PUT", data={"value": value})
 
     def delete_secret(self, name: str):
-        response = self._req(f"/v0/variables/{name}", method="DELETE")
-        return response
+        return self._req(f"/v0/variables/{name}", method="DELETE")
 
     def get_connections(self, service: Optional[str] = None):
         params = {}
@@ -537,7 +533,7 @@ class TinyB:
             if projection_mode:
                 params["projection_mode"] = projection_mode
             return self._req(f"/v1/datasources/{datasource_name}/delete", method="POST", data=params)
-        elif dry_run:
+        if dry_run:
             params["dry_run"] = "true"
         return self._req(f"/v0/datasources/{datasource_name}/delete", method="POST", data=params)
 
@@ -635,8 +631,7 @@ class TinyB:
         node_name = node["params"]["name"] if node.get("params", None) else node["name"]
         if datasource_name:
             params["datasource"] = datasource_name
-        response = self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/analysis?{urlencode(params)}")
-        return response
+        return self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/analysis?{urlencode(params)}")
 
     def populate_node(
         self,
@@ -654,8 +649,7 @@ class TinyB:
             params.update({"populate_condition": populate_condition})
         if on_demand_compute:
             params.update({"on_demand_compute": "true"})
-        response = self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST")
-        return response
+        return self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST")
 
     def pipes(self, branch=None, dependencies: bool = False, node_attrs=None, attrs=None) -> List[Dict[str, Any]]:
         params = {
@@ -687,9 +681,8 @@ class TinyB:
         query_string = urlencode(params)
         if len(url + "?" + query_string) > TinyB.MAX_GET_LENGTH:
             return self._req(f"/v0/pipes/{pipe_name_or_uid}.{format}", method="POST", data=params)
-        else:
-            url = url + "?" + query_string
-            return self._req(url)
+        url = url + "?" + query_string
+        return self._req(url)
 
     def pipe_create(self, pipe_name: str, sql: str):
         return self._req(f"/v0/pipes?name={pipe_name}&sql={quote(sql, safe='')}", method="POST", data=sql.encode())
@@ -777,8 +770,7 @@ class TinyB:
 
         if len(sql) > TinyB.MAX_GET_LENGTH:
             return self._req(f"/v0/sql?{urlencode(params)}", data=sql, method="POST")
-        else:
-            return self._req(f"/v0/sql?q={quote(sql, safe='')}&{urlencode(params)}")
+        return self._req(f"/v0/sql?q={quote(sql, safe='')}&{urlencode(params)}")
 
     def jobs(
         self, status: Optional[Tuple[str, ...]] = None, kind: Optional[Tuple[str, ...]] = None
@@ -810,6 +802,9 @@ class TinyB:
 
     def job_cancel(self, job_id: str):
         return self._req(f"/v0/jobs/{job_id}/cancel", method="POST", data=b"")
+
+    def job_retry(self, job_id: str) -> Dict[str, Any]:
+        return self._req(f"/v0/jobs/{job_id}/retry", method="POST", data=b"")
 
     def user_workspaces(self, version: str = "v0"):
         data = self._req(f"/{version}/user/workspaces/?with_environments=false")
@@ -1003,7 +998,7 @@ class TinyB:
 
     def add_workspaces_to_organization(self, organization_id: str, workspace_ids: List[str]):
         if not workspace_ids:
-            return
+            return None
         return self._req(
             f"/v0/organizations/{organization_id}/workspaces",
             method="PUT",
@@ -1341,8 +1336,7 @@ class TinyB:
         return next((connector for connector in result["connectors"] if connector_equals(connector, kwargs)), None)
 
     def regions(self):
-        regions = self._req("/v0/regions")
-        return regions
+        return self._req("/v0/regions")
 
     def datasource_query_copy(self, datasource_name: str, sql_query: str):
         params = {"copy_to": datasource_name}

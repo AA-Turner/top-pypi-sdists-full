@@ -7,6 +7,7 @@ and result fetching through the Redshift Data API.
 
 import time
 import uuid
+from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .exceptions import (
@@ -518,6 +519,12 @@ class ResultConverter:
         # Extract the actual value based on the field type
         if "stringValue" in field:
             value = field["stringValue"]
+            # Data API returns NUMERIC/DECIMAL as stringValue; keep it numeric and exact.
+            if column_type.lower() in ("decimal", "numeric"):
+                try:
+                    return Decimal(value)
+                except InvalidOperation:
+                    return value
             # For certain types, we might need additional conversion
             if column_type.lower() in ("date", "timestamp", "timestamptz", "time", "timetz"):
                 # Return as string for now - could be enhanced to return datetime objects

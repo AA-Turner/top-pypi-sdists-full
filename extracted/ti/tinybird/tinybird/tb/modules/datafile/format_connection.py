@@ -89,8 +89,7 @@ def format_connection(
     format_include(file_parts, doc)
 
     result = "".join(file_parts)
-    result = result.rstrip("\n") + "\n"
-    return result
+    return result.rstrip("\n") + "\n"
 
 
 def format_type(file_parts: List[str], node: Dict[str, Any]) -> List[str]:

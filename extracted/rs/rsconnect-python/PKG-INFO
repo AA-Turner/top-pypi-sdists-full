@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: rsconnect_python
-Version: 1.31.0
+Version: 1.31.1
 Summary: The Posit Connect command-line interface.
 Author: Posit, PBC
 Author-email: Posit, PBC <rsconnect@posit.co>

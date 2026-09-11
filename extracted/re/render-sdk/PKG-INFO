@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: render_sdk
-Version: 1.0.1
+Version: 1.1.0
 Summary: Compatibility shim for the renamed 'render' package. Install 'render' instead.
 Author-email: Render <support@render.com>
 License-File: LICENSE
@@ -15,9 +15,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4.0,>=3.10
-Requires-Dist: render==1.0.1
+Requires-Dist: render==1.1.0
 Provides-Extra: key-value
-Requires-Dist: render[key-value]==1.0.1; extra == 'key-value'
+Requires-Dist: render[key-value]==1.1.0; extra == 'key-value'
 Description-Content-Type: text/markdown
 
 # Render SDK for Python

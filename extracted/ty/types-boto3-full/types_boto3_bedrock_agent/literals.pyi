@@ -299,7 +299,7 @@ MetadataValueTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 OrchestrationTypeType = Literal["CUSTOM_ORCHESTRATION", "DEFAULT"]
 ParsingModalityType = Literal["MULTIMODAL"]
 ParsingStrategyType = Literal[
-    "BEDROCK_DATA_AUTOMATION", "BEDROCK_FOUNDATION_MODEL", "SMART_PARSING"
+    "BEDROCK_DATA_AUTOMATION", "BEDROCK_FOUNDATION_MODEL", "MULTI_MODAL_EMBEDDINGS", "SMART_PARSING"
 ]
 PerformanceConfigLatencyType = Literal["optimized", "standard"]
 PromptStateType = Literal["DISABLED", "ENABLED"]

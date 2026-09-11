@@ -4700,6 +4700,497 @@ class CfnExperimentDefinitionProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appconfig_e61477a7.IExperimentRunRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnExperimentRun(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnExperimentRun",
+):
+    '''Resource Type definition for AWS::AppConfig::ExperimentRun.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html
+    :cloudformationResource: AWS::AppConfig::ExperimentRun
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_appconfig as appconfig
+        
+        cfn_experiment_run = appconfig.CfnExperimentRun(self, "MyCfnExperimentRun",
+            application_identifier="applicationIdentifier",
+            experiment_definition_identifier="experimentDefinitionIdentifier",
+            exposure_percentage=123,
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            treatment_overrides=appconfig.CfnExperimentRun.TreatmentOverridesProperty(
+                inline={
+                    "inline_key": "inline"
+                }
+            )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        application_identifier: builtins.str,
+        experiment_definition_identifier: builtins.str,
+        exposure_percentage: jsii.Number,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        treatment_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExperimentRun.TreatmentOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::AppConfig::ExperimentRun``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_identifier: The application name or ID used to create the experiment run.
+        :param experiment_definition_identifier: The experiment definition name or ID used to create the experiment run.
+        :param exposure_percentage: Percentage of traffic exposed to the experiment (0-100).
+        :param description: Description of the experiment run.
+        :param tags: Tags to associate with the experiment run.
+        :param treatment_overrides: Treatment overrides for specific entities.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__009be9d37e25cc0f47f41d7ba04ed53b62da66124fff81fcecf51a1ef187122c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnExperimentRunProps(
+            application_identifier=application_identifier,
+            experiment_definition_identifier=experiment_definition_identifier,
+            exposure_percentage=exposure_percentage,
+            description=description,
+            tags=tags,
+            treatment_overrides=treatment_overrides,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnExperimentRun")
+    @builtins.classmethod
+    def is_cfn_experiment_run(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnExperimentRun.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__310c43fb53e09a8f5f1f9d2fdae4bd9dd22990d05f9d6842989616c8855681a3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnExperimentRun", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__00dbc0d3631fc3e03ef47bbb0a6bdb0777d3a1886f6e3b1f433bc0ec574c2673)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9d2feb3a9fcea2f0ad345f97c79650c078aa363a1ea52702a7149632d0846ab9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApplicationId")
+    def attr_application_id(self) -> builtins.str:
+        '''The resolved application ID.
+
+        :cloudformationAttribute: ApplicationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApplicationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExperimentDefinitionId")
+    def attr_experiment_definition_id(self) -> builtins.str:
+        '''The resolved experiment definition ID.
+
+        :cloudformationAttribute: ExperimentDefinitionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExperimentDefinitionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRun")
+    def attr_run(self) -> builtins.str:
+        '''The run number (auto-assigned by the service).
+
+        :cloudformationAttribute: Run
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRun"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStartedAt")
+    def attr_started_at(self) -> builtins.str:
+        '''ISO-8601 timestamp when the run started.
+
+        :cloudformationAttribute: StartedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStartedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Current status of the run.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''ISO-8601 timestamp when the run was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentRunRef")
+    def experiment_run_ref(self) -> "_aws_appconfig_e61477a7.ExperimentRunReference":
+        '''A reference to a ExperimentRun resource.'''
+        return typing.cast("_aws_appconfig_e61477a7.ExperimentRunReference", jsii.get(self, "experimentRunRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationIdentifier")
+    def application_identifier(self) -> builtins.str:
+        '''The application name or ID used to create the experiment run.'''
+        return typing.cast(builtins.str, jsii.get(self, "applicationIdentifier"))
+
+    @application_identifier.setter
+    def application_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b50f644d1143ccca95767fea1d0a6540d82a3176631880e7ed185e6a710443f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="experimentDefinitionIdentifier")
+    def experiment_definition_identifier(self) -> builtins.str:
+        '''The experiment definition name or ID used to create the experiment run.'''
+        return typing.cast(builtins.str, jsii.get(self, "experimentDefinitionIdentifier"))
+
+    @experiment_definition_identifier.setter
+    def experiment_definition_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fa6e9359042c9b9ac537b73accc59f95ac039fb9205c4183effda8867119729a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "experimentDefinitionIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="exposurePercentage")
+    def exposure_percentage(self) -> jsii.Number:
+        '''Percentage of traffic exposed to the experiment (0-100).'''
+        return typing.cast(jsii.Number, jsii.get(self, "exposurePercentage"))
+
+    @exposure_percentage.setter
+    def exposure_percentage(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e6c3e2ab6e6ba79edd1bb7be057ce627bf53c1559372e81d9c3e365caa41e276)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "exposurePercentage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the experiment run.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9fc53689c9329cb9b646288dfdc17c598295fef1a3e703414bc89aa7e28de90)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the experiment run.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ddb010f298e5c2ffcea0dab794865c852d98eb9efecdbf70eca63aa798bc66de)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="treatmentOverrides")
+    def treatment_overrides(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentRun.TreatmentOverridesProperty"]]:
+        '''Treatment overrides for specific entities.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentRun.TreatmentOverridesProperty"]], jsii.get(self, "treatmentOverrides"))
+
+    @treatment_overrides.setter
+    def treatment_overrides(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentRun.TreatmentOverridesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0140261d611b4515948d48e4375a3ac08beeda7c0c50f8498d84b951203a4c24)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "treatmentOverrides", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appconfig.CfnExperimentRun.TreatmentOverridesProperty",
+        jsii_struct_bases=[],
+        name_mapping={"inline": "inline"},
+    )
+    class TreatmentOverridesProperty:
+        def __init__(
+            self,
+            *,
+            inline: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+        ) -> None:
+            '''Treatment overrides for specific entities.
+
+            :param inline: Map of entity ID to treatment key (t1, t2, ..., or c for control).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-experimentrun-treatmentoverrides.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appconfig as appconfig
+                
+                treatment_overrides_property = appconfig.CfnExperimentRun.TreatmentOverridesProperty(
+                    inline={
+                        "inline_key": "inline"
+                    }
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__33f95f330f2edbda30be9e34b21a14ac33ae33341a3121dd5d79700e8696d16f)
+                check_type(argname="argument inline", value=inline, expected_type=type_hints["inline"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if inline is not None:
+                self._values["inline"] = inline
+
+        @builtins.property
+        def inline(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Map of entity ID to treatment key (t1, t2, ..., or c for control).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-experimentrun-treatmentoverrides.html#cfn-appconfig-experimentrun-treatmentoverrides-inline
+            '''
+            result = self._values.get("inline")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TreatmentOverridesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_appconfig.CfnExperimentRunProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_identifier": "applicationIdentifier",
+        "experiment_definition_identifier": "experimentDefinitionIdentifier",
+        "exposure_percentage": "exposurePercentage",
+        "description": "description",
+        "tags": "tags",
+        "treatment_overrides": "treatmentOverrides",
+    },
+)
+class CfnExperimentRunProps:
+    def __init__(
+        self,
+        *,
+        application_identifier: builtins.str,
+        experiment_definition_identifier: builtins.str,
+        exposure_percentage: jsii.Number,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        treatment_overrides: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnExperimentRun.TreatmentOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnExperimentRun``.
+
+        :param application_identifier: The application name or ID used to create the experiment run.
+        :param experiment_definition_identifier: The experiment definition name or ID used to create the experiment run.
+        :param exposure_percentage: Percentage of traffic exposed to the experiment (0-100).
+        :param description: Description of the experiment run.
+        :param tags: Tags to associate with the experiment run.
+        :param treatment_overrides: Treatment overrides for specific entities.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_appconfig as appconfig
+            
+            cfn_experiment_run_props = appconfig.CfnExperimentRunProps(
+                application_identifier="applicationIdentifier",
+                experiment_definition_identifier="experimentDefinitionIdentifier",
+                exposure_percentage=123,
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                treatment_overrides=appconfig.CfnExperimentRun.TreatmentOverridesProperty(
+                    inline={
+                        "inline_key": "inline"
+                    }
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d1500e369213b31757b80173184548ac74696b01b62825d76788d3e547372eb)
+            check_type(argname="argument application_identifier", value=application_identifier, expected_type=type_hints["application_identifier"])
+            check_type(argname="argument experiment_definition_identifier", value=experiment_definition_identifier, expected_type=type_hints["experiment_definition_identifier"])
+            check_type(argname="argument exposure_percentage", value=exposure_percentage, expected_type=type_hints["exposure_percentage"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument treatment_overrides", value=treatment_overrides, expected_type=type_hints["treatment_overrides"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_identifier": application_identifier,
+            "experiment_definition_identifier": experiment_definition_identifier,
+            "exposure_percentage": exposure_percentage,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if treatment_overrides is not None:
+            self._values["treatment_overrides"] = treatment_overrides
+
+    @builtins.property
+    def application_identifier(self) -> builtins.str:
+        '''The application name or ID used to create the experiment run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-applicationidentifier
+        '''
+        result = self._values.get("application_identifier")
+        assert result is not None, "Required property 'application_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def experiment_definition_identifier(self) -> builtins.str:
+        '''The experiment definition name or ID used to create the experiment run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-experimentdefinitionidentifier
+        '''
+        result = self._values.get("experiment_definition_identifier")
+        assert result is not None, "Required property 'experiment_definition_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def exposure_percentage(self) -> jsii.Number:
+        '''Percentage of traffic exposed to the experiment (0-100).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-exposurepercentage
+        '''
+        result = self._values.get("exposure_percentage")
+        assert result is not None, "Required property 'exposure_percentage' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the experiment run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the experiment run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def treatment_overrides(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentRun.TreatmentOverridesProperty"]]:
+        '''Treatment overrides for specific entities.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html#cfn-appconfig-experimentrun-treatmentoverrides
+        '''
+        result = self._values.get("treatment_overrides")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnExperimentRun.TreatmentOverridesProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnExperimentRunProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_appconfig_e61477a7.IExtensionRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnExtension(
     _aws_cdk_0cae9daa.CfnResource,
@@ -15140,6 +15631,8 @@ __all__ = [
     "CfnEnvironmentProps",
     "CfnExperimentDefinition",
     "CfnExperimentDefinitionProps",
+    "CfnExperimentRun",
+    "CfnExperimentRunProps",
     "CfnExtension",
     "CfnExtensionAssociation",
     "CfnExtensionAssociationProps",
@@ -15873,6 +16366,93 @@ def _typecheckingstub__09c4aa2727538e5f3e1ec3604ef747d4d7012611c5ab339d941e5abaf
     hypothesis: typing.Optional[builtins.str] = None,
     launch_criteria: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__009be9d37e25cc0f47f41d7ba04ed53b62da66124fff81fcecf51a1ef187122c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    application_identifier: builtins.str,
+    experiment_definition_identifier: builtins.str,
+    exposure_percentage: jsii.Number,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    treatment_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExperimentRun.TreatmentOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__310c43fb53e09a8f5f1f9d2fdae4bd9dd22990d05f9d6842989616c8855681a3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00dbc0d3631fc3e03ef47bbb0a6bdb0777d3a1886f6e3b1f433bc0ec574c2673(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9d2feb3a9fcea2f0ad345f97c79650c078aa363a1ea52702a7149632d0846ab9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b50f644d1143ccca95767fea1d0a6540d82a3176631880e7ed185e6a710443f3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fa6e9359042c9b9ac537b73accc59f95ac039fb9205c4183effda8867119729a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6c3e2ab6e6ba79edd1bb7be057ce627bf53c1559372e81d9c3e365caa41e276(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9fc53689c9329cb9b646288dfdc17c598295fef1a3e703414bc89aa7e28de90(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddb010f298e5c2ffcea0dab794865c852d98eb9efecdbf70eca63aa798bc66de(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0140261d611b4515948d48e4375a3ac08beeda7c0c50f8498d84b951203a4c24(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnExperimentRun.TreatmentOverridesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__33f95f330f2edbda30be9e34b21a14ac33ae33341a3121dd5d79700e8696d16f(
+    *,
+    inline: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d1500e369213b31757b80173184548ac74696b01b62825d76788d3e547372eb(
+    *,
+    application_identifier: builtins.str,
+    experiment_definition_identifier: builtins.str,
+    exposure_percentage: jsii.Number,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    treatment_overrides: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnExperimentRun.TreatmentOverridesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

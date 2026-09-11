@@ -61,11 +61,11 @@ def with_swap_code(url: str, swap_code: str) -> str:
 
 
 __all__ = [
-    "normalize_api_base_url",
-    "web_ui_base",
-    "workspace_url",
-    "pipeline_url",
-    "job_url",
     "job_run_url",
+    "job_url",
+    "normalize_api_base_url",
+    "pipeline_url",
+    "web_ui_base",
     "with_swap_code",
+    "workspace_url",
 ]

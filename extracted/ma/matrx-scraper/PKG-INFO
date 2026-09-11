@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-scraper
-Version: 0.2.167
+Version: 0.2.173
 Summary: Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -23,8 +23,8 @@ Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: croniter>=2.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: markdownify>=0.13
-Requires-Dist: matrx-files>=0.2.132
-Requires-Dist: matrx-utils>=2.0.32
+Requires-Dist: matrx-files>=0.2.137
+Requires-Dist: matrx-utils>=2.0.33
 Requires-Dist: pydantic>=2.12
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: selectolax>=0.3.21
@@ -37,10 +37,10 @@ Requires-Dist: curl-cffi>=0.7; extra == 'all'
 Requires-Dist: datasketch>=1.6; extra == 'all'
 Requires-Dist: extruct>=0.18; extra == 'all'
 Requires-Dist: fastapi>=0.115; extra == 'all'
-Requires-Dist: matrx-connect>=0.1.79; extra == 'all'
-Requires-Dist: matrx-graph>=0.2.129; extra == 'all'
-Requires-Dist: matrx-orm>=3.1.129; extra == 'all'
-Requires-Dist: matrx-runtime>=0.0.82; extra == 'all'
+Requires-Dist: matrx-connect>=0.1.84; extra == 'all'
+Requires-Dist: matrx-graph>=0.2.134; extra == 'all'
+Requires-Dist: matrx-orm>=3.1.131; extra == 'all'
+Requires-Dist: matrx-runtime>=0.0.84; extra == 'all'
 Requires-Dist: pillow>=11.0; extra == 'all'
 Requires-Dist: playwright>=1.45; extra == 'all'
 Requires-Dist: pymupdf>=1.27; extra == 'all'
@@ -55,17 +55,17 @@ Provides-Extra: cloud-browser
 Requires-Dist: cryptography>=41; extra == 'cloud-browser'
 Requires-Dist: zstandard>=0.22; extra == 'cloud-browser'
 Provides-Extra: connect
-Requires-Dist: matrx-connect>=0.1.79; extra == 'connect'
+Requires-Dist: matrx-connect>=0.1.84; extra == 'connect'
 Provides-Extra: db
-Requires-Dist: matrx-orm>=3.1.129; extra == 'db'
+Requires-Dist: matrx-orm>=3.1.131; extra == 'db'
 Provides-Extra: dedup
 Requires-Dist: cachetools>=5.3; extra == 'dedup'
 Requires-Dist: datasketch>=1.6; extra == 'dedup'
 Requires-Dist: simhash>=2.1; extra == 'dedup'
 Provides-Extra: durable
-Requires-Dist: matrx-runtime>=0.0.82; extra == 'durable'
+Requires-Dist: matrx-runtime>=0.0.84; extra == 'durable'
 Provides-Extra: graph
-Requires-Dist: matrx-graph>=0.2.129; extra == 'graph'
+Requires-Dist: matrx-graph>=0.2.134; extra == 'graph'
 Provides-Extra: metadata
 Requires-Dist: extruct>=0.18; extra == 'metadata'
 Provides-Extra: ocr
@@ -79,10 +79,11 @@ Requires-Dist: cachetools>=5.3; extra == 'server'
 Requires-Dist: curl-cffi>=0.7; extra == 'server'
 Requires-Dist: extruct>=0.18; extra == 'server'
 Requires-Dist: fastapi>=0.115; extra == 'server'
-Requires-Dist: matrx-connect>=0.1.79; extra == 'server'
-Requires-Dist: matrx-orm>=3.1.129; extra == 'server'
-Requires-Dist: matrx-runtime>=0.0.82; extra == 'server'
+Requires-Dist: matrx-connect>=0.1.84; extra == 'server'
+Requires-Dist: matrx-orm>=3.1.131; extra == 'server'
+Requires-Dist: matrx-runtime>=0.0.84; extra == 'server'
 Requires-Dist: playwright>=1.45; extra == 'server'
+Requires-Dist: pymupdf>=1.27; extra == 'server'
 Requires-Dist: python-dotenv>=1.0; extra == 'server'
 Requires-Dist: uvicorn[standard]>=0.30; extra == 'server'
 Provides-Extra: standalone
@@ -92,10 +93,10 @@ Requires-Dist: curl-cffi>=0.7; extra == 'standalone'
 Requires-Dist: datasketch>=1.6; extra == 'standalone'
 Requires-Dist: extruct>=0.18; extra == 'standalone'
 Requires-Dist: fastapi>=0.115; extra == 'standalone'
-Requires-Dist: matrx-connect>=0.1.79; extra == 'standalone'
-Requires-Dist: matrx-graph>=0.2.129; extra == 'standalone'
-Requires-Dist: matrx-orm>=3.1.129; extra == 'standalone'
-Requires-Dist: matrx-runtime>=0.0.82; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.84; extra == 'standalone'
+Requires-Dist: matrx-graph>=0.2.134; extra == 'standalone'
+Requires-Dist: matrx-orm>=3.1.131; extra == 'standalone'
+Requires-Dist: matrx-runtime>=0.0.84; extra == 'standalone'
 Requires-Dist: pillow>=11.0; extra == 'standalone'
 Requires-Dist: playwright>=1.45; extra == 'standalone'
 Requires-Dist: pymupdf>=1.27; extra == 'standalone'

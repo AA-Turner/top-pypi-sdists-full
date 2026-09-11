@@ -1481,10 +1481,14 @@ def list_external_networks(ctx, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--updated-since", default=None, type=click.DateTime())
 @click.option(
-    "--protocol-type", default=None, type=click.Choice(["ip", "fileshare", "ssh"])
+    "--protocol-type",
+    default=None,
+    type=click.Choice(["ip", "fileshare", "ssh", "database"]),
 )
 @click.option(
-    "--protocol-type-list", multiple=True, type=click.Choice(["ip", "fileshare", "ssh"])
+    "--protocol-type-list",
+    multiple=True,
+    type=click.Choice(["ip", "fileshare", "ssh", "database"]),
 )
 @click.option("--hostname", default=None)
 @click.option("--port", type=int, default=None)

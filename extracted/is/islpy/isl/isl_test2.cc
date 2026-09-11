@@ -79,12 +79,26 @@ struct unary {
 	const char *res;
 };
 
+/* The type used to represent type T in a test.
+ * By default, this is "const char *".
+ * However, a bool is represented by itself.
+ */
+template <typename T>
+struct input {
+	using type = const char *;
+};
+template <>
+struct input<bool> {
+	using type = bool;
+};
+
 /* A description of the inputs and the output of a binary operation.
  */
+template <typename R>
 struct binary {
 	const char *arg1;
 	const char *arg2;
-	const char *res;
+	R res;
 };
 
 /* A description of the inputs and the output of a ternary operation.
@@ -101,6 +115,11 @@ struct ternary {
  * The spelling depends on the isl type and
  * in particular on whether an equality method is available or
  * whether only obvious equality can be tested.
+ *
+ * Since isl::multi_val has both an is_equal and a plain_is_equal,
+ * use a specific overload for isl::multi_val that calls is_equal.
+ *
+ * If the objects are boolean values, then compare them directly.
  */
 template <typename T, typename std::decay<decltype(
 	std::declval<T>().is_equal(std::declval<T>()))>::type = true>
@@ -113,6 +132,14 @@ template <typename T, typename std::decay<decltype(
 static bool is_equal(const T &a, const T &b)
 {
 	return a.plain_is_equal(b);
+}
+static bool is_equal(const isl::multi_val &a, const isl::multi_val &b)
+{
+	return a.is_equal(b);
+}
+static bool is_equal(bool a, bool b)
+{
+	return a == b;
 }
 
 /* A helper macro for throwing an isl::exception_invalid with message "msg".
@@ -169,18 +196,34 @@ static void test(isl::ctx ctx, R (T::*fn)() const, const std::string &name,
 	}
 }
 
+/* Create an object of type "T" from representation "arg".
+ * This usually creates an isl object from a string representation,
+ * but if the representation is a boolean then the object
+ * is simply that boolean value.
+ */
+template <typename T, typename I>
+T create(isl::ctx ctx, I arg)
+{
+	return T(ctx, arg);
+}
+template <>
+bool create(isl::ctx ctx, bool arg)
+{
+	return arg;
+}
+
 /* Run a sequence of tests of method "fn" with stringification "name" and
  * with inputs and output described by "test",
  * throwing an exception when an unexpected result is produced.
  */
 template <typename R, typename T, typename A1>
 static void test(isl::ctx ctx, R (T::*fn)(A1) const, const std::string &name,
-	const std::vector<binary> &tests)
+	const std::vector<binary<typename input<R>::type>> &tests)
 {
 	for (const auto &test : tests) {
 		T obj(ctx, test.arg1);
-		A1 arg1(ctx, test.arg2);
-		R expected(ctx, test.res);
+		typename std::remove_reference<A1>::type arg1(ctx, test.arg2);
+		auto expected = create<R>(ctx, test.res);
 		const auto &res = (obj.*fn)(arg1);
 		std::ostringstream ss;
 
@@ -188,7 +231,7 @@ static void test(isl::ctx ctx, R (T::*fn)(A1) const, const std::string &name,
 			continue;
 
 		ss << name << "(" << test.arg1 << ", " << test.arg2 << ") =\n"
-		   << res << "\n"
+		   << std::boolalpha << res << "\n"
 		   << "expecting:\n"
 		   << expected;
 		THROW_INVALID(ss.str().c_str());
@@ -429,6 +472,71 @@ static void test_fixed_power(isl::ctx ctx)
 	  "128",
 	  "{ [0, b = 0:15, c = 0:1, d = 0:1, e = 0:1] -> [1, b, c, d, e] }" },
 	});
+}
+
+/* Perform basic simple fixed box hull tests.
+ */
+static void test_box_hull(isl::ctx ctx)
+{
+	C(&isl::set::simple_fixed_box_hull, {
+	{ "{ S[x, y] : 0 <= x, y < 10 }",
+	  "{ offset: { S[0, 0] }, size: { S[10, 10] } }" },
+	{ "[N] -> { S[x, y] : N <= x, y < N + 10 }",
+	  "{ offset: [N] -> { S[(N), (N)] }, size: { S[10, 10] } }" },
+	{ "{ S[x, y] : 0 <= x + y, x - y < 10 }",
+	  "{ offset: { S[0, -4] }, size: { S[10, 9] } }" },
+	{ "{ [i=0:10] : exists (e0, e1: 3e1 >= 1 + 2e0 and "
+	    "8e1 <= -1 + 5i - 5e0 and 2e1 >= 1 + 2i - 5e0) }",
+	  "{ offset: { [3] }, size: { [8] } }" },
+	{ "[N] -> { [w = 0:17] : exists (e0: w < 2N and "
+	    "-1 + w <= e0 <= w and 2e0 >= N + w and w <= 2e0 <= 15 + w) }",
+	  "{ offset: [N] -> { [N] }, size: { [9] } }" },
+	{ "[N] -> { [N//2:N//2+4] }",
+	  "{ offset: [N] -> { [N//2] }, size: { [5] } }" },
+	{ "[N] -> { [N//2+N//3:N//2+N//3+4] }",
+	  "{ offset: [N] -> { [N//2+N//3] }, size: { [5] } }" },
+	{ "[N] -> { [a=0:59, b=0:1] : 15N - a <= 60b <= 59 + 15N - a and "
+	    "-22 + 20b <= 20*floor((-1 + 15N - a)/60) < 20b and "
+	    "60*floor((-1 + 15N - a)/60) <= -46 + 15N - a }",
+	  "{ offset: [N] -> { [(15*((N) mod 4)), (floor((N)/4))] }, "
+	    "size: { [15, 1] } }" },
+	{ "{ [i=-3:7] : i mod 4 = 0 }",
+	  "{ offset: { [(0)] }, size: { [5] } }" },
+	{ "[N] -> { [i, N - 4i] : -14 + N <= 16i <= 1 + N }",
+	  "{ offset: [N] -> { [(floor((1 + N)/16)), "
+			      "(4 + N + 4*floor((-2 - N)/16))] }, "
+	    "size: { [1, 1] } }" },
+	});
+
+	C(&isl::map::range_simple_fixed_box_hull, {
+	{ "{ [N] -> [i, N - 4i] : -14 + N <= 16i <= 1 + N }",
+	  "{ offset: { [N] -> [(floor((1 + N)/16)), "
+			      "(4 + N + 4*floor((-2 - N)/16))] }, "
+	    "size: { [1, 1] } }" },
+	{ "{ [N] -> [i, j] : 4j = N - i and -1 + 3N <= 4i <= 14 + 3N }",
+	  "{ offset: { [N] -> [(4 + N + 4*floor((-2 - N)/16)), "
+			      "(floor((1 + N)/16))] }, "
+	    "size: { [1, 1] } }" },
+	});
+}
+
+/* Perform some coalescing tests.
+ */
+static void test_coalesce(isl::ctx ctx)
+{
+	/* The following sequence can result in the same basic set
+	 * appearing multiple times in the coalesced set.
+	 * Check that the presence of such duplicates
+	 * does not cause internal errors.
+	 */
+	isl::set a(ctx, "[g, t] -> { [i] : "
+		"(exists (e0 = floor((1 + g)/2): 2e0 = 1 + g and 0 < i <= -t)) "
+		"or (exists (e0 = floor((1 + g)/2): i = 0 and 2e0 = 1 + g)) }");
+	a = a.coalesce();
+	isl::set b (ctx, "[g, t] -> { [i] : "
+		"(exists (e0 = floor((g)/2): 2e0 = g and 0 < i <= -t)) or "
+		"(exists (e0 = floor((g)/2): i = 0 and 2e0 = g)) }");
+	b.unite(a).unite(a).coalesce();
 }
 
 /* Perform some basic intersection tests.
@@ -905,6 +1013,43 @@ static void test_id_to_id(isl::ctx ctx)
 	});
 }
 
+/* Perform some basic isl::id_set tests.
+ */
+static void test_id_set(isl::ctx ctx)
+{
+	C(&isl::id_set::is_equal, {
+	{ "{ }", "{ }", true },
+	{ "{ }", "{ a }", false },
+	{ "{ a }", "{ }", false },
+	{ "{ a, b }", "{ b, a }", true },
+	{ "{ a, b }", "{ a }", false },
+	{ "{ a, b }", "{ b }", false },
+	{ "{ a, b }", "{ a, c }", false },
+	});
+
+	C((arg<isl::id>(&isl::id_set::insert)), {
+	{ "{ }", "a",
+	  "{ a }" },
+	{ "{ a }", "a",
+	  "{ a }" },
+	{ "{ a, c }", "a",
+	  "{ a, c }" },
+	{ "{ b }", "a",
+	  "{ a, b }" },
+	});
+
+	C((arg<isl::id>(&isl::id_set::drop)), {
+	{ "{ }", "a",
+	  "{ }" },
+	{ "{ a }", "a",
+	  "{ }" },
+	{ "{ b }", "a",
+	  "{ b }" },
+	{ "{ a, b }", "a",
+	  "{ b }" },
+	});
+}
+
 /* The list of tests to perform.
  */
 static std::vector<std::pair<const char *, void (*)(isl::ctx)>> tests =
@@ -913,6 +1058,8 @@ static std::vector<std::pair<const char *, void (*)(isl::ctx)>> tests =
 	{ "conversion", &test_conversion },
 	{ "preimage", &test_preimage },
 	{ "fixed power", &test_fixed_power },
+	{ "box hull", &test_box_hull },
+	{ "coalesce", &test_coalesce },
 	{ "intersect", &test_intersect },
 	{ "lexmin", &test_lexmin },
 	{ "gist", &test_gist },
@@ -920,6 +1067,7 @@ static std::vector<std::pair<const char *, void (*)(isl::ctx)>> tests =
 	{ "reverse", &test_reverse },
 	{ "scale", &test_scale },
 	{ "id-to-id", &test_id_to_id },
+	{ "id-set", &test_id_set },
 };
 
 /* Perform some basic checks by means of the C++ bindings.

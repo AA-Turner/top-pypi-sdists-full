@@ -215,7 +215,7 @@ void python_generator::print_callback(ParmVarDecl *param, int arg)
 	QualType type = param->getOriginalType();
 	const FunctionProtoType *fn = extract_prototype(type);
 	QualType return_type = fn->getReturnType();
-	unsigned n_arg = fn->getNumArgs();
+	unsigned n_arg = fn->getNumParams();
 
 	printf("        exc_info = [None]\n");
 	printf("        fn = CFUNCTYPE(");
@@ -224,7 +224,7 @@ void python_generator::print_callback(ParmVarDecl *param, int arg)
 	else
 		printf("c_void_p");
 	for (unsigned i = 0; i < n_arg - 1; ++i) {
-		if (!is_isl_type(fn->getArgType(i)))
+		if (!is_isl_type(fn->getParamType(i)))
 			die("Argument has non-isl type");
 		printf(", c_void_p");
 	}
@@ -238,11 +238,11 @@ void python_generator::print_callback(ParmVarDecl *param, int arg)
 	printf("):\n");
 	for (unsigned i = 0; i < n_arg - 1; ++i) {
 		string arg_type;
-		arg_type = type2python(extract_type(fn->getArgType(i)));
+		arg_type = type2python(extract_type(fn->getParamType(i)));
 		printf("            cb_arg%d = %s(ctx=arg0.ctx, ptr=",
 			i, arg_type.c_str());
 		if (!callback_takes_argument(param, i))
-			print_copy(fn->getArgType(i));
+			print_copy(fn->getParamType(i));
 		printf("(cb_arg%d))\n", i);
 	}
 	printf("            try:\n");
@@ -824,6 +824,9 @@ void python_generator::print_special_constructors(const isl_class &clazz)
  * The functions need to be cast to c_void_p to be able to compare
  * the addresses.
  *
+ * Since the isl_id preserves a reference to the Python user object,
+ * the reference count of the Python object needs to be incremented.
+ *
  * Return None if any of the checks fail.
  * Note that isl_id_get_user returning NULL automatically results in None.
  */
@@ -833,7 +836,9 @@ static const char *const id_user = &R"(
         id_free_user = cast(isl.isl_id_get_free_user(self.ptr), c_void_p)
         if id_free_user.value != free_user.value:
             return None
-        return isl.isl_id_get_user(self.ptr)
+        user = isl.isl_id_get_user(self.ptr)
+        pythonapi.Py_IncRef(py_object(user))
+        return user
 )"[1];
 
 /* Print any special methods of this class that are not

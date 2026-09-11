@@ -11164,6 +11164,11 @@ class Messages(System.Object):
             ...
 
         @staticmethod
+        def option_underlying_resolution_is_coarser(option: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], option_resolution: QuantConnect.Resolution, underlying_resolution: QuantConnect.Resolution) -> str:
+            """Returns a warning message saying an option uses a finer resolution than its underlying"""
+            ...
+
+        @staticmethod
         def set_account_currency_already_initialized() -> str:
             """Returns a string message saying the account currency cannot be changed after the algorithm is initialized"""
             ...

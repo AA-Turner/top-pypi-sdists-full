@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: scvi-tools
-Version: 1.5.0.post1
+Version: 1.5.1
 Summary: Deep probabilistic analysis of single-cell omics data.
-Project-URL: Documentation, https://scvi-tools.org
+Project-URL: Documentation, https://docs.scvi-tools.org/
+Project-URL: Homepage, https://scvi-tools.org
 Project-URL: Source, https://github.com/scverse/scvi-tools
-Project-URL: Home-page, https://scvi-tools.org
 Author: The scvi-tools development team
 Maintainer-email: The scvi-tools development team <ori.kronfeld@weizmann.ac.il>
 License: BSD 3-Clause License
@@ -44,7 +44,7 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -52,10 +52,11 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.12
 Requires-Dist: anndata
 Requires-Dist: docrep>=0.3.2
-Requires-Dist: lightning>=2.0
+Requires-Dist: joblib
+Requires-Dist: lightning>=2
 Requires-Dist: ml-collections
 Requires-Dist: mudata
-Requires-Dist: numba>=0.60.0
+Requires-Dist: numba>=0.60
 Requires-Dist: numpy
 Requires-Dist: pandas
 Requires-Dist: pyro-ppl
@@ -63,25 +64,24 @@ Requires-Dist: rich
 Requires-Dist: scanpy[skmisc]>=1.10
 Requires-Dist: scikit-learn
 Requires-Dist: scipy
-Requires-Dist: sparse>=0.14.0
+Requires-Dist: sparse>=0.14
 Requires-Dist: tensorboard
 Requires-Dist: torch
 Requires-Dist: torchmetrics
 Requires-Dist: tqdm
 Requires-Dist: xarray
 Provides-Extra: all
-Requires-Dist: annbatch[zarrs]>=0.2.0; extra == 'all'
+Requires-Dist: annbatch[zarrs]>=0.2; extra == 'all'
 Requires-Dist: biomart; extra == 'all'
 Requires-Dist: biopython>=1.81; extra == 'all'
 Requires-Dist: boto3; extra == 'all'
 Requires-Dist: captum; extra == 'all'
 Requires-Dist: cell2location; extra == 'all'
 Requires-Dist: cellxgene-census; extra == 'all'
-Requires-Dist: coverage; extra == 'all'
 Requires-Dist: dask[array]; extra == 'all'
 Requires-Dist: decoupler; extra == 'all'
-Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8; extra == 'all'
 Requires-Dist: dvc[s3]; extra == 'all'
+Requires-Dist: fastcluster; extra == 'all'
 Requires-Dist: fcswrite; extra == 'all'
 Requires-Dist: gdown; extra == 'all'
 Requires-Dist: genomepy; extra == 'all'
@@ -90,143 +90,58 @@ Requires-Dist: gputil; extra == 'all'
 Requires-Dist: huggingface-hub; extra == 'all'
 Requires-Dist: hyperopt>=0.2; extra == 'all'
 Requires-Dist: igraph; extra == 'all'
-Requires-Dist: ipython; extra == 'all'
 Requires-Dist: jupyter; extra == 'all'
 Requires-Dist: lamindb>=1.12.1; extra == 'all'
 Requires-Dist: leidenalg; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
-Requires-Dist: mlflow; extra == 'all'
+Requires-Dist: mlflow>=3.9; extra == 'all'
 Requires-Dist: muon; extra == 'all'
-Requires-Dist: myst-nb; extra == 'all'
-Requires-Dist: myst-parser; extra == 'all'
 Requires-Dist: nvidia-ml-py; extra == 'all'
 Requires-Dist: plotnine; extra == 'all'
 Requires-Dist: pooch; extra == 'all'
-Requires-Dist: pre-commit; extra == 'all'
 Requires-Dist: psutil; extra == 'all'
 Requires-Dist: pynndescent; extra == 'all'
-Requires-Dist: pytest; extra == 'all'
-Requires-Dist: pytest-pretty; extra == 'all'
-Requires-Dist: ray[tune]; extra == 'all'
+Requires-Dist: ray[tune]; (sys_platform != 'win32') and extra == 'all'
 Requires-Dist: readfcs; extra == 'all'
+Requires-Dist: requests; extra == 'all'
 Requires-Dist: scib-metrics; extra == 'all'
 Requires-Dist: scrublet; extra == 'all'
 Requires-Dist: seaborn; extra == 'all'
 Requires-Dist: setuptools<82,>=77.0.3; extra == 'all'
 Requires-Dist: shap; extra == 'all'
-Requires-Dist: sphinx-autodoc-typehints; extra == 'all'
-Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'all'
-Requires-Dist: sphinx-copybutton; extra == 'all'
-Requires-Dist: sphinx-design; extra == 'all'
-Requires-Dist: sphinx-hoverxref; extra == 'all'
-Requires-Dist: sphinx<9; extra == 'all'
-Requires-Dist: sphinxcontrib-bibtex; extra == 'all'
-Requires-Dist: sphinxext-opengraph; extra == 'all'
-Requires-Dist: squidpy>=1.6.0; extra == 'all'
+Requires-Dist: squidpy>=1.6; extra == 'all'
 Requires-Dist: tiledbsoma; extra == 'all'
 Requires-Dist: tiledbsoma-ml; extra == 'all'
 Requires-Dist: torch-geometric; extra == 'all'
 Requires-Dist: torchdata; extra == 'all'
-Requires-Dist: umap-learn>=0.5.0; extra == 'all'
+Requires-Dist: umap-learn>=0.5; extra == 'all'
 Requires-Dist: zarr; extra == 'all'
 Provides-Extra: autotune
 Requires-Dist: hyperopt>=0.2; extra == 'autotune'
 Requires-Dist: muon; extra == 'autotune'
-Requires-Dist: ray[tune]; extra == 'autotune'
+Requires-Dist: ray[tune]; (sys_platform != 'win32') and extra == 'autotune'
 Requires-Dist: scib-metrics; extra == 'autotune'
 Requires-Dist: setuptools<82,>=77.0.3; extra == 'autotune'
 Provides-Extra: cuda
 Requires-Dist: cupy-cuda12x; extra == 'cuda'
+Requires-Dist: nvidia-nccl-cu12; (sys_platform == 'linux') and extra == 'cuda'
 Requires-Dist: torchaudio; extra == 'cuda'
 Requires-Dist: torchvision; extra == 'cuda'
 Provides-Extra: cuda13
 Requires-Dist: cupy-cuda13x; extra == 'cuda13'
+Requires-Dist: nvidia-nccl-cu13; (sys_platform == 'linux') and extra == 'cuda13'
 Requires-Dist: torchaudio; extra == 'cuda13'
 Requires-Dist: torchvision; extra == 'cuda13'
 Provides-Extra: dataloaders
-Requires-Dist: annbatch[zarrs]>=0.2.0; extra == 'dataloaders'
+Requires-Dist: annbatch[zarrs]>=0.2; extra == 'dataloaders'
 Requires-Dist: cellxgene-census; extra == 'dataloaders'
 Requires-Dist: lamindb>=1.12.1; extra == 'dataloaders'
 Requires-Dist: tiledbsoma; extra == 'dataloaders'
 Requires-Dist: tiledbsoma-ml; extra == 'dataloaders'
 Requires-Dist: torchdata; extra == 'dataloaders'
-Provides-Extra: dev
-Requires-Dist: biopython>=1.81; extra == 'dev'
-Requires-Dist: boto3; extra == 'dev'
-Requires-Dist: captum; extra == 'dev'
-Requires-Dist: coverage; extra == 'dev'
-Requires-Dist: dask[array]; extra == 'dev'
-Requires-Dist: decoupler; extra == 'dev'
-Requires-Dist: dvc[s3]; extra == 'dev'
-Requires-Dist: fcswrite; extra == 'dev'
-Requires-Dist: gdown; extra == 'dev'
-Requires-Dist: genomepy; extra == 'dev'
-Requires-Dist: geomloss; extra == 'dev'
-Requires-Dist: gputil; extra == 'dev'
-Requires-Dist: huggingface-hub; extra == 'dev'
-Requires-Dist: hyperopt>=0.2; extra == 'dev'
-Requires-Dist: igraph; extra == 'dev'
-Requires-Dist: jupyter; extra == 'dev'
-Requires-Dist: leidenalg; extra == 'dev'
-Requires-Dist: mlflow; extra == 'dev'
-Requires-Dist: muon; extra == 'dev'
-Requires-Dist: nvidia-ml-py; extra == 'dev'
-Requires-Dist: pooch; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: psutil; extra == 'dev'
-Requires-Dist: pynndescent; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-pretty; extra == 'dev'
-Requires-Dist: ray[tune]; extra == 'dev'
-Requires-Dist: readfcs; extra == 'dev'
-Requires-Dist: scib-metrics; extra == 'dev'
-Requires-Dist: setuptools<82,>=77.0.3; extra == 'dev'
-Requires-Dist: shap; extra == 'dev'
-Requires-Dist: torch-geometric; extra == 'dev'
-Requires-Dist: zarr; extra == 'dev'
 Provides-Extra: diagvi
 Requires-Dist: geomloss; extra == 'diagvi'
 Requires-Dist: torch-geometric; extra == 'diagvi'
-Provides-Extra: docs
-Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8; extra == 'docs'
-Requires-Dist: ipython; extra == 'docs'
-Requires-Dist: myst-nb; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'
-Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx-design; extra == 'docs'
-Requires-Dist: sphinx-hoverxref; extra == 'docs'
-Requires-Dist: sphinx<9; extra == 'docs'
-Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
-Requires-Dist: sphinxext-opengraph; extra == 'docs'
-Provides-Extra: docsbuild
-Requires-Dist: boto3; extra == 'docsbuild'
-Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8; extra == 'docsbuild'
-Requires-Dist: dvc[s3]; extra == 'docsbuild'
-Requires-Dist: geomloss; extra == 'docsbuild'
-Requires-Dist: huggingface-hub; extra == 'docsbuild'
-Requires-Dist: hyperopt>=0.2; extra == 'docsbuild'
-Requires-Dist: ipython; extra == 'docsbuild'
-Requires-Dist: mlx; extra == 'docsbuild'
-Requires-Dist: muon; extra == 'docsbuild'
-Requires-Dist: myst-nb; extra == 'docsbuild'
-Requires-Dist: myst-parser; extra == 'docsbuild'
-Requires-Dist: ray[tune]; extra == 'docsbuild'
-Requires-Dist: scib-metrics; extra == 'docsbuild'
-Requires-Dist: setuptools<82,>=77.0.3; extra == 'docsbuild'
-Requires-Dist: sphinx-autodoc-typehints; extra == 'docsbuild'
-Requires-Dist: sphinx-book-theme>=1.0.1; extra == 'docsbuild'
-Requires-Dist: sphinx-copybutton; extra == 'docsbuild'
-Requires-Dist: sphinx-design; extra == 'docsbuild'
-Requires-Dist: sphinx-hoverxref; extra == 'docsbuild'
-Requires-Dist: sphinx<9; extra == 'docsbuild'
-Requires-Dist: sphinxcontrib-bibtex; extra == 'docsbuild'
-Requires-Dist: sphinxext-opengraph; extra == 'docsbuild'
-Requires-Dist: torch-geometric; extra == 'docsbuild'
-Provides-Extra: editing
-Requires-Dist: jupyter; extra == 'editing'
-Requires-Dist: pre-commit; extra == 'editing'
 Provides-Extra: file-sharing
 Requires-Dist: fcswrite; extra == 'file-sharing'
 Requires-Dist: gdown; extra == 'file-sharing'
@@ -236,17 +151,19 @@ Provides-Extra: hub
 Requires-Dist: boto3; extra == 'hub'
 Requires-Dist: dvc[s3]; extra == 'hub'
 Requires-Dist: huggingface-hub; extra == 'hub'
+Requires-Dist: requests; extra == 'hub'
 Provides-Extra: interpretability
 Requires-Dist: captum; extra == 'interpretability'
 Requires-Dist: decoupler; extra == 'interpretability'
 Requires-Dist: shap; extra == 'interpretability'
 Provides-Extra: metal
+Requires-Dist: mlx; extra == 'metal'
 Requires-Dist: mlx-metal; extra == 'metal'
 Requires-Dist: torchaudio; extra == 'metal'
 Requires-Dist: torchvision; extra == 'metal'
 Provides-Extra: mlflow
 Requires-Dist: gputil; extra == 'mlflow'
-Requires-Dist: mlflow; extra == 'mlflow'
+Requires-Dist: mlflow>=3.9; extra == 'mlflow'
 Requires-Dist: nvidia-ml-py; extra == 'mlflow'
 Requires-Dist: psutil; extra == 'mlflow'
 Provides-Extra: optional
@@ -256,6 +173,7 @@ Requires-Dist: captum; extra == 'optional'
 Requires-Dist: dask[array]; extra == 'optional'
 Requires-Dist: decoupler; extra == 'optional'
 Requires-Dist: dvc[s3]; extra == 'optional'
+Requires-Dist: fastcluster; extra == 'optional'
 Requires-Dist: fcswrite; extra == 'optional'
 Requires-Dist: gdown; extra == 'optional'
 Requires-Dist: genomepy; extra == 'optional'
@@ -265,14 +183,16 @@ Requires-Dist: huggingface-hub; extra == 'optional'
 Requires-Dist: hyperopt>=0.2; extra == 'optional'
 Requires-Dist: igraph; extra == 'optional'
 Requires-Dist: leidenalg; extra == 'optional'
-Requires-Dist: mlflow; extra == 'optional'
+Requires-Dist: mlflow>=3.9; extra == 'optional'
 Requires-Dist: muon; extra == 'optional'
 Requires-Dist: nvidia-ml-py; extra == 'optional'
+Requires-Dist: plotnine; extra == 'optional'
 Requires-Dist: pooch; extra == 'optional'
 Requires-Dist: psutil; extra == 'optional'
 Requires-Dist: pynndescent; extra == 'optional'
-Requires-Dist: ray[tune]; extra == 'optional'
+Requires-Dist: ray[tune]; (sys_platform != 'win32') and extra == 'optional'
 Requires-Dist: readfcs; extra == 'optional'
+Requires-Dist: requests; extra == 'optional'
 Requires-Dist: scib-metrics; extra == 'optional'
 Requires-Dist: setuptools<82,>=77.0.3; extra == 'optional'
 Requires-Dist: shap; extra == 'optional'
@@ -297,74 +217,10 @@ Requires-Dist: rapids-singlecell-cu13[rapids]; extra == 'rapids-cuda13'
 Provides-Extra: regseq
 Requires-Dist: biopython>=1.81; extra == 'regseq'
 Requires-Dist: genomepy; extra == 'regseq'
-Provides-Extra: test
-Requires-Dist: biopython>=1.81; extra == 'test'
-Requires-Dist: boto3; extra == 'test'
-Requires-Dist: captum; extra == 'test'
-Requires-Dist: coverage; extra == 'test'
-Requires-Dist: dask[array]; extra == 'test'
-Requires-Dist: decoupler; extra == 'test'
-Requires-Dist: dvc[s3]; extra == 'test'
-Requires-Dist: fcswrite; extra == 'test'
-Requires-Dist: gdown; extra == 'test'
-Requires-Dist: genomepy; extra == 'test'
-Requires-Dist: geomloss; extra == 'test'
-Requires-Dist: gputil; extra == 'test'
-Requires-Dist: huggingface-hub; extra == 'test'
-Requires-Dist: hyperopt>=0.2; extra == 'test'
-Requires-Dist: igraph; extra == 'test'
-Requires-Dist: leidenalg; extra == 'test'
-Requires-Dist: mlflow; extra == 'test'
-Requires-Dist: muon; extra == 'test'
-Requires-Dist: nvidia-ml-py; extra == 'test'
-Requires-Dist: pooch; extra == 'test'
-Requires-Dist: psutil; extra == 'test'
-Requires-Dist: pynndescent; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-pretty; extra == 'test'
-Requires-Dist: ray[tune]; extra == 'test'
-Requires-Dist: readfcs; extra == 'test'
-Requires-Dist: scib-metrics; extra == 'test'
-Requires-Dist: setuptools<82,>=77.0.3; extra == 'test'
-Requires-Dist: shap; extra == 'test'
-Requires-Dist: torch-geometric; extra == 'test'
-Requires-Dist: zarr; extra == 'test'
-Provides-Extra: tests
-Requires-Dist: biopython>=1.81; extra == 'tests'
-Requires-Dist: boto3; extra == 'tests'
-Requires-Dist: captum; extra == 'tests'
-Requires-Dist: coverage; extra == 'tests'
-Requires-Dist: dask[array]; extra == 'tests'
-Requires-Dist: decoupler; extra == 'tests'
-Requires-Dist: dvc[s3]; extra == 'tests'
-Requires-Dist: fcswrite; extra == 'tests'
-Requires-Dist: gdown; extra == 'tests'
-Requires-Dist: genomepy; extra == 'tests'
-Requires-Dist: geomloss; extra == 'tests'
-Requires-Dist: gputil; extra == 'tests'
-Requires-Dist: huggingface-hub; extra == 'tests'
-Requires-Dist: hyperopt>=0.2; extra == 'tests'
-Requires-Dist: igraph; extra == 'tests'
-Requires-Dist: leidenalg; extra == 'tests'
-Requires-Dist: mlflow; extra == 'tests'
-Requires-Dist: muon; extra == 'tests'
-Requires-Dist: nvidia-ml-py; extra == 'tests'
-Requires-Dist: pooch; extra == 'tests'
-Requires-Dist: psutil; extra == 'tests'
-Requires-Dist: pynndescent; extra == 'tests'
-Requires-Dist: pytest; extra == 'tests'
-Requires-Dist: pytest-pretty; extra == 'tests'
-Requires-Dist: ray[tune]; extra == 'tests'
-Requires-Dist: readfcs; extra == 'tests'
-Requires-Dist: scib-metrics; extra == 'tests'
-Requires-Dist: setuptools<82,>=77.0.3; extra == 'tests'
-Requires-Dist: shap; extra == 'tests'
-Requires-Dist: torch-geometric; extra == 'tests'
-Requires-Dist: zarr; extra == 'tests'
 Provides-Extra: tpu
 Requires-Dist: torch-xla[tpu]; extra == 'tpu'
 Provides-Extra: tutorials
-Requires-Dist: annbatch[zarrs]>=0.2.0; extra == 'tutorials'
+Requires-Dist: annbatch[zarrs]>=0.2; extra == 'tutorials'
 Requires-Dist: biomart; extra == 'tutorials'
 Requires-Dist: biopython>=1.81; extra == 'tutorials'
 Requires-Dist: boto3; extra == 'tutorials'
@@ -374,6 +230,7 @@ Requires-Dist: cellxgene-census; extra == 'tutorials'
 Requires-Dist: dask[array]; extra == 'tutorials'
 Requires-Dist: decoupler; extra == 'tutorials'
 Requires-Dist: dvc[s3]; extra == 'tutorials'
+Requires-Dist: fastcluster; extra == 'tutorials'
 Requires-Dist: fcswrite; extra == 'tutorials'
 Requires-Dist: gdown; extra == 'tutorials'
 Requires-Dist: genomepy; extra == 'tutorials'
@@ -386,26 +243,27 @@ Requires-Dist: jupyter; extra == 'tutorials'
 Requires-Dist: lamindb>=1.12.1; extra == 'tutorials'
 Requires-Dist: leidenalg; extra == 'tutorials'
 Requires-Dist: matplotlib; extra == 'tutorials'
-Requires-Dist: mlflow; extra == 'tutorials'
+Requires-Dist: mlflow>=3.9; extra == 'tutorials'
 Requires-Dist: muon; extra == 'tutorials'
 Requires-Dist: nvidia-ml-py; extra == 'tutorials'
 Requires-Dist: plotnine; extra == 'tutorials'
 Requires-Dist: pooch; extra == 'tutorials'
 Requires-Dist: psutil; extra == 'tutorials'
 Requires-Dist: pynndescent; extra == 'tutorials'
-Requires-Dist: ray[tune]; extra == 'tutorials'
+Requires-Dist: ray[tune]; (sys_platform != 'win32') and extra == 'tutorials'
 Requires-Dist: readfcs; extra == 'tutorials'
+Requires-Dist: requests; extra == 'tutorials'
 Requires-Dist: scib-metrics; extra == 'tutorials'
 Requires-Dist: scrublet; extra == 'tutorials'
 Requires-Dist: seaborn; extra == 'tutorials'
 Requires-Dist: setuptools<82,>=77.0.3; extra == 'tutorials'
 Requires-Dist: shap; extra == 'tutorials'
-Requires-Dist: squidpy>=1.6.0; extra == 'tutorials'
+Requires-Dist: squidpy>=1.6; extra == 'tutorials'
 Requires-Dist: tiledbsoma; extra == 'tutorials'
 Requires-Dist: tiledbsoma-ml; extra == 'tutorials'
 Requires-Dist: torch-geometric; extra == 'tutorials'
 Requires-Dist: torchdata; extra == 'tutorials'
-Requires-Dist: umap-learn>=0.5.0; extra == 'tutorials'
+Requires-Dist: umap-learn>=0.5; extra == 'tutorials'
 Requires-Dist: zarr; extra == 'tutorials'
 Description-Content-Type: text/markdown
 
@@ -422,6 +280,7 @@ Description-Content-Type: text/markdown
 [![PyPIDownloads][pepy-badge]][pepy-link]
 [![CondaDownloads][conda-badge]][conda-link]
 [![Docs][docs-badge]][docs-link]
+[![Tests][tests-badge]][tests-link]
 [![Build][build-badge]][build-link]
 [![Coverage][coverage-badge]][coverage-link]
 
@@ -527,8 +386,8 @@ professional services, travel, workshops, and a variety of other needs.
 Copyright (c) 2026, Yosef Lab, Weizmann Institute of Science
 
 [anndata]: https://anndata.readthedocs.io/en/latest/
-[build-badge]: https://github.com/scverse/scvi-tools/actions/workflows/build.yml/badge.svg
-[build-link]: https://github.com/scverse/scvi-tools/actions/workflows/build.yml/
+[build-badge]: https://github.com/scverse/scvi-tools/actions/workflows/build.yaml/badge.svg
+[build-link]: https://github.com/scverse/scvi-tools/actions/workflows/build.yaml/
 [codebase overview]: https://docs.scvi-tools.org/en/stable/user_guide/background/codebase_overview.html
 [conda-badge]: https://img.shields.io/conda/dn/conda-forge/scvi-tools?logo=Anaconda
 [conda-link]: https://anaconda.org/conda-forge/scvi-tools
@@ -552,4 +411,6 @@ Copyright (c) 2026, Yosef Lab, Weizmann Institute of Science
 [scanpy]: http://scanpy.readthedocs.io/
 [scvi-tools]: https://scvi-tools.org/
 [skeleton repository]: https://github.com/scverse/simple-scvi
+[tests-badge]: https://img.shields.io/github/actions/workflow/status/scverse/scvi-tools/test.yaml?branch=main&label=tests
+[tests-link]: https://github.com/scverse/scvi-tools/actions/workflows/test.yaml
 [user guide]: https://docs.scvi-tools.org/en/stable/user_guide/index.html

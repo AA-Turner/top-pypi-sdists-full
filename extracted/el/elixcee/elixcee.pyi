@@ -229,8 +229,8 @@ class Vm:
         """Return all non-empty cells of the active sheet as ``{(row, col): value}``."""
         ...
 
-    def snapshot(self, include_formulas: bool = False) -> dict[str, Any]:
-        """Return a detached workbook snapshot including calculation mode and date-system metadata; optionally include ``formulas``."""
+    def snapshot(self, include_formulas: bool = False, include_dependencies: bool = False) -> dict[str, Any]:
+        """Return a detached workbook snapshot; optionally include bounded formulas, dependencies, diagnostics, and input/output candidates."""
         ...
 
     @property
@@ -330,6 +330,35 @@ class Vm:
         """
         ...
 
+    def add_chart(
+        self,
+        drawing_part: str,
+        chart_type: str,
+        categories: str,
+        values: str,
+        title: str | None = ...,
+        from_row: int = ...,
+        from_col: int = ...,
+        to_row: int = ...,
+        to_col: int = ...,
+    ) -> str:
+        """Create a bounded chart in an existing worksheet Drawing.
+
+        Returns the generated chart-part path. Supported types are ``line``,
+        ``bar``, ``area``, and ``pie``; formulas use chart XML spelling.
+        """
+        ...
+
+    def add_chart_series(
+        self,
+        chart_part: str,
+        categories: str,
+        values: str,
+        title: str | None = ...,
+    ) -> None:
+        """Add a category/value series to a chart created by ``add_chart``."""
+        ...
+
     def set_chart_title(self, chart_part: str, text: str) -> None:
         """Queue a bounded edit or add operation for a chart title."""
         ...
@@ -361,7 +390,7 @@ class Vm:
     def set_chart_data_labels_show_category(
         self, chart_part: str, show_category: bool
     ) -> None:
-        """Update the first existing chart data-labels showCat flag."""
+        """Update the first existing chart data-labels showCatName flag."""
         ...
 
     def set_chart_data_labels_show_series_name(

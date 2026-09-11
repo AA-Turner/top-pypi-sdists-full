@@ -189,6 +189,7 @@ from .base_impl cimport (
     PY_TYPE_MESSAGE_TABLE,
     PY_TYPE_TIMEDELTA,
     SecretValueImpl,
+    SubOperation,
     SUBSCR_NAMESPACE_AQ,
     SUBSCR_QOS_DEREG_NFY,
     SUBSCR_QOS_QUERY,
@@ -213,6 +214,7 @@ from .base_impl import (
     DB_TYPE_NCLOB,
     DB_TYPE_BINARY_INTEGER,
     DB_TYPE_CURSOR,
+    DB_TYPE_INTERVAL_DS,
     DB_TYPE_NUMBER,
     DB_TYPE_OBJECT,
     DB_TYPE_XMLTYPE,
@@ -248,6 +250,7 @@ include "impl/thin/messages/execute.pyx"
 include "impl/thin/messages/fetch.pyx"
 include "impl/thin/messages/lob_op.pyx"
 include "impl/thin/messages/logoff.pyx"
+include "impl/thin/messages/network_services.pyx"
 include "impl/thin/messages/notification.pyx"
 include "impl/thin/messages/ping.pyx"
 include "impl/thin/messages/protocol.pyx"

@@ -154,7 +154,7 @@ class AopClient:
 
         Examples
         --------
-        from athena import AopExecuteRequestIn, Athena
+        from athena import AopExecuteRequestIn, Athena, RunBudget
 
         client = Athena(
             api_key="YOUR_API_KEY",
@@ -162,6 +162,10 @@ class AopClient:
         client.aop.execute(
             request=AopExecuteRequestIn(
                 asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+                run_budget=RunBudget(
+                    max_cost_usd=30.0,
+                    max_model_calls=80,
+                ),
                 user_inputs={"company": "Acme Corp", "quarter": "Q1 2024"},
             ),
         )
@@ -189,7 +193,7 @@ class AopClient:
 
         Examples
         --------
-        from athena import AopExecuteRequestIn, Athena
+        from athena import AopExecuteRequestIn, Athena, RunBudget
 
         client = Athena(
             api_key="YOUR_API_KEY",
@@ -197,6 +201,10 @@ class AopClient:
         client.aop.execute_async(
             request=AopExecuteRequestIn(
                 asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+                run_budget=RunBudget(
+                    max_cost_usd=30.0,
+                    max_model_calls=80,
+                ),
                 user_inputs={"company": "Acme Corp", "quarter": "Q1 2024"},
             ),
         )
@@ -254,7 +262,7 @@ class AopClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AopConfigUpdateResponseOut:
         """
-        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it.
+        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched.
 
         Parameters
         ----------
@@ -472,7 +480,7 @@ class AsyncAopClient:
         --------
         import asyncio
 
-        from athena import AopExecuteRequestIn, AsyncAthena
+        from athena import AopExecuteRequestIn, AsyncAthena, RunBudget
 
         client = AsyncAthena(
             api_key="YOUR_API_KEY",
@@ -483,6 +491,10 @@ class AsyncAopClient:
             await client.aop.execute(
                 request=AopExecuteRequestIn(
                     asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+                    run_budget=RunBudget(
+                        max_cost_usd=30.0,
+                        max_model_calls=80,
+                    ),
                     user_inputs={"company": "Acme Corp", "quarter": "Q1 2024"},
                 ),
             )
@@ -515,7 +527,7 @@ class AsyncAopClient:
         --------
         import asyncio
 
-        from athena import AopExecuteRequestIn, AsyncAthena
+        from athena import AopExecuteRequestIn, AsyncAthena, RunBudget
 
         client = AsyncAthena(
             api_key="YOUR_API_KEY",
@@ -526,6 +538,10 @@ class AsyncAopClient:
             await client.aop.execute_async(
                 request=AopExecuteRequestIn(
                     asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+                    run_budget=RunBudget(
+                        max_cost_usd=30.0,
+                        max_model_calls=80,
+                    ),
                     user_inputs={"company": "Acme Corp", "quarter": "Q1 2024"},
                 ),
             )
@@ -594,7 +610,7 @@ class AsyncAopClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AopConfigUpdateResponseOut:
         """
-        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it.
+        Overwrite the configuration of an existing AOP asset. Replaces the entire AOP configuration (prompt, agent config, structured output, etc.) with the provided values. Fields not included in the request body will be reset to their defaults, except user_notification_configs, which is preserved from the existing configuration when omitted; send an explicit null to clear it. The update is rejected with 400 when the configuration would enable more tools at run time than the per-run limit, counting every tool of each toolkit @mentioned in the prompt; the detail names toolkits to remove and the existing configuration is left untouched.
 
         Parameters
         ----------

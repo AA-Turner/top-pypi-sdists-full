@@ -195,18 +195,18 @@ def test_llm_chat_input_requires_prompt_and_model():
 
 
 @pytest.mark.asyncio
-async def test_agent_start_step_must_name_an_agent_or_a_mandate():
-    """A step names the JOB (mandate_key) or an agent id — naming neither is
-    refused. The check moved OFF the Pydantic layer when `agent_id` became
-    optional for the mandate migration: `AgentStartInput(agent_id="")` stopped
-    raising, and this test asserted the old layer rather than the contract.
-    `resolve_step_agent` is where the refusal actually lives."""
+async def test_agent_start_step_must_name_an_agent():
+    """A Run Agent step names ONE agent — naming none is refused.
+
+    The check lives OFF the Pydantic layer because `agent_id` is optional on
+    the model (Run Mandate shares the same run lift through
+    `resolve_step_agent`), so `AgentStartInput()` parses fine and the contract
+    is enforced at resolution."""
     from matrx_ai.graph_nodes.agent_action import AgentStartInput, resolve_step_agent
 
-    with pytest.raises(ValueError, match="names no agent"):
+    with pytest.raises(ValueError, match="names nothing to run"):
         await resolve_step_agent(AgentStartInput(), consumer="ai.agent.start:test")
 
-    # A pinned id alone still resolves — mandate_key is preferred, not required.
     agent_id, is_version, overrides = await resolve_step_agent(
         AgentStartInput(agent_id="agent-1"), consumer="ai.agent.start:test"
     )

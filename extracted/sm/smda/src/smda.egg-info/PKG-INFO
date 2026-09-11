@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.5.1
+Version: 4.6.0
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License: BSD 2-Clause
@@ -33,17 +33,17 @@ Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff==0.16.6; extra == "dev"
+Requires-Dist: ty==0.0.74; extra == "dev"
 Requires-Dist: tqdm; extra == "dev"
 Requires-Dist: twine; extra == "dev"
-Requires-Dist: ty==0.0.74; extra == "dev"
 Provides-Extra: ida
 Requires-Dist: ida-domain>=0.5.0; extra == "ida"
 Provides-Extra: profile
-Requires-Dist: line_profiler; extra == "profile"
-Requires-Dist: memray; extra == "profile"
-Requires-Dist: psutil; extra == "profile"
 Requires-Dist: py-spy; extra == "profile"
+Requires-Dist: memray; extra == "profile"
+Requires-Dist: line_profiler; extra == "profile"
 Requires-Dist: snakeviz; extra == "profile"
+Requires-Dist: psutil; extra == "profile"
 Dynamic: license-file
 
 

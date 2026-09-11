@@ -55,6 +55,7 @@ from matrx_scraper.db.web import WEB_DB_NAME
 from matrx_scraper.web_crawl.contracts import LinkCheckSummary
 from matrx_scraper.web_crawl.persistence import url_hash
 from matrx_scraper.crawler import _normalise_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +320,7 @@ class _PoliteChecker:
             async with self._http.stream("GET", url) as response:
                 return response.status_code
         except httpx.HTTPError as exc:
-            logger.info("link check: no response from %s (%s)", url, type(exc).__name__)
+            logger.info("link check: no response from %s (%s)", redact_url_secrets(url), type(exc).__name__)
             return 0
 
 

@@ -46,7 +46,7 @@ class RuntimeInfo(TypedDict):
     workspace_url: str
     local_dir: str
     job_count: int
-    # Only present when fetch_user_info() returned a UserInfo (not on stale-token paths).
+    # Absent under a workspace API key, which has no human identity.
     email: NotRequired[str]
     latest_run_name: NotRequired[str]
     latest_run_status: NotRequired[str]
@@ -62,7 +62,7 @@ class RuntimeInfo(TypedDict):
 
 
 class WorkspaceInfo(TypedDict):
-    """Server-side workspace as parsed from `/me`."""
+    """Server-side workspace as parsed from `/organizations/{id}/me`."""
 
     id: str
     name: str
@@ -76,7 +76,7 @@ class WorkspaceInfo(TypedDict):
 
 
 class OrganizationInfo(TypedDict):
-    """Organization the user belongs to (from `/me`)."""
+    """Organization the user belongs to (from `/user`)."""
 
     id: str
     name: str
@@ -107,18 +107,20 @@ class CreateInOrgChoice(TypedDict):
     organization_name: str
 
 
-class UserInfo(TypedDict):
-    """Authenticated user's identity + accessible workspaces / orgs (from `/me`)."""
+class CallerIdentity(TypedDict):
+    """Who the credential acts as, from the org membership."""
 
     email: str
     user_id: str
     identity_id: str
-    default_organization_id: str
-    default_workspace: NotRequired[
-        WorkspaceInfo
-    ]  # absent when the user has no workspace
+
+
+class CallerInfo(TypedDict):
+    """Identity and memberships of any principal (from org endpoints)."""
+
     workspaces: list[WorkspaceInfo]
     organizations: list[OrganizationInfo]
+    identity: NotRequired[CallerIdentity]  # unknown for a caller with no memberships
 
 
 class LoginResult(TypedDict):

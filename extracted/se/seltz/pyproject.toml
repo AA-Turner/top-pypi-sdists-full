@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seltz"
-version = "1.13.0"
+version = "1.14.0"
 description = "Seltz Python SDK for AI-powered search"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -57,6 +57,12 @@ include = ["seltz", "seltz.*", "seltz_public_api", "seltz_public_api.*"]
 "" = "src"
 "seltz_public_api" = "src/seltz_public_api"
 
+# PEP 561: without this marker an installed package is untyped, so a consumer's
+# type checker reads every name in it as `Any`.
+[tool.setuptools.package-data]
+seltz = ["py.typed"]
+seltz_public_api = ["py.typed"]
+
 [dependency-groups]
 dev = [
     "build>=1.3.0",
@@ -90,4 +96,24 @@ exclude = ["src/seltz_public_api"]
 # broken sample is the kind of defect a reader hits before any test does.
 files = ["src/seltz", "examples", "tests"]
 ignore_missing_imports = true
+# An ignore with nothing left to ignore is an error, so a fixed annotation does not
+# leave a dead marker behind. The two test modules below are exempt.
+warn_unused_ignores = true
 exclude = "src/seltz_public_api/"
+
+[[tool.mypy.overrides]]
+# protoc emits a module-level `ClassVar` for a top-level extension, which mypy
+# rejects. Only this one module carries an extension, and skipping it alone leaves
+# every generated message properly typed where `src/seltz` names one.
+module = "seltz_public_api.proto.v1.options_pb2"
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
+[[tool.mypy.overrides]]
+# Every ignore in these two exists only because `seltz` is typed. The pre-commit
+# mypy hook runs in its own environment, where this package is not installed, so
+# `seltz` resolves to `Any`, all of those ignores look dead, and the hook fails on
+# a tree the project-wide run calls clean. There is no `tests/__init__.py`, so
+# these are the module names both runs use.
+module = ["test_typing", "test_agent_waiters"]
+warn_unused_ignores = false

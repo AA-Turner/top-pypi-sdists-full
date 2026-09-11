@@ -60,23 +60,21 @@ def select_schedule(schedule: Optional[str]) -> str:
 
     if choice == 1:
         return "@auto"
-    elif choice == 2:
+    if choice == 2:
         return "@once"
-    else:
-        click.echo(FeedbackManager.warning(message="Invalid option. Defaulting to @auto."))
-        return "@auto"
+    click.echo(FeedbackManager.warning(message="Invalid option. Defaulting to @auto."))
+    return "@auto"
 
 
 def format_file_size(size: int) -> str:
     """Format file size in human-readable format."""
     if size >= 1024 * 1024 * 1024:
         return f"{size / (1024 * 1024 * 1024):.2f} GB"
-    elif size >= 1024 * 1024:
+    if size >= 1024 * 1024:
         return f"{size / (1024 * 1024):.2f} MB"
-    elif size >= 1024:
+    if size >= 1024:
         return f"{size / 1024:.2f} KB"
-    else:
-        return f"{size} B"
+    return f"{size} B"
 
 
 def select_sample_file_uri(
@@ -217,13 +215,12 @@ def get_format_from_uri(uri: str) -> str:
 
     if uri_lower.endswith(".csv"):
         return "csv"
-    elif uri_lower.endswith((".ndjson", ".jsonl", ".json")):
+    if uri_lower.endswith((".ndjson", ".jsonl", ".json")):
         return "ndjson"
-    elif uri_lower.endswith(".parquet"):
+    if uri_lower.endswith(".parquet"):
         return "parquet"
-    else:
-        # Default to ndjson for unknown formats
-        return "ndjson"
+    # Default to ndjson for unknown formats
+    return "ndjson"
 
 
 def meta_to_schema(meta: list[dict[str, Any]], file_format: str) -> str:
@@ -242,9 +239,8 @@ def meta_to_schema(meta: list[dict[str, Any]], file_format: str) -> str:
     if file_format == "csv":
         # CSV files don't use JSONPath
         return ",\n    ".join([f"`{col['name']}` {col['type']}" for col in meta])
-    else:
-        # NDJSON and Parquet use JSONPath
-        return ",\n    ".join([f"`{col['name']}` {col['type']} `json:$.{col['name']}`" for col in meta])
+    # NDJSON and Parquet use JSONPath
+    return ",\n    ".join([f"`{col['name']}` {col['type']} `json:$.{col['name']}`" for col in meta])
 
 
 def meta_to_s3_datasource_datafile(
@@ -276,7 +272,7 @@ def meta_to_s3_datasource_datafile(
         import_format if import_format is not None and import_format != "auto" else get_format_from_uri(bucket_uri)
     )
     schema: str = meta_to_schema(meta, file_format)
-    ds_content = f"""SCHEMA >
+    return f"""SCHEMA >
     {schema}
 
 ENGINE "MergeTree"
@@ -289,7 +285,6 @@ IMPORT_SCHEDULE "{import_schedule}"
 IMPORT_FORMAT "{file_format}"
 # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/s3#datasource-settings
 """
-    return ds_content
 
 
 def connection_create_s3(

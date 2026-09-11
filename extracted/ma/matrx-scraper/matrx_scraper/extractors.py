@@ -19,21 +19,40 @@ OCR_CONFIG = r"--oem 3 --psm 6"
 OCR_LOW_TEXT_THRESHOLD = 50
 
 
-def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str | None:
+def extract_text_from_pdf_bytes_or_reason(pdf_bytes: bytes) -> tuple[str | None, str | None]:
+    """Extract a PDF's text, or say WHY it could not be extracted.
+
+    Returns ``(text, None)`` on success and ``(None, reason)`` otherwise. The
+    reason is a short, human-readable cause a caller can put on the wire —
+    an ImportError here means the host image lacks the ``[pdf]`` extra, which
+    is a deployment defect, not "this PDF has no text".
+    """
     try:
         from matrx_files.specific_handlers.pdf_handler import (
             extract_text_from_pdf_bytes_sync,
         )
-
+    except ImportError as e:
+        reason = f"pdf support missing on this host (install matrx-scraper[pdf]): {e}"
+        vcprint(f"Error extracting text from PDF: {reason}", color="red")
+        return None, reason
+    try:
         text = extract_text_from_pdf_bytes_sync(
             pdf_bytes,
             force_ocr=False,
             use_ocr_threshold=OCR_LOW_TEXT_THRESHOLD if OCR_AVAILABLE else 0,
         )
-        return text.strip() if text.strip() else None
-    except Exception as e:
-        vcprint(f"Error extracting text from PDF: {e}", color="red")
-        return None
+    except Exception as e:  # noqa: BLE001 — the reason travels with the failure
+        reason = f"{type(e).__name__}: {e}"
+        vcprint(f"Error extracting text from PDF: {reason}", color="red")
+        return None, reason
+    if text.strip():
+        return text.strip(), None
+    return None, "the PDF yielded no text (scanned image with OCR unavailable, or empty)"
+
+
+def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str | None:
+    text, _reason = extract_text_from_pdf_bytes_or_reason(pdf_bytes)
+    return text
 
 
 def extract_text_from_image_bytes(image_bytes: bytes) -> str | None:

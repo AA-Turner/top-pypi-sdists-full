@@ -781,7 +781,7 @@ def meta_to_datasource_datafile(
     __value String -- Set KAFKA_STORE_RAW_VALUE to True to store the raw value of the message
     # __headers Map(String, String) -- Set KAFKA_STORE_HEADERS to True to store the headers of the message
     # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/kafka#kafka-meta-columns"""
-    ds_content = f"""SCHEMA >
+    return f"""SCHEMA >
     {schema}{"," if schema else ""}
     {kafka_meta_columns}
 
@@ -797,7 +797,6 @@ KAFKA_AUTO_OFFSET_RESET {kafka_auto_offset_reset}
 # KAFKA_STORE_HEADERS True
 # Learn more at https://www.tinybird.co/docs/forward/get-data-in/connectors/kafka#kafka-datasource-settings
 """
-    return ds_content
 
 
 def inject_tb_secret(secret_name: str, default_value: str) -> str:

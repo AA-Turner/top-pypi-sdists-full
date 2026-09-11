@@ -532,14 +532,9 @@ class UnifiedAIClient:
             instance = _provider_client_cache.get(name)
             if instance is not None:
                 return instance
-            if factory_name == "GroqSTT":
-                from matrx_ai.processing.audio.groq_transcription import GroqSTT
+            import matrx_ai.providers as providers_mod
 
-                instance = GroqSTT()
-            else:
-                import matrx_ai.providers as providers_mod
-
-                instance = getattr(providers_mod, factory_name)()
+            instance = getattr(providers_mod, factory_name)()
             _provider_client_cache[name] = instance
             return instance
 

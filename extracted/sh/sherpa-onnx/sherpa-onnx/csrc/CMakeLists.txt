@@ -384,7 +384,7 @@ if(APPLE)
   )
 endif()
 
-if(ANDROID_NDK)
+if(ANDROID)
   target_link_libraries(sherpa-onnx-core android log)
 endif()
 
@@ -830,7 +830,12 @@ if(SHERPA_ONNX_ENABLE_TESTS)
     context-graph-test.cc
     lfr-test.cc
     math-test.cc
+    offline-recognizer-canary-impl-test.cc
+    offline-recognizer-cohere-transcribe-impl-test.cc
+    offline-recognizer-funasr-nano-impl-test.cc
+    offline-recognizer-moonshine-v2-impl-test.cc
     offline-recognizer-qwen3-asr-impl-test.cc
+    offline-recognizer-shared-rng-test.cc
     offline-whisper-timestamp-rules-test.cc
     packed-sequence-test.cc
     pad-sequence-test.cc

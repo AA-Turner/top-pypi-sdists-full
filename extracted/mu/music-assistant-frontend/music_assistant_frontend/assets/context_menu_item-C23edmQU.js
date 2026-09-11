@@ -1,1 +1,0 @@
-import{l as e}from"./api-X7DUucPm.js";var t=t=>Array.isArray(t.labelArgs)?e(t.label,t.labelArgs):e(t.label,t.labelArgs??{});export{t};

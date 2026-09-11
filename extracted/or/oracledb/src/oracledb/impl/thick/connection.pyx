@@ -43,6 +43,7 @@ cdef class ConnectionParams:
         bytes token
         bytes private_key
         bytes driver_name
+        bytes transaction_priority
 
         const char *connect_string_ptr
         const char *username_ptr
@@ -54,6 +55,7 @@ cdef class ConnectionParams:
         const char *token_ptr
         const char *private_key_ptr
         const char *driver_name_ptr
+        const char *transaction_priority_ptr
 
         uint32_t connect_string_len
         uint32_t username_len
@@ -65,6 +67,7 @@ cdef class ConnectionParams:
         uint32_t token_len
         uint32_t private_key_len
         uint32_t driver_name_len
+        uint32_t transaction_priority_len
 
         uint32_t num_app_context
         list bytes_references
@@ -83,14 +86,6 @@ cdef class ConnectionParams:
         if self.super_sharding_key_columns is not NULL:
             cpython.PyMem_Free(self.super_sharding_key_columns)
 
-    cdef int _process_context_str(self, str value, const char **ptr,
-                                  uint32_t *length) except -1:
-        cdef bytes temp
-        temp = value.encode()
-        self.bytes_references.append(temp)
-        ptr[0] = temp
-        length[0] = <uint32_t> len(temp)
-
     cdef int _process_sharding_value(self, object value,
                                      dpiShardingKeyColumn *column) except -1:
         """
@@ -101,19 +96,15 @@ cdef class ConnectionParams:
             dpiTimestamp* timestamp
             bytes temp
         if isinstance(value, str):
-            temp = value.encode()
-            self.bytes_references.append(temp)
+            _process_str(value, <const char**> &column.value.asBytes.ptr,
+                         &column.value.asBytes.length, self.bytes_references)
             column.oracleTypeNum = DPI_ORACLE_TYPE_VARCHAR
             column.nativeTypeNum = DPI_NATIVE_TYPE_BYTES
-            column.value.asBytes.ptr = temp
-            column.value.asBytes.length = <uint32_t> len(temp)
         elif isinstance(value, (int, float, PY_TYPE_DECIMAL)):
-            temp = str(value).encode()
-            self.bytes_references.append(temp)
+            _process_str(str(value), <const char**> &column.value.asBytes.ptr,
+                         &column.value.asBytes.length, self.bytes_references)
             column.oracleTypeNum = DPI_ORACLE_TYPE_NUMBER
             column.nativeTypeNum = DPI_NATIVE_TYPE_BYTES
-            column.value.asBytes.ptr = temp
-            column.value.asBytes.length = <uint32_t> len(temp)
         elif isinstance(value, bytes):
             self.bytes_references.append(value)
             column.oracleTypeNum = DPI_ORACLE_TYPE_RAW
@@ -145,24 +136,10 @@ cdef class ConnectionParams:
                               type_name=type(value).__name__)
 
     cdef process_appcontext(self, list entries):
-        cdef:
-            object namespace, name, value
-            dpiAppContext *entry
-            ssize_t num_bytes
-            bytes temp
-            uint32_t i
         if self.bytes_references is None:
             self.bytes_references = []
-        self.num_app_context = <uint32_t> len(entries)
-        num_bytes = self.num_app_context * sizeof(dpiAppContext)
-        self.app_context = <dpiAppContext*> cpython.PyMem_Malloc(num_bytes)
-        for i in range(self.num_app_context):
-            namespace, name, value = entries[i]
-            entry = &self.app_context[i]
-            self._process_context_str(namespace, &entry.namespaceName,
-                                      &entry.namespaceNameLength)
-            self._process_context_str(name, &entry.name, &entry.nameLength)
-            self._process_context_str(value, &entry.value, &entry.valueLength)
+        _process_app_context(entries, &self.num_app_context, &self.app_context,
+                             self.bytes_references)
 
     cdef int process_sharding_key(self, list entries, bint is_super) except -1:
         """
@@ -186,6 +163,43 @@ cdef class ConnectionParams:
             self.num_sharding_key_columns = num_columns
         for i, entry in enumerate(entries):
             self._process_sharding_value(entry, &columns[i])
+
+
+cdef int _process_app_context(list entries, uint32_t *num_app_context,
+                              dpiAppContext **app_context,
+                              list bytes_refs) except -1:
+    """
+    Processes the application context entries in the provided list and returns
+    the structure required by ODPI-C.
+    """
+    cdef:
+        str namespace, name, value
+        dpiAppContext *entry
+        ssize_t i, num_bytes
+    num_app_context[0] = <uint32_t> len(entries)
+    num_bytes = num_app_context[0] * sizeof(dpiAppContext)
+    app_context[0] = <dpiAppContext*> cpython.PyMem_Malloc(num_bytes)
+    for i, (namespace, name, value) in enumerate(entries):
+        entry = &app_context[0][i]
+        _process_str(namespace, &entry.namespaceName,
+                     &entry.namespaceNameLength, bytes_refs)
+        _process_str(name, &entry.name, &entry.nameLength, bytes_refs)
+
+        _process_str(value, &entry.value, &entry.valueLength, bytes_refs)
+
+
+cdef int _process_str(str value, const char **ptr, uint32_t *length,
+                      list bytes_refs) except -1:
+    """
+    Processes a string into the format required by ODPI-C. The string is
+    encoded into UTF-8 and a reference retained so that the memory is not
+    reclaimed.
+    """
+    cdef bytes temp
+    temp = value.encode()
+    bytes_refs.append(temp)
+    ptr[0] = temp
+    length[0] = <uint32_t> len(temp)
 
 
 @cython.freelist(8)
@@ -212,6 +226,21 @@ cdef class ThickXid:
             self.xid_buf.branchQualifierLength = \
                     self.branch_qualifier_buf.length
             self.xid_ptr = &self.xid_buf
+
+
+def sync_operation(f):
+    """
+    Wraps the function as a generator function so that the top-level code runs
+    as expected.
+    """
+
+    @functools.wraps(f)
+    def wrapped_f(*args, **kwargs):
+        result = f(*args, **kwargs)
+        yield
+        return result
+
+    return wrapped_f
 
 
 cdef class ThickConnImpl(BaseConnImpl):
@@ -277,6 +306,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if func(self._handle, value_ptr, value_length) < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def begin_sessionless_transaction(self, bytes transaction_id,
                                       uint32_t timeout, bint defer_round_trip):
         """
@@ -301,6 +331,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def change_password(self, str old_password, str new_password):
         cdef:
             bytes username_bytes, old_password_bytes, new_password_bytes
@@ -310,8 +341,8 @@ cdef class ThickConnImpl(BaseConnImpl):
             const char *username_ptr = NULL
             uint32_t new_password_len = 0
             int status
-        if self.username is not None:
-            username_bytes = self.username.encode()
+        if self.connect_params.user is not None:
+            username_bytes = self.connect_params.user.encode()
             username_ptr = username_bytes
             username_len = <uint32_t> len(username_bytes)
         old_password_bytes = old_password.encode()
@@ -334,15 +365,29 @@ cdef class ThickConnImpl(BaseConnImpl):
             _raise_from_odpi()
         return is_healthy
 
-    def close(self, bint in_del=False):
+    def clear_app_context(self, str namespace):
+        cdef:
+            const char* namespace_ptr
+            uint32_t namespace_len
+            bytes namespace_bytes
+            int status
+        namespace_bytes = namespace.encode()
+        namespace_ptr = namespace_bytes
+        namespace_len = <uint32_t> len(namespace_bytes)
+        with nogil:
+            status = dpiConn_clearAppContext(self._handle, namespace_ptr,
+                                             namespace_len)
+        if status < 0:
+            _raise_from_odpi()
+
+    @sync_operation
+    def close(self):
         cdef:
             uint32_t mode = DPI_MODE_CONN_CLOSE_DEFAULT
             const char *tag_ptr = NULL
             uint32_t tag_length = 0
             bytes tag_bytes
             int status
-        if in_del and self._is_external:
-            return 0
         if self.tag is not None:
             mode = DPI_MODE_CONN_CLOSE_RETAG
             tag_bytes = self.tag.encode()
@@ -353,9 +398,10 @@ cdef class ThickConnImpl(BaseConnImpl):
             if status == DPI_SUCCESS:
                 dpiConn_release(self._handle)
                 self._handle = NULL
-        if status < 0 and not in_del:
+        if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def commit(self):
         cdef int status
         with nogil:
@@ -363,7 +409,8 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
-    def connect(self, ConnectParamsImpl user_params, ThickPoolImpl pool_impl):
+    @sync_operation
+    def connect(self, object pool):
         cdef:
             str full_user, cclass, token, private_key, connect_string
             bytes password_bytes, new_password_bytes
@@ -374,23 +421,22 @@ cdef class ThickConnImpl(BaseConnImpl):
             dpiVersionInfo version_info
             dpiErrorInfo error_info
             ConnectionParams params
+            ThickPoolImpl pool_impl
             int status
 
-        # specify that binding a string to a LOB value is possible in thick
-        # mode (will be removed in a future release)
-        self._allow_bind_str_to_lob = True
-
         # if the connection is part of the pool, get the pool creation params
-        if pool_impl is not None:
+        if pool is None:
+            pool_impl = None
+        else:
+            pool_impl = <ThickPoolImpl> pool._impl
             pool_params = pool_impl.connect_params
-            self.username = pool_impl.username
             self.dsn = pool_impl.dsn
 
         # set up connection parameters
         params = ConnectionParams()
-        password_bytes = user_params._get_password()
-        new_password_bytes = user_params._get_new_password()
-        full_user = user_params.get_full_user()
+        password_bytes = self.connect_params._get_password()
+        new_password_bytes = self.connect_params._get_new_password()
+        full_user = self.connect_params.get_full_user()
         if full_user is not None:
             params.username = full_user.encode()
             params.username_ptr = params.username
@@ -400,18 +446,18 @@ cdef class ThickConnImpl(BaseConnImpl):
             params.password_ptr = params.password
             params.password_len = <uint32_t> len(params.password)
         if pool_impl is None:
-            if user_params.thick_mode_dsn_passthrough:
+            if self.connect_params.thick_mode_dsn_passthrough:
                 connect_string = self.dsn
             else:
-                connect_string = user_params._get_connect_string()
+                connect_string = self.connect_params._get_connect_string()
             if connect_string is not None:
                 params.connect_string = connect_string.encode()
                 params.connect_string_ptr = params.connect_string
                 params.connect_string_len = \
                         <uint32_t> len(params.connect_string)
         if pool_impl is None \
-                or user_params._default_description.cclass is not None:
-            cclass = user_params._default_description.cclass
+                or self.connect_params._default_description.cclass is not None:
+            cclass = self.connect_params._default_description.cclass
         else:
             cclass = pool_params._default_description.cclass
         if cclass is not None:
@@ -422,24 +468,26 @@ cdef class ThickConnImpl(BaseConnImpl):
             params.new_password = new_password_bytes
             params.new_password_ptr = params.new_password
             params.new_password_len = <uint32_t> len(params.new_password)
-        if user_params.edition is not None:
-            params.edition = user_params.edition.encode()
+        if self.connect_params.edition is not None:
+            params.edition = self.connect_params.edition.encode()
             params.edition_ptr = params.edition
             params.edition_len = <uint32_t> len(params.edition)
-        if user_params.tag is not None:
-            params.tag = user_params.tag.encode()
+        if self.connect_params.tag is not None:
+            params.tag = self.connect_params.tag.encode()
             params.tag_ptr = params.tag
             params.tag_len = <uint32_t> len(params.tag)
-        if user_params.appcontext:
-            params.process_appcontext(user_params.appcontext)
-        if user_params.shardingkey:
-            params.process_sharding_key(user_params.shardingkey, False)
-        if user_params.supershardingkey:
-            params.process_sharding_key(user_params.supershardingkey, True)
-        if user_params._token is not None \
-                or user_params.access_token_callback is not None:
-            token = user_params._get_token()
-            private_key = user_params._get_private_key()
+        if self.connect_params.appcontext:
+            params.process_appcontext(self.connect_params.appcontext)
+        if self.connect_params.shardingkey:
+            params.process_sharding_key(self.connect_params.shardingkey, False)
+        if self.connect_params.supershardingkey:
+            params.process_sharding_key(
+                self.connect_params.supershardingkey, True
+            )
+        if self.connect_params._token is not None \
+                or self.connect_params.access_token_callback is not None:
+            token = self.connect_params._get_token()
+            private_key = self.connect_params._get_private_key()
             params.token = token.encode()
             params.token_ptr = params.token
             params.token_len = <uint32_t> len(params.token)
@@ -447,19 +495,25 @@ cdef class ThickConnImpl(BaseConnImpl):
                 params.private_key = private_key.encode()
                 params.private_key_ptr = params.private_key
                 params.private_key_len = <uint32_t> len(params.private_key)
-        if user_params.driver_name is not None:
-            params.driver_name = user_params.driver_name.encode()[:30]
+        if self.connect_params.driver_name is not None:
+            params.driver_name = self.connect_params.driver_name.encode()[:30]
             params.driver_name_ptr = params.driver_name
             params.driver_name_len = <uint32_t> len(params.driver_name)
+        if self.connect_params.transaction_priority is not None:
+            params.transaction_priority = \
+                    self.connect_params.transaction_priority.encode()
+            params.transaction_priority_ptr = params.transaction_priority
+            params.transaction_priority_len = \
+                    <uint32_t> len(params.transaction_priority)
 
         # set up common creation parameters
         if dpiContext_initCommonCreateParams(driver_info.context,
                                              &common_params) < 0:
             _raise_from_odpi()
         common_params.createMode |= DPI_MODE_CREATE_THREADED
-        if user_params.events:
+        if self.connect_params.events:
             common_params.createMode |= DPI_MODE_CREATE_EVENTS
-        if user_params.edition is not None:
+        if self.connect_params.edition is not None:
             common_params.edition = params.edition_ptr
             common_params.editionLength = params.edition_len
         if params.token is not None:
@@ -468,9 +522,13 @@ cdef class ThickConnImpl(BaseConnImpl):
             access_token.privateKey = params.private_key_ptr
             access_token.privateKeyLength = params.private_key_len
             common_params.accessToken = &access_token
-        if user_params.driver_name is not None:
+        if self.connect_params.driver_name is not None:
             common_params.driverName = params.driver_name_ptr
             common_params.driverNameLength = params.driver_name_len
+        if self.connect_params.transaction_priority is not None:
+            common_params.transactionPriority = params.transaction_priority_ptr
+            common_params.transactionPriorityLength = \
+                    params.transaction_priority_len
 
         # set up connection specific creation parameters
         if dpiContext_initConnCreateParams(driver_info.context,
@@ -479,37 +537,38 @@ cdef class ThickConnImpl(BaseConnImpl):
         if params.username_len == 0 and params.password_len == 0:
             conn_params.externalAuth = 1
         else:
-            conn_params.externalAuth = user_params.externalauth
+            conn_params.externalAuth = self.connect_params.externalauth
         if params.cclass is not None:
             conn_params.connectionClass = params.cclass_ptr
             conn_params.connectionClassLength = params.cclass_len
         if new_password_bytes is not None:
             conn_params.newPassword = params.new_password_ptr
             conn_params.newPasswordLength = params.new_password_len
-        if user_params.appcontext:
+        if self.connect_params.appcontext:
             conn_params.appContext = params.app_context
             conn_params.numAppContext = params.num_app_context
-        if user_params.shardingkey:
+        if self.connect_params.shardingkey:
             conn_params.shardingKeyColumns = params.sharding_key_columns
             conn_params.numShardingKeyColumns = params.num_sharding_key_columns
-        if user_params.supershardingkey:
+        if self.connect_params.supershardingkey:
             conn_params.superShardingKeyColumns = \
                     params.super_sharding_key_columns
             conn_params.numSuperShardingKeyColumns = \
                     params.num_super_sharding_key_columns
-        if user_params.tag is not None:
+        if self.connect_params.tag is not None:
             conn_params.tag = params.tag_ptr
             conn_params.tagLength = params.tag_len
-        if user_params._external_handle != 0:
-            conn_params.externalHandle = <void*> user_params._external_handle
+        if self.connect_params._external_handle != 0:
+            conn_params.externalHandle = \
+                    <void*> self.connect_params._external_handle
             self._is_external = True
         if pool_impl is not None:
             conn_params.pool = pool_impl._handle
-        common_params.stmtCacheSize = user_params.stmtcachesize
-        conn_params.authMode = user_params.mode
-        conn_params.matchAnyTag = user_params.matchanytag
-        if user_params._default_description.purity != PURITY_DEFAULT:
-            conn_params.purity = user_params._default_description.purity
+        common_params.stmtCacheSize = self.connect_params.stmtcachesize
+        conn_params.authMode = self.connect_params.mode
+        conn_params.matchAnyTag = self.connect_params.matchanytag
+        if self.connect_params._default_description.purity != PURITY_DEFAULT:
+            conn_params.purity = self.connect_params._default_description.purity
         elif pool_impl is not None:
             conn_params.purity = pool_params._default_description.purity
 
@@ -559,6 +618,8 @@ cdef class ThickConnImpl(BaseConnImpl):
         if conn_params.outTagLength > 0:
             self.tag = conn_params.outTag[:conn_params.outTagLength].decode()
 
+        return self
+
     def create_msg_props_impl(self):
         cdef ThickMsgPropsImpl impl
         impl = ThickMsgPropsImpl.__new__(ThickMsgPropsImpl)
@@ -601,6 +662,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         impl.client_initiated = client_initiated
         return impl
 
+    @sync_operation
     def create_temp_lob_impl(self, DbType dbtype):
         return ThickLobImpl._create(self, dbtype, NULL)
 
@@ -721,6 +783,17 @@ cdef class ThickConnImpl(BaseConnImpl):
             _raise_from_odpi()
         return value
 
+    def get_transaction_priority(self):
+        cdef:
+            uint32_t value_length
+            const char *value
+        if dpiConn_getTransactionPriority(self._handle, &value,
+                                          &value_length) < 0:
+            _raise_from_odpi()
+        if value is not NULL:
+            return value[:value_length].decode()
+
+    @sync_operation
     def get_type(self, object conn, str name):
         cdef:
             dpiObjectType *handle
@@ -760,6 +833,10 @@ cdef class ThickConnImpl(BaseConnImpl):
     def set_dbop(self, str value):
         self._set_text_attr(dpiConn_setDbOp, value)
 
+    def set_transaction_priority(self, str value):
+        self._set_text_attr(dpiConn_setTransactionPriority, value)
+
+    @sync_operation
     def ping(self):
         cdef int status
         with nogil:
@@ -767,6 +844,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def resume_sessionless_transaction(self, bytes transaction_id,
                                        uint32_t timeout,
                                        bint defer_round_trip):
@@ -785,12 +863,34 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def rollback(self):
         cdef int status
         with nogil:
             status = dpiConn_rollback(self._handle)
         if status < 0:
             _raise_from_odpi()
+
+    def set_app_context(self, str namespace, **values):
+        cdef:
+            dpiAppContext *dpi_app_context = NULL
+            uint32_t num_app_context
+            list app_context = [
+                (namespace, name, value) for name, value in values.items()
+            ]
+            list bytes_refs = []
+            int status
+        try:
+            _process_app_context(app_context, &num_app_context,
+                                 &dpi_app_context, bytes_refs)
+            with nogil:
+                status = dpiConn_setAppContext(self._handle, num_app_context,
+                                               dpi_app_context)
+            if status < 0:
+                _raise_from_odpi()
+        finally:
+            if dpi_app_context is not NULL:
+                cpython.PyMem_Free(dpi_app_context)
 
     def set_econtext_id(self, value):
         self._set_text_attr(dpiConn_setEcontextId, value)
@@ -837,6 +937,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def suspend_sessionless_transaction(self):
         """
         Suspend the currently active sessionless transaction.
@@ -847,6 +948,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def tpc_begin(self, xid, uint32_t flags, uint32_t timeout):
         cdef:
             ThickXid thick_xid = ThickXid(xid)
@@ -857,6 +959,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def tpc_commit(self, xid, bint one_phase):
         cdef:
             ThickXid thick_xid = ThickXid(xid)
@@ -867,6 +970,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def tpc_end(self, xid, uint32_t flags):
         cdef:
             ThickXid thick_xid = ThickXid(xid)
@@ -876,6 +980,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def tpc_forget(self, xid):
         cdef:
             ThickXid thick_xid = ThickXid(xid)
@@ -885,6 +990,7 @@ cdef class ThickConnImpl(BaseConnImpl):
         if status < 0:
             _raise_from_odpi()
 
+    @sync_operation
     def tpc_prepare(self, xid):
         cdef:
             ThickXid thick_xid = ThickXid(xid)
@@ -897,6 +1003,7 @@ cdef class ThickConnImpl(BaseConnImpl):
             _raise_from_odpi()
         return commit_needed
 
+    @sync_operation
     def tpc_rollback(self, xid):
         cdef:
             ThickXid thick_xid = ThickXid(xid)

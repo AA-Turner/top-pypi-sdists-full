@@ -19053,13 +19053,27 @@ class IPolicyValidationContext(typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="accountId")
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''The account ID for these templates, if known.'''
+        '''(deprecated) The account ID for these templates, if known.
+
+        Only set if all stacks have the exact same account ID.
+
+        :deprecated: Use ``stackTemplates`` instead, which contains the account ID for each stack.
+
+        :stability: deprecated
+        '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> typing.Optional[builtins.str]:
-        '''The region for these templates, if known.'''
+        '''(deprecated) The region for these templates, if known.
+
+        Only set if all stacks have the exact same region.
+
+        :deprecated: Use ``stackTemplates`` instead, which contains the region for each stack.
+
+        :stability: deprecated
+        '''
         ...
 
 
@@ -19095,13 +19109,27 @@ class _IPolicyValidationContextProxy:
     @builtins.property
     @jsii.member(jsii_name="accountId")
     def account_id(self) -> typing.Optional[builtins.str]:
-        '''The account ID for these templates, if known.'''
+        '''(deprecated) The account ID for these templates, if known.
+
+        Only set if all stacks have the exact same account ID.
+
+        :deprecated: Use ``stackTemplates`` instead, which contains the account ID for each stack.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "accountId"))
 
     @builtins.property
     @jsii.member(jsii_name="region")
     def region(self) -> typing.Optional[builtins.str]:
-        '''The region for these templates, if known.'''
+        '''(deprecated) The region for these templates, if known.
+
+        Only set if all stacks have the exact same region.
+
+        :deprecated: Use ``stackTemplates`` instead, which contains the region for each stack.
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "region"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
@@ -22868,6 +22896,8 @@ class PolicyValidationReportStatusBeta1(enum.Enum):
     name_mapping={
         "stack_construct_path": "stackConstructPath",
         "template_path": "templatePath",
+        "account_id": "accountId",
+        "region": "region",
     },
 )
 class PolicyValidationStack:
@@ -22876,11 +22906,15 @@ class PolicyValidationStack:
         *,
         stack_construct_path: builtins.str,
         template_path: builtins.str,
+        account_id: typing.Optional[builtins.str] = None,
+        region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Information about a single stack that is being validated.
 
         :param stack_construct_path: The Stack's construct path.
         :param template_path: The path to the template file on disk.
+        :param account_id: The account ID for this stack, if known. Default: - the account ID is unknown
+        :param region: The region for this stack, if known. Default: - the region is unknown
 
         :exampleMetadata: fixture=_generated
 
@@ -22892,17 +22926,27 @@ class PolicyValidationStack:
             
             policy_validation_stack = cdk.PolicyValidationStack(
                 stack_construct_path="stackConstructPath",
-                template_path="templatePath"
+                template_path="templatePath",
+            
+                # the properties below are optional
+                account_id="accountId",
+                region="region"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bfbe85ae25b7892e6189bd2f51f50cdebaf86211309077fef2674fc3f23c2185)
             check_type(argname="argument stack_construct_path", value=stack_construct_path, expected_type=type_hints["stack_construct_path"])
             check_type(argname="argument template_path", value=template_path, expected_type=type_hints["template_path"])
+            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
+            check_type(argname="argument region", value=region, expected_type=type_hints["region"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "stack_construct_path": stack_construct_path,
             "template_path": template_path,
         }
+        if account_id is not None:
+            self._values["account_id"] = account_id
+        if region is not None:
+            self._values["region"] = region
 
     @builtins.property
     def stack_construct_path(self) -> builtins.str:
@@ -22917,6 +22961,24 @@ class PolicyValidationStack:
         result = self._values.get("template_path")
         assert result is not None, "Required property 'template_path' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def account_id(self) -> typing.Optional[builtins.str]:
+        '''The account ID for this stack, if known.
+
+        :default: - the account ID is unknown
+        '''
+        result = self._values.get("account_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def region(self) -> typing.Optional[builtins.str]:
+        '''The region for this stack, if known.
+
+        :default: - the region is unknown
+        '''
+        result = self._values.get("region")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -44145,6 +44207,7 @@ __all__ = [
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
     "aws_qldb",
@@ -44494,6 +44557,7 @@ if typing.TYPE_CHECKING:
     from . import aws_pinpoint as aws_pinpoint
     from . import aws_pinpointemail as aws_pinpointemail
     from . import aws_pipes as aws_pipes
+    from . import aws_pricingplanmanager as aws_pricingplanmanager
     from . import aws_proton as aws_proton
     from . import aws_qbusiness as aws_qbusiness
     from . import aws_qldb as aws_qldb
@@ -44841,6 +44905,7 @@ _SUBMODULES = {
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
     "aws_qldb",
@@ -47514,6 +47579,8 @@ def _typecheckingstub__bfbe85ae25b7892e6189bd2f51f50cdebaf86211309077fef2674fc3f
     *,
     stack_construct_path: builtins.str,
     template_path: builtins.str,
+    account_id: typing.Optional[builtins.str] = None,
+    region: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -202,6 +202,9 @@ def _identifier_value(node, resolver, report, edits, scope: str = "") -> None:
         replacement = resolver.dictionary.token(stem)
         if replacement:
             report.user_done += 1
+            # A file name is spelled by the dictionary alone - no platform table names the
+            # project's own resources - so the entry is what renames the file with it.
+            resolver.note_entry_only(stem, replacement)
             _set_scalar(node, f"{replacement}.{extension}", edits)
         else:
             line, col = _at(node)
@@ -337,14 +340,37 @@ def _generic_scalar(node, resolver, report, edits, *, localizable: bool = False)
         report.note_text_kept(value, line, col)
 
 
+def _is_enum_class(declared: str) -> bool:
+    """Does this declared type name an ENUMERATION of the platform?
+
+    The distribution suffixes an enumeration class with `Enum`, and most of them carry the
+    longer `G5Enum` - but not all, and testing for the longer suffix let the rest through as
+    data. The languages of a project are the case that showed it: `LocalizationLanguages` is a
+    list of `LanguageCmptEnum`, and its two values came out half translated - the English one
+    answered by the identifier plane by accident (the platform knows that term), the Russian
+    one by nothing at all. `DefaultLanguage` stayed data for the same reason, and was only
+    invisible because the language flip rewrites that line afterwards.
+
+    Neither property is typed `kind: enum` in the metamodel - one is a list of the class, the
+    other a block of it - so the enumeration branch is reached by the type name alone.
+    """
+    return declared.endswith("Enum")
+
+
 def _enum_spelling(value: str, enum_name: str | None, resolver, report) -> str | None:
     """The English spelling of one enumeration value: its enumeration's table, then the
     dictionary (a project enumeration has no platform table); None when neither answers."""
     replacement = platform_map.enum_value_english(enum_name or "", value)
-    if replacement is None:
-        replacement = resolver.dictionary.token(value)
-        if replacement:
-            report.user_done += 1
+    if replacement is not None:
+        # The platform answers first here, so an entry spelling the value the same way is
+        # never even asked - and that is exactly the shape of an entry that hides a hole in
+        # the data: the languages of a project were carried by one such pair.
+        resolver.note_platform_win(value, replacement)
+        return replacement
+    replacement = resolver.dictionary.token(value)
+    if replacement:
+        report.user_done += 1
+        resolver.note_entry_only(value, replacement)
     return replacement
 
 
@@ -545,13 +571,16 @@ def _meta_value(key, vnode, record, cls, kind, resolver, report, edits, owner: s
                     _dispatch_value(item, dispatch_key, target, edits)
                 # The items of one collection share a namespace: two names translated into
                 # one word is what the platform refuses on apply.
-                own_name = _mapping_value(item, "Имя")
+                name_node = _mapping_value_node(item, "Имя")
+                own_name = name_node.value if name_node is not None else None
                 if own_name and has_cyrillic(own_name):
                     # The very resolution the rewrite uses, qualifier included: a check that
                     # asked differently reported collisions the rewrite does not make.
                     translated, _plane = resolver.identifier(own_name, scope=owner)
                     if translated:
-                        report.note_name(f"{namespace}.{key}", own_name, translated)
+                        line, col = _at(name_node)
+                        report.note_name(f"{namespace}.{key}", own_name, translated,
+                                         line, col)
                 if target:
                     _walk_meta_mapping(item, target, metamodel.properties_of_class(target), None,
                                        resolver, report, edits, owner=owner,
@@ -559,7 +588,7 @@ def _meta_value(key, vnode, record, cls, kind, resolver, report, edits, owner: s
                 else:
                     _walk_component_mapping(item, resolver, report, edits, owner)
             elif isinstance(item, yaml.ScalarNode):
-                if item_cls.endswith("G5Enum"):
+                if _is_enum_class(item_cls):
                     _enum_scalar(item, item_cls, resolver, report, edits)
                 else:
                     _identifier_value(item, resolver, report, edits)
@@ -601,7 +630,7 @@ def _meta_value(key, vnode, record, cls, kind, resolver, report, edits, owner: s
         if isinstance(value, str) and has_cyrillic(value):
             _set_scalar(vnode, translate_type_expression(value, resolver, report, at=_at(vnode)), edits)
         return
-    if declared.endswith("G5Enum"):
+    if _is_enum_class(declared):
         _enum_scalar(vnode, declared, resolver, report, edits)
         return
     if declared in ("Term", "AttributeName"):
@@ -619,11 +648,17 @@ def _meta_value(key, vnode, record, cls, kind, resolver, report, edits, owner: s
 
 def _mapping_value(node, key: str) -> str | None:
     """The scalar value of the given key of a mapping (`Name`, or a dispatch key)."""
+    found = _mapping_value_node(node, key)
+    return found.value if found is not None else None
+
+
+def _mapping_value_node(node, key: str):
+    """The scalar NODE of that key - the value with its place, for a report that names one."""
     wanted = (key, "Name") if key == "Имя" else (key,)
     for knode, vnode in node.value:
         if isinstance(knode, yaml.ScalarNode) and knode.value in wanted \
                 and isinstance(vnode, yaml.ScalarNode):
-            return vnode.value
+            return vnode
     return None
 
 
@@ -785,6 +820,9 @@ def _component_key_value(knode, vnode, comp_type, resolver, report, edits, owner
             replacement = resolver.dictionary.token(key)
             if replacement:
                 report.user_done += 1
+                # Nothing of the platform names this key - it is a custom property or event
+                # of a project component - so the entry alone keeps it translated.
+                resolver.note_entry_only(key, replacement)
                 _set_scalar(knode, replacement, edits)
             else:
                 line, col = _at(knode)
@@ -908,7 +946,9 @@ def _walk_localization_section(node, resolver, report, edits, scope: str = "") -
             # dictionaries may hold the same key, and the platform only refuses a repeat
             # inside one element. Calling that a collision sent people renaming keys that
             # never met.
-            report.note_name(f"localization:{scope or '?'}", knode.value, replacement)
+            line, col = _at(knode)
+            report.note_name(f"localization:{scope or '?'}", knode.value, replacement,
+                             line, col)
             _set_scalar(knode, replacement, edits)
         else:
             line, col = _at(knode)

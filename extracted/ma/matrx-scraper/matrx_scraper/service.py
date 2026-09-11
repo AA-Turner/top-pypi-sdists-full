@@ -40,6 +40,7 @@ from matrx_scraper.db.models_scraper import ScrapeFailureLog, ScrapeRetryQueue
 from matrx_scraper.orchestrator import ScrapeResult, scrape_many_stream
 from matrx_scraper.scrape_options import ScrapeOptions, apply_field_flags
 from matrx_scraper.search.search import async_brave_search
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 # Historical private name — this module's own call sites still read
 # `_apply_field_flags`. The definition now lives in `scrape_options` so
@@ -126,7 +127,7 @@ async def _fire_and_forget_failure_log(result: ScrapeResult) -> None:
         # instead of vanishing (never-swallow-writes doctrine).
         vcprint(
             f"[ScrapeService] failure-log/retry-enqueue write dropped (best-effort) "
-            f"for {result.url}: {type(exc).__name__}: {exc}",
+            f"for {redact_url_secrets(result.url)}: {type(exc).__name__}: {redact_url_secrets(exc)}",
             color="red",
         )
         await capture_error(

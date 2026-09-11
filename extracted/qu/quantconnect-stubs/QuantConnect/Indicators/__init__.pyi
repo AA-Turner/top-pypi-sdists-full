@@ -11892,6 +11892,71 @@ class LogReturn(QuantConnect.Indicators.WindowIndicator[QuantConnect.Indicators.
         ...
 
 
+class LeastSquaresMovingAverageWithReference(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.Market.IBaseDataBar]):
+    """
+    The Least Squares Moving Average (LSMA) of a target in relation with a reference fits a least
+    squares regression line of the target close prices on the reference close prices over the given
+    period, instead of on the time index used by LeastSquaresMovingAverage. It then
+    returns the value the regression line takes for the most recent reference price, which is the
+    price the target is expected to have given where the reference is trading.
+    
+    It is common practice to use the SPX index as the reference, so that the indicator describes
+    the target price in terms of the overall market level.
+    
+    The indicator only updates when both assets have a price for a time step. When a bar is missing
+    for one of the assets, the indicator value fills forward to improve the accuracy of the indicator.
+    """
+
+    @property
+    def intercept(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """The point where the regression line crosses the y-axis (target price axis)"""
+        ...
+
+    @property
+    def slope(self) -> QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.IndicatorDataPoint]:
+        """The regression line slope, the target price change per unit of reference price change"""
+        ...
+
+    @overload
+    def __init__(self, name: str, target_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int) -> None:
+        """
+        Creates a new LeastSquaresMovingAverageWithReference indicator with the specified name,
+        target, reference and period values
+        
+        :param name: The name of this indicator
+        :param target_symbol: The target symbol of this indicator
+        :param reference_symbol: The reference symbol of this indicator
+        :param period: The period of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self, target_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int) -> None:
+        """
+        Creates a new LeastSquaresMovingAverageWithReference indicator with the specified target,
+        reference and period values
+        
+        :param target_symbol: The target symbol of this indicator
+        :param reference_symbol: The reference symbol of this indicator
+        :param period: The period of this indicator
+        """
+        ...
+
+    def compute_indicator(self) -> float:
+        """
+        Computes the value the regression line of the target on the reference takes for the
+        most recent reference price
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator and all sub-indicators (Intercept, Slope)"""
+        ...
+
+
 class WindowIndicator(typing.Generic[QuantConnect_Indicators_WindowIndicator_T], QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_WindowIndicator_T], QuantConnect.Indicators.IIndicatorWarmUpPeriodProvider, metaclass=abc.ABCMeta):
     """Represents an indicator that acts on a rolling window of data"""
 

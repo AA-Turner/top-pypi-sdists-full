@@ -24,12 +24,14 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import lief
+from capstone.arm64 import ARM64_OP_IMM, ARM64_OP_MEM
 
-from smda.aarch64.AArch64Backend import AArch64Backend
+from smda.aarch64.AArch64Backend import AArch64Backend, _dataRefImmediatesFromWord
 from smda.aarch64.AArch64CapstoneVerification import is_control_flow_mnemonic
 from smda.aarch64.AArch64InstructionEscaper import AArch64InstructionEscaper
 from smda.aarch64.definitions import (
     EXCEPTION_RETURN_INS,
+    adr_pc_value,
     adrp_page_value,
     is_conditional_branch,
     is_trap,
@@ -1006,6 +1008,22 @@ class TestAArch64PrologueDiscovery(unittest.TestCase):
     def test_the_flag_is_on_by_default(self):
         self.assertTrue(SmdaConfig().USE_AARCH64_BTI_TARGET_TYPE)
 
+    def test_prologue_scan_skips_addresses_outside_code_areas(self):
+        prologue = 0xA9BF7BFD.to_bytes(4, "little")
+        binary_info = BinaryInfo(prologue * 2)
+        binary_info.base_addr = BASE
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(
+            binary_info=binary_info,
+            analysis_timeout=False,
+            code_map={},
+        )
+        manager.bitness = 64
+        manager._code_areas = [[BASE + 4, BASE + 8]]
+        manager.locatePrologueCandidates()
+        self.assertNotIn(BASE, manager.candidates)
+        self.assertIn(BASE + 4, manager.candidates)
+
 
 class TestAArch64FunctionBoundaries(unittest.TestCase):
     def _disassemble_words(self, words, oep=None):
@@ -1520,6 +1538,199 @@ class TestAArch64AddressMaterialization(unittest.TestCase):
         # a zero immediate yields the PC's own page regardless of PC offset within it
         self.assertEqual(adrp_page_value(0x90000000, 0x401ABC), 0x401000)
 
+    def test_adr_pc_value_is_pc_plus_signed_imm(self):
+        self.assertEqual(adr_pc_value(0x10000000, 0x401000), 0x401000)
+        self.assertEqual(_dataRefImmediatesFromWord((0x90000000).to_bytes(4, "little"), 0x401ABC), (0x401000,))
+        self.assertEqual(_dataRefImmediatesFromWord((0x91000400).to_bytes(4, "little"), 0x401000), (1,))
+        self.assertEqual(_dataRefImmediatesFromWord((0x91000000).to_bytes(4, "little"), 0x401000), (0,))
+        self.assertIsNone(_dataRefImmediatesFromWord((0xD503201F).to_bytes(4, "little"), 0x401000))
+        self.assertEqual(_dataRefImmediatesFromWord((0xD2800020).to_bytes(4, "little"), 0x401000), (1,))
+        self.assertEqual(_dataRefImmediatesFromWord((0xF2800020).to_bytes(4, "little"), 0x401000), (1,))
+        self.assertEqual(_dataRefImmediatesFromWord((0x12800008).to_bytes(4, "little"), 0x401000), (-1,))
+        self.assertEqual(_dataRefImmediatesFromWord((0x7140069F).to_bytes(4, "little"), 0x401000), (1,))
+        self.assertIsNone(_dataRefImmediatesFromWord(b"\x00", 0x401000))
+        self.assertIsNone(_dataRefImmediatesFromWord((0x52C00000).to_bytes(4, "little"), 0x401000))
+        self.assertEqual(adr_pc_value(0x10800000, 0x401000), 0x301000)
+        self.assertEqual(_dataRefImmediatesFromWord((0x10000000).to_bytes(4, "little"), 0x401000), (0x401000,))
+        self.assertEqual(_dataRefImmediatesFromWord((0x12B00008).to_bytes(4, "little"), 0x401000), (0x7FFFFFFF,))
+
+    def test_data_ref_word_skips_register_relative_loads(self):
+        unsigned_ldr = 0xF9400820  # ldr x0, [x1, #0x10]
+        unsigned_str = 0xF9000000  # str x0, [x0]
+        ldur = 0xF8400000  # ldur x0, [x0]
+        ldr_reg = 0xF8616800  # ldr x0, [x0, x1]
+        ldr_pre = 0xF8408C20  # ldr x0, [x1, #8]!
+        ldtr = 0xF85F0820  # ldtr x0, [x1, #-0x10]
+        ldraa = 0xF8616C20  # ldraa x0, [x1, #-0xf50]!
+        ldp_signed = 0xA9400400  # ldp x0, x1, [x0]
+        ldp_pre = 0xA9C17BFD  # ldp x29, x30, [sp, #0x10]!
+        ldnp = 0xA8400400  # ldnp x0, x1, [x0]
+        ldp_post = 0xA8C17BFD  # ldp x29, x30, [sp], #0x10
+        str_post = 0xF8008409  # str x9, [x0], #8
+        self.assertEqual(_dataRefImmediatesFromWord(unsigned_ldr.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(unsigned_str.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldur.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldr_reg.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldr_pre.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldtr.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldraa.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldp_signed.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldp_pre.to_bytes(4, "little"), 0), ())
+        self.assertEqual(_dataRefImmediatesFromWord(ldnp.to_bytes(4, "little"), 0), ())
+        self.assertIsNone(_dataRefImmediatesFromWord(ldp_post.to_bytes(4, "little"), 0))
+        self.assertIsNone(_dataRefImmediatesFromWord(str_post.to_bytes(4, "little"), 0))
+
+    def test_record_data_refs_capstone_fallback_handles_empty_decode_and_abs_mem(self):
+        nop = (0xD503201F).to_bytes(4, "little")
+
+        class _Mem:
+            def __init__(self, base, disp):
+                self.base = base
+                self.disp = disp
+
+        class _Operand:
+            def __init__(self, op_type, imm=None, mem=None):
+                self.type = op_type
+                self.imm = imm
+                self.mem = mem
+
+        class _Insn:
+            def __init__(self, operands):
+                self.operands = operands
+
+        class _Capstone:
+            def __init__(self, insns):
+                self._insns = insns
+
+            def disasm(self, *_args, **_kwargs):
+                yield from self._insns
+
+        class _State:
+            def __init__(self):
+                self.refs = []
+
+            def addDataRef(self, addr_from, addr_to, size=1):
+                del size
+                self.refs.append((addr_from, addr_to))
+
+        def _disassembler(insns, raw=nop, size=0x4000, areas=None):
+            binary_info = BinaryInfo(raw)
+            binary_info.base_addr = 0
+            binary_info.binary_size = size
+            binary_info.code_areas = areas or [[0x1000, 0x2000]]
+            disassembly = SimpleNamespace(
+                binary_info=binary_info,
+                getBytes=lambda _addr, _size: raw,
+                isAddrWithinMemoryImage=lambda value: 0 <= value < size,
+            )
+            return SimpleNamespace(disassembly=disassembly, capstone=_Capstone(insns))
+
+        empty_state = _State()
+        AArch64Backend._recordDataRefs(_disassembler([]), (0, 4, "nop", "#0x10"), empty_state)
+        self.assertEqual(empty_state.refs, [])
+
+        short_state = _State()
+        AArch64Backend._recordDataRefs(_disassembler([], raw=b"\x00"), (0, 4, "nop", "#0x10"), short_state)
+        self.assertEqual(short_state.refs, [])
+
+        mem_state = _State()
+        AArch64Backend._recordDataRefs(
+            _disassembler(
+                [
+                    _Insn(
+                        [
+                            _Operand(ARM64_OP_MEM, mem=_Mem(0, 0x3000)),
+                            _Operand(ARM64_OP_IMM, imm=1),
+                            _Operand(0, imm=None, mem=None),
+                        ]
+                    )
+                ]
+            ),
+            (0, 4, "ldr", "#0x3000"),
+            mem_state,
+        )
+        self.assertEqual(mem_state.refs, [(0, 0x3000), (0, 1)])
+
+        word_state = _State()
+        adrp = (0x90000000).to_bytes(4, "little")
+        AArch64Backend._recordDataRefs(
+            _disassembler([], raw=adrp, size=0x500000, areas=[[0x1000, 0x2000]]),
+            (0x401ABC, 4, "adrp", "#0x401000"),
+            word_state,
+        )
+        self.assertEqual(word_state.refs, [(0x401ABC, 0x401000)])
+
+        cf_state = _State()
+        AArch64Backend._recordDataRefs(_disassembler([]), (0, 4, "bl", "#0x10"), cf_state)
+        self.assertEqual(cf_state.refs, [])
+
+        in_code_state = _State()
+        AArch64Backend._recordDataRefs(
+            _disassembler([], raw=adrp, size=0x500000, areas=[[0x401000, 0x402000]]),
+            (0x401ABC, 4, "adrp", "#0x401000"),
+            in_code_state,
+        )
+        self.assertEqual(in_code_state.refs, [])
+
+        dup_state = _State()
+        import smda.aarch64.AArch64Backend as ab_mod
+
+        original = ab_mod._dataRefImmediatesFromWord
+        ab_mod._dataRefImmediatesFromWord = lambda *_args, **_kwargs: (0x3000, 0x3000)
+        try:
+            AArch64Backend._recordDataRefs(_disassembler([], raw=nop), (0, 4, "nop", "#0x3000"), dup_state)
+        finally:
+            ab_mod._dataRefImmediatesFromWord = original
+        self.assertEqual(dup_state.refs, [(0, 0x3000)])
+
+        class _BoomCapstone:
+            def disasm(self, *_args, **_kwargs):
+                raise AssertionError("capstone detail should not run for a word-path encoding")
+
+        def _boom_disassembler(raw, size=0x4000, areas=None):
+            binary_info = BinaryInfo(raw)
+            binary_info.base_addr = 0
+            binary_info.binary_size = size
+            binary_info.code_areas = areas or [[0x1000, 0x2000]]
+            disassembly = SimpleNamespace(
+                binary_info=binary_info,
+                getBytes=lambda _addr, _size: raw,
+                isAddrWithinMemoryImage=lambda value: 0 <= value < size,
+            )
+            return SimpleNamespace(disassembly=disassembly, capstone=_BoomCapstone())
+
+        add0_state = _State()
+        add0 = (0x91000000).to_bytes(4, "little")
+        AArch64Backend._recordDataRefs(_boom_disassembler(add0), (0, 4, "add", "x0, x0, #0"), add0_state)
+        self.assertEqual(add0_state.refs, [(0, 0)])
+
+        unsigned_state = _State()
+        unsigned_ldr = (0xF9400820).to_bytes(4, "little")
+        AArch64Backend._recordDataRefs(
+            _boom_disassembler(unsigned_ldr),
+            (0, 4, "ldr", "x0, [x1, #0x10]"),
+            unsigned_state,
+        )
+        self.assertEqual(unsigned_state.refs, [])
+
+        pre_state = _State()
+        ldr_pre = (0xF8408C20).to_bytes(4, "little")
+        AArch64Backend._recordDataRefs(
+            _boom_disassembler(ldr_pre),
+            (0, 4, "ldr", "x0, [x1, #8]!"),
+            pre_state,
+        )
+        self.assertEqual(pre_state.refs, [])
+
+        pair_pre_state = _State()
+        ldp_pre = (0xA9C17BFD).to_bytes(4, "little")
+        AArch64Backend._recordDataRefs(
+            _boom_disassembler(ldp_pre),
+            (0, 4, "ldp", "x29, x30, [sp, #0x10]!"),
+            pair_pre_state,
+        )
+        self.assertEqual(pair_pre_state.refs, [])
+
     def test_adrp_ldr_ref_recovery(self):
         base = 0x400000
         words = [
@@ -1677,6 +1888,19 @@ class TestAArch64GapScan(unittest.TestCase):
 
         self.assertFalse(manager._isLikelyInteriorBtiCandidate(BASE + 4, 0xD503245F))
 
+    def test_prologue_scan_stops_when_the_analysis_timeout_is_already_tripped(self):
+        binary_info = BinaryInfo(b"\x00" * 8)
+        binary_info.base_addr = BASE
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = SimpleNamespace(
+            binary_info=binary_info,
+            analysis_timeout=True,
+            code_map={},
+        )
+        manager.bitness = 64
+        manager.locatePrologueCandidates()
+        self.assertEqual(manager.candidates, {})
+
 
 class TestAArch64StaticFixture(unittest.TestCase):
     @classmethod
@@ -1713,23 +1937,34 @@ class TestAArch64StaticFixture(unittest.TestCase):
         self.assertEqual(self.report.bitness, 64)
         self.assertEqual(self.report.base_addr, 0x400000)
         self.assertEqual(self.report.oep, 0x534)
-        self.assertEqual(len(self.report.xcfg), 278)
-        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getInstructions()), 19882)
-        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getBlocks()), 3499)
+        self.assertEqual(len(self.report.xcfg), 276)
+        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getInstructions()), 19735)
+        self.assertEqual(sum(1 for f in self.report.getFunctions() for _ in f.getBlocks()), 3476)
         self.assertIsNotNone(self.report.getFunction(0x400534))
 
     def test_real_fixture_gap_scan_recovery(self):
         # Functions recovered only by the gap scan (#3): unreferenced / indirect-only
-        # routines that no BL, prologue, or stored pointer reaches. With the gap scan
-        # every Binary Ninja function start is now recovered.
-        # 0x40DF30 rather than 0x40DF34: the routine opens on a hoisted `cbz x14`, which the
-        # gap scan used to step over on the theory that a function never begins with a
-        # conditional branch. 0x40DF30 is the 16-aligned word directly after the previous
-        # function's `ret` and its padding nop; 0x40DF34 is 4-aligned and mid-line. Neither
-        # carries an inbound direct branch, so the two readings differ by one instruction of
-        # the same routine, and the recovered function count is unchanged at 278.
-        for function_start in (0x40CFE0, 0x40DD78, 0x40DF30, 0x40F370, 0x410B24, 0x41150C, 0x411590, 0x4134D0):
+        # routines that no BL, prologue, or stored pointer reaches.
+        for function_start in (0x40CFE0, 0x40DD78, 0x40F370, 0x410B24, 0x41150C, 0x411590, 0x4134D0):
             self.assertIsNotNone(self.report.getFunction(function_start), f"missing 0x{function_start:x}")
+
+        # The two starts #300 costs this fixture, which is the whole of its 278 -> 276. Both
+        # are refused by USE_ELF_FDE_INTERIOR_GAPS, and both are mid-function instructions
+        # rather than anything that reads as an entry:
+        #   0x400350 is `ldr w3, [sp, #0x90]`, inside the FDE at [0x400180, 0x400534)
+        #   0x40DF30 is `cbz x14, ...`,        inside the FDE at [0x40DDC0, 0x40DFCC)
+        # 0x40DF30 is where the gap scan puts a routine Binary Ninja puts one instruction on
+        # at 0x40DF34, since #311 stopped skipping a word that opens on a conditional branch.
+        # That reading is refused too and is asserted below, but it is not one of the two the
+        # fixture lost: 0x40DF34 was never recovered here in the first place. The FDE really
+        # is one unwind range -- 0x40DF34 repeats its opening minus the `prfm` prefetch, so it
+        # is an alternate entry sharing one frame rather than a routine of its own. The
+        # unwinder and Binary Ninja disagree about whether that counts as a function and the
+        # rule follows the unwinder. Asserted rather than dropped from the list above so the
+        # disagreement stays visible.
+        self.assertIsNone(self.report.getFunction(0x400350))
+        self.assertIsNone(self.report.getFunction(0x40DF30))
+        self.assertIsNone(self.report.getFunction(0x40DF34))
 
     def test_real_fixture_data_pointer_recovery(self):
         # init_array / data pointer-table functions recovered by #2, none of which
@@ -1771,7 +2006,7 @@ class TestAArch64StaticFixture(unittest.TestCase):
         self.assertEqual(roundtrip.architecture, "aarch64")
         self.assertEqual(roundtrip.bitness, 64)
         self.assertEqual(roundtrip.oep, 0x534)
-        self.assertEqual(len(roundtrip.xcfg), 278)
+        self.assertEqual(len(roundtrip.xcfg), 276)
 
 
 class TestAArch64Analyzers(unittest.TestCase):
@@ -2546,7 +2781,7 @@ class TestAArch64Analyzers(unittest.TestCase):
 
         baseline = Disassembler(SmdaConfig()).disassembleUnmappedBuffer(binary)
         self.assertEqual(baseline.confidence_threshold, 0.0)
-        self.assertEqual(baseline.num_functions, 278)
+        self.assertEqual(baseline.num_functions, 276)
         self.assertTrue(all(f.tfidf is not None for f in baseline.getFunctions()))
         self.assertTrue(any(f.tfidf < 0 for f in baseline.getFunctions()))
         self.assertTrue(any(f.confidence == 0.0 for f in baseline.getFunctions()))

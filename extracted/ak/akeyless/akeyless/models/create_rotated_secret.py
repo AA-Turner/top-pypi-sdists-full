@@ -52,10 +52,13 @@ class CreateRotatedSecret(object):
         'json': 'bool',
         'key': 'str',
         'lock_during_sra_session': 'str',
+        'lock_on_read': 'str',
+        'lock_ttl': 'str',
         'metadata': 'str',
         'name': 'str',
         'password_length': 'str',
         'rotate_after_disconnect': 'str',
+        'rotate_on_unlock': 'str',
         'rotated_password': 'str',
         'rotated_username': 'str',
         'rotation_hour': 'int',
@@ -73,6 +76,7 @@ class CreateRotatedSecret(object):
         'secure_access_db_schema': 'str',
         'secure_access_disable_concurrent_connections': 'bool',
         'secure_access_enable': 'str',
+        'secure_access_enforce_hosts_restriction': 'bool',
         'secure_access_host': 'list[str]',
         'secure_access_rdp_domain': 'str',
         'secure_access_rdp_user': 'str',
@@ -111,10 +115,13 @@ class CreateRotatedSecret(object):
         'json': 'json',
         'key': 'key',
         'lock_during_sra_session': 'lock-during-sra-session',
+        'lock_on_read': 'lock-on-read',
+        'lock_ttl': 'lock-ttl',
         'metadata': 'metadata',
         'name': 'name',
         'password_length': 'password-length',
         'rotate_after_disconnect': 'rotate-after-disconnect',
+        'rotate_on_unlock': 'rotate-on-unlock',
         'rotated_password': 'rotated-password',
         'rotated_username': 'rotated-username',
         'rotation_hour': 'rotation-hour',
@@ -132,6 +139,7 @@ class CreateRotatedSecret(object):
         'secure_access_db_schema': 'secure-access-db-schema',
         'secure_access_disable_concurrent_connections': 'secure-access-disable-concurrent-connections',
         'secure_access_enable': 'secure-access-enable',
+        'secure_access_enforce_hosts_restriction': 'secure-access-enforce-hosts-restriction',
         'secure_access_host': 'secure-access-host',
         'secure_access_rdp_domain': 'secure-access-rdp-domain',
         'secure_access_rdp_user': 'secure-access-rdp-user',
@@ -151,7 +159,7 @@ class CreateRotatedSecret(object):
         'user_dn': 'user-dn'
     }
 
-    def __init__(self, provider_type=None, api_id=None, api_key=None, application_id=None, authentication_credentials='use-user-creds', auto_rotate=None, aws_region='us-east-2', custom_payload=None, delete_protection=None, description=None, gcp_key=None, gcp_service_account_email=None, gcp_service_account_key_id=None, grace_rotation=None, host_provider=None, json=False, key=None, lock_during_sra_session=None, metadata=None, name=None, password_length=None, rotate_after_disconnect=None, rotated_password=None, rotated_username=None, rotation_hour=None, rotation_interval=None, rotator_creds_type=None, rotator_custom_cmd=None, rotator_type=None, same_password=None, secure_access_allow_external_user=False, secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_db_name=None, secure_access_db_schema=None, secure_access_disable_concurrent_connections=None, secure_access_enable=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_url=None, secure_access_web=False, secure_access_web_browsing=False, secure_access_web_proxy=False, ssh_password=None, ssh_username=None, storage_account_key_name=None, tags=None, target=None, target_name=None, token=None, uid_token=None, user_attribute='cn', user_dn=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, provider_type=None, api_id=None, api_key=None, application_id=None, authentication_credentials='use-user-creds', auto_rotate=None, aws_region='us-east-2', custom_payload=None, delete_protection=None, description=None, gcp_key=None, gcp_service_account_email=None, gcp_service_account_key_id=None, grace_rotation=None, host_provider=None, json=False, key=None, lock_during_sra_session=None, lock_on_read=None, lock_ttl=None, metadata=None, name=None, password_length=None, rotate_after_disconnect=None, rotate_on_unlock=None, rotated_password=None, rotated_username=None, rotation_hour=None, rotation_interval=None, rotator_creds_type=None, rotator_custom_cmd=None, rotator_type=None, same_password=None, secure_access_allow_external_user=False, secure_access_aws_account_id=None, secure_access_aws_native_cli=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_db_name=None, secure_access_db_schema=None, secure_access_disable_concurrent_connections=None, secure_access_enable=None, secure_access_enforce_hosts_restriction=None, secure_access_host=None, secure_access_rdp_domain=None, secure_access_rdp_user=None, secure_access_url=None, secure_access_web=False, secure_access_web_browsing=False, secure_access_web_proxy=False, ssh_password=None, ssh_username=None, storage_account_key_name=None, tags=None, target=None, target_name=None, token=None, uid_token=None, user_attribute='cn', user_dn=None, local_vars_configuration=None):  # noqa: E501
         """CreateRotatedSecret - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -175,10 +183,13 @@ class CreateRotatedSecret(object):
         self._json = None
         self._key = None
         self._lock_during_sra_session = None
+        self._lock_on_read = None
+        self._lock_ttl = None
         self._metadata = None
         self._name = None
         self._password_length = None
         self._rotate_after_disconnect = None
+        self._rotate_on_unlock = None
         self._rotated_password = None
         self._rotated_username = None
         self._rotation_hour = None
@@ -196,6 +207,7 @@ class CreateRotatedSecret(object):
         self._secure_access_db_schema = None
         self._secure_access_disable_concurrent_connections = None
         self._secure_access_enable = None
+        self._secure_access_enforce_hosts_restriction = None
         self._secure_access_host = None
         self._secure_access_rdp_domain = None
         self._secure_access_rdp_user = None
@@ -251,6 +263,10 @@ class CreateRotatedSecret(object):
             self.key = key
         if lock_during_sra_session is not None:
             self.lock_during_sra_session = lock_during_sra_session
+        if lock_on_read is not None:
+            self.lock_on_read = lock_on_read
+        if lock_ttl is not None:
+            self.lock_ttl = lock_ttl
         if metadata is not None:
             self.metadata = metadata
         self.name = name
@@ -258,6 +274,8 @@ class CreateRotatedSecret(object):
             self.password_length = password_length
         if rotate_after_disconnect is not None:
             self.rotate_after_disconnect = rotate_after_disconnect
+        if rotate_on_unlock is not None:
+            self.rotate_on_unlock = rotate_on_unlock
         if rotated_password is not None:
             self.rotated_password = rotated_password
         if rotated_username is not None:
@@ -291,6 +309,8 @@ class CreateRotatedSecret(object):
             self.secure_access_disable_concurrent_connections = secure_access_disable_concurrent_connections
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
+        if secure_access_enforce_hosts_restriction is not None:
+            self.secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
         if secure_access_host is not None:
             self.secure_access_host = secure_access_host
         if secure_access_rdp_domain is not None:
@@ -649,7 +669,7 @@ class CreateRotatedSecret(object):
     def host_provider(self):
         """Gets the host_provider of this CreateRotatedSecret.  # noqa: E501
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :return: The host_provider of this CreateRotatedSecret.  # noqa: E501
         :rtype: str
@@ -660,7 +680,7 @@ class CreateRotatedSecret(object):
     def host_provider(self, host_provider):
         """Sets the host_provider of this CreateRotatedSecret.
 
-        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for Secure Remote Access of ssh cert issuer, ldap rotated secret and ldap dynamic secret  # noqa: E501
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
 
         :param host_provider: The host_provider of this CreateRotatedSecret.  # noqa: E501
         :type: str
@@ -736,6 +756,52 @@ class CreateRotatedSecret(object):
         """
 
         self._lock_during_sra_session = lock_during_sra_session
+
+    @property
+    def lock_on_read(self):
+        """Gets the lock_on_read of this CreateRotatedSecret.  # noqa: E501
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :return: The lock_on_read of this CreateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_on_read
+
+    @lock_on_read.setter
+    def lock_on_read(self, lock_on_read):
+        """Sets the lock_on_read of this CreateRotatedSecret.
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :param lock_on_read: The lock_on_read of this CreateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_on_read = lock_on_read
+
+    @property
+    def lock_ttl(self):
+        """Gets the lock_ttl of this CreateRotatedSecret.  # noqa: E501
+
+        Lock TTL in minutes  # noqa: E501
+
+        :return: The lock_ttl of this CreateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_ttl
+
+    @lock_ttl.setter
+    def lock_ttl(self, lock_ttl):
+        """Sets the lock_ttl of this CreateRotatedSecret.
+
+        Lock TTL in minutes  # noqa: E501
+
+        :param lock_ttl: The lock_ttl of this CreateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_ttl = lock_ttl
 
     @property
     def metadata(self):
@@ -830,6 +896,29 @@ class CreateRotatedSecret(object):
         """
 
         self._rotate_after_disconnect = rotate_after_disconnect
+
+    @property
+    def rotate_on_unlock(self):
+        """Gets the rotate_on_unlock of this CreateRotatedSecret.  # noqa: E501
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :return: The rotate_on_unlock of this CreateRotatedSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._rotate_on_unlock
+
+    @rotate_on_unlock.setter
+    def rotate_on_unlock(self, rotate_on_unlock):
+        """Sets the rotate_on_unlock of this CreateRotatedSecret.
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :param rotate_on_unlock: The rotate_on_unlock of this CreateRotatedSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._rotate_on_unlock = rotate_on_unlock
 
     @property
     def rotated_password(self):
@@ -1223,6 +1312,29 @@ class CreateRotatedSecret(object):
         self._secure_access_enable = secure_access_enable
 
     @property
+    def secure_access_enforce_hosts_restriction(self):
+        """Gets the secure_access_enforce_hosts_restriction of this CreateRotatedSecret.  # noqa: E501
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :return: The secure_access_enforce_hosts_restriction of this CreateRotatedSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_enforce_hosts_restriction
+
+    @secure_access_enforce_hosts_restriction.setter
+    def secure_access_enforce_hosts_restriction(self, secure_access_enforce_hosts_restriction):
+        """Sets the secure_access_enforce_hosts_restriction of this CreateRotatedSecret.
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :param secure_access_enforce_hosts_restriction: The secure_access_enforce_hosts_restriction of this CreateRotatedSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
+
+    @property
     def secure_access_host(self):
         """Gets the secure_access_host of this CreateRotatedSecret.  # noqa: E501
 
@@ -1479,7 +1591,7 @@ class CreateRotatedSecret(object):
     def target(self):
         """Gets the target of this CreateRotatedSecret.  # noqa: E501
 
-        A list of linked targets to be associated, Relevant only for Secure Remote Access for ssh cert issuer, ldap rotated secret and ldap dynamic secret, To specify multiple targets use argument multiple times  # noqa: E501
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
 
         :return: The target of this CreateRotatedSecret.  # noqa: E501
         :rtype: list[str]
@@ -1490,7 +1602,7 @@ class CreateRotatedSecret(object):
     def target(self, target):
         """Sets the target of this CreateRotatedSecret.
 
-        A list of linked targets to be associated, Relevant only for Secure Remote Access for ssh cert issuer, ldap rotated secret and ldap dynamic secret, To specify multiple targets use argument multiple times  # noqa: E501
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
 
         :param target: The target of this CreateRotatedSecret.  # noqa: E501
         :type: list[str]

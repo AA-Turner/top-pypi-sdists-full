@@ -170,6 +170,26 @@ def test_identity_logo_confidence_gate_leaves_low_trust_logo_null() -> None:
     assert identity.description is None
 
 
+def test_candidate_seen_twice_keeps_its_most_trusted_observation() -> None:
+    """The same logo URL reached via schema.org (0.99) and a header <img>
+    (0.85) is ONE candidate — and it must be the schema.org observation."""
+    summary = PageSummary(
+        url="https://acme.example/",
+        final_url="https://acme.example/",
+        schema_org={"@type": "Organization", "logo": "https://acme.example/brand.svg"},
+    )
+    candidates = extract_homepage_candidates(
+        '<html><body><header><img src="/brand.svg" alt="Acme"></header></body></html>',
+        base_url="https://acme.example/",
+        summary=summary,
+    )
+
+    logos = [item for item in candidates if item.guessed_kind == "logo"]
+    assert [(item.url, item.confidence, item.context["where"]) for item in logos] == [
+        ("https://acme.example/brand.svg", 0.99, "schema.org")
+    ]
+
+
 def _async_stub(value):
     """An async replacement for `_build_crawler`, which is a coroutine now."""
 
@@ -528,13 +548,22 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
             final_url="https://acme.example/",
         ),
     )
+    async def persist_discovered_items(state_arg, candidates, *, snapshot_id):
+        # Stand-in for the DB write: counts what it was HANDED, so the step's
+        # reported counts exist only if the extracted candidates reach it.
+        assert snapshot_id == "snapshot-1"
+        counts: dict[str, int] = {}
+        for candidate in candidates:
+            counts[candidate.category] = counts.get(candidate.category, 0) + 1
+        return counts
+
     repository = SimpleNamespace(
         persist_event=AsyncMock(),
         update_initialization=AsyncMock(),
         update_site_identity=AsyncMock(
             return_value={"written": ["description"], "skipped_existing": []}
         ),
-        persist_discovered_items=AsyncMock(return_value={"identity": 1}),
+        persist_discovered_items=AsyncMock(side_effect=persist_discovered_items),
         fail_session=AsyncMock(),
     )
     broker = CrawlEventBroker("session-1")
@@ -554,17 +583,13 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
         broker=broker,
     )
     crawler = SimpleNamespace(run=AsyncMock())
+    async def persist_initialization_screenshots(shots, *, capture):
+        # One stored row per shot actually handed over — never a fixed answer.
+        return ({shot.kind: f"shot-{shot.kind}" for shot in shots}, {"superseded": 1, "pruned": 0})
+
     persister = SimpleNamespace(
         persist_initialization_screenshots=AsyncMock(
-            return_value=(
-                {
-                    "desktop_full": "shot-1",
-                    "desktop_fold": "shot-2",
-                    "mobile_full": "shot-3",
-                    "mobile_fold": "shot-4",
-                },
-                {"superseded": 1, "pruned": 0},
-            )
+            side_effect=persist_initialization_screenshots
         )
     )
     browser = SimpleNamespace(
@@ -644,13 +669,20 @@ async def test_initialization_step_failure_does_not_stop_independent_steps(
     assert any(
         event.step == "sitemaps" and event.status == "failed" and event.error for event in steps
     )
-    assert any(
-        event.step == "screenshots" and event.status == "complete" and event.counts["captured"] == 4
+    finished = {
+        event.step: event
         for event in steps
+        if event.status in {"complete", "failed", "skipped"}
+    }
+    # Sibling results of the failed sitemap step: every shot the browser
+    # captured was persisted, and the extracted candidate reached the inbox.
+    assert (finished["screenshots"].status, finished["screenshots"].counts["captured"]) == (
+        "complete",
+        4,
     )
-    assert any(
-        event.step == "discovered" and event.status == "complete" and event.counts["identity"] == 1
-        for event in steps
+    assert (finished["discovered"].status, finished["discovered"].counts["identity"]) == (
+        "complete",
+        1,
     )
     # The durable summary channel still emits the terminal site_update event.
     site_updates = [

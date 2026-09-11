@@ -190,12 +190,15 @@ static __isl_keep isl_space *isl_morph_peek_dom_space(
 	return isl_basic_set_peek_space(morph->dom);
 }
 
-/* Return a copy of the domain space of "morph".
- */
-__isl_give isl_space *isl_morph_get_dom_space(__isl_keep isl_morph *morph)
-{
-	return isl_space_copy(isl_morph_peek_dom_space(morph));
-}
+#undef TYPE
+#define TYPE	isl_morph
+
+#undef FIELD_TYPE
+#define FIELD_TYPE	isl_space
+#undef PROPERTY
+#define PROPERTY	dom_space
+
+#include "isl_get_templ.c"
 
 /* Check that the match against "space" with result "match" was successful.
  */

@@ -27,7 +27,9 @@ Usage::
         ListServicesPaginator,
         ListSystemEventsPaginator,
         ListSystemsPaginator,
+        ListTestRunDependenciesPaginator,
         ListTestRunEventsPaginator,
+        ListTestRunSourceEventsPaginator,
         ListTestRunSourcesPaginator,
         ListTestRunsPaginator,
         ListTestSourcesPaginator,
@@ -53,7 +55,9 @@ Usage::
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     list_system_events_paginator: ListSystemEventsPaginator = client.get_paginator("list_system_events")
     list_systems_paginator: ListSystemsPaginator = client.get_paginator("list_systems")
+    list_test_run_dependencies_paginator: ListTestRunDependenciesPaginator = client.get_paginator("list_test_run_dependencies")
     list_test_run_events_paginator: ListTestRunEventsPaginator = client.get_paginator("list_test_run_events")
+    list_test_run_source_events_paginator: ListTestRunSourceEventsPaginator = client.get_paginator("list_test_run_source_events")
     list_test_run_sources_paginator: ListTestRunSourcesPaginator = client.get_paginator("list_test_run_sources")
     list_test_runs_paginator: ListTestRunsPaginator = client.get_paginator("list_test_runs")
     list_test_sources_paginator: ListTestSourcesPaginator = client.get_paginator("list_test_sources")
@@ -100,8 +104,12 @@ from .type_defs import (
     ListSystemEventsResponseTypeDef,
     ListSystemsRequestPaginateTypeDef,
     ListSystemsResponseTypeDef,
+    ListTestRunDependenciesRequestPaginateTypeDef,
+    ListTestRunDependenciesResponseTypeDef,
     ListTestRunEventsRequestPaginateTypeDef,
     ListTestRunEventsResponseTypeDef,
+    ListTestRunSourceEventsRequestPaginateTypeDef,
+    ListTestRunSourceEventsResponseTypeDef,
     ListTestRunSourcesRequestPaginateTypeDef,
     ListTestRunSourcesResponseTypeDef,
     ListTestRunsRequestPaginateTypeDef,
@@ -136,7 +144,9 @@ __all__ = (
     "ListServicesPaginator",
     "ListSystemEventsPaginator",
     "ListSystemsPaginator",
+    "ListTestRunDependenciesPaginator",
     "ListTestRunEventsPaginator",
+    "ListTestRunSourceEventsPaginator",
     "ListTestRunSourcesPaginator",
     "ListTestRunsPaginator",
     "ListTestSourcesPaginator",
@@ -463,6 +473,27 @@ class ListSystemsPaginator(_ListSystemsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListTestRunDependenciesPaginatorBase = Paginator[ListTestRunDependenciesResponseTypeDef]
+else:
+    _ListTestRunDependenciesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListTestRunDependenciesPaginator(_ListTestRunDependenciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestRunDependencies.html#ResilienceHubV2.Paginator.ListTestRunDependencies)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/paginators/#listtestrundependenciespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTestRunDependenciesRequestPaginateTypeDef]
+    ) -> PageIterator[ListTestRunDependenciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestRunDependencies.html#ResilienceHubV2.Paginator.ListTestRunDependencies.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/paginators/#listtestrundependenciespaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListTestRunEventsPaginatorBase = Paginator[ListTestRunEventsResponseTypeDef]
 else:
     _ListTestRunEventsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -480,6 +511,27 @@ class ListTestRunEventsPaginator(_ListTestRunEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestRunEvents.html#ResilienceHubV2.Paginator.ListTestRunEvents.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/paginators/#listtestruneventspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTestRunSourceEventsPaginatorBase = Paginator[ListTestRunSourceEventsResponseTypeDef]
+else:
+    _ListTestRunSourceEventsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListTestRunSourceEventsPaginator(_ListTestRunSourceEventsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestRunSourceEvents.html#ResilienceHubV2.Paginator.ListTestRunSourceEvents)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/paginators/#listtestrunsourceeventspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTestRunSourceEventsRequestPaginateTypeDef]
+    ) -> PageIterator[ListTestRunSourceEventsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/paginator/ListTestRunSourceEvents.html#ResilienceHubV2.Paginator.ListTestRunSourceEvents.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_resiliencehubv2/paginators/#listtestrunsourceeventspaginator)
         """
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2ui-agent-sdk
-Version: 0.5.0
+Version: 0.6.0
 Summary: A2UI Agent SDK
 Requires-Python: >=3.10
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0
@@ -8,6 +8,7 @@ Requires-Dist: a2ui-core<0.2.0,>=0.1.1
 Requires-Dist: antlr4-python3-runtime<4.14.0,>=4.13.0
 Requires-Dist: google-adk>=1.28.1
 Requires-Dist: google-genai>=1.27.0
+Requires-Dist: httpx>=0.27.0
 Requires-Dist: jsonschema>=4.0.0
 Description-Content-Type: text/markdown
 
@@ -71,6 +72,10 @@ protocol.
    ```
 
 ## Building the SDK
+
+Building from source regenerates the Express parser from
+`specification/inference_formats/express/Express.g4`. That step runs ANTLR, which
+requires a Java runtime (JRE 11 or newer) on the `PATH`.
 
 To build the SDK, run the following command from the `agent_sdks/python/a2ui_agent`
 directory:

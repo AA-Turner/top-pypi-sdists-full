@@ -111,8 +111,7 @@ class H5Events:
 
     def __iter__(self):
         # dict-like behavior
-        for key in self.keys():
-            yield key
+        yield from self.keys()
 
     def _is_defective_feature(self, feat):
         """Whether the stored feature is defective"""
@@ -152,14 +151,16 @@ class H5MaskEvent:
         self.dtype = np.dtype(bool)
 
     def __array__(self, dtype=np.bool_, copy=copy_if_needed, *args, **kwargs):
-        if dtype is not np.uint8:
-            warnings.warn("Please avoid calling the `__array__` method of the "
-                          "`H5MaskEvent`. It may consume a lot of memory.",
-                          UserWarning)
+        if dtype is not np.uint8:  # [sic!]
+            warnings.warn(
+                "Please avoid calling the `__array__` method of the "
+                "`H5MaskEvent`. It may consume a lot of memory. Use the "
+                "`iter_chunks` method instead.",
+                UserWarning)
         # One of the reasons why we implement __array__ is such that
         # the data exporter knows this object is sliceable
         # (see yield_filtered_array_stacks).
-        return self.h5dataset.__array__(dtype=dtype, *args, **kwargs)
+        return self.h5dataset.__array__(*args, dtype=dtype, **kwargs)
 
     def __getitem__(self, idx):
         return np.asarray(self.h5dataset[idx], dtype=bool)
@@ -183,6 +184,28 @@ class H5MaskEvent:
     def size(self):
         return np.prod(self.shape)
 
+    def iter_chunks(self, max_size_bytes=1024**2):
+        """Return slices for chunked data access"""
+        # Extract data in `max_size_bytes` byte chunks
+        # Mask images are always chunked so that the entire image is in
+        # the chunk. The variable coordinate is event index.
+        chunksize = (np.prod(self.h5dataset.chunks)
+                     * self.h5dataset.dtype.itemsize)
+        num_chunks = int(np.floor(max_size_bytes / chunksize))
+        num_chunks = max(1, num_chunks)
+
+        extract_size = self.h5dataset.chunks[0] * num_chunks
+
+        idx = 0
+        num_iter = self.h5dataset.shape[0] / extract_size
+        if num_iter != int(num_iter):
+            num_iter = np.ceil(num_iter)
+        num_iter = int(num_iter)
+
+        for _ in range(num_iter):
+            yield slice(idx, idx + extract_size)
+            idx += extract_size
+
 
 class H5ScalarEvent(np.lib.mixins.NDArrayOperatorsMixin):
     def __init__(self, h5ds):
@@ -199,6 +222,12 @@ class H5ScalarEvent(np.lib.mixins.NDArrayOperatorsMixin):
         if self._array is None:
             self._array = np.asarray(self.h5ds, *args, **kwargs)
         return np.array(self._array, dtype=dtype, copy=copy)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        # Convert all instances of `H5ScalarEvent` to arrays.
+        inputs = [ip.__array__() if isinstance(ip, H5ScalarEvent) else ip
+                  for ip in inputs]
+        return getattr(ufunc, method)(*inputs, **kwargs)
 
     def __getitem__(self, idx):
         return self.__array__()[idx]
@@ -262,8 +291,7 @@ class H5TraceEvent:
         return self._num_traces
 
     def __iter__(self):
-        for key in sorted(self.h5group.keys()):
-            yield key
+        yield from sorted(self.h5group.keys())
 
     def keys(self):
         return self.h5group.keys()
@@ -271,6 +299,6 @@ class H5TraceEvent:
     @property
     def shape(self):
         if self._shape is None:
-            atrace = list(self.h5group.keys())[0]
+            atrace = next(iter(self.h5group.keys()))
             self._shape = tuple([len(self)] + list(self.h5group[atrace].shape))
         return self._shape

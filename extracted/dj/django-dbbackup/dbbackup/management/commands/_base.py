@@ -85,6 +85,19 @@ class BaseDbBackupCommand(BaseCommand):
         level = 60 if self.quiet else LOGGING_VERBOSITY[int(self.verbosity)]
         self.logger.setLevel(level)
 
+        # Find or create a StreamHandler for console output so that
+        # --verbosity works regardless of the user's Django LOGGING
+        # configuration. Only add one handler to avoid duplicates.
+        for handler in self.logger.handlers:
+            if isinstance(handler, logging.StreamHandler):
+                handler.setLevel(level)
+                break
+        else:
+            handler = logging.StreamHandler(sys.stderr)
+            handler.setLevel(level)
+            handler.setFormatter(logging.Formatter("%(levelname)s %(message)s"))
+            self.logger.addHandler(handler)
+
     def _ask_confirmation(self):
         answer = input("Are you sure you want to continue? [Y/n] ")
         if answer.lower().startswith("n"):

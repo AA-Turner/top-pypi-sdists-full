@@ -1,13 +1,10 @@
 from matrx_ai.processing.audio import (
     CachedTranscription,
-    GroqSTT,
     STTClient,
     STTRequest,
     STTResult,
     STTUsage,
     TranscriptionCache,
-    TranscriptionResult,
-    TranscriptionUsage,
     clear_cache,
     duration_to_stt_input_units,
     execute_stt,
@@ -25,6 +22,23 @@ from matrx_ai.processing.vision import (
     resolve_vision_class,
     should_skip_reencode,
 )
+
+_LEGACY_GROQ_EXPORTS = frozenset({"GroqSTT", "TranscriptionResult", "TranscriptionUsage"})
+
+
+def __getattr__(name: str):
+    """Keep deprecated audio exports lazy to avoid provider import cycles."""
+    if name not in _LEGACY_GROQ_EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from matrx_ai.processing import audio
+
+    value = getattr(audio, name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LEGACY_GROQ_EXPORTS)
 
 __all__ = [
     "CachedTranscription",

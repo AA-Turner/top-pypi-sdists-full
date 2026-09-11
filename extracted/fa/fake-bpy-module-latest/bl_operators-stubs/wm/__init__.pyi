@@ -818,11 +818,16 @@ class WM_OT_drop_blend_file(_bpy_types.Operator):
         :return: The class or default when not found.
         """
 
-    def draw_menu(self, menu, _context) -> None:
+    def draw(self, context) -> None:
         """
 
-        :param menu:
-        :param _context:
+        :param context:
+        """
+
+    def execute(self, context) -> None:
+        """
+
+        :param context:
         """
 
     def invoke(self, context, _event) -> None:

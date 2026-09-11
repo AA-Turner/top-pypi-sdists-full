@@ -96,12 +96,14 @@ class EMRServerlessSparkSessionManager(SparkSessionManager):
             )
             internal_model_session = boto3.Session()
 
-        emr_kwargs = {"region_name": region}
+        emr_kwargs = {"region_name": region, "config": self._client_retry_config()}
         if emr_endpoint_url:
             emr_kwargs["endpoint_url"] = emr_endpoint_url
 
         self.emr_serverless_client = internal_model_session.client("emr-serverless", **emr_kwargs)
-        self.sts_client = boto3.client("sts", region_name=region)
+        self.sts_client = boto3.client(
+            "sts", region_name=region, config=self._client_retry_config()
+        )
         self.project = _ensure_project()
 
         # Use pre-resolved connection if available, otherwise look up by name

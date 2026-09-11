@@ -25,6 +25,7 @@ from .literals import (
     AccountTargetingType,
     AchievabilityStatusType,
     ActorTypeType,
+    AlarmStateType,
     AssertionSourceType,
     AssessmentErrorCodeType,
     AssessmentStatusType,
@@ -32,6 +33,7 @@ from .literals import (
     DependencyCriticalityType,
     DependencyDiscoveryInputType,
     DependencyDiscoveryStatusType,
+    EksLabelSelectorOperatorType,
     FailureCategoryType,
     FindingSeverityType,
     FindingStatusType,
@@ -53,6 +55,8 @@ from .literals import (
     SortOrderType,
     StopConditionSourceType,
     SystemEventTypeType,
+    TestRunDependencySourceType,
+    TestRunSourceEventErrorCodeType,
     TestRunSourceTypeType,
     TestRunStatusType,
     TestSourceOutcomeType,
@@ -67,6 +71,7 @@ else:
 
 __all__ = (
     "AchievabilityTypeDef",
+    "AlarmStateChangeDetailTypeDef",
     "AssertionCreatedMetadataTypeDef",
     "AssertionDeletedMetadataTypeDef",
     "AssertionTypeDef",
@@ -123,6 +128,12 @@ __all__ = (
     "DisasterRecoverySourceTypeDef",
     "EdgePropertySummaryTypeDef",
     "EffectivePolicyValuesTypeDef",
+    "EksLabelSelectorOutputTypeDef",
+    "EksLabelSelectorRequirementOutputTypeDef",
+    "EksLabelSelectorRequirementTypeDef",
+    "EksLabelSelectorRequirementUnionTypeDef",
+    "EksLabelSelectorTypeDef",
+    "EksLabelSelectorUnionTypeDef",
     "EksSourceOutputTypeDef",
     "EksSourceTypeDef",
     "EksSourceUnionTypeDef",
@@ -205,9 +216,15 @@ __all__ = (
     "ListSystemsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTestRunDependenciesRequestPaginateTypeDef",
+    "ListTestRunDependenciesRequestTypeDef",
+    "ListTestRunDependenciesResponseTypeDef",
     "ListTestRunEventsRequestPaginateTypeDef",
     "ListTestRunEventsRequestTypeDef",
     "ListTestRunEventsResponseTypeDef",
+    "ListTestRunSourceEventsRequestPaginateTypeDef",
+    "ListTestRunSourceEventsRequestTypeDef",
+    "ListTestRunSourceEventsResponseTypeDef",
     "ListTestRunSourcesRequestPaginateTypeDef",
     "ListTestRunSourcesRequestTypeDef",
     "ListTestRunSourcesResponseTypeDef",
@@ -304,10 +321,14 @@ __all__ = (
     "TagResourceRequestTypeDef",
     "TargetSourceTypeDef",
     "TestActionTypeDef",
+    "TestRunDependencySummaryTypeDef",
     "TestRunEventTypeDef",
     "TestRunObservabilityAlarmSummaryTypeDef",
     "TestRunPolicySnapshotTypeDef",
     "TestRunReportConfigurationTypeDef",
+    "TestRunSourceEventDetailTypeDef",
+    "TestRunSourceEventErrorTypeDef",
+    "TestRunSourceEventTypeDef",
     "TestRunSourceSummaryTypeDef",
     "TestRunSuccessCriteriaAlarmSummaryTypeDef",
     "TestRunSummaryTypeDef",
@@ -351,6 +372,11 @@ class AchievabilityTypeDef(TypedDict):
     multiAzRtoRpo: NotRequired[AchievabilityStatusType]
     multiRegionRtoRpo: NotRequired[AchievabilityStatusType]
     dataRecoveryTimeBetweenBackups: NotRequired[AchievabilityStatusType]
+
+class AlarmStateChangeDetailTypeDef(TypedDict):
+    state: AlarmStateType
+    previousState: NotRequired[AlarmStateType]
+    reason: NotRequired[str]
 
 class AssertionCreatedMetadataTypeDef(TypedDict):
     assertionId: NotRequired[str]
@@ -550,14 +576,22 @@ class TargetSourceTypeDef(TypedDict):
     policyName: NotRequired[str]
     source: NotRequired[PolicyValueSourceType]
 
-class EksSourceOutputTypeDef(TypedDict):
-    clusterArn: str
-    namespaces: list[str]
-
-class EksSourceTypeDef(TypedDict):
-    clusterArn: str
-    namespaces: Sequence[str]
-
+EksLabelSelectorRequirementOutputTypeDef = TypedDict(
+    "EksLabelSelectorRequirementOutputTypeDef",
+    {
+        "key": str,
+        "operator": EksLabelSelectorOperatorType,
+        "values": NotRequired[list[str]],
+    },
+)
+EksLabelSelectorRequirementTypeDef = TypedDict(
+    "EksLabelSelectorRequirementTypeDef",
+    {
+        "key": str,
+        "operator": EksLabelSelectorOperatorType,
+        "values": NotRequired[Sequence[str]],
+    },
+)
 EventActorTypeDef = TypedDict(
     "EventActorTypeDef",
     {
@@ -741,12 +775,35 @@ class SystemSummaryTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class ListTestRunDependenciesRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class TestRunDependencySummaryTypeDef(TypedDict):
+    dependencyName: str
+    dnsName: str
+    criticality: DependencyCriticalityType
+    source: TestRunDependencySourceType
+    dependencyId: NotRequired[str]
+    location: NotRequired[str]
+    sourceRegions: NotRequired[list[str]]
+    provider: NotRequired[str]
+
 class TestRunEventTypeDef(TypedDict):
     eventId: str
     eventType: str
     message: str
     timestamp: datetime
     attributes: NotRequired[dict[str, str]]
+
+class ListTestRunSourceEventsRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    sourceArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 ListTestRunSourcesRequestTypeDef = TypedDict(
     "ListTestRunSourcesRequestTypeDef",
@@ -974,6 +1031,10 @@ class TestRunObservabilityAlarmSummaryTypeDef(TypedDict):
     alarmName: str
     region: str
     accountId: str
+
+class TestRunSourceEventErrorTypeDef(TypedDict):
+    errorCode: TestRunSourceEventErrorCodeType
+    errorMessage: str
 
 class TestRunSuccessCriteriaAlarmSummaryTypeDef(TypedDict):
     alarmArn: str
@@ -1304,7 +1365,13 @@ class EffectivePolicyValuesTypeDef(TypedDict):
     multiRegionDrApproach: NotRequired[DisasterRecoverySourceTypeDef]
     dataRecoveryTimeBetweenBackups: NotRequired[TargetSourceTypeDef]
 
-EksSourceUnionTypeDef = Union[EksSourceTypeDef, EksSourceOutputTypeDef]
+class EksLabelSelectorOutputTypeDef(TypedDict):
+    matchLabels: NotRequired[dict[str, str]]
+    matchExpressions: NotRequired[list[EksLabelSelectorRequirementOutputTypeDef]]
+
+EksLabelSelectorRequirementUnionTypeDef = Union[
+    EksLabelSelectorRequirementTypeDef, EksLabelSelectorRequirementOutputTypeDef
+]
 
 class ListFailureModeFindingsResponseTypeDef(TypedDict):
     findingsSummary: list[FindingSummaryTypeDef]
@@ -1344,20 +1411,6 @@ class ListReportsRequestWaitTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
-InputSourceSummaryTypeDef = TypedDict(
-    "InputSourceSummaryTypeDef",
-    {
-        "inputSourceId": str,
-        "type": NotRequired[InputSourceTypeType],
-        "resourceTags": NotRequired[list[ResourceTagOutputTypeDef]],
-        "cfnStackArn": NotRequired[str],
-        "tfStateFileUrl": NotRequired[str],
-        "eks": NotRequired[EksSourceOutputTypeDef],
-        "designFileS3Url": NotRequired[str],
-        "createdAt": NotRequired[datetime],
-    },
-)
 
 class ListAssertionsRequestPaginateTypeDef(TypedDict):
     serviceArn: str
@@ -1421,6 +1474,17 @@ class ListServicesRequestPaginateTypeDef(TypedDict):
 
 class ListSystemsRequestPaginateTypeDef(TypedDict):
     ouId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTestRunDependenciesRequestPaginateTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTestRunSourceEventsRequestPaginateTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    sourceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 ListTestRunSourcesRequestPaginateTypeDef = TypedDict(
@@ -1556,6 +1620,11 @@ class ListSystemsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class ListTestRunDependenciesResponseTypeDef(TypedDict):
+    dependencies: list[TestRunDependencySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListTestRunEventsResponseTypeDef(TypedDict):
     events: list[TestRunEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1655,6 +1724,10 @@ class TestTypeDef(TypedDict):
     roleName: NotRequired[str]
     parameters: NotRequired[dict[str, list[str]]]
 
+class TestRunSourceEventDetailTypeDef(TypedDict):
+    alarmStateChange: NotRequired[AlarmStateChangeDetailTypeDef]
+    error: NotRequired[TestRunSourceEventErrorTypeDef]
+
 class TestRunSourceSummaryTypeDef(TypedDict):
     successCriteriaAlarm: NotRequired[TestRunSuccessCriteriaAlarmSummaryTypeDef]
     observabilityAlarm: NotRequired[TestRunObservabilityAlarmSummaryTypeDef]
@@ -1713,6 +1786,15 @@ class ListServiceTopologyEdgesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class EksSourceOutputTypeDef(TypedDict):
+    clusterArn: str
+    namespaces: list[str]
+    labelSelector: NotRequired[EksLabelSelectorOutputTypeDef]
+
+class EksLabelSelectorTypeDef(TypedDict):
+    matchLabels: NotRequired[Mapping[str, str]]
+    matchExpressions: NotRequired[Sequence[EksLabelSelectorRequirementUnionTypeDef]]
+
 class GetFailureModeFindingResponseTypeDef(TypedDict):
     finding: FindingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1720,11 +1802,6 @@ class GetFailureModeFindingResponseTypeDef(TypedDict):
 class UpdateFailureModeFindingResponseTypeDef(TypedDict):
     finding: FindingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ListInputSourcesResponseTypeDef(TypedDict):
-    inputSourceSummaries: list[InputSourceSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class DependencySummaryTypeDef(TypedDict):
     dependencyId: str
@@ -1757,13 +1834,6 @@ class ReportGenerationResultTypeDef(TypedDict):
     testTemplateArn: NotRequired[str]
     createdAt: NotRequired[datetime]
     reportOutput: NotRequired[ReportOutputTypeDef]
-
-class ResourceConfigurationTypeDef(TypedDict):
-    resourceTags: NotRequired[Sequence[ResourceTagUnionTypeDef]]
-    cfnStackArn: NotRequired[str]
-    tfStateFileUrl: NotRequired[str]
-    eks: NotRequired[EksSourceUnionTypeDef]
-    designFileS3Url: NotRequired[str]
 
 class ListResourcesResponseTypeDef(TypedDict):
     serviceFunctionId: str
@@ -1807,6 +1877,12 @@ class UpdateTestResponseTypeDef(TypedDict):
     test: TestTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class TestRunSourceEventTypeDef(TypedDict):
+    timestamp: datetime
+    sourceArn: str
+    eventType: Literal["ALARM"]
+    detail: TestRunSourceEventDetailTypeDef
+
 class ListTestRunSourcesResponseTypeDef(TypedDict):
     testRunSources: list[TestRunSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1815,6 +1891,21 @@ class ListTestRunSourcesResponseTypeDef(TypedDict):
 class GetTestTemplateResponseTypeDef(TypedDict):
     testTemplate: TestTemplateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+InputSourceSummaryTypeDef = TypedDict(
+    "InputSourceSummaryTypeDef",
+    {
+        "inputSourceId": str,
+        "type": NotRequired[InputSourceTypeType],
+        "resourceTags": NotRequired[list[ResourceTagOutputTypeDef]],
+        "cfnStackArn": NotRequired[str],
+        "tfStateFileUrl": NotRequired[str],
+        "eks": NotRequired[EksSourceOutputTypeDef],
+        "designFileS3Url": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+    },
+)
+EksLabelSelectorUnionTypeDef = Union[EksLabelSelectorTypeDef, EksLabelSelectorOutputTypeDef]
 
 class ListDependenciesResponseTypeDef(TypedDict):
     dependencySummaries: list[DependencySummaryTypeDef]
@@ -1884,11 +1975,6 @@ class TestRunTypeDef(TypedDict):
     regions: NotRequired[list[str]]
     accountTargeting: NotRequired[AccountTargetingType]
 
-class CreateInputSourceRequestTypeDef(TypedDict):
-    serviceArn: str
-    resourceConfiguration: ResourceConfigurationTypeDef
-    clientToken: NotRequired[str]
-
 class ServiceEventTypeDef(TypedDict):
     eventId: str
     timestamp: datetime
@@ -1900,6 +1986,21 @@ class ServiceEventTypeDef(TypedDict):
 class SystemUserJourneyUpdatedMetadataTypeDef(TypedDict):
     userJourneyName: NotRequired[str]
     changes: NotRequired[UserJourneyChangesTypeDef]
+
+class ListTestRunSourceEventsResponseTypeDef(TypedDict):
+    testRunSourceEvents: list[TestRunSourceEventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListInputSourcesResponseTypeDef(TypedDict):
+    inputSourceSummaries: list[InputSourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class EksSourceTypeDef(TypedDict):
+    clusterArn: str
+    namespaces: Sequence[str]
+    labelSelector: NotRequired[EksLabelSelectorUnionTypeDef]
 
 class CreateServiceResponseTypeDef(TypedDict):
     service: ServiceTypeDef
@@ -1960,10 +2061,19 @@ class SystemEventMetadataTypeDef(TypedDict):
     systemPolicyAssociated: NotRequired[SystemPolicyAssociatedMetadataTypeDef]
     systemPolicyDisassociated: NotRequired[SystemPolicyDisassociatedMetadataTypeDef]
 
+EksSourceUnionTypeDef = Union[EksSourceTypeDef, EksSourceOutputTypeDef]
+
 class SystemEventDetailsTypeDef(TypedDict):
     title: str
     description: str
     eventMetadata: NotRequired[SystemEventMetadataTypeDef]
+
+class ResourceConfigurationTypeDef(TypedDict):
+    resourceTags: NotRequired[Sequence[ResourceTagUnionTypeDef]]
+    cfnStackArn: NotRequired[str]
+    tfStateFileUrl: NotRequired[str]
+    eks: NotRequired[EksSourceUnionTypeDef]
+    designFileS3Url: NotRequired[str]
 
 class SystemEventTypeDef(TypedDict):
     eventId: str
@@ -1972,6 +2082,11 @@ class SystemEventTypeDef(TypedDict):
     systemArn: str
     actor: EventActorTypeDef
     eventDetails: SystemEventDetailsTypeDef
+
+class CreateInputSourceRequestTypeDef(TypedDict):
+    serviceArn: str
+    resourceConfiguration: ResourceConfigurationTypeDef
+    clientToken: NotRequired[str]
 
 class ListSystemEventsResponseTypeDef(TypedDict):
     events: list[SystemEventTypeDef]

@@ -13,7 +13,6 @@ from seltz import (
     Citation,
     Citations,
     Document,
-    Fields,
     SearchResponse,
 )
 from seltz._types import Omit
@@ -187,7 +186,7 @@ async def test_search_forwards_filter_params(monkeypatch):
             include_domains=["techcrunch.com", "wired.com"],
             exclude_domains=["wikipedia.org"],
             tier="base",
-            fields=Fields(content=True, snippets=True),
+            fields={"content": True, "snippets": True},
         )
     finally:
         await client.close()
@@ -197,7 +196,7 @@ async def test_search_forwards_filter_params(monkeypatch):
     assert captured["include_domains"] == ["techcrunch.com", "wired.com"]
     assert captured["exclude_domains"] == ["wikipedia.org"]
     assert captured["tier"] == "base"
-    assert captured["fields"] == Fields(content=True, snippets=True)
+    assert captured["fields"] == {"content": True, "snippets": True}
 
 
 async def test_search_omitted_filters_use_sentinel(monkeypatch):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.60.10
+Version: 0.60.11
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -242,7 +242,6 @@ asyncio.run(main())
 * [get_accounting_project](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_project) - Retrieve a project
 * [get_accounting_purchaseorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_purchaseorder) - Retrieve a purchaseorder
 * [get_accounting_quote](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_quote) - Retrieve a quote
-* [get_accounting_report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_report) - Retrieve a report
 * [get_accounting_salesorder](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_salesorder) - Retrieve a salesorder
 * [get_accounting_taxrate](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_taxrate) - Retrieve a taxrate
 * [get_accounting_transaction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#get_accounting_transaction) - Retrieve a transaction
@@ -269,7 +268,6 @@ asyncio.run(main())
 * [list_accounting_projects](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_projects) - List all projects
 * [list_accounting_purchaseorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_purchaseorders) - List all purchaseorders
 * [list_accounting_quotes](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_quotes) - List all quotes
-* [list_accounting_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_reports) - List all reports
 * [list_accounting_salesorders](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_salesorders) - List all salesorders
 * [list_accounting_taxrates](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_taxrates) - List all taxrates
 * [list_accounting_transactions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/accounting/README.md#list_accounting_transactions) - List all transactions
@@ -1917,8 +1915,6 @@ asyncio.run(main())
 
 ### [Report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md)
 
-* [get_accounting_report](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#get_accounting_report) - Retrieve a report
-* [list_accounting_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_accounting_reports) - List all reports
 * [list_ads_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_ads_reports) - List all reports
 * [list_analytics_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_analytics_reports) - List all reports
 * [list_martech_reports](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/report/README.md#list_martech_reports) - List all reports

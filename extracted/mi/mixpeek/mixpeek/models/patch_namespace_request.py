@@ -37,7 +37,7 @@ class PatchNamespaceRequest(BaseModel):
     payload_indexes: Optional[List[PayloadIndexConfigInput]] = Field(default=None, description="Updated list of custom payload indexes for this namespace.")
     auto_create_indexes: Optional[StrictBool] = Field(default=None, description="Enable automatic creation of vector store payload indexes based on filter usage patterns. When enabled, the system tracks which fields are most frequently filtered (>100 queries/24h) and automatically creates indexes to improve query performance. Background task runs every 6 hours. Expected performance improvement: 50-90% latency reduction for filtered queries. Default: False.")
     repair_vectors: Optional[StrictBool] = Field(default=None, description="When True, verify all registered feature extractors have their corresponding vector indexes in the vector store and add any missing ones. Use this to fix namespaces where vector schema is out of sync with registered extractors.")
-    infrastructure: Optional[NamespaceInfrastructureInput] = Field(default=None, description="Infrastructure configuration for this namespace. Set compute_tier to 'dedicated_cpu' or 'dedicated_gpu' and max_custom_models > 0 to enable custom model uploads. Requires Enterprise account.")
+    infrastructure: Optional[NamespaceInfrastructureInput] = Field(default=None, description="Infrastructure configuration for this namespace.")
     __properties: ClassVar[List[str]] = ["namespace_name", "description", "feature_extractors", "payload_indexes", "auto_create_indexes", "repair_vectors", "infrastructure"]
 
     model_config = ConfigDict(

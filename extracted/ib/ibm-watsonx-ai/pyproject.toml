@@ -9,14 +9,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.7.1"
+version = "1.7.2"
 requires-python = ">=3.11,<3.15"
 authors = [
   {name = "IBM"}
 ]
 maintainers = [
   {name = "Maria Oleszkiewicz", email = "maria.oleszkiewicz@pl.ibm.com"},
-  {name = "Mateusz Szewczyk", email = "Mateusz.Szewczyk@ibm.com"}
+  {name = "Filip Żmijewski", email = "filip.zmijewski@ibm.com"}
 ]
 description = "IBM watsonx.ai API Client"
 readme = "README.md"
@@ -102,7 +102,8 @@ lint = [
     "ruff>=0.16,<0.17",
     "black",
     "docstrfmt>=2,<3",
-    "typos>=1,<2; platform_machine != 's390x'"
+    "typos>=1,<2; platform_machine != 's390x'",
+    "pre-commit>=4.6.2",
 ]
 typing = [
     "mypy>=2.3,<2.4",

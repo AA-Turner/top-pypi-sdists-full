@@ -30,7 +30,6 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::small_set::SmallSet;
 
-use crate::alt::polars_specials::polars_column_mutation;
 use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
@@ -50,6 +49,7 @@ use crate::binding::binding::KeyTypeAlias;
 use crate::binding::binding::LinkedKey;
 use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
+use crate::binding::binding::SuppressedException;
 use crate::binding::binding::TypeAliasBinding;
 use crate::binding::binding::TypeAliasParams;
 use crate::binding::bindings::BindingsBuilder;
@@ -58,9 +58,12 @@ use crate::binding::expr::Usage;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOp;
 use crate::binding::narrow::NarrowOps;
+use crate::binding::narrow::identifier_and_chain_prefix_for_expr;
+use crate::binding::polars::polars_column_mutation;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
 use crate::binding::scope::Scope;
+use crate::binding::scope::TerminationKind;
 use crate::config::error_kind::ErrorKind;
 use crate::export::definitions::MutableCaptureKind;
 use crate::export::special::SpecialExport;
@@ -153,9 +156,7 @@ impl<'a> BindingsBuilder<'a> {
         self.ensure_expr(&mut test, &mut Usage::NonPinningValue(None));
         let narrow_ops = NarrowOps::from_expr(self, Some(&test));
         let static_test = self.sys_info.evaluate_bool(&test);
-        let test_clone = test.clone();
-        self.insert_binding(Key::Anon(test_range), Binding::Expr(None, Box::new(test)));
-        self.insert_binding(KeyExpect::Bool(test_range), BindingExpect::Bool(test_clone));
+        self.insert_binding(KeyExpect::Bool(test_range), BindingExpect::Bool(test));
         if let Some(mut msg_expr) = msg {
             let mut base = self.scopes.clone_current_flow();
             // Negate the narrowing of the test expression when typechecking
@@ -181,7 +182,8 @@ impl<'a> BindingsBuilder<'a> {
             &Usage::NonPinningValue(None),
         );
         if let Some(false) = static_test {
-            self.scopes.mark_flow_termination(true);
+            self.scopes
+                .mark_flow_termination(TerminationKind::StaticTest);
         }
     }
 
@@ -336,7 +338,7 @@ impl<'a> BindingsBuilder<'a> {
         // The constraints (i.e., any positional arguments after the first)
         // and some keyword arguments are types.
         for arg in iargs {
-            if self.as_direct_shape_intvar(arg) {
+            if self.as_special_export(arg) == Some(SpecialExport::IntVar) {
                 self.error(
                     arg.range(),
                     ErrorKind::InvalidTypeVar,
@@ -345,13 +347,13 @@ impl<'a> BindingsBuilder<'a> {
                 self.ensure_expr(arg, static_type_usage);
                 continue;
             }
-            self.ensure_type(arg, &mut None);
+            self.ensure_type(arg, None);
         }
         for kw in call.arguments.keywords.iter_mut() {
             if let Some(id) = &kw.arg
                 && (id.id == "bound" || id.id == "default")
             {
-                if self.as_direct_shape_intvar(&kw.value) {
+                if self.as_special_export(&kw.value) == Some(SpecialExport::IntVar) {
                     let role = if id.id == "bound" { "bound" } else { "default" };
                     self.error(
                         kw.value.range(),
@@ -361,7 +363,7 @@ impl<'a> BindingsBuilder<'a> {
                     self.ensure_expr(&mut kw.value, static_type_usage);
                     continue;
                 }
-                self.ensure_type(&mut kw.value, &mut None);
+                self.ensure_type(&mut kw.value, None);
             } else {
                 self.ensure_expr(&mut kw.value, static_type_usage);
             }
@@ -389,7 +391,7 @@ impl<'a> BindingsBuilder<'a> {
             if let Some(id) = &kw.arg
                 && id.id == "default"
             {
-                self.ensure_type(&mut kw.value, &mut None);
+                self.ensure_type(&mut kw.value, None);
             } else {
                 self.ensure_expr(&mut kw.value, static_type_usage);
             }
@@ -447,7 +449,7 @@ impl<'a> BindingsBuilder<'a> {
     fn ensure_type_alias_type_args(
         &mut self,
         call: &mut ExprCall,
-        tparams_builder: &mut Option<LegacyTParamCollector>,
+        tparams_builder: &mut LegacyTParamCollector,
     ) {
         // Type var declarations are static types only; skip them for first-usage type inference.
         let static_type_usage = &mut Usage::StaticTypeInformation {
@@ -461,7 +463,7 @@ impl<'a> BindingsBuilder<'a> {
         }
         // The second argument is the type
         if let Some(expr) = iargs.next() {
-            self.ensure_type_with_usage(expr, tparams_builder, &mut Usage::TypeAliasRhs);
+            self.ensure_type_with_usage(expr, Some(tparams_builder), &mut Usage::TypeAliasRhs);
         }
         // There shouldn't be any other positional arguments
         for arg in iargs {
@@ -473,14 +475,14 @@ impl<'a> BindingsBuilder<'a> {
                 && let Expr::Tuple(type_params) = &mut kw.value
             {
                 for type_param in type_params.elts.iter_mut() {
-                    self.ensure_type(type_param, &mut None);
+                    self.ensure_type(type_param, None);
                 }
             } else if let Some(id) = &kw.arg
                 && id.id == "value"
             {
                 self.ensure_type_with_usage(
                     &mut kw.value,
-                    tparams_builder,
+                    Some(tparams_builder),
                     &mut Usage::TypeAliasRhs,
                 );
             } else {
@@ -497,7 +499,7 @@ impl<'a> BindingsBuilder<'a> {
             if let Expr::StringLiteral(lit) = arg {
                 if lit.value.to_str() != name.as_str() {
                     self.error(
-                        x.range,
+                        x.range(),
                         ErrorKind::InvalidTypeAlias,
                         format!(
                             "TypeAliasType must be assigned to a variable named `{}`",
@@ -584,7 +586,7 @@ impl<'a> BindingsBuilder<'a> {
         }
         if !arg_name {
             self.error(
-                x.range,
+                x.range(),
                 ErrorKind::InvalidTypeAlias,
                 "Missing `name` argument".to_owned(),
             );
@@ -593,7 +595,7 @@ impl<'a> BindingsBuilder<'a> {
             (Some(value), type_params.unwrap_or_default())
         } else {
             self.error(
-                x.range,
+                x.range(),
                 ErrorKind::InvalidTypeAlias,
                 "Missing `value` argument".to_owned(),
             );
@@ -602,7 +604,7 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     fn assign_type_alias_type(&mut self, name: &ExprName, call: &mut ExprCall) {
-        let mut collector = Some(LegacyTParamCollector::new(false));
+        let mut collector = LegacyTParamCollector::new(false);
         self.ensure_type_alias_type_args(call, &mut collector);
         let assigned = self.declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
@@ -619,7 +621,7 @@ impl<'a> BindingsBuilder<'a> {
             name: name.id.clone(),
             tparams: TypeAliasParams::TypeAliasType {
                 declared_params: type_params,
-                legacy_params: collector.unwrap().lookup_keys().into_boxed_slice(),
+                legacy_params: collector.lookup_keys().into_boxed_slice(),
             },
             key_type_alias: idx_type_alias,
             range: call.range(),
@@ -636,9 +638,9 @@ impl<'a> BindingsBuilder<'a> {
     ) -> Idx<KeyAnnotation> {
         let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(name));
         if self.scopes.in_class_body() {
-            self.ensure_class_member_type(annotation, &mut None);
+            self.ensure_class_member_type(annotation, None);
         } else {
-            self.ensure_type(annotation, &mut None);
+            self.ensure_type(annotation, None);
         }
         let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
             // Special case `_: SpecialForm` declarations (this mainly affects some names declared in `typing.pyi`)
@@ -690,7 +692,7 @@ impl<'a> BindingsBuilder<'a> {
                 "Invalid `return` outside of a function".to_owned(),
             );
         }
-        self.scopes.mark_flow_termination(false);
+        self.scopes.mark_flow_termination(TerminationKind::Jump);
     }
 
     /// Evaluate the statements and update the bindings.
@@ -718,10 +720,15 @@ impl<'a> BindingsBuilder<'a> {
                     } else {
                         self.ensure_expr(target, delete_idx.usage());
                     }
-                    self.insert_binding_current(
+                    let idx = self.insert_binding_current(
                         delete_idx,
                         Binding::Delete(Box::new(target.clone())),
                     );
+                    if let Expr::Attribute(_) = target
+                        && let Some((identifier, _)) = identifier_and_chain_prefix_for_expr(target)
+                    {
+                        self.narrow_if_name_is_defined(identifier, idx);
+                    }
                 }
             }
             Stmt::Assign(ref x)
@@ -881,7 +888,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::AnnAssign(mut x) => match *x.target {
                 Expr::Name(name) => {
                     if Ast::is_synthesized_empty_name(&name) {
-                        self.ensure_type(&mut x.annotation, &mut None);
+                        self.ensure_type(&mut x.annotation, None);
                         if let Some(value) = x.value {
                             self.bind_single_name_assign(
                                 &Ast::expr_name_identifier(name),
@@ -994,7 +1001,7 @@ impl<'a> BindingsBuilder<'a> {
                 Expr::Attribute(attr) => {
                     let mut attr = attr;
                     let attr_name = attr.attr.id.clone();
-                    self.ensure_type(&mut x.annotation, &mut None);
+                    self.ensure_type(&mut x.annotation, None);
                     let ann_key = self.insert_binding(
                         KeyAnnotation::AttrAnnotation(x.annotation.range()),
                         BindingAnnotation::AnnotateExpr(
@@ -1131,7 +1138,7 @@ impl<'a> BindingsBuilder<'a> {
                     if let Some(params) = &mut x.type_params {
                         self.type_params(params);
                     }
-                    self.ensure_type_with_usage(&mut x.value, &mut None, &mut Usage::TypeAliasRhs);
+                    self.ensure_type_with_usage(&mut x.value, None, &mut Usage::TypeAliasRhs);
                     // Pop the type alias scope before binding the definition
                     self.scopes.pop();
                     let range = x.value.range();
@@ -1373,6 +1380,12 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
                 let kind = IsAsync::new(x.is_async);
+                let with_range = x.range();
+                // Whether the `with` itself is reachable, which we must record before
+                // visiting the body: a terminator in the body marks the flow dead, and
+                // we must not resurrect a flow that was already dead beforehand.
+                let reachable = !self.scopes.is_definitely_unreachable();
+                let mut contexts = Vec::with_capacity(x.items.len());
                 for mut item in x.items {
                     let item_range = item.range();
                     let expr_range = item.context_expr.range();
@@ -1382,6 +1395,7 @@ impl<'a> BindingsBuilder<'a> {
                         context,
                         Binding::Expr(None, Box::new(item.context_expr)),
                     );
+                    contexts.push(context_idx);
                     if let Some(mut opts) = item.optional_vars {
                         let make_binding =
                             |ann| Binding::ContextValue(ann, context_idx, expr_range, kind);
@@ -1396,6 +1410,35 @@ impl<'a> BindingsBuilder<'a> {
                 self.scopes.enter_with();
                 self.stmts(x.body, parent);
                 self.scopes.exit_with();
+                // An exception raised in the body may be suppressed by the context
+                // manager, in which case control flow resumes after the `with`. That
+                // depends on the type of `__exit__`, so defer the decision to solving.
+                // A `return`/`break`/`continue` also runs `__exit__`, but its return
+                // value is ignored for those, so they always leave the `with`.
+                let terminated = self.scopes.has_terminated();
+                // A body that did not terminate syntactically may still end in a `Never`
+                // expression, e.g. a `NoReturn` call, which raises or diverges.
+                let body = if terminated {
+                    None
+                } else {
+                    self.scopes.last_stmt_expr()
+                };
+                let suppressible = if terminated {
+                    self.scopes.terminated_by_raise()
+                } else {
+                    body.is_some()
+                };
+                if reachable && suppressible {
+                    let key = self.insert_binding(
+                        Key::SuppressedException(with_range),
+                        Binding::SuppressedException(Box::new(SuppressedException {
+                            contexts: contexts.into_boxed_slice(),
+                            kind,
+                            body,
+                        })),
+                    );
+                    self.scopes.resume_after_with(key);
+                }
             }
             Stmt::Match(x) => {
                 self.stmt_match(x, parent);
@@ -1421,7 +1464,7 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     // If there's no exception raised, don't bother checking the cause.
                 }
-                self.scopes.mark_flow_termination(false);
+                self.scopes.mark_flow_termination(TerminationKind::Raise);
             }
             Stmt::Try(x) => {
                 self.start_fork_and_branch(x.range);
@@ -1631,7 +1674,7 @@ impl<'a> BindingsBuilder<'a> {
                 let Expr::Call(call) = *stmt_expr.value else {
                     unreachable!("guarded by matches! above")
                 };
-                let call_range = call.range;
+                let call_range = call.range();
                 let args = call.arguments.args;
                 let (test, msg) = if args.len() == 1 {
                     (args[0].clone(), None)
@@ -1646,8 +1689,7 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::Expr(mut x) => {
                 let mut current = self.declare_current_idx(Key::StmtExpr(x.value.range()));
                 self.ensure_expr(&mut x.value, current.usage());
-                // A Polars in-place mutation on a bare name rebinds it to the degraded schema, so a
-                // discarded return value still degrades the frame.
+                // Rebind bare-name receivers after in-place column mutations.
                 let mutated_receiver = if let Expr::Call(call) = &*x.value
                     && let Expr::Attribute(func) = &*call.func
                     && let Expr::Name(receiver) = &*func.value
@@ -1658,6 +1700,42 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     None
                 };
+                // PyTorch nn.Module registers buffers and parameters as instance attributes.
+                // Collect literal-name candidates now; solving later verifies nn.Module ancestry.
+                if let Expr::Call(call) = x.value.as_ref()
+                    && let Expr::Attribute(func) = call.func.as_ref()
+                    && let Some(value_keyword) = match func.attr.id.as_str() {
+                        "register_buffer" => Some("tensor"),
+                        "register_parameter" => Some("param"),
+                        _ => None,
+                    }
+                {
+                    let name = call.arguments.args.first().or_else(|| {
+                        call.arguments.keywords.iter().find_map(|keyword| {
+                            (keyword
+                                .arg
+                                .as_ref()
+                                .is_some_and(|arg| arg.as_str() == "name"))
+                            .then_some(&keyword.value)
+                        })
+                    });
+                    let value = call.arguments.args.get(1).or_else(|| {
+                        call.arguments.keywords.iter().find_map(|keyword| {
+                            (keyword
+                                .arg
+                                .as_ref()
+                                .is_some_and(|arg| arg.as_str() == value_keyword))
+                            .then_some(&keyword.value)
+                        })
+                    });
+                    if let (Some(Expr::StringLiteral(name)), Some(value)) = (name, value) {
+                        self.scopes.record_nn_module_registration(
+                            &func.value,
+                            Name::new(name.value.to_str()),
+                            value.clone(),
+                        );
+                    }
+                }
                 let special_export = if let Expr::Call(ExprCall { func, .. }) = &*x.value {
                     self.as_special_export(func)
                 } else {

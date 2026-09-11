@@ -76,6 +76,9 @@ from .interactive import (
     unregister_handler,
     make_reply_handler,
     REPLY_NAMESPACE,
+    PollResult,
+    make_poll_result_handler,
+    POLL_NAMESPACE,
 )
 from .agent_reply import (
     AgentReply,
@@ -109,7 +112,9 @@ from .failure import (
 )
 from .admission import (
     IngressDecision,
+    MentionFacts,
     resolve_ingress_admission,
+    DEFAULT_IMPLICIT_MENTIONS,
 )
 from .run_status import (
     RunPhase,
@@ -185,6 +190,9 @@ __all__ = [
     "unregister_handler",
     "make_reply_handler",
     "REPLY_NAMESPACE",
+    "PollResult",
+    "make_poll_result_handler",
+    "POLL_NAMESPACE",
     "AgentReply",
     "TurnCompletion",
     "extract_presentation",
@@ -202,7 +210,9 @@ __all__ = [
     "FailureReply",
     "render_failure_reply",
     "IngressDecision",
+    "MentionFacts",
     "resolve_ingress_admission",
+    "DEFAULT_IMPLICIT_MENTIONS",
     "RunPhase",
     "RunStatusController",
     "StallState",

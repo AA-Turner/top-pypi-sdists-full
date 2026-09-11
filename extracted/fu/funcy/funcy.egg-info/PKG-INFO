@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: funcy
-Version: 2.0
+Version: 2.1
 Summary: A fancy and practical functional tools
-Home-page: http://github.com/Suor/funcy
+Home-page: https://github.com/Suor/funcy
 Author: Alexander Schepanovski
 Author-email: suor.web@gmail.com
 License: BSD
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -20,12 +19,24 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Intended Audience :: Developers
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 Funcy 
 =====
@@ -33,8 +44,8 @@ Funcy
 A collection of fancy functional tools focused on practicality.
 
 Inspired by clojure, underscore and my own abstractions. Keep reading to get an overview
-or `read the docs <http://funcy.readthedocs.org/>`_.
-Or jump directly to `cheatsheet <http://funcy.readthedocs.io/en/stable/cheatsheet.html>`_.
+or `read the docs <https://funcy.readthedocs.io/>`_.
+Or jump directly to `cheatsheet <https://funcy.readthedocs.io/en/stable/cheatsheet.html>`_.
 
 Works with Python 3.4+ and pypy3.
 
@@ -130,7 +141,7 @@ Create decorators easily:
 
     @decorator
     def log(call):
-        print call._func.__name__, call._args
+        print(call._func.__name__, call._args)
         return call()
 
 
@@ -184,7 +195,7 @@ Ease debugging:
     # 10.2 ms in Creating models
 
 
-And `much more <http://funcy.readthedocs.org/>`_.
+And `much more <https://funcy.readthedocs.io/>`_.
 
 
 Dive in
@@ -197,6 +208,11 @@ Funcy is an embodiment of ideas I explain in several essays:
 - `Abstracting Control Flow <https://suor.github.io/blog/2013/10/08/abstracting-control-flow/>`_
 - `Painless Decorators <https://suor.github.io/blog/2013/11/03/painless-decorators/>`_
 
+Related Projects
+----------------
+
+- https://pypi.org/project/funcy-chain/
+- https://pypi.org/project/funcy-pipe/
 
 Running tests
 --------------
@@ -206,7 +222,7 @@ To run the tests using your default python:
 ::
 
     pip install -r test_requirements.txt
-    py.test
+    pytest
 
 To fully run ``tox`` you need all the supported pythons to be installed. These are
 3.4+ and PyPy3. You can run it for particular environment even in absense
@@ -219,5 +235,3 @@ of all of the above::
 
 .. |Build Status| image:: https://github.com/Suor/funcy/actions/workflows/test.yml/badge.svg
    :target: https://github.com/Suor/funcy/actions/workflows/test.yml?query=branch%3Amaster
-
-

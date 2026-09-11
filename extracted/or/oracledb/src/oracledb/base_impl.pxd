@@ -396,8 +396,8 @@ cdef class Buffer:
     cdef int write_bytes(self, bytes value) except -1
     cdef int write_bytes_with_length(self, bytes value) except -1
     cdef int write_bytes_with_two_lengths(self, object value) except -1
-    cdef int write_interval_ds(self, object value) except -1
-    cdef int write_interval_ym(self, object value) except -1
+    cdef int write_interval_ds(self, OracleIntervalDS* value) except -1
+    cdef int write_interval_ym(self, OracleIntervalYM* value) except -1
     cdef int write_oracle_date(self, object value, uint8_t length) except -1
     cdef int write_oracle_number(self, bytes num_bytes) except -1
     cdef int write_oson(self, value, bint supports_long_fnames,
@@ -641,6 +641,8 @@ cdef class ConnectParamsImpl:
         public str debug_jdwp
         object access_token_callback
         public object on_connect_callback
+        public object operation_callback
+        public object round_trip_callback
         Description _default_description
         Address _default_address
         SecretValueImpl _password
@@ -653,6 +655,7 @@ cdef class ConnectParamsImpl:
         public str terminal
         public str osuser
         public str driver_name
+        public str transaction_priority
         public dict extra_auth_params
         public bint thick_mode_dsn_passthrough
         public str _config_cache_key
@@ -671,7 +674,9 @@ cdef class ConnectParamsImpl:
     cdef int _parse_connect_string(self, str connect_string) except -1
     cdef int _set_access_token(self, object val, int error_num) except -1
     cdef int _set_access_token_param(self, object val) except -1
-    cdef int _set_on_connect_param(self, object val) except -1
+    cdef int _set_callback_param(
+        self, dict args, str name, object target
+    ) except -1
     cdef int _set_new_password(self, object password) except -1
     cdef int _set_password(self, object password) except -1
     cdef int _set_wallet_password(self, object password) except -1
@@ -699,23 +704,27 @@ cdef class PoolParamsImpl(ConnectParamsImpl):
 cdef class BaseConnImpl:
     cdef:
         readonly bint thin
-        readonly str username
         readonly str dsn
-        readonly str proxy_user
         public object inputtypehandler
+        public object operation_callback
         public object outputtypehandler
+        public object round_trip_callback
         public object warning
         public bint autocommit
         public bint invoke_session_callback
         readonly tuple server_version
         readonly bint supports_bool
+        readonly ConnectParamsImpl connect_params
         bint supports_oson_long_field_names
-        bint _allow_bind_str_to_lob
         bint _in_request
 
     cdef object _check_value(self, OracleMetadata type_info, object value,
                              bint* is_ok)
     cdef BaseCursorImpl _create_cursor_impl(self)
+    cdef object _invoke_operation_callback(self, object method_owner,
+                                           str name, object args,
+                                           object kwargs)
+    cdef int _process_sync_operation_sub_op(self, object sub_op) except -1
 
 
 cdef class BasePoolImpl:
@@ -776,7 +785,6 @@ cdef class BaseCursorImpl:
                                        OracleMetadata metadata)
     cdef object _create_row(self)
     cdef BaseVarImpl _create_var_impl(self, object conn)
-    cdef int _fetch_rows(self, object cursor) except -1
     cdef BaseConnImpl _get_conn_impl(self)
     cdef object _get_input_type_handler(self)
     cdef object _get_output_type_handler(self, bint* uses_fetch_info)
@@ -1018,6 +1026,10 @@ cdef class SparseVectorImpl:
         readonly uint32_t num_dimensions
         readonly array.array indices
         readonly array.array values
+
+
+cdef class SubOperation:
+    pass
 
 
 cdef struct OracleDate:

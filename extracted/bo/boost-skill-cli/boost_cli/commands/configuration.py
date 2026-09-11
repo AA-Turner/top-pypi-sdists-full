@@ -159,7 +159,11 @@ def cmd_clean(argv) -> int:
                    help="also remove snapshots older than 90 days")
     p.add_argument("-y", "--yes", action="store_true",
                    help="skip the --deep confirmation prompt")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args(argv)
+
+    def row(pth, kind, size):
+        return {"path": str(pth), "kind": kind, "bytes": size}
 
     items: list[tuple[Path, str, int]] = []  # (path, kind, bytes)
     for spec in agents.known_agents().values():
@@ -207,9 +211,14 @@ def cmd_clean(argv) -> int:
         cutoff = time.time() - 90 * 86400
         old_snaps = [s for s in sorted(paths.snapshots_dir().iterdir())
                      if s.lstat().st_mtime < cutoff]
+        # `quiet` under --json for the reason out.confirm documents: on a
+        # non-TTY decline it prints a bypass hint, which would land as a stray
+        # prose line ahead of the payload and stop it parsing.
         if old_snaps and not args.dry_run and not (args.yes or out.confirm(
-                "remove %d snapshot(s) older than 90 days?" % len(old_snaps))):
-            out.info("keeping old snapshots")
+                "remove %d snapshot(s) older than 90 days?" % len(old_snaps),
+                quiet=args.json)):
+            if not args.json:
+                out.info("keeping old snapshots")
             declined = True
             old_snaps = []
         for s in old_snaps:
@@ -220,6 +229,12 @@ def cmd_clean(argv) -> int:
         # `declined` means the only candidate was the --deep snapshot purge
         # and the user said no — "nothing to clean" would claim there was
         # nothing to do when there was, and the user just declined doing it.
+        if args.json:
+            print(json.dumps({"items": [], "count": 0, "bytes": 0,
+                              "dry_run": args.dry_run, "removed": 0,
+                              "failed": [], "declined": declined,
+                              "ok": not declined}, indent=2))
+            return 1 if declined else 0
         if declined:
             return 1
         out.ok("nothing to clean")
@@ -227,6 +242,12 @@ def cmd_clean(argv) -> int:
 
     if args.dry_run:
         freed = sum(size for _, _, size in items)
+        if args.json:
+            print(json.dumps({"items": [row(*i) for i in items],
+                              "count": len(items), "bytes": freed,
+                              "dry_run": True, "removed": 0, "failed": [],
+                              "declined": declined, "ok": True}, indent=2))
+            return 0
         for pth, kind, _size in items:
             out.info("would remove %s %s" % (_tilde(pth), out.role("(%s)" % kind, "muted")))
         out.dim("  %d item(s) · %s would be freed" % (len(items), util.human_size(freed)))
@@ -234,6 +255,16 @@ def cmd_clean(argv) -> int:
 
     removed, freed, failures = util.remove_items(items)
     failed_errors = dict(failures)
+    if args.json:
+        journal.log("clean", "cleaned %d item(s)" % removed,
+                    freed=util.human_size(freed))
+        print(json.dumps(
+            {"items": [row(*i) for i in items], "count": len(items),
+             "bytes": freed, "dry_run": False, "removed": removed,
+             "failed": [{"path": str(pth), "error": err}
+                        for pth, err in failures],
+             "declined": declined, "ok": not failures}, indent=2))
+        return 1 if failures else 0
     for pth, kind, _size in items:
         if pth in failed_errors:
             out.warn("could not remove %s: %s" % (_tilde(pth), failed_errors[pth]),
@@ -292,11 +323,18 @@ def cmd_compact(argv) -> int:
                    help="show what would be reclaimed without touching anything")
     p.add_argument("--reclone", action="store_true",
                    help="re-clone blobless for the smallest result (needs network)")
+    p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args(argv)
+
+    rows: list[dict] = []
 
     taps = [registry.get(n) for n in args.tap] if args.tap else registry.list_taps()
     taps = [t for t in taps if t.is_cloned]
     if not taps:
+        if args.json:
+            print(json.dumps({"taps": [], "count": 0, "bytes": 0,
+                              "dry_run": args.dry_run, "ok": True}, indent=2))
+            return 0
         out.ok("no cloned taps to compact")
         return 0
 
@@ -317,8 +355,11 @@ def cmd_compact(argv) -> int:
             if loose:
                 changed += 1
                 freed += loose
-                out.info("would free %s from %s"
-                         % (util.human_size(loose), tap.name))
+                rows.append({"tap": tap.name, "bytes": loose,
+                             "before": before, "after": before - loose})
+                if not args.json:
+                    out.info("would free %s from %s"
+                             % (util.human_size(loose), tap.name))
             continue
         try:
             if args.reclone:
@@ -329,9 +370,26 @@ def cmd_compact(argv) -> int:
                     # other — nothing about `--reclone` consults the pin — so
                     # without this the clone silently lands on HEAD while
                     # config.json, the catalog cache and `boost taps` keep
-                    # naming the old commit. checkout_commit's own BoostError
-                    # (unresolvable pin) surfaces through the except below.
-                    gitutil.checkout_commit(tap.path, tap.pin)
+                    # naming the old commit.
+                    try:
+                        gitutil.checkout_commit(tap.path, tap.pin)
+                    except BoostError:
+                        # `--reclone` removed the clone before making this
+                        # one, so the pinned tree is already gone and there is
+                        # nothing to fall back to. Letting the `except` below
+                        # warn and carry on would leave a clone sitting on
+                        # HEAD with the old pin still recorded beside it, and
+                        # the next `update` reads `is_cloned` true plus a pin
+                        # and answers "pinned at <sha> (skipped)" — forever,
+                        # for a tree that is not on that commit. Remove it
+                        # instead: `doctor` names a tap with no clone (`! tap
+                        # <x> not cloned`, exit 1) and `update` re-clones it
+                        # back onto its pin, so the tap ends in a state
+                        # something reports and something repairs.
+                        # `registry.update` takes the same exit on the same
+                        # failure; this is the path that gets there first.
+                        util.rmtree(tap.path)
+                        raise
                 # The re-clone can change what's on disk even when the byte
                 # count doesn't (a pinned tap's tree is identical, but the
                 # cache's recorded commit and mtime are now stale either way).
@@ -341,7 +399,9 @@ def cmd_compact(argv) -> int:
             for rel in keep.get(tap.name, []):
                 gitutil.materialize(tap.path, rel)
         except BoostError as e:
-            out.warn("could not compact %s: %s" % (tap.name, e))
+            rows.append({"tap": tap.name, "error": str(e)})
+            out.warn("could not compact %s: %s" % (tap.name, e),
+                     stream=sys.stderr if args.json else None)
             continue
         after = util.dir_size(tap.path)
         # A re-clone did real work — refreshed the clone, possibly moved it
@@ -350,14 +410,26 @@ def cmd_compact(argv) -> int:
         if args.reclone or after < before:
             changed += 1
             freed += max(before - after, 0)
-            out.info("%s  %s → %s" % (tap.name, util.human_size(before),
-                                      util.human_size(after)))
+            rows.append({"tap": tap.name, "bytes": max(before - after, 0),
+                         "before": before, "after": after})
+            if not args.json:
+                out.info("%s  %s → %s" % (tap.name, util.human_size(before),
+                                          util.human_size(after)))
 
     if args.dry_run:
+        if args.json:
+            print(json.dumps({"taps": rows, "count": changed, "bytes": freed,
+                              "dry_run": True, "ok": True}, indent=2))
+            return 0
         out.dim("  %d tap(s) · %s would be freed"
                 % (changed, util.human_size(freed)))
         return 0
     journal.log("compact", "%d taps" % changed, freed=util.human_size(freed))
+    if args.json:
+        print(json.dumps({"taps": rows, "count": changed, "bytes": freed,
+                          "dry_run": False,
+                          "ok": not any("error" in r for r in rows)}, indent=2))
+        return 0
     if not changed:
         out.ok("every tap is already compact")
         return 0
@@ -1281,9 +1353,15 @@ def _tool_search(args: dict):
         entries = [e for e, _score in catalog.search(query)[:10]]
         ranker = FRONTMATTER_RANKER
     if not entries:
-        # mcp.no_results owns the empty reply on both paths, including the
-        # untapped-machine branch that must not read as a genuine miss.
-        return mcp.no_results(query, tapped=tapped), False
+        # mcp.no_results owns the empty reply on all three paths: a genuine
+        # miss, the untapped machine that must not read as one, and a query
+        # every word of which fell out of the tokenizer. The third is asked
+        # only of the RAG branch — `catalog.search` is a substring match and
+        # discards nothing, so a notice there would describe another engine.
+        dropped = (rag.dropped_terms(query)
+                   if rag_result is not None
+                   and rag.tokenizer_is_the_only_reader() else [])
+        return mcp.no_results(query, tapped=tapped, dropped=dropped), False
     # Name-keyed, the same test `lockfile.find_any` and `store.install` apply —
     # those are the tools this marker is advising about. mcp.hit_line's
     # docstring records why the imprecision is disclosed rather than removed,

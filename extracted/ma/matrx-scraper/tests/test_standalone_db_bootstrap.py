@@ -1,3 +1,20 @@
+"""Standalone scraper boot: ONE database, fatal bootstrap, honest readiness.
+
+SUTs and what they OWN:
+- `matrx_scraper.db.bootstrap_db` / `db.web.bootstrap_web_db` — bind `scraper.*`
+  and `web.*` to the ONE platform database from `SUPABASE_MATRIX_*`, and RAISE on
+  an incomplete environment — never fall back to a second candidate
+  (aidream/CLAUDE.md § ONE database). Exercised against the REAL matrx-orm
+  resolver and registry (isolated per test) with a real environment; nothing
+  in the resolution chain is stubbed.
+- `matrx_scraper.configure_db` — hosted binding: alias both model sets onto the
+  host's pool, never a second pool.
+- `server.app._lifespan` — boot order, fatal bootstrap, the ext wiring.
+- `server.app._readiness_snapshot` — fail closed for every required component.
+- `server.app.canonical_file_access_allowed` — delegate to the DB policy.
+- The retired-crawl guards pinned by the package CLAUDE.md (both directions).
+"""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -5,40 +22,144 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from matrx_orm.core.config import (
+    DatabaseProjectConfig,
+    get_database_config,
+    is_database_registered,
+    register_database,
+    registry,
+    resolve_database_name,
+)
 
 from matrx_scraper import configure_db
 from matrx_scraper import db as scraper_db
+from matrx_scraper.db import _config as scraper_db_config
 from matrx_scraper.db import web as web_db
 from matrx_scraper.server import app as server_app
 from matrx_scraper.server.config import ServerConfig
 
+ONE_DATABASE_ENV = {
+    "SUPABASE_MATRIX_HOST": "one-platform-db.example.internal",
+    "SUPABASE_MATRIX_PORT": "6543",
+    "SUPABASE_MATRIX_DATABASE_NAME": "matrx_main",
+    "SUPABASE_MATRIX_USER": "platform_writer",
+    "SUPABASE_MATRIX_PASSWORD": "platform-secret",
+}
+# Every second candidate the retired resolution ladder used to consult, each a
+# complete, reachable-looking alternative (Coolify injects DATABASE_URL into
+# every service). If any of them can bind scraper.* or web.*, the law is broken.
+SECOND_DATABASE_ENV = {
+    "SCRAPER_DATABASE_URL": "postgresql://postgres:secret@scraper-postgres.internal:5434/scraper_db",
+    "DATABASE_URL": "postgresql://postgres:secret@scraper-postgres.internal:5434/scraper_db",
+    "MATRX_SCRAPER_POSTGRES_HOST": "scraper-postgres.internal",
+    "MATRX_SCRAPER_POSTGRES_PORT": "5434",
+    "MATRX_SCRAPER_POSTGRES_NAME": "scraper_db",
+    "MATRX_SCRAPER_POSTGRES_USER": "postgres",
+    "MATRX_SCRAPER_POSTGRES_PASSWORD": "secret",
+}
+ONE_DATABASE_TARGET = ("one-platform-db.example.internal", "6543", "matrx_main", "platform_writer")
 
-class _OwnedOrmPool:
-    async def close(self) -> None:
-        raise AssertionError("the standalone server must not close matrx-orm's shared pool")
+
+@pytest.fixture
+def isolated_orm_registry(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A private, empty matrx-orm database registry for one test (auto-restored)."""
+    monkeypatch.setattr(registry, "_configs", {})
+    monkeypatch.setattr(registry, "_used_aliases", [])
+    monkeypatch.setattr(registry, "_name_aliases", {})
+    monkeypatch.setitem(scraper_db_config._registry, "db_config_name", None)
+    return registry
 
 
-def test_host_configuration_binds_scraper_and_web_models(
+def _environment(monkeypatch: pytest.MonkeyPatch, env: dict[str, str]) -> None:
+    for name in (*ONE_DATABASE_ENV, *SECOND_DATABASE_ENV):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+
+
+def _physical_target(config_name: str) -> tuple[str, str, str, str]:
+    config = get_database_config(config_name)
+    return (
+        str(config["host"]),
+        str(config["port"]),
+        str(config["database_name"]),
+        str(config["user"]),
+    )
+
+
+def test_standalone_scraper_and_web_bind_to_the_one_database_despite_second_candidates(
+    monkeypatch: pytest.MonkeyPatch, isolated_orm_registry: Any
+) -> None:
+    _environment(monkeypatch, {**ONE_DATABASE_ENV, **SECOND_DATABASE_ENV})
+
+    assert scraper_db.bootstrap_db() == scraper_db.PACKAGE_DB_NAME
+    assert web_db.bootstrap_web_db() == web_db.WEB_DB_NAME
+
+    assert _physical_target(scraper_db.PACKAGE_DB_NAME) == ONE_DATABASE_TARGET
+    assert _physical_target(web_db.WEB_DB_NAME) == ONE_DATABASE_TARGET
+    assert "scraper" in get_database_config(scraper_db.PACKAGE_DB_NAME)["additional_schemas"]
+    assert "web" in get_database_config(web_db.WEB_DB_NAME)["additional_schemas"]
+
+
+@pytest.mark.parametrize("unset", sorted(ONE_DATABASE_ENV))
+@pytest.mark.parametrize("bootstrap", ["scraper", "web"])
+def test_standalone_bootstrap_raises_on_an_incomplete_platform_environment_never_falls_back(
+    monkeypatch: pytest.MonkeyPatch, isolated_orm_registry: Any, bootstrap: str, unset: str
+) -> None:
+    env = {**ONE_DATABASE_ENV, **SECOND_DATABASE_ENV}
+    del env[unset]
+    _environment(monkeypatch, env)
+    name, bind = (
+        (scraper_db.PACKAGE_DB_NAME, scraper_db.bootstrap_db)
+        if bootstrap == "scraper"
+        else (web_db.WEB_DB_NAME, web_db.bootstrap_web_db)
+    )
+
+    with pytest.raises(RuntimeError, match="SUPABASE_MATRIX_HOST/_PORT/_DATABASE_NAME/_USER/_PASSWORD"):
+        bind()
+
+    assert not is_database_registered(name), f"{name} was bound despite {unset} being unset"
+
+
+def test_connection_url_refuses_to_fall_back_to_a_second_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[str, str]] = []
-    monkeypatch.setattr(
-        scraper_db,
-        "bind_to_host",
-        lambda name: calls.append(("scraper", name)),
-    )
-    monkeypatch.setattr(
-        web_db,
-        "bind_web_to_host",
-        lambda name: calls.append(("web", name)),
+    env = {**ONE_DATABASE_ENV, **SECOND_DATABASE_ENV}
+    del env["SUPABASE_MATRIX_PASSWORD"]
+    _environment(monkeypatch, env)
+
+    with pytest.raises(RuntimeError, match="SUPABASE_MATRIX"):
+        scraper_db.connection_url()
+
+
+def test_hosted_configuration_aliases_scraper_and_web_onto_the_host_pool(
+    isolated_orm_registry: Any,
+) -> None:
+    """Break: hosting leaves a model set unbound (or opens a second pool) instead
+    of pointing both at the pool the host already registered."""
+    register_database(
+        DatabaseProjectConfig(
+            name="host_database",
+            alias="host_database",
+            host="host-pool.example.internal",
+            port="5432",
+            database_name="matrx_main",
+            user="host_user",
+            password="host-secret",
+        )
     )
 
     configure_db("host_database")
 
-    assert calls == [
-        ("scraper", "host_database"),
-        ("web", "host_database"),
-    ]
+    assert resolve_database_name(scraper_db.PACKAGE_DB_NAME) == "host_database", (
+        "scraper.* models are not bound to the host's pool"
+    )
+    assert resolve_database_name(web_db.WEB_DB_NAME) == "host_database", (
+        "web.* models are not bound to the host's pool"
+    )
+    assert set(isolated_orm_registry._configs) == {"host_database"}, (
+        "hosted binding registered a second pool instead of aliasing the host's"
+    )
 
 
 @pytest.mark.asyncio
@@ -210,6 +331,29 @@ async def test_server_lifespan_fails_hard_when_scraper_database_bootstrap_fails(
 
 
 @pytest.mark.asyncio
+async def test_server_lifespan_fails_hard_when_web_database_bootstrap_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Break: an unbindable `web.*` database is logged and boot carries on."""
+
+    def boom() -> str:
+        raise RuntimeError("no platform database")
+
+    def files_bootstrap_must_not_run(*args: object, **kwargs: object) -> None:
+        raise AssertionError("files/S3 bootstrap ran after the web database failed to bind")
+
+    monkeypatch.setattr("matrx_scraper.db.web.bootstrap_web_db", boom)
+    monkeypatch.setattr("matrx_files.db.bind_to_host", lambda name: None)
+    monkeypatch.setattr("matrx_files.configure_access_checker", lambda checker, **kwargs: None)
+    monkeypatch.setattr("matrx_files.FileManager", files_bootstrap_must_not_run)
+    app = SimpleNamespace(state=SimpleNamespace(config=ServerConfig()))
+
+    with pytest.raises(RuntimeError, match="canonical web database bootstrap failed"):
+        async with server_app._lifespan(app):
+            pass
+
+
+@pytest.mark.asyncio
 async def test_standalone_file_access_checker_delegates_to_canonical_db_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -244,102 +388,23 @@ async def test_standalone_file_access_checker_delegates_to_canonical_db_policy(
     ]
 
 
-def _capture_register_from_env(
-    monkeypatch: pytest.MonkeyPatch, *, ok: bool = True
-) -> list[dict[str, Any]]:
-    """Stub matrx-orm registration; return the list of captured kwargs."""
-    captured: list[dict[str, Any]] = []
-
-    def fake_register_from_env(**kwargs: Any) -> bool:
-        captured.append(kwargs)
-        return ok
-
-    monkeypatch.setattr("matrx_orm.is_database_registered", lambda name: False)
-    monkeypatch.setattr("matrx_orm.register_database_from_env", fake_register_from_env)
-    monkeypatch.setattr(
-        "matrx_orm.register_database",
-        lambda config: pytest.fail(
-            "matrx-scraper must never register a pool from a raw connection URL — "
-            "`scraper.*` binds to the ONE database via SUPABASE_MATRIX_*"
-        ),
-    )
-    monkeypatch.setattr(scraper_db, "_register_models", lambda: None)
-    return captured
-
-
-def test_bootstrap_binds_scraper_schema_to_the_one_platform_database(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(("user_id", "resource_id"), [("", "file-1"), ("user-1", "")])
+@pytest.mark.asyncio
+async def test_file_access_is_denied_without_asking_the_database_when_identity_is_blank(
+    monkeypatch: pytest.MonkeyPatch, user_id: str, resource_id: str
 ) -> None:
-    """`scraper.*` resolves from SUPABASE_MATRIX_* — the same ONE database as `web.*`."""
-    captured = _capture_register_from_env(monkeypatch)
+    calls: list[tuple[object, ...]] = []
 
-    assert scraper_db.bootstrap_db() == scraper_db.PACKAGE_DB_NAME
+    async def permissive_db(*args: object) -> bool:
+        calls.append(args)
+        return True
 
-    assert len(captured) == 1
-    kwargs = captured[0]
-    assert kwargs["name"] == scraper_db.PACKAGE_DB_NAME
-    assert kwargs["env_prefix"] == "SUPABASE_MATRIX"
-    assert kwargs["env_var_overrides"] == {"NAME": "SUPABASE_MATRIX_DATABASE_NAME"}
-    assert kwargs["additional_schemas"] == ["scraper"]
-    # ssl is left to the deployment (SUPABASE_MATRIX_SSL) so a local or
-    # client-owned Postgres is reachable — never hardcoded here.
-    assert kwargs["ssl"] is None
+    monkeypatch.setattr(server_app, "call_function", permissive_db)
 
+    allowed = await server_app.canonical_file_access_allowed(user_id, "file", resource_id, "read")
 
-def test_bootstrap_ignores_every_retired_second_database_env_var(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A service-local Postgres URL must NOT be able to re-fork `scraper.*`."""
-    monkeypatch.setenv(
-        "SCRAPER_DATABASE_URL", "postgresql://a:b@scraper-postgres.internal:5434/scraper_db"
-    )
-    monkeypatch.setenv("DATABASE_URL", "postgresql://a:b@scraper-postgres.internal:5434/scraper_db")
-    monkeypatch.setenv("MATRX_SCRAPER_POSTGRES_HOST", "scraper-postgres.internal")
-    monkeypatch.setenv("MATRX_SCRAPER_POSTGRES_USER", "postgres")
-    monkeypatch.setenv("MATRX_SCRAPER_POSTGRES_PASSWORD", "secret")
-    captured = _capture_register_from_env(monkeypatch)
-
-    scraper_db.bootstrap_db()
-
-    # register_database (the URL path) is a hard fail in the stub above; the only
-    # accepted resolution is the platform env prefix.
-    assert [k["env_prefix"] for k in captured] == ["SUPABASE_MATRIX"]
-
-    # connection_url() likewise refuses to fall back to the service-local URL.
-    for var in ("SUPABASE_MATRIX_HOST", "SUPABASE_MATRIX_USER", "SUPABASE_MATRIX_PASSWORD"):
-        monkeypatch.delenv(var, raising=False)
-    with pytest.raises(RuntimeError, match="SUPABASE_MATRIX"):
-        scraper_db.connection_url()
-
-
-def test_scraper_and_web_share_one_resolver_so_they_cannot_diverge(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    captured = _capture_register_from_env(monkeypatch)
-    monkeypatch.setattr(web_db, "_register_models", lambda: None)
-
-    scraper_db.bootstrap_db()
-    web_db.bootstrap_web_db()
-
-    assert [k["name"] for k in captured] == [scraper_db.PACKAGE_DB_NAME, web_db.WEB_DB_NAME]
-    assert [k["additional_schemas"] for k in captured] == [["scraper"], ["web"]]
-    # Same prefix, same overrides, same TLS posture → same physical database.
-    assert len({k["env_prefix"] for k in captured}) == 1
-    assert len({tuple(sorted(k["env_var_overrides"].items())) for k in captured}) == 1
-    assert len({k["ssl"] for k in captured}) == 1  # same TLS posture
-
-
-@pytest.mark.parametrize("bootstrap", ["scraper", "web"])
-def test_bootstrap_raises_when_the_one_database_cannot_be_resolved(
-    monkeypatch: pytest.MonkeyPatch, bootstrap: str
-) -> None:
-    """No fallback, no 'optional' — an unresolvable platform DB is fatal."""
-    _capture_register_from_env(monkeypatch, ok=False)
-    monkeypatch.setattr(web_db, "_register_models", lambda: None)
-
-    fn = scraper_db.bootstrap_db if bootstrap == "scraper" else web_db.bootstrap_web_db
-    with pytest.raises(RuntimeError, match="SUPABASE_MATRIX"):
-        fn()
+    assert allowed is False
+    assert calls == []
 
 
 def test_server_image_contains_every_readiness_probe_dependency() -> None:
@@ -525,7 +590,6 @@ def test_absent_playwright_does_not_block_readiness(
     assert payload["failed_components"] == [], payload
     assert status == 200
     assert payload["browser_pool"] is False
-    assert payload["failed_components"] == []
     # The cache is NOT in this exemption. It is required (and its init is fatal)
     # as of 2026-08-09 — a cache-less server re-fetches every page at full cost
     # forever, which readiness must never call healthy. See

@@ -1,6 +1,6 @@
 [project]
 name = "dlthub-client"
-version = "0.28.3"
+version = "0.28.4"
 description = "CLI tool for accessing dltHub runtime"
 authors = [{ name = "dltHub Inc.", email = "services@dlthub.com" }]
 requires-python = ">=3.10, <3.15"
@@ -34,6 +34,10 @@ dependencies = [
     "tabulate>=0.9.0",
     "attrs>=23.2.0",
     "pathspec>=0.11.2",
+    # For its `timeout`: `re` cannot be interrupted off the main thread, so an
+    # agent-written backtracking pattern would wedge the MCP server.
+    "regex>=2024.4.16",
+    "typing-extensions>=4.9",
 ]
 
 [dependency-groups]
@@ -44,7 +48,6 @@ dev = [
     "pytest>=9.0.3,<10",
     "ruff>=0.2.1",
     "mypy>=1.8.0",
-    "flake8>=5.0.0",
     "isort>=6.1.0",
     "pyyaml>=6",
     "types-PyYAML>=5.4.1",
@@ -53,6 +56,17 @@ dev = [
     "types-tabulate>=0.9.0",
     "types-python-dateutil>=2.9.0.20251115",
     "marimo>=0.23.9",
+    # Only so tests can register and call the tools; it shadows the
+    # docstring_parser pydoclint needs, hence the out-of-tree lint-sdk-docs.
+    "fastmcp>=4.0.3,<5",
+    "types-regex>=2024.4.16",
+]
+# Its own group, not `dev`: fastmcp's docstring-parser shadows the
+# docstring_parser_fork pydoclint needs, so the two cannot share an
+# environment. A group still resolves through uv.lock, unlike `--with`.
+docs-lint = [
+    "flake8>=7.1.0,<8",
+    "pydoclint>=0.9.1,<0.10",
 ]
 
 [tool.uv]
@@ -83,7 +97,7 @@ dlthub_client = "dlt_runtime.__plugin__"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 norecursedirs = [".direnv", ".eggs", "build", "dist"]
-addopts = "--showlocals --durations 10"
+addopts = "--showlocals --durations 10 --strict-markers"
 xfail_strict = true
 timeout = 1800
 faulthandler_timeout = 1500
@@ -92,6 +106,11 @@ console_output_style = "count"
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["*_test", "test_*"]
 filterwarnings = ["ignore::DeprecationWarning"]
+# Registered so a typo in the marker name fails loudly instead of silently
+# leaving the autouse storage fixture in place.
+markers = [
+    "skip_autouse_test_storage: opt out of the workspace-storage fixture that chdirs",
+]
 
 
 [build-system]
@@ -99,7 +118,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
-packages = ["dlt_runtime"]
+packages = ["dlt_runtime", "dlthub_mcp", "dlthub_sdk"]
 # hatchling follows .gitignore and will include all files in gitindex under `dlt`
 include = [
     "LICENSE.txt",
@@ -107,7 +126,7 @@ include = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["dlt_runtime"]
+packages = ["dlt_runtime", "dlthub_mcp", "dlthub_sdk"]
 include = [
     "LICENSE.txt",
     "README.md",
@@ -115,10 +134,9 @@ include = [
 
 
 [tool.mypy]
-plugins = ["pydantic.mypy"]
 python_version="3.10"
 ignore_missing_imports=false
-strict_optional=false
+strict_optional=true
 warn_redundant_casts=true
 disallow_any_generics=true
 disallow_untyped_defs=true
@@ -127,19 +145,49 @@ warn_return_any=true
 namespace_packages=true
 warn_unused_ignores=true
 show_error_codes=true
-exclude="tests/cases/*"
+# Keep this the only mypy config: a mypy.ini alongside it shadows the whole block,
+# silently disabling warn_unused_ignores, which tests/sdk/test_mode_typing.py needs.
+exclude="dlthub_sdk/_gen/|tests/cases/"
 
 [[tool.mypy.overrides]]
 module = "mcp.*,ruamel.*"
 follow_imports = "skip"
 
+[[tool.mypy.overrides]]
+module = "cron_descriptor.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+warn_return_any = false
+
 [tool.ruff]
 extend-exclude = [
-    "dlt_runtime/runtime_clients",
+    "dlthub_sdk/_gen",
 ]
 
 [tool.ruff.lint]
-extend-select = ["TID251"]
+# D* is deliberately on only for dlthub_sdk (see per-file-ignores): there the
+# docstrings are the reference docs IDEs render, unlike the rest of the repo.
+# D202 is also what keeps the generated tree stable across regeneration.
+extend-select = ["TID251", "D", "RUF022"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# RUF022: the client generator invokes ruff on the paths it writes, which bypasses
+#         extend-exclude, so the generated __all__ needs ignoring by path or every
+#         regeneration reorders it.
+"dlthub_sdk/_gen/**" = ["RUF022"]
+# D105: a dunder's docstring is not what an IDE shows on hover.
+# D107: constructor args belong in the class docstring (Google convention,
+#       enforced the other way by pydoclint DOC301).
+"dlthub_sdk/**" = ["D105", "D107"]
+"dlt_runtime/**" = ["D"]
+"tests/**" = ["D"]
+"tools/**" = ["D"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "typing.TypedDict".msg = "Use dlt.common.typing.TypedDict instead"
@@ -156,9 +204,9 @@ extend-select = ["TID251"]
 
 [tool.isort]
 extend_skip = [
-    "dlt_runtime/runtime_clients",
+    "dlthub_sdk/_gen",
 ]
-known_first_party = ["dlt_runtime"]
+known_first_party = ["dlt_runtime", "dlthub_mcp", "dlthub_sdk"]
 known_dlt_runtime_common = ["dlt_runtime_common"]
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DLT_RUNTIME_COMMON", "FIRSTPARTY", "LOCALFOLDER"]
 default_section = "THIRDPARTY"
@@ -174,6 +222,3 @@ import_heading_thirdparty = "Other libraries"
 import_heading_dlt_runtime_common = "dltHub runtime common package"
 import_heading_firstparty = "Current package"
 
-
-[tool.pydantic-mypy]
-init_typed = true

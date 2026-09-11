@@ -308,6 +308,15 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     cls._env_output_checked = True
         return cls._env_output_mode
     
+    @staticmethod
+    def _local_discovery(target):
+        """Re-read the discovery for a resolved local target (cached upstream)."""
+        try:
+            from ..local import probe_endpoint
+            return probe_endpoint(target.base_url, expect=target.engine)
+        except Exception:
+            return None
+
     # Ordered (credential env-var, provider-appropriate default model). The
     # first provider whose credential is present wins. OpenAI is first so
     # existing OpenAI users keep their default; any other single configured
@@ -732,6 +741,12 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 - bool: True enables with defaults
                 - Callable: Validation function
                 - GuardrailConfig: Custom configuration
+                A validator rejects an answer by returning ``(False, "why")`` or
+                by raising ``GuardrailRetry("why")``. Either way the reason is
+                appended to the same conversation and the model gets another
+                attempt in the same run, up to
+                ``GuardrailConfig(max_retries=...)`` (default 3); see
+                ``guardrail_retry_count``.
             web: Web search/fetch. Accepts:
                 - bool: True enables with defaults
                 - WebConfig: Custom configuration
@@ -1347,7 +1362,18 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 _hooks_list = _hooks_config
             elif isinstance(_hooks_config, HooksConfig):
                 step_callback = _hooks_config.on_step
-                _hooks_list = _hooks_config.middleware or []
+                _hooks_list = list(_hooks_config.middleware or [])
+                # Route on_step / on_tool_call onto the SAME middleware chain
+                # that already powers ``hooks=[...]`` (MiddlewareManager). Both
+                # keys used to be stored-and-never-called, so the TypeError that
+                # advertises them ("Valid keys: on_step, on_tool_call,
+                # middleware") promised behaviour that did not exist.
+                if _hooks_config.on_step is not None or _hooks_config.on_tool_call is not None:
+                    from ..hooks.middleware import as_step_hook, as_tool_call_hook
+                    if _hooks_config.on_step is not None:
+                        _hooks_list.append(as_step_hook(_hooks_config.on_step))
+                    if _hooks_config.on_tool_call is not None:
+                        _hooks_list.append(as_tool_call_hook(_hooks_config.on_tool_call))
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve SKILLS param - FAST PATH
@@ -2182,15 +2208,71 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # configured agent pays nothing. Resolved here into a concrete
         # provider/model so the normal LLM path handles it unchanged.
         if isinstance(llm, str) and (llm == "local" or llm.startswith("local:")):
+            from ..local import LocalEngine as _LocalEngine
             from ..local import resolve as _resolve_local
             _spec = llm[len("local:"):] if llm.startswith("local:") else None
             _target = _resolve_local(_spec or None)
             llm = _target.litellm_model
             if base_url is None:
-                base_url = _target.base_url
+                # Ollama's litellm provider builds its own /api paths from the
+                # server root, so it takes base_url. Every other local engine
+                # speaks OpenAI and serves under /v1 -- handing it the bare root
+                # sent chat to /chat/completions, which a real LM Studio, vLLM
+                # or llama-server answers with 404.
+                base_url = (_target.base_url
+                            if _target.engine is _LocalEngine.OLLAMA
+                            else _target.openai_base_url)
             if api_key is None:
                 api_key = _target.api_key
             self._local_target = _target
+
+            # Keep a local agent local end to end. Without this, chat went to
+            # the local server while knowledge/memory embedded against OpenAI --
+            # sending the user's documents AND their queries off the machine
+            # with no warning, which defeats the entire point of asking for a
+            # local model. Only fills a gap: an explicit embedder always wins.
+            _wants_embeddings = (retrieval_config is not None
+                                 or embedder_config is not None
+                                 or memory not in (None, False))
+            if _wants_embeddings and not embedder_config and not (
+                    retrieval_config or {}).get('embedder_config'):
+                from ..local import (local_embedder_config as _local_embedder,
+                                     select_embedding_model as _select_embed)
+                _embed_model = _select_embed(
+                    getattr(_d, 'models', ()) if (_d := Agent._local_discovery(_target)) else (),
+                    getattr(_d, 'model_meta', ()) if _d else ())
+                if _embed_model:
+                    embedder_config = _local_embedder(
+                        _target.engine, _target.base_url, _embed_model)
+                    # Carry the real vector width. local/ is a dependency sink
+                    # and cannot import the dimension table, so the caller
+                    # supplies it: a store created at the wrong width either
+                    # rejects every write or silently corrupts the index.
+                    # A width the server *measured* (already in the config) is
+                    # authoritative and must win over the static table. The
+                    # table only fills a genuine gap, and even then never with
+                    # the generic default: a guessed width is worse than letting
+                    # the store infer one from the first vector.
+                    _cfg = embedder_config.setdefault("config", {})
+                    if not _cfg.get("embedding_dims"):
+                        try:
+                            from ..embedding.dimensions import (
+                                DEFAULT_DIMENSION, get_dimensions)
+                            _dims = get_dimensions(_embed_model)
+                            if _dims and _dims != DEFAULT_DIMENSION:
+                                _cfg["embedding_dims"] = _dims
+                        except Exception:  # noqa: BLE001 -- a missing width must not break setup
+                            pass
+                    if retrieval_config is not None:
+                        retrieval_config.setdefault('embedder_config', embedder_config)
+                else:
+                    logging.warning(
+                        "llm=%r resolved a local model, but %s serves no embedding "
+                        "model, so knowledge/memory would embed against a remote "
+                        "provider -- sending your documents off this machine. "
+                        "Pull one (e.g. `ollama pull nomic-embed-text`) or set an "
+                        "explicit embedder to silence this.",
+                        llm, _target.base_url)
 
         # Panel (multi-model) descriptor: "panel:<name>" or {"provider": "panel"}.
         # Resolved lazily into a PanelLLM; composes with the normal tool loop.
@@ -2199,7 +2281,23 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             (isinstance(llm, str) and llm.startswith("panel:"))
             or (isinstance(llm, dict) and llm.get("provider") == "panel")
         )
-        if _is_panel:
+        # An already-built model object (an ``LLM``, a subclass, or a test double
+        # such as ``model_harness.ScriptedModel``) is adopted as this agent's
+        # backend. Without this branch such an object fell through to the plain
+        # OpenAI path, where ``self.llm`` became the object itself and every turn
+        # was sent to OpenAI under a model name that was really a repr -- the
+        # opposite of what passing your own model means. Duck-typed on
+        # ``get_response`` so any conforming backend works, not just ``LLM``.
+        _is_model_instance = (
+            llm is not None
+            and not isinstance(llm, (str, dict))
+            and callable(getattr(llm, "get_response", None))
+        )
+        if _is_model_instance:
+            self._llm_instance = llm
+            self._using_custom_llm = True
+            self.llm = getattr(llm, "model", None) or type(llm).__name__
+        elif _is_panel:
             self._panel_descriptor = llm
             self._using_custom_llm = True
             self.llm = llm if isinstance(llm, str) else "panel"
@@ -2446,7 +2544,12 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                         self.tools.extend(get_ast_grep_tools())
                     except ImportError:
                         pass  # No default tools available
-        
+
+        # Merge tools contributed by enabled PluginType.TOOL plugins so a plugin's
+        # get_tools() output is actually callable by this agent. Existing tools win
+        # on a name collision (reported, not silently shadowed).
+        self._merge_plugin_tools()
+
         self.max_iter = max_iter
         self.max_rpm = max_rpm
         self.max_execution_time = max_execution_time
@@ -2483,6 +2586,18 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         
         # Store ExecutionConfig for context compaction policy access
         self.execution = _exec_config
+
+        # ExecutionConfig(code_execution=True) actually grants the capability.
+        # Before this, the flag only set ``self.allow_code_execution`` and no
+        # code tool was ever produced, so the knob was accepted and ignored.
+        #
+        # The tool is named ``execute_code``, which is registered "critical" in
+        # approval/registry.py, so it is approval-gated under every preset but
+        # ``"full"`` — the privilege-escalation problem that got the old
+        # ``sandbox=``-injects-tools behaviour reverted does not apply here, and
+        # unlike ``sandbox=`` this is an explicit opt-in by the caller.
+        if allow_code_execution:
+            self._attach_code_execution_tools(code_execution_mode, _exec_config)
         # Async-safe chat_history with dual-lock protection
         self.__chat_history_state = AsyncSafeState([])
         
@@ -2566,6 +2681,10 @@ Your Goal: {self.goal}
         # Initialize guardrail settings
         self.guardrail = guardrail
         self.max_guardrail_retries = max_guardrail_retries
+        # Observability for in-run output-validation retries (see
+        # _apply_guardrail_with_retry / the guardrail_retry_count property).
+        self._guardrail_retry_count = 0
+        self._last_guardrail_error = None
         self._guardrail_fn = None
         self._setup_guardrail()
         
@@ -3939,6 +4058,62 @@ Summary:"""
             return f"Agent {self._agent_index}"
         return "Agent"
     
+    def _attach_code_execution_tools(self, code_execution_mode: str, exec_config: Any) -> None:
+        """Give the model a code-execution tool for ``code_execution=True``.
+
+        ``code_mode`` is a real switch, not a label:
+
+        * ``"safe"``  -> subprocess isolation, no tool access from the code.
+        * ``"unsafe"`` -> same process, restricted builtins, and the
+          ``code_tools_allow`` allow-list injected as callable tool proxies.
+
+        Both expose one tool named ``execute_code``, which the approval registry
+        classes as "critical", so it stays gated under every preset but "full".
+        """
+        from ..tools.python_tools import build_code_execution_tools
+
+        code_tools = bool(getattr(exec_config, "code_tools", False))
+        allowed = list(getattr(exec_config, "code_tools_allow", None) or [])
+        if code_tools and code_execution_mode != "unsafe":
+            import warnings
+            warnings.warn(
+                "ExecutionConfig(code_tools=True) needs code_mode='unsafe': in "
+                "'safe' mode the code runs in a separate process and cannot "
+                "reach the agent's tools, so code_tools_allow is ignored.",
+                UserWarning,
+                stacklevel=3,
+            )
+            code_tools = False
+
+        # In unsafe mode the allow-list must resolve against ONLY the tools this
+        # agent was granted, never the process-global registry (which can hold
+        # plugin/entry-point tools the agent was never given). Build a private
+        # registry from self.tools and pass it down so code-mode inherits the
+        # agent's exact tool boundary.
+        scoped_registry = None
+        if code_tools and code_execution_mode == "unsafe":
+            from ..tools.registry import ToolRegistry
+            scoped_registry = ToolRegistry()
+            for t in (self.tools or []):
+                if callable(t) or hasattr(t, "name"):
+                    try:
+                        scoped_registry.register(t)
+                    except Exception:
+                        pass
+
+        # An unknown code_mode raises out of here rather than silently
+        # producing nothing, which is the failure this whole change is about.
+        new_tools = build_code_execution_tools(
+            code_mode=code_execution_mode,
+            allowed_tools=allowed if code_tools else [],
+            registry=scoped_registry,
+        )
+
+        existing = {getattr(t, "__name__", None) for t in (self.tools or [])}
+        self.tools = list(self.tools or []) + [
+            t for t in new_tools if getattr(t, "__name__", None) not in existing
+        ]
+
     def _init_autonomy(self, autonomy: Any, verification_hooks: Optional[List[Any]] = None) -> None:
         """Initialize autonomy features (agent-centric escalation/doom-loop).
         
@@ -6816,6 +6991,22 @@ Answer:"""
             except Exception as e:
                 logging.error(f"Failed to process handoff item {handoff_item}: {e}")
 
+    @property
+    def guardrail_retry_count(self) -> int:
+        """How many times output validation has sent the model back for a retry.
+
+        Cumulative over the agent's lifetime, incremented once per rejected
+        answer that was handed back to the model (see
+        ``_apply_guardrail_with_retry``). Read it to confirm a run converged in
+        one correction rather than burning ``max_guardrail_retries``.
+        """
+        return getattr(self, "_guardrail_retry_count", 0)
+
+    @property
+    def last_guardrail_error(self):
+        """The most recent rejection message a guardrail sent back to the model."""
+        return getattr(self, "_last_guardrail_error", None)
+
     def _process_guardrail(self, task_output):
         """Process the guardrail validation for a task output.
         
@@ -6825,17 +7016,25 @@ Answer:"""
         Returns:
             GuardrailResult: The result of the guardrail validation
         """
-        from ..guardrails import GuardrailResult
-        
+        from ..guardrails import GuardrailResult, GuardrailRetry
+
         if not self._guardrail_fn:
             return GuardrailResult(success=True, result=task_output)
-        
+
         try:
             # Call the guardrail function
             result = self._guardrail_fn(task_output)
-            
+
             # Convert the result to a GuardrailResult
             return GuardrailResult.from_tuple(result)
+
+        except GuardrailRetry as e:
+            # Deliberate rejection with a message meant for the model. Keep the
+            # author's wording verbatim - it is fed back into the conversation
+            # by _apply_guardrail_with_retry - rather than wrapping it as an
+            # internal validation *error*.
+            logging.warning(f"Agent {self.name}: Guardrail asked for a retry: {e.feedback}")
+            return GuardrailResult(success=False, result=None, error=e.feedback)
 
         except Exception as e:
             logging.error(f"Agent {self.name}: Error in guardrail validation: {e}")
@@ -6899,48 +7098,133 @@ Answer:"""
         else:
             return False, None, guardrail_result.error
 
-    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, cancel_token=None):
-        """Apply guardrail validation with retry logic (sync version)."""
+    def _guardrail_retry_feedback(self, error):
+        """The correction turn handed back to the model after a rejection.
+
+        Shared by the in-conversation retry and the legacy single-prompt
+        fallback so the instruction reads the same whichever transport the
+        configured provider uses.
+        """
+        return (
+            f"Previous response failed validation due to: {error}. "
+            "Please provide an improved response."
+        )
+
+    def _extend_guardrail_conversation(self, conversation, response_text, feedback):
+        """Append the rejected answer and the validator's reason to ``conversation``.
+
+        This is what makes the correction happen *inside* the same run: the
+        model sees its own answer plus why it was refused, so it patches that
+        answer instead of re-deriving one from the bare prompt. Extends (and
+        returns) the list in place, so successive retries accumulate the way a
+        real conversation does.
+
+        The assistant turn is skipped when the caller's conversation already
+        ends with it, which is the case for callers that hand over live chat
+        history rather than the pre-call message list.
+        """
+        last = conversation[-1] if conversation else None
+        already_present = (
+            isinstance(last, dict)
+            and last.get("role") == "assistant"
+            and last.get("content") == response_text
+        )
+        if response_text and not already_present:
+            conversation.append({"role": "assistant", "content": response_text})
+        conversation.append({"role": "user", "content": feedback})
+        return conversation
+
+    def _record_guardrail_retry(self, *, attempt, error, delay):
+        """Count and announce one guardrail retry.
+
+        ``guardrail_retry_count`` makes the retries observable to callers and
+        tests; the RETRY stream event puts them on the same channel as
+        transient-failure retries, so a CLI/UI shows "retrying" rather than
+        appearing to hang.
+        """
+        self._guardrail_retry_count = getattr(self, "_guardrail_retry_count", 0) + 1
+        self._last_guardrail_error = error
+        emit = getattr(self, "_emit_retry_stream_event", None)
+        if emit is not None:
+            emit(
+                attempt=attempt,
+                max_attempts=self.max_guardrail_retries,
+                delay=delay,
+                reason=f"guardrail validation failed: {error}",
+            )
+
+    def _guardrail_retry_delay(self, retry_count):
+        """Backoff before the next guardrail retry (agent execution policy)."""
+        execution_config = getattr(self, '_execution_config', None)
+        if execution_config is not None:
+            return BackoffPolicy.delay(
+                retry_count,
+                execution_config.retry_initial_delay,
+                execution_config.retry_backoff_factor,
+                execution_config.retry_jitter
+            )
+        # Fall back to simple backoff if no execution config
+        return 1.0 * (2.0 ** (retry_count - 1))
+
+    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, cancel_token=None, messages=None):
+        """Apply guardrail validation with retry logic (sync version).
+
+        Args:
+            response_text: The answer to validate.
+            prompt: The originating prompt, used only by the fallback below.
+            messages: The conversation that produced ``response_text`` (as sent
+                to the model, without its reply). When supplied, a rejection is
+                appended to *that* conversation - rejected answer plus the
+                validator's reason - so the model corrects itself in the same
+                run with its context intact. When omitted (providers whose
+                message list the caller does not hold), the retry falls back to
+                re-asking the original prompt with the reason appended.
+
+        Bounded by ``max_guardrail_retries``; a validator that never passes
+        raises rather than looping.
+        """
         retry_count = 0
         current_response = response_text
-        
+        # Own copy: _chat_completion rewrites its messages list in place.
+        conversation = list(messages) if messages else None
+
         while retry_count <= self.max_guardrail_retries:
             success, result, error = self._validate_with_guardrail(current_response)
-            
+
             if success:
                 logging.info(f"Agent {self.name}: Guardrail validation passed")
                 return result
-            
+
             # Guardrail failed
             if retry_count >= self.max_guardrail_retries:
                 raise Exception(
                     f"Agent {self.name} response failed guardrail validation after {self.max_guardrail_retries} retries. "
                     f"Last error: {error}"
                 )
-            
+
             retry_count += 1
             logging.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
-            
+
             # Add exponential backoff delay to avoid hammering the LLM
-            execution_config = getattr(self, '_execution_config', None)
-            if execution_config is not None:
-                total_delay = BackoffPolicy.delay(
-                    retry_count,
-                    execution_config.retry_initial_delay,
-                    execution_config.retry_backoff_factor,
-                    execution_config.retry_jitter
-                )
-            else:
-                # Fall back to simple backoff if no execution config
-                total_delay = 1.0 * (2.0 ** (retry_count - 1))
-            
+            total_delay = self._guardrail_retry_delay(retry_count)
+            self._record_guardrail_retry(attempt=retry_count, error=error, delay=total_delay)
+
             logging.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
             time.sleep(total_delay)
-            
+
             # Regenerate response for retry
             try:
-                retry_prompt = f"{prompt}\n\nNote: Previous response failed validation due to: {error}. Please provide an improved response."
-                response = self._chat_completion([{"role": "user", "content": retry_prompt}], temperature, tools, task_name=task_name, task_description=task_description, task_id=task_id, cancel_token=cancel_token)
+                feedback = self._guardrail_retry_feedback(error)
+                if conversation is not None:
+                    retry_messages = self._extend_guardrail_conversation(
+                        conversation, current_response, feedback
+                    )
+                else:
+                    retry_messages = [{"role": "user", "content": f"{prompt}\n\nNote: {feedback}"}]
+                # stream=False: the retry reads a complete message and nothing
+                # consumes deltas, so streaming here only costs a failed
+                # sync-adapter attempt and an ERROR log before falling back.
+                response = self._chat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id, cancel_token=cancel_token)
                 if response and response.choices:
                     content = response.choices[0].message.content
                     current_response = content.strip() if content else ""
@@ -6949,14 +7233,19 @@ Answer:"""
             except Exception as e:
                 logging.error(f"Agent {self.name}: Error during guardrail retry: {e}")
                 raise Exception(f"Agent {self.name} guardrail retry failed: {e}")
-        
+
         return current_response
 
-    async def _aapply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None):
-        """Apply guardrail validation with retry logic (async version)."""
+    async def _aapply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, messages=None):
+        """Apply guardrail validation with retry logic (async version).
+
+        See ``_apply_guardrail_with_retry`` for the ``messages`` contract.
+        """
         retry_count = 0
         current_response = response_text
-        
+        # Own copy: the completion path rewrites its messages list in place.
+        conversation = list(messages) if messages else None
+
         while retry_count <= self.max_guardrail_retries:
             # A string/LLMGuardrail guardrail fires a *blocking* LLM call inside
             # _validate_with_guardrail. Offload it to a thread so it does not
@@ -6975,41 +7264,42 @@ Answer:"""
                     lambda: self._validate_with_guardrail(current_response)
                 ),
             )
-            
+
             if success:
                 logging.info(f"Agent {self.name}: Guardrail validation passed")
                 return result
-            
+
             # Guardrail failed
             if retry_count >= self.max_guardrail_retries:
                 raise Exception(
                     f"Agent {self.name} response failed guardrail validation after {self.max_guardrail_retries} retries. "
                     f"Last error: {error}"
                 )
-            
+
             retry_count += 1
             logging.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
-            
+
             # Add exponential backoff delay to avoid hammering the LLM
-            execution_config = getattr(self, '_execution_config', None)
-            if execution_config is not None:
-                total_delay = BackoffPolicy.delay(
-                    retry_count,
-                    execution_config.retry_initial_delay,
-                    execution_config.retry_backoff_factor,
-                    execution_config.retry_jitter
-                )
-            else:
-                # Fall back to simple backoff if no execution config
-                total_delay = 1.0 * (2.0 ** (retry_count - 1))
-            
+            total_delay = self._guardrail_retry_delay(retry_count)
+            self._record_guardrail_retry(attempt=retry_count, error=error, delay=total_delay)
+
             logging.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
             await asyncio.sleep(total_delay)
-            
+
             # Regenerate response for retry (async version)
             try:
-                retry_prompt = f"{prompt}\n\nNote: Previous response failed validation due to: {error}. Please provide an improved response."
-                response = await self._execute_unified_achat_completion([{"role": "user", "content": retry_prompt}], temperature, tools, task_name=task_name, task_description=task_description, task_id=task_id)
+                feedback = self._guardrail_retry_feedback(error)
+                if conversation is not None:
+                    retry_messages = self._extend_guardrail_conversation(
+                        conversation, current_response, feedback
+                    )
+                else:
+                    retry_messages = [{"role": "user", "content": f"{prompt}\n\nNote: {feedback}"}]
+                # stream=False: the retry consumes a complete message, and the
+                # helper's own default is stream=True regardless of the agent's
+                # setting, which would make the retry stream when nothing reads
+                # the deltas.
+                response = await self._execute_unified_achat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id)
                 if response and hasattr(response, 'choices') and response.choices:
                     content = response.choices[0].message.content
                     current_response = content.strip() if content else ""
@@ -7020,9 +7310,9 @@ Answer:"""
             except Exception as e:
                 logging.error(f"Agent {self.name}: Error during guardrail retry: {e}")
                 raise Exception(f"Agent {self.name} guardrail retry failed: {e}")
-        
+
         return current_response
-    
+
     def _get_tools_cache_key(self, tools):
         """Generate a cache key for tools list."""
         if tools is None:
@@ -7643,8 +7933,25 @@ Answer:"""
         except Exception as e:
             logger.warning(f"ThreadPoolExecutor cleanup failed: {e}")
 
+        # Approval scope cleanup — evict this agent's process-global approval
+        # grants (skill auto-approvals + "this session" decisions) keyed by the
+        # per-instance _approval_scope_id, which never repeats and is otherwise
+        # never removed. Prevents unbounded growth in per-request/session agents.
+        self._release_approval_scope()
+
         # Always set closed flag
         self._closed = True
+
+    def _release_approval_scope(self) -> None:
+        """Drop this agent's approval-registry grants (best-effort)."""
+        scope_id = getattr(self, '_approval_scope_id', None)
+        if not scope_id:
+            return
+        try:
+            from ..approval import get_approval_registry
+            get_approval_registry().release_scope(scope_id)
+        except Exception as e:
+            logger.warning(f"Approval scope cleanup failed: {e}")
     
     async def aclose(self) -> None:
         """Async version of close() for async context managers."""
@@ -7706,7 +8013,10 @@ Answer:"""
                         lambda: self._tool_executor.shutdown(wait=False)
                     )
                 delattr(self, '_tool_executor')
-            
+
+            # Approval scope cleanup (see close()).
+            self._release_approval_scope()
+
             self._closed = True
             
         except Exception as e:
@@ -7767,6 +8077,11 @@ Answer:"""
                         logging.debug(
                             f"Failed to cleanup artifacts for agent {self.name}: {e}"
                         )
+
+                # Evict this agent's process-global approval grants so a
+                # per-request/session agent that is only ever GC'd (never
+                # close()'d) does not leak registry entries forever.
+                self._release_approval_scope()
             except Exception as exc:  # noqa: BLE001 - finalizers must not raise
                 import contextlib
                 with contextlib.suppress(Exception):

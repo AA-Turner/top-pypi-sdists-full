@@ -5115,6 +5115,14 @@ class CfnCluster(
                     cluster_arn="clusterArn"
                 ),
                 slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                    accounting_database=sagemaker.CfnCluster.ClusterAccountingDatabaseProperty(
+                        endpoint="endpoint",
+                        secret_arn="secretArn",
+        
+                        # the properties below are optional
+                        name="name",
+                        port=123
+                    ),
                     slurm_config_strategy="slurmConfigStrategy"
                 )
             ),
@@ -5788,6 +5796,124 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "CapacitySizeConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterAccountingDatabaseProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint": "endpoint",
+            "secret_arn": "secretArn",
+            "name": "name",
+            "port": "port",
+        },
+    )
+    class ClusterAccountingDatabaseProperty:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            secret_arn: builtins.str,
+            name: typing.Optional[builtins.str] = None,
+            port: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''External MySQL-compatible accounting database that a Slurm cluster's slurmdbd connects to.
+
+            Database credentials are supplied out-of-band through the referenced Secrets Manager secret. Supported only with Continuous node provisioning.
+
+            :param endpoint: Hostname or endpoint of the accounting database, such as an RDS endpoint.
+            :param secret_arn: ARN of the Secrets Manager secret holding the database credentials.
+            :param name: Name of the accounting database schema. Defaults to slurm_acct_db when omitted. Default: - "slurm_acct_db"
+            :param port: TCP port of the accounting database. Defaults to 3306 when omitted. Default: - 3306
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusteraccountingdatabase.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_accounting_database_property = sagemaker.CfnCluster.ClusterAccountingDatabaseProperty(
+                    endpoint="endpoint",
+                    secret_arn="secretArn",
+                
+                    # the properties below are optional
+                    name="name",
+                    port=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d5f979ae2443ba487cf75280018826729b26e8f15397ab9b35c07f5b9f59a36b)
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint": endpoint,
+                "secret_arn": secret_arn,
+            }
+            if name is not None:
+                self._values["name"] = name
+            if port is not None:
+                self._values["port"] = port
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''Hostname or endpoint of the accounting database, such as an RDS endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusteraccountingdatabase.html#cfn-sagemaker-cluster-clusteraccountingdatabase-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_arn(self) -> builtins.str:
+            '''ARN of the Secrets Manager secret holding the database credentials.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusteraccountingdatabase.html#cfn-sagemaker-cluster-clusteraccountingdatabase-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            assert result is not None, "Required property 'secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def name(self) -> typing.Optional[builtins.str]:
+            '''Name of the accounting database schema.
+
+            Defaults to slurm_acct_db when omitted.
+
+            :default: - "slurm_acct_db"
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusteraccountingdatabase.html#cfn-sagemaker-cluster-clusteraccountingdatabase-name
+            '''
+            result = self._values.get("name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def port(self) -> typing.Optional[jsii.Number]:
+            '''TCP port of the accounting database.
+
+            Defaults to 3306 when omitted.
+
+            :default: - 3306
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusteraccountingdatabase.html#cfn-sagemaker-cluster-clusteraccountingdatabase-port
+            '''
+            result = self._values.get("port")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterAccountingDatabaseProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7202,16 +7328,21 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"slurm_config_strategy": "slurmConfigStrategy"},
+        name_mapping={
+            "accounting_database": "accountingDatabase",
+            "slurm_config_strategy": "slurmConfigStrategy",
+        },
     )
     class ClusterOrchestratorSlurmConfigProperty:
         def __init__(
             self,
             *,
+            accounting_database: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ClusterAccountingDatabaseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             slurm_config_strategy: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Specifies parameter(s) related to Slurm as orchestrator.
 
+            :param accounting_database: External MySQL-compatible accounting database that a Slurm cluster's slurmdbd connects to. Database credentials are supplied out-of-band through the referenced Secrets Manager secret. Supported only with Continuous node provisioning.
             :param slurm_config_strategy: The strategy for managing Slurm configuration on the cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterorchestratorslurmconfig.html
@@ -7224,15 +7355,39 @@ class CfnCluster(
                 from aws_cdk import aws_sagemaker as sagemaker
                 
                 cluster_orchestrator_slurm_config_property = sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                    accounting_database=sagemaker.CfnCluster.ClusterAccountingDatabaseProperty(
+                        endpoint="endpoint",
+                        secret_arn="secretArn",
+                
+                        # the properties below are optional
+                        name="name",
+                        port=123
+                    ),
                     slurm_config_strategy="slurmConfigStrategy"
                 )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__c26797bd93cd7f8db64f992faf8467f4712b6ac3db043444a37316f7e0f1fb07)
+                check_type(argname="argument accounting_database", value=accounting_database, expected_type=type_hints["accounting_database"])
                 check_type(argname="argument slurm_config_strategy", value=slurm_config_strategy, expected_type=type_hints["slurm_config_strategy"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if accounting_database is not None:
+                self._values["accounting_database"] = accounting_database
             if slurm_config_strategy is not None:
                 self._values["slurm_config_strategy"] = slurm_config_strategy
+
+        @builtins.property
+        def accounting_database(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ClusterAccountingDatabaseProperty"]]:
+            '''External MySQL-compatible accounting database that a Slurm cluster's slurmdbd connects to.
+
+            Database credentials are supplied out-of-band through the referenced Secrets Manager secret. Supported only with Continuous node provisioning.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterorchestratorslurmconfig.html#cfn-sagemaker-cluster-clusterorchestratorslurmconfig-accountingdatabase
+            '''
+            result = self._values.get("accounting_database")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCluster.ClusterAccountingDatabaseProperty"]], result)
 
         @builtins.property
         def slurm_config_strategy(self) -> typing.Optional[builtins.str]:
@@ -7915,6 +8070,14 @@ class CfnCluster(
                         cluster_arn="clusterArn"
                     ),
                     slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                        accounting_database=sagemaker.CfnCluster.ClusterAccountingDatabaseProperty(
+                            endpoint="endpoint",
+                            secret_arn="secretArn",
+                
+                            # the properties below are optional
+                            name="name",
+                            port=123
+                        ),
                         slurm_config_strategy="slurmConfigStrategy"
                     )
                 )
@@ -8704,6 +8867,14 @@ class CfnClusterProps:
                         cluster_arn="clusterArn"
                     ),
                     slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                        accounting_database=sagemaker.CfnCluster.ClusterAccountingDatabaseProperty(
+                            endpoint="endpoint",
+                            secret_arn="secretArn",
+            
+                            # the properties below are optional
+                            name="name",
+                            port=123
+                        ),
                         slurm_config_strategy="slurmConfigStrategy"
                     )
                 ),
@@ -19203,14 +19374,6 @@ class CfnEndpointConfig(
         :cloudformationAttribute: EndpointConfigName
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrEndpointConfigName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -69629,6 +69792,16 @@ def _typecheckingstub__037781baa9561e3f7cbaf9bb153526c9205251c5775d32248ba6db579
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d5f979ae2443ba487cf75280018826729b26e8f15397ab9b35c07f5b9f59a36b(
+    *,
+    endpoint: builtins.str,
+    secret_arn: builtins.str,
+    name: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ae932894a770df5cce53186dfdfa1f99ae9aedbf1a8f0d35bc6a0d5b6b5f9b49(
     *,
     mode: builtins.str,
@@ -69748,6 +69921,7 @@ def _typecheckingstub__3b374679c88beb50318d8d8daa787c0b2f669d656010f29c3a5f6b1e4
 
 def _typecheckingstub__c26797bd93cd7f8db64f992faf8467f4712b6ac3db043444a37316f7e0f1fb07(
     *,
+    accounting_database: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ClusterAccountingDatabaseProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     slurm_config_strategy: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

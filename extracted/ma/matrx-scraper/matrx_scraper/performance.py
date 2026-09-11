@@ -58,6 +58,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -344,7 +345,7 @@ class PsiClient:
             snap.crux_cls = _crux_float_cls(metrics, "CUMULATIVE_LAYOUT_SHIFT_SCORE")
             snap.crux_fcp_ms = _crux_int(metrics, "FIRST_CONTENTFUL_PAINT_MS")
         except Exception:
-            logger.exception("PSI parse failed for %s (%s)", url, strategy)
+            logger.exception("PSI parse failed for %s (%s)", redact_url_secrets(url), strategy)
             # Keep raw — we still want the partial data for debugging.
 
         return snap
@@ -692,7 +693,7 @@ class GscClient:
         # Best-effort guess: sc-domain: form covers https + http + subdomains
         host = urlparse(page_url).netloc
         if not host:
-            raise ValueError(f"cannot infer GSC site_url from {page_url!r}")
+            raise ValueError(f"cannot infer GSC site_url from {redact_url_secrets(page_url)!r}")
         return f"sc-domain:{host}"
 
     async def page_snapshot(
@@ -802,7 +803,7 @@ class GscClient:
         except Exception as exc:
             snap.error_code = GscErrorCode.UNEXPECTED_ERROR
             snap.error_message = f"{type(exc).__name__}: {exc}"
-            logger.exception("GSC page_snapshot failed for %s", url)
+            logger.exception("GSC page_snapshot failed for %s", redact_url_secrets(url))
 
         return snap
 

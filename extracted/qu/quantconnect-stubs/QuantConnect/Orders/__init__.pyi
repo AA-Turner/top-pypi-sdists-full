@@ -1855,6 +1855,11 @@ class StopLimitOrder(QuantConnect.Orders.Order):
         ...
 
     @property
+    def stop_triggered_time(self) -> typing.Optional[datetime.datetime]:
+        """Time in UTC at which the stop was triggered, the end time of the data that triggered it, if any"""
+        ...
+
+    @property
     def limit_price(self) -> float:
         """Limit price for the stop limit order"""
         ...
@@ -2220,6 +2225,15 @@ class OrderUpdateEvent(System.Object):
 
     @stop_triggered.setter
     def stop_triggered(self, value: bool) -> None:
+        ...
+
+    @property
+    def stop_triggered_time(self) -> typing.Optional[datetime.datetime]:
+        """Time in UTC at which the stop was triggered for a StopLimitOrder, if any"""
+        ...
+
+    @stop_triggered_time.setter
+    def stop_triggered_time(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
 

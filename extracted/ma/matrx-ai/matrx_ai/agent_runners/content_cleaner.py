@@ -44,6 +44,11 @@ async def clean_pdf_extracted_content(
         PdfCleanerAgent,
         inputs=PdfCleanerAgent.Inputs(content=content),
         label="PDF Cleanup",
+        # NESTED-AGENT STREAM LEAK: this runs inside a tool / ingestion step
+        # while the caller is already streaming to a user, so unmuted the whole
+        # cleaned PDF pours onto the caller's user-facing NDJSON stream. The
+        # cleaned text is machine-parsed and still returns via AgentRunResult.
+        suppress_stream=True,
     )
     return AgentResult(
         success=result.success,

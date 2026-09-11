@@ -1,12 +1,14 @@
 [project]
 name = "spectree"
-version = "2.0.3"
+version = "3.0.0"
 dynamic = []
 description = "Generate OpenAPI document and validate request & response with Python annotations."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-authors = [{ name = "Keming Yang", email = "kemingy94@gmail.com" }]
+authors = [
+    { name = "Keming Yang", email = "kemingy94@gmail.com" },
+]
 classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -20,16 +22,30 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = [
-    "pydantic>=2.11,<3",
-]
+dependencies = []
 
 [project.optional-dependencies]
-offline = ["offapi>=0.1.1"]
-falcon = ["falcon>=3"]
-starlette = ["starlette[full]>=0.16"]
-flask = ["flask>=2"]
-quart = ["quart>=0.16"]
+pydantic = [
+    "pydantic>=2.11,<3",
+]
+msgspec = [
+    "msgspec>=0.21,<1",
+]
+offline = [
+    "offapi>=0.1.1",
+]
+falcon = [
+    "falcon>=3",
+]
+starlette = [
+    "starlette[full]>=0.16",
+]
+flask = [
+    "flask>=2",
+]
+quart = [
+    "quart>=0.16",
+]
 
 [project.urls]
 Homepage = "https://github.com/0b01001001/spectree"
@@ -37,34 +53,94 @@ documentation = "https://0b01001001.github.io/spectree/"
 repository = "https://github.com/0b01001001/spectree"
 changelog = "https://github.com/0b01001001/spectree/releases"
 
-[tool.uv]
-package = true
+[build-system]
+requires = [
+    "pdm-backend",
+]
+build-backend = "pdm.backend"
+
+[tool.pdm.build]
+package-dir = "."
+includes = [
+    "spectree",
+]
+source-includes = [
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+]
 
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+
 [tool.ruff.lint]
-select = ["E", "F", "B", "G", "I", "SIM", "TID", "PL", "RUF"]
-ignore = ["E501", "PLR2004", "RUF012", "B009"]
+select = [
+    "E",
+    "F",
+    "B",
+    "G",
+    "I",
+    "SIM",
+    "TID",
+    "PL",
+    "RUF",
+]
+ignore = [
+    "E501",
+    "PLR2004",
+    "RUF012",
+    "B009",
+]
+
 [tool.ruff.lint.pylint]
 max-args = 12
 max-branches = 15
 
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
 [tool.mypy]
-plugins = ["pydantic.mypy"]
+plugins = [
+    "pydantic.mypy",
+]
 follow_imports = "silent"
 ignore_missing_imports = true
 show_error_codes = true
 warn_unused_ignores = false
 warn_redundant_casts = true
 no_implicit_reexport = true
-disable_error_code = ["attr-defined"]
+disable_error_code = [
+    "attr-defined",
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disable_error_code = [
+    "valid-type",
+]
 
 [tool.pydantic-mypy]
 init_typed = true
 init_forbid_extra = true
 warn_required_dynamic_aliases = true
 warn_untyped_fields = true
+
+[tool.pytest.ini_options]
+markers = [
+    "pydantic: tests that rely on pydantic-specific models or behavior",
+    "msgspec: tests that require msgspec, which is not available on PyPy",
+]
+
+[tool.typos.files]
+extend-exclude = [
+    "CHANGELOG.md",
+    "cliff.toml",
+    "tests/",
+]
 
 [dependency-groups]
 dev = [

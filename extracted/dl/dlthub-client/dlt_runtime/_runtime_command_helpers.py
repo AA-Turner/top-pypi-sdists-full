@@ -69,47 +69,66 @@ from dlt_runtime.exceptions import (
     exception_from_response,
     handle_client_exceptions,
 )
-from dlt_runtime.runtime import RuntimeAuthService, _tls_verify
-from dlt_runtime.runtime_clients.api.api.configurations import (
+from dlt_runtime.runtime import AuthenticationMethod, RuntimeAuthService, _tls_verify
+from dlt_runtime.strings import (
+    JOB_SELECTOR_NOT_FOUND,
+    NOT_CONNECTED_TO_WORKSPACE,
+    ORG_ID_CONFLICTS_WITH_PIN,
+    ORG_ID_NOT_ACTIVE,
+    PINNED_ORG_NOT_ACCESSIBLE,
+    UNPIN_ORG_REMEDIATION,
+    WORKSPACE_API_KEY_NO_WORKSPACE,
+    WORKSPACE_BELONGS_TO_OTHER_ORG,
+)
+from dlt_runtime.typing import (
+    CallerInfo,
+    OrganizationGroup,
+    OrganizationInfo,
+    RuntimeInfo,
+    SyncResult,
+    WorkspaceChoice,
+    WorkspaceInfo,
+)
+from dlt_runtime.version import __version__
+from dlthub_sdk._gen.api.api.configurations import (
     create_configuration,
     get_configuration,
     get_latest_configuration,
     list_configurations,
 )
-from dlt_runtime.runtime_clients.api.api.dataplanes import list_dataplanes
-from dlt_runtime.runtime_clients.api.api.deployments import (
+from dlthub_sdk._gen.api.api.dataplanes import list_dataplanes
+from dlthub_sdk._gen.api.api.deployments import (
     create_deployment,
     get_deployment,
     get_latest_deployment,
     list_deployments,
 )
-from dlt_runtime.runtime_clients.api.api.runs import get_run, list_runs
-from dlt_runtime.runtime_clients.api.api.scripts import get_script, list_scripts
-from dlt_runtime.runtime_clients.api.api.workspaces import (
+from dlthub_sdk._gen.api.api.runs import get_run, list_runs
+from dlthub_sdk._gen.api.api.scripts import get_script, list_scripts
+from dlthub_sdk._gen.api.api.workspaces import (
     deploy as deploy_manifest,
     get_workspace as get_workspace_api,
     get_workspace_dataplane_access_token,
 )
-from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models import (
+from dlthub_sdk._gen.api.client import Client as ApiClient
+from dlthub_sdk._gen.api.models import (
     DataplaneAccessTokenResponse,
     DataplaneInfo,
     DeployManifestRequest,
     DetailedRunResponse,
+    PrincipalKind,
     RunStatus,
     TJobDefinition as ApiTJobDefinition,
     UploadInitiatedResponse,
     WorkspaceResponse,
 )
-from dlt_runtime.runtime_clients.api.types import UNSET as API_UNSET, Unset
-from dlt_runtime.runtime_clients.dataplane_api.api.variables import (
+from dlthub_sdk._gen.api.types import UNSET as API_UNSET, Unset
+from dlthub_sdk._gen.dataplane_api.api.variables import (
     change_workspace_variables,
     list_workspace_variables,
 )
-from dlt_runtime.runtime_clients.dataplane_api.client import (
-    Client as DataplaneApiClient,
-)
-from dlt_runtime.runtime_clients.dataplane_api.models import (
+from dlthub_sdk._gen.dataplane_api.client import Client as DataplaneApiClient
+from dlthub_sdk._gen.dataplane_api.models import (
     PlainVariableUpsert,
     ScopeVariablesResponse,
     SecretVariableUpsert,
@@ -117,30 +136,12 @@ from dlt_runtime.runtime_clients.dataplane_api.models import (
     VariablesChangeResponse,
     WorkspaceVariablesResponse,
 )
-from dlt_runtime.runtime_clients.dataplane_api.types import UNSET
-from dlt_runtime.runtime_clients.logs.models import LogLine
-from dlt_runtime.strings import (
-    JOB_SELECTOR_NOT_FOUND,
-    ORG_ID_CONFLICTS_WITH_PIN,
-    ORG_ID_NOT_ACTIVE,
-    PINNED_ORG_NOT_ACCESSIBLE,
-    UNPIN_ORG_REMEDIATION,
-    WORKSPACE_BELONGS_TO_OTHER_ORG,
-)
-from dlt_runtime.typing import (
-    OrganizationGroup,
-    OrganizationInfo,
-    RuntimeInfo,
-    SyncResult,
-    UserInfo,
-    WorkspaceChoice,
-    WorkspaceInfo,
-)
-from dlt_runtime.version import __version__
+from dlthub_sdk._gen.dataplane_api.types import UNSET
+from dlthub_sdk._gen.logs.models import LogLine
 
 if TYPE_CHECKING:
     # Current package
-    from dlt_runtime.runtime_clients.api.models import DeployManifestResponse
+    from dlthub_sdk._gen.api.models import DeployManifestResponse
 
 # Re-export view constants needed by loaders
 # Current package
@@ -170,19 +171,19 @@ def _to_uuid(value: Union[str, UUID]) -> UUID:
         )
 
 
-def _resolve_workspace_id(user_info: UserInfo, workspace: str) -> str:
+def _resolve_workspace_id(caller_info: CallerInfo, workspace: str) -> str:
     """Resolve a workspace name or ID to an owned workspace ID."""
 
     workspace = workspace.strip()
 
     # Exact ID match is always unambiguous — return immediately.
-    for ws in user_info["workspaces"]:
+    for ws in caller_info["workspaces"]:
         if ws.get("role") == "owner" and workspace == ws["id"]:
             return ws["id"]
 
     matches = [
         ws
-        for ws in user_info["workspaces"]
+        for ws in caller_info["workspaces"]
         if ws.get("role") == "owner" and ws["name"] == workspace
     ]
 
@@ -200,53 +201,51 @@ def _resolve_workspace_id(user_info: UserInfo, workspace: str) -> str:
     raise WorkspaceNotFound(workspace, is_uuid=is_uuid)
 
 
-def _active_orgs(user_info: UserInfo) -> list[OrganizationInfo]:
-    """All organizations the user is an active member of."""
-    return [org for org in user_info["organizations"] if org.get("active", True)]
+def _active_orgs(caller_info: CallerInfo) -> list[OrganizationInfo]:
+    """All organizations the caller is an active member of."""
+    return [org for org in caller_info["organizations"] if org.get("active", True)]
 
 
-def _active_org_count(user_info: UserInfo) -> int:
-    return len(_active_orgs(user_info))
+def _active_org_count(caller_info: CallerInfo) -> int:
+    return len(_active_orgs(caller_info))
 
 
-def _sole_active_org_id(user_info: UserInfo) -> Optional[str]:
+def _sole_active_org_id(caller_info: CallerInfo) -> Optional[str]:
     """Return the single active org's id, or None if zero or multiple."""
-    actives = _active_orgs(user_info)
+    actives = _active_orgs(caller_info)
     return actives[0]["id"] if len(actives) == 1 else None
 
 
-def _org_label(user_info: UserInfo, organization_id: str) -> str:
+def _org_label(caller_info: CallerInfo, organization_id: str) -> str:
     """Render an org as `name (id)` if the name is known, else just the id."""
-    for org in user_info["organizations"]:
+    for org in caller_info["organizations"]:
         if org["id"] == organization_id:
             return f"{org['name']} ({organization_id})"
     return organization_id
 
 
-def _scope_user_info_to_org(user_info: UserInfo, organization_id: str) -> UserInfo:
-    """Return a UserInfo whose `workspaces` and `organizations` are filtered to one org."""
-    scoped: UserInfo = {
-        "email": user_info["email"],
-        "user_id": user_info["user_id"],
-        "identity_id": user_info["identity_id"],
-        "default_organization_id": user_info["default_organization_id"],
+def _scope_caller_info_to_org(
+    caller_info: CallerInfo, organization_id: str
+) -> CallerInfo:
+    """Return a CallerInfo whose `workspaces` and `organizations` are filtered to one org."""
+    scoped: CallerInfo = {
         "workspaces": [
             ws
-            for ws in user_info["workspaces"]
+            for ws in caller_info["workspaces"]
             if ws.get("organization_id") == organization_id
         ],
         "organizations": [
-            org for org in user_info["organizations"] if org["id"] == organization_id
+            org for org in caller_info["organizations"] if org["id"] == organization_id
         ],
     }
-    if "default_workspace" in user_info:
-        scoped["default_workspace"] = user_info["default_workspace"]
+    if "identity" in caller_info:
+        scoped["identity"] = caller_info["identity"]
     return scoped
 
 
-def _validate_org_id(user_info: UserInfo, org_id: str) -> None:
-    """Raise if `org_id` (from `--org-id`) is not in the user's active organizations."""
-    actives = _active_orgs(user_info)
+def _validate_org_id(caller_info: CallerInfo, org_id: str) -> None:
+    """Raise if `org_id` (from `--org-id`) is not in the caller's active organizations."""
+    actives = _active_orgs(caller_info)
     if any(org["id"] == org_id for org in actives):
         return
     valid = ", ".join(f"{org['name']} ({org['id']})" for org in actives) or "<none>"
@@ -256,11 +255,11 @@ def _validate_org_id(user_info: UserInfo, org_id: str) -> None:
     )
 
 
-def _validate_pinned_org_id(user_info: UserInfo, pinned_org_id: str) -> None:
-    """Raise if the org pinned in `.dlt/config.toml` is not in the user's active orgs."""
+def _validate_pinned_org_id(caller_info: CallerInfo, pinned_org_id: str) -> None:
+    """Raise if the org pinned in `.dlt/config.toml` is not in the caller's active orgs."""
     # Distinct message from `_validate_org_id`: the user must remove the line
     # from config.toml manually (CLI never overwrites it).
-    if any(org["id"] == pinned_org_id for org in _active_orgs(user_info)):
+    if any(org["id"] == pinned_org_id for org in _active_orgs(caller_info)):
         return
     raise CliCommandInnerException(
         cmd="workspace",
@@ -271,7 +270,7 @@ def _validate_pinned_org_id(user_info: UserInfo, pinned_org_id: str) -> None:
 
 
 def _check_org_arg_matches_pin(
-    user_info: UserInfo, pinned_org_id: Optional[str], org_id: str
+    caller_info: CallerInfo, pinned_org_id: Optional[str], org_id: str
 ) -> None:
     """Raise if `--org-id` disagrees with the org pinned in config.toml."""
     if not pinned_org_id or pinned_org_id == org_id:
@@ -280,14 +279,14 @@ def _check_org_arg_matches_pin(
         cmd="workspace",
         msg=ORG_ID_CONFLICTS_WITH_PIN.format(
             org_id=org_id,
-            pinned_label=_org_label(user_info, pinned_org_id),
+            pinned_label=_org_label(caller_info, pinned_org_id),
             remediation=UNPIN_ORG_REMEDIATION,
         ),
     )
 
 
 def _resolve_effective_org_id(
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     pinned_org_id: Optional[str],
     org_id: Optional[str],
 ) -> Optional[str]:
@@ -298,17 +297,17 @@ def _resolve_effective_org_id(
     pinned org is no longer accessible.
     """
     if org_id is not None:
-        _validate_org_id(user_info, org_id)
-        _check_org_arg_matches_pin(user_info, pinned_org_id, org_id)
+        _validate_org_id(caller_info, org_id)
+        _check_org_arg_matches_pin(caller_info, pinned_org_id, org_id)
     elif pinned_org_id:
         # Stale pin (org deleted / membership removed) — surface before
         # scoping yields an empty group list.
-        _validate_pinned_org_id(user_info, pinned_org_id)
+        _validate_pinned_org_id(caller_info, pinned_org_id)
     return pinned_org_id or org_id
 
 
 def _raise_cross_org(
-    user_info: UserInfo, ws: WorkspaceInfo, effective_org_id: str
+    caller_info: CallerInfo, ws: WorkspaceInfo, effective_org_id: str
 ) -> NoReturn:
     """Raise the standard "workspace lives in a different org" error."""
     raise CliCommandInnerException(
@@ -316,38 +315,38 @@ def _raise_cross_org(
         msg=WORKSPACE_BELONGS_TO_OTHER_ORG.format(
             ws_name=ws["name"],
             ws_org=ws.get("organization_name") or ws.get("organization_id"),
-            effective_label=_org_label(user_info, effective_org_id),
+            effective_label=_org_label(caller_info, effective_org_id),
             remediation=UNPIN_ORG_REMEDIATION,
         ),
     )
 
 
 def _org_id_to_persist(
-    user_info: UserInfo,
+    caller_info: CallerInfo,
     resolved_ws: Optional[WorkspaceInfo],
     effective_org_id: Optional[str],
 ) -> str:
     """Pick the org_id to write_connection persists (write-once)."""
-    # Prefer the resolved workspace's own org → effective scope → default.
+    # Prefer the resolved workspace's own org → effective scope → first active org.
     if resolved_ws is not None and resolved_ws.get("organization_id"):
         return resolved_ws["organization_id"]
     if effective_org_id:
         return effective_org_id
-    return user_info["default_organization_id"]
+    return _active_orgs(caller_info)[0]["id"]
 
 
-def _group_workspaces_by_org(user_info: UserInfo) -> list[OrganizationGroup]:
+def _group_workspaces_by_org(caller_info: CallerInfo) -> list[OrganizationGroup]:
     """Build picker groups: one section per active org, owned workspaces only."""
     # Ids stamped here drive both the view (`[N]` labels) and the picker
     # resolver — single source of truth for the numbering.
     groups: list[OrganizationGroup] = []
     next_id = 0
     # Server order keeps the picker layout stable across invocations.
-    for org in _active_orgs(user_info):
+    for org in _active_orgs(caller_info):
         org_id = org["id"]
         owned = [
             ws
-            for ws in user_info["workspaces"]
+            for ws in caller_info["workspaces"]
             if ws.get("role") == "owner" and ws.get("organization_id") == org_id
         ]
         # Create row owns the first [N] in this group; workspaces follow.
@@ -377,24 +376,20 @@ def _flatten_owned(groups: list[OrganizationGroup]) -> list[WorkspaceInfo]:
 
 
 def _get_workspace_name(
-    user_info: Optional[UserInfo], workspace_id: str
+    workspaces: list[WorkspaceInfo], workspace_id: str
 ) -> Optional[str]:
     """Look up the workspace name for the currently connected workspace."""
-    if user_info is None:
-        return None
-    for ws in user_info["workspaces"]:
+    for ws in workspaces:
         if ws["id"] == workspace_id:
             return ws["name"]
     return None
 
 
 def _get_workspace_org_name(
-    user_info: Optional[UserInfo], workspace_id: str
+    workspaces: list[WorkspaceInfo], workspace_id: str
 ) -> Optional[str]:
     """Look up the organization name for the given workspace."""
-    if user_info is None:
-        return None
-    for ws in user_info["workspaces"]:
+    for ws in workspaces:
         if ws["id"] == workspace_id:
             return ws.get("organization_name")
     return None
@@ -453,10 +448,10 @@ def _default_dashboard_manifest_bundle() -> tuple[
 def _resolve_workspace_name(auth_service: RuntimeAuthService) -> Optional[str]:
     """Look up the human-readable name for the currently connected workspace."""
     try:
-        user_info = auth_service.fetch_user_info()
+        workspaces = auth_service.fetch_caller_info()["workspaces"]
     except Exception:
         return None
-    return _get_workspace_name(user_info, auth_service.workspace_id)
+    return _get_workspace_name(workspaces, auth_service.workspace_id)
 
 
 def _resolve_job_ref_from_server(
@@ -551,10 +546,11 @@ def _resolve_trigger_selectors(
     return out_selectors, out_job_refs
 
 
-def requires_login(
+def requires_auth(
     _func: Optional[Callable[..., Any]] = None, *, auto_login: bool = True
 ) -> Callable[..., Any]:
-    """Inject authenticated `auth_service` kwarg; auto-runs login flow on missing token."""
+    """Inject authenticated `auth_service` kwarg; auto-runs login flow on missing
+    token, unless an API key is configured."""
 
     # `auto_login=True` (default): device flow starts when login required,
     # `--resume` is printed in non-interactive mode, controller body skipped via
@@ -565,8 +561,9 @@ def requires_login(
             auth: Optional[RuntimeAuthService] = kwargs.pop("auth_service", None)
             if auth is None:
                 auth = RuntimeAuthService(run_context=active())
-            # api-key mode: no JWT to validate; bad keys raise at request time.
-            if auth.has_api_key():
+            # api-key mode: no JWT to validate; principal_kind() rejects unknown prefixes early
+            if auth.authentication_method() is AuthenticationMethod.API_KEY:
+                auth.principal_kind()
                 kwargs["auth_service"] = auth
                 return func(*args, **kwargs)
             try:
@@ -597,24 +594,27 @@ def requires_login(
 def requires_workspace(
     _func: Optional[Callable[..., Any]] = None, *, auto_connect: bool = True
 ) -> Callable[..., Any]:
-    """Require connected workspace_id; inject `api_client`. Stack under @requires_login."""
+    """Require connected workspace_id; inject `api_client`. Stack under @requires_auth."""
 
-    # Reads `auth_service` already placed by @requires_login.
+    # Reads `auth_service` already placed by @requires_auth.
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             auth: Optional[RuntimeAuthService] = kwargs.get("auth_service")
             assert auth is not None, (
-                "@requires_workspace must be stacked under @requires_login"
+                "@requires_workspace must be stacked under @requires_auth"
             )
             if not auth.has_workspace():
-                if not auto_connect or auth.has_api_key():
+                if auth.principal_kind() is PrincipalKind.SERVICE_ACCOUNT:
                     raise CliCommandInnerException(
-                        cmd="dlthub",
-                        msg=(
-                            "Not connected to workspace. "
-                            "Run 'dlthub workspace connect <name>' first."
-                        ),
+                        cmd="dlthub", msg=WORKSPACE_API_KEY_NO_WORKSPACE
+                    )
+                if (
+                    not auto_connect
+                    or auth.authentication_method() is AuthenticationMethod.API_KEY
+                ):
+                    raise CliCommandInnerException(
+                        cmd="dlthub", msg=NOT_CONNECTED_TO_WORKSPACE
                     )
                 # Current package
                 from dlt_runtime._runtime_command import _connect_workspace_with_picker
@@ -946,20 +946,30 @@ def _do_sync_configuration(
 def _fetch_runtime_info(
     *, auth_service: RuntimeAuthService, api_client: ApiClient
 ) -> RuntimeInfo:
-    """Fetch workspace overview data — returns RuntimeInfo model."""
-    user_info = auth_service.fetch_user_info()
+    """Fetch workspace overview data — returns RuntimeInfo model.
+
+    Email is shown for humans only; a workspace key's service-account email stays hidden.
+    """
+    caller_info = auth_service.fetch_caller_info()
+    workspaces = caller_info["workspaces"]
+    identity = caller_info.get("identity")
+    email = (
+        identity["email"]
+        if identity and auth_service.principal_kind() is PrincipalKind.HUMAN
+        else None
+    )
     ws_id = auth_service.workspace_id
 
     info = RuntimeInfo(
         workspace_id=ws_id,
-        workspace_name=_get_workspace_name(user_info, ws_id),
-        organization_name=_get_workspace_org_name(user_info, ws_id),
+        workspace_name=_get_workspace_name(workspaces, ws_id),
+        organization_name=_get_workspace_org_name(workspaces, ws_id),
         workspace_url=urls.workspace_url(ws_id),
         local_dir=str(active().run_dir),
         job_count=0,
     )
-    if user_info is not None:
-        info["email"] = user_info["email"]
+    if email:
+        info["email"] = email
 
     # jobs
     with handle_client_exceptions():
@@ -1023,11 +1033,10 @@ def _fetch_runtime_info(
         )
 
     # Predefined profiles from the current workspace (server-side)
-    if user_info is not None:
-        for ws in user_info["workspaces"]:
-            if ws["id"] == ws_id and ws.get("predefined_profiles"):
-                info["predefined_profiles"] = dict(ws["predefined_profiles"])
-                break
+    for ws in workspaces:
+        if ws["id"] == ws_id and ws.get("predefined_profiles"):
+            info["predefined_profiles"] = dict(ws["predefined_profiles"])
+            break
 
     return info
 
@@ -1279,14 +1288,13 @@ def _iter_run_log_stream(
 
 def _fetch_workspaces(
     auth_service: RuntimeAuthService,
-    user_info: UserInfo,
 ) -> tuple[list[Any], Optional[str]]:
     """Return (workspaces, current_workspace_id) for display."""
     try:
         current_ws_id: Optional[str] = auth_service.workspace_id
     except (RuntimeOperationNotAuthorized, WorkspaceRunContextNotAvailable):
         current_ws_id = None
-    return user_info["workspaces"], current_ws_id
+    return auth_service.fetch_caller_info()["workspaces"], current_ws_id
 
 
 def _fetch_job_run_info(

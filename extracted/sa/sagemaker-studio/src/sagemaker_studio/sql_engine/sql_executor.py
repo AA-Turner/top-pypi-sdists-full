@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Generator, List, Optional, Type, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
 
 from pandas import DataFrame
 from sqlalchemy import create_engine, inspect, text
@@ -27,9 +27,7 @@ from .workday_transformer import WorkdayTransformer
 
 try:
     from .teradata_transformer import _TERADATA_DEPS_AVAILABLE as _TERADATA_AVAILABLE
-    from .teradata_transformer import (
-        TeraDataTransformer,
-    )
+    from .teradata_transformer import TeraDataTransformer
 except ImportError:  # pragma: no cover
     _TERADATA_AVAILABLE = False
 
@@ -215,6 +213,7 @@ class SqlExecutor:
         *,
         connection: Optional[Connection] = None,
         error_strategy: str = ErrorStrategy.STOP_ON_ERROR,
+        statement_executor: Optional[Callable[..., Any]] = None,
     ) -> Generator[ExecutionResult, None, None]:
         """Execute SQL query with optional parameters using provided engine.
 
@@ -262,20 +261,25 @@ class SqlExecutor:
         transformer = self._get_transformer(connection_type)
         statements = transformer.split_query(query)
 
+        # Per-statement executor is injectable so alternate paths (e.g. async
+        # materialization) can capture execution ids without fetching, while reusing
+        # this method's split + single-connection + error-strategy handling.
+        _statement_executor = statement_executor or self._execute_single
+
         try:
             # no connection => auto-close after execution
             if connection is None:
                 with engine.connect() as conn:
                     yield from self.execute_statements(
                         statements,
-                        lambda stmt: self._execute_single(conn, stmt, parameters),
+                        lambda stmt: _statement_executor(conn, stmt, parameters),
                         error_strategy,
                     )
             # caller manages connection lifecycle
             else:
                 yield from self.execute_statements(
                     statements,
-                    lambda stmt: self._execute_single(connection, stmt, parameters),
+                    lambda stmt: _statement_executor(connection, stmt, parameters),
                     error_strategy,
                 )
 

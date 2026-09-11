@@ -355,6 +355,8 @@ class ActionConfig:
             from aws_cdk.aws_iot.SigV4AuthorizationProperty import SigV4AuthorizationProperty
             from aws_cdk.aws_iot.BatchConfigProperty import BatchConfigProperty
             from aws_cdk.aws_iot.HttpActionHeaderProperty import HttpActionHeaderProperty
+            from aws_cdk.aws_iot.InfluxDBActionProperty import InfluxDBActionProperty
+            from aws_cdk.aws_iot.InfluxDBBatchConfigProperty import InfluxDBBatchConfigProperty
             from aws_cdk.aws_iot.IotAnalyticsActionProperty import IotAnalyticsActionProperty
             from aws_cdk.aws_iot.IotEventsActionProperty import IotEventsActionProperty
             from aws_cdk.aws_iot.IotSiteWiseActionProperty import IotSiteWiseActionProperty
@@ -465,6 +467,25 @@ class ActionConfig:
                             key="key",
                             value="value"
                         )]
+                    ),
+                    influx_db=InfluxDBActionProperty(
+                        database_name="databaseName",
+                        destination_arn="destinationArn",
+                        role_arn="roleArn",
+                        table_name="tableName",
+            
+                        # the properties below are optional
+                        batch_config=InfluxDBBatchConfigProperty(
+                            batch_across_topics=False,
+                            max_batch_open_ms=123,
+                            max_batch_size=123,
+                            max_batch_size_bytes=123
+                        ),
+                        organization="organization",
+                        tags={
+                            "tags_key": "tags"
+                        },
+                        timestamp_unit="timestampUnit"
                     ),
                     iot_analytics=IotAnalyticsActionProperty(
                         channel_name="channelName",

@@ -82,6 +82,11 @@ async def scrape_research_condenser_agent_1(
             queries=queries,
             search_results=search_results,
         ),
+        # NESTED-AGENT STREAM LEAK: the condensers run inside the
+        # research_web TOOL while the calling agent streams to a user, so
+        # unmuted their condensed text pours onto the caller's user-facing
+        # NDJSON stream. The condensed output still returns via AgentRunResult.
+        suppress_stream=True,
     )
     return _to_agent_result(run, "research_condenser_1")
 
@@ -102,5 +107,10 @@ async def scrape_research_condenser_agent_2(
             queries=queries,
             search_results=search_results,
         ),
+        # NESTED-AGENT STREAM LEAK: the condensers run inside the
+        # research_web TOOL while the calling agent streams to a user, so
+        # unmuted their condensed text pours onto the caller's user-facing
+        # NDJSON stream. The condensed output still returns via AgentRunResult.
+        suppress_stream=True,
     )
     return _to_agent_result(run, "research_condenser_2")

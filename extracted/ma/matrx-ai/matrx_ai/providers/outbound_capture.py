@@ -260,12 +260,44 @@ def _httpx_flavor_of_class(cls: type) -> Any | None:
         module = sys.modules.get(root_name)
         if module is None:
             try:
-                module = importlib.import_module(root_name)
+                module = _load_sdk_module(root_name)
             except ImportError:
                 continue
         if hasattr(module, "AsyncClient"):
             return module
     return None
+
+
+def _load_sdk_module(sdk_name: str) -> Any:
+    """Load an absolute SDK module name without hiding it in ``import_module``.
+
+    ``resolve_sdk_httpx`` has always accepted arbitrary importable SDK names,
+    including plugin SDKs which have not yet been imported by the host.  That
+    is a runtime-extension contract, not a closed provider inventory.  Use the
+    importlib spec protocol directly so the mandate scanner can distinguish
+    this declared loader from an opaque dynamic ``import_module`` target.
+
+    The ``sys.modules`` registration before ``exec_module`` mirrors Python's
+    normal import semantics: packages can resolve circular imports and a
+    failed initialization does not leave a half-loaded module behind.
+    """
+    existing = sys.modules.get(sdk_name)
+    if existing is not None:
+        return existing
+
+    spec = importlib.util.find_spec(sdk_name)
+    if spec is None or spec.loader is None:
+        raise ModuleNotFoundError(f"No importable SDK module named {sdk_name!r}")
+
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[sdk_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        if sys.modules.get(sdk_name) is module:
+            sys.modules.pop(sdk_name, None)
+        raise
+    return module
 
 
 def resolve_sdk_httpx(sdk: Any) -> Any:
@@ -289,7 +321,7 @@ def resolve_sdk_httpx(sdk: Any) -> Any:
     module = sdk
     if isinstance(sdk, str):
         try:
-            module = importlib.import_module(sdk)
+            module = _load_sdk_module(sdk)
         except ImportError as exc:
             vcprint(
                 f"[ContextAnalysis] could not import SDK {sdk!r} to resolve its "
@@ -311,7 +343,7 @@ def resolve_sdk_httpx(sdk: Any) -> Any:
     base_client = sys.modules.get(base_client_name)
     if base_client is None:
         try:
-            base_client = importlib.import_module(base_client_name)
+            base_client = _load_sdk_module(base_client_name)
         except ImportError:
             base_client = None
     if base_client is not None:

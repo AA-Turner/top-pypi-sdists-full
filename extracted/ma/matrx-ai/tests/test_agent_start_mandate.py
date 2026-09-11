@@ -1,31 +1,114 @@
-"""A workflow step names the JOB, not the agent.
+"""Run Agent and Run Mandate are two step types, and they never blur again.
 
-Before this, `ai.agent.start` could only carry an `agent_id` — so every
-workflow definition FROZE its agents at authoring time. That is a hardcoded
-agent by another route: invisible to every org/user Binding, months stale the
-moment it is written, and the reason `deep_research_v1` carries four ids in
-`scripts/hardcoded_agents_baseline.json`. It was the named blocker on building
-the podcast challenger graph, whose 27 stages are all Mandates.
+THE RULING (Arman, 2026-09-10). "Run Agent and Run Mandate have nothing in
+common… a mandate is not a representation of an agent. It's a representation of
+some sort of intelligence… Agents work with an ID, a version number, and then
+mapping of inputs and outputs. And a mandate doesn't have that sort of thing."
 
-The rule these tests force: a step may name a `mandate_key` and the DATABASE
-decides which agent runs it, resolved fresh on EVERY run through the ONE door
-— and when the mandate cannot be resolved the step REFUSES rather than running
-something nobody chose.
+Between 2026-08-17 and this split, ``ai.agent.start`` carried BOTH selectors
+(D-46/C-32) and the studio rendered an agent picker and a mandate picker side by
+side on one step. These tests are the layer that keeps them apart:
+
+* Run Agent (``ai.agent.start``) has NO mandate field, and refuses one loudly —
+  its input model allows extras, so without the refusal an un-migrated
+  definition would fold the key into the agent's VARIABLES and run something
+  else in silence.
+* Run Mandate (``ai.mandate.start``) REQUIRES a mandate key and has no agent id
+  and no version at all.
+* The shared execution lift still resolves both, and still refuses the two step
+  types that legitimately declare both selectors when they carry both values.
 """
 
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from matrx_ai import mandates
 from matrx_ai.agents.named import AgentRecordSource
-from matrx_ai.graph_nodes.agent_action import AgentStartInput, resolve_step_agent
+from matrx_ai.graph_nodes.agent_action import (
+    AgentStartInput,
+    resolve_step_agent,
+)
+from matrx_ai.graph_nodes.agent_produce_action import AgentProduceInput
+from matrx_ai.graph_nodes.mandate_action import MandateStartInput
 
 _HOLDER = "11111111-2222-3333-4444-555555555555"
 
 
+# --------------------------------------------------------------------------
+# The two contracts, as SHAPES
+# --------------------------------------------------------------------------
+
+
+def test_run_agent_has_no_mandate_field_and_run_mandate_has_no_agent_field():
+    assert "mandate_key" not in AgentStartInput.model_fields
+    assert "agent_id" in AgentStartInput.model_fields
+    assert "is_version" in AgentStartInput.model_fields
+
+    assert "mandate_key" in MandateStartInput.model_fields
+    assert "agent_id" not in MandateStartInput.model_fields
+    assert "is_version" not in MandateStartInput.model_fields
+    assert MandateStartInput.model_fields["mandate_key"].is_required()
+
+
+def test_a_run_agent_step_carrying_a_mandate_is_REFUSED_with_the_migration_hint():
+    """The loudest case: extras are ALLOWED here, so silence would mean the key
+    became an agent variable and the step ran something nobody chose."""
+    with pytest.raises(ValidationError) as excinfo:
+        AgentStartInput(mandate_key="podcast.deep_research")
+    message = str(excinfo.value)
+    assert "podcast.deep_research" in message, "the mandate must be named"
+    assert "ai.mandate.start" in message, "the migration target must be named"
+    assert "Run Mandate" in message
+
+
+def test_an_EMPTY_mandate_key_on_a_run_agent_step_is_dropped_not_fatal():
+    """Live node ``n-vapf8MnirU``: the studio form wrote ``mandate_key: null``
+    beside a pinned agent_id back when Run Agent declared the field. A null
+    carries no instruction — it is cruft, and failing a run over it would break
+    a step that was always doing exactly one thing."""
+    parsed = AgentStartInput(agent_id=_HOLDER, mandate_key=None)
+    assert parsed.model_extra == {}
+    assert parsed.agent_id == _HOLDER
+
+
+def test_a_run_mandate_step_with_no_job_named_is_not_a_step():
+    with pytest.raises(ValidationError):
+        MandateStartInput()
+
+
 @pytest.mark.asyncio
-async def test_a_mandate_step_runs_whatever_the_database_currently_binds(monkeypatch):
+async def test_a_run_mandate_step_carrying_an_agent_id_is_REFUSED(monkeypatch):
+    """A vestigial id beside the job is still two authorities, and still refused.
+
+    ``extra="allow"`` is for the author's exposed VARIABLES, so an ``agent_id``
+    on a Run Mandate step parses — it lands in ``model_extra``. It must not
+    then be INERT: the live migration found exactly this on the
+    ``masterwork.understudy`` step of definition ``d955aac4`` (a crossed node
+    carried over from the D-46 era), and a step naming both is the one thing
+    D-46 settled forever. ``resolve_step_agent_full`` reads the selector with
+    ``getattr``, which sees the extra, so the refusal holds on both sides of
+    the split.
+    """
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", None)
+    parsed = MandateStartInput(mandate_key="podcast.script", agent_id=_HOLDER)
+    assert parsed.model_extra == {"agent_id": _HOLDER}
+
+    with pytest.raises(ValueError) as excinfo:
+        await resolve_step_agent(parsed, consumer="test-step")
+    message = str(excinfo.value)
+    assert "BOTH" in message
+    assert "podcast.script" in message and _HOLDER in message
+
+
+# --------------------------------------------------------------------------
+# The shared lift
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_run_mandate_step_runs_whatever_the_database_currently_binds(monkeypatch):
     async def _resolver(mandate_key: str) -> mandates.MandateResolution:
         assert mandate_key == "podcast.deep_research"
         return mandates.MandateResolution(
@@ -36,7 +119,7 @@ async def test_a_mandate_step_runs_whatever_the_database_currently_binds(monkeyp
     monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
 
     agent_id, is_version, overrides = await resolve_step_agent(
-        AgentStartInput(mandate_key="podcast.deep_research"), consumer="test"
+        MandateStartInput(mandate_key="podcast.deep_research"), consumer="test"
     )
     assert agent_id == _HOLDER
     assert is_version is False
@@ -50,27 +133,22 @@ async def test_an_UNRESOLVABLE_mandate_REFUSES_instead_of_running_anything(monke
 
     with pytest.raises(mandates.MandateResolutionUnavailable) as excinfo:
         await resolve_step_agent(
-            AgentStartInput(mandate_key="podcast.script_educational"), consumer="test-step"
+            MandateStartInput(mandate_key="podcast.script_educational"), consumer="test-step"
         )
     assert excinfo.value.mandate_key == "podcast.script_educational"
     assert excinfo.value.consumer == "test-step"
 
 
 @pytest.mark.asyncio
-async def test_a_step_naming_BOTH_selectors_is_REFUSED_naming_both_values(monkeypatch):
-    """D-46 / C-32: exactly one selector. Which authority chose the agent is
-    precisely the question a Mandate exists to answer, so a step carrying both
-    is not reconcilable — it is refused.
-
-    This test exists because the code shipped the OTHER way and nobody
-    recorded a reversal: `resolve_step_agent` read the second value as a
-    build-time "drift snapshot", logged a warning, and ran the mandate's
-    Holder anyway. That is warn-and-continue over an id nobody re-chose —
-    the silent-default shape the no-seed-fallback ruling deleted.
+async def test_a_step_that_may_declare_BOTH_selectors_is_refused_naming_both_values(
+    monkeypatch,
+):
+    """``ai.agent.produce`` legitimately declares both — one of them, not two.
 
     The error must NAME BOTH VALUES: the whole repair is "drop the one that
     isn't the authority", and an author who cannot see which two values
-    collided cannot do it.
+    collided cannot do it. It also refuses BEFORE spending a resolution — the
+    conflict is in the definition, and nothing about the database can settle it.
     """
     resolver_calls: list[str] = []
 
@@ -85,7 +163,7 @@ async def test_a_step_naming_BOTH_selectors_is_REFUSED_naming_both_values(monkey
 
     with pytest.raises(ValueError) as excinfo:
         await resolve_step_agent(
-            AgentStartInput(mandate_key="podcast.metadata", agent_id=pinned),
+            AgentProduceInput(mandate_key="podcast.metadata", agent_id=pinned),
             consumer="test-step",
         )
 
@@ -93,39 +171,11 @@ async def test_a_step_naming_BOTH_selectors_is_REFUSED_naming_both_values(monkey
     assert "podcast.metadata" in message, "the mandate must be named"
     assert pinned in message, "the colliding agent id must be named"
     assert "test-step" in message, "the step must be named"
-    # It refuses BEFORE spending a resolution — the conflict is in the
-    # definition, and nothing about the database can settle it.
     assert resolver_calls == []
 
 
 @pytest.mark.asyncio
-async def test_BOTH_is_refused_even_when_the_id_MATCHES_the_holder(monkeypatch):
-    """The refusal is about ambiguity of AUTHORITY, not disagreement of value.
-
-    An id that happens to equal today's Holder is the most dangerous form of
-    this shape, not the safe one: it reads as harmless, and it silently stops
-    matching the moment a Binding swaps the Holder. If agreement excused it,
-    every one of the 27 live nodes found on 2026-08-20 would have passed.
-    """
-
-    async def _resolver(mandate_key: str) -> mandates.MandateResolution:
-        return mandates.MandateResolution(
-            source=AgentRecordSource(agent_id=_HOLDER, is_version=False)
-        )
-
-    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
-
-    with pytest.raises(ValueError, match="BOTH"):
-        await resolve_step_agent(
-            AgentStartInput(mandate_key="podcast.metadata", agent_id=_HOLDER),
-            consumer="test",
-        )
-
-
-@pytest.mark.asyncio
-async def test_the_pinned_id_is_NEVER_a_fallback_for_an_unresolvable_mandate(
-    monkeypatch,
-):
+async def test_the_pinned_id_is_NEVER_a_fallback_for_an_unresolvable_mandate(monkeypatch):
     """Refusing both-set must not become a back door to the seed fallback:
     a step carrying both is refused for the CONFLICT, never quietly demoted to
     running the id because the mandate could not resolve."""
@@ -133,16 +183,15 @@ async def test_the_pinned_id_is_NEVER_a_fallback_for_an_unresolvable_mandate(
 
     with pytest.raises(ValueError) as excinfo:
         await resolve_step_agent(
-            AgentStartInput(mandate_key="podcast.metadata", agent_id=_HOLDER),
+            AgentProduceInput(mandate_key="podcast.metadata", agent_id=_HOLDER),
             consumer="test-step",
         )
-    # Refused on the conflict, and in no case did the pinned id get executed.
     assert "BOTH" in str(excinfo.value)
 
 
 @pytest.mark.asyncio
 async def test_a_step_naming_NEITHER_is_refused():
-    with pytest.raises(ValueError, match="names no agent"):
+    with pytest.raises(ValueError, match="names nothing to run"):
         await resolve_step_agent(AgentStartInput(), consumer="test")
 
 

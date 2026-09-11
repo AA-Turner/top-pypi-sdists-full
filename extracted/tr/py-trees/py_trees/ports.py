@@ -13,10 +13,9 @@
 # Imports
 ##############################################################################
 
-import types
-import typing
+import copy
 import warnings
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +25,7 @@ from .ports_utils import (
     LogLevel,
     PortsLogger,
     convert_str_to_type,
+    is_instance_of_type,
     reset_blackboard_key,
     sanitize_name_for_blackboard_use,
     set_feedback_and_log,
@@ -51,6 +51,20 @@ CONST_PREFIX = "__const_"
 DOT_REPLACEMENT = "__DOT__"
 
 
+def decode_const_value(key: str) -> str:
+    """
+    Decode the direct value embedded in a const placeholder key.
+
+    Args:
+        key: A key containing a ``CONST_PREFIX`` placeholder, e.g. ``/__const_10__DOT__0``.
+
+    Returns:
+        The original direct value as a string, e.g. ``10.0``.
+    """
+    raw_value = key.split(CONST_PREFIX, 1)[1]
+    return raw_value.replace(DOT_REPLACEMENT, ".")
+
+
 class NoDataAvailable(Exception):  # noqa: N818
     """Exception raised when a required data has not (yet) been written to the port."""
 
@@ -59,11 +73,41 @@ class NoDataAvailable(Exception):  # noqa: N818
 
 @dataclass(frozen=True)
 class PortInformation:
-    """Static declaration for one typed input or output port."""
+    """
+    Static declaration for one input or output port.
+
+    Args:
+        data_type: The type of the data carried by this port.
+            Values read from or written to the port are checked against it at runtime.
+        required: Whether the port must resolve to data. Required input ports without data
+            raise :class:`NoDataAvailable` when read, unless a *default_value* is declared,
+            which always satisfies the requirement.
+        description: Optional human-readable description of the port.
+        default_value: Optional initial value for the port, validated against *data_type*
+            at construction time. ``None`` means that no default value is declared.
+
+    Raises:
+        TypeError: If *default_value* does not match *data_type*.
+    """
 
     data_type: Any
     required: bool = True
     description: str = ""
+    default_value: Any = None
+
+    def __post_init__(self) -> None:
+        """Validate the declared default value against the declared data type."""
+        if self.default_value is None:
+            return
+        if not is_instance_of_type(self.default_value, self.data_type):
+            raise TypeError(
+                f"Default value '{self.default_value}' is not of type {self.data_type}, but {type(self.default_value)}."
+            )
+
+    @property
+    def has_default(self) -> bool:
+        """Return whether this port declares a default value."""
+        return self.default_value is not None
 
 
 ##############################################################################
@@ -110,13 +154,16 @@ def get_ports_registry() -> dict[str, type["PortsMixin"]]:
 
 def _ports_class_is_abstract(cls: type) -> bool:
     """
-    Return whether *cls* still has unimplemented abstract methods.
+    Return whether *cls* is still abstract.
 
-    This intentionally scans the resolved attributes rather than reading
-    ``cls.__abstractmethods__``: ``__init_subclass__`` runs *before* ``ABCMeta``
-    populates ``__abstractmethods__`` on the new class, so that attribute is not
-    yet reliable at registration time.
+    A class is abstract if has not declared its ports (``INPUT_PORTS`` and ``OUTPUT_PORTS``),
+    or while it still has unimplemented abstract methods of its own.
+    The latter check scans the resolved attributes rather than reading ``cls.__abstractmethods__``:
+    ``__init_subclass__`` runs *before* ``ABCMeta`` populates ``__abstractmethods__``
+    on the new class, so that attribute is not yet reliable at registration time.
     """
+    if not (hasattr(cls, "INPUT_PORTS") and hasattr(cls, "OUTPUT_PORTS")):
+        return True
     return any(getattr(getattr(cls, name, None), "__isabstractmethod__", False) for name in dir(cls))
 
 
@@ -132,36 +179,32 @@ class PortsMixin(_MixinBase):
 
     1. Inherit from ``PortsMixin`` first, followed by a concrete py_trees class
        (e.g. ``py_trees.behaviour.Behaviour``).
-    2. Define its input and output ports as class-level information by implementing the
-       ``@classmethod`` s ``input_ports`` and ``output_ports``.
+    2. Declare its input and output ports as class-level information by assigning the
+       class attributes ``INPUT_PORTS`` and ``OUTPUT_PORTS``.
 
     A ``PortsMixin`` represents a modular unit that interacts with input and output data through
     well-defined ports. These ports are typed and validated at runtime to ensure consistency and facilitate
     composability between different nodes.
 
-    Subclasses must define their input and output ports as class-level information by implementing
-    the ``@classmethod`` s ``input_ports`` and ``output_ports``.
+    Subclasses must declare their input and output ports as class-level information by assigning
+    the class attributes ``INPUT_PORTS`` and ``OUTPUT_PORTS``.
 
-    * ``input_ports(cls)``: returns a dictionary mapping input port names to port information.
-    * ``output_ports(cls)``: returns a dictionary mapping output port names to port information.
+    * ``INPUT_PORTS``: a mapping of input port names to port information.
+    * ``OUTPUT_PORTS``: a mapping of output port names to port information.
 
-    These methods return the expected port definitions for the class and do not change at runtime.
-    These port definitions are used to:
+    The declarations are evaluated once at class definition and read through the
+    ``input_ports()`` / ``output_ports()`` classmethods. They are shared class-level state
+    and must not be mutated at runtime. These port definitions are used to:
 
     1. Register blackboard keys for communication.
-    2. Enforce type and presence validation at runtime.
+    2. Enforce type, default values, and presence validation at runtime.
     3. Provide clear contracts for each behaviour's data dependencies and outputs.
 
     Example usage::
 
         class MyBehaviour(PortsMixin, py_trees.behaviour.Behaviour):
-            @classmethod
-            def input_ports(cls):
-                return {"input": PortInformation(data_type=str, required=True)}
-
-            @classmethod
-            def output_ports(cls):
-                return {"output": PortInformation(data_type=str, required=True)}
+            INPUT_PORTS = {"input": PortInformation(data_type=str, default_value="foo", required=True)}
+            OUTPUT_PORTS = {"output": PortInformation(data_type=str, required=True)}
 
             def __init__(self, name: str):
                 super().__init__(name=name)
@@ -171,14 +214,14 @@ class PortsMixin(_MixinBase):
                 self._set_output("output", f"Processed({input_val})")
                 return py_trees.common.Status.SUCCESS
 
-    Port specification format in ``input_ports()`` and ``output_ports()``::
+    Port specification format in ``INPUT_PORTS`` and ``OUTPUT_PORTS``::
 
         {
             "<port_name>": PortInformation(data_type=<expected_type>, required=<bool>),
         }
 
     Input and output port names must be unique across both sets; overlapping names are not allowed and
-    will raise a ``ValueError`` at instantiation.
+    will raise a ``ValueError`` at class definition.
 
     **Subtrees**
 
@@ -235,13 +278,8 @@ class PortsMixin(_MixinBase):
     **Example**::
 
         class ConsumerProducer(PortsMixin, py_trees.behaviour.Behaviour):
-            @classmethod
-            def input_ports(cls):
-                return {"input": PortInformation(data_type=str, required=True)}
-
-            @classmethod
-            def output_ports(cls):
-                return {"output": PortInformation(data_type=str, required=True)}
+            INPUT_PORTS = {"input": PortInformation(data_type=str, required=True)}
+            OUTPUT_PORTS = {"output": PortInformation(data_type=str, required=True)}
 
             def update(self):
                 input_val = self.get_input("input")
@@ -249,37 +287,48 @@ class PortsMixin(_MixinBase):
                 return py_trees.common.Status.SUCCESS
     """
 
+    # Port declarations, assigned by concrete subclasses.
+    # Deliberately annotation-only here, as their absence marks a class as still abstract
+    # and therefore prevents automatic registration.
+    INPUT_PORTS: dict[str, PortInformation]
+    OUTPUT_PORTS: dict[str, PortInformation]
+
     def __init_subclass__(cls, *, tag: str | None = None, register: bool = True, **kwargs: Any) -> None:
         """
-        Auto-register concrete subclasses so parsers can resolve them by tag.
+        Validate port declarations and auto-register concrete subclasses.
 
-        Defining a concrete ``PortsMixin`` subclass registers it under its class
-        name (or *tag*, if given) in the global ports registry, so a parser can
-        resolve it by tag.
+        Defining a concrete ``PortsMixin`` subclass (one that assigns the ``INPUT_PORTS``
+        and ``OUTPUT_PORTS`` class attributes) registers it under its class name (or *tag*,
+        if given) in the global ports registry, so a parser can resolve it by tag.
 
         Args:
             tag: Optional explicit tag (lookup name). Defaults to ``cls.__name__``.
             register: Set to ``False`` to skip auto-registration for this class.
 
+        Raises:
+            ValueError: If any port name appears in both ``INPUT_PORTS`` and ``OUTPUT_PORTS``.
+
         Still-abstract subclasses (e.g. :class:`BehaviourWithPorts`, which does
-        not implement ``input_ports`` / ``output_ports``) are never registered.
+        not declare ``INPUT_PORTS`` / ``OUTPUT_PORTS``) are never registered.
         """
         super().__init_subclass__(**kwargs)
-        if not register or _ports_class_is_abstract(cls):
+        if _ports_class_is_abstract(cls):
+            return
+        for port in cls.INPUT_PORTS.keys() & cls.OUTPUT_PORTS.keys():
+            raise ValueError(f"Port '{port}' appears in both input and output ports")
+        if not register:
             return
         register_ports_class(tag if tag is not None else cls.__name__, cls)
 
     @classmethod
-    @abstractmethod
     def input_ports(cls) -> dict[str, PortInformation]:
-        """Return a mapping of input port names to port information."""
-        raise NotImplementedError("Subclasses must implement input_ports()")
+        """Return the mapping of input port names to port information (treat as read-only)."""
+        return cls.INPUT_PORTS
 
     @classmethod
-    @abstractmethod
     def output_ports(cls) -> dict[str, PortInformation]:
-        """Return a mapping of output port names to port information."""
-        raise NotImplementedError("Subclasses must implement output_ports()")
+        """Return the mapping of output port names to port information (treat as read-only)."""
+        return cls.OUTPUT_PORTS
 
     @classmethod
     def get_port_type(cls, port_name: str) -> type:
@@ -294,16 +343,17 @@ class PortsMixin(_MixinBase):
         Raises:
             KeyError: If the port name is not defined in either input or output ports.
         """
-        if port_name in cls.input_ports():
-            return cls.input_ports()[port_name].data_type  # type: ignore[no-any-return]
-        elif port_name in cls.output_ports():
-            return cls.output_ports()[port_name].data_type  # type: ignore[no-any-return]
-        else:
-            raise KeyError(f"Port '{port_name}' not defined.")
+        for ports in (cls.input_ports(), cls.output_ports()):
+            if port_name in ports:
+                return ports[port_name].data_type  # type: ignore[no-any-return]
+        raise KeyError(f"Port '{port_name}' not defined.")
 
     @classmethod
     def is_port_required(cls, port_name: str) -> bool:
         """Return whether the specified port is marked as required.
+
+        Note that a port declaring a default value is always satisfiable, even when marked
+        as required, since the default is applied whenever no data is available.
 
         Args:
             port_name (str): The name of the input or output port.
@@ -314,12 +364,10 @@ class PortsMixin(_MixinBase):
         Raises:
             KeyError: If the port name is not defined in either input or output ports.
         """
-        if port_name in cls.input_ports():
-            return cls.input_ports()[port_name].required
-        elif port_name in cls.output_ports():
-            return cls.output_ports()[port_name].required
-        else:
-            raise KeyError(f"Port '{port_name}' not defined.")
+        for ports in (cls.input_ports(), cls.output_ports()):
+            if port_name in ports:
+                return ports[port_name].required
+        raise KeyError(f"Port '{port_name}' not defined.")
 
     def __init__(self, *args: Any, behaviour_class_name: str | None = None, **kwargs: Any) -> None:
         """
@@ -334,8 +382,17 @@ class PortsMixin(_MixinBase):
             **kwargs: Additional keyword arguments passed to the parent class.
 
         Raises:
-            ValueError: If any port name appears in both input_ports() and output_ports().
+            TypeError: If the class has not declared its ``INPUT_PORTS`` / ``OUTPUT_PORTS``
+                class attributes (i.e. it is still abstract).
         """
+        # ABC cannot guard instantiation here since the port declarations are attributes,
+        # so mirror the abstract-class TypeError explicitly.
+        if _ports_class_is_abstract(type(self)):
+            raise TypeError(
+                f"Can't instantiate abstract class {type(self).__name__} without the "
+                "INPUT_PORTS and OUTPUT_PORTS class attribute declarations."
+            )
+
         super().__init__(*args, **kwargs)
         # The following fields will be added in the setup_ports function and are non-functional intentionally till it
         # gets added to the setup_ports function.
@@ -348,11 +405,6 @@ class PortsMixin(_MixinBase):
         self._behaviour_class_name = (
             behaviour_class_name if behaviour_class_name is not None else self.__class__.__name__
         )
-
-        # Consistency check: no value can appear in both input and output ports
-        for port in self.input_ports():
-            if port in self.output_ports():
-                raise ValueError(f"Port '{port}' appears in both input and output ports")
 
     def setup_ports(
         self,
@@ -422,16 +474,16 @@ class PortsMixin(_MixinBase):
                     self._blackboard_client.register_key(key=local_key, access=py_trees.common.Access.WRITE)
 
                     # Obtaining the initial direct value
-                    raw_value = key.split(CONST_PREFIX, 1)[1]
-                    # Replacing the DOT_REPLACEMENT with the actual dot (see comment in DOT_REPLACEMENT definition)
-                    value = raw_value.replace(DOT_REPLACEMENT, ".")
+                    value = decode_const_value(key)
 
                     port_type = self.input_ports()[port].data_type
                     try:
-                        updated_value = convert_str_to_type(value, port_type, logger=self._ports_logger)
-                        self.log_debug(f"Port {port}: Converted const value '{value}' to type {port_type}.")
+                        converted, updated_value = convert_str_to_type(value, port_type, logger=self._ports_logger)
                     except ValueError as e:
                         raise ValueError(f"Cannot convert Value '{value}' to type {port_type}") from e
+                    if not converted:
+                        raise ValueError(f"Cannot convert Value '{value}' to type {port_type}")
+                    self.log_debug(f"Port {port}: Converted const value '{value}' to type {port_type}.")
                     key = local_key  # Remap to the local key holding the constant value
                     self._blackboard_client.set(key, updated_value)
                 # Resolve relative remap targets under the subtree namespace.
@@ -440,10 +492,12 @@ class PortsMixin(_MixinBase):
                 # like "transfer" would become the global literal key "/transfer"
                 # and collide across sibling subtrees.
                 key = py_trees.blackboard.Blackboard.absolute_name(subtree_namespace, key)
+                # A port with a default value is satisfiable without data on the blackboard, so it
+                # must not be registered as required (that would fail verify_required_keys_exist()).
                 self._blackboard_client.register_key(
                     key=port,
                     access=py_trees.common.Access.READ,
-                    required=self.is_port_required(port),
+                    required=self.is_port_required(port) and not self.input_ports()[port].has_default,
                     remap_to=key,
                 )
                 abs_port_name = self.blackboard_client.absolute_name(port)
@@ -473,7 +527,7 @@ class PortsMixin(_MixinBase):
                 self._blackboard_client.register_key(
                     key=port,
                     access=py_trees.common.Access.READ,
-                    required=self.is_port_required(port),
+                    required=self.is_port_required(port) and not self.input_ports()[port].has_default,
                     remap_to=storage_key,
                 )
         for port in self.output_ports():
@@ -486,6 +540,20 @@ class PortsMixin(_MixinBase):
                     required=self.is_port_required(port),
                     remap_to=storage_key,
                 )
+
+        # Seed declared defaults on output ports, so that readers wired to them see a value
+        # before this node has ticked. Input defaults are *not* seeded: they are applied on the
+        # read side by get_input(), so they cannot leak into a key that other nodes read from.
+        for port, port_information in self.output_ports().items():
+            if port_information.has_default:
+                self._seed_output_default(port, port_information)
+
+    def _seed_output_default(self, port_name: str, port_information: PortInformation) -> None:
+        """Write the declared default of an output port to the blackboard."""
+        # Deep copy so that whoever reads the value back cannot mutate the port declaration
+        # shared by every instance of this class.
+        self._set_output(port_name, copy.deepcopy(port_information.default_value))
+        self.log_debug(f"Port {port_name}: Seeded default value '{port_information.default_value}'.")
 
     @property
     def subtree_namespace(self) -> str:
@@ -520,40 +588,6 @@ class PortsMixin(_MixinBase):
             str: The registered name of this behavior class.
         """
         return self._behaviour_class_name
-
-    def _is_instance_of_type(self, value: Any, expected_type: Any) -> bool:
-        """
-        Check if a value is an instance of a specific type.
-
-        Extends Python's isinstance() to check for generic types, such as lists.
-
-        Currently this only supports basic types (int, float, etc.) and the generic types Union and list.
-        Add additional type support as needed.
-
-        Args:
-            value (Any): The value to check.
-            expected_type (type): The expected type.
-
-        Returns:
-            bool: True if the value is an instance of the expected type, False otherwise.
-
-        Raises:
-            NotImplementedError: If type checking for the specific generic type is not implemented.
-        """
-        origin = typing.get_origin(expected_type)
-        args = typing.get_args(expected_type)
-        # Handle union types first
-        if origin is typing.Union or origin is types.UnionType:  # Need to also check types.UnionType to cover | syntax
-            return any(self._is_instance_of_type(value, arg) for arg in args)
-        # Handle other generics
-        if origin is not None:
-            if not isinstance(value, origin):
-                return False
-            if origin is list and args:
-                return all(self._is_instance_of_type(v, args[0]) for v in value)
-            raise NotImplementedError(f"Type checking for generic type '{origin}' is not implemented.")
-        else:
-            return isinstance(value, expected_type)
 
     def get_logger(self) -> PortsLogger:
         """Return the logger instance.
@@ -604,10 +638,19 @@ class PortsMixin(_MixinBase):
     def get_input(self, port_name: str, default: Any = None) -> Any:
         """Read the value of the given input port from the blackboard.
 
+        When no data is available on the port, the fallbacks are applied in this order:
+
+        1. The *default* argument given here, if it is not ``None``.
+        2. The ``default_value`` declared on the port's :class:`PortInformation`, if it has one.
+           Declared defaults are deep-copied on the way out, so a caller mutating the returned
+           value cannot corrupt the class-level declaration.
+        3. Otherwise, :class:`NoDataAvailable` is raised.
+
         Args:
             port_name (str): The name of the input port to read from the blackboard.
             default (Any): Optional default value to return if the port has no input data.
-            If set to `None`, no default is accepted.
+                It takes precedence over a default declared on the port.
+                If set to `None`, only a default declared on the port (if any) is accepted.
         Return:
             Any: The value retrieved from the blackboard for the specified input port or the default.
 
@@ -621,10 +664,16 @@ class PortsMixin(_MixinBase):
         if not self.blackboard_client.is_registered(port_name):
             raise KeyError(f"{self.name}: Input port '{port_name}' is not registered in the blackboard client.")
         # Get the value from the blackboard
-        # If the port is not set, return the default value if provided, otherwise raise an error.
+        # If the port is not set, fall back to a default (argument first, then the declared
+        # default value on the port), otherwise raise an error.
         if not self.blackboard_client.exists(port_name):
             if default is not None:
                 return default
+            port_information = self.input_ports()[port_name]
+            if port_information.has_default:
+                # Deep copy so that a caller mutating a container default (e.g. a list) does not
+                # modify the port declaration shared by every instance of this class.
+                return copy.deepcopy(port_information.default_value)
             raise NoDataAvailable(
                 f"{self.name}: Input port '{port_name}' (mapped to "
                 f"'{self._get_blackboard_key(port_name)}') has no data available."
@@ -634,13 +683,16 @@ class PortsMixin(_MixinBase):
         if value is None:
             raise NotImplementedError("Support for None values has not yet been considered.")
         port_type = self.input_ports()[port_name].data_type
-        if not self._is_instance_of_type(value, port_type):
+        if not is_instance_of_type(value, port_type):
             raise TypeError(f"{self.name}: Value '{value}' is not of type {port_type}, but {type(value)}")
         return value
 
     def get_last_output(self, port_name: str) -> Any:
         """
         Return the last output which the node wrote at this port.
+
+        If the port declares a default value, that default is present from ``setup_ports()``
+        onwards, so this returns it until the node writes something.
 
         Args:
             port_name (str): The name of the output port to read from the blackboard.
@@ -663,7 +715,7 @@ class PortsMixin(_MixinBase):
         if value is None:
             raise NotImplementedError("Support for explicit None values has not yet been considered.")
         port_type = self.output_ports()[port_name].data_type
-        if not self._is_instance_of_type(value, port_type):
+        if not is_instance_of_type(value, port_type):
             raise TypeError(f"{self.name}: Value '{value}' is not of type {port_type}")
         return value
 
@@ -684,21 +736,22 @@ class PortsMixin(_MixinBase):
         if port_name not in self.output_ports():
             raise KeyError(f"{self.name}: Output port '{port_name}' not defined.")
         port_type = self.output_ports()[port_name].data_type
-        if not self._is_instance_of_type(value, port_type):
+        if not is_instance_of_type(value, port_type):
             raise TypeError(f"{self.name}: Value '{value}' is not of type {port_type}")
 
         self.blackboard_client.set(port_name, value)
 
     def reset_port(self, port_name: str) -> None:
         """
-        Clear the value stored for a (usually output) port.
+        Reset a (usually output) port to its initial state.
 
         Keeps the key registered (READ/WRITE permissions unaffected), but removes
         the stored value. Intended for use-cases like "new data epoch" where
         downstream nodes should not read stale outputs.
 
         This will have the effect that subsequent
-        `blackboard_client.exists(port_name)` returns False again
+        `blackboard_client.exists(port_name)` returns False again, unless the port is an
+        output port declaring a default value. In that case, that default is seeded again.
 
         Raises:
             KeyError: if the port is unknown or not registered.
@@ -709,16 +762,21 @@ class PortsMixin(_MixinBase):
 
         reset_blackboard_key(self.blackboard_client, port_name, node_name=self.name)
 
+        output_port_information = self.output_ports().get(port_name)
+        if output_port_information is not None and output_port_information.has_default:
+            self._seed_output_default(port_name, output_port_information)
+
     def reset_all_output_ports(self) -> None:
         """
-        Clear all output ports registered on this node.
+        Reset all output ports registered on this node to their initial state.
 
         Keeps the keys registered (READ/WRITE permissions unaffected), but removes
         the stored values. Intended for use-cases like "new data epoch" where
         downstream nodes should not read stale outputs.
 
         This will have the effect that subsequent
-        `blackboard_client.exists(port_name)` returns False again
+        `blackboard_client.exists(port_name)` returns False again, except for ports declaring
+        a default value, which are seeded again (see :meth:`reset_port`).
 
         Raises:
             KeyError: if any port is unknown or not registered.
@@ -769,21 +827,16 @@ class BehaviourWithPorts(PortsMixin, py_trees.behaviour.Behaviour):
 
     Subclassing requirements:
 
-    - Each subclass must implement the ``input_ports`` and ``output_ports`` class methods to specify
-      its input and output ports.
+    - Each subclass must declare its ports by assigning the ``INPUT_PORTS`` and ``OUTPUT_PORTS``
+      class attributes.
     - Each subclass must implement the ``update()`` method to define its behaviour.
     - Other methods from :class:`py_trees.behaviour.Behaviour` may be overridden as needed.
 
     Example usage::
 
         class ExampleBehaviour(BehaviourWithPorts):
-            @classmethod
-            def input_ports(cls):
-                return {"input_data": PortInformation(data_type=str, required=True)}
-
-            @classmethod
-            def output_ports(cls):
-                return {"output_data": PortInformation(data_type=str, required=True)}
+            INPUT_PORTS = {"input_data": PortInformation(data_type=str, required=True)}
+            OUTPUT_PORTS = {"output_data": PortInformation(data_type=str, required=True)}
 
             def update(self):
                 # Implementation of the behaviour

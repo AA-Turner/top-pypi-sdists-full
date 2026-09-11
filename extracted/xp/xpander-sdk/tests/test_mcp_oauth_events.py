@@ -3,6 +3,7 @@ correlate a token_ready/token_issue back to the right server when several MCP
 servers authenticate concurrently."""
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -143,3 +144,32 @@ async def test_server_name_falls_back_to_url_when_unnamed(captured, monkeypatch)
     )
 
     assert captured[0].data.server_name == SERVER_URL
+
+
+async def test_token_request_identifies_execution_without_changing_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Only backend-eligible tasks send persisted execution context for token lookup."""
+
+    result = MCPOAuthGetTokenResponse(
+        type=MCPOAuthResponseType.TOKEN_READY,
+        data=MCPOAuthGetTokenTokenReadyResponse(access_token="test-token"),
+    )
+    client = SimpleNamespace(make_request=AsyncMock(return_value=result))
+    monkeypatch.setattr(mcp_oauth, "APIClient", lambda **kwargs: client)
+    task = SimpleNamespace(
+        id="execution-1",
+        agent_id="agent-1",
+        configuration=None,
+        is_app=False,
+        background_auth_eligible=True,
+    )
+    await mcp_oauth.get_token(_mcp(), task, "user-1", force_refresh=True)
+    call = client.make_request.call_args.kwargs
+    assert call["query"]["execution_id"] == "execution-1"
+    assert call["query"]["force_refresh"] is True
+    assert call["path"].endswith("/agent-1/user-1/get_token")
+    assert "access_token" not in call["payload"]
+    task.background_auth_eligible = False
+    await mcp_oauth.get_token(_mcp(), task, "user-1")
+    assert "execution_id" not in client.make_request.call_args.kwargs["query"]

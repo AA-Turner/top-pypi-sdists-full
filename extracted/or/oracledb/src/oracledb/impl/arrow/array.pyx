@@ -96,7 +96,7 @@ cdef class ArrowArrayImpl:
         Append a value of type ArrowDecimal to the array
 
         Arrow decimals are fixed-point decimal numbers encoded as a
-        scaled integer. decimal128(7, 3) can exactly represent the numbers
+        scaled integer. decimal(7, 3) can exactly represent the numbers
         1234.567 and -1234.567 encoded internally as the 128-bit integers
         1234567 and -1234567, respectively.
         """
@@ -105,8 +105,7 @@ cdef class ArrowArrayImpl:
             ArrowDecimal decimal
         decimal_view.data = <char*> ptr
         decimal_view.size_bytes = num_bytes
-        ArrowDecimalInit(&decimal, 128, self.schema_impl.precision,
-                         self.schema_impl.scale)
+        init_arrow_decimal(self.schema_impl, &decimal)
         _check_nanoarrow(ArrowDecimalSetDigits(&decimal, decimal_view))
         _check_nanoarrow(ArrowArrayAppendDecimal(self.arrow_array, &decimal))
 
@@ -136,6 +135,25 @@ cdef class ArrowArrayImpl:
                               arrow_type=arrow_type)
         _check_nanoarrow(result)
 
+    cdef int append_interval_ds(self, int32_t days, int64_t ns) except -1:
+        """
+        Append a (day to second) interval value to the array.
+        """
+        cdef ArrowInterval interval
+        ArrowIntervalInit(&interval, self.schema_impl.arrow_type)
+        interval.days = days
+        interval.ns = ns
+        _check_nanoarrow(ArrowArrayAppendInterval(self.arrow_array, &interval))
+
+    cdef int append_interval_ym(self, int32_t months) except -1:
+        """
+        Append a (year to month) interval value to the array.
+        """
+        cdef ArrowInterval interval
+        ArrowIntervalInit(&interval, self.schema_impl.arrow_type)
+        interval.months = months
+        _check_nanoarrow(ArrowArrayAppendInterval(self.arrow_array, &interval))
+
     cdef int append_last_value(self, ArrowArrayImpl array) except -1:
         """
         Appends the last value of the given array to this array.
@@ -143,6 +161,7 @@ cdef class ArrowArrayImpl:
         cdef:
             ArrowBuffer *data_buffer
             ArrowBufferView buffer
+            ArrowInterval interval
             uint64_t uint64_value
             ArrowDecimal decimal
             int64_t index
@@ -194,9 +213,9 @@ cdef class ArrowArrayImpl:
             self.append_double(
                 ArrowArrayViewGetDoubleUnsafe(&array.arrow_array_view, index)
             )
-        elif array.schema_impl.arrow_type == NANOARROW_TYPE_DECIMAL128:
-            ArrowDecimalInit(&decimal, 128, self.schema_impl.precision,
-                             self.schema_impl.scale)
+        elif array.schema_impl.arrow_type in (NANOARROW_TYPE_DECIMAL128,
+                                              NANOARROW_TYPE_DECIMAL256):
+            init_arrow_decimal(self.schema_impl, &decimal)
             ArrowArrayViewGetDecimalUnsafe(&array.arrow_array_view, index,
                                            &decimal)
             _check_nanoarrow(ArrowArrayAppendDecimal(array.arrow_array,
@@ -216,6 +235,14 @@ cdef class ArrowArrayImpl:
                 self.append_bytes(temp, buffer.size_bytes)
             finally:
                 cpython.PyMem_Free(temp)
+        elif array.schema_impl.arrow_type in (
+            NANOARROW_TYPE_INTERVAL_MONTH_DAY_NANO,
+        ):
+            ArrowIntervalInit(&interval, self.schema_impl.arrow_type)
+            ArrowArrayViewGetIntervalUnsafe(&array.arrow_array_view, index,
+                                            &interval)
+            _check_nanoarrow(ArrowArrayAppendInterval(self.arrow_array,
+                                                      &interval))
 
     cdef int append_null(self) except -1:
         """
@@ -327,8 +354,7 @@ cdef class ArrowArrayImpl:
             ArrowBuffer buf
         is_null[0] = ArrowArrayViewIsNull(&self.arrow_array_view, index)
         if not is_null[0]:
-            ArrowDecimalInit(&decimal, 128, self.schema_impl.precision,
-                    self.schema_impl.scale)
+            init_arrow_decimal(self.schema_impl, &decimal)
             ArrowArrayViewGetDecimalUnsafe(&self.arrow_array_view, index,
                                            &decimal)
             ArrowBufferInit(&buf)
@@ -371,6 +397,23 @@ cdef class ArrowArrayImpl:
         if not is_null[0]:
             value[0] = \
                     ArrowArrayViewGetIntUnsafe(&self.arrow_array_view, index)
+
+    cdef int get_interval_ds(self, int64_t index, bint* is_null, int32_t* days,
+                             int64_t* ns) except -1:
+        """
+        Return an interval (day to second) at the specified index from the
+        Arrow array.
+        """
+        cdef ArrowInterval interval
+        is_null[0] = ArrowArrayViewIsNull(&self.arrow_array_view, index)
+        if not is_null[0]:
+            ArrowIntervalInit(&interval, self.schema_impl.arrow_type)
+            ArrowArrayViewGetIntervalUnsafe(&self.arrow_array_view, index,
+                                            &interval)
+            if interval.months != 0:
+                errors._raise_err(errors.ERR_ARROW_UNSUPPORTED_INTERVAL)
+            days[0] = interval.days
+            ns[0] = interval.ns
 
     cdef int get_length(self, int64_t* length) except -1:
         """

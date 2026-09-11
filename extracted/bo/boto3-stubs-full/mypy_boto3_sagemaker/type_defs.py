@@ -478,6 +478,8 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AttachClusterNodeNetworkInterfaceRequestTypeDef",
+    "AttachClusterNodeNetworkInterfaceResponseTypeDef",
     "AttachClusterNodeVolumeRequestTypeDef",
     "AttachClusterNodeVolumeResponseTypeDef",
     "AuthorizedUrlTypeDef",
@@ -2526,6 +2528,12 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     WorkGroup: NotRequired[str]
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
+
+
+class AttachClusterNodeNetworkInterfaceRequestTypeDef(TypedDict):
+    ClusterName: str
+    NodeId: str
+    NetworkInterfaceId: str
 
 
 class AttachClusterNodeVolumeRequestTypeDef(TypedDict):
@@ -6653,6 +6661,14 @@ class AddAssociationResponseTypeDef(TypedDict):
 class AssociateTrialComponentResponseTypeDef(TypedDict):
     TrialComponentArn: str
     TrialArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AttachClusterNodeNetworkInterfaceResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    NetworkInterfaceId: str
+    AttachmentId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

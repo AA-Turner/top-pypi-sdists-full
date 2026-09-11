@@ -182,6 +182,7 @@ class CICDGeneratorBase:
                 return FeedbackManager.warning_for_cicd_file(
                     file_name=cicd_file.file_name, warning_message=cicd_file.warning_message.format(**params)
                 )
+        return None
 
     def is_already_generated(self, path: str) -> bool:
         for cicd_file in self.cicd_files:

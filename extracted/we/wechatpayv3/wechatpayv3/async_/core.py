@@ -225,11 +225,11 @@ class AsyncCore:
             if files:
                 response = await self._client.post(url=self._gate_way + path, data=data, headers=headers, files=files)
             else:
-                response = await self._client.post(url=self._gate_way + path, json=data, headers=headers)
+                response = await self._client.post(url=self._gate_way + path, content=json.dumps(data), headers=headers)
         elif method == RequestType.PATCH:
-            response = await self._client.patch(url=self._gate_way + path, json=data, headers=headers)
+            response = await self._client.patch(url=self._gate_way + path, content=json.dumps(data), headers=headers)
         elif method == RequestType.PUT:
-            response = await self._client.put(url=self._gate_way + path, json=data, headers=headers)
+            response = await self._client.put(url=self._gate_way + path, content=json.dumps(data), headers=headers)
         elif method == RequestType.DELETE:
             response = await self._client.delete(url=self._gate_way + path, headers=headers)
         else:

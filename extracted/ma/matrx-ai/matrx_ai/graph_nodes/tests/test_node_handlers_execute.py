@@ -202,16 +202,16 @@ class _FakeCompleted:
 
     request: _FakeRequest = dataclasses.field(default_factory=_FakeRequest)
     iterations: int = 1
-    final_response: _FakeUnifiedResponse = dataclasses.field(
-        default_factory=_FakeUnifiedResponse
-    )
+    final_response: _FakeUnifiedResponse = dataclasses.field(default_factory=_FakeUnifiedResponse)
     total_usage: _FakeUsage = dataclasses.field(default_factory=_FakeUsage)
     timing_stats: dict[str, Any] = dataclasses.field(default_factory=dict)
     tool_call_stats: dict[str, Any] = dataclasses.field(default_factory=dict)
     metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
 
 
-def _ctx(*, organization_id: str = "test-org", output_kind: str | None = None) -> NodeExecutionContext:
+def _ctx(
+    *, organization_id: str = "test-org", output_kind: str | None = None
+) -> NodeExecutionContext:
     from matrx_connect.context.app_context import AppContext
 
     return NodeExecutionContext(
@@ -279,7 +279,9 @@ def _patch_agent_host(monkeypatch: pytest.MonkeyPatch, *, completed: Any = None)
 # NODE_FIXTURES — name -> (monkeypatch) -> (inputs, ctx)
 # ---------------------------------------------------------------------------
 
-NODE_FIXTURES: dict[str, Callable[[pytest.MonkeyPatch], tuple[BaseModel, NodeExecutionContext]]] = {}
+NODE_FIXTURES: dict[
+    str, Callable[[pytest.MonkeyPatch], tuple[BaseModel, NodeExecutionContext]]
+] = {}
 
 
 def node_fixture(name: str) -> Callable[[Callable], Callable]:
@@ -312,7 +314,7 @@ def _fx_extract(monkeypatch):
 
     _patch_execute_ai_request(monkeypatch)
     return (
-        ExtractInput(text="the total is $5", instruction="extract the total"),
+        ExtractInput(model="gpt-5", text="the total is $5", instruction="extract the total"),
         _ctx(),
     )
 
@@ -340,6 +342,29 @@ def _fx_agent_start(monkeypatch):
     _patch_agent_host(monkeypatch)
     return (
         AgentStartInput(agent_id="11111111-2222-3333-4444-555555555555", user_input="hi"),
+        _ctx(),
+    )
+
+
+@node_fixture("ai.mandate.start")
+def _fx_mandate_start(monkeypatch):
+    """Run Mandate through its REAL door: the mandate resolver picks the doer."""
+    from matrx_ai import mandates
+    from matrx_ai.agents.named import AgentRecordSource
+    from matrx_ai.graph_nodes.mandate_action import MandateStartInput
+
+    _patch_agent_host(monkeypatch)
+
+    async def _resolver(mandate_key: str) -> Any:
+        return mandates.MandateResolution(
+            source=AgentRecordSource(
+                agent_id="11111111-2222-3333-4444-555555555555", is_version=False
+            )
+        )
+
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
+    return (
+        MandateStartInput(mandate_key="test.job", user_input="hi"),
         _ctx(),
     )
 
@@ -472,7 +497,9 @@ def _fx_image_qc_judge(monkeypatch):
     from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ImageQcInput, ImageQcVerdict
 
-    async def _fake_llm_messages_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
+    async def _fake_llm_messages_to_pydantic(
+        *, output_cls: type[BaseModel], **_kw: Any
+    ) -> BaseModel:
         assert output_cls is ImageQcVerdict
         return ImageQcVerdict(passed=True, confidence=0.9, reasoning="looks fine")
 
@@ -581,7 +608,9 @@ def _fx_util_cost_summary(_monkeypatch):
     # node takes its early all-zero return WITHOUT touching the DB — the
     # cxm/get_model path is real DB access this fixture deliberately avoids.
     ctx = _ctx()
-    return CostSummaryInput(), dataclasses.replace(ctx, app=ctx.app.with_overrides(conversation_id=""))
+    return CostSummaryInput(), dataclasses.replace(
+        ctx, app=ctx.app.with_overrides(conversation_id="")
+    )
 
 
 @node_fixture("ai.util.parse_llm_json")

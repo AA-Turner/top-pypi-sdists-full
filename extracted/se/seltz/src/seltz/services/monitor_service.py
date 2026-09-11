@@ -12,6 +12,7 @@ from grpc import aio
 
 from .._types import OMIT, Omit, is_given
 from ..exceptions import map_rpc_error
+from ._json_union import from_json_unions
 from . import DEFAULT_TIMEOUT_SECONDS, MonitorStatus, SearchRequest, SortOrder, Webhook
 from seltz_public_api.proto.v1 import monitor_pb2, monitor_pb2_grpc
 
@@ -38,7 +39,7 @@ def _search_requests(queries: Iterable[SearchRequestInput]) -> List[SearchReques
             unexpected = sorted(set(query) - _SEARCH_REQUEST_FIELDS)
             if unexpected:
                 raise TypeError(f"unexpected search request fields: {unexpected}")
-            built.append(SearchRequest(**query))
+            built.append(from_json_unions(SearchRequest, query, "search_request"))
         else:
             built.append(query)
     return built

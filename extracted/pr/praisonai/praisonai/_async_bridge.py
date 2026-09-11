@@ -9,15 +9,66 @@ import asyncio
 import atexit
 import contextlib
 import contextvars
+import enum
+import inspect
+import logging
 import os
 import threading
+import weakref
 import concurrent.futures
 from concurrent.futures import CancelledError as FutureCancelledError, Future
-from typing import Awaitable, Iterator, Optional, TypeVar
+from typing import Any, Awaitable, Iterator, Optional, TypeVar
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-_DEFAULT_TIMEOUT = float(os.environ.get("PRAISONAI_RUN_SYNC_TIMEOUT", "300"))
+
+class _Unset:
+    """Sentinel for an *omitted* timeout argument.
+
+    Distinguishes "caller did not pass a timeout" (resolve the configured
+    default via :func:`_default_timeout`) from an explicit ``timeout=None``
+    (an intentional request for an *unbounded* wait). The scheduler bridges
+    (``integration/bridges/schedules_runner.py``, ``cli/commands/schedule.py``)
+    rely on the latter so a long-running claimed job is never cancelled after
+    the 300s default.
+    """
+
+    __slots__ = ()
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid only
+        return "<unset>"
+
+
+_UNSET = _Unset()
+
+
+def _resolve_timeout(timeout: "float | None | _Unset") -> Optional[float]:
+    """Map an omitted timeout to the configured default, preserving explicit None.
+
+    - ``_UNSET`` (argument omitted) → :func:`_default_timeout` (e.g. 300s).
+    - explicit ``None`` → ``None`` (unbounded wait; caller opted in).
+    - a number → itself.
+    """
+    if isinstance(timeout, _Unset):
+        return _default_timeout()
+    return timeout
+
+
+def _default_timeout() -> float:
+    """Resolve the default run_sync timeout lazily, per call.
+
+    Read at call time (not import time) so a malformed ``PRAISONAI_RUN_SYNC_TIMEOUT``
+    cannot crash ``import praisonai`` with an unrelated ``ValueError``, and so a
+    value set after import (dotenv loaded late, per-request reconfig) is honoured.
+    Falls back to 300s on a malformed value.
+    """
+    raw = os.environ.get("PRAISONAI_RUN_SYNC_TIMEOUT", "300")
+    try:
+        return float(raw)
+    except ValueError:
+        return 300.0
 
 class AsyncBridge:
     """Per-instance async runner. The module-level `run_sync()` keeps the
@@ -38,6 +89,9 @@ class AsyncBridge:
         # lock by ``get()``/``submit()`` so ``_spawn_locked()`` can verify the
         # *caller* (not merely *someone*) owns the lock.
         self._lock_owner: int | None = None
+        # The shared default registers its atexit teardown lazily, on first use,
+        # so a bare ``import praisonai`` installs no process-wide hook.
+        self._atexit_registered = False
 
     def _spawn_locked(self) -> asyncio.AbstractEventLoop:
         """Create the loop+thread; caller must hold ``self._lock``.
@@ -74,6 +128,13 @@ class AsyncBridge:
                 daemon=True,
             )
             self._thread.start()
+            # Register the process-exit teardown lazily and only for the shared
+            # default. Doing it here (first real use) rather than at import keeps
+            # ``import praisonai`` free of an unrequested atexit hook that would
+            # compete with hosts like Django/Airflow/Streamlit for shutdown order.
+            if not self._atexit_registered and self is globals().get("_BG"):
+                atexit.register(self.shutdown)
+                self._atexit_registered = True
         return self._loop
 
     def get(self) -> asyncio.AbstractEventLoop:
@@ -94,7 +155,11 @@ class AsyncBridge:
             finally:
                 self._lock_owner = None
 
-    def run_sync(self, coro: Awaitable[T], *, timeout: float | None = _DEFAULT_TIMEOUT) -> T:
+    def run_sync(
+        self, coro: Awaitable[T], *, timeout: "float | None | _Unset" = _UNSET
+    ) -> T:
+        # Omitted → configured default; explicit ``None`` → unbounded wait.
+        timeout = _resolve_timeout(timeout)
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -245,19 +310,18 @@ def scoped_bridge(bridge: Optional[AsyncBridge] = None) -> Iterator[AsyncBridge]
 def _shutdown_default() -> None:
     """Private process-exit hook: tear down the shared default bridge.
 
-    Registered with :mod:`atexit`. This is the ONLY sanctioned way the shared
-    default is shut down; it is deliberately absent from the public module
-    surface so a single caller cannot terminate async work for the whole
-    process. Embedders needing explicit lifecycle control own their own
-    :class:`AsyncBridge` instance.
+    Registered with :mod:`atexit` lazily (on the shared default's first real use
+    in :meth:`AsyncBridge._spawn_locked`), not at import, so a bare
+    ``import praisonai`` installs no process-wide hook. This is the ONLY
+    sanctioned way the shared default is shut down; it is deliberately absent
+    from the public module surface so a single caller cannot terminate async
+    work for the whole process. Embedders needing explicit lifecycle control own
+    their own :class:`AsyncBridge` instance.
     """
     _BG.shutdown()
 
 
-atexit.register(_shutdown_default)
-
-
-def run_sync(coro: Awaitable[T], *, timeout: float | None = _DEFAULT_TIMEOUT) -> T:
+def run_sync(coro: Awaitable[T], *, timeout: "float | None | _Unset" = _UNSET) -> T:
     """
     Run a coroutine synchronously using the background loop.
     
@@ -282,7 +346,7 @@ def run_sync(coro: Awaitable[T], *, timeout: float | None = _DEFAULT_TIMEOUT) ->
 def run_sync_or_offload(
     coro: Awaitable[T],
     *,
-    timeout: float | None = _DEFAULT_TIMEOUT,
+    timeout: "float | None | _Unset" = _UNSET,
     thread_name: str = "praisonai-sync-offload",
 ) -> T:
     """Run ``coro`` to completion from *any* calling context.
@@ -303,6 +367,8 @@ def run_sync_or_offload(
     (it fails loudly inside a loop). Async callers should ``await``
     :func:`arun_sync_or_offload`, which never blocks the loop.
     """
+    # Omitted → configured default; explicit ``None`` → unbounded wait.
+    timeout = _resolve_timeout(timeout)
     try:
         asyncio.get_running_loop()
     except RuntimeError:
@@ -383,7 +449,7 @@ def run_sync_or_offload(
 async def arun_sync_or_offload(
     coro: Awaitable[T],
     *,
-    timeout: float | None = _DEFAULT_TIMEOUT,
+    timeout: "float | None | _Unset" = _UNSET,
 ) -> T:
     """Awaitable sibling of :func:`run_sync_or_offload` for async callers.
 
@@ -397,6 +463,9 @@ async def arun_sync_or_offload(
     ``asyncio.new_event_loop()``), so a caller-installed :func:`scoped_bridge`
     binding still wins and per-loop connection pools are preserved.
     """
+    # Omitted → configured default; explicit ``None`` → unbounded wait
+    # (``asyncio.wait_for(..., timeout=None)`` waits indefinitely).
+    timeout = _resolve_timeout(timeout)
     fut = _default_bridge().submit(coro)
     wrapped = asyncio.wrap_future(fut)
     try:
@@ -404,3 +473,72 @@ async def arun_sync_or_offload(
     except (asyncio.TimeoutError, asyncio.CancelledError):
         fut.cancel()
         raise
+
+
+class DispatchKind(str, enum.Enum):
+    """How a sync caller consumes the result of a (possibly async) store op.
+
+    Making read-vs-write intent explicit at the *call site* removes the need for
+    a name-string allow-list (the old ``_READ_OPS`` frozenset) that silently
+    dropped a new read-shaped method's return value under a running loop.
+    """
+
+    READ = "read"    #: caller consumes the returned value (never fire-and-forget)
+    WRITE = "write"  #: caller only cares that it eventually completes
+
+
+def dispatch_maybe_awaitable(
+    value: Any,
+    *,
+    kind: DispatchKind,
+    tracker: "weakref.WeakSet | None" = None,
+    tracker_lock: "threading.Lock | None" = None,
+    op_name: str = "op",
+) -> Any:
+    """Single owner of "a sync call may return a coroutine; run it correctly".
+
+    This consolidates the submit/track/callback scaffolding that lifecycle hooks
+    would otherwise hand-roll per op. Behaviour:
+
+    - **Not awaitable**: returned as-is.
+    - **No running loop**: block on the shared bridge via :func:`run_sync`.
+    - **Running loop + READ**: route through :func:`run_sync_or_offload`, which
+      returns the value on a sync path and fails loudly inside a loop instead of
+      corrupting a read-modify-write with a silent ``None``.
+    - **Running loop + WRITE**: submit to the active bridge as tracked
+      fire-and-forget (uuid-keyed store writes are idempotent, so completing them
+      slightly later is safe), attach a warning done-callback, and return
+      ``None``.
+
+    Args:
+        value: The result of calling the store method (may be a coroutine).
+        kind: :class:`DispatchKind.READ` or :class:`DispatchKind.WRITE`.
+        tracker: Optional ``WeakSet`` of in-flight futures so a ``close()`` path
+            can flush them; only used on the running-loop WRITE branch.
+        tracker_lock: Lock guarding ``tracker``.
+        op_name: Human-readable op name for log/thread naming.
+    """
+    if not inspect.isawaitable(value):
+        return value
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return run_sync(value)
+
+    if kind is DispatchKind.READ:
+        return run_sync_or_offload(value, thread_name=f"praisonai-db-read-{op_name}")
+
+    fut = current_bridge().submit(value)
+    if tracker is not None and tracker_lock is not None:
+        with tracker_lock:
+            tracker.add(fut)
+
+    def _on_done(f, name=op_name):
+        try:
+            f.result()
+        except Exception:
+            logger.warning("Deferred %s failed", name, exc_info=True)
+
+    fut.add_done_callback(_on_done)
+    return None

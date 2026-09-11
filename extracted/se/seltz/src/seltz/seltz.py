@@ -15,11 +15,11 @@ from typing import (
 from ._types import OMIT, Omit
 from .client import AsyncSeltzClient, SeltzClient
 from .exceptions import SeltzConfigurationError
+from .services.search_service import FieldsInput
 from .services import (
     AnswerResponse,
     AnswerStreamResponse,
     FetchResponse,
-    Fields,
     SearchResponse,
 )
 from .services.agent_service import AgentService, AsyncAgentService
@@ -102,7 +102,7 @@ class Seltz:
         from_date: Union[str, Omit] = OMIT,
         to_date: Union[str, Omit] = OMIT,
         tier: Union[SearchTierName, Omit] = OMIT,
-        fields: Union[Fields, Omit] = OMIT,
+        fields: Union[FieldsInput, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search.
 
@@ -147,8 +147,8 @@ class Seltz:
 
             fields (Fields, optional):
                 Which members of each result document to populate.
-                `Fields(snippets=True)` returns passages and no content: a
-                member you do not set is off, so pass
+                `Fields(snippets=True)` returns passages and no content:
+                naming only one member switches the other off, so pass
                 `Fields(content=True, snippets=True)` to get both.
                 Omitted from the request when not provided, which returns
                 content only.
@@ -469,7 +469,7 @@ class AsyncSeltz:
         from_date: Union[str, Omit] = OMIT,
         to_date: Union[str, Omit] = OMIT,
         tier: Union[SearchTierName, Omit] = OMIT,
-        fields: Union[Fields, Omit] = OMIT,
+        fields: Union[FieldsInput, Omit] = OMIT,
     ) -> SearchResponse:
         """Perform a search.
 
@@ -514,8 +514,8 @@ class AsyncSeltz:
 
             fields (Fields, optional):
                 Which members of each result document to populate.
-                `Fields(snippets=True)` returns passages and no content: a
-                member you do not set is off, so pass
+                `Fields(snippets=True)` returns passages and no content:
+                naming only one member switches the other off, so pass
                 `Fields(content=True, snippets=True)` to get both.
                 Omitted from the request when not provided, which returns
                 content only.

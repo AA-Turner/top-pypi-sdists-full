@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_completed_job_response_200_raw_flow_failure_module_suspend_skin import (
+    GetCompletedJobResponse200RawFlowFailureModuleSuspendSkin,
+)
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -40,6 +43,10 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
         continue_on_disapprove_timeout (Union[Unset, bool]): If true, continue flow on timeout instead of canceling
+        skin (Union[Unset, GetCompletedJobResponse200RawFlowFailureModuleSuspendSkin]): How the approval request is
+            presented, on the approval page and in Slack/Teams approval messages. 'detailed' (used when unset) shows the
+            flow details (arguments, graph, approvers); 'minimal' shows only the request: the step description, form and
+            approve/reject actions
     """
 
     required_events: Union[Unset, int] = UNSET
@@ -55,6 +62,7 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
     self_approval_disabled: Union[Unset, bool] = UNSET
     hide_cancel: Union[Unset, bool] = UNSET
     continue_on_disapprove_timeout: Union[Unset, bool] = UNSET
+    skin: Union[Unset, GetCompletedJobResponse200RawFlowFailureModuleSuspendSkin] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -98,6 +106,9 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
         self_approval_disabled = self.self_approval_disabled
         hide_cancel = self.hide_cancel
         continue_on_disapprove_timeout = self.continue_on_disapprove_timeout
+        skin: Union[Unset, str] = UNSET
+        if not isinstance(self.skin, Unset):
+            skin = self.skin.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -118,6 +129,8 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
             field_dict["hide_cancel"] = hide_cancel
         if continue_on_disapprove_timeout is not UNSET:
             field_dict["continue_on_disapprove_timeout"] = continue_on_disapprove_timeout
+        if skin is not UNSET:
+            field_dict["skin"] = skin
 
         return field_dict
 
@@ -223,6 +236,13 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
 
         continue_on_disapprove_timeout = d.pop("continue_on_disapprove_timeout", UNSET)
 
+        _skin = d.pop("skin", UNSET)
+        skin: Union[Unset, GetCompletedJobResponse200RawFlowFailureModuleSuspendSkin]
+        if isinstance(_skin, Unset):
+            skin = UNSET
+        else:
+            skin = GetCompletedJobResponse200RawFlowFailureModuleSuspendSkin(_skin)
+
         get_completed_job_response_200_raw_flow_failure_module_suspend = cls(
             required_events=required_events,
             timeout=timeout,
@@ -232,6 +252,7 @@ class GetCompletedJobResponse200RawFlowFailureModuleSuspend:
             self_approval_disabled=self_approval_disabled,
             hide_cancel=hide_cancel,
             continue_on_disapprove_timeout=continue_on_disapprove_timeout,
+            skin=skin,
         )
 
         get_completed_job_response_200_raw_flow_failure_module_suspend.additional_properties = d

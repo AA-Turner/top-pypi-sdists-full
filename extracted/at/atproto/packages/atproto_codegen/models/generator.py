@@ -8,6 +8,7 @@ from pathlib import Path
 from atproto_core.nsid import NSID
 from atproto_lexicon import models
 
+from atproto_codegen.config import CodegenConfig, get_config, use_config
 from atproto_codegen.consts import (
     DISCLAIMER,
     INPUT_DICT,
@@ -38,8 +39,6 @@ from atproto_codegen.utils import (
 )
 from atproto_codegen.utils import get_code_intent as _
 
-_MODELS_OUTPUT_DIR = Path(__file__).parent.parent.parent.joinpath('atproto_client', 'models')
-
 # Mirror of models_loader._UTILS_EXPORTS. Duplicated (not imported) so that codegen never imports atproto_client,
 # which would eagerly resolve generated models that may not exist yet during regeneration
 _UTILS_EXPORTS = frozenset(
@@ -66,17 +65,22 @@ class TypedDictType(Enum):
     DATA = 'Input data'
 
 
+def _model_path(nsid: NSID) -> Path:
+    return get_config().models_output_dir.joinpath(*get_file_path_parts(nsid))
+
+
 def save_code(nsid: NSID, code: str) -> None:
-    path_to_file = _MODELS_OUTPUT_DIR.joinpath(*get_file_path_parts(nsid))
-    write_code(_MODELS_OUTPUT_DIR.joinpath(path_to_file), code)
+    write_code(_model_path(nsid), code)
 
 
 def save_code_part(nsid: NSID, code: str) -> None:
-    path_to_file = _MODELS_OUTPUT_DIR.joinpath(*get_file_path_parts(nsid))
-    append_code(_MODELS_OUTPUT_DIR.joinpath(path_to_file), code)
+    append_code(_model_path(nsid), code)
 
 
 def _get_model_imports() -> str:
+    config = get_config()
+    base = f'{config.base_package}.models'
+
     # we are using ruff with F401 autofix to delete unused imports
     lines = [
         'import typing as t',
@@ -84,16 +88,16 @@ def _get_model_imports() -> str:
         'import typing_extensions as te',
         'from pydantic import Field',
         '',
-        'from atproto_client.models import string_formats',
+        f'from {base} import string_formats',
         '',
         'if t.TYPE_CHECKING:',
-        f'{_(1)}from atproto_client import models',
-        f'{_(1)}from atproto_client.models.unknown_type import UnknownType',
-        f'{_(1)}from atproto_client.models.unknown_type import UnknownInputType',
-        f'{_(1)}from atproto_client.models.blob_ref import BlobRef',
+        f'{_(1)}from {config.package} import models',
+        f'{_(1)}from {base}.unknown_type import UnknownType',
+        f'{_(1)}from {base}.unknown_type import UnknownInputType',
+        f'{_(1)}from {base}.blob_ref import BlobRef',
         f'{_(1)}from atproto_core.cid import CIDType',
-        'from atproto_client.models import base',
-        'from atproto_client.models import unknown_union',
+        f'from {base} import base',
+        f'from {base} import unknown_union',
         '',
         '',
     ]
@@ -101,14 +105,14 @@ def _get_model_imports() -> str:
     return join_code(lines)
 
 
-_NSID_WITH_IMPORTS = set()
+_nsid_with_imports: t.Set[NSID] = set()
 
 
 def _save_code_import_if_not_exist(nsid: NSID) -> None:
-    if nsid not in _NSID_WITH_IMPORTS:
+    if nsid not in _nsid_with_imports:
         lines = [DISCLAIMER, _get_model_imports()]
         save_code(nsid, join_code(lines))
-        _NSID_WITH_IMPORTS.add(nsid)
+        _nsid_with_imports.add(nsid)
 
 
 def _get_model_class_def(name: str, model_type: ModelType) -> str:
@@ -773,21 +777,41 @@ def _generate_record_models(lex_db: builder.BuiltRecordModels) -> None:
                 save_code_part(nsid, _generate_record_sugar_models(nsid))
 
 
+def _union_typehint(members: t.List[str]) -> str:
+    # t.Union of a single member is invalid for type checkers
+    if not members:
+        return 't.Any'
+    if len(members) == 1:
+        return members[0]
+    return f't.Union[{", ".join(members)}]'
+
+
 def _generate_record_type_database(lex_db: builder.BuiltRecordModels) -> None:
-    type_conversion_lines = ['from atproto_client import models', 'RECORD_TYPE_TO_MODEL_CLASS = {']
+    config = get_config()
+    base = f'{config.base_package}.models'
+
+    type_conversion_lines = [
+        f'from {base}.record_registry import RECORD_TYPE_TO_MODEL_CLASS',
+        f'from {base}.record_registry import register_record_types',
+        "__all__ = ['RECORD_TYPE_TO_MODEL_CLASS', 'RECORD_TYPES']",
+        'RECORD_TYPES = {',
+    ]
 
     import_lines = [
         'import typing as t',
         'import typing_extensions as te',
-        'from pydantic import Field',
+        f'from {base} import unknown_union',
         'if t.TYPE_CHECKING:',
-        f'{_(4)}from atproto_client.models import base',
-        f'{_(4)}from atproto_client import models',
-        f'{_(4)}from atproto_client.models import dot_dict',
-        '',
+        f'{_(4)}from {base} import base',
+        f'{_(4)}from {config.package} import models',
+        f'{_(4)}from {base} import dot_dict',
     ]
-    unknown_record_type_hint_lines = ['UnknownRecordType: te.TypeAlias = t.Union[']
-    unknown_record_type_pydantic_lines = ['UnknownRecordTypePydantic = te.Annotated[t.Union[']
+    unknown_record_type_members: t.List[str] = []
+    if not config.is_self_gen:
+        # records of the base package are resolved at runtime too, so its union is a member of ours
+        import_lines.append(f'{_(4)}from {base} import unknown_type as base_unknown_type')
+        unknown_record_type_members.append("'base_unknown_type.UnknownRecordType'")
+    import_lines.append('')
 
     for nsid, defs in lex_db.items():
         _save_code_import_if_not_exist(nsid)
@@ -801,86 +825,48 @@ def _generate_record_type_database(lex_db: builder.BuiltRecordModels) -> None:
 
                 path_to_class = f'models.{get_import_path(nsid)}.{class_name}'
 
-                type_conversion_lines.append(f"'{record_type}': {path_to_class},")
+                type_conversion_lines.append(f"'{record_type}': '{get_import_path(nsid)}',")
 
-                unknown_record_type_hint_lines.append(f"{_(4)}'{path_to_class}',")
-                unknown_record_type_pydantic_lines.append(f"{_(4)}'{path_to_class}',")
+                unknown_record_type_members.append(f"'{path_to_class}'")
 
     type_conversion_lines.append('}')
+    type_conversion_lines.append(f"register_record_types('{config.models_package}', RECORD_TYPES)")
 
-    unknown_record_type_hint_lines.append(']')
-    unknown_record_type_pydantic_lines.append('], Field(discriminator="py_type")]')
-    unknown_record_type_pydantic_lines.append('UnknownType: te.TypeAlias = te.Annotated[')
-    unknown_record_type_pydantic_lines.append(
-        f"{_(4)}t.Union[UnknownRecordTypePydantic, 'dot_dict.DotDictType'], Field(union_mode='left_to_right')"
-    )
-    unknown_record_type_pydantic_lines.append(']')
-    unknown_record_type_pydantic_lines.append(
-        'UnknownInputType: te.TypeAlias = t.Union[UnknownType, t.Dict[str, t.Any]]'
-    )
-    unknown_type_lines = [*import_lines, *unknown_record_type_hint_lines, *unknown_record_type_pydantic_lines]
+    unknown_record_type_hint_lines = [
+        f'UnknownRecordType: te.TypeAlias = {_union_typehint(unknown_record_type_members)}'
+    ]
 
-    write_code(_MODELS_OUTPUT_DIR.joinpath('type_conversion.py'), join_code(type_conversion_lines))
-    write_code(_MODELS_OUTPUT_DIR.joinpath('unknown_type.py'), join_code(unknown_type_lines))
+    # the runtime type is deliberately open: records are resolved through the registry, so a package
+    # generated from custom lexicons is decoded here too. UnknownRecordType stays for type checkers.
+    unknown_type_lines = [
+        *import_lines,
+        *unknown_record_type_hint_lines,
+        'if t.TYPE_CHECKING:',
+        f'{_(1)}UnknownType: te.TypeAlias = te.Annotated[',
+        f"{_(2)}t.Union[UnknownRecordType, 'dot_dict.DotDictType'], unknown_union.UnknownRecordFallback",
+        f'{_(1)}]',
+        f'{_(1)}UnknownInputType: te.TypeAlias = t.Union[UnknownType, t.Dict[str, t.Any]]',
+        'else:',
+        # the runtime annotation carries no member list: records are resolved through the registry,
+        # so a package generated from custom lexicons is decoded here too
+        f'{_(1)}UnknownType = te.Annotated[t.Any, unknown_union.UnknownRecordFallback]',
+        f'{_(1)}UnknownInputType = UnknownType',
+    ]
+    if config.is_self_gen:
+        unknown_type_lines.append(
+            'UnknownRecordTypePydantic = UnknownType  #: Deprecated alias of :obj:`UnknownType`. Use it instead.'
+        )
 
-
-def _generate_init_files(root_package_path: Path) -> None:
-    # One of the ways that I tried. Doesn't work well due to circular imports
-    for root, dirs, files in sorted(os.walk(root_package_path)):
-        root_path = Path(root)
-
-        import_lines = []
-        for dir_name in sorted(dirs):
-            if dir_name.startswith('__'):
-                continue
-
-            import_parts = root_path.parts[root_path.joinpath(dir_name).parts.index(_MODELS_OUTPUT_DIR.parent.name) :]
-            from_import = '.'.join(import_parts)
-
-            if dir_name in {'app', 'com'}:
-                continue
-
-            import_lines.append(f'from {from_import} import {dir_name}')
-
-        for file_name in sorted(files):
-            if file_name.startswith('__'):
-                continue
-
-            import_parts = root_path.parts[root_path.parts.index(_MODELS_OUTPUT_DIR.parent.name) :]
-            from_import = '.'.join(import_parts)
-
-            import_lines.append(f'from atproto_client.{from_import} import {file_name[:-3]}')
-
-        if root_path.name == 'models':
-            # FIXME skip for now. should be generated too
-            continue
-
-        if root_path.name == '__pycache__':
-            continue
-
-        write_code(root_path.joinpath('__init__.py'), join_code(import_lines))
+    write_code(config.models_output_dir.joinpath('type_conversion.py'), join_code(type_conversion_lines))
+    write_code(config.models_output_dir.joinpath('unknown_type.py'), join_code(unknown_type_lines))
 
 
 def _generate_empty_init_files(root_package_path: Path) -> None:
-    for root, dirs, files in os.walk(root_package_path):
+    for root, __, ___ in os.walk(root_package_path):
         root_path = Path(root)
 
-        for dir_name in dirs:
-            if dir_name.startswith('__'):
-                continue
-
-            if dir_name in {'app', 'com'}:
-                continue
-
-        for file_name in files:
-            if file_name.startswith('__'):
-                continue
-
-        if root_path.name == 'models':
-            # FIXME skip for now. should be generated too
-            continue
-
-        if root_path.name == '__pycache__':
+        # the package __init__.py is generated by _generate_import_aliases
+        if root_path == root_package_path or root_path.name == '__pycache__':
             continue
 
         write_code(root_path.joinpath('__init__.py'), DISCLAIMER)
@@ -893,6 +879,9 @@ def _generate_import_aliases(root_package_path: Path) -> None:
     eagerly used to make `import atproto` take several seconds. Instead, every model
     module is exposed lazily via a module-level __getattr__.
     """
+    config = get_config()
+    base = f'{config.base_package}.models'
+
     type_checking_imports = []
     ids_db = ['class _Ids:']
     for root, __, files in sorted(os.walk(root_package_path)):
@@ -901,18 +890,17 @@ def _generate_import_aliases(root_package_path: Path) -> None:
         if root_path == root_package_path:
             continue
 
+        from_import = config.module_import_path(root_path)
+        nsid_parts = config.nsid_segments(root_path)
+
         for file in sorted(files):
             if file.startswith(('.', '__', '.pyc')):
                 continue
             if '.cpython-' in file:
                 continue
 
-            import_parts = root_path.parts[root_path.parts.index(_MODELS_OUTPUT_DIR.parent.name) :]
-            from_import = '.'.join(import_parts)
-
             module_name = file[:-3]
 
-            nsid_parts = list(root_path.parts[root_path.parts.index('models') + 1 :])
             method_name_parts = module_name.split('_')
             alias_name = ''.join([p.capitalize() for p in [*nsid_parts, *method_name_parts]])
 
@@ -922,42 +910,52 @@ def _generate_import_aliases(root_package_path: Path) -> None:
 
             type_checking_imports.append(f'{_(1)}from {from_import} import {module_name} as {alias_name}')
 
+    lazy_accessor_fallback = '' if config.is_self_gen else f", fallback='{base}'"
+
     # The TYPE_CHECKING import block (so type checkers/IDEs resolve every `models.Alias` symbol)
     # The _Ids registry (alias -> NSID, from which the runtime derives module paths)
     lines = [
         'import typing as t',
-        'from atproto_client.models.models_loader import make_lazy_accessors',
+        f'from {base}.models_loader import make_lazy_accessors',
+        # imported for its registration side effect; the redundant alias is what keeps F401 off it
+        f'from {config.models_package} import type_conversion as type_conversion',
         'if t.TYPE_CHECKING:',
         *type_checking_imports,
-        f'{_(1)}from atproto_client.models.utils import (',
+        f'{_(1)}from {base}.utils import (',
         *[f'{_(2)}{name},' for name in sorted(_UTILS_EXPORTS)],
         f'{_(1)})',
-        '__getattr__, __dir__ = make_lazy_accessors(__name__)',
+        f'__getattr__, __dir__ = make_lazy_accessors(__name__{lazy_accessor_fallback})',
         *ids_db,
         'ids = _Ids()',
     ]
 
-    write_code(_MODELS_OUTPUT_DIR.joinpath('__init__.py'), join_code(lines))
+    write_code(config.models_output_dir.joinpath('__init__.py'), join_code(lines))
 
 
-def generate_models(lexicon_dir: t.Optional[Path] = None, output_dir: t.Optional[Path] = None) -> None:
-    if lexicon_dir:
-        builder.lexicon_dir.set(lexicon_dir)
+def _generate_package_init(config: CodegenConfig) -> None:
+    """Make the generated package importable. The SDK's own root is hand-written, so it is skipped."""
+    if config.is_self_gen:
+        return
 
-    if output_dir:
-        # TODO(MarshalX): Temp hack for CLI. Pass output_dir everywhere.
-        global _MODELS_OUTPUT_DIR
-        _MODELS_OUTPUT_DIR = output_dir
+    init_path = config.output_dir.joinpath('__init__.py')
+    if not init_path.exists():
+        write_code(init_path, DISCLAIMER)
 
-    _generate_params_models(builder.build_params_models())
-    _generate_data_models(builder.build_data_models())
-    _generate_response_models(builder.build_response_models())
-    _generate_def_models(builder.build_def_models())
 
-    _generate_record_models(builder.build_record_models())
-    _generate_record_type_database(builder.build_record_models())
+def generate_models(config: t.Optional[CodegenConfig] = None) -> None:
+    with use_config(config or get_config()) as active:
+        _nsid_with_imports.clear()
 
-    _generate_empty_init_files(_MODELS_OUTPUT_DIR)
-    _generate_import_aliases(_MODELS_OUTPUT_DIR)
+        _generate_params_models(builder.build_params_models(active))
+        _generate_data_models(builder.build_data_models(active))
+        _generate_response_models(builder.build_response_models(active))
+        _generate_def_models(builder.build_def_models(active))
 
-    format_code(_MODELS_OUTPUT_DIR)
+        _generate_record_models(builder.build_record_models(active))
+        _generate_record_type_database(builder.build_record_models(active))
+
+        _generate_empty_init_files(active.models_output_dir)
+        _generate_import_aliases(active.models_output_dir)
+        _generate_package_init(active)
+
+        format_code(active.models_output_dir, root=active.output_dir)

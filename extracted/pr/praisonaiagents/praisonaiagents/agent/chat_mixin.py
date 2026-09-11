@@ -1203,56 +1203,37 @@ Your Goal: {self.goal}"""
         This is a DRY helper used by chat/achat/run/arun/start/astart.
         Attachments are ephemeral - only text is stored in history.
         
+        Routing lives in ``praisonaiagents.agent.attachments``. The contract is
+        that an attachment is **never dropped silently**: a bad path raises
+        :class:`~praisonaiagents.agent.attachments.AttachmentError`, and a file
+        the target model cannot ingest is logged as a warning *and* replaced
+        with a visible marker part (or a locally extracted text form) so both
+        the caller and the model know what happened.
+        
         Args:
             prompt: Text query (ALWAYS stored in chat_history)
-            attachments: Image/file paths for THIS turn only (NEVER stored)
+            attachments: Image/document/audio paths, URLs, or content-part
+                dicts for THIS turn only (NEVER stored)
             
         Returns:
             Either a string (no attachments) or multimodal message list
+        
+        Raises:
+            AttachmentError: for a path that does not exist or cannot be read,
+                or an attachment that is not a path/URL/content-part dict.
         """
         if not attachments:
             return prompt
-        
+
+        from .attachments import build_attachment_parts, resolve_attachment_model_name
+
+        model_name = resolve_attachment_model_name(self)
+
         # Build multimodal content list
         content = [{"type": "text", "text": prompt}]
-        
         for attachment in attachments:
-            # Handle image files
-            if isinstance(attachment, str):
-                import os
-                import base64
-                
-                if os.path.isfile(attachment):
-                    # File path - read and encode
-                    ext = os.path.splitext(attachment)[1].lower()
-                    if ext in ('.jpg', '.jpeg', '.png', '.gif', '.webp'):
-                        try:
-                            with open(attachment, 'rb') as f:
-                                data = base64.b64encode(f.read()).decode('utf-8')
-                            media_type = {
-                                '.jpg': 'image/jpeg',
-                                '.jpeg': 'image/jpeg',
-                                '.png': 'image/png',
-                                '.gif': 'image/gif',
-                                '.webp': 'image/webp',
-                            }.get(ext, 'image/jpeg')
-                            content.append({
-                                "type": "image_url",
-                                "image_url": {"url": f"data:{media_type};base64,{data}"}
-                            })
-                            logging.debug(f"Successfully encoded image attachment: {attachment} ({len(data)} bytes base64)")
-                        except Exception as e:
-                            logging.warning(f"Failed to load attachment {attachment}: {e}")
-                elif attachment.startswith(('http://', 'https://', 'data:')):
-                    # URL or data URI
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {"url": attachment}
-                    })
-            elif isinstance(attachment, dict):
-                # Already structured content
-                content.append(attachment)
-        
+            content.extend(build_attachment_parts(attachment, model_name))
+
         return content
 
     def _extract_llm_response_content(self, response) -> Optional[str]:
@@ -3189,6 +3170,7 @@ Your Goal: {self.goal}"""
             _cancel = self._turn_cancel_token(
                 cancel_source, explicit=cancel_token is not None
             )
+            self._active_turn_token = _cancel
             if _cancel is not None and getattr(_cancel, "is_set", lambda: False)():
                 reason = getattr(_cancel, "reason", None) or "cancelled before LLM call"
                 raise InterruptedError(f"Agent chat cancelled: {reason}")
@@ -3228,6 +3210,8 @@ Your Goal: {self.goal}"""
             try:
                 _trace_emitter.agent_end(self.name)
             finally:
+                if getattr(self, "_active_turn_token", None) is _cancel:
+                    self._active_turn_token = None
                 if _cancel is not None:
                     _cancel.close()
 
@@ -3533,7 +3517,7 @@ Your Goal: {self.goal}"""
 
                     # Apply guardrail validation for custom LLM response
                     try:
-                        validated_response = self._apply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                        validated_response = self._apply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=processed_history)
                         # Execute callback and display after validation
                         self._execute_callback_and_display(prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                         return self._trigger_after_agent_hook(prompt, validated_response, start_time)
@@ -3657,7 +3641,7 @@ Your Goal: {self.goal}"""
                             self._persist_message("assistant", response_text)
                             # Apply guardrail validation even for JSON output
                             try:
-                                validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                 # Execute callback after validation
                                 self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                 return self._trigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -3678,7 +3662,7 @@ Your Goal: {self.goal}"""
                             if reasoning_steps and hasattr(response.choices[0].message, 'reasoning_content') and response.choices[0].message.reasoning_content:
                                 # Apply guardrail to reasoning content
                                 try:
-                                    validated_reasoning = self._apply_guardrail_with_retry(response.choices[0].message.reasoning_content, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                    validated_reasoning = self._apply_guardrail_with_retry(response.choices[0].message.reasoning_content, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                     # Execute callback after validation
                                     self._execute_callback_and_display(original_prompt, validated_reasoning, time.time() - start_time, task_name, task_description, task_id)
                                     return self._trigger_after_agent_hook(original_prompt, validated_reasoning, start_time)
@@ -3689,7 +3673,7 @@ Your Goal: {self.goal}"""
                                     return None
                             # Apply guardrail to regular response
                             try:
-                                validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                 # Execute callback after validation
                                 self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                 return self._trigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -3755,7 +3739,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 self._append_to_chat_history({"role": "assistant", "content": response_text})
                                 # Apply guardrail validation after satisfactory reflection
                                 try:
-                                    validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                    validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                     # Execute callback after validation
                                     self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                     self._end_run(validated_response, "completed", {"duration_ms": (time.time() - start_time) * 1000})
@@ -3775,7 +3759,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                 self._append_to_chat_history({"role": "assistant", "content": response_text})
                                 # Apply guardrail validation after max reflections
                                 try:
-                                    validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                    validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                     # Execute callback after validation
                                     self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                     return self._trigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -3811,7 +3795,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         _get_display_functions()['display_self_reflection']("Maximum reflection count reached after repeated parse errors, returning current response", console=self.console)
                                     self._append_to_chat_history({"role": "assistant", "content": response_text})
                                     try:
-                                        validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token)
+                                        validated_response = self._apply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, cancel_token=cancel_token, messages=messages)
                                         self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                         return self._trigger_after_agent_hook(original_prompt, validated_response, start_time)
                                     except Exception as guard_e:
@@ -3921,6 +3905,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
         _cancel = self._turn_cancel_token(
             cancel_source, explicit=cancel_token is not None
         )
+        self._active_turn_token = _cancel
         try:
             if getattr(getattr(self, "execution", None), "durable", False):
                 from .durable import abegin_durable_run
@@ -3965,6 +3950,8 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
             try:
                 _trace_emitter.agent_end(self.name)
             finally:
+                if getattr(self, "_active_turn_token", None) is _cancel:
+                    self._active_turn_token = None
                 if _cancel is not None:
                     _cancel.close()
 
@@ -4056,18 +4043,18 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                 self._ensure_knowledge_processed()
             
             if not skip_retrieval and self.knowledge:
-                # Knowledge.search is synchronous (Mem0 embedding + vector-store
-                # I/O). Offload to a thread so it never blocks the event loop for
-                # other coroutines sharing the loop.
-                search_results = await asyncio.to_thread(
-                    self.knowledge.search, prompt, agent_id=self.agent_id
+                # Use the unified, already-correct normalization helper (handles
+                # the SearchResult dataclass, dict, and list shapes). It is
+                # synchronous (Mem0 embedding + vector-store I/O), so offload it
+                # to a thread to avoid blocking the event loop for coroutines
+                # sharing the loop.
+                knowledge_context, _ = await asyncio.to_thread(
+                    self._get_knowledge_context,
+                    prompt if isinstance(prompt, str) else str(prompt),
+                    True
                 )
-                if search_results:
-                    if isinstance(search_results, dict) and 'results' in search_results:
-                        knowledge_content = "\n".join([result['memory'] for result in search_results['results']])
-                    else:
-                        knowledge_content = "\n".join(search_results)
-                    prompt = f"{prompt}\n\nKnowledge: {knowledge_content}"
+                if knowledge_context:
+                    prompt = f"{prompt}\n\nKnowledge: {knowledge_context}"
 
             if self._using_custom_llm:
                 # Store chat history length for potential rollback
@@ -4185,7 +4172,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     
                     # Apply guardrail validation for custom LLM response
                     try:
-                        validated_response = await self._aapply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id)
+                        validated_response = await self._aapply_guardrail_with_retry(response_text, prompt, temperature, tools, task_name, task_description, task_id, messages=effective_history)
                         # Execute callback after validation
                         self._execute_callback_and_display(normalized_content, validated_response, time.time() - start_time, task_name, task_description, task_id)
                         return await self._atrigger_after_agent_hook(prompt, validated_response, start_time)
@@ -4321,7 +4308,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             await self._apersist_message("assistant", response_text)
                             # Apply guardrail validation even for JSON output
                             try:
-                                validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                 # Execute callback after validation
                                 self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                 return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4344,7 +4331,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             if reasoning_steps and hasattr(response, 'choices') and response.choices and hasattr(response.choices[0].message, 'reasoning_content') and response.choices[0].message.reasoning_content:
                                 # Apply guardrail to reasoning content
                                 try:
-                                    validated_reasoning = await self._aapply_guardrail_with_retry(response.choices[0].message.reasoning_content, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                    validated_reasoning = await self._aapply_guardrail_with_retry(response.choices[0].message.reasoning_content, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                     # Execute callback after validation
                                     self._execute_callback_and_display(original_prompt, validated_reasoning, time.time() - start_time, task_name, task_description, task_id)
                                     return await self._atrigger_after_agent_hook(original_prompt, validated_reasoning, start_time)
@@ -4356,7 +4343,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                             else:
                                 # Apply guardrail to regular response content
                                 try:
-                                    validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                    validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                     # Execute callback after validation
                                     self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                     return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4396,7 +4383,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         # Persist assistant message to DB (offloaded to a worker thread)
                                         await self._apersist_message("assistant", response_text)
                                         try:
-                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                             # Execute callback after validation
                                             self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                             return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4430,7 +4417,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         # Persist assistant message to DB (offloaded to a worker thread)
                                         await self._apersist_message("assistant", response_text)
                                         try:
-                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                             # Execute callback after validation
                                             self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                             return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4449,7 +4436,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         # Persist assistant message to DB (offloaded to a worker thread)
                                         await self._apersist_message("assistant", response_text)
                                         try:
-                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                             # Execute callback after validation
                                             self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                             return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4499,7 +4486,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                                         # Persist assistant message to DB (offloaded to a worker thread)
                                         await self._apersist_message("assistant", response_text)
                                         try:
-                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                                             # Execute callback after validation
                                             self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                                             return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4663,7 +4650,7 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                         
                         # Apply guardrail validation for OpenAI client response
                         try:
-                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id)
+                            validated_response = await self._aapply_guardrail_with_retry(response_text, original_prompt, temperature, tools, task_name, task_description, task_id, messages=messages)
                             # Execute callback after validation
                             self._execute_callback_and_display(original_prompt, validated_response, time.time() - start_time, task_name, task_description, task_id)
                             return await self._atrigger_after_agent_hook(original_prompt, validated_response, start_time)
@@ -4934,13 +4921,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     self._ensure_knowledge_processed()
                 
                 if self.knowledge:
-                    search_results = self.knowledge.search(prompt, agent_id=self.agent_id)
-                    if search_results:
-                        if isinstance(search_results, dict) and 'results' in search_results:
-                            knowledge_content = "\n".join([result['memory'] for result in search_results['results']])
-                        else:
-                            knowledge_content = "\n".join(search_results)
-                        actual_prompt = f"{prompt}\n\nKnowledge: {knowledge_content}"
+                    knowledge_context, _ = self._get_knowledge_context(
+                        prompt if isinstance(prompt, str) else str(prompt),
+                        use_rag=True
+                    )
+                    if knowledge_context:
+                        actual_prompt = f"{prompt}\n\nKnowledge: {knowledge_context}"
 
                 if attachments:
                     actual_prompt = self._build_multimodal_prompt(actual_prompt, attachments)
@@ -5069,13 +5055,12 @@ Output MUST be JSON with 'reflection' and 'satisfactory'.
                     self._ensure_knowledge_processed()
                 
                 if self.knowledge:
-                    search_results = self.knowledge.search(prompt, agent_id=self.agent_id)
-                    if search_results:
-                        if isinstance(search_results, dict) and 'results' in search_results:
-                            knowledge_content = "\n".join([result['memory'] for result in search_results['results']])
-                        else:
-                            knowledge_content = "\n".join(search_results)
-                        actual_prompt = f"{prompt}\n\nKnowledge: {knowledge_content}"
+                    knowledge_context, _ = self._get_knowledge_context(
+                        prompt if isinstance(prompt, str) else str(prompt),
+                        use_rag=True
+                    )
+                    if knowledge_context:
+                        actual_prompt = f"{prompt}\n\nKnowledge: {knowledge_context}"
 
                 if attachments:
                     actual_prompt = self._build_multimodal_prompt(actual_prompt, attachments)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa_onnx
-Version: 1.13.7
+Version: 1.13.8
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com
@@ -99,9 +99,11 @@ It also supports WebAssembly.
 |-------------------------------------|-----------------------------------|-----------------------------|
 |     ✔️                              |                  ✔️               |     ✔️                      |
 
-| [4. Axera NPU][axera-npu] |
-|---------------------------|
-|     ✔️                    |
+| [4. Axera NPU][axera-npu] | [5. Intel NPU (OpenVINO)][openvino-npu] |
+|---------------------------|------------------------------------------|
+|     ✔️                    |                    ✔️                    |
+
+[openvino-npu]: OPENVINO.md
 
 [Join our discord](https://discord.gg/fJdxzg2VbG)
 

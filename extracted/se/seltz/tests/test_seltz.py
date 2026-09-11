@@ -11,7 +11,6 @@ from seltz import (
     AnswerStreamResponse,
     Citation,
     Citations,
-    Fields,
     SearchResponse,
     Seltz,
 )
@@ -133,7 +132,7 @@ def test_search_forwards_filter_params(monkeypatch):
         include_domains=["techcrunch.com", "wired.com"],
         exclude_domains=["wikipedia.org"],
         tier="base",
-        fields=Fields(content=True, snippets=True),
+        fields={"content": True, "snippets": True},
     )
 
     assert captured["from_date"] == "2026-01-01"
@@ -141,7 +140,7 @@ def test_search_forwards_filter_params(monkeypatch):
     assert captured["include_domains"] == ["techcrunch.com", "wired.com"]
     assert captured["exclude_domains"] == ["wikipedia.org"]
     assert captured["tier"] == "base"
-    assert captured["fields"] == Fields(content=True, snippets=True)
+    assert captured["fields"] == {"content": True, "snippets": True}
 
 
 def test_search_omitted_filters_use_sentinel(monkeypatch):

@@ -26,6 +26,7 @@ __all__ = (
     "CertificateAssociatedWaiterName",
     "CertificateAssociationStatusType",
     "CertificateDisassociatedWaiterName",
+    "ClientRoutingPolicyType",
     "ConnectivityTypeType",
     "FilterTypeType",
     "GatewayTypeType",
@@ -68,6 +69,7 @@ CertificateAssociationStatusType = Literal[
     "ASSOCIATED", "DISASSOCIATED", "FAILED", "PENDING_ASSOCIATION", "PENDING_DISASSOCIATION"
 ]
 CertificateDisassociatedWaiterName = Literal["certificate_disassociated"]
+ClientRoutingPolicyType = Literal["ANY_AVAILABILITY_ZONE", "AVAILABILITY_ZONE_AFFINITY"]
 ConnectivityTypeType = Literal["DEFAULT", "EXTERNAL_INBOUND", "PUBLIC_EGRESS", "PUBLIC_INGRESS"]
 FilterTypeType = Literal["EXCLUDE", "INCLUDE"]
 GatewayTypeType = Literal["EXTERNAL", "INTERNAL"]
@@ -142,8 +144,11 @@ RTBFabricServiceName = Literal["rtbfabric"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -318,6 +323,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -448,6 +454,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

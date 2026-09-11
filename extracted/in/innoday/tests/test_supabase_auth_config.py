@@ -184,6 +184,7 @@ class TestRedirectAllowlist:
         [
             "https://havilandsoftware.com/ui/auth/callback",
             "https://www.havilandsoftware.com/ui/auth/callback",
+            "https://havilandsoftware.com/ui/invite/accept",
         ],
     )
     def test_haviland_urls_are_allowlisted(self, auth, url):
@@ -197,6 +198,28 @@ class TestRedirectAllowlist:
         was handed rather than the one after a redirect.
         """
         assert url in auth["additional_redirect_urls"]
+
+    def test_google_stays_enabled_with_credentials_by_reference(self, auth):
+        """Google sign-in is on, and nothing in a clean checkout may say otherwise.
+
+        This is the drift that went unnoticed for three weeks. Google was turned
+        on and pushed on 21 August; the file change was never committed, so
+        `main` claimed `enabled = false` while the live project served a working
+        Google button. Every `config push` from a clean checkout in that window
+        would have silently switched it off -- and `config push` replaces the
+        remote wholesale, so nothing would have said so.
+
+        The credentials stay as `env()` references rather than literals: an
+        *unset* reference is pushed as the literal string
+        "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)", which leaves the provider
+        enabled, advertising itself, and answering 400 -- so `set -a; . ./.env.dev;
+        set +a` before every push is not optional.
+        """
+        google = auth["external"]["google"]
+
+        assert google["enabled"] is True
+        assert google["client_id"].startswith("env(")
+        assert google["secret"].startswith("env(")
 
     def test_no_bare_apex_urls(self, auth):
         """The bare apex serves nothing: `https://inno.day/health` returns

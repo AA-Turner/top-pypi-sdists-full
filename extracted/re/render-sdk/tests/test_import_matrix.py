@@ -31,12 +31,12 @@ TOP_LEVEL_ALL: tuple[str, ...] = (
 
 
 def test_top_level_names_import_and_version_matches() -> None:
-    """Every name in render_sdk.__all__ is importable; __version__ is 1.0.1."""
+    """Every name in render_sdk.__all__ is importable; __version__ is 1.1.0."""
     names = ", ".join(TOP_LEVEL_ALL)
     code = (
         f"from render_sdk import {names}\nimport json\nprint(json.dumps(__version__))\n"
     )
-    assert run_py_json(code) == "1.0.1"
+    assert run_py_json(code) == "1.1.0"
 
 
 def test_lazy_render_clients_resolve_and_materialize_real_modules() -> None:
@@ -82,21 +82,21 @@ def test_deep_import_cold(statement: str) -> None:
 def test_deep_import_via_importlib_resolves_to_real_leaf() -> None:
     """importlib.import_module on a generated leaf returns the real module.
 
-    render_sdk/public_api/models/artifact.py exists in the generated mirror
-    and aliases itself to render.public_api.models.artifact.
+    render_sdk/public_api/models/service.py exists in the generated mirror
+    and aliases itself to render.public_api.models.service.
     """
     code = (
         "import importlib\n"
-        "m = importlib.import_module('render_sdk.public_api.models.artifact')\n"
+        "m = importlib.import_module('render_sdk.public_api.models.service')\n"
         "import json\n"
         "print(json.dumps({\n"
         "    'name': m.__name__,\n"
-        "    'has_artifact': m.Artifact is not None,\n"
+        "    'has_service': m.Service is not None,\n"
         "}))\n"
     )
     payload = run_py_json(code)
-    assert payload["name"] == "render.public_api.models.artifact"
-    assert payload["has_artifact"] is True
+    assert payload["name"] == "render.public_api.models.service"
+    assert payload["has_service"] is True
 
 
 def test_client_attribute_access_delegates_to_real_module() -> None:
@@ -133,7 +133,7 @@ def test_star_import_top_level_binds_exactly_all() -> None:
     payload = run_py_json(code)
     assert payload["bound"] == sorted(n for n in TOP_LEVEL_ALL if n != "__version__")
     assert payload["has_version"] is True
-    assert payload["version"] == "1.0.1"
+    assert payload["version"] == "1.1.0"
 
 
 @pytest.mark.parametrize("subpackage", ["workflows", "client"])

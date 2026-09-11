@@ -54,6 +54,12 @@ async def summarize_content(
             label="summarize_content",
             source_feature="summarize_content",
             config_overrides={"model": model_id},
+            # NESTED-AGENT STREAM LEAK: this runs INSIDE the web_read tool
+            # while the caller's agent is streaming to a user, so without a
+            # mute the summarizer's tokens ride the caller's user-facing
+            # NDJSON stream. suppress_stream gives it its own SilentEmitter;
+            # the summary still returns on AgentRunResult.output.
+            suppress_stream=True,
         )
         if not result.success:
             return f"[Summarization failed: {result.error}]", list(result.usage_history)

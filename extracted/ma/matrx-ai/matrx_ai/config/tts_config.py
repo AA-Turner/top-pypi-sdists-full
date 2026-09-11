@@ -465,9 +465,13 @@ class TTSVoiceConfig:
     # Provider translation — Google                                        #
     # ------------------------------------------------------------------ #
 
-    def to_google(self, google_contents: list[dict[str, Any]]) -> Any:
-        from google.genai import types
+    def to_google(self, google_contents: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Build the provider-neutral Google speech-config wire shape.
 
+        The configuration layer owns speaker reconciliation, but it must not
+        bind a provider SDK.  ``GoogleTranslator`` materializes this exact
+        shape as ``google.genai.types.SpeechConfig`` at the provider boundary.
+        """
         if not self.is_configured:
             return None
 
@@ -477,25 +481,25 @@ class TTSVoiceConfig:
             # then validate as the final safety net.
             self.adopt_script_speaker_names(google_contents)
             self.validate_speaker_names(google_contents)
-            return types.SpeechConfig(
-                multi_speaker_voice_config=types.MultiSpeakerVoiceConfig(
-                    speaker_voice_configs=[
-                        types.SpeakerVoiceConfig(
-                            speaker=s.name,
-                            voice_config=types.VoiceConfig(
-                                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=s.voice)
-                            ),
-                        )
+            return {
+                "multi_speaker_voice_config": {
+                    "speaker_voice_configs": [
+                        {
+                            "speaker": s.name,
+                            "voice_config": {
+                                "prebuilt_voice_config": {"voice_name": s.voice}
+                            },
+                        }
                         for s in self.speakers
                     ]
-                )
-            )
+                }
+            }
 
-        return types.SpeechConfig(
-            voice_config=types.VoiceConfig(
-                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=self.voice)
-            )
-        )
+        return {
+            "voice_config": {
+                "prebuilt_voice_config": {"voice_name": self.voice}
+            }
+        }
 
     # ------------------------------------------------------------------ #
     # Provider translation — ElevenLabs                                   #

@@ -32,6 +32,7 @@ from pipecat.adapters.schemas.direct_function import DirectFunction, DirectFunct
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.frames.frames import (
     CancelFrame,
+    EagerEndOfTurnCancelFrame,
     EndFrame,
     ErrorFrame,
     Frame,
@@ -64,6 +65,7 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessorSet
 from pipecat.services.ai_service import AIService
 from pipecat.services.settings import LLMSettings
 from pipecat.services.websocket_service import WebsocketService
+from pipecat.turns.speculation_gate import SpeculationGate
 from pipecat.turns.user_turn_completion_mixin import UserTurnCompletionLLMServiceMixin
 from pipecat.utils.async_tool_cancellation import (
     ASYNC_TOOL_CANCELLATION_INSTRUCTIONS,
@@ -359,6 +361,9 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         # Turn completion is owned by LLMTurnCompletionUserTurnStopStrategy, which
         # enables it over an LLMUpdateSettingsFrame once the pipeline starts.
         self._filter_incomplete_user_turns: bool = False
+        # Holds a speculative response until its turn is confirmed. Frames are
+        # routed through it on the way out, in `push_frame`.
+        self._speculation_gate = SpeculationGate(name=f"{self}::SpeculationGate")
         self._warn_turn_completion_settings_are_strategy_owned()
         # The per-tool cancel tools currently advertised, by name.
         self._cancel_tool_names: set[str] = set()
@@ -371,6 +376,9 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         base_si = self._settings.system_instruction
         self._base_system_instruction: str | None = base_si if isinstance(base_si, str) else None
         self._appended_system_instructions: list[str] = []
+        # The instruction as last composed, so a recomposition that changes
+        # nothing (every tool sync recomposes) is not logged again.
+        self._composed_system_instruction: str | None = None
         # `adapter_class` is typed as `type[BaseLLMAdapter]` so subclasses
         # don't need to spell out the generic parameter just to subclass
         # (backward compatibility for 3rd-party providers outside this repo).
@@ -620,7 +628,8 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         updates) with any appended instructions (e.g. the ``UIWorker`` prompt
         guide), turn completion instructions (when enabled), and async tool
         cancellation instructions (when enabled). Safe to call repeatedly — it
-        always rebuilds from the base, so it never compounds.
+        always rebuilds from the base, so it never compounds, and it logs the
+        result only when it differs from the previous composition.
         """
         base = self._base_system_instruction
         parts = [base] if base else []
@@ -631,9 +640,11 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
             parts.append(ASYNC_TOOL_CANCELLATION_INSTRUCTIONS)
         if self._has_async_tools():
             parts.append(ASYNC_TOOL_INSTRUCTIONS)
-        composed = "\n\n".join(p for p in parts if p)
-        self._settings.system_instruction = composed or None
-        logger.debug(f"{self}: System instruction composed: {self._settings.system_instruction}")
+        composed = "\n\n".join(p for p in parts if p) or None
+        self._settings.system_instruction = composed
+        if composed != self._composed_system_instruction:
+            self._composed_system_instruction = composed
+            logger.debug(f"{self}: System instruction composed: {composed}")
 
     async def _update_settings(self, delta: LLMSettings) -> dict[str, Any]:
         """Apply a settings delta, handling turn-completion fields.
@@ -687,6 +698,8 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
 
         if isinstance(frame, InterruptionFrame):
             await self._handle_interruptions(frame)
+        elif isinstance(frame, EagerEndOfTurnCancelFrame):
+            await self._handle_eager_end_of_turn_cancel(frame)
         elif isinstance(frame, LLMConfigureOutputFrame):
             self._skip_tts = frame.skip_tts
         elif isinstance(frame, LLMUpdateSettingsFrame):
@@ -710,6 +723,10 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
             await self._handle_summary_request(frame)
 
         if isinstance(frame, LLMContextFrame):
+            # Runs before the subclass starts the completion, so the gate knows
+            # what this inference answers before any of its frames arrive.
+            self._speculation_gate.begin_speculation(frame.speculation)
+
             # Sync the registered handlers with the tools advertised in the
             # context: register any newly advertised handler, drop the ones we
             # auto-registered that are no longer advertised. The context carries
@@ -733,7 +750,12 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
             if self._skip_tts is not None:
                 frame.skip_tts = self._skip_tts
 
-        await super().push_frame(frame, direction)
+        # The gate decides synchronously, so its verdict can't be torn by
+        # another task pushing at the same time. Everything it hands back is
+        # pushed past it — routing that back through here would re-gate it.
+        emitted = self._speculation_gate.process(frame, direction)
+        for gated_frame, gated_direction in emitted:
+            await super().push_frame(gated_frame, gated_direction)
 
     async def _push_llm_text(self, text: str):
         """Push LLM text, using turn completion detection if enabled.
@@ -759,6 +781,22 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         for function_name, entry in self._functions.items():
             if entry.cancel_on_interruption:
                 await self._cancel_function_call(function_name)
+
+    async def _handle_eager_end_of_turn_cancel(self, frame: EagerEndOfTurnCancelFrame):
+        """Stop generating a response whose user turn turned out to be unfinished.
+
+        The tokens are wasted either way; stopping keeps us from paying for the
+        rest of them. Unlike an interruption this leaves the turn open — the bot
+        never spoke, and the user is still mid-turn.
+        """
+        # Runs before the frame reaches the gate, which is what clears the
+        # speculation, so this still sees the one being withdrawn.
+        if not self._speculation_gate.is_speculating:
+            return
+
+        logger.debug(f"{self}: eager end of turn withdrawn, stopping the speculative inference")
+        await self._start_interruption()
+        await self.stop_all_metrics()
 
     async def _handle_summary_request(self, frame: LLMContextSummaryRequestFrame):
         """Handle context summarization request from aggregator.
@@ -1446,6 +1484,16 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         if len(function_calls) == 0:
             return
 
+        if self._speculation_gate.is_speculating:
+            # Tools run inside the service, so no downstream gate can undo their
+            # side effects if the speculation is discarded. Withdraw it instead;
+            # the inference that follows the committed transcript runs the call.
+            # A turn confirmed before the call was reached leaves nothing
+            # pending, and the call runs as an ordinary one.
+            logger.debug(f"{self}: speculative inference wants a tool call, cancelling it")
+            await self.broadcast_frame(EagerEndOfTurnCancelFrame)
+            return
+
         # Exclude the built-in cancel tool — it's an internal mechanism and
         # should not be surfaced to user-facing event handlers or frames.
         user_visible_calls = [
@@ -1583,6 +1631,9 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
         )
 
         timeout_task: asyncio.Task | None = None
+        # Set when the handler raises, so the result settling the call on its
+        # behalf can say what went wrong.
+        call_error: str | None = None
 
         # Single callback for both intermediate updates and final results.
         # Pass properties=FunctionCallResultProperties(is_final=False) for updates.
@@ -1627,6 +1678,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
                 result=result,
                 run_llm=runner_item.run_llm,
                 properties=properties,
+                error=call_error,
             )
 
         # Start a timeout task for deferred function calls
@@ -1697,6 +1749,7 @@ class LLMService(UserTurnCompletionLLMServiceMixin, AIService, Generic[TAdapter]
             )
             # A handler that raised will never report, so settle the call on its
             # behalf.
+            call_error = f"{type(e).__name__}: {e}"
             await function_call_result_callback(
                 self.FUNCTION_CALL_ERROR_MESSAGE_TEMPLATE.format(
                     function_name=runner_item.function_name

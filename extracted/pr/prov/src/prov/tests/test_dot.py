@@ -34,7 +34,7 @@ def test_svg_render(build):
     )
 
 
-# Covers dot.htlm_link_if_uri() (docs/test-gap-checklist.md, T13 item under
+# Covers dot.htlm_link_if_uri() (planning/test-gap-checklist.md, T13 item under
 # dot.py); not called internally by prov_to_dot() but a module-level function
 # usable by external callers.
 
@@ -134,3 +134,95 @@ def test_unresolvable_unification_falls_back_to_original_bundle():
     dot = prov_to_dot(doc)
     svg_content = dot.create(format="svg", encoding="utf-8")
     assert len(svg_content) > MIN_SVG_SIZE
+
+
+# Link and label hardening: identifier URIs and labels are document content
+# and rendered SVG makes link attributes live.
+
+
+def _node_with_label_fragment(dot, fragment):
+    """The one node whose label contains ``fragment``."""
+    matches = [n for n in dot.get_nodes() if fragment in (n.get_label() or "")]
+    assert len(matches) == 1, fragment
+    return matches[0]
+
+
+def _assert_javascript_links_dropped(doc):
+    """``ex:safe`` keeps its links; the ``js:`` node and annotation get none."""
+    dot = prov_to_dot(doc)
+
+    safe = _node_with_label_fragment(dot, "ex:safe")
+    assert safe.get("URL") == '"http://example.org/safe"'
+    payload = _node_with_label_fragment(dot, "js:payload")
+    assert payload.get("URL") is None
+    annotation = _node_with_label_fragment(dot, "ex:link")
+    assert 'href="http://example.org/link"' in annotation.get_label()
+    assert 'href="javascript' not in annotation.get_label()
+    assert 'href=" javascript' not in annotation.get_label()
+
+
+def test_javascript_scheme_identifier_gets_no_url_or_href():
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.add_namespace("js", "javascript:")
+    doc.entity(
+        "ex:safe", other_attributes={"ex:link": doc.valid_qualified_name("js:alert")}
+    )
+    doc.entity("js:payload", other_attributes={"js:attr": "value"})
+
+    _assert_javascript_links_dropped(doc)
+
+
+@pytest.mark.parametrize(
+    "namespace_uri",
+    ["javascript&#58;", "javascript&#x3A;", "javascript&colon;", " javascript:"],
+    ids=["decimal-ref", "hex-ref", "named-ref", "leading-space"],
+)
+def test_encoded_or_padded_javascript_scheme_gets_no_url_or_href(namespace_uri):
+    # Graphviz passes character references through to SVG, where the consumer
+    # decodes them, so the scheme check must run on the decoded form.
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.add_namespace("js", namespace_uri)
+    js = doc.valid_qualified_name("js:alert")
+    doc.entity("ex:safe", other_attributes={"ex:link": js})
+    doc.entity("js:payload")
+
+    _assert_javascript_links_dropped(doc)
+
+
+def test_bundle_with_javascript_identifier_gets_no_url():
+    doc = ProvDocument()
+    doc.add_namespace("js", "javascript:")
+    bundle = doc.bundle("js:bundle")
+    bundle.entity("js:e1")
+
+    dot = prov_to_dot(doc)
+
+    (cluster,) = dot.get_subgraphs()
+    assert cluster.get("URL") is None
+
+
+def test_html_label_special_characters_are_escaped():
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.entity("ex:e1", other_attributes={"prov:label": 'A<b> & "c"'})
+
+    dot = prov_to_dot(doc, use_labels=True)
+    dot_text = dot.to_string()
+
+    assert "A&lt;b&gt; &amp; &quot;c&quot;" in dot_text
+    assert 'A<b> & "c"' not in dot_text
+    assert len(dot.create(format="svg")) > 0
+
+
+def test_quoted_label_escapes_double_quote():
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.entity('ex:e"1')
+
+    dot = prov_to_dot(doc)
+    dot_text = dot.to_string()
+
+    assert 'label="ex:e\\"1"' in dot_text
+    assert len(dot.create(format="svg")) > 0

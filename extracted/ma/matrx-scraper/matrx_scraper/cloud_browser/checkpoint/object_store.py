@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 from dataclasses import dataclass, field
 from typing import BinaryIO, Iterator, Protocol, runtime_checkable
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 
 @dataclass(frozen=True)
@@ -32,11 +33,11 @@ class ObjectRef:
     @classmethod
     def parse(cls, uri: str, version_id: str | None = None) -> "ObjectRef":
         if not uri.startswith("s3://"):
-            raise ValueError(f"object ref must be an s3:// uri, got {uri!r}")
+            raise ValueError(f"object ref must be an s3:// uri, got {redact_url_secrets(uri)!r}")
         rest = uri[len("s3://") :]
         bucket, _, key = rest.partition("/")
         if not bucket or not key:
-            raise ValueError(f"malformed s3 uri: {uri!r}")
+            raise ValueError(f"malformed s3 uri: {redact_url_secrets(uri)!r}")
         return cls(bucket=bucket, key=key, version_id=version_id)
 
 

@@ -1,6 +1,9 @@
 import logging
 from typing import Any, Dict, List, Optional
 
+from botocore.credentials import RefreshableCredentials
+from botocore.session import get_session
+
 from .database_transformer import DatabaseTransformer
 from .resource_fetching_definition import ResourceFetchingDefinition, SQLAlchemyMetadataAction
 
@@ -19,7 +22,11 @@ class AthenaTransformer(DatabaseTransformer):
 
     @classmethod
     def get_dialect(cls) -> Optional[str]:
-        return "presto"
+        # sqlglot's dedicated Athena dialect treats DDL as HiveQL (keeps `string`,
+        # `int`, etc.) and DML as Trino, unlike "presto" which forces Trino types
+        # onto DDL and turns `string` into `VARCHAR`. the Athena dialect is still the correct source
+        # grammar for parsing Athena-specific syntax.
+        return "athena"
 
     @staticmethod
     def get_execution_metadata(cursor: Any) -> Optional[Dict[str, Any]]:
@@ -111,7 +118,58 @@ class AthenaTransformer(DatabaseTransformer):
 
         connection_string = f"awsathena+rest://@athena.{region}.amazonaws.com"
 
-        return {"connection_string": connection_string, "connect_args": connection_data}
+        # Copy before mutating so callers that retain the input dict don't observe
+        # our credential-provider→botocore_session rewrite as a side effect.
+        connect_args = dict(connection_data)
+
+        # PyAthena does not support a `credential_provider` kwarg: unknown args land in
+        # its internal _kwargs and are filtered out against a boto3 allowlist, so the
+        # callable is silently discarded and PyAthena falls back to the ambient default
+        # credential chain — the wrong account for cross-account workgroups. Convert the
+        # provider into a refreshable `botocore_session`, which *is* on PyAthena's
+        # allowlist, so credentials are actually applied (and refreshed on expiry).
+        credential_provider = connect_args.pop("credential_provider", None)
+        if credential_provider is not None:
+            connect_args["botocore_session"] = AthenaTransformer._build_botocore_session(
+                credential_provider
+            )
+
+        return {"connection_string": connection_string, "connect_args": connect_args}
+
+    @staticmethod
+    def _build_botocore_session(credential_provider):
+        """Wrap a credential-provider callable in a refreshable botocore session.
+
+        PyAthena forwards `botocore_session` to boto3.Session, so credentials sourced
+        this way are honoured and auto-refreshed before expiry — the same mechanism the
+        Redshift Data API dialect uses.
+        """
+
+        def refresh():
+            creds = credential_provider()
+            required_keys = ["access_key_id", "secret_access_key", "expiration"]
+            missing = [k for k in required_keys if k not in creds]
+            if missing:
+                raise ValueError(
+                    f"credential_provider must return a dict with keys: {required_keys}. "
+                    f"Missing: {missing}"
+                )
+            return {
+                "access_key": creds["access_key_id"],
+                "secret_key": creds["secret_access_key"],
+                "token": creds.get("session_token"),
+                "expiry_time": creds.get("expiration"),
+            }
+
+        session_credentials = RefreshableCredentials.create_from_metadata(
+            metadata=refresh(),
+            refresh_using=refresh,
+            method="custom-provider",
+            advisory_timeout=60,  # Refresh 1 minute before expiry
+        )
+        botocore_session = get_session()
+        botocore_session._credentials = session_credentials
+        return botocore_session
 
     @staticmethod
     def get_resources_action(

@@ -149,6 +149,60 @@ async def test_alias_resolution_notices_the_model() -> None:
 
 
 @pytest.mark.asyncio
+async def test_alias_resolution_is_recorded_as_coerced_in_both_trace_sinks() -> None:
+    """Break caught: dropping ``_log_key_alias_coercion`` — the reconciliation
+    would still succeed, but the surface/agent spelling disagreement would
+    vanish from the file sink and ``chat.tool_trace`` (nothing fails silently)."""
+    file_events: list[tuple[str, dict[str, Any]]] = []
+    db_events: list[tuple[str, dict[str, Any]]] = []
+
+    def fake_log_event(event: str, /, **fields: Any) -> None:
+        file_events.append((event, fields))
+
+    def fake_db_log_event(event: str, **fields: Any) -> Any:
+        db_events.append((event, fields))
+
+        async def _noop() -> None:
+            return None
+
+        return _noop()
+
+    def fake_detached_task(coro: Any, **_kw: Any) -> None:
+        coro.close()
+
+    manifest = _manifest([_obj("route_brief", "brief body")])
+    with (
+        patch("matrx_ai.tools._debug_log.log_event", fake_log_event),
+        patch("matrx_ai.tools._db_log.db_log_event", fake_db_log_event),
+        patch("matrx_utils.detached_task", fake_detached_task),
+    ):
+        result = await _call(manifest, {"key": "Route Brief", "mode": "full"})
+
+    assert result.success is True
+    assert [(e, f["fields"]) for e, f in file_events] == [("COERCED", "key:Route Brief->route_brief")]
+    assert len(db_events) == 1
+    event, fields = db_events[0]
+    assert event == "COERCED"
+    assert fields["tool_name"] == "context"
+    assert fields["metadata"] == {"coerced_key": {"from": "Route Brief", "to": "route_brief"}}
+
+
+@pytest.mark.asyncio
+async def test_exact_key_is_never_recorded_as_coerced() -> None:
+    file_events: list[str] = []
+    manifest = _manifest([_obj("route_brief", "brief body")])
+    with patch(
+        "matrx_ai.tools._debug_log.log_event",
+        lambda event, /, **_f: file_events.append(event),
+    ):
+        result = await _call(manifest, {"key": "route_brief", "mode": "full"})
+
+    assert result.success is True
+    assert result.output.arg_coercion_notice is None
+    assert "COERCED" not in file_events
+
+
+@pytest.mark.asyncio
 async def test_ambiguous_alias_names_every_candidate_and_does_not_guess() -> None:
     manifest = _manifest([_obj("route_brief"), _obj("Route-Brief")])
     result = await _call(manifest, {"key": "routebrief", "mode": "full"})
@@ -338,6 +392,48 @@ async def test_lazy_source_keeps_partial_json_page_as_text() -> None:
     assert result.success is True
     assert result.output.content == '{"requested_file":'
     assert result.output.has_more is True
+
+
+@pytest.mark.asyncio
+async def test_lazy_source_never_decodes_a_page_that_has_more_even_if_it_parses() -> None:
+    """Break caught: decoding on ``offset == 0`` alone. A JSON-lines body's
+    first page (``{"line": 1}`` followed by more lines) parses on its own, but
+    it is a PAGE — returning it as the whole native value fabricates a
+    complete object the source does not have."""
+    obj = _obj("resource_jsonl", type_value="json")
+    obj.is_lazy_source.return_value = True
+    obj.source = SimpleNamespace(kind="file", id="file-jsonl")
+    materialized = SimpleNamespace(
+        representation="clean_text",
+        text='{"line": 1}',
+        offset=0,
+        total_chars=33,
+        has_more=True,
+        next_offset=11,
+        page_range=None,
+    )
+
+    async def materialize(*args: Any, **kwargs: Any) -> Any:
+        return materialized
+
+    with (
+        patch("matrx_ai.context.app_context.get_app_context", return_value=_app_ctx()),
+        patch(
+            "matrx_ai._ext.get_ext",
+            side_effect=lambda name: (
+                (lambda _app: _manifest([obj]))
+                if name == "load_manifest_from_ctx"
+                else materialize
+            ),
+        ),
+        patch("matrx_ai._ext.has_ext", return_value=True),
+    ):
+        result = await ctx_get({"key": "resource_jsonl", "mode": "page"}, _ctx())
+
+    content = result.output.content if result.success else None
+    assert not isinstance(content, dict), (
+        f"a has_more page was decoded into a native object: {content!r}"
+    )
 
 
 # --------------------------------------------------------------------------

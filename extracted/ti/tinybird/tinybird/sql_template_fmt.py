@@ -33,8 +33,7 @@ class TBLine(Line):
         Tinybird => This is overriden from the base Line because we want SQL inside a template to be indented
         https://github.com/tconbeer/sqlfmt/blob/c11775b92d8a45f0e91d871b81a88a894d620bec/src/sqlfmt/line.py#L92
         """
-        prefix = INDENT * (self.depth[0] + self.depth[1])
-        return prefix
+        return INDENT * (self.depth[0] + self.depth[1])
 
 
 def from_nodes(
@@ -106,8 +105,7 @@ def _format_jinja_node(self, node: Node, max_length: int) -> bool:
 
         return tag.is_blackened
 
-    else:
-        return False
+    return False
 
 
 # Some monkey patching
@@ -158,8 +156,7 @@ class TinybirdNodeManager(NodeManager):
             TokenType.SET_OPERATOR,
         ):
             return " ".join(token.token.split())
-        else:
-            return token.token
+        return token.token
 
 
 class TinybirdDialect(ClickHouse):
@@ -230,12 +227,11 @@ class TinybirdDialect(ClickHouse):
         Creates and returns an analyzer that uses the Dialect's rules for lexing
         Custom NodeManager for Tinybird
         """
-        analyzer = Analyzer(
+        return Analyzer(
             line_length=line_length,
             rules=self.get_rules(),
             node_manager=TinybirdNodeManager(self.case_sensitive_names, self.lower_keywords),
         )
-        return analyzer
 
 
 @dataclass
@@ -253,11 +249,10 @@ class TBMode(Mode):
 def _calc_str(self) -> str:
     if self.is_multiline:
         return self.token.token + "\n"
-    else:
-        marker, comment_text = self._comment_parts()
-        if comment_text == "":
-            return marker + "\n"
-        return marker + " " + comment_text + "\n"
+    marker, comment_text = self._comment_parts()
+    if comment_text == "":
+        return marker + "\n"
+    return marker + " " + comment_text + "\n"
 
 
 Comment._calc_str = property(_calc_str)

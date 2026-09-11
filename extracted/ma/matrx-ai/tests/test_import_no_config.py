@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from typing import Any, get_type_hints
 
 import pytest
 
@@ -107,6 +108,14 @@ def test_db_access_still_raises_at_call_time() -> None:
         timeout=120,
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
+
+
+def test_openai_usage_annotation_resolves_for_reflection() -> None:
+    """The config conversion boundary exposes a resolvable neutral input type."""
+
+    from matrx_ai.config.usage_config import TokenUsage
+
+    assert get_type_hints(TokenUsage.from_openai)["usage"] is Any
 
 
 # ---------------------------------------------------------------------------

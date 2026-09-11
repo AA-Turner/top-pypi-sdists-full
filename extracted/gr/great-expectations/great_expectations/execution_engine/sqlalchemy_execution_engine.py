@@ -233,6 +233,56 @@ def _dialect_requires_persisted_connection(
     return return_val
 
 
+def _ensure_sql_text_ends_with_newline(text: str) -> str:
+    """Ensure raw SQL text ends on a fresh line before it is wrapped as a subquery.
+
+    SQLAlchemy compiles wrapped raw SQL text verbatim inside "(<text>) AS alias" on a
+    single line. If the text ends in a line comment (e.g. "-- note"), the appended ")"
+    and alias land inside that comment and the resulting statement is never terminated.
+    Ending the text on a fresh line keeps any appended syntax out of reach of a comment
+    that runs to the end of the text, without changing what the query selects.
+
+    Args:
+        text: The raw SQL text about to be wrapped as a subquery.
+
+    Returns:
+        The same text, with a trailing newline added if it didn't already have one.
+    """
+    return text if text.endswith("\n") else f"{text}\n"
+
+
+def _wrap_raw_sql_as_subquery(selectable: sqlalchemy.TextClause) -> Subquery:
+    """Wrap a raw-SQL TextClause (e.g. from a query asset) as a subquery.
+
+    See _ensure_sql_text_ends_with_newline for why the text is normalized first.
+
+    Args:
+        selectable: The raw-SQL TextClause to wrap.
+
+    Returns:
+        A Subquery built from the TextClause's columns.
+    """
+    text = _ensure_sql_text_ends_with_newline(selectable.text)
+    return sa.text(text).columns().subquery()
+
+
+def _query_text_as_subquery(query: str) -> Subquery:
+    """Wrap a query asset's raw SQL statement as a subquery.
+
+    The statement is handed to SQLAlchemy whole. Rebuilding it as
+    "sa.select(sa.text(<everything after SELECT>))" instead yields a SELECT that owns no
+    FROM clause, which the Oracle dialect completes by appending "FROM DUAL" -- the
+    wrapped query then carries two FROM clauses and no Oracle version accepts it.
+
+    Args:
+        query: The raw SQL statement backing a query asset.
+
+    Returns:
+        A Subquery that selects the statement's result.
+    """
+    return _wrap_raw_sql_as_subquery(sa.text(query.strip().rstrip(";").rstrip()))
+
+
 class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
     """SparkDFExecutionEngine instantiates the ExecutionEngine API to support computations using Spark platform.
 
@@ -652,7 +702,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
         to TextualSelect using sa.columns() before it can be converted to type Subquery
         """
         if sqlalchemy.TextClause and isinstance(selectable, sqlalchemy.TextClause):  # type: ignore[truthy-function] # FIXME CoP
-            selectable = selectable.columns().subquery()
+            selectable = _wrap_raw_sql_as_subquery(selectable)
 
         # Filtering by row condition.
         if "row_condition" in domain_kwargs and domain_kwargs["row_condition"] is not None:
@@ -1003,16 +1053,11 @@ class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
             assert len(query["select"]) == len(query["metric_ids"])
 
             try:
-                """
-                If a custom query is passed, selectable will be TextClause and not formatted
-                as a subquery wrapped in "(subquery) alias". TextClause must first be converted
-                to TextualSelect using sa.columns() before it can be converted to type Subquery
-                """
-                if sqlalchemy.TextClause and isinstance(selectable, sqlalchemy.TextClause):  # type: ignore[truthy-function] # FIXME CoP
-                    sa_query_object = sa.select(*query["select"]).select_from(
-                        selectable.columns().subquery()
-                    )
-                elif (sqlalchemy.Select and isinstance(selectable, sqlalchemy.Select)) or (  # type: ignore[truthy-function] # FIXME CoP
+                # Note: selectable here always comes from get_domain_records(), which converts
+                # any raw-SQL TextClause into a Subquery before returning (see the wrap in
+                # get_domain_records itself), so selectable can never be a TextClause at this
+                # point and there is no corresponding branch for it here.
+                if (sqlalchemy.Select and isinstance(selectable, sqlalchemy.Select)) or (  # type: ignore[truthy-function] # FIXME CoP
                     sqlalchemy.TextualSelect and isinstance(selectable, sqlalchemy.TextualSelect)  # type: ignore[truthy-function] # FIXME CoP
                 ):
                     sa_query_object = sa.select(*query["select"]).select_from(selectable.subquery())
@@ -1219,9 +1264,10 @@ class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
             Total number of parameters that would be generated when the query is compiled
         """
         DEFAULT_PARAMS_PER_SELECT = 2  # Conservative upper bound
-        if isinstance(selectable, sqlalchemy.TextClause):
-            test_query = sa.select(*select_list).select_from(selectable.columns().subquery())
-        elif isinstance(selectable, (sqlalchemy.Select, sqlalchemy.TextualSelect)):
+        # Note: selectable's sole caller passes a value from get_domain_records(), which
+        # converts any raw-SQL TextClause into a Subquery before returning, so selectable can
+        # never be a TextClause here and there is no corresponding branch for it.
+        if isinstance(selectable, (sqlalchemy.Select, sqlalchemy.TextualSelect)):
             test_query = sa.select(*select_list).select_from(selectable.subquery())
         elif isinstance(selectable, sa.sql.FromClause):
             test_query = sa.select(*select_list).select_from(selectable)
@@ -1370,9 +1416,7 @@ class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
             if not isinstance(query, str):
                 raise ValueError(f"SQL query should be a str but got {query}")  # noqa: TRY003 # FIXME CoP
             # Query is a valid SELECT query that begins with r"\w+select\w"
-            selectable = sa.select(
-                sa.text(query.lstrip()[6:].strip().rstrip(";").rstrip())
-            ).subquery()
+            selectable = _query_text_as_subquery(query)
 
         return selectable
 
@@ -1380,6 +1424,11 @@ class SqlAlchemyExecutionEngine(ExecutionEngine[SQLAColumnClause]):
     def get_batch_data_and_markers(
         self, batch_spec: BatchSpec
     ) -> Tuple[SqlAlchemyBatchData, BatchMarkers]:
+        # The inspector caches everything it reflects, and this execution engine is reused
+        # across validations. A batch fetched after the table's schema changed must not be
+        # described by the column list reflected for an earlier one, so the inspector is
+        # rebuilt lazily on the next request. Within one batch it is still reflected once.
+        self._inspector = None
         if not isinstance(batch_spec, (SqlAlchemyDatasourceBatchSpec, RuntimeQueryBatchSpec)):
             raise InvalidBatchSpecError(  # noqa: TRY003 # FIXME CoP
                 f"""SqlAlchemyExecutionEngine accepts batch_spec only of type SqlAlchemyDatasourceBatchSpec or

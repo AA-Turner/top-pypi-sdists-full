@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_approval_info_response_200_skin import GetApprovalInfoResponse200Skin
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -20,11 +21,14 @@ class GetApprovalInfoResponse200:
         flow_id (str):
         can_approve (bool): whether the current user/token holder can approve
         user_auth_required (bool): whether user authentication is required to approve
+        skin (GetApprovalInfoResponse200Skin): how the approval page presents the request
         approvers (List['GetApprovalInfoResponse200ApproversItem']):
         form_schema (Union[Unset, Any]): form schema for the approval step
         description (Union[Unset, Any]): description of the approval step
         approval_conditions (Union[Unset, GetApprovalInfoResponse200ApprovalConditions]):
         hide_cancel (Union[Unset, bool]): whether to hide the cancel button in the UI
+        step_summary (Union[Unset, str]): summary of the approval step, for the page title
+        flow_summary (Union[Unset, str]): summary of the flow or workflow the approval belongs to
         view_token (Union[Unset, str]): Share-read-link token for the flow. An authenticated workspace member can append
             it as a `view_token` query param on the run page to read a flow they don't otherwise have access to.
     """
@@ -32,11 +36,14 @@ class GetApprovalInfoResponse200:
     flow_id: str
     can_approve: bool
     user_auth_required: bool
+    skin: GetApprovalInfoResponse200Skin
     approvers: List["GetApprovalInfoResponse200ApproversItem"]
     form_schema: Union[Unset, Any] = UNSET
     description: Union[Unset, Any] = UNSET
     approval_conditions: Union[Unset, "GetApprovalInfoResponse200ApprovalConditions"] = UNSET
     hide_cancel: Union[Unset, bool] = UNSET
+    step_summary: Union[Unset, str] = UNSET
+    flow_summary: Union[Unset, str] = UNSET
     view_token: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -44,6 +51,8 @@ class GetApprovalInfoResponse200:
         flow_id = self.flow_id
         can_approve = self.can_approve
         user_auth_required = self.user_auth_required
+        skin = self.skin.value
+
         approvers = []
         for approvers_item_data in self.approvers:
             approvers_item = approvers_item_data.to_dict()
@@ -57,6 +66,8 @@ class GetApprovalInfoResponse200:
             approval_conditions = self.approval_conditions.to_dict()
 
         hide_cancel = self.hide_cancel
+        step_summary = self.step_summary
+        flow_summary = self.flow_summary
         view_token = self.view_token
 
         field_dict: Dict[str, Any] = {}
@@ -66,6 +77,7 @@ class GetApprovalInfoResponse200:
                 "flow_id": flow_id,
                 "can_approve": can_approve,
                 "user_auth_required": user_auth_required,
+                "skin": skin,
                 "approvers": approvers,
             }
         )
@@ -77,6 +89,10 @@ class GetApprovalInfoResponse200:
             field_dict["approval_conditions"] = approval_conditions
         if hide_cancel is not UNSET:
             field_dict["hide_cancel"] = hide_cancel
+        if step_summary is not UNSET:
+            field_dict["step_summary"] = step_summary
+        if flow_summary is not UNSET:
+            field_dict["flow_summary"] = flow_summary
         if view_token is not UNSET:
             field_dict["view_token"] = view_token
 
@@ -95,6 +111,8 @@ class GetApprovalInfoResponse200:
         can_approve = d.pop("can_approve")
 
         user_auth_required = d.pop("user_auth_required")
+
+        skin = GetApprovalInfoResponse200Skin(d.pop("skin"))
 
         approvers = []
         _approvers = d.pop("approvers")
@@ -116,17 +134,24 @@ class GetApprovalInfoResponse200:
 
         hide_cancel = d.pop("hide_cancel", UNSET)
 
+        step_summary = d.pop("step_summary", UNSET)
+
+        flow_summary = d.pop("flow_summary", UNSET)
+
         view_token = d.pop("view_token", UNSET)
 
         get_approval_info_response_200 = cls(
             flow_id=flow_id,
             can_approve=can_approve,
             user_auth_required=user_auth_required,
+            skin=skin,
             approvers=approvers,
             form_schema=form_schema,
             description=description,
             approval_conditions=approval_conditions,
             hide_cancel=hide_cancel,
+            step_summary=step_summary,
+            flow_summary=flow_summary,
             view_token=view_token,
         )
 

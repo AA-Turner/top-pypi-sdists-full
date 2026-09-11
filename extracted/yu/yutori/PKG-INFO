@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yutori
-Version: 0.9.20
+Version: 0.9.26
 Summary: Official Python SDK for the Yutori API
 Author-email: Yutori <support@yutori.com>
 License-Expression: Apache-2.0
@@ -13,14 +13,13 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: httpx<1.0.0,>=0.26.0
@@ -39,13 +38,13 @@ Requires-Dist: playwright>=1.40.0; extra == "examples"
 Requires-Dist: pydantic>=2.0.0; extra == "examples"
 Requires-Dist: tenacity>=9.0.0; extra == "examples"
 Provides-Extra: macos
-Requires-Dist: cua-driver==0.23.2; (python_version >= "3.10" and platform_system == "Darwin") and extra == "macos"
+Requires-Dist: cua-driver==0.23.2; platform_system == "Darwin" and extra == "macos"
 Dynamic: license-file
 
 # Yutori Python SDK & CLI
 
 [![PyPI version](https://img.shields.io/pypi/v/yutori.svg)](https://pypi.org/project/yutori/)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 The official Python SDK and CLI for the [Yutori API](https://docs.yutori.com) — build agents that monitor, research, and browse the web, and operate computers with [Yutori](https://yutori.com/api).
 
@@ -69,7 +68,7 @@ curl -fsSL https://yutori.com/install.sh | bash
 
 Installs the global `yutori` CLI via `uv tool install` and prompts to add the SDK to your project, run `yutori auth login`, register the MCP server, install workflow skills, and verify with a browsing task.
 
-Python 3.9+ is required for the SDK.
+Python 3.10+ is required for the SDK.
 
 <details>
 <summary>Non-interactive install (CI, pipe, AI coding agent)</summary>

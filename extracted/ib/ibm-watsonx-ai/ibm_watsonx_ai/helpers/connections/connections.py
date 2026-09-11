@@ -903,6 +903,10 @@ class DataConnection(BaseDataConnection):
                     numpy_remove_missing_target_rows,
                 )
 
+                data = data.reset_index(drop=True)
+                if hasattr(dfy, "reset_index"):
+                    dfy = dfy.reset_index(drop=True)
+
                 # Remove (and save) the rows of X and y for which the target variable has missing values
                 data, dfy, _, _, _, _ = numpy_remove_missing_target_rows(y=dfy, X=data)
                 #   End of REMOVE MISSING ROWS    #

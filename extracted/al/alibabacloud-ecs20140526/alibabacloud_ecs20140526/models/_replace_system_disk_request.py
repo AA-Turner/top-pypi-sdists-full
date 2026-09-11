@@ -40,7 +40,7 @@ class ReplaceSystemDiskRequest(DaraModel):
         self.client_token = client_token
         # > **[Deprecated]** This parameter is deprecated. To improve compatibility, use `ImageId` instead.
         self.disk_id = disk_id
-        # >This parameter is not publicly available.
+        # > This parameter is not publicly available.
         self.encrypt_algorithm = encrypt_algorithm
         # Specifies whether to encrypt the disk. Valid values:
         # 
@@ -57,7 +57,7 @@ class ReplaceSystemDiskRequest(DaraModel):
         self.image_id = image_id
         # The ID of target instance.
         # 
-        # >Before you send the request, make sure that the instance status of the target instance is `Stopped`.
+        # > Before you send the request, make sure that the instance status of the target instance is `Stopped`.
         # 
         # This parameter is required.
         self.instance_id = instance_id
@@ -65,7 +65,7 @@ class ReplaceSystemDiskRequest(DaraModel):
         self.kmskey_id = kmskey_id
         # The name of the key pair. 
         # 
-        # > This parameter takes effect only for Linux instances. You can bind an SSH key pair to the ECS instance as a logon credential. After you bind an SSH key pair, the username and password logon method is disabled.
+        # > This parameter takes effect only for Linux instances. You can bind an SSH key pair to the ECS instance as a logon credential. After an SSH key pair is used, the username and password logon method is disabled.
         self.key_pair_name = key_pair_name
         self.owner_account = owner_account
         self.owner_id = owner_id
@@ -81,11 +81,11 @@ class ReplaceSystemDiskRequest(DaraModel):
         # 
         # > If you specify the `Password` parameter, send the request over HTTPS to prevent password leaks.
         self.password = password
-        # Specifies whether to use the preset password of the image.
+        # Specifies whether to use the password preset in the image.
         # 
         # Default value: false.
         # 
-        # > If you use this parameter, the Password parameter must be empty. Make sure that the image has a preset password.
+        # > If you use this parameter, the Password parameter must be empty. Make sure that the image you use has a password preset.
         self.password_inherit = password_inherit
         # > This parameter is deprecated.
         self.platform = platform
@@ -93,9 +93,9 @@ class ReplaceSystemDiskRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
         # Specifies whether to use the free Security Center service after the system disk is replaced. Valid values: 
         # 
-        # - Active: The Security Center service is used. This value is supported only for public images.
+        # - Active: Security Center is used. This value is applicable only to public images.
         # 
-        # - Deactive: The Security Center service is not used. This value is supported for all images.
+        # - Deactive: Security Center is not used. This value is applicable to all images.
         # 
         # Default value: Deactive.
         self.security_enhancement_strategy = security_enhancement_strategy
@@ -256,11 +256,11 @@ class ReplaceSystemDiskRequestArn(DaraModel):
         role_type: str = None,
         rolearn: str = None,
     ):
-        # >This parameter is not publicly available.
+        # > This parameter is not publicly available.
         self.assume_role_for = assume_role_for
-        # >This parameter is not publicly available.
+        # > This parameter is not publicly available.
         self.role_type = role_type
-        # >This parameter is not publicly available.
+        # > This parameter is not publicly available.
         self.rolearn = rolearn
 
     def validate(self):
@@ -303,7 +303,7 @@ class ReplaceSystemDiskRequestSystemDisk(DaraModel):
         # The capacity of the new system disk. Unit: GiB. Valid values:
         # 
         # - Basic disk: Max{20, size of the image specified by the ImageId parameter} to 500.
-        # - Enterprise SSD (ESSD):
+        # - Enterprise SSD:
         #   - PL0: Max{1, size of the image specified by the ImageId parameter} to 2048.
         #   - PL1: Max{20, size of the image specified by the ImageId parameter} to 2048.
         #   - PL2: Max{461, size of the image specified by the ImageId parameter} to 2048.

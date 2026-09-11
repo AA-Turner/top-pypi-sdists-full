@@ -111,8 +111,7 @@ class TableDetails:
 
     @property
     def version(self):
-        _version = self.details.get("version", None)
-        return _version
+        return self.details.get("version", None)
 
     def is_replicated(self) -> bool:
         engine: Optional[str] = self.details.get("engine", None)
@@ -183,6 +182,7 @@ class TableDetails:
         settings = self.details.get("settings", None)
         if settings and settings.strip().lower() != "index_granularity = 8192":
             return settings
+        return None
 
     @property
     def ttl(self):
@@ -190,23 +190,19 @@ class TableDetails:
 
     @property
     def ver(self):
-        _ver = self.details.get("ver", None)
-        return _ver
+        return self.details.get("ver", None)
 
     @property
     def is_deleted(self):
-        _is_deleted = self.details.get("is_deleted", None)
-        return _is_deleted
+        return self.details.get("is_deleted", None)
 
     @property
     def columns(self):
-        _columns = self.details.get("columns", None)
-        return _columns
+        return self.details.get("columns", None)
 
     @property
     def sign(self):
-        _sign = self.details.get("sign", None)
-        return _sign
+        return self.details.get("sign", None)
 
     @property
     def statistics(self) -> Dict[str, Any]:
@@ -699,8 +695,7 @@ def ttl_from_engine(engine: str) -> Optional[str]:
         return None
     settings_array = engine.split(" SETTINGS ")
     settings = " SETTINGS " + settings_array[1] if len(settings_array) > 1 else None
-    ttl = ttl_array[1][: -(len(settings))] if settings else ttl_array[1]
-    return ttl
+    return ttl_array[1][: -(len(settings))] if settings else ttl_array[1]
 
 
 def ttl_condition_from_engine_full(engine_full: Optional[str]) -> Optional[str]:

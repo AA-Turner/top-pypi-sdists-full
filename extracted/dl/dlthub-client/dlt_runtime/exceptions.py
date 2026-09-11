@@ -1,5 +1,6 @@
 # Python internals
 import json
+from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -9,24 +10,16 @@ from dlt._workspace.exceptions import WorkspaceException
 from dlt.common.exceptions import DltException
 
 # Current package
-from dlt_runtime.runtime_clients.api.errors import (
-    UnexpectedStatus as ApiUnexpectedStatus,
-)
-from dlt_runtime.runtime_clients.api.types import Response as ApiResponse
-from dlt_runtime.runtime_clients.auth.errors import (
-    UnexpectedStatus as AuthUnexpectedStatus,
-)
-from dlt_runtime.runtime_clients.auth.types import Response as AuthResponse
-from dlt_runtime.runtime_clients.dataplane_api.errors import (
+from dlthub_sdk._gen.api.errors import UnexpectedStatus as ApiUnexpectedStatus
+from dlthub_sdk._gen.api.types import Response as ApiResponse
+from dlthub_sdk._gen.auth.errors import UnexpectedStatus as AuthUnexpectedStatus
+from dlthub_sdk._gen.auth.types import Response as AuthResponse
+from dlthub_sdk._gen.dataplane_api.errors import (
     UnexpectedStatus as DataplaneApiUnexpectedStatus,
 )
-from dlt_runtime.runtime_clients.dataplane_api.types import (
-    Response as DataplaneApiResponse,
-)
-from dlt_runtime.runtime_clients.logs.errors import (
-    UnexpectedStatus as LogUnexpectedStatus,
-)
-from dlt_runtime.runtime_clients.logs.types import Response as LogResponse
+from dlthub_sdk._gen.dataplane_api.types import Response as DataplaneApiResponse
+from dlthub_sdk._gen.logs.errors import UnexpectedStatus as LogUnexpectedStatus
+from dlthub_sdk._gen.logs.types import Response as LogResponse
 
 if TYPE_CHECKING:
     # Avoid runtime import cycle: runtime.py imports from this module.
@@ -40,7 +33,9 @@ UnexpectedStatus = Union[
     LogUnexpectedStatus,
     DataplaneApiUnexpectedStatus,
 ]
-Response = Union[ApiResponse, AuthResponse, LogResponse, DataplaneApiResponse]
+Response = Union[
+    ApiResponse[Any], AuthResponse[Any], LogResponse[Any], DataplaneApiResponse[Any]
+]
 
 
 class RuntimeClientException(DltException):
@@ -55,7 +50,7 @@ class ApiKeyInvalid(RuntimeClientException):
     """The provided API key is not valid.
 
     Not a subclass of RuntimeNotAuthenticated: a bad api-key isn't a
-    session/login problem, so JWT-recovery code paths (`@requires_login`
+    session/login problem, so JWT-recovery code paths (`@requires_auth`
     in helpers, `RuntimeNotAuthenticated` handlers in commands.py)
     shouldn't catch it.
     """
@@ -116,7 +111,7 @@ class AmbiguousWorkspaceName(ValueError, RuntimeClientException):
 
 
 @contextmanager
-def handle_client_exceptions(message: Optional[str] = None):
+def handle_client_exceptions(message: Optional[str] = None) -> Iterator[None]:
     """Translate HTTP/network errors from generated clients to typed exceptions."""
     message = message or "Error calling the dltHub API"
     try:

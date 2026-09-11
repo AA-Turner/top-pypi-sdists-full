@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2024, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -30,11 +30,6 @@
 #------------------------------------------------------------------------------
 
 cdef class BasePoolImpl:
-
-    def acquire(self, str user, str password, str cclass, uint32_t purity,
-                str tag, bint matchanytag, list shardingkey,
-                list supershardingkey):
-        errors._raise_not_supported("acquiring a connection from a pool")
 
     def close(self, bint force):
         errors._raise_not_supported("closing a pool")
@@ -89,7 +84,7 @@ cdef class BasePoolImpl:
     def reconfigure(self, uint32_t min, uint32_t max, uint32_t increment):
         errors._raise_not_supported("reconfiguring a pool")
 
-    def return_connection(self, BaseConnImpl conn_impl, in_del=False):
+    def return_connection(self, BaseConnImpl conn_impl):
         errors._raise_not_supported("returning a connection to a pool")
 
     def set_getmode(self, uint8_t value):

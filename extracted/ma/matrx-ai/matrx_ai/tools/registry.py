@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import sys
 import traceback
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -1281,7 +1282,24 @@ class ToolRegistry:
         if any(function_path.startswith(p) for p in _LEGACY_FLAT_PREFIXES):
             function_path = f"matrx_ai.{function_path}"
         module_path, func_name = function_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
+        # Tool definitions are persisted and may name an extension module, so
+        # this is intentionally an open dotted-path seam.  Use the import-spec
+        # protocol rather than an opaque computed import_module() call: it
+        # preserves unloaded third-party tools and lets the mandate scanner
+        # inspect every normal package import independently.
+        module = sys.modules.get(module_path)
+        if module is None:
+            spec = importlib.util.find_spec(module_path)
+            if spec is None or spec.loader is None:
+                raise ModuleNotFoundError(f"No importable tool module named {module_path!r}")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_path] = module
+            try:
+                spec.loader.exec_module(module)
+            except Exception:
+                if sys.modules.get(module_path) is module:
+                    sys.modules.pop(module_path, None)
+                raise
         func = getattr(module, func_name)
         return func
 

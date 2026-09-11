@@ -21,6 +21,7 @@ import inspect
 from pathlib import Path
 
 from ..errors import ToolExecutionError
+from ..model_harness.guard import check_model_request
 
 # Graceful "wrap-up" instruction injected when the step budget is nearly
 # exhausted, so the model produces a coherent final answer instead of being
@@ -422,7 +423,15 @@ class OpenAIClient:
     
     @property
     def sync_client(self):
-        """Get the synchronous OpenAI client (lazy initialization)."""
+        """Get the synchronous OpenAI client (lazy initialization).
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
+                Every request this class makes goes through this property, so
+                guarding it here covers the whole OpenAI-native path.
+        """
+        check_model_request(getattr(self, "model", None), "openai.chat.completions")
         if self._sync_client is None:
             OpenAI, _ = _get_openai_classes()
             client_kwargs = {"api_key": self.api_key, "base_url": self.base_url}
@@ -433,7 +442,13 @@ class OpenAIClient:
     
     @property
     def async_client(self):
-        """Get the asynchronous OpenAI client (lazy initialization)."""
+        """Get the asynchronous OpenAI client (lazy initialization).
+
+        Raises:
+            ModelRequestBlocked: If a test suite turned real model requests off
+                via ``praisonaiagents.model_harness.allow_model_requests(False)``.
+        """
+        check_model_request(getattr(self, "model", None), "openai.chat.completions")
         if self._async_client is None:
             _, AsyncOpenAI = _get_openai_classes()
             client_kwargs = {"api_key": self.api_key, "base_url": self.base_url}
@@ -581,10 +596,18 @@ class OpenAIClient:
         if cache_key in self._formatted_tools_cache:
             return self._formatted_tools_cache[cache_key]
             
+        from ..tools.hosted import is_hosted_tool
         formatted_tools = []
         for tool in tools:
+            # Provider-hosted tools (web search, code interpreter, file search,
+            # hosted MCP) have no local callable: the provider runs them, so
+            # they carry no 'function' block. Forward them untouched, allowlisted
+            # by type so a genuinely malformed tool is still dropped.
+            if isinstance(tool, dict) and is_hosted_tool(tool):
+                logging.debug(f"Forwarding provider-hosted tool: {tool.get('type')}")
+                formatted_tools.append(tool)
             # Check if the tool is already in OpenAI format
-            if isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
+            elif isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
                 if 'function' in tool and isinstance(tool['function'], dict) and 'name' in tool['function']:
                     logging.debug(f"Using pre-formatted OpenAI tool: {tool['function']['name']}")
                     # Fix array schemas in the tool parameters
@@ -597,7 +620,10 @@ class OpenAIClient:
             # Handle lists of tools
             elif isinstance(tool, list):
                 for subtool in tool:
-                    if isinstance(subtool, dict) and 'type' in subtool and subtool['type'] == 'function':
+                    if isinstance(subtool, dict) and is_hosted_tool(subtool):
+                        logging.debug(f"Forwarding provider-hosted tool from list: {subtool.get('type')}")
+                        formatted_tools.append(subtool)
+                    elif isinstance(subtool, dict) and 'type' in subtool and subtool['type'] == 'function':
                         if 'function' in subtool and isinstance(subtool['function'], dict) and 'name' in subtool['function']:
                             logging.debug(f"Using pre-formatted OpenAI tool from list: {subtool['function']['name']}")
                             # Fix array schemas in the tool parameters
@@ -853,6 +879,24 @@ class OpenAIClient:
                     part.get("image_url")
                 )
                 responses_content.append(item)
+            elif part_type == "file":
+                # Chat Completions ``{"type": "file", "file": {...}}`` (used for
+                # PDF attachments) becomes a Responses API ``input_file`` part.
+                # Passing it through untranslated would be rejected by the API.
+                file_spec = part.get("file")
+                if not isinstance(file_spec, dict):
+                    responses_content.append(part)
+                    continue
+                file_item: Dict[str, Any] = {"type": "input_file"}
+                for src, dst in (
+                    ("filename", "filename"),
+                    ("file_data", "file_data"),
+                    ("file_id", "file_id"),
+                    ("file_url", "file_url"),
+                ):
+                    if file_spec.get(src):
+                        file_item[dst] = file_spec[src]
+                responses_content.append(file_item)
             else:
                 responses_content.append(part)
         return responses_content
@@ -2124,6 +2168,15 @@ class OpenAIClient:
                 break
             # G2: Mid-run steering - inject pending steering notes before next call.
             _inject_steering(messages)
+            # Trigger LLM callback for status/trace output (mirrors the sync
+            # tool-loop at chat_completion_with_tools so async runs emit the same
+            # llm_start/llm_end lifecycle events consumed by trace/status output).
+            from ..main import execute_sync_callback
+            execute_sync_callback('llm_start', model=model, agent_name=agent_name)
+            # Per-iteration start so latency_ms measures THIS model request, not
+            # the cumulative time since the method began (each tool-loop step is
+            # a separate billed call).
+            iteration_start_time = time.time()
             # Graceful wrap-up on the final permitted step.
             if not _wrapup_injected and max_iterations > 1 and iteration_count == max_iterations - 1:
                 messages.append({
@@ -2201,6 +2254,17 @@ class OpenAIClient:
                     )
             
             if not final_response:
+                # Pair the llm_start emitted above with an llm_end even on the
+                # failure path so traces/status telemetry never carry an
+                # unmatched lifecycle event when a provider returns nothing.
+                execute_sync_callback(
+                    'llm_end',
+                    model=model,
+                    tokens_in=0,
+                    tokens_out=0,
+                    cost=None,
+                    latency_ms=(time.time() - iteration_start_time) * 1000
+                )
                 return None
 
             # Record usage for THIS billed completion. Every tool-loop iteration
@@ -2208,6 +2272,29 @@ class OpenAIClient:
             # not once after the loop — or intermediate completions are dropped
             # from session totals and by_model/by_agent rollups (Issue #3933).
             self._track_token_usage(final_response, model, agent_name)
+
+            # Trigger llm_end callback with cost/latency metrics — mirrors the
+            # sync tool-loop so async agents also emit LLM spans and cost figures
+            # for --trace/status output (otherwise async cost tracking goes dark).
+            llm_latency_ms = (time.time() - iteration_start_time) * 1000
+            usage = getattr(final_response, 'usage', None)
+            tokens_in = getattr(usage, 'prompt_tokens', 0) if usage else 0
+            tokens_out = getattr(usage, 'completion_tokens', 0) if usage else 0
+            cost = None
+            try:
+                from ._cost import calculate_cost
+                cost = calculate_cost(final_response, model=model)
+            except Exception as e:
+                # Cost calculation is optional - log for debugging
+                get_logger(__name__).debug(f"Cost calculation failed: {e}")
+            execute_sync_callback(
+                'llm_end',
+                model=model,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                cost=cost,
+                latency_ms=llm_latency_ms
+            )
 
             # Check for tool calls
             if not final_response.choices or final_response.choices[0].message is None:

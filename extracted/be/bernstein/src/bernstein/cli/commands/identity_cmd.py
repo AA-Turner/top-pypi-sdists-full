@@ -19,6 +19,9 @@ Subcommands:
   delegation chains establish, with the capability ceiling in force now and
   the chain events behind each entry.  ``--verify <file>`` recomputes a stored
   projection from the chain and refuses any entry the chain does not establish.
+* ``bernstein identity review --since <date>`` - derive a signed per-principal
+  access review from the delegation and grant chains, and record a reviewer's
+  sign-off as its own chain event.
 
 The install-rev verbs are read-only and never open a network connection.  This
 is the project's hard rule: no telemetry, ever.  The nested ``attest verify``
@@ -35,6 +38,7 @@ from pathlib import Path
 import click
 
 from bernstein.cli.commands.identity_attest_cmd import attest_group
+from bernstein.cli.commands.identity_review_cmd import review_group
 from bernstein.core.identity import agent_registry
 from bernstein.core.identity import install_rev as _identity
 from bernstein.core.identity.install_rev import (
@@ -69,6 +73,7 @@ def identity_group() -> None:
       bernstein identity attest show --run r-1234 \\
           --signing-key-path key.pem
       bernstein identity agents --json
+      bernstein identity review --since 2026-01-01
     """
 
 
@@ -181,6 +186,71 @@ def keydir_cmd() -> None:
 
     keydir = http_signing.build_key_directory(http_signing.default_keystore())
     click.echo(json.dumps(keydir, indent=2, sort_keys=True))
+
+
+@identity_group.command("export-verifier", hidden=True)
+@click.option(
+    "--target",
+    type=click.Choice(["local", "server"], case_sensitive=False),
+    default="local",
+    help=(
+        "Verifier file target. 'local' targets ~/.config/bernstein/verifier/local.json "
+        "(operator workstation); 'server' targets ~/.config/bernstein/verifier/server.json "
+        "(shared server filesystem)."
+    ),
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Print the destination path without writing anything.",
+)
+def export_verifier_cmd(target: str, dry_run: bool) -> None:
+    """Write the install-identity JWKS to a per-platform verifier file.
+
+    Writes the JWKS as canonical JSON and a ``.json.sha256`` sidecar. Skips the
+    write when the key content is unchanged since the last run (hash compared
+    against the sidecar); use ``--dry-run`` to print the destination without
+    writing.
+
+    Targets:
+
+    \\b
+      local  -> ~/.config/bernstein/verifier/local.json   (default, operator workstation)
+      server -> ~/.config/bernstein/verifier/server.json  (shared server filesystem)
+
+    This command mirrors the ``/.well-known/http-message-signatures-directory``
+    JWKS endpoint but writes to a local file so a verifier can pin the trust
+    anchor without a runtime fetch.
+    """
+    import hashlib
+    import json
+    from pathlib import Path
+
+    from bernstein.core.identity import http_signing
+
+    verifier_dir = Path.home() / ".config" / "bernstein" / "verifier"
+    filename = f"{target}.json"
+    dest = verifier_dir / filename
+    sidecar = dest.with_name(f"{target}.json.sha256")
+
+    keydir = http_signing.build_key_directory(http_signing.default_keystore())
+
+    canonical = json.dumps(keydir, separators=(",", ":"), sort_keys=True)
+    content_hash = hashlib.sha256(canonical.encode("ascii")).hexdigest()
+
+    if dry_run:
+        click.echo(str(dest))
+        return
+
+    if sidecar.exists() and sidecar.read_text().strip() == content_hash:
+        click.echo(f"unchanged: {dest}")
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(canonical, encoding="utf-8")
+    sidecar.write_text(content_hash, encoding="utf-8")
+    click.echo(f"wrote: {dest}")
 
 
 @identity_group.command("disable")
@@ -308,3 +378,9 @@ def agents_cmd(
 # different object from a run's attestation evidence; sharing the verb would
 # give one noun two meanings.
 identity_group.add_command(attest_group, "attest")
+
+# ``identity review`` is a third noun again: not an install-rev token and not a
+# run's attestation evidence, but a windowed projection of who was granted what
+# across runs. The verbs stay grouped so ``review verify`` cannot be confused
+# with either of the other two ``verify`` verbs.
+identity_group.add_command(review_group, "review")

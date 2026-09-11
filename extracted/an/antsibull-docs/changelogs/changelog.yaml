@@ -1244,3 +1244,13 @@ releases:
       - 2.26.0.yml
       - 473-pydantic.yml
     release_date: '2026-08-14'
+  2.27.0:
+    changes:
+      minor_changes:
+        - Added support for the new ``secrets`` keyword added in ansible-core 2.22+
+          on plugin configuration options (https://github.com/ansible-community/antsibull-docs/pull/483).
+      release_summary: Maintenance release for upcoming changes in ansible-core 2.22.
+    fragments:
+      - 2.27.0.yml
+      - 481-plugin-secrets-keyword.yml
+    release_date: '2026-09-10'

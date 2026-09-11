@@ -42,7 +42,9 @@ from .paginator import (
     ListServiceTopologyEdgesPaginator,
     ListSystemEventsPaginator,
     ListSystemsPaginator,
+    ListTestRunDependenciesPaginator,
     ListTestRunEventsPaginator,
+    ListTestRunSourceEventsPaginator,
     ListTestRunSourcesPaginator,
     ListTestRunsPaginator,
     ListTestSourcesPaginator,
@@ -141,8 +143,12 @@ from .type_defs import (
     ListSystemsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListTestRunDependenciesRequestTypeDef,
+    ListTestRunDependenciesResponseTypeDef,
     ListTestRunEventsRequestTypeDef,
     ListTestRunEventsResponseTypeDef,
+    ListTestRunSourceEventsRequestTypeDef,
+    ListTestRunSourceEventsResponseTypeDef,
     ListTestRunSourcesRequestTypeDef,
     ListTestRunSourcesResponseTypeDef,
     ListTestRunsRequestTypeDef,
@@ -694,6 +700,16 @@ class ResilienceHubV2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#list_tags_for_resource)
         """
 
+    def list_test_run_dependencies(
+        self, **kwargs: Unpack[ListTestRunDependenciesRequestTypeDef]
+    ) -> ListTestRunDependenciesResponseTypeDef:
+        """
+        Lists the dependencies that a test run blocked.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_dependencies.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#list_test_run_dependencies)
+        """
+
     def list_test_run_events(
         self, **kwargs: Unpack[ListTestRunEventsRequestTypeDef]
     ) -> ListTestRunEventsResponseTypeDef:
@@ -702,6 +718,16 @@ class ResilienceHubV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_events.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#list_test_run_events)
+        """
+
+    def list_test_run_source_events(
+        self, **kwargs: Unpack[ListTestRunSourceEventsRequestTypeDef]
+    ) -> ListTestRunSourceEventsResponseTypeDef:
+        """
+        Lists the state-change events observed for a test run monitoring source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/list_test_run_source_events.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#list_test_run_source_events)
         """
 
     def list_test_run_sources(
@@ -1070,8 +1096,30 @@ class ResilienceHubV2Client(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_dependencies"]
+    ) -> ListTestRunDependenciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_test_run_events"]
     ) -> ListTestRunEventsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_test_run_source_events"]
+    ) -> ListTestRunSourceEventsPaginator:
         """
         Create a paginator for an operation.
 

@@ -12,6 +12,7 @@ the real test-mode failure (one turn per host).
 from __future__ import annotations
 
 import pytest
+
 from matrx_ai.config.tts_config import TTSSpeaker, TTSVoiceConfig
 
 
@@ -152,6 +153,8 @@ def test_to_google_adopts_names_keeps_transcript():
     the script's names and the transcript is untouched. (Date/decoration cleaning
     now happens at request-prep, not in the translator — see the capability gate
     tests.)"""
+    from google.genai import types
+
     from matrx_ai.config import TextContent, UnifiedConfig, UnifiedMessage
     from matrx_ai.providers.google.translator import GoogleTranslator
     from matrx_ai.testing.profile_factory import make_profile
@@ -185,6 +188,7 @@ def test_to_google_adopts_names_keeps_transcript():
     assert "Alex:" not in text and "Sarah:" not in text
 
     # And the voice config adopted the script's names (so Google maps them).
+    assert isinstance(result["config"].speech_config, types.SpeechConfig)
     speakers = [
         s.speaker
         for s in result["config"].speech_config.multi_speaker_voice_config.speaker_voice_configs

@@ -323,6 +323,8 @@ class DataFrameWriter:
                 * storage_serialization_policy: specifies the storage serialization policy for the table
 
                 * iceberg_version: Overrides the version of iceberg to use. Defaults to 2 when unset.
+                * table_properties: an optional mapping of Iceberg table property names to values,
+                  emitted verbatim as a ``TABLE_PROPERTIES = ('k'='v', ...)`` clause on table creation.
             table_exists: Optional parameter to specify if the table is known to exist or not.
                 Set to ``True`` if table exists, ``False`` if it doesn't, or ``None`` (default) for automatic detection.
                 Primarily useful for "append", "truncate", and "overwrite" with overwrite_condition modes to avoid running query for automatic detection.
@@ -384,6 +386,14 @@ class DataFrameWriter:
         statement_params = track_data_source_statement_params(
             self._dataframe, statement_params or self._dataframe._statement_params
         )
+        if create_temp_table:
+            warning(
+                "save_as_table.create_temp_table",
+                "create_temp_table is deprecated. We still respect this parameter when it is True but "
+                'please consider using `table_type="temporary"` instead.',
+            )
+            table_type = "temporary"
+
         if _emit_ast and self._ast is not None:
             # Add an Bind node that applies WriteTable() to the input, followed by its Eval.
             stmt = self._dataframe._session._ast_batch.bind()
@@ -417,7 +427,6 @@ class DataFrameWriter:
 
             if column_order is not None:
                 expr.column_order = column_order
-            expr.create_temp_table = create_temp_table
             expr.table_type = table_type
 
             if clustering_keys is not None:
@@ -495,14 +504,6 @@ class DataFrameWriter:
                 if clustering_keys
                 else []
             )
-
-            if create_temp_table:
-                warning(
-                    "save_as_table.create_temp_table",
-                    "create_temp_table is deprecated. We still respect this parameter when it is True but "
-                    'please consider using `table_type="temporary"` instead.',
-                )
-                table_type = "temporary"
 
             if table_type and table_type.lower() not in SUPPORTED_TABLE_TYPES:
                 raise ValueError(

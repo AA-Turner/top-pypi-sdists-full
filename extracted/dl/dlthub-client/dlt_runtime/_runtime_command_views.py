@@ -21,14 +21,6 @@ from tabulate import tabulate
 
 # Current package
 from dlt_runtime.exceptions import RuntimeClientException
-from dlt_runtime.runtime_clients.api.models import DataplaneInfo, RunStatus
-from dlt_runtime.runtime_clients.api.types import Unset
-from dlt_runtime.runtime_clients.dataplane_api.models import (
-    ScopeVariablesResponse,
-    SecretPublicVariable,
-    VariableChangeResult,
-    VariableChangeResultStatus,
-)
 from dlt_runtime.strings import (
     JOB_ALREADY_PAUSED_MESSAGE,
     JOB_NOT_PAUSED_MESSAGE,
@@ -55,6 +47,14 @@ from dlt_runtime.typing import (
     SyncResult,
     TriggerSkipInfo,
     WorkspaceInfo,
+)
+from dlthub_sdk._gen.api.models import DataplaneInfo, RunStatus
+from dlthub_sdk._gen.api.types import Unset
+from dlthub_sdk._gen.dataplane_api.models import (
+    ScopeVariablesResponse,
+    SecretPublicVariable,
+    VariableChangeResult,
+    VariableChangeResultStatus,
 )
 
 # dltHub brand lavender (#AAA8D4, web --dlt-lightest-purple) as a chip bg with

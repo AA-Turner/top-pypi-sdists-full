@@ -23,6 +23,8 @@ _CLICKHOUSE_UNLOAD_PATH_NAME = "CLICKHOUSE_UNLOAD_PATH"
 _CLICKHOUSE_UNLOAD_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_AWS_ROLE_ARN"
 _CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN_NAME = "CLICKHOUSE_UNLOAD_CHALK_AWS_ROLE_ARN"
 _CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_NAME = "CLICKHOUSE_PARQUET_ROW_GROUP_SIZE"
+_CLICKHOUSE_PARQUET_PARTITION_ROWS_NAME = "CLICKHOUSE_PARQUET_PARTITION_ROWS"
+_CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_BYTES_NAME = "CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_BYTES"
 
 # For parsing the USE_TLS flag
 _TRUTHY_VALUES = {"1", "true", "yes", "t", "y"}
@@ -42,6 +44,8 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
         unload_aws_role_arn: Optional[str] = None,
         unload_chalk_aws_role_arn: Optional[str] = None,
         parquet_row_group_size: Optional[Union[int, str]] = None,
+        parquet_partition_rows: Optional[Union[int, str]] = None,
+        parquet_row_group_size_bytes: Optional[Union[int, str]] = None,
         engine_args: Optional[Dict[str, Any]] = None,
         async_engine_args: Optional[Dict[str, Any]] = None,
         integration_variable_override: Optional[Mapping[str, str]] = None,
@@ -131,6 +135,33 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                 override=integration_variable_override,
             )
         )
+        # Rows per s3 partition (one output file per partition) on unload. ClickHouse keeps a writer
+        # alive per partition for the whole INSERT, so the default (1,000,000) makes thousands of
+        # concurrently-tracked writers on a large unload — a major memory driver on top of the row-group
+        # buffer. Larger values mean fewer, bigger files. None leaves the default.
+        self.parquet_partition_rows = (
+            int(parquet_partition_rows)
+            if parquet_partition_rows is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_PARQUET_PARTITION_ROWS_NAME,
+                integration_name=name,
+                parser=int,
+                override=integration_variable_override,
+            )
+        )
+        # Byte cap on the Parquet row group when unloading (output_format_parquet_row_group_size_bytes).
+        # Width-agnostic bound on the writer's in-memory buffer, applied alongside parquet_row_group_size
+        # (whichever is hit first). None leaves ClickHouse's default (~512MB).
+        self.parquet_row_group_size_bytes = (
+            int(parquet_row_group_size_bytes)
+            if parquet_row_group_size_bytes is not None
+            else load_integration_variable(
+                name=_CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_BYTES_NAME,
+                integration_name=name,
+                parser=int,
+                override=integration_variable_override,
+            )
+        )
         self.ingested_tables: Dict[str, Any] = {}
         if engine_args is None:
             engine_args = {}
@@ -203,6 +234,16 @@ class ClickhouseSourceImpl(BaseSQLSource, TableIngestMixIn):
                     _CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_NAME,
                     self.name,
                     self.parquet_row_group_size,
+                ),
+                create_integration_variable(
+                    _CLICKHOUSE_PARQUET_PARTITION_ROWS_NAME,
+                    self.name,
+                    self.parquet_partition_rows,
+                ),
+                create_integration_variable(
+                    _CLICKHOUSE_PARQUET_ROW_GROUP_SIZE_BYTES_NAME,
+                    self.name,
+                    self.parquet_row_group_size_bytes,
                 ),
             ]
             if v is not None

@@ -25,6 +25,7 @@ __all__ = (
     "AccountTargetingType",
     "AchievabilityStatusType",
     "ActorTypeType",
+    "AlarmStateType",
     "AssertionSourceType",
     "AssessmentErrorCodeType",
     "AssessmentSortFieldType",
@@ -34,6 +35,7 @@ __all__ = (
     "DependencyCriticalityType",
     "DependencyDiscoveryInputType",
     "DependencyDiscoveryStatusType",
+    "EksLabelSelectorOperatorType",
     "FailureCategoryType",
     "FailureModeAssessmentSuccessWaiterName",
     "FindingSeverityType",
@@ -54,7 +56,9 @@ __all__ = (
     "ListServicesPaginatorName",
     "ListSystemEventsPaginatorName",
     "ListSystemsPaginatorName",
+    "ListTestRunDependenciesPaginatorName",
     "ListTestRunEventsPaginatorName",
+    "ListTestRunSourceEventsPaginatorName",
     "ListTestRunSourcesPaginatorName",
     "ListTestRunsPaginatorName",
     "ListTestSourcesPaginatorName",
@@ -85,6 +89,9 @@ __all__ = (
     "SortOrderType",
     "StopConditionSourceType",
     "SystemEventTypeType",
+    "TestRunDependencySourceType",
+    "TestRunSourceEventErrorCodeType",
+    "TestRunSourceEventTypeType",
     "TestRunSourceTypeType",
     "TestRunStatusType",
     "TestSourceOutcomeType",
@@ -96,6 +103,7 @@ __all__ = (
 AccountTargetingType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 AchievabilityStatusType = Literal["ACHIEVABLE", "NOT_ACHIEVABLE"]
 ActorTypeType = Literal["SYSTEM", "USER"]
+AlarmStateType = Literal["ALARM", "INSUFFICIENT_DATA", "OK"]
 AssertionSourceType = Literal["AI_GENERATED", "USER"]
 AssessmentErrorCodeType = Literal[
     "AGENT_ERROR",
@@ -121,6 +129,7 @@ CostCurrencyType = Literal["USD"]
 DependencyCriticalityType = Literal["HARD", "SOFT", "UNKNOWN"]
 DependencyDiscoveryInputType = Literal["DISABLED", "ENABLED"]
 DependencyDiscoveryStatusType = Literal["DISABLED", "ENABLED", "INITIALIZING"]
+EksLabelSelectorOperatorType = Literal["DOES_NOT_EXIST", "EXISTS", "IN", "NOT_IN"]
 FailureCategoryType = Literal[
     "EXCESSIVE_LATENCY",
     "EXCESSIVE_LOAD",
@@ -147,7 +156,9 @@ ListServiceTopologyEdgesPaginatorName = Literal["list_service_topology_edges"]
 ListServicesPaginatorName = Literal["list_services"]
 ListSystemEventsPaginatorName = Literal["list_system_events"]
 ListSystemsPaginatorName = Literal["list_systems"]
+ListTestRunDependenciesPaginatorName = Literal["list_test_run_dependencies"]
 ListTestRunEventsPaginatorName = Literal["list_test_run_events"]
+ListTestRunSourceEventsPaginatorName = Literal["list_test_run_source_events"]
 ListTestRunSourcesPaginatorName = Literal["list_test_run_sources"]
 ListTestRunsPaginatorName = Literal["list_test_runs"]
 ListTestSourcesPaginatorName = Literal["list_test_sources"]
@@ -224,6 +235,9 @@ SystemEventTypeType = Literal[
     "SYSTEM_USER_JOURNEY_DELETED",
     "SYSTEM_USER_JOURNEY_UPDATED",
 ]
+TestRunDependencySourceType = Literal["DISCOVERED", "MANUAL"]
+TestRunSourceEventErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_ERROR"]
+TestRunSourceEventTypeType = Literal["ALARM"]
 TestRunSourceTypeType = Literal["OBSERVABILITY", "SUCCESS_CRITERIA"]
 TestRunStatusType = Literal[
     "ERROR", "FAILED", "INITIALIZING", "PASSED", "RUNNING", "STOPPED", "STOPPING"
@@ -683,7 +697,9 @@ PaginatorName = Literal[
     "list_services",
     "list_system_events",
     "list_systems",
+    "list_test_run_dependencies",
     "list_test_run_events",
+    "list_test_run_source_events",
     "list_test_run_sources",
     "list_test_runs",
     "list_test_sources",

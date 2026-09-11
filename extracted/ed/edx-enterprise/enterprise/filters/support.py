@@ -20,13 +20,14 @@ class SupportContactEnterpriseTagStep(PipelineStep):
     ``org.openedx.learning.support.contact.context.requested.v1`` filter.
     """
 
-    def run_filter(self, tags, user):  # pylint: disable=arguments-differ
+    def run_filter(self, context):  # pylint: disable=arguments-differ
         """
-        Append 'enterprise_learner' to tags if the requester is linked to a customer account.
+        Append 'enterprise_learner' to context['tags'] if the requester is linked to a customer account.
         """
         request = get_current_request()
         customer = enterprise_customer_for_request(request)
+        tags = context.get('tags', [])
         if customer and 'enterprise_learner' not in tags:
-            tags = [*tags, 'enterprise_learner']
+            context = {**context, 'tags': [*tags, 'enterprise_learner']}
 
-        return {'tags': tags, 'user': user}
+        return {'context': context}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cassetter
-Version: 0.10.0
+Version: 0.11.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
@@ -34,7 +34,11 @@ Project-URL: Repository, https://github.com/Kludex/cassetter
 
 # Cassetter
 
-Rust-powered HTTP cassette recorder for Python tests. Safe by default.
+Rust-powered HTTP cassette recorder. Safe by default.
+
+Available for **Python** (this README), **Node/TypeScript** ([`ts/`](ts)),
+**Go** ([`go/`](go)), and **Rust** ([`crates/cassetter/`](crates/cassetter)).
+Every SDK uses the same cassette format.
 
 ## Why?
 
@@ -53,6 +57,30 @@ VCR.py works, but has fundamental problems:
 ```bash
 uv add cassetter
 ```
+
+## Go
+
+Use the Go module when you need HTTP, gRPC, or WebSocket cassette recording:
+
+```bash
+go get github.com/Kludex/cassetter/go@v0.1.0
+```
+
+It reads and writes the same structured YAML and TOML formats, including VCR.py YAML migration. It supports all four
+gRPC call patterns and WebSocket text and binary messages with YAML cassettes. It also provides `inspect`, `diff`,
+`scrub`, and `convert` commands. See the [Go documentation](go/README.md) for complete examples and record modes.
+
+## Rust
+
+Use the Rust crate when the code under test sends requests through `reqwest` or a generated `tonic` client:
+
+```bash
+cargo add cassetter reqwest
+```
+
+The Rust SDK uses explicit transport injection. It supports async HTTP and unary gRPC recording, exact protobuf
+request matching, concurrent use, safe filtering, and explicit finalization. See the
+[Rust documentation](crates/cassetter/README.md) for complete examples and current streaming limits.
 
 ## Quick start
 
@@ -389,7 +417,9 @@ ws_interactions:
         offset_ms: 120
 ```
 
-On replay, `recv()` returns recorded frames in order without a real connection, then raises `ConnectionClosedOK` when they're exhausted (like a real connection at end-of-stream). `send()` is a no-op. Both text and binary frames are supported, and both `async with websockets.connect(...)` and `ws = await websockets.connect(...)` work.
+On replay, `recv()` returns recorded frames in order without a real connection, then raises the recorded close status.
+Older cassettes without a close frame use `ConnectionClosedOK`. `send()` is a no-op. Text, binary, and close frames
+are supported, and both `async with websockets.connect(...)` and `ws = await websockets.connect(...)` work.
 
 ## Streaming / SSE support
 
@@ -612,15 +642,55 @@ cassetter uses the same `@pytest.mark.vcr` marker, `vcr_config` fixture, and `--
 | `--disable-recording` | _(not supported)_ | |
 
 
+## Architecture
+
+Everything that defines a cassette - the file format (YAML and TOML), request
+matching, security filtering, and body processing - lives in one Rust crate.
+Each language gets a thin binding over it rather than its own reimplementation,
+so the parts that matter cannot drift apart.
+
+```
+crates/
+  cassetter-core/     pure Rust: format, matching, security, body processing
+  cassetter/          async Rust SDK   -> reqwest and tonic
+  cassetter-python/   PyO3 bindings    -> cassetter._core
+  cassetter-node/     napi-rs bindings -> cassetter.node
+src/cassetter/        Python package (interceptors, pytest plugin, CLI)
+ts/                   Node package (fetch interception)
+conformance/          shared fixtures every SDK must reproduce
+```
+
+A binding only implements what is genuinely language-specific: HTTP library
+interception and the idiomatic record/replay wrapper.
+
+### Adding a language
+
+Add a crate under `crates/` that wraps `cassetter-core`, then make it pass
+[`conformance/`](conformance). That suite pins the cassette format across
+bindings - see its README for the contract.
+
 ## Development
 
-Requires Rust toolchain and Python 3.10+.
+Requires Rust 1.88+, Python 3.10+, and Node 18+ for the Node binding.
 
 ```bash
 git clone https://github.com/Kludex/cassetter.git
 cd cassetter
+
+# Rust core
+cargo test --workspace
+
+# Python
 uv sync
 uv run maturin develop
 uv run pytest
+
+# Node
+cd ts && npm install && npm run build:native && npm test
 ```
+
+Changes to matching, security, the cassette format, or body handling belong in
+`crates/cassetter-core` so every binding gets them at once.
+
+Use the [release checklist](RELEASING.md) to publish every SDK from one version tag.
 

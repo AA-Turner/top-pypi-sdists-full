@@ -60,11 +60,13 @@ _STDLIB_OK = {
 
 
 def _load_roots() -> list[type]:
-    out = []
-    for mod_name, cls_name in ROOTS:
-        mod = __import__(mod_name, fromlist=[cls_name])
-        out.append(getattr(mod, cls_name))
-    return out
+    # These are the three fixed roots of the published contract.  Keep their
+    # imports literal: this makes the measurement's entry points visible to
+    # the mandate/provider scan as well as to readers of this guard.
+    from matrx_ai.config.message_config import UnifiedMessage
+    from matrx_ai.config.unified_config import UnifiedConfig, UnifiedResponse
+
+    return [UnifiedConfig, UnifiedMessage, UnifiedResponse]
 
 
 def _referenced_types(tp: Any) -> list[type]:

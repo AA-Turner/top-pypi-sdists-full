@@ -2,6 +2,7 @@
 
 import datetime
 import sys
+import types
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -22,6 +23,9 @@ def _get_spark_connect_grpc_exception():
 
     return SparkConnectGrpcException
 
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 with patch("sagemaker_studio.Project"):
 
@@ -93,6 +97,28 @@ with patch("sagemaker_studio.Project"):
         EmrEksChannelBuilder,
         EmrEksSparkConnectInterceptor,
     )
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = {
+    _name
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
 
 
 _VC_ID = "vc-123"
@@ -314,6 +340,12 @@ class TestInterceptMethods:
         continuation.assert_called_once()
 
 
+# `toChannel.__globals__` is the module dict of the `base_interceptors` copy
+# that actually defined it. This file re-imports that module under its own
+# stand-ins, so patching by dotted name can hit a different copy.
+_GRPC_IN_USE = EmrEksChannelBuilder.toChannel.__globals__["_grpc"]
+
+
 class TestEmrEksChannelBuilder:
     def _builder(self, client=None):
         return EmrEksChannelBuilder(
@@ -347,7 +379,9 @@ class TestEmrEksChannelBuilder:
         assert interceptor.emr_client is client
         assert interceptor.execution_role_arn == _ROLE
 
-    @patch("grpc.intercept_channel")
+    # Patch where it is used: `base_interceptors` binds grpc at import, so this
+    # works whether that name is the real grpcio or this module's stand-in.
+    @patch.object(_GRPC_IN_USE, "intercept_channel")
     def test_to_channel_applies_interceptor(self, mock_intercept):
         mock_intercept.return_value = "intercepted-channel"
         channel = self._builder().toChannel()

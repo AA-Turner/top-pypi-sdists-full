@@ -114,8 +114,7 @@ class CLIConfig:
     def get_value_origin(self, key: str) -> ConfigValueOrigin:
         if key in self._values:
             return self._values[key].origin
-        else:
-            return ConfigValueOrigin.NONE
+        return ConfigValueOrigin.NONE
 
     def persist_to_file(self, override_with_path: Optional[str] = None) -> None:
         if override_with_path:

@@ -25,6 +25,7 @@ import httpx
 from matrx_scraper.seo_audit import audit_html, build_page_check_report, evidence_from_audit
 from matrx_scraper.url_utils import normalize_url
 from matrx_scraper.utils.url import validate_public_http_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ async def _fetch_text(client: httpx.AsyncClient, url: str) -> _Fetched:
             ttfb_ms = int((time.perf_counter() - started) * 1000)
             content = await r.aread()
     except Exception as exc:
-        logger.info("preview fetch %s failed: %s", url, exc)
+        logger.info("preview fetch %s failed: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return _Fetched()
     # SSRF gate, part 2 — the client follows redirects, so a public URL can
     # land on an internal host. Never return a body read off a non-public
@@ -65,7 +66,7 @@ async def _fetch_text(client: httpx.AsyncClient, url: str) -> _Fetched:
     try:
         await validate_public_http_url(str(r.url))
     except Exception as exc:
-        logger.warning("preview discarded a non-public final url for %s: %s", url, exc)
+        logger.warning("preview discarded a non-public final url for %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return _Fetched()
     chain = [{"status": h.status_code, "url": str(h.url)} for h in r.history]
     chain.append({"status": r.status_code, "url": str(r.url)})
@@ -192,7 +193,7 @@ async def _take_homepage_screenshot(url: str) -> dict[str, Any] | None:
             finally:
                 await browser.close()
     except Exception as exc:
-        logger.info("preview screenshot failed for %s: %s", url, exc)
+        logger.info("preview screenshot failed for %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
         return None
 
 
@@ -210,7 +211,7 @@ async def quick_preview(raw_url: str) -> dict[str, Any]:
     try:
         url = await validate_public_http_url(url)
     except Exception as exc:
-        logger.warning("preview BLOCKED target %r: %s", raw_url, exc)
+        logger.warning("preview BLOCKED target %r: %s", redact_url_secrets(raw_url), redact_url_secrets(exc))
         return {
             "ok": False,
             "error": "url must be a publicly routable http(s) address",

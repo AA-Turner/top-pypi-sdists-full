@@ -19731,498 +19731,7 @@ class CfnTopicRule(
 
     Example::
 
-        from aws_cdk import CfnTag
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iot as iot
         
-        cfn_topic_rule = iot.CfnTopicRule(self, "MyCfnTopicRule",
-            topic_rule_payload=iot.CfnTopicRule.TopicRulePayloadProperty(
-                actions=[iot.CfnTopicRule.ActionProperty(
-                    cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                        alarm_name="alarmName",
-                        role_arn="roleArn",
-                        state_reason="stateReason",
-                        state_value="stateValue"
-                    ),
-                    cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                        log_group_name="logGroupName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False
-                    ),
-                    cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                        metric_name="metricName",
-                        metric_namespace="metricNamespace",
-                        metric_unit="metricUnit",
-                        metric_value="metricValue",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        metric_timestamp="metricTimestamp"
-                    ),
-                    dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                        hash_key_field="hashKeyField",
-                        hash_key_value="hashKeyValue",
-                        role_arn="roleArn",
-                        table_name="tableName",
-        
-                        # the properties below are optional
-                        hash_key_type="hashKeyType",
-                        payload_field="payloadField",
-                        range_key_field="rangeKeyField",
-                        range_key_type="rangeKeyType",
-                        range_key_value="rangeKeyValue"
-                    ),
-                    dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                        put_item=iot.CfnTopicRule.PutItemInputProperty(
-                            table_name="tableName"
-                        ),
-                        role_arn="roleArn"
-                    ),
-                    elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                        endpoint="endpoint",
-                        id="id",
-                        index="index",
-                        role_arn="roleArn",
-                        type="type"
-                    ),
-                    firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                        delivery_stream_name="deliveryStreamName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False,
-                        separator="separator"
-                    ),
-                    http=iot.CfnTopicRule.HttpActionProperty(
-                        url="url",
-        
-                        # the properties below are optional
-                        auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                            sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                role_arn="roleArn",
-                                service_name="serviceName",
-                                signing_region="signingRegion"
-                            )
-                        ),
-                        batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                            batch_across_topics=False,
-                            max_batch_open_ms=123,
-                            max_batch_size=123,
-                            max_batch_size_bytes=123
-                        ),
-                        confirmation_url="confirmationUrl",
-                        enable_batching=False,
-                        headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                            key="key",
-                            value="value"
-                        )]
-                    ),
-                    iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                        channel_name="channelName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False
-                    ),
-                    iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                        input_name="inputName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False,
-                        message_id="messageId"
-                    ),
-                    iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                        put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                            property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                    time_in_seconds="timeInSeconds",
-        
-                                    # the properties below are optional
-                                    offset_in_nanos="offsetInNanos"
-                                ),
-                                value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                    boolean_value="booleanValue",
-                                    double_value="doubleValue",
-                                    integer_value="integerValue",
-                                    string_value="stringValue"
-                                ),
-        
-                                # the properties below are optional
-                                quality="quality"
-                            )],
-        
-                            # the properties below are optional
-                            asset_id="assetId",
-                            entry_id="entryId",
-                            property_alias="propertyAlias",
-                            property_id="propertyId"
-                        )],
-                        role_arn="roleArn"
-                    ),
-                    kafka=iot.CfnTopicRule.KafkaActionProperty(
-                        client_properties={
-                            "client_properties_key": "clientProperties"
-                        },
-                        destination_arn="destinationArn",
-                        topic="topic",
-        
-                        # the properties below are optional
-                        headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                            key="key",
-                            value="value"
-                        )],
-                        key="key",
-                        partition="partition"
-                    ),
-                    kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                        role_arn="roleArn",
-                        stream_name="streamName",
-        
-                        # the properties below are optional
-                        partition_key="partitionKey"
-                    ),
-                    lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                        function_arn="functionArn"
-                    ),
-                    location=iot.CfnTopicRule.LocationActionProperty(
-                        device_id="deviceId",
-                        latitude="latitude",
-                        longitude="longitude",
-                        role_arn="roleArn",
-                        tracker_name="trackerName",
-        
-                        # the properties below are optional
-                        timestamp=iot.CfnTopicRule.TimestampProperty(
-                            value="value",
-        
-                            # the properties below are optional
-                            unit="unit"
-                        )
-                    ),
-                    open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                        endpoint="endpoint",
-                        id="id",
-                        index="index",
-                        role_arn="roleArn",
-                        type="type"
-                    ),
-                    republish=iot.CfnTopicRule.RepublishActionProperty(
-                        role_arn="roleArn",
-                        topic="topic",
-        
-                        # the properties below are optional
-                        headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                            content_type="contentType",
-                            correlation_data="correlationData",
-                            message_expiry="messageExpiry",
-                            payload_format_indicator="payloadFormatIndicator",
-                            response_topic="responseTopic",
-                            user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        qos=123
-                    ),
-                    s3=iot.CfnTopicRule.S3ActionProperty(
-                        bucket_name="bucketName",
-                        key="key",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        canned_acl="cannedAcl"
-                    ),
-                    sns=iot.CfnTopicRule.SnsActionProperty(
-                        role_arn="roleArn",
-                        target_arn="targetArn",
-        
-                        # the properties below are optional
-                        message_format="messageFormat"
-                    ),
-                    sqs=iot.CfnTopicRule.SqsActionProperty(
-                        queue_url="queueUrl",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        use_base64=False
-                    ),
-                    step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                        role_arn="roleArn",
-                        state_machine_name="stateMachineName",
-        
-                        # the properties below are optional
-                        execution_name_prefix="executionNamePrefix"
-                    ),
-                    timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                        database_name="databaseName",
-                        dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        role_arn="roleArn",
-                        table_name="tableName",
-        
-                        # the properties below are optional
-                        timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                            unit="unit",
-                            value="value"
-                        )
-                    )
-                )],
-                sql="sql",
-        
-                # the properties below are optional
-                aws_iot_sql_version="awsIotSqlVersion",
-                description="description",
-                error_action=iot.CfnTopicRule.ActionProperty(
-                    cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                        alarm_name="alarmName",
-                        role_arn="roleArn",
-                        state_reason="stateReason",
-                        state_value="stateValue"
-                    ),
-                    cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                        log_group_name="logGroupName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False
-                    ),
-                    cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                        metric_name="metricName",
-                        metric_namespace="metricNamespace",
-                        metric_unit="metricUnit",
-                        metric_value="metricValue",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        metric_timestamp="metricTimestamp"
-                    ),
-                    dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                        hash_key_field="hashKeyField",
-                        hash_key_value="hashKeyValue",
-                        role_arn="roleArn",
-                        table_name="tableName",
-        
-                        # the properties below are optional
-                        hash_key_type="hashKeyType",
-                        payload_field="payloadField",
-                        range_key_field="rangeKeyField",
-                        range_key_type="rangeKeyType",
-                        range_key_value="rangeKeyValue"
-                    ),
-                    dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                        put_item=iot.CfnTopicRule.PutItemInputProperty(
-                            table_name="tableName"
-                        ),
-                        role_arn="roleArn"
-                    ),
-                    elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                        endpoint="endpoint",
-                        id="id",
-                        index="index",
-                        role_arn="roleArn",
-                        type="type"
-                    ),
-                    firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                        delivery_stream_name="deliveryStreamName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False,
-                        separator="separator"
-                    ),
-                    http=iot.CfnTopicRule.HttpActionProperty(
-                        url="url",
-        
-                        # the properties below are optional
-                        auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                            sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                role_arn="roleArn",
-                                service_name="serviceName",
-                                signing_region="signingRegion"
-                            )
-                        ),
-                        batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                            batch_across_topics=False,
-                            max_batch_open_ms=123,
-                            max_batch_size=123,
-                            max_batch_size_bytes=123
-                        ),
-                        confirmation_url="confirmationUrl",
-                        enable_batching=False,
-                        headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                            key="key",
-                            value="value"
-                        )]
-                    ),
-                    iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                        channel_name="channelName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False
-                    ),
-                    iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                        input_name="inputName",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        batch_mode=False,
-                        message_id="messageId"
-                    ),
-                    iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                        put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                            property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                    time_in_seconds="timeInSeconds",
-        
-                                    # the properties below are optional
-                                    offset_in_nanos="offsetInNanos"
-                                ),
-                                value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                    boolean_value="booleanValue",
-                                    double_value="doubleValue",
-                                    integer_value="integerValue",
-                                    string_value="stringValue"
-                                ),
-        
-                                # the properties below are optional
-                                quality="quality"
-                            )],
-        
-                            # the properties below are optional
-                            asset_id="assetId",
-                            entry_id="entryId",
-                            property_alias="propertyAlias",
-                            property_id="propertyId"
-                        )],
-                        role_arn="roleArn"
-                    ),
-                    kafka=iot.CfnTopicRule.KafkaActionProperty(
-                        client_properties={
-                            "client_properties_key": "clientProperties"
-                        },
-                        destination_arn="destinationArn",
-                        topic="topic",
-        
-                        # the properties below are optional
-                        headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                            key="key",
-                            value="value"
-                        )],
-                        key="key",
-                        partition="partition"
-                    ),
-                    kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                        role_arn="roleArn",
-                        stream_name="streamName",
-        
-                        # the properties below are optional
-                        partition_key="partitionKey"
-                    ),
-                    lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                        function_arn="functionArn"
-                    ),
-                    location=iot.CfnTopicRule.LocationActionProperty(
-                        device_id="deviceId",
-                        latitude="latitude",
-                        longitude="longitude",
-                        role_arn="roleArn",
-                        tracker_name="trackerName",
-        
-                        # the properties below are optional
-                        timestamp=iot.CfnTopicRule.TimestampProperty(
-                            value="value",
-        
-                            # the properties below are optional
-                            unit="unit"
-                        )
-                    ),
-                    open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                        endpoint="endpoint",
-                        id="id",
-                        index="index",
-                        role_arn="roleArn",
-                        type="type"
-                    ),
-                    republish=iot.CfnTopicRule.RepublishActionProperty(
-                        role_arn="roleArn",
-                        topic="topic",
-        
-                        # the properties below are optional
-                        headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                            content_type="contentType",
-                            correlation_data="correlationData",
-                            message_expiry="messageExpiry",
-                            payload_format_indicator="payloadFormatIndicator",
-                            response_topic="responseTopic",
-                            user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        qos=123
-                    ),
-                    s3=iot.CfnTopicRule.S3ActionProperty(
-                        bucket_name="bucketName",
-                        key="key",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        canned_acl="cannedAcl"
-                    ),
-                    sns=iot.CfnTopicRule.SnsActionProperty(
-                        role_arn="roleArn",
-                        target_arn="targetArn",
-        
-                        # the properties below are optional
-                        message_format="messageFormat"
-                    ),
-                    sqs=iot.CfnTopicRule.SqsActionProperty(
-                        queue_url="queueUrl",
-                        role_arn="roleArn",
-        
-                        # the properties below are optional
-                        use_base64=False
-                    ),
-                    step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                        role_arn="roleArn",
-                        state_machine_name="stateMachineName",
-        
-                        # the properties below are optional
-                        execution_name_prefix="executionNamePrefix"
-                    ),
-                    timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                        database_name="databaseName",
-                        dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        role_arn="roleArn",
-                        table_name="tableName",
-        
-                        # the properties below are optional
-                        timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                            unit="unit",
-                            value="value"
-                        )
-                    )
-                ),
-                rule_disabled=False
-            ),
-        
-            # the properties below are optional
-            rule_name="ruleName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
     '''
 
     def __init__(
@@ -20440,6 +19949,7 @@ class CfnTopicRule(
             "elasticsearch": "elasticsearch",
             "firehose": "firehose",
             "http": "http",
+            "influx_db": "influxDb",
             "iot_analytics": "iotAnalytics",
             "iot_events": "iotEvents",
             "iot_site_wise": "iotSiteWise",
@@ -20468,6 +19978,7 @@ class CfnTopicRule(
             elasticsearch: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.ElasticsearchActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             firehose: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.FirehoseActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             http: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.HttpActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            influx_db: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.InfluxDBActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iot_analytics: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.IotAnalyticsActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iot_events: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.IotEventsActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             iot_site_wise: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.IotSiteWiseActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20493,6 +20004,7 @@ class CfnTopicRule(
             :param elasticsearch: Write data to an Amazon OpenSearch Service domain. .. epigraph:: The ``Elasticsearch`` action can only be used by existing rule actions. To create a new rule action or to update an existing rule action, use the ``OpenSearch`` rule action instead. For more information, see `OpenSearchAction <https://docs.aws.amazon.com//iot/latest/apireference/API_OpenSearchAction.html>`_ .
             :param firehose: Write to an Amazon Kinesis Firehose stream.
             :param http: Send data to an HTTPS endpoint.
+            :param influx_db: 
             :param iot_analytics: Sends message data to an AWS IoT Analytics channel.
             :param iot_events: Sends an input to an AWS IoT Events detector.
             :param iot_site_wise: Sends data from the MQTT message that triggered the rule to AWS IoT SiteWise asset properties.
@@ -20598,6 +20110,25 @@ class CfnTopicRule(
                             key="key",
                             value="value"
                         )]
+                    ),
+                    influx_db=iot.CfnTopicRule.InfluxDBActionProperty(
+                        database_name="databaseName",
+                        destination_arn="destinationArn",
+                        role_arn="roleArn",
+                        table_name="tableName",
+                
+                        # the properties below are optional
+                        batch_config=iot.CfnTopicRule.InfluxDBBatchConfigProperty(
+                            batch_across_topics=False,
+                            max_batch_open_ms=123,
+                            max_batch_size=123,
+                            max_batch_size_bytes=123
+                        ),
+                        organization="organization",
+                        tags={
+                            "tags_key": "tags"
+                        },
+                        timestamp_unit="timestampUnit"
                     ),
                     iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
                         channel_name="channelName",
@@ -20763,6 +20294,7 @@ class CfnTopicRule(
                 check_type(argname="argument elasticsearch", value=elasticsearch, expected_type=type_hints["elasticsearch"])
                 check_type(argname="argument firehose", value=firehose, expected_type=type_hints["firehose"])
                 check_type(argname="argument http", value=http, expected_type=type_hints["http"])
+                check_type(argname="argument influx_db", value=influx_db, expected_type=type_hints["influx_db"])
                 check_type(argname="argument iot_analytics", value=iot_analytics, expected_type=type_hints["iot_analytics"])
                 check_type(argname="argument iot_events", value=iot_events, expected_type=type_hints["iot_events"])
                 check_type(argname="argument iot_site_wise", value=iot_site_wise, expected_type=type_hints["iot_site_wise"])
@@ -20794,6 +20326,8 @@ class CfnTopicRule(
                 self._values["firehose"] = firehose
             if http is not None:
                 self._values["http"] = http
+            if influx_db is not None:
+                self._values["influx_db"] = influx_db
             if iot_analytics is not None:
                 self._values["iot_analytics"] = iot_analytics
             if iot_events is not None:
@@ -20916,6 +20450,16 @@ class CfnTopicRule(
             '''
             result = self._values.get("http")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRule.HttpActionProperty"]], result)
+
+        @builtins.property
+        def influx_db(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRule.InfluxDBActionProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-action.html#cfn-iot-topicrule-action-influxdb
+            '''
+            result = self._values.get("influx_db")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRule.InfluxDBActionProperty"]], result)
 
         @builtins.property
         def iot_analytics(
@@ -22647,6 +22191,280 @@ class CfnTopicRule(
 
         def __repr__(self) -> str:
             return "HttpAuthorizationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnTopicRule.InfluxDBActionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "database_name": "databaseName",
+            "destination_arn": "destinationArn",
+            "role_arn": "roleArn",
+            "table_name": "tableName",
+            "batch_config": "batchConfig",
+            "organization": "organization",
+            "tags": "tags",
+            "timestamp_unit": "timestampUnit",
+        },
+    )
+    class InfluxDBActionProperty:
+        def __init__(
+            self,
+            *,
+            database_name: builtins.str,
+            destination_arn: builtins.str,
+            role_arn: builtins.str,
+            table_name: builtins.str,
+            batch_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRule.InfluxDBBatchConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            organization: typing.Optional[builtins.str] = None,
+            tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+            timestamp_unit: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param database_name: 
+            :param destination_arn: 
+            :param role_arn: 
+            :param table_name: 
+            :param batch_config: 
+            :param organization: 
+            :param tags: 
+            :param timestamp_unit: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                influx_db_action_property = iot.CfnTopicRule.InfluxDBActionProperty(
+                    database_name="databaseName",
+                    destination_arn="destinationArn",
+                    role_arn="roleArn",
+                    table_name="tableName",
+                
+                    # the properties below are optional
+                    batch_config=iot.CfnTopicRule.InfluxDBBatchConfigProperty(
+                        batch_across_topics=False,
+                        max_batch_open_ms=123,
+                        max_batch_size=123,
+                        max_batch_size_bytes=123
+                    ),
+                    organization="organization",
+                    tags={
+                        "tags_key": "tags"
+                    },
+                    timestamp_unit="timestampUnit"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__141d9e7c341ec4fed14d47393cde7a0af5c1a141fae47c480f983a277794c630)
+                check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+                check_type(argname="argument destination_arn", value=destination_arn, expected_type=type_hints["destination_arn"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+                check_type(argname="argument batch_config", value=batch_config, expected_type=type_hints["batch_config"])
+                check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
+                check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+                check_type(argname="argument timestamp_unit", value=timestamp_unit, expected_type=type_hints["timestamp_unit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "database_name": database_name,
+                "destination_arn": destination_arn,
+                "role_arn": role_arn,
+                "table_name": table_name,
+            }
+            if batch_config is not None:
+                self._values["batch_config"] = batch_config
+            if organization is not None:
+                self._values["organization"] = organization
+            if tags is not None:
+                self._values["tags"] = tags
+            if timestamp_unit is not None:
+                self._values["timestamp_unit"] = timestamp_unit
+
+        @builtins.property
+        def database_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-databasename
+            '''
+            result = self._values.get("database_name")
+            assert result is not None, "Required property 'database_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def destination_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-destinationarn
+            '''
+            result = self._values.get("destination_arn")
+            assert result is not None, "Required property 'destination_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def table_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-tablename
+            '''
+            result = self._values.get("table_name")
+            assert result is not None, "Required property 'table_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def batch_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRule.InfluxDBBatchConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-batchconfig
+            '''
+            result = self._values.get("batch_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRule.InfluxDBBatchConfigProperty"]], result)
+
+        @builtins.property
+        def organization(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-organization
+            '''
+            result = self._values.get("organization")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-tags
+            '''
+            result = self._values.get("tags")
+            return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def timestamp_unit(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbaction.html#cfn-iot-topicrule-influxdbaction-timestampunit
+            '''
+            result = self._values.get("timestamp_unit")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InfluxDBActionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnTopicRule.InfluxDBBatchConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "batch_across_topics": "batchAcrossTopics",
+            "max_batch_open_ms": "maxBatchOpenMs",
+            "max_batch_size": "maxBatchSize",
+            "max_batch_size_bytes": "maxBatchSizeBytes",
+        },
+    )
+    class InfluxDBBatchConfigProperty:
+        def __init__(
+            self,
+            *,
+            batch_across_topics: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            max_batch_open_ms: typing.Optional[jsii.Number] = None,
+            max_batch_size: typing.Optional[jsii.Number] = None,
+            max_batch_size_bytes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param batch_across_topics: 
+            :param max_batch_open_ms: 
+            :param max_batch_size: 
+            :param max_batch_size_bytes: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbbatchconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                influx_db_batch_config_property = iot.CfnTopicRule.InfluxDBBatchConfigProperty(
+                    batch_across_topics=False,
+                    max_batch_open_ms=123,
+                    max_batch_size=123,
+                    max_batch_size_bytes=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__986a7671947a658f6b89ac98294d64b15fdaf539fb5d6aec91db2589e9177edb)
+                check_type(argname="argument batch_across_topics", value=batch_across_topics, expected_type=type_hints["batch_across_topics"])
+                check_type(argname="argument max_batch_open_ms", value=max_batch_open_ms, expected_type=type_hints["max_batch_open_ms"])
+                check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+                check_type(argname="argument max_batch_size_bytes", value=max_batch_size_bytes, expected_type=type_hints["max_batch_size_bytes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if batch_across_topics is not None:
+                self._values["batch_across_topics"] = batch_across_topics
+            if max_batch_open_ms is not None:
+                self._values["max_batch_open_ms"] = max_batch_open_ms
+            if max_batch_size is not None:
+                self._values["max_batch_size"] = max_batch_size
+            if max_batch_size_bytes is not None:
+                self._values["max_batch_size_bytes"] = max_batch_size_bytes
+
+        @builtins.property
+        def batch_across_topics(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbbatchconfig.html#cfn-iot-topicrule-influxdbbatchconfig-batchacrosstopics
+            '''
+            result = self._values.get("batch_across_topics")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def max_batch_open_ms(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbbatchconfig.html#cfn-iot-topicrule-influxdbbatchconfig-maxbatchopenms
+            '''
+            result = self._values.get("max_batch_open_ms")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_batch_size(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbbatchconfig.html#cfn-iot-topicrule-influxdbbatchconfig-maxbatchsize
+            '''
+            result = self._values.get("max_batch_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_batch_size_bytes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicrule-influxdbbatchconfig.html#cfn-iot-topicrule-influxdbbatchconfig-maxbatchsizebytes
+            '''
+            result = self._values.get("max_batch_size_bytes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InfluxDBBatchConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -24962,488 +24780,7 @@ class CfnTopicRule(
 
             Example::
 
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iot as iot
                 
-                topic_rule_payload_property = iot.CfnTopicRule.TopicRulePayloadProperty(
-                    actions=[iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-                
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-                
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                                batch_across_topics=False,
-                                max_batch_open_ms=123,
-                                max_batch_size=123,
-                                max_batch_size_bytes=123
-                            ),
-                            confirmation_url="confirmationUrl",
-                            enable_batching=False,
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-                
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-                
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-                
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-                
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-                
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-                
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-                
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-                
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-                
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-                
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-                
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    )],
-                    sql="sql",
-                
-                    # the properties below are optional
-                    aws_iot_sql_version="awsIotSqlVersion",
-                    description="description",
-                    error_action=iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-                
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-                
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                                batch_across_topics=False,
-                                max_batch_open_ms=123,
-                                max_batch_size=123,
-                                max_batch_size_bytes=123
-                            ),
-                            confirmation_url="confirmationUrl",
-                            enable_batching=False,
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-                
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-                
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-                
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-                
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-                
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-                
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-                
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-                
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-                
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-                
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-                
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-                
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    ),
-                    rule_disabled=False
-                )
             '''
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__edacbed39e73fc10c67205256378a4ddc0c1977de0a1f31ba6814e77d1765af4)
@@ -25632,6 +24969,15 @@ class CfnTopicRuleDestination(
             http_url_properties=iot.CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty(
                 confirmation_url="confirmationUrl"
             ),
+            influx_db_properties=iot.CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty(
+                endpoint="endpoint",
+                influx_db_version="influxDbVersion",
+                secret_id="secretId",
+        
+                # the properties below are optional
+                secret_key="secretKey",
+                secret_type="secretType"
+            ),
             status="status",
             vpc_properties=iot.CfnTopicRuleDestination.VpcDestinationPropertiesProperty(
                 role_arn="roleArn",
@@ -25648,6 +24994,7 @@ class CfnTopicRuleDestination(
         id: builtins.str,
         *,
         http_url_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        influx_db_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status: typing.Optional[builtins.str] = None,
         vpc_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.VpcDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -25656,6 +25003,7 @@ class CfnTopicRuleDestination(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param http_url_properties: Properties of the HTTP URL.
+        :param influx_db_properties: 
         :param status: - **IN_PROGRESS** - A topic rule destination was created but has not been confirmed. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint. - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` . - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` . - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
         :param vpc_properties: Properties of the virtual private cloud (VPC) connection.
         '''
@@ -25665,6 +25013,7 @@ class CfnTopicRuleDestination(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnTopicRuleDestinationProps(
             http_url_properties=http_url_properties,
+            influx_db_properties=influx_db_properties,
             status=status,
             vpc_properties=vpc_properties,
         )
@@ -25782,6 +25131,23 @@ class CfnTopicRuleDestination(
         jsii.set(self, "httpUrlProperties", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="influxDbProperties")
+    def influx_db_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty"]], jsii.get(self, "influxDbProperties"))
+
+    @influx_db_properties.setter
+    def influx_db_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__275fee3a90e7a4ac261fb0462a11e27faf5c7c3cc6faa18c32f9fda63697f2c6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "influxDbProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="status")
     def status(self) -> typing.Optional[builtins.str]:
         '''- **IN_PROGRESS** - A topic rule destination was created but has not been confirmed.'''
@@ -25864,6 +25230,129 @@ class CfnTopicRuleDestination(
 
         def __repr__(self) -> str:
             return "HttpUrlDestinationSummaryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iot.CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint": "endpoint",
+            "influx_db_version": "influxDbVersion",
+            "secret_id": "secretId",
+            "secret_key": "secretKey",
+            "secret_type": "secretType",
+        },
+    )
+    class InfluxDBDestinationPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            endpoint: builtins.str,
+            influx_db_version: builtins.str,
+            secret_id: builtins.str,
+            secret_key: typing.Optional[builtins.str] = None,
+            secret_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param endpoint: The endpoint URL of the InfluxDB database.
+            :param influx_db_version: The version of the InfluxDB database (for example, V2 or V3).
+            :param secret_id: The ARN or name of the Secrets Manager secret containing the InfluxDB API token.
+            :param secret_key: The key name within the secret that contains the InfluxDB token.
+            :param secret_type: The type of the secret value (SecretString or SecretBinary).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iot as iot
+                
+                influx_db_destination_properties_property = iot.CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty(
+                    endpoint="endpoint",
+                    influx_db_version="influxDbVersion",
+                    secret_id="secretId",
+                
+                    # the properties below are optional
+                    secret_key="secretKey",
+                    secret_type="secretType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ebdd32a2d82609539635aabf149371756b8a08710e6b623966edd5fdeb030757)
+                check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument influx_db_version", value=influx_db_version, expected_type=type_hints["influx_db_version"])
+                check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
+                check_type(argname="argument secret_key", value=secret_key, expected_type=type_hints["secret_key"])
+                check_type(argname="argument secret_type", value=secret_type, expected_type=type_hints["secret_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint": endpoint,
+                "influx_db_version": influx_db_version,
+                "secret_id": secret_id,
+            }
+            if secret_key is not None:
+                self._values["secret_key"] = secret_key
+            if secret_type is not None:
+                self._values["secret_type"] = secret_type
+
+        @builtins.property
+        def endpoint(self) -> builtins.str:
+            '''The endpoint URL of the InfluxDB database.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html#cfn-iot-topicruledestination-influxdbdestinationproperties-endpoint
+            '''
+            result = self._values.get("endpoint")
+            assert result is not None, "Required property 'endpoint' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def influx_db_version(self) -> builtins.str:
+            '''The version of the InfluxDB database (for example, V2 or V3).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html#cfn-iot-topicruledestination-influxdbdestinationproperties-influxdbversion
+            '''
+            result = self._values.get("influx_db_version")
+            assert result is not None, "Required property 'influx_db_version' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_id(self) -> builtins.str:
+            '''The ARN or name of the Secrets Manager secret containing the InfluxDB API token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html#cfn-iot-topicruledestination-influxdbdestinationproperties-secretid
+            '''
+            result = self._values.get("secret_id")
+            assert result is not None, "Required property 'secret_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_key(self) -> typing.Optional[builtins.str]:
+            '''The key name within the secret that contains the InfluxDB token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html#cfn-iot-topicruledestination-influxdbdestinationproperties-secretkey
+            '''
+            result = self._values.get("secret_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_type(self) -> typing.Optional[builtins.str]:
+            '''The type of the secret value (SecretString or SecretBinary).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html#cfn-iot-topicruledestination-influxdbdestinationproperties-secrettype
+            '''
+            result = self._values.get("secret_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InfluxDBDestinationPropertiesProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -25978,6 +25467,7 @@ class CfnTopicRuleDestination(
     jsii_struct_bases=[],
     name_mapping={
         "http_url_properties": "httpUrlProperties",
+        "influx_db_properties": "influxDbProperties",
         "status": "status",
         "vpc_properties": "vpcProperties",
     },
@@ -25987,12 +25477,14 @@ class CfnTopicRuleDestinationProps:
         self,
         *,
         http_url_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        influx_db_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         status: typing.Optional[builtins.str] = None,
         vpc_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTopicRuleDestination.VpcDestinationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTopicRuleDestination``.
 
         :param http_url_properties: Properties of the HTTP URL.
+        :param influx_db_properties: 
         :param status: - **IN_PROGRESS** - A topic rule destination was created but has not been confirmed. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint. - **ENABLED** - Confirmation was completed, and traffic to this destination is allowed. You can set status to ``DISABLED`` by calling ``UpdateTopicRuleDestination`` . - **DISABLED** - Confirmation was completed, and traffic to this destination is not allowed. You can set status to ``ENABLED`` by calling ``UpdateTopicRuleDestination`` . - **ERROR** - Confirmation could not be completed; for example, if the confirmation timed out. You can call ``GetTopicRuleDestination`` for details about the error. You can set status to ``IN_PROGRESS`` by calling ``UpdateTopicRuleDestination`` . Calling ``UpdateTopicRuleDestination`` causes a new confirmation challenge to be sent to your confirmation endpoint.
         :param vpc_properties: Properties of the virtual private cloud (VPC) connection.
 
@@ -26009,6 +25501,15 @@ class CfnTopicRuleDestinationProps:
                 http_url_properties=iot.CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty(
                     confirmation_url="confirmationUrl"
                 ),
+                influx_db_properties=iot.CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty(
+                    endpoint="endpoint",
+                    influx_db_version="influxDbVersion",
+                    secret_id="secretId",
+            
+                    # the properties below are optional
+                    secret_key="secretKey",
+                    secret_type="secretType"
+                ),
                 status="status",
                 vpc_properties=iot.CfnTopicRuleDestination.VpcDestinationPropertiesProperty(
                     role_arn="roleArn",
@@ -26021,11 +25522,14 @@ class CfnTopicRuleDestinationProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996)
             check_type(argname="argument http_url_properties", value=http_url_properties, expected_type=type_hints["http_url_properties"])
+            check_type(argname="argument influx_db_properties", value=influx_db_properties, expected_type=type_hints["influx_db_properties"])
             check_type(argname="argument status", value=status, expected_type=type_hints["status"])
             check_type(argname="argument vpc_properties", value=vpc_properties, expected_type=type_hints["vpc_properties"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if http_url_properties is not None:
             self._values["http_url_properties"] = http_url_properties
+        if influx_db_properties is not None:
+            self._values["influx_db_properties"] = influx_db_properties
         if status is not None:
             self._values["status"] = status
         if vpc_properties is not None:
@@ -26041,6 +25545,16 @@ class CfnTopicRuleDestinationProps:
         '''
         result = self._values.get("http_url_properties")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty"]], result)
+
+    @builtins.property
+    def influx_db_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-topicruledestination.html#cfn-iot-topicruledestination-influxdbproperties
+        '''
+        result = self._values.get("influx_db_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty"]], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
@@ -26108,498 +25622,7 @@ class CfnTopicRuleProps:
 
         Example::
 
-            from aws_cdk import CfnTag
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iot as iot
             
-            cfn_topic_rule_props = iot.CfnTopicRuleProps(
-                topic_rule_payload=iot.CfnTopicRule.TopicRulePayloadProperty(
-                    actions=[iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-            
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                                batch_across_topics=False,
-                                max_batch_open_ms=123,
-                                max_batch_size=123,
-                                max_batch_size_bytes=123
-                            ),
-                            confirmation_url="confirmationUrl",
-                            enable_batching=False,
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-            
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-            
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-            
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-            
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-            
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-            
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-            
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    )],
-                    sql="sql",
-            
-                    # the properties below are optional
-                    aws_iot_sql_version="awsIotSqlVersion",
-                    description="description",
-                    error_action=iot.CfnTopicRule.ActionProperty(
-                        cloudwatch_alarm=iot.CfnTopicRule.CloudwatchAlarmActionProperty(
-                            alarm_name="alarmName",
-                            role_arn="roleArn",
-                            state_reason="stateReason",
-                            state_value="stateValue"
-                        ),
-                        cloudwatch_logs=iot.CfnTopicRule.CloudwatchLogsActionProperty(
-                            log_group_name="logGroupName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        cloudwatch_metric=iot.CfnTopicRule.CloudwatchMetricActionProperty(
-                            metric_name="metricName",
-                            metric_namespace="metricNamespace",
-                            metric_unit="metricUnit",
-                            metric_value="metricValue",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            metric_timestamp="metricTimestamp"
-                        ),
-                        dynamo_db=iot.CfnTopicRule.DynamoDBActionProperty(
-                            hash_key_field="hashKeyField",
-                            hash_key_value="hashKeyValue",
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            hash_key_type="hashKeyType",
-                            payload_field="payloadField",
-                            range_key_field="rangeKeyField",
-                            range_key_type="rangeKeyType",
-                            range_key_value="rangeKeyValue"
-                        ),
-                        dynamo_d_bv2=iot.CfnTopicRule.DynamoDBv2ActionProperty(
-                            put_item=iot.CfnTopicRule.PutItemInputProperty(
-                                table_name="tableName"
-                            ),
-                            role_arn="roleArn"
-                        ),
-                        elasticsearch=iot.CfnTopicRule.ElasticsearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        firehose=iot.CfnTopicRule.FirehoseActionProperty(
-                            delivery_stream_name="deliveryStreamName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            separator="separator"
-                        ),
-                        http=iot.CfnTopicRule.HttpActionProperty(
-                            url="url",
-            
-                            # the properties below are optional
-                            auth=iot.CfnTopicRule.HttpAuthorizationProperty(
-                                sigv4=iot.CfnTopicRule.SigV4AuthorizationProperty(
-                                    role_arn="roleArn",
-                                    service_name="serviceName",
-                                    signing_region="signingRegion"
-                                )
-                            ),
-                            batch_config=iot.CfnTopicRule.BatchConfigProperty(
-                                batch_across_topics=False,
-                                max_batch_open_ms=123,
-                                max_batch_size=123,
-                                max_batch_size_bytes=123
-                            ),
-                            confirmation_url="confirmationUrl",
-                            enable_batching=False,
-                            headers=[iot.CfnTopicRule.HttpActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )]
-                        ),
-                        iot_analytics=iot.CfnTopicRule.IotAnalyticsActionProperty(
-                            channel_name="channelName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False
-                        ),
-                        iot_events=iot.CfnTopicRule.IotEventsActionProperty(
-                            input_name="inputName",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            batch_mode=False,
-                            message_id="messageId"
-                        ),
-                        iot_site_wise=iot.CfnTopicRule.IotSiteWiseActionProperty(
-                            put_asset_property_value_entries=[iot.CfnTopicRule.PutAssetPropertyValueEntryProperty(
-                                property_values=[iot.CfnTopicRule.AssetPropertyValueProperty(
-                                    timestamp=iot.CfnTopicRule.AssetPropertyTimestampProperty(
-                                        time_in_seconds="timeInSeconds",
-            
-                                        # the properties below are optional
-                                        offset_in_nanos="offsetInNanos"
-                                    ),
-                                    value=iot.CfnTopicRule.AssetPropertyVariantProperty(
-                                        boolean_value="booleanValue",
-                                        double_value="doubleValue",
-                                        integer_value="integerValue",
-                                        string_value="stringValue"
-                                    ),
-            
-                                    # the properties below are optional
-                                    quality="quality"
-                                )],
-            
-                                # the properties below are optional
-                                asset_id="assetId",
-                                entry_id="entryId",
-                                property_alias="propertyAlias",
-                                property_id="propertyId"
-                            )],
-                            role_arn="roleArn"
-                        ),
-                        kafka=iot.CfnTopicRule.KafkaActionProperty(
-                            client_properties={
-                                "client_properties_key": "clientProperties"
-                            },
-                            destination_arn="destinationArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=[iot.CfnTopicRule.KafkaActionHeaderProperty(
-                                key="key",
-                                value="value"
-                            )],
-                            key="key",
-                            partition="partition"
-                        ),
-                        kinesis=iot.CfnTopicRule.KinesisActionProperty(
-                            role_arn="roleArn",
-                            stream_name="streamName",
-            
-                            # the properties below are optional
-                            partition_key="partitionKey"
-                        ),
-                        lambda_=iot.CfnTopicRule.LambdaActionProperty(
-                            function_arn="functionArn"
-                        ),
-                        location=iot.CfnTopicRule.LocationActionProperty(
-                            device_id="deviceId",
-                            latitude="latitude",
-                            longitude="longitude",
-                            role_arn="roleArn",
-                            tracker_name="trackerName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestampProperty(
-                                value="value",
-            
-                                # the properties below are optional
-                                unit="unit"
-                            )
-                        ),
-                        open_search=iot.CfnTopicRule.OpenSearchActionProperty(
-                            endpoint="endpoint",
-                            id="id",
-                            index="index",
-                            role_arn="roleArn",
-                            type="type"
-                        ),
-                        republish=iot.CfnTopicRule.RepublishActionProperty(
-                            role_arn="roleArn",
-                            topic="topic",
-            
-                            # the properties below are optional
-                            headers=iot.CfnTopicRule.RepublishActionHeadersProperty(
-                                content_type="contentType",
-                                correlation_data="correlationData",
-                                message_expiry="messageExpiry",
-                                payload_format_indicator="payloadFormatIndicator",
-                                response_topic="responseTopic",
-                                user_properties=[iot.CfnTopicRule.UserPropertyProperty(
-                                    key="key",
-                                    value="value"
-                                )]
-                            ),
-                            qos=123
-                        ),
-                        s3=iot.CfnTopicRule.S3ActionProperty(
-                            bucket_name="bucketName",
-                            key="key",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            canned_acl="cannedAcl"
-                        ),
-                        sns=iot.CfnTopicRule.SnsActionProperty(
-                            role_arn="roleArn",
-                            target_arn="targetArn",
-            
-                            # the properties below are optional
-                            message_format="messageFormat"
-                        ),
-                        sqs=iot.CfnTopicRule.SqsActionProperty(
-                            queue_url="queueUrl",
-                            role_arn="roleArn",
-            
-                            # the properties below are optional
-                            use_base64=False
-                        ),
-                        step_functions=iot.CfnTopicRule.StepFunctionsActionProperty(
-                            role_arn="roleArn",
-                            state_machine_name="stateMachineName",
-            
-                            # the properties below are optional
-                            execution_name_prefix="executionNamePrefix"
-                        ),
-                        timestream=iot.CfnTopicRule.TimestreamActionProperty(
-                            database_name="databaseName",
-                            dimensions=[iot.CfnTopicRule.TimestreamDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            role_arn="roleArn",
-                            table_name="tableName",
-            
-                            # the properties below are optional
-                            timestamp=iot.CfnTopicRule.TimestreamTimestampProperty(
-                                unit="unit",
-                                value="value"
-                            )
-                        )
-                    ),
-                    rule_disabled=False
-                ),
-            
-                # the properties below are optional
-                rule_name="ruleName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a58144efe3ee63b9453f5d33647fec5f202850f1807bc4520bc493599e404f50)
@@ -30238,6 +29261,7 @@ def _typecheckingstub__3bc5009e88dab5a1abc3986cbedfcbbf8d02ed5510b7556e3c1bd8f8e
     elasticsearch: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.ElasticsearchActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     firehose: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.FirehoseActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     http: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.HttpActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    influx_db: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.InfluxDBActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iot_analytics: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.IotAnalyticsActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iot_events: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.IotEventsActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     iot_site_wise: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.IotSiteWiseActionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -30391,6 +29415,30 @@ def _typecheckingstub__7a7751e5a2c320f86684a244ab9ae594bac00f4f8bd37456a82ca41a5
 def _typecheckingstub__80d0921afa84d593d395b65b6ec22af1468495b12a3a5c21e499598304d5fa9a(
     *,
     sigv4: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.SigV4AuthorizationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__141d9e7c341ec4fed14d47393cde7a0af5c1a141fae47c480f983a277794c630(
+    *,
+    database_name: builtins.str,
+    destination_arn: builtins.str,
+    role_arn: builtins.str,
+    table_name: builtins.str,
+    batch_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRule.InfluxDBBatchConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    organization: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    timestamp_unit: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__986a7671947a658f6b89ac98294d64b15fdaf539fb5d6aec91db2589e9177edb(
+    *,
+    batch_across_topics: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    max_batch_open_ms: typing.Optional[jsii.Number] = None,
+    max_batch_size: typing.Optional[jsii.Number] = None,
+    max_batch_size_bytes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -30627,6 +29675,7 @@ def _typecheckingstub__816bde55ef86a51da42575115f112ffdcb91903b374da92bfb64e8a1c
     id: builtins.str,
     *,
     http_url_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    influx_db_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status: typing.Optional[builtins.str] = None,
     vpc_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.VpcDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -30663,6 +29712,12 @@ def _typecheckingstub__937a406523227f852a191d149431092f0504986a0ff0c5395a574f701
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__275fee3a90e7a4ac261fb0462a11e27faf5c7c3cc6faa18c32f9fda63697f2c6(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a490b86e6317d8814fdd6d6d02bb44940b0231ac7daafa98a06175b5ccf6d829(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -30682,6 +29737,17 @@ def _typecheckingstub__67da8cef873fb394459034c4ffb6b6aaefb52abb6e588df58e13c8c0c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ebdd32a2d82609539635aabf149371756b8a08710e6b623966edd5fdeb030757(
+    *,
+    endpoint: builtins.str,
+    influx_db_version: builtins.str,
+    secret_id: builtins.str,
+    secret_key: typing.Optional[builtins.str] = None,
+    secret_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__91cd844cdd4eed473307ab1f4d7547c8e6bbd690302e69147a6fca83542383d8(
     *,
     role_arn: typing.Optional[builtins.str] = None,
@@ -30695,6 +29761,7 @@ def _typecheckingstub__91cd844cdd4eed473307ab1f4d7547c8e6bbd690302e69147a6fca835
 def _typecheckingstub__d66ce0c3982501034240f5b22b91467d7d14e06842ebcf6ad3b1171aae227996(
     *,
     http_url_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.HttpUrlDestinationSummaryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    influx_db_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.InfluxDBDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status: typing.Optional[builtins.str] = None,
     vpc_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTopicRuleDestination.VpcDestinationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

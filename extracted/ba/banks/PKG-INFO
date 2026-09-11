@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: banks
-Version: 2.5.0
+Version: 2.5.1
 Summary: A prompt programming language
 Project-URL: Documentation, https://github.com/masci/banks#readme
 Project-URL: Issues, https://github.com/masci/banks/issues
@@ -26,6 +26,7 @@ Requires-Dist: griffe
 Requires-Dist: jinja2
 Requires-Dist: platformdirs
 Requires-Dist: pydantic
+Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: all
 Requires-Dist: litellm; extra == 'all'
 Requires-Dist: redis; extra == 'all'

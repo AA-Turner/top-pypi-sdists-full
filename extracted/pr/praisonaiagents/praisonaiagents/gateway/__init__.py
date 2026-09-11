@@ -48,6 +48,8 @@ from .protocols import (
     DeliveryPreflightProtocol,
     DeliveryValidation,
     ScheduleTargetError,
+    # Remote-sandbox outbound media bridge (Issue #4951)
+    RemoteMediaResolver,
     # Agent-facing outbound messaging
     OutboundMessengerProtocol,
     DeliveryResult,
@@ -109,6 +111,10 @@ from .protocols import (
     RateLimitPolicyProtocol,
     RateLimitPolicy,  # backward-compat alias
     SlidingWindowRateLimitPolicy,
+    # Gateway cost-aware spend-budget admission (Issue #4894)
+    SpendBudgetPolicyProtocol,
+    SpendBudgetPolicy,  # backward-compat alias
+    WindowedSpendBudgetPolicy,
     # Durable-queue dead-letter decision (Issue #3519)
     PERMANENT_ERROR_CLASSES,
     DeadLetterDecision,
@@ -339,6 +345,7 @@ __all__ = [
     "HomeChannelRegistryProtocol",
     "DeliveryResolverProtocol",
     "DeliveryPreflightProtocol",
+    "RemoteMediaResolver",
     "DeliveryValidation",
     "ScheduleTargetError",
     # Agent-facing outbound messaging
@@ -399,6 +406,9 @@ __all__ = [
     "RateLimitPolicyProtocol",
     "RateLimitPolicy",
     "SlidingWindowRateLimitPolicy",
+    "SpendBudgetPolicyProtocol",
+    "SpendBudgetPolicy",
+    "WindowedSpendBudgetPolicy",
     # Durable-queue dead-letter decision (Issue #3519)
     "PERMANENT_ERROR_CLASSES",
     "DeadLetterDecision",

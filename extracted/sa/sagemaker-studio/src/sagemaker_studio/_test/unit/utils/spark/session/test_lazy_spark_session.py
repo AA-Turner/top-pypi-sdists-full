@@ -6,6 +6,7 @@ This module tests the lazy loading functionality for Spark sessions.
 
 import logging
 import sys
+import types
 from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
@@ -17,6 +18,9 @@ class MockSparkConnectGrpcException(Exception):
 
     pass
 
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 # Mock PySpark and gRPC modules before importing our code
 with patch("sagemaker_studio.Project"):
@@ -37,6 +41,10 @@ with patch("sagemaker_studio.Project"):
         "pyspark.sql.connect",
         "pyspark.sql.connect.session",
         "pyspark.sql.connect.client",
+        # sagemaker_studio.utils.udf.routed does ``from pyspark.rdd import
+        # PythonEvalType`` at module load, so the mocked pyspark must expose
+        # ``pyspark.rdd`` with a PythonEvalType.
+        "pyspark.rdd",
         "grpc",
         "pyspark.errors",
         "pyspark.errors.exceptions",
@@ -70,6 +78,10 @@ with patch("sagemaker_studio.Project"):
                 mock_module.ChannelBuilder = Mock()
             elif module_name == "pyspark.errors.exceptions.connect":
                 mock_module.SparkConnectGrpcException = MockSparkConnectGrpcException
+            elif module_name == "pyspark.rdd":
+                # sagemaker_studio.utils.udf.routed imports PythonEvalType from
+                # here at module load.
+                mock_module.PythonEvalType = Mock()
             sys.modules[module_name] = mock_module
 
     # Mock interceptors modules to avoid importing actual gRPC interceptors
@@ -90,6 +102,28 @@ with patch("sagemaker_studio.Project"):
     from sagemaker_studio.utils.spark.session.spark_session_manager import (  # noqa: E402
         SparkSessionManager,
     )
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = {
+    _name
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
 
 
 @pytest.fixture
@@ -912,3 +946,114 @@ class TestLazySparkSession:
         result = lazy_session.sql
         assert result is good_session.sql
         assert lazy_session._reconnect_attempts == 0
+
+
+class TestResolveEnginePythonVersion:
+    """Unit coverage for the engine -> worker-Python resolution (#1).
+
+    The static Glue-major table and the engine-label convenience map used to
+    live on ``LazySparkSession`` and were tested here directly. Both now live
+    in ``sagemaker_studio.utils.udf.runtime`` (see
+    that module's resolution-order coverage:
+    ``test_override_wins_and_costs_nothing``,
+    ``test_connection_metadata_is_preferred_over_conf_and_probe``,
+    ``test_server_conf_path_is_used_when_metadata_is_absent``,
+    ``test_completely_unknown_engine_degrades_to_the_client_version``, etc.).
+    ``LazySparkSession``'s own responsibility -- delegating to that resolver
+    and keeping the session registered/unregistered -- is covered by the
+    module-level tests below (``test_session_is_registered_...``,
+    ``test_stop_unregisters_...``,
+    ``test_resolve_engine_python_version_delegates_...``,
+    ``test_the_static_glue_map_is_no_longer_consulted_first``).
+    """
+
+    def test_udf_shadowing_methods_removed(self):
+        """The old spark.udf / spark.pandas_udf method shadowing is gone, so the
+        native SparkSession.udf property contract is preserved (#2a)."""
+        # LazySparkSession no longer defines udf/pandas_udf as class methods.
+        assert "udf" not in LazySparkSession.__dict__
+        assert "pandas_udf" not in LazySparkSession.__dict__
+
+
+def test_session_is_registered_with_the_udf_resolver_on_creation():
+    from sagemaker_studio.utils.spark.session.lazy_spark_session import LazySparkSession
+    from sagemaker_studio.utils.udf import runtime as rt
+
+    rt.clear_cache()
+    manager = Mock()
+    manager.project.connection.return_value.catalogs = []
+    inner = Mock()
+    inner._client = object()
+    manager.create.return_value = inner
+
+    lazy = LazySparkSession(session_manager=manager)
+    lazy._get_spark()
+
+    assert _udf_registered_session(rt, inner._client) is inner
+
+
+def test_stop_unregisters_the_session_from_the_udf_resolver():
+    from sagemaker_studio.utils.spark.session.lazy_spark_session import LazySparkSession
+    from sagemaker_studio.utils.udf import runtime as rt
+
+    rt.clear_cache()
+    manager = Mock()
+    manager.project.connection.return_value.catalogs = []
+    inner = Mock()
+    inner._client = object()
+    manager.create.return_value = inner
+
+    lazy = LazySparkSession(session_manager=manager)
+    lazy._get_spark()
+    lazy.stop()
+
+    assert _udf_registered_session(rt, inner._client) is None
+
+
+def test_resolve_engine_python_version_delegates_to_the_runtime_resolver():
+    from sagemaker_studio.utils.spark.session.lazy_spark_session import LazySparkSession
+    from sagemaker_studio.utils.udf import runtime as rt
+
+    rt.clear_cache()
+    manager = Mock()
+    manager.project.connection.return_value.catalogs = []
+    inner = Mock()
+    inner._client = object()
+    manager.create.return_value = inner
+
+    lazy = LazySparkSession(session_manager=manager)
+    lazy.set_engine_python_version_override("3.13")
+    assert lazy.resolve_engine_python_version() == "3.13"
+    assert lazy.resolve_worker_runtime().source == "override"
+
+
+def test_the_static_glue_map_is_no_longer_consulted_first():
+    # Regression guard for the handoff's Priority 2: a Glue-6 manager whose
+    # runtime signals say 3.11 must resolve to 3.11, not to the map's 3.13.
+    from sagemaker_studio.utils.spark.session.lazy_spark_session import LazySparkSession
+    from sagemaker_studio.utils.udf import runtime as rt
+
+    rt.clear_cache()
+    manager = Mock()
+    manager.project.connection.return_value.catalogs = []
+    manager.get_glue_version.return_value = "6.0"
+    manager.get_connection_python_version.return_value = "3.11"
+    inner = Mock()
+    inner._client = object()
+    manager.create.return_value = inner
+
+    lazy = LazySparkSession(session_manager=manager)
+    lazy._get_spark()
+    runtime = lazy.resolve_worker_runtime()
+    assert runtime.python_version == "3.11"
+    assert runtime.source == "connection-metadata"
+
+
+def _udf_registered_session(rt, client):
+    """The session the UDF resolver has registered for ``client``, or ``None``.
+
+    Test-only surface, so it lives here rather than in the resolver, which has no
+    production caller for it.
+    """
+    context = rt._context_get(client)
+    return None if context is None else context.session

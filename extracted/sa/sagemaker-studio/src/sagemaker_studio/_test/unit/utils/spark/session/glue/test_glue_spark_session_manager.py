@@ -1,9 +1,13 @@
 """Tests for GlueSparkSessionManager."""
 
 import sys
+import types
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 # Mock Project class before any imports to prevent Domain ID error
 with patch("sagemaker_studio.Project"):
@@ -60,6 +64,28 @@ with patch("sagemaker_studio.Project"):
     from sagemaker_studio.utils.spark.session.glue.glue_spark_session_manager import (
         GlueSparkSessionManager,
     )
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = {
+    _name
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
 
 
 @pytest.fixture
@@ -142,6 +168,14 @@ def mock_internal_utils():
 def manager(mock_glue_connection):
     """Create a testable GlueSparkSessionManager."""
     return GlueSparkSessionManager(connection_name="default.spark", connection=mock_glue_connection)
+
+
+def _make_manager_with_props(props):
+    manager = GlueSparkSessionManager.__new__(GlueSparkSessionManager)
+    manager._glue_props = props.get("sparkGlueProperties", {})
+    manager._connection_props = props
+    manager.glue_version = None
+    return manager
 
 
 # ---------------------------------------------------------------------------
@@ -1347,17 +1381,17 @@ def test_lazy_init_with_glue_endpoint_url(mock_session_cls, mock_boto_client, mo
     mgr = GlueSparkSessionManager(
         connection=conn,
         config=ClientConfig(
-            overrides={"glue": {"endpoint_url": "https://glue-gamma.us-east-2.amazonaws.com"}}
+            overrides={"glue": {"endpoint_url": "https://glue.us-east-2.amazonaws.com"}}
         ),
     )
     mgr._lazy_init()
 
     # Verify the custom endpoint was passed to the glue client
-    mock_session_cls.return_value.client.assert_called_with(
-        "glue",
-        region_name="us-east-2",
-        endpoint_url="https://glue-gamma.us-east-2.amazonaws.com",
-    )
+    call_kwargs = mock_session_cls.return_value.client.call_args
+    assert call_kwargs[0] == ("glue",)
+    assert call_kwargs[1]["region_name"] == "us-east-2"
+    assert call_kwargs[1]["endpoint_url"] == "https://glue.us-east-2.amazonaws.com"
+    assert call_kwargs[1]["config"].retries == {"max_attempts": 5, "mode": "adaptive"}
 
 
 @patch("boto3.client")
@@ -1832,3 +1866,24 @@ def test_lazy_init_loads_custom_botocore_model(
     # Verify custom loader was created with extra search paths
     mock_loader.assert_called_once()
     assert "boto3_models" in mock_loader.call_args[1]["extra_search_paths"][0]
+
+
+# ---------------------------------------------------------------------------
+# get_connection_python_version tests
+# ---------------------------------------------------------------------------
+
+
+def test_get_connection_python_version_reads_the_connection_props():
+    manager = _make_manager_with_props({"sparkGlueProperties": {"pythonVersion": "3.13"}})
+    assert manager.get_connection_python_version() == "3.13"
+
+
+def test_get_connection_python_version_is_none_when_absent():
+    manager = _make_manager_with_props({"sparkGlueProperties": {"glueVersion": "6.0"}})
+    assert manager.get_connection_python_version() is None
+
+
+def test_get_connection_python_version_accepts_a_pythonVersion_at_top_level():  # noqa: N802 - mirrors the Glue API field name
+    # Some connection shapes publish it outside sparkGlueProperties.
+    manager = _make_manager_with_props({"pythonVersion": "3.11"})
+    assert manager.get_connection_python_version() == "3.11"

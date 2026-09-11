@@ -221,5 +221,4 @@ def format_pipe(
             file_parts.append(DATAFILE_NEW_LINE)
 
     result = "".join(file_parts)
-    result = result.rstrip("\n") + "\n"
-    return result
+    return result.rstrip("\n") + "\n"

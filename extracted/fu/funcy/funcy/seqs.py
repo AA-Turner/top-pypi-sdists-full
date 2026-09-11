@@ -108,7 +108,7 @@ def butlast(seq):
 def ilen(seq):
     """Consumes an iterable not reading it into memory
        and returns the number of items."""
-    # NOTE: implementation borrowed from http://stackoverflow.com/a/15112059/753382
+    # NOTE: implementation borrowed from https://stackoverflow.com/a/15112059/753382
     counter = count()
     deque(zip(seq, counter), maxlen=0)  # (consume at C speed)
     return next(counter)
@@ -359,15 +359,23 @@ def _cut_seq(drop_tail, n, step, seq):
 def _cut_iter(drop_tail, n, step, seq):
     it = iter(seq)
     pool = take(n, it)
-    while True:
-        if len(pool) < n:
-            break
-        yield pool
-        pool = pool[step:]
-        pool.extend(islice(it, step))
+    if step < n:
+        while len(pool) == n:
+            yield pool
+            pool = pool[step:]
+            pool.extend(islice(it, step))
+    elif step == n:
+        while len(pool) == n:
+            yield pool
+            pool = take(n, it)
+    else:
+        gap = step - n
+        while len(pool) == n:
+            yield pool
+            take(gap, it)
+            pool = take(n, it)
     if not drop_tail:
-        for item in _cut_seq(drop_tail, n, step, pool):
-            yield item
+        yield from _cut_seq(drop_tail, n, step, pool)
 
 def _cut(drop_tail, n, step, seq=EMPTY):
     if seq is EMPTY:

@@ -4,6 +4,7 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.computer_initialization_response import ComputerInitializationResponse
 from ..types.computer_lifecycle_response_out import ComputerLifecycleResponseOut
 from ..types.deploy_computer_response_out import DeployComputerResponseOut
 from ..types.revoke_ssh_access_response_out import RevokeSshAccessResponseOut
@@ -68,6 +69,38 @@ class ComputerClient:
         )
         """
         _response = self._raw_client.deploy_computer(asset_id, port=port, request_options=request_options)
+        return _response.data
+
+    def get_initialization(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Optional[ComputerInitializationResponse]:
+        """
+        Read the existing computer's durable initialization progress after creation. Requires current workspace membership and asset VIEW access. This read never starts, wakes, retries, or extends an initialization. A null response means no durable attempt exists for this legacy computer; it does not mean setup succeeded. The attempt ID and deadline remain stable across reconnects.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[ComputerInitializationResponse]
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.get_initialization(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.get_initialization(asset_id, request_options=request_options)
         return _response.data
 
     def get_ssh_access(
@@ -306,6 +339,46 @@ class AsyncComputerClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.deploy_computer(asset_id, port=port, request_options=request_options)
+        return _response.data
+
+    async def get_initialization(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Optional[ComputerInitializationResponse]:
+        """
+        Read the existing computer's durable initialization progress after creation. Requires current workspace membership and asset VIEW access. This read never starts, wakes, retries, or extends an initialization. A null response means no durable attempt exists for this legacy computer; it does not mean setup succeeded. The attempt ID and deadline remain stable across reconnects.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[ComputerInitializationResponse]
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.get_initialization(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_initialization(asset_id, request_options=request_options)
         return _response.data
 
     async def get_ssh_access(

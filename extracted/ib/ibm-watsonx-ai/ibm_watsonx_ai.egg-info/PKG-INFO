@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: ibm_watsonx_ai
-Version: 1.7.1
+Version: 1.7.2
 Summary: IBM watsonx.ai API Client
 Author: IBM
-Maintainer-email: Maria Oleszkiewicz <maria.oleszkiewicz@pl.ibm.com>, Mateusz Szewczyk <Mateusz.Szewczyk@ibm.com>
+Maintainer-email: Maria Oleszkiewicz <maria.oleszkiewicz@pl.ibm.com>, Filip Żmijewski <filip.zmijewski@ibm.com>
 License: BSD-3-Clause
 Project-URL: Documentation, https://ibm.github.io/watsonx-ai-python-sdk
 Project-URL: Changelog, https://ibm.github.io/watsonx-ai-python-sdk/changelog.html

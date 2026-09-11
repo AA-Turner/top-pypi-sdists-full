@@ -18,6 +18,7 @@ use pyrefly_config::config::FallbackSearchPath;
 use pyrefly_config::resolve_unconfigured::UnconfiguredOverride;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::arc_id::WeakArcId;
+use pyrefly_util::globs::Globs;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use serde::Deserialize;
@@ -41,34 +42,21 @@ use crate::state::lsp::ImportFormat;
 use crate::state::lsp::InlayHintConfig;
 use crate::state::lsp::TypeCheckingMode;
 
-/// Information about the Python environment provided by this workspace.
-#[derive(Debug, Clone)]
-pub struct PythonInfo {
-    /// The path to the interpreter used to query this `PythonInfo`'s [`PythonEnvironment`].
-    interpreter: PathBuf,
-    /// The [`PythonEnvironment`] values all [`ConfigFile`]s in a given workspace should
-    /// use if no explicit [`ConfigFile::python_interpreter`] is provided, or any
-    /// `PythonEnvironment` values in that `ConfigFile` are unfiled. If the `interpreter
-    /// provided fails to execute or is invalid, this `PythonEnvironment` might instead
-    /// be a system interpreter or [`PythonEnvironment::pyrefly_default()`].
-    env: PythonEnvironment,
-}
-
-impl PythonInfo {
-    pub fn new(interpreter: PathBuf) -> Self {
-        let (env, query_error) = PythonEnvironment::get_interpreter_env(&interpreter);
-        if let Some(error) = query_error {
-            error!("{error}");
-        }
-        Self { interpreter, env }
-    }
-}
-
 /// LSP workspace settings: this is all that is necessary to run an LSP at a given root.
 #[derive(Debug, Clone, Default)]
 pub struct Workspace {
-    python_info: Option<PythonInfo>,
+    /// A Python interpreter path provided by the client (e.g. via `pythonPath`).
+    /// Only applied to configs that don't pick their own interpreter and haven't
+    /// opted out of interpreter queries (`skip-interpreter-query`).
+    client_interpreter: Option<PathBuf>,
     search_path: Option<Vec<PathBuf>>,
+    /// Extra `project_excludes` globs contributed by the client, already
+    /// rewritten relative to this workspace's root. Appended to (never
+    /// replacing) whatever the resolved `ConfigFile` excludes, so an editor
+    /// marking a directory as excluded can only ever remove files from the
+    /// project, not silently re-include files the project's own config
+    /// excluded.
+    project_excludes: Option<Globs>,
     pub disable_language_services: bool,
     pub disabled_language_services: Option<DisabledLanguageServices>,
     pub runnable_code_lens: bool,
@@ -145,6 +133,12 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
                 if let Some(search_path) = w.search_path.clone() {
                     config.search_path_from_args = search_path;
                 }
+                if let Some(project_excludes) = &w.project_excludes {
+                    // Runs before `config.configure()` below, so the exclude
+                    // heuristics (required excludes, site packages) are still
+                    // layered on top of the combined list.
+                    config.project_excludes.append(project_excludes.globs());
+                }
                 // If we already have a static fallback search path (meaning no config was found
                 // and we're already using heuristics), insert workspace root as first
                 // fallback_search_path so our handles (which are created from first fallback)
@@ -158,12 +152,19 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
                     config.fallback_search_path =
                         FallbackSearchPath::Explicit(Arc::new(new_fallback_search_path));
                 }
-                if let Some(PythonInfo {
-                    interpreter,
-                    mut env,
-                }) = w.python_info.clone()
+                // Use the client-provided interpreter (e.g. `pythonPath`) only when the
+                // config doesn't already specify an interpreter and hasn't opted out of
+                // interpreter queries entirely (`skip-interpreter-query`). The query is
+                // deferred until here so an opt-out config never pays for it.
+                if let Some(interpreter) = w.client_interpreter.clone()
                     && config.interpreters.is_empty()
+                    && !config.interpreters.skip_interpreter_query
                 {
+                    let (mut env, query_error) =
+                        PythonEnvironment::get_interpreter_env(&interpreter);
+                    if let Some(error) = query_error {
+                        error!("{error}");
+                    }
                     let site_package_path: Option<Vec<PathBuf>> =
                         config.python_environment.site_package_path.take();
                     env.site_package_path = site_package_path;
@@ -177,7 +178,7 @@ impl ConfigConfigurer for WorkspaceConfigConfigurer {
 
         // we print the errors here instead of returning them since
         // it gives the most immediate feedback for config loading errors
-        for error in errors.drain(..).chain(config.configure()) {
+        for error in errors.drain(..).chain(config.configure_at(root)) {
             error.print();
         }
         let config = ArcId::new(config);
@@ -243,7 +244,16 @@ struct PyreflyClientConfig {
     #[serde(default)]
     disable_type_errors: bool,
     disable_language_services: Option<bool>,
+    /// deprecated, use `extra_search_paths`
     extra_paths: Option<Vec<PathBuf>>,
+    extra_search_paths: Option<Vec<PathBuf>>,
+    /// Globs excluded from the project, in addition to the `project-excludes`
+    /// of whatever config Pyrefly resolves for a file. Relative patterns are
+    /// interpreted relative to the workspace folder they're scoped to. Lets
+    /// editors that own their own notion of excluded directories (e.g.
+    /// PyCharm's "Excluded" content roots) push it down without writing a
+    /// `pyrefly.toml`.
+    extra_project_excludes: Option<Globs>,
     runnable_code_lens: Option<bool>,
     diagnostic_mode: Option<DiagnosticMode>,
     #[serde(default, deserialize_with = "deserialize_analysis")]
@@ -554,6 +564,10 @@ impl Workspaces {
             if let Some(extra_paths) = pyrefly.extra_paths {
                 self.update_search_paths(modified, scope_uri, extra_paths);
             }
+            if let Some(extra_paths) = pyrefly.extra_search_paths {
+                self.update_search_paths(modified, scope_uri, extra_paths);
+            }
+            self.update_project_excludes(modified, scope_uri, pyrefly.extra_project_excludes);
             if let Some(disable_language_services) = pyrefly.disable_language_services {
                 self.update_disable_language_services(scope_uri, disable_language_services);
             }
@@ -798,19 +812,18 @@ impl Workspaces {
     fn update_pythonpath(&self, modified: &mut bool, scope_uri: &Option<Url>, python_path: &str) {
         let mut workspaces = self.workspaces.write();
         let interpreter = PathBuf::from(python_path);
-        let python_info = Some(PythonInfo::new(interpreter));
         match scope_uri {
             Some(scope_uri) => {
                 if let Ok(workspace_path) = scope_uri.to_file_path()
                     && let Some(workspace) = workspaces.get_mut(&workspace_path)
                 {
                     *modified = true;
-                    workspace.python_info = python_info;
+                    workspace.client_interpreter = Some(interpreter);
                 }
             }
             None => {
                 *modified = true;
-                self.default.write().python_info = python_info;
+                self.default.write().client_interpreter = Some(interpreter);
             }
         }
     }
@@ -835,6 +848,43 @@ impl Workspaces {
             None => {
                 *modified = true;
                 self.default.write().search_path = Some(search_paths);
+            }
+        }
+    }
+
+    /// Updates the client-provided `project_excludes` for scope uri.
+    ///
+    /// Patterns are rewritten relative to the workspace root, so clients can
+    /// send workspace-relative globs. The catch-all default workspace has no
+    /// root to anchor to, so patterns applied to it must be absolute to match
+    /// anything — in practice this is fine, because `initializationOptions`
+    /// are applied to every workspace folder as well as to the default.
+    fn update_project_excludes(
+        &self,
+        modified: &mut bool,
+        scope_uri: &Option<Url>,
+        project_excludes: Option<Globs>,
+    ) {
+        let mut workspaces = self.workspaces.write();
+        match scope_uri {
+            Some(scope_uri) => {
+                if let Ok(workspace_path) = scope_uri.to_file_path()
+                    && let Some(workspace) = workspaces.get_mut(&workspace_path)
+                {
+                    let project_excludes =
+                        project_excludes.map(|globs| globs.from_root(&workspace_path));
+                    if workspace.project_excludes != project_excludes {
+                        *modified = true;
+                        workspace.project_excludes = project_excludes;
+                    }
+                }
+            }
+            None => {
+                let mut default = self.default.write();
+                if default.project_excludes != project_excludes {
+                    *modified = true;
+                    default.project_excludes = project_excludes;
+                }
             }
         }
     }
@@ -1339,6 +1389,114 @@ mod tests {
             assert_eq!(workspaces.default.read().type_checking_mode, None);
         }
 
+        /// `extraSearchPaths` is the current name for the client-provided
+        /// search path, and must reach the workspace on its own.
+        #[test]
+        fn extra_search_paths_are_honored() {
+            let workspaces = Workspaces::new(Workspace::new(), &[]);
+            let mut modified = false;
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &None,
+                json!({ "pyrefly": { "extraSearchPaths": ["/some/path"] } }),
+                ServerMode::LanguageServer,
+            );
+            assert!(modified);
+            assert_eq!(
+                workspaces.default.read().search_path,
+                Some(vec![PathBuf::from("/some/path")])
+            );
+        }
+
+        /// A client sending both the current and the deprecated key must get
+        /// the current one. This holds only because `apply_client_configuration`
+        /// applies `extra_paths` before `extra_search_paths` and each write
+        /// replaces the whole search path — swapping that order silently
+        /// inverts the documented precedence.
+        #[test]
+        fn extra_search_paths_wins_over_deprecated_extra_paths() {
+            let workspaces = Workspaces::new(Workspace::new(), &[]);
+            let mut modified = false;
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &None,
+                json!({ "pyrefly": {
+                    "extraPaths": ["/deprecated"],
+                    "extraSearchPaths": ["/current"],
+                } }),
+                ServerMode::LanguageServer,
+            );
+            assert_eq!(
+                workspaces.default.read().search_path,
+                Some(vec![PathBuf::from("/current")])
+            );
+        }
+
+        /// `extraProjectExcludes` globs are stored rewritten relative to the
+        /// workspace root, so a client can send workspace-relative patterns
+        /// (which is what an editor reporting excluded content roots has).
+        // Unix-only because it spells absolute paths literally; the
+        // `test_client_project_excludes` LSP test covers rooting portably.
+        #[cfg(unix)]
+        #[test]
+        fn project_excludes_are_rooted_at_the_workspace() {
+            let root = PathBuf::from("/projects/my_project");
+            let workspaces = Workspaces::new(Workspace::new(), std::slice::from_ref(&root));
+            let mut modified = false;
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &Some(Url::from_directory_path(&root).unwrap()),
+                json!({ "pyrefly": { "extraProjectExcludes": ["generated", "/abs/vendor"] } }),
+                ServerMode::LanguageServer,
+            );
+            assert!(modified);
+            let excludes = workspaces
+                .workspaces
+                .read()
+                .get(&root)
+                .unwrap()
+                .project_excludes
+                .clone()
+                .unwrap();
+            assert!(excludes.covers(Path::new("/projects/my_project/generated/a.py")));
+            assert!(excludes.covers(Path::new("/abs/vendor/b.py")));
+            assert!(!excludes.covers(Path::new("/projects/my_project/src/c.py")));
+        }
+
+        /// Removing `extraProjectExcludes` from settings must clear the prior value
+        /// and flag `modified`, otherwise a directory stays excluded after the
+        /// user un-excludes it. Re-asserting the same value must not.
+        #[test]
+        fn project_excludes_clear_and_repeat() {
+            let workspaces = Workspaces::new(Workspace::new(), &[]);
+            let mut modified = false;
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &None,
+                json!({ "pyrefly": { "extraProjectExcludes": ["/abs/generated"] } }),
+                ServerMode::LanguageServer,
+            );
+            assert!(modified);
+
+            modified = false;
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &None,
+                json!({ "pyrefly": { "extraProjectExcludes": ["/abs/generated"] } }),
+                ServerMode::LanguageServer,
+            );
+            assert!(!modified);
+
+            workspaces.apply_client_configuration(
+                &mut modified,
+                &None,
+                json!({ "pyrefly": {} }),
+                ServerMode::LanguageServer,
+            );
+            assert!(modified);
+            assert_eq!(workspaces.default.read().project_excludes, None);
+        }
+
         /// Re-asserting the same `typeCheckingMode` value must not flag
         /// `modified` (otherwise a partial payload re-stating the
         /// current value triggers a full recheck).
@@ -1355,5 +1513,38 @@ mod tests {
             );
             assert!(!modified);
         }
+    }
+
+    /// A client-supplied `pythonPath` must not be applied to a config that opted
+    /// out of interpreter queries (`skip-interpreter-query = true`), and it must
+    /// only be applied to a config that hasn't already picked an interpreter. This
+    /// pins the workspace side of the `skip-interpreter-query` contract: a config
+    /// that opts out should never pay for — or even perform — an interpreter query.
+    /// Regression test for facebook/pyrefly#4445.
+    #[test]
+    fn test_skip_interpreter_query_blocks_client_pythonpath() {
+        let workspaces = Workspaces::new(Workspace::new(), &[]);
+        workspaces.default.write().client_interpreter = Some(PathBuf::from("/fake/python"));
+        let configurer = WorkspaceConfigConfigurer(Arc::new(workspaces));
+
+        // A config with `skip-interpreter-query = true`: the client interpreter is
+        // ignored entirely (neither queried nor applied as an interpreter path).
+        let mut skip_config = ConfigFile::parse_config("skip-interpreter-query = true").unwrap();
+        // Mark it as file-loaded so the unconfigured resolver (which would otherwise
+        // rebuild the config) doesn't drop the opt-out flag.
+        skip_config.source = ConfigSource::File(PathBuf::from("/fake/root/pyrefly.toml"));
+        let (applied, _) = configurer.configure(Some(Path::new("/fake/root")), skip_config, vec![]);
+        assert!(
+            applied.interpreters.is_empty(),
+            "client pythonPath must be ignored when skip-interpreter-query is set"
+        );
+
+        // A config that is silent about interpreters: the client interpreter is applied.
+        let (applied, _) =
+            configurer.configure(Some(Path::new("/fake/root")), ConfigFile::default(), vec![]);
+        assert!(
+            !applied.interpreters.is_empty(),
+            "client pythonPath is applied when the config is silent about interpreters"
+        );
     }
 }

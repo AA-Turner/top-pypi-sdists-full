@@ -12,6 +12,7 @@ from typing import Any, Literal, TypeAlias
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
+from jsonschema import ValidationError as JsonSchemaValidationError
 from packaging.version import Version
 from pydantic import VERSION as PYDANTIC_VERSION
 from pydantic import ValidationError
@@ -863,37 +864,41 @@ def test_payload_backend_all_case_mode_widens_runtime_validating_backends() -> N
 
 
 @pytest.mark.parametrize("case", PYDANTIC_V2_ACCEPTANCE_CASES)
-@settings(
-    database=None,
-    deadline=None,
-    derandomize=True,
-    max_examples=MAX_EXAMPLES,
-    suppress_health_check=[
-        HealthCheck.filter_too_much,
-        HealthCheck.function_scoped_fixture,
-        HealthCheck.too_slow,
-    ],
-)
-@given(data=st.data())
 def test_generated_pydantic_v2_model_accepts_schema_derived_payloads(
     case: SchemaCase,
     generated_model_cache: dict[str, Any],
-    data: st.DataObject,
 ) -> None:
-    """Source-valid payloads preserve acceptance or a proven native float rejection."""
-    payload = data.draw(payload_strategy(case), label=case.id)
-    validate_with_source_schema(case, payload)
-    adapter = load_generated_payload_adapter(case, generated_model_cache)
-    expected_errors = native_float_multiple_errors(case, payload)
-    validated, errors = pydantic_payload_result(adapter, payload)
-    expected = expected_errors or []
-    assert_output(
-        json.dumps([] if errors == expected else {"expected": expected, "actual": errors}, indent=2),
-        NATIVE_NUMERIC_EMPTY_ERRORS,
+    """Check every schema with fresh Hypothesis settings, avoiding parametrization parent chains."""
+
+    @settings(
+        database=None,
+        deadline=None,
+        derandomize=True,
+        max_examples=MAX_EXAMPLES,
+        suppress_health_check=[
+            HealthCheck.filter_too_much,
+            HealthCheck.function_scoped_fixture,
+            HealthCheck.too_slow,
+        ],
     )
-    if expected_errors is not None and not errors:
-        dumped = adapter.dump_python(validated, mode="json", by_alias=True, exclude_unset=True)
-        validate_with_source_schema(case, dumped)
+    @given(data=st.data())
+    def check_acceptance(data: st.DataObject) -> None:
+        """Source-valid payloads preserve acceptance or a proven native float rejection."""
+        payload = data.draw(payload_strategy(case), label=case.id)
+        validate_with_source_schema(case, payload)
+        adapter = load_generated_payload_adapter(case, generated_model_cache)
+        expected_errors = native_float_multiple_errors(case, payload)
+        validated, errors = pydantic_payload_result(adapter, payload)
+        expected = expected_errors or []
+        assert_output(
+            json.dumps([] if errors == expected else {"expected": expected, "actual": errors}, indent=2),
+            NATIVE_NUMERIC_EMPTY_ERRORS,
+        )
+        if expected_errors is not None and not errors:
+            dumped = adapter.dump_python(validated, mode="json", by_alias=True, exclude_unset=True)
+            validate_with_source_schema(case, dumped)
+
+    check_acceptance()
 
 
 @pytest.mark.parametrize("case", PYDANTIC_V2_ROUND_TRIP_CASES)
@@ -1024,3 +1029,44 @@ def test_generated_payload_backend_rejects_representative_schema_invalid_payload
 
     runtime = load_generated_payload_runtime(case, generated_model_cache, backend)
     runtime.assert_rejects_python(mutation.payload)
+
+
+LITERAL_DATA_PATH = Path(__file__).parents[1] / "data" / "payloads" / "literal_witnesses_schemas.json"
+
+
+LITERAL_SCHEMAS = json.loads(LITERAL_DATA_PATH.read_text(encoding="utf-8"))
+
+
+LITERAL_CASES = {
+    name: SchemaCase(name, "jsonschema", LITERAL_DATA_PATH, schema, schema, ".json")
+    for name, schema in LITERAL_SCHEMAS.items()
+}
+
+
+@pytest.mark.parametrize("name", LITERAL_CASES)
+@settings(
+    database=None,
+    deadline=None,
+    derandomize=True,
+    max_examples=20,
+    suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow],
+)
+@given(data=st.data())
+def test_literal_source_payloads(name: str, data: st.DataObject) -> None:
+    """Sample literal intersections, nonliteral regexes, nested schemas and ordinary primitives."""
+    case = LITERAL_CASES[name]
+    with assert_inputs_not_mutated({"schema": case.source_schema}):
+        validate_with_source_schema(case, data.draw(payload_strategy(case)))
+
+
+def test_literal_source_witnesses() -> None:
+    """The unchanged source proves both literal orders and rejects incomplete intersections."""
+    witnesses = json.loads(LITERAL_DATA_PATH.with_name("literal_witnesses_values.json").read_text(encoding="utf-8"))[
+        "unicode"
+    ]
+    with assert_inputs_not_mutated({"schema": LITERAL_CASES["unicode"].source_schema, "witnesses": witnesses}):
+        for payload in witnesses["valid"]:
+            validate_with_source_schema(LITERAL_CASES["unicode"], payload)
+        for payload in witnesses["invalid"]:
+            with pytest.raises(JsonSchemaValidationError):
+                validate_with_source_schema(LITERAL_CASES["unicode"], payload)

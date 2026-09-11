@@ -132,6 +132,60 @@ async def test_confirm_tier_failure_degrades_to_cheap() -> None:
 
 
 @pytest.mark.asyncio
+async def test_confirm_tier_failure_is_captured_before_degrading() -> None:
+    """Nothing fails silently: a lookup that raises degrades the MODEL's
+    guidance to the cheap tier, but the operator must still get the failure
+    through the capture seam — a swallowed ``db down`` is invisible forever."""
+    manifest = _manifest_with_keys(["active_file"])
+    boom = RuntimeError("db down")
+    lookup = AsyncMock(side_effect=boom)
+    captured = AsyncMock()
+
+    def _get_ext(name: str) -> Any:
+        if name == "lookup_prior_attached_document":
+            return lookup
+        return lambda _app: manifest
+
+    with (
+        patch(
+            "matrx_ai.context.app_context.get_app_context",
+            return_value=_app_ctx("conv-1"),
+        ),
+        patch("matrx_ai._ext.get_ext", side_effect=_get_ext),
+        patch("matrx_ai._ext.has_ext", return_value=True),
+        patch("matrx_connect.streaming.error_capture.capture_error", captured),
+    ):
+        result = await ctx_get({"key": "attached_document_pd-7", "mode": "full"}, _ctx())
+
+    assert result.error.error_type == "context_not_attached"
+    assert captured.await_count == 1, "the confirm-tier lookup failure was swallowed"
+    (exc,), kwargs = captured.await_args
+    assert exc is boom
+    assert kwargs["kind"]
+    assert kwargs["conversation_id"] == "conv-1"
+
+
+@pytest.mark.asyncio
+async def test_attached_document_refusal_forbids_retrying_the_key() -> None:
+    """The dominant cost was the model re-sending the same dead key. Break
+    caught: the attached-document refusal marked retryable, or its do-not-retry
+    instruction dropped."""
+    with (
+        patch(
+            "matrx_ai.context.app_context.get_app_context",
+            return_value=_app_ctx(),
+        ),
+        patch("matrx_ai._ext.get_ext", return_value=lambda _app: None),
+        patch("matrx_ai._ext.has_ext", return_value=False),
+    ):
+        result = await ctx_get({"key": "attached_document_pd-xyz", "mode": "full"}, _ctx())
+
+    assert result.success is False
+    assert result.error.is_retryable is False
+    assert "Do NOT retry this context key" in (result.error.suggested_action or "")
+
+
+@pytest.mark.asyncio
 async def test_generic_missing_key_lists_available() -> None:
     """A non-attached-document well-formed key gets the available-keys
     inventory, not the blunt empty message.

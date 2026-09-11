@@ -3,6 +3,7 @@ import random
 from typing import Any
 
 from matrx_utils import vcprint
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 try:
     from matrx_connect import Emitter
@@ -77,7 +78,7 @@ async def scrape_url_core(
             failure_reason = f" ({response.failed_primary_reason})"
         elif not has_content:
             failure_reason = " (no content)"
-        vcprint(f"SCRAPE SKIPPED: {url}{failure_reason}", color="cyan")
+        vcprint(f"SCRAPE SKIPPED: {redact_url_secrets(url)}{failure_reason}", color="cyan")
         return None
 
     content = ""
@@ -88,7 +89,7 @@ async def scrape_url_core(
         raw_bytes = response.content_bytes
         if not raw_bytes:
             vcprint(
-                f"SCRAPE SKIPPED: {url} (PDF detected but no binary data captured)", color="cyan"
+                f"SCRAPE SKIPPED: {redact_url_secrets(url)} (PDF detected but no binary data captured)", color="cyan"
             )
             return None
         # 300 DPI pdfium render + pytesseract OCR per page — seconds to minutes
@@ -100,7 +101,7 @@ async def scrape_url_core(
         raw_bytes = response.content_bytes
         if not raw_bytes:
             vcprint(
-                f"SCRAPE SKIPPED: {url} (image detected but no binary data captured)", color="cyan"
+                f"SCRAPE SKIPPED: {redact_url_secrets(url)} (image detected but no binary data captured)", color="cyan"
             )
             return None
         # pytesseract OCR — same starvation risk as the PDF branch above.
@@ -114,7 +115,7 @@ async def scrape_url_core(
         content = extract_text_content(response.content, response.content_type.value) or ""
     else:
         vcprint(
-            f"SCRAPE SKIPPED: {url} (unsupported content type: {response.content_type_raw})",
+            f"SCRAPE SKIPPED: {redact_url_secrets(url)} (unsupported content type: {response.content_type_raw})",
             color="cyan",
         )
         return None
@@ -124,11 +125,11 @@ async def scrape_url_core(
 
     if not is_good_scrape:
         vcprint(
-            f"SCRAPE THIN: {url} | {char_count:,} chars (below {good_scrape_threshold:,} threshold)",
+            f"SCRAPE THIN: {redact_url_secrets(url)} | {char_count:,} chars (below {good_scrape_threshold:,} threshold)",
             color="yellow",
         )
     else:
-        vcprint(f"SCRAPE SUCCESS: {url} | {char_count:,} chars", color="green")
+        vcprint(f"SCRAPE SUCCESS: {redact_url_secrets(url)} | {char_count:,} chars", color="green")
 
     date_info = (f"Published: {response.published_at}\n" if response.published_at else "") + (
         f"Modified: {response.modified_at}\n" if response.modified_at else ""

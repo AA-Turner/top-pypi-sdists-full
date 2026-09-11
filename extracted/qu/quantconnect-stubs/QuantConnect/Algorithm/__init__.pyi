@@ -5798,6 +5798,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
+    @overload
     def lsma(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], float] = None) -> QuantConnect.Indicators.LeastSquaresMovingAverage:
         """
         Creates and registers a new Least Squares Moving Average instance.
@@ -5807,6 +5808,22 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution.
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar.
         :returns: A LeastSquaredMovingAverage configured with the specified period.
+        """
+        ...
+
+    @overload
+    def lsma(self, target: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], period: int, resolution: typing.Optional[QuantConnect.Resolution] = None, selector: typing.Callable[[QuantConnect.Data.IBaseData], QuantConnect.Data.Market.IBaseDataBar] = None) -> QuantConnect.Indicators.LeastSquaresMovingAverageWithReference:
+        """
+        Creates a Least Squares Moving Average indicator for the given target symbol in relation with
+        the reference used, that is, the regression line of the target prices on the reference prices.
+        The indicator will be automatically updated on the given resolution.
+        
+        :param target: The target symbol whose LSMA we want
+        :param reference: The reference symbol to regress the target symbol on
+        :param period: The period of the LSMA indicator
+        :param resolution: The resolution
+        :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
+        :returns: The LeastSquaresMovingAverageWithReference indicator for the given parameters.
         """
         ...
 

@@ -36,8 +36,7 @@ def api_fetch(
             if r.status_code == 200:
                 logging.debug(json.dumps(r.json(), indent=2))
                 return r.json()
-            else:
-                raise Exception(f"Request failed with status code {r.status_code}")
+            raise Exception(f"Request failed with status code {r.status_code}")
         except Exception:
             retries += 1
             if retries > max_retries:
@@ -747,10 +746,9 @@ def create_deployment(
 def _build_data_movement_message(kind: str, source_mv_name: Optional[str]) -> str:
     if kind == "backfill_with_mv_queries":
         return f"Using Materialized Pipe {source_mv_name or ''}"
-    elif kind == "backfill_with_forward_query":
+    if kind == "backfill_with_forward_query":
         return "From live deployment using Forward Query"
-    else:
-        return ""
+    return ""
 
 
 def print_changes(result: dict, project: Project, output: Optional[str] = "human") -> None:

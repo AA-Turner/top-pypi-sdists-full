@@ -232,19 +232,21 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     entity_map_raw = getattr(response, "entity_map", None) or []
     entity_map = [_entity_map_entry_to_dict(e) for e in entity_map_raw]
     matched_entities = list(getattr(response, "matched_entities", None) or [])
+    output: dict[str, Any] = {
+        "query": getattr(response, "query", parsed.query),
+        "hits": hits,
+        "total_candidates": int(getattr(response, "total_candidates", len(hits))),
+        "embedding_model": getattr(response, "embedding_model", "") or "",
+        "reranker_model": getattr(response, "reranker_model", None),
+        "latency_ms": int(getattr(response, "latency_ms", 0) or 0),
+        "matched_entities": matched_entities,
+        "entity_map": entity_map,
+        "validation_guidance": PHYSICAL_PAGE_VALIDATION_GUIDANCE,
+    }
+    output.update(_relevance_report(response, hits))
     result = ToolResult(
         success=True,
-        output={
-            "query": getattr(response, "query", parsed.query),
-            "hits": hits,
-            "total_candidates": int(getattr(response, "total_candidates", len(hits))),
-            "embedding_model": getattr(response, "embedding_model", "") or "",
-            "reranker_model": getattr(response, "reranker_model", None),
-            "latency_ms": int(getattr(response, "latency_ms", 0) or 0),
-            "matched_entities": matched_entities,
-            "entity_map": entity_map,
-            "validation_guidance": PHYSICAL_PAGE_VALIDATION_GUIDANCE,
-        },
+        output=output,
     )
     # CITABLE passages: the model-facing result carries each hit as a
     # SearchResultContent block (Anthropic `search_result` + citations enabled,
@@ -254,6 +256,56 @@ async def knowledge_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult
     if provider_blocks is not None:
         result.provider_content = provider_blocks
     return _stamp(result, started_at, ctx)
+
+
+def _relevance_report(response: Any, hits: list[dict[str, Any]]) -> dict[str, Any]:
+    """State what the engine's relevance gate concluded — in the agent's words.
+
+    The retrieval engine gates hits on a calibrated cross-encoder floor
+    (``matrx_rag.search.RELEVANCE_FLOOR``), so an empty ``hits`` can mean "the
+    corpus has nothing for this query" — a real answer. Saying that outright is
+    the difference between an agent reporting the gap and an agent re-issuing
+    the same call (knowledge_compare did it 19 times in one turn before the
+    floor existed; feedback 2985b3aa). An unscored result says THAT, too, rather
+    than implying the hits were vetted.
+    """
+    verdict = getattr(response, "relevance_verdict", "unscored")
+    floor = getattr(response, "relevance_floor", None)
+    dropped = int(getattr(response, "below_floor_dropped", 0) or 0)
+    report: dict[str, Any] = {
+        "relevance_verdict": verdict,
+        "relevance_floor": floor,
+        "below_floor_dropped": dropped,
+    }
+    if hits:
+        if verdict == "unscored":
+            report["note"] = (
+                "These hits were ranked but NOT relevance-scored (the "
+                "cross-encoder was unavailable), so no relevance floor was "
+                "applied. Read the snippets before relying on them."
+            )
+        return report
+    if verdict == "no_relevant_matches":
+        floor_text = f"{floor:.2f}" if isinstance(floor, (int, float)) else "the relevance floor"
+        candidates = int(getattr(response, "total_candidates", 0) or 0)
+        report["no_relevant_matches"] = True
+        report["note"] = (
+            f"Nothing in the content you can see matched above the similarity "
+            f"floor ({floor_text}) — {candidates} candidate chunk(s) were "
+            f"retrieved and every one scored below it. This is an honest empty "
+            f"result, not an error. Do NOT repeat this query; rephrase in the "
+            f"vocabulary the records actually use, widen/narrow the filters, or "
+            f"check knowledge_browse(action='sources') for what is indexed."
+        )
+    else:
+        report["no_relevant_matches"] = True
+        report["note"] = (
+            "Nothing was retrieved for this query — either no such content is "
+            "indexed or none is visible to you. Check "
+            "knowledge_browse(action='sources') before retrying a reworded "
+            "version of the same query."
+        )
+    return report
 
 
 def _citable_blocks_for_hits(hits: list[dict[str, Any]]) -> list[Any] | None:

@@ -90,6 +90,9 @@ from great_expectations.execution_engine.partition_and_sample.data_partitioner i
 from great_expectations.execution_engine.partition_and_sample.sqlalchemy_data_partitioner import (
     SqlAlchemyDataPartitioner,
 )
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    _query_text_as_subquery,
+)
 
 if TYPE_CHECKING:
     # We re-import sqlalchemy here to make type-checking and our compatability layer
@@ -1142,7 +1145,7 @@ class QueryAsset(_SQLAsset):
 
         This can be used in a subselect FROM clause for queries against this data.
         """
-        return sa.select(sa.text(self.query.lstrip()[6:])).subquery()
+        return _query_text_as_subquery(self.query)
 
     @override
     def _create_batch_spec_kwargs(self) -> Dict[str, Any]:
@@ -1529,12 +1532,22 @@ class SQLDatasource(Datasource):
             current_execution_engine_kwargs != self._cached_execution_engine_kwargs
             or not self._execution_engine
         ):
-            self._cached_execution_engine_kwargs = current_execution_engine_kwargs
+            # Copy before the pop below, which mutates the dict it is taken from. The
+            # cached copy must keep the "kwargs" key so that it compares equal to the
+            # next freshly computed dict. Caching the same object left the cache
+            # permanently missing that key, so the comparison never matched and every
+            # call built a new execution engine and SQLAlchemy engine.
+            cached_execution_engine_kwargs = dict(current_execution_engine_kwargs)
             engine_kwargs = current_execution_engine_kwargs.pop("kwargs", {})
             self._execution_engine = self._execution_engine_type()(
                 **current_execution_engine_kwargs,
                 **engine_kwargs,
             )
+            # Cache only once the engine exists. Caching first would leave a failed
+            # rebuild holding kwargs no engine was ever built from, so the next call
+            # would compare equal and return the engine from the previous configuration
+            # instead of retrying.
+            self._cached_execution_engine_kwargs = cached_execution_engine_kwargs
         return self._execution_engine
 
     @override

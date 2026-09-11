@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -109,11 +110,15 @@ async def test_startup_reaper_fails_sessions_without_recent_activity(
 
     filters = update.await_args.args[0]
     assert filters["status__in"] == ["queued", "running"]
-    assert "updated_at__lt" in filters
     assert filters["deleted_at__isnull"] is True
     assert update.await_args.kwargs["status"] == "failed"
-    assert update.await_args.kwargs["finished_at"] is not None
     assert "restarted" in update.await_args.kwargs["error"]
+    # The cutoff selects only IDLE sessions: one that wrote progress a minute
+    # ago is live and must not match; one silent for two hours must.
+    reaped_at = update.await_args.kwargs["finished_at"]
+    cutoff = filters["updated_at__lt"]
+    assert not (reaped_at - timedelta(minutes=1) < cutoff)
+    assert reaped_at - timedelta(hours=2) < cutoff
 
 
 def test_crawl_command_rejects_invalid_regex_patterns_at_the_boundary() -> None:
@@ -153,6 +158,21 @@ async def test_broker_replays_then_streams_monotonic_events() -> None:
     assert getattr(live, "sequence", None) == 3
     await broker.close()
     assert broker.is_closed_item(await asyncio.wait_for(subscription.queue.get(), timeout=1))
+
+
+@pytest.mark.asyncio
+async def test_broker_never_claims_replay_for_events_it_already_evicted() -> None:
+    broker = CrawlEventBroker("session-1", replay_size=2)
+    for sequence in (1, 2, 3, 4):
+        await broker.publish(_event(sequence))
+
+    gap = await broker.subscribe(after_sequence=1)  # needs event 2 — evicted
+    assert (gap.memory_covers, gap.replay, gap.watermark) == (False, [], 4)
+
+    edge = await broker.subscribe(after_sequence=2)  # oldest kept is 3
+    assert edge.memory_covers is True
+    assert [event.sequence for event in edge.replay] == [3, 4]
+    await broker.close()
 
 
 @pytest.mark.asyncio
@@ -390,11 +410,14 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
     body_file_id = "62913054-1933-44b8-ba94-f592f362b8c1"
     screenshot_file_id = "72913054-1933-44b8-ba94-f592f362b8c1"
 
+    uploads: list[dict] = []
+
     class FakeFileService:
         def __init__(self, file_manager: object) -> None:
             self.file_manager = file_manager
 
         async def upload_with_intent(self, content: bytes, **kwargs: object) -> dict:
+            uploads.append(kwargs)
             file_id = (
                 screenshot_file_id if str(kwargs["file_path"]).endswith(".png") else body_file_id
             )
@@ -538,6 +561,12 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
     assert page_update.await_args.kwargs["content_type_last"] == page_mime
     prune.assert_awaited_once()
     assert prune.await_args.kwargs["keys"] == {(str(page_id), "full")}
+    # Crawl output belongs to the ORGANIZATION, never one person: every stored
+    # artifact is requested org-internal and stamped with the crawl's org.
+    assert [(u["visibility"], u["organization_id"]) for u in uploads] == [
+        ("internal", state.organization_id),
+        ("internal", state.organization_id),
+    ]
 
 
 def test_crawl_persistence_error_exposes_only_safe_stream_message() -> None:

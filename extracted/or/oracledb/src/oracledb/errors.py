@@ -176,6 +176,23 @@ def _create_err(
     return _Error(message)
 
 
+def _create_exception(
+    error_num: int,
+    context_error_message: str = None,
+    cause: Exception = None,
+    **args,
+) -> Exception:
+    """
+    Returns an exception from the specified error number and supplied
+    arguments.
+    """
+    error = _create_err(error_num, context_error_message, cause, **args)
+    exc = error.exc_type(error)
+    if cause is not None:
+        exc.__cause__ = cause
+    return exc
+
+
 def _create_warning(error_num: int, **args) -> _Error:
     """
     Returns a warning error object for the specified error number and supplied
@@ -195,8 +212,7 @@ def _raise_err(
     Raises a driver specific exception from the specified error number and
     supplied arguments.
     """
-    error = _create_err(error_num, context_error_message, cause, **args)
-    raise error.exc_type(error) from cause
+    raise _create_exception(error_num, context_error_message, cause, **args)
 
 
 def _raise_not_supported(feature: str) -> None:
@@ -300,6 +316,8 @@ ERR_INVALID_END_USER_SECURITY_CONTEXT_LENGTH = 2072
 ERR_END_USER_SECURITY_CONTEXT_REQUIRES_TCPS = 2073
 ERR_NAME_HAS_EMBEDDED_QUOTES = 2074
 ERR_PARAM_SIZE_TOO_LARGE = 2075
+ERR_TEMPLATE_WITH_DIRECT_PARAMETERS = 2076
+ERR_TEMPLATE_WITH_UNSUPPORTED_FORMAT = 2077
 
 # error numbers that result in NotSupportedError
 ERR_TIME_NOT_SUPPORTED = 3000
@@ -343,6 +361,8 @@ ERR_CANNOT_CONVERT_TO_ARROW_TYPE = 3038
 ERR_CANNOT_CONVERT_FROM_ARROW_TYPE = 3039
 ERR_DB_CS_NOT_SUPPORTED = 3040
 ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE = 3041
+ERR_ARROW_UNSUPPORTED_INTERVAL = 3042
+ERR_UNSUPPORTED_TXN_PRIORITY = 3043
 
 # error numbers that result in DatabaseError
 ERR_TNS_ENTRY_NOT_FOUND = 4000
@@ -385,6 +405,7 @@ ERR_INVALID_INTEGER = 4038
 ERR_CANNOT_CONVERT_TO_ARROW_FLOAT = 4039
 ERR_ARROW_FIXED_SIZE_BINARY_VIOLATED = 4040
 ERR_DPL_TOO_MUCH_DATA = 4041
+ERR_CANNOT_CONVERT_TO_ARROW_DECIMAL = 4042
 
 # error numbers that result in InternalError
 ERR_MESSAGE_TYPE_UNKNOWN = 5000
@@ -402,6 +423,7 @@ ERR_NOT_IMPLEMENTED = 5012
 ERR_INTERNAL_CREATION_REQUIRED = 5013
 ERR_UNKNOWN_TRANSACTION_SYNC_VERSION = 5014
 ERR_NUMBER_TOO_LARGE = 5015
+ERR_ANO_STATUS_FAILURE = 5016
 
 # error numbers that result in OperationalError
 ERR_LISTENER_REFUSED_CONNECTION = 6000
@@ -577,6 +599,9 @@ ERR_MESSAGE_FORMATS = {
     ERR_ACCESS_TOKEN_REQUIRES_TCPS: (
         "access_token requires use of the tcps protocol"
     ),
+    ERR_ANO_STATUS_FAILURE: (
+        "ANO {service_name} service received a status failure"
+    ),
     ERR_ARGS_AND_KEYWORD_ARGS: (
         "expecting positional arguments or keyword arguments, not both"
     ),
@@ -612,6 +637,10 @@ ERR_MESSAGE_FORMATS = {
         "conversion from Oracle Database type {db_type_name} to Apache "
         "Arrow format is not supported"
     ),
+    ERR_ARROW_UNSUPPORTED_INTERVAL: (
+        "conversion from Arrow interval containing months to Oracle Database "
+        "interval days to seconds data type is not supported"
+    ),
     ERR_ARROW_UNSUPPORTED_VECTOR_FORMAT: (
         "flexible vector formats are not supported. Only fixed 'FLOAT32', "
         "'FLOAT64', 'INT8' or 'BINARY' formats are supported"
@@ -624,6 +653,10 @@ ERR_MESSAGE_FORMATS = {
     ERR_CANNOT_CONVERT_FROM_ARROW_TYPE: (
         'Apache Arrow type "{arrow_type}" cannot be converted to database '
         'type "{db_type}"'
+    ),
+    ERR_CANNOT_CONVERT_TO_ARROW_DECIMAL: (
+        "{value} cannot be converted to an Apache Arrow "
+        "decimal({precision}, {scale})"
     ),
     ERR_CANNOT_CONVERT_TO_ARROW_DOUBLE: (
         "{value} cannot be converted to an Apache Arrow double"
@@ -953,6 +986,13 @@ ERR_MESSAGE_FORMATS = {
     ERR_SESSIONLESS_INACTIVE: ("no Sessionless Transaction is active"),
     ERR_SUBSCR_FAILED: "subscription could not be created",
     ERR_TDS_TYPE_NOT_SUPPORTED: "Oracle TDS data type {num} is not supported",
+    ERR_TEMPLATE_WITH_DIRECT_PARAMETERS: (
+        "directly specified parameters cannot be used with templates"
+    ),
+    ERR_TEMPLATE_WITH_UNSUPPORTED_FORMAT: (
+        "templates do not allow conversions or format specifiers other than "
+        "i, l or q"
+    ),
     ERR_THICK_MODE_ENABLED: (
         "python-oracledb thin mode cannot be used because thick mode has "
         "already been enabled"
@@ -995,7 +1035,7 @@ ERR_MESSAGE_FORMATS = {
     ),
     ERR_UNSUPPORTED_ARROW_TYPE: 'unsupported Apache Arrow type "{arrow_type}"',
     ERR_UNSUPPORTED_DEEP_DATA_SECURITY_FEATURE: (
-        "database version does not support the Oracle Deep Data Security feature"
+        "database does not support Oracle Deep Data Security"
     ),
     ERR_UNSUPPORTED_INBAND_NOTIFICATION: (
         "unsupported in-band notification with error number {err_num}"
@@ -1006,6 +1046,9 @@ ERR_MESSAGE_FORMATS = {
     ERR_UNSUPPORTED_PYTHON_TYPE_FOR_DB_TYPE: (
         "unsupported Python type {py_type_name} for database type "
         "{db_type_name}"
+    ),
+    ERR_UNSUPPORTED_TXN_PRIORITY: (
+        "database does not support transaction priority"
     ),
     ERR_UNSUPPORTED_TYPE_SET: "type {db_type_name} does not support being set",
     ERR_UNSUPPORTED_VERIFIER_TYPE: (

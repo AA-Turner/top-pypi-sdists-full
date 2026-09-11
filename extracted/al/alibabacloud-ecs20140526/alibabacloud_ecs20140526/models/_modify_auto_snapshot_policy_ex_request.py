@@ -44,8 +44,7 @@ class ModifyAutoSnapshotPolicyExRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
         # The destination region to which snapshots are replicated. Currently, you can set only one destination region.
         self.target_copy_regions = target_copy_regions
-        # The list of target resource tags. The automatic snapshot policy matches target resources based on tags.
-        # This parameter is required when AssociationType is set to AssociatedWithInstanceTag.
+        # The list of target resource tags. The automatic snapshot policy matches target resources by tag.
         self.target_tags = target_tags
         # The ID of the automatic snapshot policy. You can call [DescribeAutoSnapshotPolicyEx](https://help.aliyun.com/document_detail/25530.html) to query available automatic snapshot policies.
         # 
@@ -195,12 +194,18 @@ class ModifyAutoSnapshotPolicyExRequestTargetTags(DaraModel):
         value: str = None,
     ):
         # The tag key.
-        # Valid values of N: 1 to 10.
+        # 
+        # Valid values of N: 1 to 5.
+        # 
         # The tag key cannot be an empty string. The tag key can be up to 128 characters in length and cannot start with aliyun or acs:. The tag key cannot contain http:// or https://.
         self.key = key
         # The tag value.
-        # Valid values of N: 1 to 10. The tag value can be up to 128 characters in length and cannot contain http:// or https://.
-        # Note: If you pass in an empty value or an empty string, it indicates any value.
+        # 
+        # Valid values of N: 1 to 5.
+        # 
+        # The tag value can be up to 128 characters in length and cannot contain `http://` or `https://`.
+        # 
+        # > If you pass in an empty value or an empty string, the tag value matches any value.
         self.value = value
 
     def validate(self):
@@ -240,8 +245,8 @@ class ModifyAutoSnapshotPolicyExRequestCopyEncryptionConfiguration(DaraModel):
         self.arn = arn
         # Specifies whether to enable encryption for cross-region snapshot replication. Valid values:
         # 
-        # - true: Encryption is enabled. 
-        # - false: Encryption is not enabled. 
+        # - true: enabled. 
+        # - false: disabled. 
         # 
         # Default value: false.
         self.encrypted = encrypted

@@ -18,8 +18,14 @@ from functools import partial
 from typing import Any
 
 import py_trees
-from py_trees.parsers.behaviour_tree_xml import is_key, parse_behaviour_tree_xml
-from py_trees.ports import BehaviourWithPorts, PortInformation, PortsMixin, get_ports_registry
+from py_trees.parsers.behaviour_tree_xml import XMLParserError, is_key, parse_behaviour_tree_xml
+from py_trees.ports import (
+    BehaviourWithPorts,
+    NoDataAvailable,
+    PortInformation,
+    PortsMixin,
+    get_ports_registry,
+)
 from py_trees.ports_utils import (
     find_node_by_class,
     find_node_by_name,
@@ -27,7 +33,7 @@ from py_trees.ports_utils import (
     strip_trailing_uuid4,
 )
 
-from .test_ports_helpers import Consumer, Producer
+from .test_ports_helpers import Consumer, DefaultingConsumer, FloatConsumer, Producer
 
 
 class StdoutLogger:
@@ -51,20 +57,13 @@ class DummyFactory:
 
 
 class Wait(BehaviourWithPorts):
-    INPUT_DURATION_MS_PORT = "input_duration_ms"
+    INPUT_PORTS = {"input_duration_ms": PortInformation(data_type=int, required=True)}
+    OUTPUT_PORTS = {}
 
     def __init__(self, name: str, factory: DummyFactory, **kwargs: Any) -> None:
         super().__init__(name=name, **kwargs)
         self._factory = factory
         self.start_time = 0.0
-
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {cls.INPUT_DURATION_MS_PORT: PortInformation(data_type=int, required=True)}
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {}
 
     def initialise(self) -> None:
         self.start_time = time.time()
@@ -80,19 +79,14 @@ class Wait(BehaviourWithPorts):
 
     @property
     def duration_value_ms(self) -> Any:
-        return self.get_input(self.INPUT_DURATION_MS_PORT)
+        return self.get_input("input_duration_ms")
 
 
 class EchoCtorArgs(BehaviourWithPorts):
     """Behaviour that tests interpreting constructor type hints for type coercion from XML ports."""
 
-    @classmethod
-    def input_ports(cls) -> dict:
-        return {"in": PortInformation(data_type=str, required=False)}  # not used here
-
-    @classmethod
-    def output_ports(cls) -> dict:
-        return {"out": PortInformation(data_type=str, required=False)}  # not used here
+    INPUT_PORTS = {"in": PortInformation(data_type=str, required=False)}  # not used here
+    OUTPUT_PORTS = {"out": PortInformation(data_type=str, required=False)}  # not used here
 
     def __init__(self, name: str, greeting: str, times: float | None, flag: bool, **kwargs: Any) -> None:
         super().__init__(name, **kwargs)
@@ -205,13 +199,8 @@ class TestXMLParser(unittest.TestCase):
         """Test custom behavior with an additional argument."""
 
         class CustomBehaviourWithPorts(BehaviourWithPorts):
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {"in": PortInformation(data_type=str, required=False)}
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {"out": PortInformation(data_type=str, required=False)}
+            INPUT_PORTS = {"in": PortInformation(data_type=str, required=False)}
+            OUTPUT_PORTS = {"out": PortInformation(data_type=str, required=False)}
 
             def __init__(self, name: str, extra_arg: str, **kwargs: Any) -> None:
                 super().__init__(name, **kwargs)
@@ -325,6 +314,40 @@ class TestXMLParser(unittest.TestCase):
         self.assertEqual(type(node.consumed_value), str)
         self.assertEqual(node.consumed_value, "ABC")
 
+    def test_port_default_values_from_XML(self) -> None:
+        """An unwired port falls back to its declared default; a direct value in the XML overrides it."""
+        self.xml = """<root main_tree_to_execute="MainTree">
+        <BehaviorTree ID="MainTree">
+          <Sequence>
+            <DefaultingConsumer name="defaulted" />
+            <DefaultingConsumer name="overridden" input="explicit" />
+            <DefaultingConsumer name="wired" input="{unwritten}" />
+          </Sequence>
+        </BehaviorTree>
+        </root>"""
+
+        self.tempfile = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".xml")
+        self.tempfile.write(self.xml)
+        self.tempfile.close()
+
+        root_node = parse_behaviour_tree_xml(self.tempfile.name, logger=StdoutLogger())
+        py_trees.trees.BehaviourTree(root_node).tick()
+
+        # No attribute at all: the declared default is used.
+        node = find_node_by_name(root_node, "defaulted", strip_prefix=True)
+        assert isinstance(node, DefaultingConsumer)
+        self.assertEqual(node.consumed_value, "fallback")
+
+        # A direct (constant) value in the XML overrides the default.
+        node = find_node_by_name(root_node, "overridden", strip_prefix=True)
+        assert isinstance(node, DefaultingConsumer)
+        self.assertEqual(node.consumed_value, "explicit")
+
+        # Wired to a key that nothing has written to yet: the default still applies.
+        node = find_node_by_name(root_node, "wired", strip_prefix=True)
+        assert isinstance(node, DefaultingConsumer)
+        self.assertEqual(node.consumed_value, "fallback")
+
     def test_parsing_direct_values_to_XML(self) -> None:
         """Verify that direct values are successfully parsed via the XML parser."""
         # Minimal XML with direct values and a subtree
@@ -417,6 +440,95 @@ class TestXMLParser(unittest.TestCase):
         expected_value = "100"
 
         self.assertEqual(node.consumed_value, expected_value)
+
+    def test_subtree_default_ports(self) -> None:
+        """Verify that subtree default ports take effect as intended."""
+        self.xml = """<root main_tree_to_execute="MainTree">
+        <BehaviorTree ID="SubTree" input1="default_str" input2="42">
+          <Sequence>
+            <Consumer name="Consumer" input="{input1}"/>
+            <FloatConsumer name="FloatConsumer" input="{input2}"/>
+          </Sequence>
+        </BehaviorTree>
+
+        <BehaviorTree ID="MainTree">
+          <Sequence>
+            <SubTree ID="SubTree" name="AllDefaults" />
+            <SubTree ID="SubTree" name="FirstInputSet" input1="override_str" />
+            <SubTree ID="SubTree" name="SecondInputSet" input2="67" />
+            <SubTree ID="SubTree" name="BothInputsSet" input1="another_str" input2="9001" />
+          </Sequence>
+        </BehaviorTree>
+        </root>"""
+
+        self.tempfile = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".xml")
+        self.tempfile.write(self.xml)
+        self.tempfile.close()
+
+        root_node = parse_behaviour_tree_xml(self.tempfile.name, logger=StdoutLogger())
+        btree = py_trees.trees.BehaviourTree(root_node)
+        btree.tick()
+
+        for subtree_name, expected_str, expected_float in (
+            ("AllDefaults", "default_str", 42),
+            ("FirstInputSet", "override_str", 42),
+            ("SecondInputSet", "default_str", 67),
+            ("BothInputsSet", "another_str", 9001),
+        ):
+            node = find_node_by_name(root_node, f"{subtree_name}.Consumer")
+            assert isinstance(node, Consumer)
+            self.assertEqual(node.consumed_value, expected_str)
+
+            node = find_node_by_name(root_node, f"{subtree_name}.FloatConsumer")
+            assert isinstance(node, FloatConsumer)
+            self.assertEqual(node.consumed_value, expected_float)
+
+    def test_top_level_default_ports(self) -> None:
+        """Verify that top-level behaviour default ports take effect as intended."""
+        # In this tree, input1 has a default value but input2 does not.
+        self.xml = """<root main_tree_to_execute="MainTree">
+        <BehaviorTree ID="MainTree" input1="default_str">
+          <Sequence>
+            <Consumer name="Consumer" input="{input1}"/>
+            <FloatConsumer name="FloatConsumer" input="{input2}"/>
+          </Sequence>
+        </BehaviorTree>
+        </root>"""
+
+        self.tempfile = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".xml")
+        self.tempfile.write(self.xml)
+        self.tempfile.close()
+
+        # Run without mappings. This should fail in FloatConsumer because no port was set.
+        root_node = parse_behaviour_tree_xml(self.tempfile.name, logger=StdoutLogger())
+        btree = py_trees.trees.BehaviourTree(root_node)
+        btree.tick()
+
+        node = find_node_by_name(root_node, "Consumer", strip_prefix=True)
+        assert isinstance(node, Consumer)
+        self.assertEqual(node.consumed_value, "default_str")
+
+        float_node = find_node_by_name(root_node, "FloatConsumer", strip_prefix=True)
+        assert isinstance(float_node, FloatConsumer)
+        with self.assertRaises(NoDataAvailable):
+            self.assertEqual(float_node.consumed_value, 42)
+
+        # Setting input values should override the inputs appropriately.
+        root_node = parse_behaviour_tree_xml(
+            self.tempfile.name,
+            logger=StdoutLogger(),
+            input_mappings={"input1": "override_str", "input2": "67"},
+        )
+        btree = py_trees.trees.BehaviourTree(root_node)
+        btree.tick()
+
+        node = find_node_by_name(root_node, "Consumer", strip_prefix=True)
+        assert isinstance(node, Consumer)
+        self.assertEqual(node.consumed_value, "override_str")
+
+        float_node = find_node_by_name(root_node, "FloatConsumer", strip_prefix=True)
+        assert isinstance(float_node, FloatConsumer)
+        self.assertEqual(float_node.consumed_value, 67)
 
     def test_wait_node(self) -> None:
         """Verify that the duration value is successfully used by the Wait node."""
@@ -554,13 +666,8 @@ class TestXMLParser(unittest.TestCase):
         """
 
         class PortAndCtor(BehaviourWithPorts):
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {"in": PortInformation(data_type=str, required=True)}  # only this is a port
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {"out": PortInformation(data_type=str, required=False)}
+            INPUT_PORTS = {"in": PortInformation(data_type=str, required=True)}  # only this is a port
+            OUTPUT_PORTS = {"out": PortInformation(data_type=str, required=False)}
 
             def __init__(self, name: str, label: str, **kwargs: Any) -> None:
                 super().__init__(name, **kwargs)
@@ -605,13 +712,8 @@ class TestXMLParser(unittest.TestCase):
         """
 
         class TakesKeyString(BehaviourWithPorts):
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {}  # no ports at all
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {}
+            INPUT_PORTS = {}  # no ports at all
+            OUTPUT_PORTS = {}
 
             def __init__(self, name: str, token: str) -> None:
                 super().__init__(name)
@@ -664,19 +766,61 @@ class TestXMLParser(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_decorator_ctor_arg_from_subtree_constant(self) -> None:
+        """A built-in decorator inside a subtree receives a constant passed via the SubTree tag."""
+        xml = """<root main_tree_to_execute="MainTree">
+          <BehaviorTree ID="MainTree">
+            <Sequence>
+              <SubTree ID="SubTree" name="Sub" duration="10.0"/>
+            </Sequence>
+          </BehaviorTree>
+          <BehaviorTree ID="SubTree">
+            <Timeout duration="{duration}">
+              <Producer name="prod" output="{out}" />
+            </Timeout>
+          </BehaviorTree>
+        </root>"""
+
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".xml") as tf:
+            tf.write(xml)
+            path = tf.name
+        self.addCleanup(os.unlink, path)
+
+        root = parse_behaviour_tree_xml(path, logger=StdoutLogger())
+        timeout = find_node_by_class(root, py_trees.decorators.Timeout)
+        self.assertIsNotNone(timeout)
+        self.assertEqual(timeout.duration, 10.0)
+        self.assertIsInstance(timeout.duration, float)
+
+    def test_decorator_ctor_arg_from_runtime_key_raises(self) -> None:
+        """A built-in decorator attribute referencing a runtime blackboard key raises an error."""
+        xml = """<root main_tree_to_execute="MainTree">
+          <BehaviorTree ID="MainTree">
+            <Sequence>
+              <Producer name="prod" output="{duration}" />
+              <Timeout duration="{duration}">
+                <Producer name="prod2" output="{out}" />
+              </Timeout>
+            </Sequence>
+          </BehaviorTree>
+        </root>"""
+
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".xml") as tf:
+            tf.write(xml)
+            path = tf.name
+        self.addCleanup(os.unlink, path)
+
+        with self.assertRaises(XMLParserError):
+            parse_behaviour_tree_xml(path, logger=StdoutLogger())
+
     def test_decorator_ports_node(self) -> None:
         """Verify that a decorator with ports is instantiated correctly."""
 
         class RepeatWithPorts(PortsMixin, py_trees.decorators.Repeat):
             """A `py_trees.decorators.Repeat` decorator that also exposes ports."""
 
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {}
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {"count": PortInformation(data_type=int, required=False)}
+            INPUT_PORTS = {}
+            OUTPUT_PORTS = {"count": PortInformation(data_type=int, required=False)}
 
         xml = """<root main_tree_to_execute="MainTree">
           <BehaviorTree ID="MainTree">
@@ -713,13 +857,8 @@ class TestXMLParser(unittest.TestCase):
         class SequenceWithPorts(PortsMixin, py_trees.composites.Sequence):
             """A `py_trees.composites.Sequence` composite that also exposes ports."""
 
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {}
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {}
+            INPUT_PORTS = {}
+            OUTPUT_PORTS = {}
 
         xml = """<root main_tree_to_execute="MainTree">
           <BehaviorTree ID="MainTree">
@@ -763,16 +902,11 @@ class TestXMLParser(unittest.TestCase):
         class DirectPortsLeaf(PortsMixin, py_trees.behaviour.Behaviour):
             """PortsMixin leaf that does NOT go through BehaviourWithPorts."""
 
+            INPUT_PORTS = {}
+            OUTPUT_PORTS = {"out": PortInformation(data_type=str, required=True)}
+
             def __init__(self, name: str, **kwargs: Any) -> None:
                 super().__init__(name=name, **kwargs)
-
-            @classmethod
-            def input_ports(cls) -> dict:
-                return {}
-
-            @classmethod
-            def output_ports(cls) -> dict:
-                return {"out": PortInformation(data_type=str, required=True)}
 
             def update(self) -> py_trees.common.Status:
                 self._set_output("out", "direct-ports-leaf-ran")

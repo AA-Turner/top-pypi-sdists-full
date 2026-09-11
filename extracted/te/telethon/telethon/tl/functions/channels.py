@@ -681,26 +681,28 @@ class GetAdminedPublicChannelsRequest(TLRequest):
     CONSTRUCTOR_ID = 0xf8b036af
     SUBCLASS_OF_ID = 0x99d5cb14
 
-    def __init__(self, by_location: Optional[bool]=None, check_limit: Optional[bool]=None, for_personal: Optional[bool]=None):
+    def __init__(self, by_location: Optional[bool]=None, check_limit: Optional[bool]=None, for_personal: Optional[bool]=None, for_community_peer: Optional[bool]=None):
         """
         :returns messages.Chats: Instance of either Chats, ChatsSlice.
         """
         self.by_location = by_location
         self.check_limit = check_limit
         self.for_personal = for_personal
+        self.for_community_peer = for_community_peer
 
     def to_dict(self):
         return {
             '_': 'GetAdminedPublicChannelsRequest',
             'by_location': self.by_location,
             'check_limit': self.check_limit,
-            'for_personal': self.for_personal
+            'for_personal': self.for_personal,
+            'for_community_peer': self.for_community_peer
         }
 
     def _bytes(self):
         return b''.join((
             b'\xaf6\xb0\xf8',
-            struct.pack('<I', (0 if self.by_location is None or self.by_location is False else 1) | (0 if self.check_limit is None or self.check_limit is False else 2) | (0 if self.for_personal is None or self.for_personal is False else 4)),
+            struct.pack('<I', (0 if self.by_location is None or self.by_location is False else 1) | (0 if self.check_limit is None or self.check_limit is False else 2) | (0 if self.for_personal is None or self.for_personal is False else 4) | (0 if self.for_community_peer is None or self.for_community_peer is False else 8)),
         ))
 
     @classmethod
@@ -710,7 +712,8 @@ class GetAdminedPublicChannelsRequest(TLRequest):
         _by_location = bool(flags & 1)
         _check_limit = bool(flags & 2)
         _for_personal = bool(flags & 4)
-        return cls(by_location=_by_location, check_limit=_check_limit, for_personal=_for_personal)
+        _for_community_peer = bool(flags & 8)
+        return cls(by_location=_by_location, check_limit=_check_limit, for_personal=_for_personal, for_community_peer=_for_community_peer)
 
 
 class GetChannelRecommendationsRequest(TLRequest):

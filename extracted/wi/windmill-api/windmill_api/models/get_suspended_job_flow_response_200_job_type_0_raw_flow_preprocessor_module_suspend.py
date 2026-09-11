@@ -3,6 +3,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.get_suspended_job_flow_response_200_job_type_0_raw_flow_preprocessor_module_suspend_skin import (
+    GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspendSkin,
+)
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -42,6 +45,10 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
         self_approval_disabled (Union[Unset, bool]): If true, the user who started the flow cannot approve
         hide_cancel (Union[Unset, bool]): If true, hide the cancel button on the approval form
         continue_on_disapprove_timeout (Union[Unset, bool]): If true, continue flow on timeout instead of canceling
+        skin (Union[Unset, GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspendSkin]): How the
+            approval request is presented, on the approval page and in Slack/Teams approval messages. 'detailed' (used when
+            unset) shows the flow details (arguments, graph, approvers); 'minimal' shows only the request: the step
+            description, form and approve/reject actions
     """
 
     required_events: Union[Unset, int] = UNSET
@@ -59,6 +66,7 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
     self_approval_disabled: Union[Unset, bool] = UNSET
     hide_cancel: Union[Unset, bool] = UNSET
     continue_on_disapprove_timeout: Union[Unset, bool] = UNSET
+    skin: Union[Unset, GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspendSkin] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -104,6 +112,9 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
         self_approval_disabled = self.self_approval_disabled
         hide_cancel = self.hide_cancel
         continue_on_disapprove_timeout = self.continue_on_disapprove_timeout
+        skin: Union[Unset, str] = UNSET
+        if not isinstance(self.skin, Unset):
+            skin = self.skin.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -124,6 +135,8 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
             field_dict["hide_cancel"] = hide_cancel
         if continue_on_disapprove_timeout is not UNSET:
             field_dict["continue_on_disapprove_timeout"] = continue_on_disapprove_timeout
+        if skin is not UNSET:
+            field_dict["skin"] = skin
 
         return field_dict
 
@@ -225,6 +238,13 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
 
         continue_on_disapprove_timeout = d.pop("continue_on_disapprove_timeout", UNSET)
 
+        _skin = d.pop("skin", UNSET)
+        skin: Union[Unset, GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspendSkin]
+        if isinstance(_skin, Unset):
+            skin = UNSET
+        else:
+            skin = GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspendSkin(_skin)
+
         get_suspended_job_flow_response_200_job_type_0_raw_flow_preprocessor_module_suspend = cls(
             required_events=required_events,
             timeout=timeout,
@@ -234,6 +254,7 @@ class GetSuspendedJobFlowResponse200JobType0RawFlowPreprocessorModuleSuspend:
             self_approval_disabled=self_approval_disabled,
             hide_cancel=hide_cancel,
             continue_on_disapprove_timeout=continue_on_disapprove_timeout,
+            skin=skin,
         )
 
         get_suspended_job_flow_response_200_job_type_0_raw_flow_preprocessor_module_suspend.additional_properties = d

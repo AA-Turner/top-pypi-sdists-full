@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gradio
-Version: 6.26.0
+Version: 6.27.0
 Summary: Python library for easily interacting with trained machine learning models
 Project-URL: Homepage, https://github.com/gradio-app/gradio
 Author-email: Abubakar Abid <gradio-team@huggingface.co>, Ali Abid <gradio-team@huggingface.co>, Ali Abdalla <gradio-team@huggingface.co>, Dawood Khan <gradio-team@huggingface.co>, Ahsen Khaliq <gradio-team@huggingface.co>, Pete Allen <gradio-team@huggingface.co>, Ömer Faruk Özdemir <gradio-team@huggingface.co>, Freddy A Boulton <gradio-team@huggingface.co>, Hannah Blair <gradio-team@huggingface.co>
@@ -23,7 +23,7 @@ Requires-Dist: anyio<5.0,>=3.0
 Requires-Dist: audioop-lts<=0.2.2; python_version >= '3.13'
 Requires-Dist: brotli>=1.1.0
 Requires-Dist: fastapi<1.0,>=0.115.2
-Requires-Dist: gradio-client==2.6.1
+Requires-Dist: gradio-client==2.7.0
 Requires-Dist: groovy~=0.1
 Requires-Dist: hf-gradio<1.0,>=0.4.1
 Requires-Dist: httpx<1.0,>=0.24.1
@@ -231,18 +231,18 @@ Or, if you already know the basics and are looking for something specific, you c
 
 ### AI Coding Skills
 
-Gradio provides a "skill" that enriches AI coding assistants (like Cursor, Claude Code, Codex, etc.) with Gradio-specific knowledge, so that they can build Gradio apps more effectively. This is especially useful when creating custom Gradio components or styling. Install the Gradio skill for your coding assistant with a single command:
+Gradio provides a "skill" that enriches AI coding assistants (like Cursor, Claude Code, Codex, etc.) with Gradio-specific knowledge, so that they can build Gradio apps more effectively. This is especially useful when creating custom Gradio components or styling. Install the Gradio skill for coding assistants with a single command:
 
 ```bash
-gradio skills add --cursor   # or --claude, --codex, --opencode
+gradio skills add
 ```
 
-Use `--global` to install at the user level (applies to all projects). Your skill will be automatically available for the particular coding agent.
+This installs to the shared `.agents/skills` directory used by Codex, Cursor, OpenCode, and other compatible agents. Use `--global` to install at the user level (applies to all projects), or an agent flag such as `--claude` to also create a link in that agent's skills directory.
 
 You can also install a skill for a **specific Gradio Space**, which generates API usage docs (Python, JS, cURL) on the fly:
 
 ```bash
-gradio skills add abidlabs/en2fr --cursor
+gradio skills add abidlabs/en2fr
 ```
 
 ## Questions?

@@ -138,6 +138,11 @@ class GoogleTranslator(BaseTranslator):
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
 
+    @staticmethod
+    def _speech_config_from_tts_payload(payload: dict[str, Any]) -> types.SpeechConfig:
+        """Materialize the config-layer's neutral TTS shape at the SDK boundary."""
+        return types.SpeechConfig(**payload)
+
     def _assemble_request(self, config: UnifiedConfig, route_ctx: Any = ""):
         return self.to_google(config, self.require_profile(route_ctx))
 
@@ -233,9 +238,11 @@ class GoogleTranslator(BaseTranslator):
                     # directive is folded in below — otherwise the "Current date:
                     # …" preamble is scanned as a phantom speaker label and the
                     # multi-speaker name check fails on a count mismatch.
-                    speech_config = tts.to_google(contents)
-                    if speech_config:
-                        generation_config_kwargs["speech_config"] = speech_config
+                    speech_config_payload = tts.to_google(contents)
+                    if speech_config_payload:
+                        generation_config_kwargs["speech_config"] = (
+                            self._speech_config_from_tts_payload(speech_config_payload)
+                        )
 
                 # Google TTS has no system_instruction field — fold the directive
                 # into the start of the user turn now that the speaker-name check

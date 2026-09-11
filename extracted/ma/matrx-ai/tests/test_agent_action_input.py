@@ -21,6 +21,7 @@ from matrx_ai.graph_nodes.agent_action import (
     _strip_inert_burned_tool_fields,
     agent_start,
 )
+from matrx_ai.graph_nodes.mandate_action import MandateStartInput, mandate_start
 
 
 def test_unified_tool_fields_declared_and_legacy_burned() -> None:
@@ -199,14 +200,17 @@ async def test_config_precedence_is_mandate_then_authored_then_runtime(
     mandates_mod.set_mandate_resolver(fake_resolver)
     try:
         captured = _capture_request(monkeypatch)
-        inputs = AgentStartInput.model_validate(
+        # The mandate's config layer belongs to Run Mandate — Run Agent has no
+        # mandate field at all (Arman's ruling, 2026-09-10). The LADDER is the
+        # same code either way, so it is proven here on the step that owns it.
+        inputs = MandateStartInput.model_validate(
             {
                 "mandate_key": "podcast.audio_english",
                 "config_overrides": {"temperature": 0.1, "tts_voice": "AuthoredVoice"},
                 "runtime_config_overrides": {"tts_voice": "RuntimeVoice"},
             }
         )
-        await agent_start(_step_ctx(), inputs)  # type: ignore[arg-type]
+        await mandate_start(_step_ctx(), inputs)  # type: ignore[arg-type]
     finally:
         if previous is None:
             mandates_mod._MANDATE_RESOLVER = None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.13.0
+Version: 1.14.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -105,13 +105,13 @@ an SDK release — check the API reference for the current names.
 the default; `url` and `published_date` are always emitted:
 
 ```python
-from seltz import Fields, Seltz
+from seltz import Seltz
 
 client = Seltz(api_key="your-api-key")
 
 response = client.search(
     "best ai search engines",
-    fields=Fields(content=True, snippets=True),
+    fields={"content": True, "snippets": True},
 )
 
 for document in response.documents:
@@ -124,20 +124,43 @@ for document in response.documents:
 descending order of score — useful when you want the relevant part of a long
 page rather than the whole thing, and cheaper to feed to a model.
 
-**A selection you pass is taken literally.** `Fields(snippets=True)` asks for
+**A selection you pass is taken literally.** `{"snippets": True}` asks for
 snippets and nothing else, so the documents come back with no content. Name
 every member you want:
 
 ```python
 # passages only — document.content is empty
-response = client.search("ai news", fields=Fields(snippets=True))
+response = client.search("ai news", fields={"snippets": True})
 
 # both
-response = client.search("ai news", fields=Fields(content=True, snippets=True))
+response = client.search("ai news", fields={"content": True, "snippets": True})
 ```
 
 Snippets are only available on scopes whose index produces them; elsewhere the
 list comes back empty rather than erroring.
+
+**A member also takes a ceiling instead of `True`.** Pass an object in place of
+the boolean to bound how much of that member comes back:
+
+```python
+# content, capped at 500 characters per result
+response = client.search("ai news", fields={"content": {"max_characters_per_result": 500}})
+
+# a ceiling on each member
+response = client.search(
+    "ai news",
+    fields={
+        "content": {"max_characters_per_result": 500},
+        "snippets": {"max_snippets_per_result": 5, "max_tokens_per_result": 400},
+    },
+)
+```
+
+An object selects the member as well as bounding it, so
+`{"content": {"max_characters_per_result": 500}}` returns content and no
+snippets. `max_characters_per_result` counts Unicode code points and accepts
+100 to 1000000; a value outside that range is a 400 naming the field and the
+bound.
 
 ### Answer
 

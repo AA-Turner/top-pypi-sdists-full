@@ -717,7 +717,7 @@ class CfnFeed(
         ) -> None:
             '''
             :param callback_metadata: 
-            :param data_source_configuration: 
+            :param data_source_configuration: Identifies the fixture whose event data Elemental Inference maps onto the clipping metadata for an output.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-clippingconfig.html
             :exampleMetadata: fixture=_generated
@@ -757,7 +757,8 @@ class CfnFeed(
         def data_source_configuration(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnFeed.DataSourceConfigurationProperty"]]:
-            '''
+            '''Identifies the fixture whose event data Elemental Inference maps onto the clipping metadata for an output.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-clippingconfig.html#cfn-elementalinference-feed-clippingconfig-datasourceconfiguration
             '''
             result = self._values.get("data_source_configuration")
@@ -839,8 +840,9 @@ class CfnFeed(
     )
     class DataSourceConfigurationProperty:
         def __init__(self, *, fixture_id: builtins.str) -> None:
-            '''
-            :param fixture_id: 
+            '''Identifies the fixture whose event data Elemental Inference maps onto the clipping metadata for an output.
+
+            :param fixture_id: The ID of the fixture whose event data you want Elemental Inference to map onto this clipping output. To obtain this ID, use the SearchFixtures operation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-datasourceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -864,7 +866,10 @@ class CfnFeed(
 
         @builtins.property
         def fixture_id(self) -> builtins.str:
-            '''
+            '''The ID of the fixture whose event data you want Elemental Inference to map onto this clipping output.
+
+            To obtain this ID, use the SearchFixtures operation.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elementalinference-feed-datasourceconfiguration.html#cfn-elementalinference-feed-datasourceconfiguration-fixtureid
             '''
             result = self._values.get("fixture_id")

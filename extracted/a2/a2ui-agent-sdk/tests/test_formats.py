@@ -1,4 +1,4 @@
-# Copyright 2026 Google LLC
+# Copyright 2024 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -221,7 +221,7 @@ def test_decompiler_delegation(test_catalog):
         def generate(self, *args, **kwargs):
             return super().generate(*args, **kwargs)
 
-    assert DummyPromptGenerator().generate("role") is None
+    assert DummyPromptGenerator().generate("role") == "role"
 
     # Verify invalid catalog_id check
     bad_catalog = A2uiCatalog(

@@ -24,7 +24,11 @@ already point to ``auth_user_id`` which is the anonymous user's UUID.
 Supabase can promote an anonymous user to a real one in-place, so the UUID
 never changes — no data migration is needed.
 
-Error resilience: all DB and auth errors are caught and re-raised as
+Blocked guests: a row with ``is_blocked`` whose ``blocked_until`` is unset or
+still in the future raises ``GuestBlockedError`` before any counter update or
+anonymous-user creation — the host maps it to a final 403 at its auth boundary.
+
+Error resilience: all other DB and auth errors are caught and re-raised as
 ``GuestIdentityUnavailableError``.  A locally-generated UUID is forbidden:
 it is not an ``auth.users`` identity and only moves the failure into the first
 personal-organization or ownership write downstream.
@@ -44,6 +48,21 @@ _lm = get_instance("guest_execution_log_manager")
 
 class GuestIdentityUnavailableError(RuntimeError):
     """The guest resolver could not produce a real ``auth.users`` identity."""
+
+
+class GuestBlockedError(RuntimeError):
+    """This fingerprint's guest registry row is blocked; no identity is issued.
+
+    A sibling of ``GuestIdentityUnavailableError``, deliberately NOT a subclass:
+    unavailable is a retryable outage (503), blocked is a final refusal (403).
+    A subclass would let every ``except GuestIdentityUnavailableError`` turn a
+    block into "retry in a moment".
+    """
+
+    def __init__(self, fingerprint: str, blocked_until: datetime | None = None) -> None:
+        until = f" until {blocked_until.isoformat()}" if blocked_until else ""
+        super().__init__(f"Guest fingerprint {fingerprint[:12]}… is blocked{until}.")
+        self.blocked_until = blocked_until
 
 
 async def _create_anon_auth_user() -> str:
@@ -107,13 +126,16 @@ async def resolve_guest_uuid(
 
     Flow:
       1. Look up guest_executions by fingerprint.
-      2. If found with auth_user_id set  → return auth_user_id (fast path).
-      3. If found but auth_user_id is null → create anon auth user, patch row.
-      4. If not found                      → create anon auth user, create row.
+      2. If found and actively blocked     → raise ``GuestBlockedError`` (no writes).
+      3. If found with auth_user_id set  → return auth_user_id (fast path).
+      4. If found but auth_user_id is null → create anon auth user, patch row.
+      5. If not found                      → create anon auth user, create row.
 
+    Raises ``GuestBlockedError`` when the row is blocked and ``blocked_until`` is
+    unset or in the future — a final refusal, never wrapped as unavailable.
     Raises ``GuestIdentityUnavailableError`` when the registry or anonymous
     sign-in cannot produce a real ``auth.users`` row.  Callers must stop at the
-    authentication boundary; a synthetic UUID is not an identity.
+    authentication boundary on either; a synthetic UUID is not an identity.
     """
     try:
         existing = await _gm.filter_all_guest_executions(fingerprint=fingerprint)
@@ -126,11 +148,20 @@ async def resolve_guest_uuid(
                 auth_user_id = str(auth_user_id)
             row_id = str(row.id)
 
-            if getattr(row, "is_blocked", False):
+            # A blocked guest is refused HERE — before its counters move and
+            # before an anonymous auth user is minted or backfilled for it.
+            # Same rule as public.check_guest_execution_limit: the block holds
+            # while blocked_until is unset or still in the future.
+            blocked_until = getattr(row, "blocked_until", None)
+            if getattr(row, "is_blocked", False) and (
+                blocked_until is None or _as_aware_utc(blocked_until) > now
+            ):
                 vcprint(
-                    f"[GuestRegistry] Blocked guest fingerprint={fingerprint[:12]}…",
-                    color="red",
+                    f"[GuestRegistry] Blocked guest refused before identity "
+                    f"fingerprint={fingerprint[:12]}… until={blocked_until or 'indefinite'}",
+                    color="yellow",
                 )
+                raise GuestBlockedError(fingerprint, blocked_until)
 
             if auth_user_id:
                 await _gm.update_guest_executions(
@@ -191,6 +222,9 @@ async def resolve_guest_uuid(
         )
         return auth_user_id
 
+    except GuestBlockedError:
+        # A refusal, not an outage — never re-wrap it as "unavailable".
+        raise
     except Exception as exc:
         vcprint(
             f"[GuestRegistry] Guest identity unavailable — request refused before auth: {exc}",
@@ -199,6 +233,10 @@ async def resolve_guest_uuid(
         raise GuestIdentityUnavailableError(
             "Guest identity could not be resolved to an auth.users row."
         ) from exc
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 async def log_guest_execution(

@@ -313,6 +313,21 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
         """
         ...
 
+    @staticmethod
+    def is_entirely_after_stop_triggered(asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.StopLimitOrder, prices: QuantConnect.Orders.Fills.Prices) -> bool:
+        """
+        Determines whether the given prices are entirely after the stop of the given order was triggered,
+        in which case the order can be filled as a resting limit order
+        
+        
+        This Class is protected.
+        
+        :param asset: Security asset we're filling
+        :param order: Order packet to model
+        :param prices: The prices to check
+        """
+        ...
+
     def is_exchange_open(self, asset: QuantConnect.Securities.Security, is_extended_market_hours: bool) -> bool:
         """
         Determines if the exchange is open using the current time of the asset

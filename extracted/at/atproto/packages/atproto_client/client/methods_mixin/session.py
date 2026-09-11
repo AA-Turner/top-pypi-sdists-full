@@ -1,6 +1,8 @@
 import typing as t
 from datetime import timedelta
 
+import typing_extensions as te
+
 from atproto_client.client.methods_mixin.time import TimeMethodsMixin
 from atproto_client.client.session import (
     AsyncSessionChangeCallback,
@@ -92,11 +94,33 @@ class AsyncSessionDispatchMixin:
 class SessionMethodsMixin(TimeMethodsMixin):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
-        self._session: t.Optional[Session] = None
         self._session_dispatcher = SessionDispatcher()
+        self._register_auth_headers_source()
+
+    @property
+    def _session(self) -> t.Optional[Session]:
+        return self._session_dispatcher.session
+
+    def _inherit_clone_state(self, original: te.Self) -> None:
+        super()._inherit_clone_state(original)
+
+        # the request was cloned with the original's auth headers source already in place,
+        # so the throwaway dispatcher the constructor registered is swapped for the shared one
+        self._unregister_auth_headers_source()
+        self._session_dispatcher = original._session_dispatcher
+        self._register_auth_headers_source()
 
     def _register_auth_headers_source(self) -> None:
-        self.request.add_additional_headers_source(self._get_access_auth_headers)
+        request = self.request
+        source = self._session_dispatcher.get_auth_headers
+        if source not in request._additional_header_sources:
+            request.add_additional_headers_source(source)
+
+    def _unregister_auth_headers_source(self) -> None:
+        sources = self.request._additional_header_sources
+        source = self._session_dispatcher.get_auth_headers
+        if source in sources:
+            sources.remove(source)
 
     def _should_refresh_session(self) -> bool:
         if not self._session or not self._session.access_jwt_payload or not self._session.access_jwt_payload.exp:
@@ -108,24 +132,24 @@ class SessionMethodsMixin(TimeMethodsMixin):
         return self.get_current_time() > expired_at
 
     def _set_or_update_session(self, session: SessionResponse, pds_endpoint: str) -> 'Session':
-        if not self._session:
-            self._session = Session(
+        current_session = self._session
+        if current_session is None:
+            current_session = Session(
                 access_jwt=session.access_jwt,
                 refresh_jwt=session.refresh_jwt,
                 did=session.did,
                 handle=session.handle,
                 pds_endpoint=pds_endpoint,
             )
-            self._session_dispatcher.set_session(self._session)
-            self._register_auth_headers_source()
+            self._session_dispatcher.set_session(current_session)
         else:
-            self._session.access_jwt = session.access_jwt
-            self._session.refresh_jwt = session.refresh_jwt
-            self._session.did = session.did
-            self._session.handle = session.handle
-            self._session.pds_endpoint = pds_endpoint
+            current_session.access_jwt = session.access_jwt
+            current_session.refresh_jwt = session.refresh_jwt
+            current_session.did = session.did
+            current_session.handle = session.handle
+            current_session.pds_endpoint = pds_endpoint
 
-        return self._session
+        return current_session
 
     def _set_session_common(self, session: SessionResponse, current_pds: str) -> Session:
         pds_endpoint = get_session_pds_endpoint(session)
@@ -138,16 +162,10 @@ class SessionMethodsMixin(TimeMethodsMixin):
         return self._set_or_update_session(session, pds_endpoint)
 
     def _get_access_auth_headers(self) -> t.Dict[str, str]:
-        if not self._session:
-            return {}
-
-        return {'Authorization': f'Bearer {self._session.access_jwt}'}
+        return self._session_dispatcher.get_auth_headers()
 
     def _get_refresh_auth_headers(self) -> t.Dict[str, str]:
-        if not self._session:
-            return {}
-
-        return {'Authorization': f'Bearer {self._session.refresh_jwt}'}
+        return self._session_dispatcher.get_refresh_auth_headers()
 
     def _update_pds_endpoint(self, pds_endpoint: str) -> None:
         self.update_base_url(pds_endpoint)
@@ -167,7 +185,8 @@ class SessionMethodsMixin(TimeMethodsMixin):
         Attention:
             You must export session at the end of the Client`s life cycle!
             Alternatively, you can subscribe to the session change event.
-            Use :py:attr:`~on_session_change` to register handler.
+            Use :py:meth:`~atproto_client.client.methods_mixin.session.SessionDispatchMixin.on_session_change`
+            to register handler.
 
         Example:
             >>> from atproto import Client

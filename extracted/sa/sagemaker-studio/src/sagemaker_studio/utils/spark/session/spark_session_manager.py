@@ -8,6 +8,8 @@ import logging
 import os
 from abc import ABC, abstractmethod
 
+from botocore.config import Config
+
 from sagemaker_studio.utils._internal import InternalUtils
 
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -71,6 +73,24 @@ class SparkSessionManager(ABC):
         configs — they override everything else.
         """
         self._user_spark_conf = spark_conf
+
+    # Standard retry policy applied to every AWS client built by a Spark session
+    # manager. "adaptive" mode adds client-side rate limiting on top of exponential
+    # backoff, which reliably retries ThrottlingException on control-plane calls
+    # (e.g. Athena GetSessionEndpoint) instead of failing the whole session.
+    _CLIENT_RETRY_CONFIG = Config(retries={"max_attempts": 5, "mode": "adaptive"})
+
+    @classmethod
+    def _client_retry_config(cls, base: Config | None = None) -> Config:
+        """Return a botocore ``Config`` carrying the standard adaptive retry policy.
+
+        If *base* is provided (e.g. an existing endpoint/service-model config), the
+        retry settings are merged into it (retry settings take precedence) so callers
+        can preserve any pre-existing client configuration.
+        """
+        if base is not None:
+            return base.merge(cls._CLIENT_RETRY_CONFIG)
+        return cls._CLIENT_RETRY_CONFIG
 
     def _get_execution_role_arn(self):
         """Get the execution role ARN from the project's IAM connection."""

@@ -173,6 +173,7 @@ cdef class ArrowSchemaImpl:
             NANOARROW_TYPE_DATE32,
             NANOARROW_TYPE_DATE64,
             NANOARROW_TYPE_DECIMAL128,
+            NANOARROW_TYPE_DECIMAL256,
             NANOARROW_TYPE_DOUBLE,
             NANOARROW_TYPE_FIXED_SIZE_BINARY,
             NANOARROW_TYPE_FLOAT,
@@ -180,6 +181,7 @@ cdef class ArrowSchemaImpl:
             NANOARROW_TYPE_INT16,
             NANOARROW_TYPE_INT32,
             NANOARROW_TYPE_INT64,
+            NANOARROW_TYPE_INTERVAL_MONTH_DAY_NANO,
             NANOARROW_TYPE_LARGE_BINARY,
             NANOARROW_TYPE_LARGE_STRING,
             NANOARROW_TYPE_NA,
@@ -213,7 +215,8 @@ cdef class ArrowSchemaImpl:
         if arrow_type == NANOARROW_TYPE_TIMESTAMP:
             storage_type = NANOARROW_TYPE_INT64
 
-        if arrow_type == NANOARROW_TYPE_DECIMAL128:
+        if arrow_type in (NANOARROW_TYPE_DECIMAL128,
+                          NANOARROW_TYPE_DECIMAL256):
             self.precision = precision
             self.scale = scale
             ArrowSchemaInit(self.arrow_schema)

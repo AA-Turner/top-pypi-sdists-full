@@ -93,6 +93,18 @@ SEAMS: tuple[Seam, ...] = (
         ),
     ),
     Seam(
+        name="structured follow-up response-format policy",
+        pattern=r"\bresponse_format_transition_after_first_structured_answer\s*\(",
+        allowed=(
+            "packages/matrx-ai/matrx_ai/config/response_format.py",
+            CONTROLLER,
+        ),
+        remedy=(
+            "The persisted structured-to-text transition is a send-boundary step; "
+            "call prepare_for_send() instead."
+        ),
+    ),
+    Seam(
         name="wire message-list replacement",
         pattern=r"\.config\.messages\s*=(?!=)|\bconfig\.messages\s*=(?!=)",
         allowed=(CONTROLLER,),
@@ -175,13 +187,15 @@ def test_guard_detects_a_planted_violation(tmp_path: Path) -> None:
         "from matrx_ai.config.context_trim import trim_messages_context\n"
         "def send(cfg):\n"
         "    trim_messages_context(cfg.messages)\n"
-        "    cfg.config.messages = []\n",
+        "    cfg.config.messages = []\n"
+        "    response_format_transition_after_first_structured_answer(cfg)\n",
         encoding="utf-8",
     )
     violations = scan([bad], root=tmp_path)
-    assert len(violations) == 2, violations
+    assert len(violations) == 3, violations
     assert any("context trim" in v for v in violations)
     assert any("wire message-list replacement" in v for v in violations)
+    assert any("structured follow-up response-format policy" in v for v in violations)
 
 
 def test_controller_is_the_only_trim_caller_and_is_itself_scanned() -> None:

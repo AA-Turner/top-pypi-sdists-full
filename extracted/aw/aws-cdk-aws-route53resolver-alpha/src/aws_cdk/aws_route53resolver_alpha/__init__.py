@@ -858,7 +858,7 @@ class FirewallRuleGroupAssociation(
         :param firewall_rule_group: (experimental) The firewall rule group which must be associated.
         :param priority: (experimental) The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. This value must be greater than 100 and less than 9,000
         :param vpc: (experimental) The VPC that to associate with the rule group.
-        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Default: true
+        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Note that mutation protection also blocks CloudFormation from updating or deleting the association, so leave it disabled for associations whose lifecycle is managed by this stack. Default: - mutation protection is disabled; the association can be modified or removed
         :param name: (experimental) The name of the association. Default: - a CloudFormation generated name
 
         :stability: experimental
@@ -993,7 +993,7 @@ class FirewallRuleGroupAssociationOptions:
 
         :param priority: (experimental) The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. This value must be greater than 100 and less than 9,000
         :param vpc: (experimental) The VPC that to associate with the rule group.
-        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Default: true
+        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Note that mutation protection also blocks CloudFormation from updating or deleting the association, so leave it disabled for associations whose lifecycle is managed by this stack. Default: - mutation protection is disabled; the association can be modified or removed
         :param name: (experimental) The name of the association. Default: - a CloudFormation generated name
 
         :stability: experimental
@@ -1056,7 +1056,11 @@ class FirewallRuleGroupAssociationOptions:
     def mutation_protection(self) -> typing.Optional[builtins.bool]:
         '''(experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
 
-        :default: true
+        Note that mutation protection also blocks CloudFormation from updating or
+        deleting the association, so leave it disabled for associations whose
+        lifecycle is managed by this stack.
+
+        :default: - mutation protection is disabled; the association can be modified or removed
 
         :stability: experimental
         '''
@@ -1111,7 +1115,7 @@ class FirewallRuleGroupAssociationProps(FirewallRuleGroupAssociationOptions):
 
         :param priority: (experimental) The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. This value must be greater than 100 and less than 9,000
         :param vpc: (experimental) The VPC that to associate with the rule group.
-        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Default: true
+        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Note that mutation protection also blocks CloudFormation from updating or deleting the association, so leave it disabled for associations whose lifecycle is managed by this stack. Default: - mutation protection is disabled; the association can be modified or removed
         :param name: (experimental) The name of the association. Default: - a CloudFormation generated name
         :param firewall_rule_group: (experimental) The firewall rule group which must be associated.
 
@@ -1184,7 +1188,11 @@ class FirewallRuleGroupAssociationProps(FirewallRuleGroupAssociationOptions):
     def mutation_protection(self) -> typing.Optional[builtins.bool]:
         '''(experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections.
 
-        :default: true
+        Note that mutation protection also blocks CloudFormation from updating or
+        deleting the association, so leave it disabled for associations whose
+        lifecycle is managed by this stack.
+
+        :default: - mutation protection is disabled; the association can be modified or removed
 
         :stability: experimental
         '''
@@ -1671,7 +1679,7 @@ class FirewallRuleGroup(
         :param id: -
         :param priority: (experimental) The setting that determines the processing order of the rule group among the rule groups that are associated with a single VPC. DNS Firewall filters VPC traffic starting from rule group with the lowest numeric priority setting. This value must be greater than 100 and less than 9,000
         :param vpc: (experimental) The VPC that to associate with the rule group.
-        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Default: true
+        :param mutation_protection: (experimental) If enabled, this setting disallows modification or removal of the association, to help prevent against accidentally altering DNS firewall protections. Note that mutation protection also blocks CloudFormation from updating or deleting the association, so leave it disabled for associations whose lifecycle is managed by this stack. Default: - mutation protection is disabled; the association can be modified or removed
         :param name: (experimental) The name of the association. Default: - a CloudFormation generated name
 
         :stability: experimental

@@ -1065,7 +1065,7 @@ def _get_local_file_info(filename: str, file_path: str) -> FileInfo:
     return FileInfo(filename, filesize_kb, file_hash)
 
 
-def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str]) -> None:
+def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str], model_file_name: str = "") -> None:
     """Commit checkpoint files to the checkpoint volume and update a ``latest`` pointer.
 
     The ``latest`` file lets ``last_checkpoint_path()`` resolve the most recent
@@ -1087,7 +1087,8 @@ def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str
             vol = Volume(volume_name, create_if_missing=False)
             for filename, file_path in file_paths.items():
                 vol.put_file_from_path(f"{artifact_path}/{filename}", file_path)
-            vol.put_file("latest", artifact_path)
+            latest_value = f"{artifact_path}/{model_file_name}" if model_file_name else artifact_path
+            vol.put_file("latest", latest_value)
             return
         except ImportError:
             pass
@@ -1097,9 +1098,10 @@ def _write_checkpoint_to_volume(artifact_path: str, file_paths: Mapping[str, str
     for filename, file_path in file_paths.items():
         shutil.copy2(file_path, os.path.join(local_checkpoint_dir, filename))
     latest_path = os.path.join(checkpoint_dir, "latest")
+    latest_value = f"{artifact_path}/{model_file_name}" if model_file_name else artifact_path
     tmp = latest_path + ".tmp"
     with open(tmp, "w") as f:
-        f.write(artifact_path)
+        f.write(latest_value)
     os.replace(tmp, latest_path)
 
 
@@ -4415,17 +4417,18 @@ class ChalkGRPCClient:
                     dir_allowlist=dir_allowlist,
                 )
 
-                run_name = os.getenv("CHALK_TRAINING_RUN_NAME", "")
                 volume_path = (
                     path
                     if path
                     else (
-                        run_name
-                        if run_name
+                        training_run_id
+                        if training_run_id
                         else f"env_{self._stub_refresher.environment_id}/artifacts/{resp.model_artifact_id}"
                     )
                 )
-                _write_checkpoint_to_volume(volume_path, all_files_to_process)
+                _write_checkpoint_to_volume(
+                    volume_path, all_files_to_process, model_file_names[0] if model_file_names else ""
+                )
 
                 return RegisterModelArtifactResponse(
                     artifact_id=resp.model_artifact_id,

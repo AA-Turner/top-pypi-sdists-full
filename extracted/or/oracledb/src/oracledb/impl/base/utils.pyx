@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2022, 2024, Oracle and/or its affiliates.
+# Copyright (c) 2022, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -28,12 +28,48 @@
 # Cython file defining utility methods (embedded in base_impl.pyx).
 #------------------------------------------------------------------------------
 
+cdef int _check_app_context_value_lengths(str key, str value) except -1:
+    """
+    Checks that application context keys and values do not exceed the
+    supported byte lengths.
+    """
+    cdef ssize_t key_length, value_length
+    key_length = len(key.encode())
+    value_length = len(value.encode())
+    if key_length > TNS_APP_CONTEXT_KEY_MAX_LEN:
+        raise ValueError(
+            "application context key length "
+            f"({key_length} bytes) exceeds the maximum allowed "
+            f"({TNS_APP_CONTEXT_KEY_MAX_LEN} bytes)"
+        )
+    if value_length > TNS_APP_CONTEXT_VALUE_MAX_LEN:
+        raise ValueError(
+            "application context value length "
+            f"({value_length} bytes) exceeds the maximum allowed "
+            f"({TNS_APP_CONTEXT_VALUE_MAX_LEN} bytes)"
+        )
+
+
+def _verify_app_context_values(dict values):
+    """
+    Verifies that application context key/value pairs satisfy requirements.
+    """
+    cdef str key, value
+    if not values:
+        raise ValueError(
+            "application context must contain at least one key/value pair"
+        )
+    for key, value in values.items():
+        _check_app_context_value_lengths(key, value)
+
+
 cdef int _set_app_context_param(dict args, str name, object target) except -1:
     """
     Sets an application context parameter to the value provided in the
     dictionary, if a value is provided. This value is then set directly on the
     target.
     """
+    cdef str namespace, key, value
     in_val = args.get(name)
     if in_val is not None:
         message = (
@@ -45,9 +81,12 @@ cdef int _set_app_context_param(dict args, str name, object target) except -1:
         for entry in in_val:
             if not isinstance(entry, tuple) or len(entry) != 3:
                 raise TypeError(message)
-            for value in entry:
-                if not isinstance(value, str):
-                    raise TypeError(message)
+            namespace, key, value = entry
+            if not namespace:
+                raise ValueError(
+                    "application context namespace cannot be empty"
+                )
+            _check_app_context_value_lengths(key, value)
         setattr(target, name, in_val)
 
 
@@ -173,6 +212,24 @@ cdef int _set_ssl_version_param(dict args, str name, object target) except -1:
         setattr(target, name, in_val)
 
 
+cdef int _set_str_enum_param(dict args, str name, object enum_obj,
+                             object target) except -1:
+    """
+    Sets a string parameter to the value provided in the dictionary. If a
+    value from the enumeration is not provided, it is looked up first.
+    """
+    in_val = args.get(name)
+    if in_val is not None:
+        if isinstance(in_val, enum_obj):
+            enum_val = in_val
+        else:
+            enum_val = getattr(enum_obj, in_val.upper(), None)
+            if enum_val is None:
+                errors._raise_err(errors.ERR_INVALID_ENUM_VALUE,
+                                  name=enum_obj.__name__, value=in_val)
+        setattr(target, name, enum_val.value)
+
+
 cdef int _set_str_param(dict args, str name, object target, bint check_network_character_set = False) except -1:
     """
     Sets a string parameter to the value provided in the dictionary. If a value
@@ -238,6 +295,7 @@ def init_base_impl(package):
         ENUM_AUTH_MODE, \
         ENUM_POOL_GET_MODE, \
         ENUM_PURITY, \
+        ENUM_TRANSACTION_PRIORITY, \
         PY_TYPE_ARROW_ARRAY, \
         PY_TYPE_ASYNC_CURSOR, \
         PY_TYPE_ASYNC_LOB, \
@@ -265,6 +323,7 @@ def init_base_impl(package):
     ENUM_AUTH_MODE = package.AuthMode
     ENUM_PURITY = package.Purity
     ENUM_POOL_GET_MODE = package.PoolGetMode
+    ENUM_TRANSACTION_PRIORITY = package.TransactionPriority
     PY_TYPE_ARROW_ARRAY = <type> package.ArrowArray
     PY_TYPE_ASYNC_CURSOR = <type> package.AsyncCursor
     PY_TYPE_ASYNC_LOB = <type> package.AsyncLOB

@@ -34,17 +34,24 @@ class CreateSecret(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'provider_type': 'str',
         'accessibility': 'str',
+        'ara_enabled': 'bool',
         'change_event': 'str',
         'custom_field': 'dict(str, str)',
         'delete_protection': 'str',
         'description': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'format': 'str',
+        'host_provider': 'str',
         'inject_url': 'list[str]',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
         'lock_during_sra_session': 'str',
+        'lock_on_read': 'str',
+        'lock_ttl': 'str',
         'max_versions': 'str',
         'metadata': 'str',
         'multiline_value': 'bool',
@@ -55,6 +62,7 @@ class CreateSecret(object):
         'secure_access_bastion_issuer': 'str',
         'secure_access_certificate_issuer': 'str',
         'secure_access_enable': 'str',
+        'secure_access_enforce_hosts_restriction': 'bool',
         'secure_access_gateway': 'str',
         'secure_access_host': 'list[str]',
         'secure_access_rdp_user': 'str',
@@ -64,6 +72,7 @@ class CreateSecret(object):
         'secure_access_web_browsing': 'bool',
         'secure_access_web_proxy': 'bool',
         'tags': 'list[str]',
+        'target': 'list[str]',
         'token': 'str',
         'type': 'str',
         'uid_token': 'str',
@@ -72,17 +81,24 @@ class CreateSecret(object):
     }
 
     attribute_map = {
+        'provider_type': 'ProviderType',
         'accessibility': 'accessibility',
+        'ara_enabled': 'ara-enabled',
         'change_event': 'change-event',
         'custom_field': 'custom-field',
         'delete_protection': 'delete_protection',
         'description': 'description',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'format': 'format',
+        'host_provider': 'host-provider',
         'inject_url': 'inject-url',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
         'lock_during_sra_session': 'lock-during-sra-session',
+        'lock_on_read': 'lock-on-read',
+        'lock_ttl': 'lock-ttl',
         'max_versions': 'max-versions',
         'metadata': 'metadata',
         'multiline_value': 'multiline_value',
@@ -93,6 +109,7 @@ class CreateSecret(object):
         'secure_access_bastion_issuer': 'secure-access-bastion-issuer',
         'secure_access_certificate_issuer': 'secure-access-certificate-issuer',
         'secure_access_enable': 'secure-access-enable',
+        'secure_access_enforce_hosts_restriction': 'secure-access-enforce-hosts-restriction',
         'secure_access_gateway': 'secure-access-gateway',
         'secure_access_host': 'secure-access-host',
         'secure_access_rdp_user': 'secure-access-rdp-user',
@@ -102,6 +119,7 @@ class CreateSecret(object):
         'secure_access_web_browsing': 'secure-access-web-browsing',
         'secure_access_web_proxy': 'secure-access-web-proxy',
         'tags': 'tags',
+        'target': 'target',
         'token': 'token',
         'type': 'type',
         'uid_token': 'uid-token',
@@ -109,23 +127,30 @@ class CreateSecret(object):
         'value': 'value'
     }
 
-    def __init__(self, accessibility='regular', change_event=None, custom_field=None, delete_protection=None, description=None, format='text', inject_url=None, input_rule=None, item_custom_fields=None, json=False, lock_during_sra_session=None, max_versions=None, metadata=None, multiline_value=None, name=None, output_rule=None, password=None, protection_key=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_enable=None, secure_access_gateway=None, secure_access_host=None, secure_access_rdp_user=None, secure_access_ssh_creds=None, secure_access_ssh_user=None, secure_access_url=None, secure_access_web_browsing=False, secure_access_web_proxy=False, tags=None, token=None, type='generic', uid_token=None, username=None, value=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, provider_type=None, accessibility='regular', ara_enabled=None, change_event=None, custom_field=None, delete_protection=None, description=None, enable_agentic_runtime_authority=None, enable_ai_quorum=None, format='text', host_provider=None, inject_url=None, input_rule=None, item_custom_fields=None, json=False, lock_during_sra_session=None, lock_on_read=None, lock_ttl=None, max_versions=None, metadata=None, multiline_value=None, name=None, output_rule=None, password=None, protection_key=None, secure_access_bastion_issuer=None, secure_access_certificate_issuer=None, secure_access_enable=None, secure_access_enforce_hosts_restriction=None, secure_access_gateway=None, secure_access_host=None, secure_access_rdp_user=None, secure_access_ssh_creds=None, secure_access_ssh_user=None, secure_access_url=None, secure_access_web_browsing=False, secure_access_web_proxy=False, tags=None, target=None, token=None, type='generic', uid_token=None, username=None, value=None, local_vars_configuration=None):  # noqa: E501
         """CreateSecret - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._provider_type = None
         self._accessibility = None
+        self._ara_enabled = None
         self._change_event = None
         self._custom_field = None
         self._delete_protection = None
         self._description = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._format = None
+        self._host_provider = None
         self._inject_url = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
         self._lock_during_sra_session = None
+        self._lock_on_read = None
+        self._lock_ttl = None
         self._max_versions = None
         self._metadata = None
         self._multiline_value = None
@@ -136,6 +161,7 @@ class CreateSecret(object):
         self._secure_access_bastion_issuer = None
         self._secure_access_certificate_issuer = None
         self._secure_access_enable = None
+        self._secure_access_enforce_hosts_restriction = None
         self._secure_access_gateway = None
         self._secure_access_host = None
         self._secure_access_rdp_user = None
@@ -145,6 +171,7 @@ class CreateSecret(object):
         self._secure_access_web_browsing = None
         self._secure_access_web_proxy = None
         self._tags = None
+        self._target = None
         self._token = None
         self._type = None
         self._uid_token = None
@@ -152,8 +179,12 @@ class CreateSecret(object):
         self._value = None
         self.discriminator = None
 
+        if provider_type is not None:
+            self.provider_type = provider_type
         if accessibility is not None:
             self.accessibility = accessibility
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if change_event is not None:
             self.change_event = change_event
         if custom_field is not None:
@@ -162,8 +193,14 @@ class CreateSecret(object):
             self.delete_protection = delete_protection
         if description is not None:
             self.description = description
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if format is not None:
             self.format = format
+        if host_provider is not None:
+            self.host_provider = host_provider
         if inject_url is not None:
             self.inject_url = inject_url
         if input_rule is not None:
@@ -174,6 +211,10 @@ class CreateSecret(object):
             self.json = json
         if lock_during_sra_session is not None:
             self.lock_during_sra_session = lock_during_sra_session
+        if lock_on_read is not None:
+            self.lock_on_read = lock_on_read
+        if lock_ttl is not None:
+            self.lock_ttl = lock_ttl
         if max_versions is not None:
             self.max_versions = max_versions
         if metadata is not None:
@@ -193,6 +234,8 @@ class CreateSecret(object):
             self.secure_access_certificate_issuer = secure_access_certificate_issuer
         if secure_access_enable is not None:
             self.secure_access_enable = secure_access_enable
+        if secure_access_enforce_hosts_restriction is not None:
+            self.secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
         if secure_access_gateway is not None:
             self.secure_access_gateway = secure_access_gateway
         if secure_access_host is not None:
@@ -211,6 +254,8 @@ class CreateSecret(object):
             self.secure_access_web_proxy = secure_access_web_proxy
         if tags is not None:
             self.tags = tags
+        if target is not None:
+            self.target = target
         if token is not None:
             self.token = token
         if type is not None:
@@ -220,6 +265,27 @@ class CreateSecret(object):
         if username is not None:
             self.username = username
         self.value = value
+
+    @property
+    def provider_type(self):
+        """Gets the provider_type of this CreateSecret.  # noqa: E501
+
+
+        :return: The provider_type of this CreateSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._provider_type
+
+    @provider_type.setter
+    def provider_type(self, provider_type):
+        """Sets the provider_type of this CreateSecret.
+
+
+        :param provider_type: The provider_type of this CreateSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._provider_type = provider_type
 
     @property
     def accessibility(self):
@@ -243,6 +309,29 @@ class CreateSecret(object):
         """
 
         self._accessibility = accessibility
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this CreateSecret.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :return: The ara_enabled of this CreateSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this CreateSecret.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this CreateSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def change_event(self):
@@ -337,6 +426,52 @@ class CreateSecret(object):
         self._description = description
 
     @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this CreateSecret.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this CreateSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this CreateSecret.
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this CreateSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this CreateSecret.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this CreateSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this CreateSecret.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this CreateSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
+
+    @property
     def format(self):
         """Gets the format of this CreateSecret.  # noqa: E501
 
@@ -358,6 +493,29 @@ class CreateSecret(object):
         """
 
         self._format = format
+
+    @property
+    def host_provider(self):
+        """Gets the host_provider of this CreateSecret.  # noqa: E501
+
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
+
+        :return: The host_provider of this CreateSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._host_provider
+
+    @host_provider.setter
+    def host_provider(self, host_provider):
+        """Sets the host_provider of this CreateSecret.
+
+        Host provider type [explicit/target], Default Host provider is explicit, Relevant only for SRA items.  # noqa: E501
+
+        :param host_provider: The host_provider of this CreateSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._host_provider = host_provider
 
     @property
     def inject_url(self):
@@ -473,6 +631,52 @@ class CreateSecret(object):
         """
 
         self._lock_during_sra_session = lock_during_sra_session
+
+    @property
+    def lock_on_read(self):
+        """Gets the lock_on_read of this CreateSecret.  # noqa: E501
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :return: The lock_on_read of this CreateSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_on_read
+
+    @lock_on_read.setter
+    def lock_on_read(self, lock_on_read):
+        """Sets the lock_on_read of this CreateSecret.
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :param lock_on_read: The lock_on_read of this CreateSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_on_read = lock_on_read
+
+    @property
+    def lock_ttl(self):
+        """Gets the lock_ttl of this CreateSecret.  # noqa: E501
+
+        Lock TTL in minutes  # noqa: E501
+
+        :return: The lock_ttl of this CreateSecret.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_ttl
+
+    @lock_ttl.setter
+    def lock_ttl(self, lock_ttl):
+        """Sets the lock_ttl of this CreateSecret.
+
+        Lock TTL in minutes  # noqa: E501
+
+        :param lock_ttl: The lock_ttl of this CreateSecret.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_ttl = lock_ttl
 
     @property
     def max_versions(self):
@@ -707,6 +911,29 @@ class CreateSecret(object):
         self._secure_access_enable = secure_access_enable
 
     @property
+    def secure_access_enforce_hosts_restriction(self):
+        """Gets the secure_access_enforce_hosts_restriction of this CreateSecret.  # noqa: E501
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :return: The secure_access_enforce_hosts_restriction of this CreateSecret.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secure_access_enforce_hosts_restriction
+
+    @secure_access_enforce_hosts_restriction.setter
+    def secure_access_enforce_hosts_restriction(self, secure_access_enforce_hosts_restriction):
+        """Sets the secure_access_enforce_hosts_restriction of this CreateSecret.
+
+        Enforce connections only to allowed SRA hosts  # noqa: E501
+
+        :param secure_access_enforce_hosts_restriction: The secure_access_enforce_hosts_restriction of this CreateSecret.  # noqa: E501
+        :type: bool
+        """
+
+        self._secure_access_enforce_hosts_restriction = secure_access_enforce_hosts_restriction
+
+    @property
     def secure_access_gateway(self):
         """Gets the secure_access_gateway of this CreateSecret.  # noqa: E501
 
@@ -910,6 +1137,29 @@ class CreateSecret(object):
         """
 
         self._tags = tags
+
+    @property
+    def target(self):
+        """Gets the target of this CreateSecret.  # noqa: E501
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :return: The target of this CreateSecret.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._target
+
+    @target.setter
+    def target(self, target):
+        """Sets the target of this CreateSecret.
+
+        A list of targets to be associated with an SRA item, To specify multiple targets use argument multiple times  # noqa: E501
+
+        :param target: The target of this CreateSecret.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._target = target
 
     @property
     def token(self):

@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------
-# Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+# Copyright (c) 2020, 2026, Oracle and/or its affiliates.
 #
 # This software is dual-licensed to you under the Universal Permissive License
 # (UPL) 1.0 as shown at https://oss.oracle.com/licenses/upl and Apache License
@@ -46,11 +46,12 @@ cdef class ThickPoolImpl(BasePoolImpl):
             uint32_t password_len = 0, user_len = 0, connect_string_len = 0
             bytes token_bytes, private_key_bytes, connect_string_bytes
             bytes session_callback_bytes, name_bytes, driver_name_bytes
+            str full_user, token, private_key, connect_string
             bytes edition_bytes, user_bytes, password_bytes
             const char *connect_string_ptr = NULL
-            str token, private_key, connect_string
             dpiCommonCreateParams common_params
             dpiPoolCreateParams create_params
+            bytes transaction_priority_bytes
             const char *password_ptr = NULL
             const char *user_ptr = NULL
             uint32_t token_len = 0, private_key_len = 0
@@ -103,6 +104,11 @@ cdef class ThickPoolImpl(BasePoolImpl):
             driver_name_bytes = params.driver_name.encode()[:30]
             common_params.driverName = driver_name_bytes
             common_params.driverNameLength = <uint32_t> len(driver_name_bytes)
+        if params.transaction_priority is not None:
+            transaction_priority_bytes = params.transaction_priority.encode()
+            common_params.transactionPriority = transaction_priority_bytes
+            common_params.transactionPriorityLength = \
+                    <uint32_t> len(transaction_priority_bytes)
 
         # set up pool creation parameters
         if dpiContext_initPoolCreateParams(driver_info.context,
@@ -133,8 +139,9 @@ cdef class ThickPoolImpl(BasePoolImpl):
         create_params.externalAuth = params.externalauth
 
         # prepare user, password and connect string for use
-        if self.username is not None:
-            user_bytes = params.get_full_user().encode()
+        full_user = params.get_full_user()
+        if full_user is not None:
+            user_bytes = full_user.encode()
             user_ptr = user_bytes
             user_len = <uint32_t> len(user_bytes)
         password_bytes = params._get_password()
@@ -320,11 +327,11 @@ cdef class ThickPoolImpl(BasePoolImpl):
         self.max = max
         self.increment = increment
 
-    def return_connection(self, ThickConnImpl conn_impl, bint in_del=False):
+    def return_connection(self, ThickConnImpl conn_impl):
         """
         Internal method for returning a connection to the pool.
         """
-        conn_impl.close(in_del)
+        yield from conn_impl.close()
 
     def set_getmode(self, uint8_t value):
         """

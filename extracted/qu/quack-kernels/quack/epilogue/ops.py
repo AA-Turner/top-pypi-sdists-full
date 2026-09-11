@@ -27,6 +27,7 @@ from cutlass import Boolean, Float32, Int32, Uint32, const_expr
 from cutlass.cute.nvgpu import warp
 from cutlass.cutlass_dsl import T, dsl_user_op
 from cutlass._mlir.dialects import llvm
+from cutlass.experimental import primitives as prims
 
 import torch
 
@@ -1037,6 +1038,29 @@ class TileStore(EpiOp):
                 copy_atom_postact_c, tiled_mma_gated_postact
             )
             return cute.make_tiled_copy_S(copy_atom_r2s, tiled_copy_c_atom)
+        if self.gated and gemm.arch == 100:
+            # Gated aux is half of D's N, but make_tiled_copy_S inherits D's full-N
+            # tiler and over-emits 2x — harmless under (4,1) (stride-0 duplicate),
+            # corrupting under (2,2) (cta_tile_m=64 + 2-CTA). Retile from aux's own
+            # tile: one thread per (M row, N warp) = the tmem_load ownership of regs.
+            cta_tile_aux_m = gemm.cta_tile_shape_mnk[0]
+            _, num_n_warps, _ = gemm.epi_smem_warp_shape_mnk()
+            assert cta_tile_aux_m * num_n_warps == gemm.num_epi_warps * cute.arch.WARP_SIZE, (
+                f"gated aux store on SM100 needs one M row per epilogue thread, but "
+                f"cta_tile_m={cta_tile_aux_m} x num_n_warps={num_n_warps} != "
+                f"{gemm.num_epi_warps * cute.arch.WARP_SIZE} threads. tile_m=64 without 2-CTA "
+                f"gives 16 tmem datapaths per warp and is already wrong there without this "
+                f"branch too (pre-existing, unfixed). Use tile_m=128 or 256."
+            )
+            # Index [1] first: on SM100 both epi-tile modes are Layouts, not ints.
+            epi_tile_aux_n = cute.size(getattr(params, self._epi_tile_key())[1])
+            assert epi_tile_aux_n % num_n_warps == 0, (
+                f"gated aux epi tile N={epi_tile_aux_n} must split evenly across "
+                f"{num_n_warps} N warps"
+            )
+            thr_layout = cute.make_layout((cta_tile_aux_m, num_n_warps), stride=(1, cta_tile_aux_m))
+            val_layout = cute.make_layout((1, epi_tile_aux_n // num_n_warps))
+            return cute.make_tiled_copy_tv(copy_atom_r2s, thr_layout, val_layout)
         return cute.make_tiled_copy_S(copy_atom_r2s, tiled_copy_r2s)
 
     def store_setup(
@@ -2778,17 +2802,7 @@ def _dup_s16sat_from_s32(x: Int32, *, loc=None, ip=None) -> Uint32:
     is zero), and f16 compares never flush denormals. This replaces a
     cvt.rn.f16.s32 (quarter-rate XU pipe) whose exactness needed a rounding
     argument."""
-    return Uint32(
-        llvm.inline_asm(
-            T.i32(),
-            [Int32(x).ir_value(loc=loc, ip=ip)],
-            "cvt.pack.sat.s16.s32 $0, $1, $1;",
-            "=r,r",
-            has_side_effects=False,
-            is_align_stack=False,
-            asm_dialect=llvm.AsmDialect.AD_ATT,
-        )
-    )
+    return Uint32(prims.convert_and_pack_integer(x, x, T.i16(), is_signed=True, loc=loc, ip=ip))
 
 
 @dsl_user_op

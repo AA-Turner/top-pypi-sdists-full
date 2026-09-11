@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "django-countries"
-version = "9.0.0"
+version = "9.1.0"
 description = "Provides a country field for Django models."
 readme = "README.md"
 authors = [{ name = "Chris Beaven", email = "smileychris@gmail.com" }]
@@ -27,6 +27,7 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
 ]
 requires-python = ">=3.10"
 dependencies = ["asgiref", "typing_extensions"]

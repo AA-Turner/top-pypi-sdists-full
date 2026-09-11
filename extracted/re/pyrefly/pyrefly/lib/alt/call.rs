@@ -10,11 +10,10 @@ use std::sync::Arc;
 
 use itertools::Itertools;
 use pyrefly_python::dunder;
+use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModuleStyle;
-use pyrefly_types::callable::BodyKind;
-use pyrefly_types::data_frame::DataFrameKind;
-use pyrefly_types::data_frame::DataFrameSchema;
-use pyrefly_types::data_frame::SchemaCompleteness;
+use pyrefly_types::dimension::ShapeError;
+use pyrefly_types::function::BodyKind;
 use pyrefly_types::literal::LitStyle;
 use pyrefly_types::meta_shape_dsl::ShapeTransform;
 use pyrefly_types::quantified::Quantified;
@@ -26,9 +25,11 @@ use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -37,6 +38,7 @@ use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
+use crate::alt::answers::AttributeReferenceKind;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::attr::NoAccessReason;
@@ -49,11 +51,8 @@ use crate::alt::class::class_field::DescriptorBase;
 use crate::alt::class::dataclass::ReplaceKind;
 use crate::alt::expr::TypeOrExpr;
 use crate::alt::nn_module_specials::is_nn_sequential;
-use crate::alt::polars_specials::is_pandas_dataframe;
-use crate::alt::polars_specials::is_polars_concat;
-use crate::alt::polars_specials::is_polars_dataframe;
 use crate::alt::unwrap::HintRef;
-use crate::alt::unwrap::MAX_CALL_HINT_WIDTH;
+use crate::alt::unwrap::MAX_HINT_WIDTH;
 use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -63,15 +62,17 @@ use crate::error::context::TypeCheckKind;
 use crate::solver::solver::QuantifiedHandle;
 use crate::solver::solver::TypeVarSpecializationError;
 use crate::types::callable::Callable;
-use crate::types::callable::FuncMetadata;
-use crate::types::callable::Function;
-use crate::types::callable::FunctionKind;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
+use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::function::FuncMetadata;
+use crate::types::function::Function;
+use crate::types::function::FunctionKind;
 use crate::types::keywords::KwCall;
 use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
+use crate::types::module::ModuleType;
 use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
@@ -83,6 +84,28 @@ use crate::types::types::Type;
 pub enum CallStyle<'a> {
     Method(&'a Name),
     FreeForm,
+}
+
+/// Minimum nesting before a constructor argument is worth collapsing into a type.
+const FLATTEN_CALL_DEPTH: u32 = 4;
+
+/// Does `x` nest at least `depth` calls, counting `x` itself?
+fn nests_calls(x: &Expr, depth: u32) -> bool {
+    if depth == 0 {
+        return true;
+    }
+    let remaining = if matches!(x, Expr::Call(_)) {
+        depth - 1
+    } else {
+        depth
+    };
+    let mut found = false;
+    x.recurse(&mut |child: &Expr| {
+        if !found {
+            found = nests_calls(child, remaining);
+        }
+    });
+    found
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -198,7 +221,7 @@ impl ConstructedInstance {
     }
 }
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn error_call_target(
         &self,
         errors: &ErrorCollector,
@@ -209,6 +232,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> CallTarget {
         self.error_with_context(errors, range, error_kind, msg, context);
         CallTarget::Any(AnyStyle::Error)
+    }
+
+    /// Resolve `__new__` while rejecting a target that directly re-enters this constructor.
+    fn dunder_new_call_target(
+        &self,
+        ty: Type,
+        cls: &ClassType,
+        range: TextRange,
+        errors: &ErrorCollector,
+        dunder_new_errors: &ErrorCollector,
+        context: Option<&dyn Fn() -> ErrorContext>,
+    ) -> CallTarget {
+        let call_target = self.as_call_target_or_error(
+            ty,
+            CallStyle::Method(&dunder::NEW),
+            range,
+            errors,
+            context,
+        );
+        // Calling the class itself as its `__new__` re-enters its constructor forever.
+        if matches!(
+            &call_target,
+            CallTarget::Class(new_cls, ..) if new_cls.class_object() == cls.class_object()
+        ) {
+            self.error_call_target(
+                dunder_new_errors,
+                range,
+                format!(
+                    "`__new__` on `{}` resolves back to the same class, creating infinite recursion at runtime",
+                    cls.name()
+                ),
+                ErrorKind::NotCallable,
+                context,
+            )
+        } else {
+            call_target
+        }
     }
 
     fn proxy_method_call_error(&self, ty: &Type) -> Option<NoAccessReason> {
@@ -392,6 +452,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             Some(*quantified),
                         )
                     }
+                    Restriction::ShapeExtension(extension) => {
+                        let targets = extension
+                            .upper_bound_members(self.stdlib)
+                            .into_iter()
+                            .map(|ty| {
+                                let cls = match ty {
+                                    Type::ClassType(cls) => cls,
+                                    Type::Tuple(tuple) => self.erase_tuple_type(tuple),
+                                    ty => unreachable!(
+                                        "shape-extension upper-bound members materialize to builtin types, got `{ty}`"
+                                    ),
+                                };
+                                CallTarget::Class(
+                                    cls,
+                                    ConstructorKind::TypeOfClass,
+                                    Some((*quantified).clone()),
+                                )
+                            })
+                            .collect::<Vec<_>>();
+                        if targets.len() == 1 {
+                            targets.into_iter().next().expect("length checked")
+                        } else {
+                            CallTarget::Union(targets)
+                        }
+                    }
                     // For unhandled cases, we accept any arguments and return
                     // the quantified type itself.
                     // We can't handle constraints because we need to take
@@ -485,9 +570,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 };
                 match maybe_dunder_call {
                     Some(ty) => {
-                        let is_self_recursive = matches!(&ty, Type::ClassType(inner) if inner == &cls)
-                            || matches!(&ty, Type::SelfType(inner) if inner.class_object() == cls.class_object());
-                        if is_self_recursive {
+                        if is_recursive_dunder_call_target(&ty, &cls) {
                             CallTargetLookup::CircularCall(Type::ClassType(cls))
                         } else {
                             self.as_call_target_impl(ty, quantified)
@@ -527,20 +610,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 .with_error_type(|_| Type::NNModule(module))
             }
-            // A DataFrame delegates call dispatch to its underlying instance type.
             Type::DataFrame(schema) => self
                 .as_call_target_impl(schema.underlying_type(), quantified)
                 .with_error_type(|_| Type::DataFrame(schema)),
-            // A Series delegates call dispatch to its underlying instance type.
             Type::Series(schema) => self
                 .as_call_target_impl(schema.underlying_type(), quantified)
                 .with_error_type(|_| Type::Series(schema)),
             Type::SelfType(cls) => {
                 // Ignoring `quantified` is okay here because Self is not a valid typevar bound.
                 match self.self_as_dunder_call(&cls) {
-                    Some(ty) => self
-                        .as_call_target_impl(ty, None)
-                        .with_error_type(|_| Type::SelfType(cls)),
+                    Some(ty) => {
+                        if is_recursive_dunder_call_target(&ty, &cls) {
+                            CallTargetLookup::CircularCall(Type::SelfType(cls))
+                        } else {
+                            self.as_call_target_impl(ty, None)
+                                .with_error_type(|_| Type::SelfType(cls))
+                        }
+                    }
                     None => CallTargetLookup::Error(Type::SelfType(cls), vec![]),
                 }
             }
@@ -617,6 +703,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     CallTargetLookup::Ok(Box::new(CallTarget::Union(targets)))
                 }
+                Restriction::ShapeExtension(extension) => self
+                    .as_call_target_impl(
+                        extension.upper_bound(self.stdlib, self.heap),
+                        Some((*q).clone()),
+                    )
+                    .with_error_type(|_| Type::Quantified(q)),
             },
             Type::KwCall(call) => {
                 let KwCall {
@@ -674,6 +766,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors
                             .error_builder(range, ErrorKind::Deprecated, ctx().format())
                             .with_detail(header)
+                            .without_deprecated_tag()
                     } else {
                         errors.error_builder(range, ErrorKind::Deprecated, header)
                     };
@@ -802,8 +895,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> Type {
-        let callee_ty =
-            self.type_of_attr_get(ty, method_name, range, errors, context, "Expr::call_method");
+        let callee_ty = self.type_of_attr_get(
+            ty,
+            method_name,
+            range,
+            errors,
+            ErrorKind::MissingAttribute,
+            context,
+            "Expr::call_method",
+        );
         self.record_resolved_trace(range, &callee_ty);
         self.make_call_target_and_call(
             callee_ty,
@@ -875,6 +975,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         for error in errors_to_add.into_iter().unique() {
             match error {
+                ReturnTypeResolutionError::TypeLevelDsl(ShapeError::BadIndex { message }) => {
+                    self.error_with_context(errors, range, ErrorKind::BadIndex, message, context)
+                }
                 ReturnTypeResolutionError::TypeLevelDsl(error) => self.error_with_context(
                     errors,
                     range,
@@ -901,7 +1004,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         if let Some(hint) = hint
             && let hints = hint.types()
-            && hints.len() <= MAX_CALL_HINT_WIDTH
+            && hints.len() <= MAX_HINT_WIDTH
         {
             let mut ret_no_match_hint = None;
             for member_hint in hints.iter() {
@@ -942,18 +1045,67 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
     ) -> Type {
-        self.construct_with_hint(arguments_range, errors, context, hint, |hint| {
-            self.construct_class_inner(
-                cls.clone(),
-                constructor_kind.clone(),
-                args,
-                keywords,
-                arguments_range,
-                callee_range,
-                context,
-                hint,
+        // Classes that override `__new__` and also define `__init__` check/infer args
+        // twice, potentially leading to exponential check costs: `O(2^depth)`.
+        let checks_args_twice = |cls: &ClassType, preserve_self| {
+            self.get_dunder_new(cls, preserve_self).is_some()
+                && self.get_dunder_init(cls, false).is_some()
+        };
+        let is_deeply_nested =
+            |x: &TypeOrExpr| matches!(x, TypeOrExpr::Expr(e) if nests_calls(e, FLATTEN_CALL_DEPTH));
+
+        // Infer deeply nested arguments once, up front. Shallower nesting costs only a constant
+        // factor, and flattening it would discard the parameter hint for no benefit.
+        let flatten_nested = args
+            .iter()
+            .map(|a| match a {
+                CallArg::Arg(x) | CallArg::Star(x, _) => x,
+            })
+            .chain(keywords.iter().map(|k| &k.value))
+            .any(is_deeply_nested)
+            && checks_args_twice(&cls, constructor_kind == ConstructorKind::TypeOfSelf);
+
+        let call = CallWithTypes::new();
+        let flattened = flatten_nested.then(|| {
+            (
+                args.map(|a| match a {
+                    CallArg::Arg(x) | CallArg::Star(x, _) if is_deeply_nested(x) => {
+                        call.call_arg(a, self, errors)
+                    }
+                    _ => a.clone(),
+                }),
+                keywords.map(|k| {
+                    if is_deeply_nested(&k.value) {
+                        call.call_keyword(k, self, errors)
+                    } else {
+                        k.clone()
+                    }
+                }),
             )
-        })
+        });
+        let (args, keywords) = match &flattened {
+            Some((args, keywords)) => (args.as_slice(), keywords.as_slice()),
+            None => (args, keywords),
+        };
+
+        self.construct_with_hint(
+            arguments_range,
+            errors,
+            context,
+            HintRef::filter_for_constructor(hint, cls.targs()),
+            |hint| {
+                self.construct_class_inner(
+                    cls.clone(),
+                    constructor_kind.clone(),
+                    args,
+                    keywords,
+                    arguments_range,
+                    callee_range,
+                    context,
+                    hint,
+                )
+            },
+        )
     }
 
     fn construct_class_inner(
@@ -985,6 +1137,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Tracks whether we've already recorded a trace for IDE features.
         // Priority: metaclass __call__ > overridden __new__ > __init__.
         let mut recorded_trace = false;
+        let prefer_init_trace = self.constructor_prefers_init_over_inherited_new(&cls);
         let errors = self.error_collector();
         if let Some(ret) = self.call_metaclass(
             &cls,
@@ -999,10 +1152,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 if let Some(callee_range) = callee_range
                     && let Some(metaclass) = class_metadata.custom_metaclass()
                 {
-                    self.record_external_attribute_definition_index(
+                    self.record_attribute_definition_index(
                         &self.heap.mk_class_type(metaclass.clone()),
                         &dunder::CALL,
                         callee_range,
+                        AttributeReferenceKind::ConstructorCall,
                     );
                 }
                 self.record_resolved_trace(arguments_range, &metaclass_dunder_call);
@@ -1054,11 +1208,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .collect::<Vec<_>>();
                 let dunder_new_errors = self.error_collector();
                 let ret = self.call_infer(
-                    self.as_call_target_or_error(
+                    self.dunder_new_call_target(
                         new_method.clone(),
-                        CallStyle::Method(&dunder::NEW),
+                        &cls,
                         arguments_range,
                         &errors,
+                        &dunder_new_errors,
                         context,
                     ),
                     &full_args,
@@ -1072,13 +1227,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
                 if let Some(callee_range) = callee_range {
-                    self.record_external_attribute_definition_index(
+                    self.record_attribute_definition_index(
                         &self.heap.mk_class_type(cls.clone()),
                         &dunder::NEW,
                         callee_range,
+                        AttributeReferenceKind::ConstructorCall,
                     );
                 }
-                if !recorded_trace {
+                if !recorded_trace && !prefer_init_trace {
                     self.record_resolved_trace(arguments_range, &new_method);
                     recorded_trace = true;
                 }
@@ -1136,10 +1292,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors.extend(dunder_init_errors);
             }
             if let Some(callee_range) = callee_range {
-                self.record_external_attribute_definition_index(
+                self.record_attribute_definition_index(
                     &self.heap.mk_class_type(cls.clone()),
                     &dunder::INIT,
                     callee_range,
+                    AttributeReferenceKind::ConstructorCall,
                 );
             }
             if !recorded_trace {
@@ -1275,16 +1432,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<HintRef>,
     ) -> Type {
-        self.construct_with_hint(arguments_range, errors, context, hint, |hint| {
-            self.construct_typed_dict_inner(
-                typed_dict.clone(),
-                args,
-                keywords,
-                arguments_range,
-                context,
-                hint,
-            )
-        })
+        self.construct_with_hint(
+            arguments_range,
+            errors,
+            context,
+            HintRef::filter_for_constructor(hint, typed_dict.targs()),
+            |hint| {
+                self.construct_typed_dict_inner(
+                    typed_dict.clone(),
+                    args,
+                    keywords,
+                    arguments_range,
+                    context,
+                    hint,
+                )
+            },
+        )
     }
 
     fn construct_typed_dict_inner(
@@ -1386,7 +1549,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) {
-        let builtin_names = ["str", "int", "float", "bool", "bytes"];
+        let builtin_names = ["str", "int", "bool", "bytes"];
         if !builtin_names
             .iter()
             .any(|name| cls.has_qname("builtins", name))
@@ -1566,6 +1729,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                 };
                 self.check_unnecessary_type_conversion(&cls, args, arguments_range, errors);
+                let class_object = cls.class_object().clone();
                 let constructed_type = self.construct_class(
                     cls,
                     constructor_kind,
@@ -1581,7 +1745,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // this class is being called via a quantified type with a class
                 // bound, to allow calls on TypeVars with class bounds to work
                 // as expected.
-                if let Some(quantified) = as_quantified_bound {
+                if let Some(quantified) = as_quantified_bound
+                    && self.is_compatible_constructor_return(&constructed_type, &class_object)
+                {
                     Type::Quantified(Box::new(quantified))
                 } else {
                     constructed_type
@@ -1788,6 +1954,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<HintRef>,
         ctor_targs: Option<&mut TArgs>,
     ) -> Type {
+        let hint = HintRef::filter_for_call(hint, tparams);
         let retry_input = hint.map(|_| (callable.clone(), self_obj.clone()));
         // First try the call without the hint to see if it succeeds.
         let mut ctor_targs_no_hint = ctor_targs.as_ref().map(|x| (**x).clone());
@@ -2105,10 +2272,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ))
         };
         // Check the __new__ method and whether it comes from object or has been overridden
-        let (new_attr_ty, overrides_new) = if let Some(t) = self
+        let bound_new = self
             .get_dunder_new(cls, false)
-            .and_then(|t| self.bind_dunder_new(&t, cls.clone()))
-        {
+            .and_then(|t| self.bind_dunder_new(&t, cls.clone()));
+        let (new_attr_ty, overrides_new) = if let Some(t) = bound_new {
             if t.callable_return_type(self.heap)
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))
             {
@@ -2121,24 +2288,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         // Check the __init__ method and whether it comes from object or has been overridden
         let (init_attr_ty, overrides_init) = if let Some(t) = self.get_dunder_init(cls, false) {
-            // Try to strip self param and set return type (for generic handling)
-            let t = if let Type::BoundMethod(ref method) = t
-                && let Some(bound) = self.bind_dunder_init_for_callable(method)
-            {
-                bound
-            } else {
-                // Fallback: just set the return type without stripping self
-                let ret_type = t
-                    .callable_first_param(self.heap)
-                    .unwrap_or_else(|| class_type.clone());
-                let mut t = t;
-                t.transform_toplevel_callable(&mut |c: &mut Callable| c.ret = ret_type.clone());
-                t
-            };
-            (t, true)
+            (self.bind_dunder_init(t, cls), true)
         } else {
             (default_constructor(), false)
         };
+        if overrides_init && self.constructor_prefers_init_over_inherited_new(cls) {
+            // An inherited catch-all `__new__` should not obscure a more useful `__init__`
+            // signature. Direct construction still checks both methods independently.
+            return init_attr_ty;
+        }
         if !overrides_new && overrides_init {
             // If `__init__` is overridden and `__new__` is inherited from object, use `__init__`
             init_attr_ty
@@ -2162,6 +2320,65 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Convert a bare class definition while keeping its type parameters generic.
+    pub fn constructor_to_callable_for_class_def(&self, cls: &Class) -> Type {
+        let Some(class_tparams) = self
+            .get_class_tparams(cls)
+            .filter(|tparams| !tparams.is_empty())
+        else {
+            return Type::type_of(self.promote_silently(cls));
+        };
+        // `cls` is generic. `constructor_to_callable` converts it to a constructor in which its
+        // type parameters are free in the signature.
+        let constructor = self.constructor_to_callable(&self.as_class_type_unchecked(cls));
+        // Quantify the free type parameters to make the resulting callable generic.
+        self.normalize_class_constructor_tparams(constructor, class_tparams)
+    }
+
+    /// Normalize class type parameters for each callable branch in `ty`.
+    /// Normalization sets type parameters that don't appear in the callable to their gradual
+    /// fallback and makes the callable generic over the type parameters that do appear.
+    fn normalize_class_constructor_tparams(&self, mut ty: Type, class_tparams: &TParams) -> Type {
+        self.expand_mut(&mut ty);
+        if let Type::Union(union) = ty {
+            let members = union
+                .members
+                .into_iter()
+                .map(|member| self.normalize_class_constructor_tparams(member, class_tparams))
+                .collect();
+            return self.unions(members);
+        }
+        ty.transform_toplevel_callable_signatures(|callable: &mut Callable, tparams| {
+            let mut parameter_tparams = SmallSet::new();
+            callable
+                .params
+                .visit(&mut |ty| ty.collect_quantifieds(&mut parameter_tparams));
+            for q in class_tparams.iter() {
+                if !parameter_tparams.contains(q) {
+                    let gradual = q.as_gradual_type();
+                    callable
+                        .ret
+                        .subst_mut_fn(&mut |candidate| (candidate == q).then(|| gradual.clone()));
+                }
+            }
+
+            let mut used = SmallSet::new();
+            callable.visit(&mut |ty| ty.collect_quantifieds(&mut used));
+            let mut quantifieds = Vec::new();
+            for q in tparams
+                .iter()
+                .flat_map(|tparams| tparams.iter())
+                .chain(class_tparams.iter())
+            {
+                if used.contains(q) && !quantifieds.contains(q) {
+                    quantifieds.push(q.clone());
+                }
+            }
+            *tparams = (!quantifieds.is_empty()).then(|| Arc::new(TParams::new(quantifieds)));
+        });
+        ty
+    }
+
     pub fn expr_call_infer(
         &self,
         x: &ExprCall,
@@ -2178,62 +2395,44 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             let input_ty = self.expr_infer(&x.arguments.args[0], errors);
             if let Some(result) =
-                self.try_nn_sequential_chain_forward(cls, input_ty, x.range, errors)
+                self.try_nn_sequential_chain_forward(cls, input_ty, x.range(), errors)
             {
                 return result;
             }
         }
 
-        // A pandas frame is mutable so columns can be added after construction, which leaves
-        // its schema Partial. A Polars frame is immutable so its schema is Complete.
-        let dataframe_schema = if let Type::ClassDef(cls) = &callee_ty
-            && (is_polars_dataframe(cls) || is_pandas_dataframe(cls))
-            && let Some(construct) = self.polars_construct_options(&x.arguments)
-        {
-            let (kind, completeness) = if is_polars_dataframe(cls) {
-                (DataFrameKind::Polars, SchemaCompleteness::Complete)
-            } else {
-                (DataFrameKind::Pandas, SchemaCompleteness::Partial)
-            };
-            self.infer_dataframe_schema(&construct, kind.clone(), errors)
-                .map(|c| (c, kind, completeness))
-        } else if is_polars_concat(&callee_ty) {
-            // A concat of frames is always a Polars, Complete frame reusing the elements' schemas.
-            self.infer_polars_concat(&x.arguments)
-                .map(|c| (c, DataFrameKind::Polars, SchemaCompleteness::Complete))
-        } else {
-            None
-        };
+        let polars_call = self.infer_polars_call_specialization(&callee_ty, &x.arguments, errors);
 
         let result = if matches!(&callee_ty, Type::ClassDef(cls) if cls.is_builtin("super")) {
             // Because we have to construct a binding for super in order to fill in implicit arguments,
             // we can't handle things like local aliases to super. If we hit a case where the binding
             // wasn't constructed, fall back to `Any`.
-            self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range)))
+            self.get_hashed_opt(Hashed::new(&Key::SuperInstance(x.range())))
                 .map_or_else(
                     || self.heap.mk_any_implicit(),
-                    |type_info| type_info.arc_clone_ty(),
+                    |type_info| type_info.ty().clone(),
                 )
         } else {
             self.expand_mut(&mut callee_ty);
+            self.check_unittest_mock_patch_target(&callee_ty, &x.arguments, errors);
 
-            let args;
-            let kws;
             let call = CallWithTypes::new();
-            if callee_ty.is_union() {
+            let (args, kws) = if callee_ty.is_union() {
                 // If we have a union we will distribute over it, and end up duplicating each function call.
-                args = x
-                    .arguments
-                    .args
-                    .map(|x| call.call_arg(&CallArg::expr_maybe_starred(x), self, errors));
-                kws = x
-                    .arguments
-                    .keywords
-                    .map(|x| call.call_keyword(&CallKeyword::new(x), self, errors));
+                (
+                    x.arguments
+                        .args
+                        .map(|x| call.call_arg(&CallArg::expr_maybe_starred(x), self, errors)),
+                    x.arguments
+                        .keywords
+                        .map(|x| call.call_keyword(&CallKeyword::new(x), self, errors)),
+                )
             } else {
-                args = x.arguments.args.map(CallArg::expr_maybe_starred);
-                kws = x.arguments.keywords.map(CallKeyword::new);
-            }
+                (
+                    x.arguments.args.map(CallArg::expr_maybe_starred),
+                    x.arguments.keywords.map(CallKeyword::new),
+                )
+            };
 
             let result = self.distribute_over_union(&callee_ty, |ty| {
                 // NotImplemented is a singleton constant, not a callable class.
@@ -2255,7 +2454,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         hint,
                         errors,
                     ),
-                _ if ty.is_assert_shape() => self
+                _ if ty.toplevel_func_metadata().is_some_and(|meta| {
+                    meta.flags.is_assert_shape || meta.kind == FunctionKind::AssertShape
+                }) => self
                     .call_assert_shape(
                         &x.arguments.args,
                         &x.arguments.keywords,
@@ -2477,18 +2678,84 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         };
 
-        if let Some((columns, kind, completeness)) = dataframe_schema
-            && let Type::ClassType(underlying) = result.clone()
-        {
-            return DataFrameSchema {
-                underlying,
-                columns,
-                completeness,
-                kind,
-            }
-            .to_type();
+        self.apply_polars_call_specialization(result, polars_call)
+    }
+
+    fn check_unittest_mock_patch_target(
+        &self,
+        callee_ty: &Type,
+        arguments: &Arguments,
+        errors: &ErrorCollector,
+    ) {
+        let Type::ClassType(cls) = callee_ty else {
+            return;
+        };
+        if !cls.has_qname("unittest.mock", "_patcher") {
+            return;
         }
-        result
+        if arguments.args.len() > 1 || arguments.keywords.iter().any(|kw| kw.arg.is_none()) {
+            return;
+        }
+        if arguments
+            .find_keyword("create")
+            .is_some_and(|kw| !matches!(&kw.value, Expr::BooleanLiteral(lit) if !lit.value))
+        {
+            return;
+        }
+        let Some(target_expr) = arguments.find_argument_value("target", 0) else {
+            return;
+        };
+        let Expr::StringLiteral(ExprStringLiteral { value, .. }) = target_expr else {
+            return;
+        };
+        let range = target_expr.range();
+        let target = value.to_str();
+        let parts: Vec<&str> = target.split('.').collect();
+        if parts.len() < 2 || parts.iter().any(|p| p.is_empty()) {
+            return;
+        }
+
+        let Some((module_prefix_len, module)) = (1..parts.len()).rev().find_map(|i| {
+            let candidate = ModuleName::from_str(&parts[..i].join("."));
+            (candidate == self.module().name()
+                || self.exports.module_exists(candidate).finding().is_some())
+            .then_some((i, candidate))
+        }) else {
+            // The target may be resolved dynamically at runtime, so only check paths rooted in a
+            // module that is available in the current environment.
+            return;
+        };
+
+        let attrs = &parts[module_prefix_len..];
+        let mut base_ty = ModuleType::new_as(module).to_type(self.heap);
+        for (i, attr) in attrs.iter().enumerate() {
+            let name = Name::new(*attr);
+            // Patching a public builtin name on a module always succeeds: `mock.patch` sets
+            // `create=True` itself in that case, overriding whatever the caller passed. So
+            // `patch("mod.open")` is legal even when `mod` defines no `open` of its own.
+            // Documented at
+            // https://docs.python.org/3/library/unittest.mock.html#unittest.mock.patch ("If you
+            // are patching builtins in a module then you don't need to pass `create=True`").
+            if i + 1 == attrs.len()
+                && base_ty.as_module().is_some()
+                && !attr.starts_with('_')
+                && self.exports.export_exists(ModuleName::builtins(), &name)
+                && !self
+                    .exports
+                    .is_implicit_reexport(ModuleName::builtins(), &name)
+            {
+                return;
+            }
+            base_ty = self.type_of_attr_get(
+                &base_ty,
+                &name,
+                range,
+                errors,
+                ErrorKind::MissingAttributePatchTarget,
+                None,
+                "unittest.mock.patch target",
+            );
+        }
     }
 
     pub fn freeform_call_infer(
@@ -2538,9 +2805,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             || matches!(
                 ty.callee_kind(),
                 Some(CalleeKind::Function(FunctionKind::Def(func)))
-                    if func.module.name().as_str() == "builtins"
-                        && func.cls.is_none()
-                        && func.name.as_str() == "enumerate"
+                    if func.has_toplevel_qname("builtins", "enumerate")
             );
         if !is_enumerate {
             return None;
@@ -2571,7 +2836,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         if let Some(start) = start_expr {
             let int_ty = self.heap.mk_class_type(self.stdlib.int().clone());
             let start_ty = self.expr_infer(start, errors);
-            self.check_type(&start_ty, &int_ty, start.range(), errors, &|| {
+            self.check_type_as_call_argument(&start_ty, &int_ty, start.range(), errors, &|| {
                 TypeCheckContext::of_kind(TypeCheckKind::CallArgument(
                     Some(Name::new_static("start")),
                     None,
@@ -2593,6 +2858,27 @@ fn is_special_name(x: &Expr, name: &str) -> bool {
         // It's convenient to be able to call functions like reveal_type in the course of
         // debugging without scrolling to the top of the file to add an import.
         Expr::Name(x) => x.id.as_str() == name,
+        _ => false,
+    }
+}
+
+/// Helper to detect if a resolved `__call__` type circularly refers back to the same class or `Self`.
+/// Inspects direct matches as well as union and intersection members.
+fn is_recursive_dunder_call_target(ty: &Type, cls: &ClassType) -> bool {
+    match ty {
+        Type::ClassType(inner) => inner.class_object() == cls.class_object(),
+        Type::SelfType(inner) => inner.class_object() == cls.class_object(),
+        Type::Union(union) => union
+            .members
+            .iter()
+            .any(|member| is_recursive_dunder_call_target(member, cls)),
+        Type::Intersect(intersect) => {
+            let (types, fallback) = &**intersect;
+            types
+                .iter()
+                .any(|member| is_recursive_dunder_call_target(member, cls))
+                || is_recursive_dunder_call_target(fallback, cls)
+        }
         _ => false,
     }
 }

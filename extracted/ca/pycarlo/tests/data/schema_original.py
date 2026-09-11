@@ -2375,6 +2375,19 @@ class ConversationStatus(sgqlc.types.Enum):
     __choices__ = ("ERROR", "OK")
 
 
+class ConversationToolCallContentField(sgqlc.types.Enum):
+    """Tool-call content field available for lazy retrieval.
+
+    Enumeration Choices:
+
+    * `INPUT`None
+    * `OUTPUT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("INPUT", "OUTPUT")
+
+
 class CostAgentFindingType(sgqlc.types.Enum):
     """Finding category the Cost & Performance Agent can be scoped to:
     STORAGE (storage optimization) or COMPUTE (query performance).
@@ -14558,6 +14571,7 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
         "preview_char_limit",
         "chunk_char_size",
         "include_internal_steps",
+        "lazy_tool_io",
         "timeout_seconds",
     )
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
@@ -14590,10 +14604,46 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     Defaults to false.
     """
 
+    lazy_tool_io = sgqlc.types.Field(Boolean, graphql_name="lazyToolIo")
+    """Whether tool-call input/output may be returned lazily. Defaults to
+    false so existing machine consumers continue to receive complete
+    tool payloads inline.
+    """
+
     timeout_seconds = sgqlc.types.Field(Int, graphql_name="timeoutSeconds")
     """Optional warehouse statement-timeout budget (seconds) for
     hydrating span content. Omit to use the standard default; heavy
     batch reads may raise it up to 170s (clamped server-side).
+    Synchronous ClickHouse reads share a 20s request budget;
+    idempotent requests return PROCESSING when another poll is needed.
+    """
+
+
+class GetConversationToolCallContentV2Input(sgqlc.types.Input):
+    """Input for getConversationToolCallContentV2."""
+
+    __schema__ = schema
+    __field_names__ = ("snapshot_id", "trace_id", "span_id", "field", "offset", "length")
+    snapshot_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="snapshotId")
+    """Snapshot ID from the thread query"""
+
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Trace ID containing the tool call"""
+
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Tool-call span ID from the thread snapshot"""
+
+    field = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationToolCallContentField), graphql_name="field"
+    )
+    """Tool input or output"""
+
+    offset = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="offset")
+    """Zero-based source offset in Unicode code points before filtering"""
+
+    length = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="length")
+    """Requested source character count before filtering. The server
+    reads at most 65536 characters.
     """
 
 
@@ -22415,6 +22465,18 @@ class AddConversationToGoldenSet(sgqlc.types.Type):
     golden_test_case = sgqlc.types.Field("GoldenTestCase", graphql_name="goldenTestCase")
 
 
+class AddCustomBiConnector(sgqlc.types.Type):
+    """Add a connection for a custom BI connector type. Creates a BI
+    container, connection, and schedules BI asset collection. Requires
+    a credentials key from testCustomConnector with
+    validationName='save_credentials'.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
 class AddCustomConnector(sgqlc.types.Type):
     """Add a connection for a custom connector type. Creates a warehouse,
     connection, and schedules jobs based on the custom type's manifest
@@ -22955,6 +23017,21 @@ class AgentCostTotal(sgqlc.types.Type):
     cost_unit = sgqlc.types.Field(String, graphql_name="costUnit")
 
 
+class AgentCustomBiConnectors(sgqlc.types.Type):
+    """Custom BI connectors grouped under a single agent."""
+
+    __schema__ = schema
+    __field_names__ = ("agent_uuid", "custom_bi_connectors")
+    agent_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="agentUuid")
+    """UUID of the agent that owns these connectors."""
+
+    custom_bi_connectors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("CustomBiConnector"))),
+        graphql_name="customBiConnectors",
+    )
+    """Custom BI connector types registered by this agent."""
+
+
 class AgentCustomConnectors(sgqlc.types.Type):
     """Custom connectors grouped under a single agent."""
 
@@ -23442,10 +23519,15 @@ class AgentGraphNode(sgqlc.types.Type):
     spans are dropped server-side and their children re-parent to the
     nearest non-wrapper ancestor — so parentId points at the nearest
     user-code node. When `includeFrameworkNodes` is true, parentId is
-    the immediate parent span's node (no skipping). Null for root
-    nodes or when the resolved parent span did not make it into the
-    graph (e.g. malformed). Walk these to build the hierarchy as a
-    tree — containment is NOT expressed as edges.
+    the immediate parent span's node. The one other skip applies in
+    both modes: a synthesized Databricks Genie narration span
+    (`genie_context`, `genie_reasoning`, `genie_research_step`)
+    carries a step's text rather than trace structure, so its children
+    re-parent to the Genie turn — the same parent they report when the
+    agent emits no such spans. Null for root nodes, when every
+    ancestor is narration, or when the resolved parent span did not
+    make it into the graph (e.g. malformed). Walk these to build the
+    hierarchy as a tree — containment is NOT expressed as edges.
     """
 
     kind = sgqlc.types.Field(sgqlc.types.non_null(AgentGraphNodeKind), graphql_name="kind")
@@ -23472,8 +23554,8 @@ class AgentGraphNode(sgqlc.types.Type):
     (the default), because wrappers are stripped server-side in that
     mode. When `includeFrameworkNodes` is true, wrappers appear as
     their own nodes with this flag set, and id / parentId reflect the
-    raw tree — UIs can use this flag to de-emphasize plumbing without
-    hiding it.
+    raw tree (bar the Genie narration skip described on parentId) —
+    UIs can use this flag to de-emphasize plumbing without hiding it.
     """
 
     count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
@@ -25917,6 +25999,45 @@ class AssetIncludeDatabase(sgqlc.types.Type):
     )
 
     tables = sgqlc.types.Field(GenericScalar, graphql_name="tables")
+
+
+class AssetLineageResult(sgqlc.types.Type):
+    """Response of ``getAssetLineage`` — the typed graph around a job,
+    plus the metadata needed to render it honestly.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("graph", "truncation", "has_task_data")
+    graph = sgqlc.types.Field(sgqlc.types.non_null("JobLineageGraph"), graphql_name="graph")
+    """The typed node/edge graph around the root job."""
+
+    truncation = sgqlc.types.Field(
+        sgqlc.types.non_null("AssetLineageTruncation"), graphql_name="truncation"
+    )
+    """Clipping information — distinguishes an empty graph from a clipped
+    one.
+    """
+
+    has_task_data = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasTaskData")
+    """Whether the job has tasks recorded. Distinguishes 'job has no
+    tasks' from 'job has tasks but no lineage edges arrived' — the
+    latter is a job whose tasks are recorded but that produced no
+    lineage, e.g. an Airflow DAG that never sent a result callback.
+    """
+
+
+class AssetLineageTruncation(sgqlc.types.Type):
+    """Whether the lineage traversal was clipped by its node limit."""
+
+    __schema__ = schema
+    __field_names__ = ("truncated", "limit")
+    truncated = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="truncated")
+    """True when the traversal hit the node limit — the graph is clipped,
+    not complete.
+    """
+
+    limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="limit")
+    """The node limit the traversal ran with."""
 
 
 class AssetMemoryResultType(sgqlc.types.Type):
@@ -30747,6 +30868,32 @@ class ConversationThreadV2Result(sgqlc.types.Type):
     """SQL query sent to the warehouse (for debugging)"""
 
 
+class ConversationToolCallContentChunkV2(sgqlc.types.Type):
+    """A bounded slice of tool-call input or output."""
+
+    __schema__ = schema
+    __field_names__ = ("status", "content", "content_length", "offset", "next_offset", "complete")
+    status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="status")
+    """Content status: PROCESSING or READY"""
+
+    content = sgqlc.types.Field(String, graphql_name="content")
+    """Filtered content slice; null while processing"""
+
+    content_length = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="contentLength")
+    """Full source length in Unicode code points before filtering"""
+
+    offset = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="offset")
+    """Zero-based source offset of this slice"""
+
+    next_offset = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="nextOffset")
+    """Next source offset to request; unchanged while processing.
+    Filtering can change the returned text length.
+    """
+
+    complete = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="complete")
+    """Whether this slice reaches the end of the field"""
+
+
 class ConversationTurnError(sgqlc.types.Type):
     """Aggregated error data for a single conversation turn (trace)."""
 
@@ -32647,6 +32794,33 @@ class CreatorMonitorCountsResponse(sgqlc.types.Type):
     offset = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="offset")
 
     limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="limit")
+
+
+class CustomBiConnector(sgqlc.types.Type):
+    """A custom BI connector type registered for an account."""
+
+    __schema__ = schema
+    __field_names__ = ("id", "name", "job_types", "last_updated_time", "icon_url")
+    id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="id")
+    """Unique connection type identifier."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name for the connector."""
+
+    job_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="jobTypes",
+    )
+    """Job types this connector supports (e.g. BI_REPORTS)."""
+
+    last_updated_time = sgqlc.types.Field(DateTime, graphql_name="lastUpdatedTime")
+    """When the connector's manifest was last synced."""
+
+    icon_url = sgqlc.types.Field(String, graphql_name="iconUrl")
+    """Agent-supplied remote URL for the connector's icon, or null if
+    none was registered. Consumers should fall back to a default icon
+    on load error.
+    """
 
 
 class CustomComparisonMetric(sgqlc.types.Type):
@@ -42856,23 +43030,32 @@ class JobInfo(sgqlc.types.Type):
 
 
 class JobLineageEdge(sgqlc.types.Type):
-    """A single ``IS_DOWNSTREAM`` edge in a job/task lineage graph
-    response.
-    """
+    """A single edge in a job/task lineage graph response."""
 
     __schema__ = schema
-    __field_names__ = ("upstream_mcon", "downstream_mcon")
+    __field_names__ = ("upstream_mcon", "downstream_mcon", "relationship_type")
     upstream_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="upstreamMcon")
     """MCON of the upstream end of the edge."""
 
     downstream_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="downstreamMcon")
     """MCON of the downstream end of the edge."""
 
+    relationship_type = sgqlc.types.Field(
+        sgqlc.types.non_null(EdgeType), graphql_name="relationshipType"
+    )
+    """How the two assets relate: IS_DOWNSTREAM (execution or data
+    order), MODIFIES (the job writes the asset), or IS_READ_BY (the
+    asset is read by the job). The task-graph and job-dependencies
+    reads report every edge as IS_DOWNSTREAM, including merged dataset
+    edges that are MODIFIES/IS_READ_BY in the graph.
+    """
+
 
 class JobLineageGraph(sgqlc.types.Type):
     """A node/edge graph used by the job/task lineage queries.  Returned
-    by both ``getTaskGraph`` (intra-job task graph) and
-    ``getJobDependencies`` (job -> job and external asset edges).
+    by ``getTaskGraphV2`` (intra-job task graph) and
+    ``getJobDependenciesV2`` (job -> job and external asset edges),
+    and by their deprecated airflow-namespaced aliases.
     """
 
     __schema__ = schema
@@ -42887,7 +43070,11 @@ class JobLineageGraph(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(JobLineageEdge))),
         graphql_name="edges",
     )
-    """All IS_DOWNSTREAM edges between nodes in the result subgraph."""
+    """All edges between nodes in the result subgraph. The task-graph and
+    job-dependencies reads report every edge as IS_DOWNSTREAM,
+    flattening MODIFIES/IS_READ_BY edges; the unified read
+    (``getAssetLineage``) returns the typed relationship.
+    """
 
 
 class JobLineageNode(sgqlc.types.Type):
@@ -42899,7 +43086,15 @@ class JobLineageNode(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("mcon", "object_type", "job_id", "task_id", "uri")
+    __field_names__ = (
+        "mcon",
+        "object_type",
+        "job_id",
+        "task_id",
+        "uri",
+        "display_name",
+        "latest_run_status",
+    )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """MCON identifying this node"""
 
@@ -42920,6 +43115,17 @@ class JobLineageNode(sgqlc.types.Type):
     uri = sgqlc.types.Field(String, graphql_name="uri")
     """External asset URI (populated for external asset nodes only, e.g.
     airflow-dataset).
+    """
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Human-readable name for the node. Populated on the unified lineage
+    read; null on the task-graph and job-dependencies reads.
+    """
+
+    latest_run_status = sgqlc.types.Field(EtlRunStatus, graphql_name="latestRunStatus")
+    """Status of the node's latest finished run (job nodes only). Null
+    when the job has no finished runs or the read is not the unified
+    one.
     """
 
 
@@ -46996,6 +47202,7 @@ class Mutation(sgqlc.types.Type):
         "test_custom_connector",
         "add_custom_connector",
         "add_custom_etl_connector",
+        "add_custom_bi_connector",
         "update_custom_connector",
         "trigger_connection_manifest_job",
         "create_or_update_custom_dashboard",
@@ -48387,6 +48594,40 @@ class Mutation(sgqlc.types.Type):
       type ID.
     * `key` (`String!`): Credentials key from testCustomConnector.
     * `name` (`String`): Friendly name for the ETL container.
+    """
+
+    add_custom_bi_connector = sgqlc.types.Field(
+        AddCustomBiConnector,
+        graphql_name="addCustomBiConnector",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_name",
+                    sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
+                ),
+                (
+                    "connection_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="connectionType", default=None
+                    ),
+                ),
+                (
+                    "key",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="key", default=None),
+                ),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+            )
+        ),
+    )
+    """(experimental) Add a connection for a custom BI connector type.
+
+    Arguments:
+
+    * `connection_name` (`String`): Friendly name for the connection.
+    * `connection_type` (`String!`): Custom BI connector connection
+      type ID.
+    * `key` (`String!`): Credentials key from testCustomConnector.
+    * `name` (`String`): Friendly name for the BI container.
     """
 
     update_custom_connector = sgqlc.types.Field(
@@ -56475,9 +56716,9 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `alert_id` (`UUID!`): ID of the alert
-    * `incident_number` (`String`): The incident number for
-      ServiceNow. Only used if access to incidentdata is disabled for
-      the integration.
+    * `incident_number` (`String`): Used when the incident number
+      cannot be fetched from ServiceNow (incident-data access
+      disabled, ACL-restricted fields, or event records).
     * `incident_sys_id` (`String!`): The incident sys_id for
       ServiceNow
     * `integration_id` (`UUID!`): ID of the integration
@@ -76631,6 +76872,7 @@ class Query(sgqlc.types.Type):
         "get_conversation_thread",
         "get_conversation_thread_v2",
         "get_conversation_message_content_v2",
+        "get_conversation_tool_call_content_v2",
         "get_tool_detail",
         "get_agent_details",
         "get_agent_classification",
@@ -76809,6 +77051,9 @@ class Query(sgqlc.types.Type):
         "get_jira_projects",
         "get_jira_issue_types",
         "test_jira_credentials",
+        "get_task_graph_v2",
+        "get_job_dependencies_v2",
+        "get_asset_lineage",
         "get_jobs_performance_data",
         "get_jobs_performance_facets",
         "search_jobs_performance_facet",
@@ -77208,6 +77453,7 @@ class Query(sgqlc.types.Type):
         "get_alert_access_request",
         "get_custom_connectors",
         "get_custom_etl_connectors",
+        "get_custom_bi_connectors",
         "get_collibra_ping",
         "get_collibra_monitor_note",
         "get_collibra_monitor_table_search_names",
@@ -78788,6 +79034,30 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationMessageContentV2Input!`)None
+    """
+
+    get_conversation_tool_call_content_v2 = sgqlc.types.Field(
+        ConversationToolCallContentChunkV2,
+        graphql_name="getConversationToolCallContentV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationToolCallContentV2Input),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a bounded input or output slice for a tool
+    call in a cached conversation-thread V2 snapshot.
+
+    Arguments:
+
+    * `input` (`GetConversationToolCallContentV2Input!`)None
     """
 
     get_tool_detail = sgqlc.types.Field(
@@ -83821,6 +84091,110 @@ class Query(sgqlc.types.Type):
       Token Auth. Defaults to Basic Auth (default: `false`)
     """
 
+    get_task_graph_v2 = sgqlc.types.Field(
+        JobLineageGraph,
+        graphql_name="getTaskGraphV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return the intra-job task graph for the given job:
+    task nodes connected by IS_DOWNSTREAM edges. Edges that leave the
+    job (to tables, other jobs, or external assets) are filtered out.
+
+    Arguments:
+
+    * `job_mcon` (`String!`): MCON of the job whose intra-job task
+      graph should be returned.
+    """
+
+    get_job_dependencies_v2 = sgqlc.types.Field(
+        JobLineageGraph,
+        graphql_name="getJobDependenciesV2",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "job_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="jobMcon", default=None
+                    ),
+                ),
+                (
+                    "direction",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(LineageGraphTraversalDirection),
+                        graphql_name="direction",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return the job- and external-asset-level dependency
+    graph for the given job. Result contains job nodes (jobs this one
+    triggers or that trigger it) and external asset nodes (e.g.
+    Airflow Datasets this job reads or writes).
+
+    Arguments:
+
+    * `job_mcon` (`String!`): MCON of the job whose dependency graph
+      should be returned.
+    * `direction` (`LineageGraphTraversalDirection!`): Direction to
+      traverse from the job: 'upstream' (jobs/external assets that
+      lead into this job) or 'downstream' (jobs this job triggers and
+      external assets this job produces).
+    """
+
+    get_asset_lineage = sgqlc.types.Field(
+        sgqlc.types.non_null(AssetLineageResult),
+        graphql_name="getAssetLineage",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "direction",
+                    sgqlc.types.Arg(
+                        LineageGraphTraversalDirection, graphql_name="direction", default=None
+                    ),
+                ),
+                ("hops", sgqlc.types.Arg(Int, graphql_name="hops", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+            )
+        ),
+    )
+    """(experimental) Return the typed lineage graph around the given
+    job: the tables it reads and writes and the jobs it triggers or is
+    triggered by, with each edge's relationship type. Task nodes and
+    direct table-to-table edges are not included — job-mediated paths
+    carry those relationships.
+
+    Arguments:
+
+    * `mcon` (`String!`): MCON of the asset at the root of the graph.
+      V1 accepts job MCONs.
+    * `direction` (`LineageGraphTraversalDirection`): Direction to
+      traverse from the root asset. Defaults to both directions — the
+      asset's full neighborhood.
+    * `hops` (`Int`): Maximum traversal depth. Defaults to 30; larger
+      values are capped at 30.
+    * `limit` (`Int`): Node budget for the traversal. Defaults to
+      10000; larger values are capped at 10000. When the budget is
+      hit, the response is marked truncated rather than silently
+      partial.
+    """
+
     get_jobs_performance_data = sgqlc.types.Field(
         JobPerformanceData,
         graphql_name="getJobsPerformanceData",
@@ -87063,10 +87437,10 @@ class Query(sgqlc.types.Type):
       rejecting the request when it is not. It has no other effect: it
       does not change which spans are returned, or the order they come
       back in. (default: `false`)
-    * `limit` (`Int`): Number of sample rows to return (max 100)
+    * `limit` (`Int`): Number of sample rows to return (1–100)
       (default: `10`)
     * `offset` (`Int`): Number of rows to skip before returning
-      results (default: `0`)
+      results (min 0) (default: `0`)
     * `span_ids` (`[String!]`): Filter by specific span IDs (<= limit)
     * `trace_ids` (`[String!]`): Filter by specific trace IDs (<=
       limit)
@@ -87171,10 +87545,10 @@ class Query(sgqlc.types.Type):
       conditions to apply to query
     * `transforms` (`[TransformInput!]`): Transforms to apply to the
       data source
-    * `limit` (`Int`): Number of sample rows to return (max 100)
+    * `limit` (`Int`): Number of sample rows to return (1–100)
       (default: `10`)
     * `offset` (`Int`): Number of rows to skip before returning
-      results (default: `0`)
+      results (min 0) (default: `0`)
     * `span_ids` (`[String!]`): Filter by specific span IDs (<= limit)
     * `trace_ids` (`[String!]`): Filter by specific trace IDs (<=
       limit)
@@ -87284,10 +87658,10 @@ class Query(sgqlc.types.Type):
     * `transforms` (`[TransformInput!]`): Conversation eval transforms
       used to score each sampled conversation. Omit to fetch the raw
       conversation rows without any LLM scoring.
-    * `limit` (`Int`): Number of sample conversations to return (max
-      100) (default: `10`)
+    * `limit` (`Int`): Number of sample conversations to return
+      (1–100) (default: `10`)
     * `offset` (`Int`): Number of conversations to skip before
-      returning results (default: `0`)
+      returning results (min 0) (default: `0`)
     * `connection_id` (`UUID`): Connection UUID
     * `ingestion_start_time` (`DateTime`): Filter by conversation turn
       start time (inclusive)
@@ -100201,7 +100575,8 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) List custom warehouse connector types visible to
     the account, grouped by agent. Optionally filter by agent UUID.
-    For ETL connector types, use getCustomEtlConnectors.
+    For ETL connector types, use getCustomEtlConnectors; for BI
+    connector types, use getCustomBiConnectors.
 
     Arguments:
 
@@ -100217,6 +100592,22 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) List custom ETL connector types visible to the
+    account, grouped by agent. Optionally filter by agent UUID.
+
+    Arguments:
+
+    * `agent_uuid` (`UUID`): Filter to connectors registered by a
+      specific agent.
+    """
+
+    get_custom_bi_connectors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(AgentCustomBiConnectors)),
+        graphql_name="getCustomBiConnectors",
+        args=sgqlc.types.ArgDict(
+            (("agent_uuid", sgqlc.types.Arg(UUID, graphql_name="agentUuid", default=None)),)
+        ),
+    )
+    """(experimental) List custom BI connector types visible to the
     account, grouped by agent. Optionally filter by agent UUID.
 
     Arguments:
@@ -100383,9 +100774,10 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Return the intra-job task graph for the given job:
-    task nodes connected by IS_DOWNSTREAM edges. Edges that leave the
-    job (to tables, other jobs, or external assets) are filtered out.
+    """(experimental) DEPRECATED. Return the intra-job task graph for the
+    given job: task nodes connected by IS_DOWNSTREAM edges. Edges that
+    leave the job (to tables, other jobs, or external assets) are
+    filtered out.
 
     Arguments:
 
@@ -100415,10 +100807,10 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Return the job- and external-asset-level dependency
-    graph for the given job. Result contains job nodes (jobs this one
-    triggers or that trigger it) and external asset nodes (e.g.
-    Airflow Datasets this job reads or writes).
+    """(experimental) DEPRECATED. Return the job- and external-asset-
+    level dependency graph for the given job. Result contains job
+    nodes (jobs this one triggers or that trigger it) and external
+    asset nodes (e.g. Airflow Datasets this job reads or writes).
 
     Arguments:
 
@@ -109270,7 +109662,19 @@ class ToolCallBlock(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("name", "input_json", "output_json", "tool_use_id")
+    __field_names__ = (
+        "name",
+        "input_json",
+        "output_json",
+        "tool_use_id",
+        "span_id",
+        "input_length",
+        "output_length",
+        "input_complete",
+        "output_complete",
+        "input_unavailable_reason",
+        "output_unavailable_reason",
+    )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Tool name"""
 
@@ -109279,7 +109683,9 @@ class ToolCallBlock(sgqlc.types.Type):
     with structured input (inline tool_use calls), or a JSON string
     for tools whose input is raw text (e.g. a SQL string for
     Cortex/Genie SQL tools). Consumers can JSON-decode it
-    unconditionally.
+    unconditionally. When inputComplete is false this is {}. If
+    inputUnavailableReason is null, fetch the full input with
+    getConversationToolCallContentV2 using spanId.
     """
 
     output_json = sgqlc.types.Field(String, graphql_name="outputJson")
@@ -109287,12 +109693,46 @@ class ToolCallBlock(sgqlc.types.Type):
     tool_call_output column (Cortex/Genie/OTel/MLflow tool steps),
     always as valid JSON: an object/array for structured output, or a
     JSON string for raw text. Null for inline tool_use calls, whose
-    output is conveyed on the paired tool-role message. Consumers can
-    JSON-decode it unconditionally.
+    output is conveyed on the paired tool-role message. Also null when
+    outputComplete is false; if outputUnavailableReason is null, fetch
+    the full output with getConversationToolCallContentV2 using
+    spanId. Lazy outputs have no paired tool-role message. Non-null
+    values can be JSON-decoded unconditionally.
     """
 
     tool_use_id = sgqlc.types.Field(String, graphql_name="toolUseId")
     """Unique ID for this tool call (if available)"""
+
+    span_id = sgqlc.types.Field(String, graphql_name="spanId")
+    """Span ID used to fetch input or output when the corresponding field
+    is incomplete
+    """
+
+    input_length = sgqlc.types.Field(Int, graphql_name="inputLength")
+    """Known tool input length in Unicode code points, from the declared
+    source length or rendered inline payload length; null when
+    unavailable.
+    """
+
+    output_length = sgqlc.types.Field(Int, graphql_name="outputLength")
+    """Known tool output length in Unicode code points, from the declared
+    source length or rendered inline payload length; null when
+    unavailable.
+    """
+
+    input_complete = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="inputComplete")
+    """Whether inputJson contains the full tool input"""
+
+    output_complete = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="outputComplete"
+    )
+    """Whether outputJson contains the full tool output"""
+
+    input_unavailable_reason = sgqlc.types.Field(String, graphql_name="inputUnavailableReason")
+    """Error code when the input cannot be safely loaded; null otherwise"""
+
+    output_unavailable_reason = sgqlc.types.Field(String, graphql_name="outputUnavailableReason")
+    """Error code when the output cannot be safely loaded; null otherwise"""
 
 
 class ToolCallOverviewMetrics(sgqlc.types.Type):
@@ -120613,7 +121053,15 @@ class Incident(sgqlc.types.Type, Node):
 
 class JiraTicket(sgqlc.types.Type, NodeWithUUID):
     __schema__ = schema
-    __field_names__ = ("ticket_url", "ticket_key", "created_at", "created_by", "integration_id")
+    __field_names__ = (
+        "ticket_url",
+        "ticket_key",
+        "created_at",
+        "created_by",
+        "integration_id",
+        "ticket_id",
+        "details",
+    )
     ticket_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ticketUrl")
     """Ticket URL in Jira"""
 
@@ -120626,6 +121074,14 @@ class JiraTicket(sgqlc.types.Type, NodeWithUUID):
 
     integration_id = sgqlc.types.Field(UUID, graphql_name="integrationId")
     """Jira integration ID"""
+
+    ticket_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="ticketId")
+    """The ticket ID in Monte Carlo"""
+
+    details = sgqlc.types.Field(JiraTicketDetailsOutput, graphql_name="details")
+    """Ticket details stored at Jira. Resolved with a live Jira lookup
+    per ticket; request it only when viewing a single alert's tickets.
+    """
 
 
 class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
@@ -121716,6 +122172,8 @@ class ServiceNowIncident(sgqlc.types.Type, NodeWithUUID):
         "created_at",
         "originates_from_mc_notification",
         "incident_url",
+        "integration_id",
+        "details",
     )
     incident_sys_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="incidentSysId")
     """Incident Sys Id in ServiceNow"""
@@ -121728,6 +122186,15 @@ class ServiceNowIncident(sgqlc.types.Type, NodeWithUUID):
 
     incident_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="incidentUrl")
     """ServiceNow incident URL"""
+
+    integration_id = sgqlc.types.Field(UUID, graphql_name="integrationId")
+    """ServiceNow integration ID"""
+
+    details = sgqlc.types.Field(ServiceNowIncidentDetailsOutput, graphql_name="details")
+    """Incident details stored at ServiceNow. Resolved with a live
+    ServiceNow lookup per incident; request it only when viewing a
+    single alert's incidents.
+    """
 
 
 class SlackChannelV2(sgqlc.types.Type, Node):

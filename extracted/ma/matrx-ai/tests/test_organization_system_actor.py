@@ -63,15 +63,60 @@ async def test_guest_creates_both_cost_anchors_with_explicit_null_actor(guest, m
     monkeypatch.setattr(gate, "_queue_user_request_create", lambda **kw: queued.append(kw))
     await gate.ensure_conversation_exists(str(uuid4()), "")
     await gate.ensure_user_request_exists(str(uuid4()), "")
-    assert len(queued) == 2
-    assert all(row["created_by"] is None and row["organization_id"] == ORG for row in queued)
+    # Breaks caught: either writer dropping the org, or stamping any org other
+    # than the one the run explicitly carries (a default / personal / system org).
+    assert [(row.get("created_by", "MISSING"), row.get("organization_id")) for row in queued] == [
+        (None, ORG),
+        (None, ORG),
+    ]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["conversation", "user_request"])
-async def test_existing_cross_org_anchor_refused_even_when_memoized(guest, monkeypatch, kind):
+async def test_existing_matching_system_anchor_is_adopted_without_a_new_write(
+    guest, monkeypatch, kind
+):
+    # Break caught: an owner check that refuses every existing anchor (or
+    # re-creates it) would fail every resumed org-owned system run.
     pk = str(uuid4())
-    wrong = [{"organization_id": str(uuid4()), "created_by": None}]
+    same = [{"organization_id": ORG, "created_by": None}]
+    monkeypatch.setattr(
+        gate,
+        "_cxm",
+        lambda: SimpleNamespace(
+            conversation=SimpleNamespace(filter_conversations=AsyncMock(return_value=same)),
+            user_request=SimpleNamespace(filter_user_requests=AsyncMock(return_value=same)),
+        ),
+    )
+    queued = []
+    monkeypatch.setattr(gate, "_queue_conversation_create", lambda **kw: queued.append(kw))
+    monkeypatch.setattr(gate, "_queue_user_request_create", lambda **kw: queued.append(kw))
+    fn = (
+        gate.ensure_conversation_exists
+        if kind == "conversation"
+        else gate.ensure_user_request_exists
+    )
+    await fn(pk, "")
+    assert queued == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["conversation", "user_request"])
+@pytest.mark.parametrize(
+    "row",
+    [
+        pytest.param({"organization_id": "OTHER", "created_by": None}, id="other_org"),
+        pytest.param({"organization_id": ORG, "created_by": "HUMAN"}, id="same_org_human_owned"),
+    ],
+)
+async def test_existing_foreign_anchor_refused_even_when_memoized(guest, monkeypatch, kind, row):
+    pk = str(uuid4())
+    wrong = [
+        {
+            "organization_id": str(uuid4()) if row["organization_id"] == "OTHER" else ORG,
+            "created_by": str(uuid4()) if row["created_by"] == "HUMAN" else None,
+        }
+    ]
     monkeypatch.setattr(
         gate,
         "_cxm",
@@ -134,7 +179,8 @@ async def test_failed_anchor_insert_never_admits_wrong_owner_or_missing_row(
     monkeypatch.setattr(
         gate, "_cxm", lambda: SimpleNamespace(conversation=manager, user_request=manager)
     )
-    with pytest.raises(gate.ConversationGateError):
+    expected = "different principal" if race_row else "Cannot establish organization system-run"
+    with pytest.raises(gate.ConversationGateError, match=expected):
         if kind == "conversation":
             await gate.ensure_conversation_exists(str(uuid4()), "")
         else:

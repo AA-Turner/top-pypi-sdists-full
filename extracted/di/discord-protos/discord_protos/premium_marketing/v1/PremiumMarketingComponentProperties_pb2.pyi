@@ -693,6 +693,8 @@ class PremiumMarketingComponentProperties(_message.Message):
         DISMISSIBLE_CONTENT_BADGES_USER_PROFILE_NEW_BADGE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 822
         DISMISSIBLE_CONTENT_PREMIUM_GIFT_QUANTITY_STEPPER_NEW_BADGE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 823
         DISMISSIBLE_CONTENT_GUILD_BOOST_TAB_HIGHLIGHT: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 824
+        DISMISSIBLE_CONTENT_REFERRAL_PROGRAM_INCENTIVE_POPOVER: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 825
+        DISMISSIBLE_CONTENT_BADGE_CUSTOMIZATION_WEB_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 826
 
     class DismissibleContent(_DismissibleContent, metaclass=_DismissibleContentEnumTypeWrapper): ...
     DISMISSIBLE_CONTENT_HUB_WAITLIST_UPSELL: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 0
@@ -1316,6 +1318,8 @@ class PremiumMarketingComponentProperties(_message.Message):
     DISMISSIBLE_CONTENT_BADGES_USER_PROFILE_NEW_BADGE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 822
     DISMISSIBLE_CONTENT_PREMIUM_GIFT_QUANTITY_STEPPER_NEW_BADGE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 823
     DISMISSIBLE_CONTENT_GUILD_BOOST_TAB_HIGHLIGHT: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 824
+    DISMISSIBLE_CONTENT_REFERRAL_PROGRAM_INCENTIVE_POPOVER: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 825
+    DISMISSIBLE_CONTENT_BADGE_CUSTOMIZATION_WEB_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 826
 
     class _AssetVariant:
         ValueType = _typing.NewType("ValueType", _builtins.int)

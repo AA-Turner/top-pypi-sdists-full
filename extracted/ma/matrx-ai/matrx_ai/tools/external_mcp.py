@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -39,6 +40,10 @@ Cloudflare rejects the default ``python-httpx`` User-Agent on Shopify's
 production path. Keep this scoped to UCP so ordinary MCP transports preserve
 their existing wire contract.
 """
+
+MCP_RPC_RESPONSE_MAX_BYTES = 4 * 1024 * 1024
+MCP_SSE_EVENT_MAX_BYTES = 1024 * 1024
+MCP_SSE_MAX_EVENTS = 1_000
 
 
 @dataclass(frozen=True)
@@ -441,18 +446,15 @@ class ExternalMCPClient:
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             if is_ucp:
-                response = await client.post(server_url, json=payload, headers=headers)
-                response.raise_for_status()
-                return self._parse_rpc(response)
+                data, _ = await self._post_rpc(client, server_url, payload, headers)
+                return data
             session_id, protocol_version = await self._handshake(client, server_url, headers)
             call_headers = dict(headers)
             call_headers["MCP-Protocol-Version"] = protocol_version
             if session_id:
                 call_headers["Mcp-Session-Id"] = session_id
 
-            response = await client.post(server_url, json=payload, headers=call_headers)
-            response.raise_for_status()
-            data = self._parse_rpc(response)
+            data, _ = await self._post_rpc(client, server_url, payload, call_headers)
 
         if "error" in data:
             err = data["error"]
@@ -520,16 +522,14 @@ class ExternalMCPClient:
                 "clientInfo": {"name": "matrx-ai", "version": "1.0"},
             },
         )
-        response = await client.post(server_url, json=init_payload, headers=headers)
-        response.raise_for_status()
-        data = self._parse_rpc(response)
+        data, response_headers = await self._post_rpc(client, server_url, init_payload, headers)
         if "error" in data:
             err = data["error"]
             raise RuntimeError(
                 f"MCP initialize failed {err.get('code', '?')}: {err.get('message', 'Unknown')}"
             )
 
-        session_id = response.headers.get("mcp-session-id")
+        session_id = response_headers.get("mcp-session-id")
         negotiated = data.get("result", {}).get("protocolVersion")
         protocol_version = (
             negotiated if isinstance(negotiated, str) and negotiated else MCP_PROTOCOL_VERSION
@@ -542,12 +542,13 @@ class ExternalMCPClient:
         if session_id:
             ack_headers["Mcp-Session-Id"] = session_id
         try:
-            ack = await client.post(
+            async with client.stream(
+                "POST",
                 server_url,
                 json={"jsonrpc": "2.0", "method": "notifications/initialized"},
                 headers=ack_headers,
-            )
-            ack.raise_for_status()
+            ) as ack:
+                ack.raise_for_status()
         except httpx.HTTPError as exc:
             # Some servers reject/ignore the ack but serve requests anyway.
             # Losing the whole call over it would be worse than proceeding.
@@ -559,28 +560,117 @@ class ExternalMCPClient:
 
         return session_id, protocol_version
 
-    @staticmethod
-    def _parse_rpc(response: httpx.Response) -> dict[str, Any]:
-        """Read a JSON-RPC envelope from either a plain JSON body or an SSE
-        (``text/event-stream``) body — the Streamable HTTP transport lets the
-        server pick, so a client that only understands JSON is broken."""
-        content_type = response.headers.get("content-type", "")
-        if "text/event-stream" not in content_type:
-            return response.json()
+    async def _post_rpc(
+        self,
+        client: httpx.AsyncClient,
+        server_url: str,
+        payload: dict[str, Any],
+        headers: dict[str, str],
+    ) -> tuple[dict[str, Any], httpx.Headers]:
+        """Read one request-correlated RPC response within fixed bounds.
 
-        for line in response.text.splitlines():
-            if not line.startswith("data:"):
-                continue
-            chunk = line[len("data:") :].strip()
-            if not chunk:
-                continue
+        Streamable HTTP servers may keep ``text/event-stream`` responses open
+        after emitting the JSON-RPC response. The response is therefore read
+        incrementally and closes as soon as the matching event arrives.
+        """
+        expected_id = payload.get("id")
+        if isinstance(expected_id, bool) or not isinstance(expected_id, (int, str)):
+            raise ValueError("MCP JSON-RPC request must carry a string or integer id")
+
+        async with asyncio.timeout(self._timeout):
+            async with client.stream(
+                "POST", server_url, json=payload, headers=headers
+            ) as response:
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "")
+                if "text/event-stream" in content_type:
+                    parsed = await self._parse_sse_rpc(response, expected_id=expected_id)
+                else:
+                    body = await self._read_bounded_body(response)
+                    parsed = json.loads(body)
+                    if not isinstance(parsed, dict) or not self._matches_rpc_id(
+                        parsed, expected_id
+                    ):
+                        raise RuntimeError("MCP server returned a mismatched JSON-RPC response")
+                return parsed, response.headers
+
+    @staticmethod
+    async def _read_bounded_body(response: httpx.Response) -> bytes:
+        body = bytearray()
+        async for chunk in response.aiter_bytes():
+            body.extend(chunk)
+            if len(body) > MCP_RPC_RESPONSE_MAX_BYTES:
+                raise RuntimeError("MCP response exceeded the maximum size")
+        return bytes(body)
+
+    @staticmethod
+    def _matches_rpc_id(parsed: dict[str, Any], expected_id: int | str) -> bool:
+        candidate = parsed.get("id")
+        return type(candidate) is type(expected_id) and candidate == expected_id
+
+    @classmethod
+    async def _parse_sse_rpc(
+        cls, response: httpx.Response, *, expected_id: int | str
+    ) -> dict[str, Any]:
+        buffer = bytearray()
+        event_lines: list[bytes] = []
+        event_bytes = 0
+        cumulative_bytes = 0
+        event_count = 0
+
+        def finish_event() -> dict[str, Any] | None:
+            nonlocal event_bytes, event_count
+            if not event_lines:
+                event_bytes = 0
+                return None
+            event_count += 1
+            if event_count > MCP_SSE_MAX_EVENTS:
+                raise RuntimeError("MCP event stream exceeded the maximum event count")
+            data_parts = [line[5:].lstrip(b" ") for line in event_lines if line.startswith(b"data:")]
+            event_lines.clear()
+            event_bytes = 0
+            if not data_parts:
+                return None
             try:
-                parsed = json.loads(chunk)
-            except ValueError:
-                continue
-            if isinstance(parsed, dict) and ("result" in parsed or "error" in parsed):
+                parsed = json.loads(b"\n".join(data_parts))
+            except (UnicodeDecodeError, ValueError):
+                return None
+            if not isinstance(parsed, dict) or not cls._matches_rpc_id(parsed, expected_id):
+                return None
+            if "result" in parsed or "error" in parsed:
                 return parsed
-        raise RuntimeError("MCP server returned an event stream with no JSON-RPC response")
+            return None
+
+        async for chunk in response.aiter_bytes():
+            cumulative_bytes += len(chunk)
+            if cumulative_bytes > MCP_RPC_RESPONSE_MAX_BYTES:
+                raise RuntimeError("MCP event stream exceeded the maximum cumulative size")
+            buffer.extend(chunk)
+            while b"\n" in buffer:
+                raw_line, _, remainder = buffer.partition(b"\n")
+                buffer = bytearray(remainder)
+                line = raw_line.rstrip(b"\r")
+                if not line:
+                    matched = finish_event()
+                    if matched is not None:
+                        return matched
+                    continue
+                event_bytes += len(raw_line) + 1
+                if event_bytes > MCP_SSE_EVENT_MAX_BYTES:
+                    raise RuntimeError("MCP event exceeded the maximum size")
+                event_lines.append(line)
+            if event_bytes + len(buffer) > MCP_SSE_EVENT_MAX_BYTES:
+                raise RuntimeError("MCP event exceeded the maximum size")
+
+        if buffer:
+            event_bytes += len(buffer)
+            if event_bytes > MCP_SSE_EVENT_MAX_BYTES:
+                raise RuntimeError("MCP event exceeded the maximum size")
+            event_lines.append(bytes(buffer).rstrip(b"\r"))
+        matched = finish_event()
+        if matched is not None:
+            return matched
+        raise RuntimeError("MCP server returned no matching JSON-RPC response")
 
     def _build_request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         self._request_id += 1

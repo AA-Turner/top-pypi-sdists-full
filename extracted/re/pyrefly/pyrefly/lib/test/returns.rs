@@ -38,14 +38,14 @@ assert_type(f(), None)
 testcase!(
     test_infer_return_in_for_loop,
     r#"
-from typing import reveal_type
+from typing import assert_type
 
 class A:
     def f(self, x):
         for y in x:
             pass
 
-reveal_type(A().f(0))  # E: revealed type: None
+assert_type(A().f(0), None)
 "#,
 );
 
@@ -1010,6 +1010,34 @@ def get_implicit_any(x):
 def f() -> Any:
     x = get_implicit_any(3)
     return x
+"#,
+);
+
+testcase!(
+    test_no_any_return_explicit_no_error_when_return_type_is_object,
+    crate::test::util::TestEnv::new().enable_no_any_return_explicit_error(),
+    r#"
+from typing import Any
+
+def f(x: Any) -> object:
+    return x
+"#,
+);
+
+testcase!(
+    test_no_any_return_implicit_no_error_when_return_type_is_object,
+    crate::test::util::TestEnv::new().enable_no_any_return_implicit_error(),
+    r#"
+ObjectAlias = object
+
+def get_implicit_any(x):
+  return x
+
+def direct() -> object:
+  return get_implicit_any(3)
+
+def aliased() -> ObjectAlias:
+  return get_implicit_any(3)
 "#,
 );
 

@@ -405,7 +405,10 @@ class ProvRDFSerializer(Serializer):
                 serialized text directly; other (binary) streams receive it
                 UTF-8-encoded.
             rdf_format: The rdflib RDF format name for the output (e.g.
-                ``"trig"``, ``"xml"``, ``"turtle"``, ``"nquads"``).
+                ``"trig"``, ``"xml"``, ``"turtle"``, ``"nquads"``). ``"json-ld"`` here
+                produces rdflib's generic RDF-graph JSON-LD, not PROV-JSONLD (the W3C
+                submission) -- for that, use ``ProvDocument.serialize(format="jsonld")``
+                instead; see docs/reference/conformance.md.
             PROV_N_MAP: Maps record type QualifiedName to PROV-N keyword,
                 used when building the relation predicates; defaults to
                 :data:`~prov.constants.PROV_N_MAP`.
@@ -864,17 +867,17 @@ class ProvRDFSerializer(Serializer):
             nm = container.namespace_manager
             nm.bind("prov", PROV.uri)
 
-        for namespace in bundle.namespaces:
+        for namespace in bundle.get_registered_namespaces():
             container.bind(namespace.prefix, namespace.uri)
-        # #96: `bundle.namespaces` excludes the bundle's default namespace
-        # (a separate concept from the core prov/xsd/xsi namespaces that
-        # `get_registered_namespaces` excludes -- `set_default_namespace`
-        # never writes to the registered-namespace dict), so it needs its
-        # own bind() call here, under the empty prefix, for its terms to
-        # render as `:local` rather than a full IRI. Note this widens the
-        # surface of #294: a default- or bundle-namespace term whose local
-        # part ends in a character rdflib cannot abbreviate is now bound
-        # but still emitted as a full IRI, and fails to decode.
+        # #96: `get_registered_namespaces()` excludes the bundle's default
+        # namespace (a separate concept from the core prov/xsd/xsi
+        # namespaces that it also excludes -- `set_default_namespace` never
+        # writes to the registered-namespace dict), so it needs its own
+        # bind() call here, under the empty prefix, for its terms to render
+        # as `:local` rather than a full IRI. Note this widens the surface
+        # of #294: a default- or bundle-namespace term whose local part ends
+        # in a character rdflib cannot abbreviate is now bound but still
+        # emitted as a full IRI, and fails to decode.
         default_namespace = bundle.get_default_namespace()
         if default_namespace is not None:
             container.bind("", default_namespace.uri)
@@ -1331,6 +1334,8 @@ class ProvRDFSerializer(Serializer):
         self._decode_triples(graph, bundle, state, relation_mapper, predicate_mapper)
         self._emit_decoded_records(bundle, state)
 
+        # Entries are created only when an attribute is gathered and are
+        # removed as records consume them, so whatever remains is unconverted.
         if state.other_attributes:
             warnings.warn(
                 "The following attributes were not converted: "
@@ -1435,7 +1440,6 @@ class ProvRDFSerializer(Serializer):
             subj = str(subj_node)
             # predicates in RDF are always URIRefs; rdflib types them as Node
             pred = cast(URIRef, pred_node)
-            state.other_attributes.setdefault(subj, [])
             if pred == RDF.type:
                 continue
             if pred in relation_mapper:
@@ -1587,7 +1591,7 @@ class ProvRDFSerializer(Serializer):
                 # by walking every combination in _emit_decoded_records().
                 state.formal_attributes[subj][qname_key] = None
         elif "qualified" not in str(pred_new) and "asInBundle" not in str(pred_new):
-            state.other_attributes[subj].append((str(pred_new), obj1))
+            state.other_attributes.setdefault(subj, []).append((str(pred_new), obj1))
 
     def _emit_decoded_records(
         self, bundle: pm.ProvBundle, state: "_DecodeState"

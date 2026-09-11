@@ -87,7 +87,7 @@ def test_ext_1600(test_env):
         assert conn.warning.full_code in ["ORA-28002", "ORA-28098"]
 
 
-def test_ext_1601_pooled_conn_warning_min_0(test_env):
+def test_ext_1601(test_env):
     "E1601 - test pooled connection generates a warning (min 0)"
     pool = oracledb.create_pool(
         user=USER_NAME,
@@ -101,10 +101,10 @@ def test_ext_1601_pooled_conn_warning_min_0(test_env):
         assert conn.warning.full_code in ["ORA-28002", "ORA-28098"]
     with pool.acquire() as conn:
         assert conn.warning is None
-    pool.close(0)
+    pool.close()
 
 
-def test_ext_1602_pooled_conn_warning_min_1(test_env):
+def test_ext_1602(test_env):
     "E1602 - test pooled connection generates a warning (min 1)"
     pool = oracledb.create_pool(
         user=USER_NAME,
@@ -118,4 +118,4 @@ def test_ext_1602_pooled_conn_warning_min_1(test_env):
         assert conn.warning.full_code in ["ORA-28002", "ORA-28098"]
     with pool.acquire() as conn:
         assert conn.warning is None
-    pool.close(0)
+    pool.close()

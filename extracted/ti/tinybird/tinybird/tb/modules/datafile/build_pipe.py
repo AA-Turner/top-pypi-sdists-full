@@ -252,10 +252,7 @@ def is_materialized(resource: Optional[Dict[str, Any]]) -> bool:
     if not resource:
         return False
 
-    is_materialized = any(
-        node.get("params", {}).get("type", None) == "materialized" for node in resource.get("nodes", []) or []
-    )
-    return is_materialized
+    return any(node.get("params", {}).get("type", None) == "materialized" for node in resource.get("nodes", []) or [])
 
 
 def get_target_materialized_data_source_name(resource: Optional[Dict[str, Any]]) -> Optional[str]:

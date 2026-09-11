@@ -7,7 +7,7 @@ name = "any-llm-sdk"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
-version = "1.27.1" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
+version = "1.27.2" # There is a regex in the release.yaml file that looks for this version string to set the version in the pyproject.toml file. Do not change this version string without updating the regex.
 dependencies = [
   "pydantic>2,<3",
   "openai>=2.18.0",
@@ -39,12 +39,12 @@ mistral = [
 anthropic = []
 
 gemini = [
-  "google-genai>=1.51.0",
+  "google-genai>=1.70.0",
   "google-cloud-storage",
 ]
 
 vertexai = [
-  "google-genai>=1.51.0",
+  "google-genai>=1.70.0",
   "google-cloud-storage",
 ]
 

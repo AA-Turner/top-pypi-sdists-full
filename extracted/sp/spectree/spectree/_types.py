@@ -1,32 +1,25 @@
+from collections.abc import Callable, Iterator
 from typing import (
     Any,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
     Protocol,
-    Sequence,
-    Type,
-    TypeVar,
-    Union,
 )
 
-from spectree._pydantic import BaseModel
+from spectree.model_adapter.protocol import ModelAdapter, ModelClass
 
-BaseModelSubclassType = TypeVar("BaseModelSubclassType", bound=BaseModel)
-ModelType = Type[BaseModelSubclassType]
-OptionalModelType = Optional[ModelType]
-NamingStrategy = Callable[[ModelType], str]
+NamingStrategy = Callable[[ModelClass], str]
 NestedNamingStrategy = Callable[[str, str], str]
+ModelAdapterType = ModelAdapter[Any, Exception, Any]
+HookHandler = Callable[
+    [Any, Any, Exception | None, Any, ModelAdapterType],
+    Any,
+]
 
 
 class MultiDict(Protocol):
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         pass
 
-    def getlist(self, key: str) -> List[str]:
+    def getlist(self, key: str) -> list[str]:
         pass
 
     def __iter__(self) -> Iterator[str]:
@@ -37,20 +30,11 @@ class MultiDictStarlette(Protocol):
     def __iter__(self) -> Iterator[str]:
         pass
 
-    def getlist(self, key: Any) -> List[Any]:
+    def getlist(self, key: Any) -> list[Any]:
         pass
 
     def __getitem__(self, key: Any) -> Any:
         pass
 
 
-class FunctionDecorator(Protocol):
-    resp: Any
-    tags: Sequence[Any]
-    security: Union[None, Dict, List[Any]]
-    deprecated: bool
-    path_parameter_descriptions: Optional[Mapping[str, str]]
-    _decorator: Any
-
-
-JsonType = Union[None, int, str, bool, List["JsonType"], Dict[str, "JsonType"]]
+JsonType = int | str | bool | list["JsonType"] | dict[str, "JsonType"] | None

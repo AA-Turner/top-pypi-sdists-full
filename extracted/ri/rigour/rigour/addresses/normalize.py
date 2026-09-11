@@ -21,7 +21,8 @@ TOKEN_SEP_CATEGORIES: Categories = {
     "Cn": None,
     "Lm": None,
     "Mn": None,
-    "Mc": WS,
+    # Mc (spacing marks, e.g. Devanagari vowel signs) is deliberately
+    # absent: it is part of the syllable and must not split the token.
     "Me": None,
     "No": None,
     "Zs": WS,
@@ -140,8 +141,9 @@ def _address_replacer(latinize: bool = False) -> tuple[re.Pattern[str], dict[str
                     )  # pragma: no cover
                 mapping[value_norm] = repl_norm
 
-    # ignore weak names for now, as they cause too many false positives
-    for territory, names, _ in _load_territory_names():
+    # Weak names cause too many false positives here, and places (cities)
+    # must stay distinct from the country they sit in.
+    for territory, names, _, _ in _load_territory_names():
         for name in names:
             # FIXME: never latinize territory names, this leads to too much ambiguity
             # (e.g. "Shanxi" and "Shaanxi" in China)

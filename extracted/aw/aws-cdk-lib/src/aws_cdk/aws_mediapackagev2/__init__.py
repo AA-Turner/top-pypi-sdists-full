@@ -1573,6 +1573,7 @@ class CfnOriginEndpoint(
                 ts_use_audio_rendition_group=False
             ),
             startover_window_seconds=123,
+            stream_name_output_mode="streamNameOutputMode",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1598,6 +1599,7 @@ class CfnOriginEndpoint(
         mss_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         segment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
+        stream_name_output_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1617,6 +1619,7 @@ class CfnOriginEndpoint(
         :param mss_manifests: A list of Microsoft Smooth Streaming (MSS) manifest configurations associated with the origin endpoint. Each configuration represents a different MSS streaming option available from this endpoint.
         :param segment: The segment associated with the origin endpoint.
         :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
+        :param stream_name_output_mode: 
         :param tags: The tags associated with the origin endpoint.
         :param uri_separator: 
         '''
@@ -1637,6 +1640,7 @@ class CfnOriginEndpoint(
             mss_manifests=mss_manifests,
             segment=segment,
             startover_window_seconds=startover_window_seconds,
+            stream_name_output_mode=stream_name_output_mode,
             tags=tags,
             uri_separator=uri_separator,
         )
@@ -1970,6 +1974,18 @@ class CfnOriginEndpoint(
             type_hints = cached_type_hints(_typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfee42fc11)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "startoverWindowSeconds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamNameOutputMode")
+    def stream_name_output_mode(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "streamNameOutputMode"))
+
+    @stream_name_output_mode.setter
+    def stream_name_output_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dc9640c8d2a4d21cc088ee3a1c5c0996f99db1001b36751765e2b4f6fa23f4b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamNameOutputMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -5422,6 +5438,7 @@ class CfnOriginEndpointPolicyProps:
         "mss_manifests": "mssManifests",
         "segment": "segment",
         "startover_window_seconds": "startoverWindowSeconds",
+        "stream_name_output_mode": "streamNameOutputMode",
         "tags": "tags",
         "uri_separator": "uriSeparator",
     },
@@ -5442,6 +5459,7 @@ class CfnOriginEndpointProps:
         mss_manifests: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.MssManifestConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         segment: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnOriginEndpoint.SegmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         startover_window_seconds: typing.Optional[jsii.Number] = None,
+        stream_name_output_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri_separator: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -5459,6 +5477,7 @@ class CfnOriginEndpointProps:
         :param mss_manifests: A list of Microsoft Smooth Streaming (MSS) manifest configurations associated with the origin endpoint. Each configuration represents a different MSS streaming option available from this endpoint.
         :param segment: The segment associated with the origin endpoint.
         :param startover_window_seconds: The size of the window (in seconds) to specify a window of the live stream that's available for on-demand viewing. Viewers can start-over or catch-up on content that falls within the window.
+        :param stream_name_output_mode: 
         :param tags: The tags associated with the origin endpoint.
         :param uri_separator: 
 
@@ -5663,6 +5682,7 @@ class CfnOriginEndpointProps:
                     ts_use_audio_rendition_group=False
                 ),
                 startover_window_seconds=123,
+                stream_name_output_mode="streamNameOutputMode",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -5684,6 +5704,7 @@ class CfnOriginEndpointProps:
             check_type(argname="argument mss_manifests", value=mss_manifests, expected_type=type_hints["mss_manifests"])
             check_type(argname="argument segment", value=segment, expected_type=type_hints["segment"])
             check_type(argname="argument startover_window_seconds", value=startover_window_seconds, expected_type=type_hints["startover_window_seconds"])
+            check_type(argname="argument stream_name_output_mode", value=stream_name_output_mode, expected_type=type_hints["stream_name_output_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument uri_separator", value=uri_separator, expected_type=type_hints["uri_separator"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -5708,6 +5729,8 @@ class CfnOriginEndpointProps:
             self._values["segment"] = segment
         if startover_window_seconds is not None:
             self._values["startover_window_seconds"] = startover_window_seconds
+        if stream_name_output_mode is not None:
+            self._values["stream_name_output_mode"] = stream_name_output_mode
         if tags is not None:
             self._values["tags"] = tags
         if uri_separator is not None:
@@ -5840,6 +5863,14 @@ class CfnOriginEndpointProps:
         '''
         result = self._values.get("startover_window_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def stream_name_output_mode(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-originendpoint.html#cfn-mediapackagev2-originendpoint-streamnameoutputmode
+        '''
+        result = self._values.get("stream_name_output_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -6144,6 +6175,7 @@ def _typecheckingstub__7dba3dfc2892c78e53aee7675a7a24aa25c0b29481aca92446e31a0d8
     mss_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     segment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
+    stream_name_output_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -6242,6 +6274,12 @@ def _typecheckingstub__761931cab894d0c1a04fe9fe8aad0785de043e26b7f476c427bb231ae
 
 def _typecheckingstub__285ecfef5a8ec9ebb3f1c4d2193922e98318f11cce543c9b9c4221cfee42fc11(
     value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc9640c8d2a4d21cc088ee3a1c5c0996f99db1001b36751765e2b4f6fa23f4b3(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6601,6 +6639,7 @@ def _typecheckingstub__d261c9ffb32b381ea679962b9a614498343af1f15dd4bdfdbf788de76
     mss_manifests: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.MssManifestConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     segment: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOriginEndpoint.SegmentProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     startover_window_seconds: typing.Optional[jsii.Number] = None,
+    stream_name_output_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri_separator: typing.Optional[builtins.str] = None,
 ) -> None:

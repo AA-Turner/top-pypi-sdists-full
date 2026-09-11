@@ -122,7 +122,7 @@ from coord.interactive import (
     tmux_session_alive,
 )
 from coord.dead_end import DeadEnd, detect_dead_end
-from coord.drive_queue import dispatch_type_for_labels
+from coord.drive_queue import dispatch_type_for_labels, entries_from_rows, entry_key
 from coord.failure_class import (
     classify_failure,
     environmental_backoff_secs,
@@ -130,6 +130,7 @@ from coord.failure_class import (
 )
 from coord.models import (
     DELIVERABLE_ANALYSIS_LABEL,
+    EPIC_DECOMPOSE_TYPE,
     MERGE_LANDED_MARKER,
     POLICY_REFUSAL_MARKER,
     PREMISE_REFUSAL_MARKER,
@@ -156,6 +157,7 @@ from coord.worker_events import is_usage_limit_reason
 from coord.merge_queue import (
     STALE_SMOKE_MARKERS as _mq_stale_smoke_markers,
     UNKNOWN_BRANCH_HEAD_REASON as _mq_unknown_branch_head_reason,
+    is_ci_absent_reason,
     is_ci_flaky_reason,
     is_ci_infra_reason,
     is_ci_pending_reason,
@@ -1624,6 +1626,55 @@ def _acceptance_message(message: str, state: IssueState) -> str:
 # ── merge verification ───────────────────────────────────────────────────────
 
 
+@dataclass(frozen=True)
+class EpicChildStatus:
+    """One node off the epic's own ``## Sub-issues`` checklist (#3246).
+
+    ``closed`` and ``after`` are exactly what :func:`_epic_decompose_batch`
+    needs to decide "unstarted" without re-deriving GitHub state itself:
+    ``closed`` is the child issue's OWN live state (never the checklist's
+    decorative ``[x]``, per ``coord.milestone_order``'s own comment on why
+    that box isn't read for readiness), and ``after`` is the child's
+    declared ``{after: #N}`` targets, letting an epic author mark a child
+    conditional on something else finishing — the same mechanism that let
+    the claude-coordinator#3230 leg correctly skip a conditional child by
+    hand — without this function having to parse free-form epic prose.
+    """
+
+    issue_number: int
+    closed: bool = False
+    after: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True)
+class EpicChecklistSnapshot:
+    """Live inputs to #3246's coordinator-side epic-decompose follow-up.
+
+    ``children`` is the epic's ``## Sub-issues`` checklist, in declared
+    order — the durable, re-observable record of the worker's own step 1
+    (``coord milestone add-child``), read fresh off GitHub rather than
+    trusted from the worker's final message (the whole premise of #3246).
+    ``queued_keys`` is every ``"repo#N"`` key already present in the drive
+    queue — needed to tell "already handled" apart from "still to do"
+    without re-adding something that's already there.
+
+    ``epic_after`` is the epic's OWN current queue row's declared ``after=``
+    edges. #3275 removed the one thing this used to drive — planning a
+    re-queue of the epic itself is gone, because "epic behind the last
+    child" is exactly the ordering that made claude-coordinator#3261
+    deadlock (see :func:`_epic_decompose_batch`'s docstring) — so this field
+    is no longer read by the planner. Left on the snapshot rather than
+    removed: it is still live, freely-available observability (a fetch this
+    function already had to do to build the rest of the snapshot), and a
+    future reader debugging "why is this epic's queue row shaped like that"
+    benefits from it costing nothing extra to look at.
+    """
+
+    children: tuple[EpicChildStatus, ...] = ()
+    queued_keys: frozenset[str] = frozenset()
+    epic_after: tuple[str, ...] = ()
+
+
 class MergeVerifier(Protocol):
     """The git/GitHub questions the state machine cannot answer itself."""
 
@@ -1632,6 +1683,10 @@ class MergeVerifier(Protocol):
     def verify_merged(self, state: IssueState) -> bool: ...
 
     def branch_head_sha(self, state: IssueState) -> str | None: ...
+
+    def epic_checklist_snapshot(
+        self, state: IssueState
+    ) -> EpicChecklistSnapshot | None: ...
 
 
 def _remote_matches_repo(remote_url: str, repo_github: str) -> bool:
@@ -1845,6 +1900,67 @@ class GitMergeVerifier:
 
         return github_ops.get_branch_sha(state.repo_github, state.work_branch)
 
+    def epic_checklist_snapshot(
+        self, state: IssueState
+    ) -> EpicChecklistSnapshot | None:
+        """Fresh GitHub + drive-queue read behind #3246's coordinator-side
+        epic-decompose follow-up (see :func:`_epic_decompose_batch`).
+
+        Deliberately re-fetches the epic's own issue body rather than
+        trusting anything cached on *state* — the whole point of #3246 is
+        that a worker's report of having filed/queued children is not
+        evidence any of it actually happened; only an OBSERVATION taken
+        after the fact is. Returns ``None`` (never raises) on any fetch
+        failure, INCLUDING a malformed ``## Sub-issues`` checklist that
+        won't parse — the caller (:func:`_decide_epic_decompose_followup`)
+        treats that identically to "try again next poll"; a checklist that
+        never becomes parseable eventually surfaces through the ordinary
+        dead-end escalation the rest of this state machine already relies
+        on for every other kind of silent stall (#1386), rather than a
+        second bespoke retry budget just for this.
+        """
+        if not state.repo_github:
+            return None
+        from coord import github_ops  # noqa: PLC0415
+        from coord.milestone_order import WorkOrderError, parse_sub_issues  # noqa: PLC0415
+        from coord.state import list_drive_queue  # noqa: PLC0415
+
+        try:
+            epic_data = github_ops.get_issue(state.repo_github, state.issue)
+        except RuntimeError:
+            return None
+        try:
+            work_order = parse_sub_issues(epic_data.get("body") or "")
+        except WorkOrderError as exc:
+            self.warn(
+                f"epic #{state.issue}'s ## Sub-issues checklist is malformed "
+                f"({exc}) — cannot plan the #3246 batch until it's fixed by hand"
+            )
+            return None
+
+        children: list[EpicChildStatus] = []
+        for node in work_order.nodes:
+            try:
+                child_data = github_ops.get_issue(state.repo_github, node.issue_number)
+            except RuntimeError:
+                return None
+            closed = str(child_data.get("state") or "").upper() == "CLOSED"
+            children.append(EpicChildStatus(node.issue_number, closed, node.after))
+
+        try:
+            rows = list_drive_queue()
+        except Exception:  # noqa: BLE001 — local DB / daemon read failure: retry later
+            return None
+        entries = entries_from_rows(rows)
+        queued_keys = frozenset(e.key for e in entries)
+        epic_key = entry_key(state.repo, state.issue)
+        epic_entry = next((e for e in entries if e.key == epic_key), None)
+        epic_after = epic_entry.after if epic_entry is not None else ()
+
+        return EpicChecklistSnapshot(
+            children=tuple(children), queued_keys=queued_keys, epic_after=epic_after,
+        )
+
 
 # ── preflight (pure) ─────────────────────────────────────────────────────────
 
@@ -2022,6 +2138,144 @@ def _escalate_dead_end(state: IssueState, dead_end: DeadEnd) -> Action:
             f"anyway — resolve by hand: {dead_end.recovery})"
         ),
     )
+
+
+# ── #3246/#3275: epic-decompose's steps 2/3, coordinator-side ───────────────
+#
+# `coord.dispatch.EPIC_DECOMPOSE_CONTRACT` used to ask the epic-decompose
+# worker itself to queue the first batch of newly-filed children (chained
+# serially) and re-queue the epic behind them (steps 2/3 of that contract).
+# Across the only two `epic-decompose` legs that have ever run, that worked
+# exactly once: claude-coordinator#3230 chained six children and re-queued
+# the epic correctly; claude-coordinator#3226 reported the identical two
+# steps done in its final message, and NEITHER queue row ever existed. A
+# one-shot worker's own report of a coordinator-state write is not evidence
+# the write happened — only re-observing the state is — so this reads the
+# epic's live `## Sub-issues` checklist (the durable trace of the worker's
+# step 1, `coord milestone add-child`) and the live drive queue, and issues
+# whatever `coord drive-queue add` call is still missing, one per poll.
+# Idempotent by construction (every `add` upserts by (repo, issue)), so
+# re-running this on every poll while nothing is missing is a no-op that
+# just falls through.
+#
+# #3275: the "re-queue the epic behind the last child" half of that plan
+# (claude-coordinator#3261's incident) is GONE, not fixed — it was
+# self-contradictory by construction, independent of any predictor bug. The
+# epic's own branch implements the first slice (`EPIC_DECOMPOSE_CONTRACT`
+# step 2), so its in-flight diff IS that slice's file set; the moment a
+# checklist child declares the same files (#3269 duplicated slice 1 exactly),
+# #2247's overlap predictor correctly chains that child `--after` the epic —
+# and re-queueing the epic `--after` the last child, as the old plan did,
+# then closes a 2-cycle with that same edge every single time, not just on a
+# false positive. There is no ordering of "epic behind last child" that can
+# ever be correct here: the epic must land FIRST, because the checklist's
+# later slices build on the code its own PR adds. So this now chains the
+# BATCH after the epic (the first child gets `--after <epic>`, each
+# following child chains behind the one before it, exactly as before) and
+# never touches the epic's own queue row at all — once every batch child is
+# queued, there is nothing left to do. `--reject-after <epic>` rides along on
+# every child in the batch as a second, independent guard: even if some
+# child's declared files happen to overlap the epic's PR for an unrelated
+# reason (a shared test file, say), the explicit chain above already encodes
+# the only ordering that matters, and letting #2247 ALSO try to add its own
+# copy of the very edge #3275 exists to stop the epic from ever depending on
+# would just be re-introducing the same risk through the back door.
+
+_EPIC_DECOMPOSE_BATCH_SIZE = 6
+
+
+def _epic_decompose_batch(
+    state: IssueState, snapshot: EpicChecklistSnapshot
+) -> Action | None:
+    """Pure planner: given the epic's checklist + queue snapshot, what's the
+    next `coord drive-queue add` (if any) still needed to finish steps 2/3?
+
+    "Unstarted" mirrors what the contract always meant a worker to queue:
+    not itself closed, and not blocked by an `{after: #N}` edge onto
+    something that isn't closed yet — the SAME mechanism an epic author
+    already had for marking a child conditional (see
+    claude-coordinator#3230, which correctly skipped one this way), so this
+    never has to parse free-form epic prose to find a "conditional" child.
+    The eligible set is capped at :data:`_EPIC_DECOMPOSE_BATCH_SIZE` in
+    checklist order and is stable across polls (it does not depend on what's
+    already queued), so re-deriving it every poll always converges on the
+    same batch rather than drifting.
+
+    #3275: the batch chains behind the EPIC, not the other way around — see
+    the module comment above this function for why "epic behind the last
+    child" is a guaranteed cycle, not just a #2247 false positive. The first
+    unqueued child's `--after` names the epic itself; every child after that
+    still chains behind the one before it, exactly as before. Every add in
+    the batch also carries `--reject-after <epic>` (#2603's narrow escape
+    hatch) so #2247's own predictor can never independently re-derive the
+    reverse edge this function exists to rule out.
+
+    Returns ``None`` when there is nothing left to queue — either every
+    eligible child is already there, or the checklist has no eligible child
+    at all (e.g. step 1 never filed anything; that is a DIFFERENT defect
+    than the one this function exists to close, and is left to surface on
+    its own rather than `_die()`-ing here on a case this function was never
+    asked to police). Unlike the pre-#3275 version, there is no follow-up
+    step once the batch is fully queued — the epic's own queue row is never
+    touched by this function at all.
+    """
+    terminal = {c.issue_number for c in snapshot.children if c.closed}
+    eligible = [
+        c for c in snapshot.children
+        if c.issue_number not in terminal and set(c.after) <= terminal
+    ]
+    batch = eligible[:_EPIC_DECOMPOSE_BATCH_SIZE]
+    if not batch:
+        return None
+
+    epic_key = entry_key(state.repo, state.issue)
+    for i, child in enumerate(batch):
+        key = entry_key(state.repo, child.issue_number)
+        if key in snapshot.queued_keys:
+            continue
+        prior_key = entry_key(state.repo, batch[i - 1].issue_number) if i > 0 else epic_key
+        command = [
+            "drive-queue", "add", state.repo, str(child.issue_number),
+            "--after", prior_key,
+            "--reject-after", epic_key,
+        ]
+        return Action(
+            kind=RUN,
+            label=(
+                f"EPIC-DECOMPOSE #{state.issue}: queueing batch child "
+                f"{key} ({i + 1}/{len(batch)}, #3246/#3275)"
+            ),
+            command=tuple(command),
+            error_message=(
+                f"coord drive-queue add failed for {key} while queuing "
+                f"epic #{state.issue}'s first batch (#3246/#3275)"
+            ),
+        )
+
+    return None
+
+
+def _decide_epic_decompose_followup(
+    state: IssueState, verifier: MergeVerifier
+) -> Action | None:
+    """Wrapper around :func:`_epic_decompose_batch`: fetch the live snapshot,
+    then plan against it. A fetch failure (bad checklist included — see
+    :meth:`GitMergeVerifier.epic_checklist_snapshot`) waits for the next
+    poll rather than guessing; a no-op plan (``None``) falls through to the
+    ordinary Test/Review/Merge machinery exactly like every other
+    `_decide_*` helper `decide()` calls.
+    """
+    if state.work_type != EPIC_DECOMPOSE_TYPE:
+        return None
+    snapshot = verifier.epic_checklist_snapshot(state)
+    if snapshot is None:
+        return _wait(
+            label=(
+                f"EPIC-DECOMPOSE #{state.issue}: could not read the epic's "
+                "checklist/queue state yet, retrying (#3246)"
+            )
+        )
+    return _epic_decompose_batch(state, snapshot)
 
 
 def decide(
@@ -2404,6 +2658,21 @@ def decide(
             f"   inspect: coord log {state.work_aid} --machine "
             f"{state.work_machine or machine}"
         )
+
+    # #3246/#3275: an epic-decompose leg's step 2 (queue the first batch of
+    # newly-filed children, chained BEHIND this epic — never the epic
+    # re-queued behind them, see `_epic_decompose_batch`) is coordinator-
+    # side now, not worker-reported — see `_decide_epic_decompose_followup`.
+    # Positioned here, right after the branch check and before the dead-end
+    # predicate, so a batch still being queued (one `coord drive-queue add`
+    # per poll) can never be mistaken for a stalled Test/Review stage. Runs
+    # for both the `done` and the accepted-`advisory` (commits-present) shape
+    # above — `_decide_epic_decompose_followup` itself is the type gate
+    # (`state.work_type != EPIC_DECOMPOSE_TYPE` short-circuits everything
+    # else for the overwhelming majority of rows, which are plain `work`).
+    epic_followup = _decide_epic_decompose_followup(state, verifier)
+    if epic_followup is not None:
+        return replace(epic_followup, warnings=warnings + epic_followup.warnings)
 
     # ---- the dead-end predicate (#2019) ------------------------------------
     #
@@ -3311,17 +3580,6 @@ _SMOKE_GATE_MARKERS = (
 )
 _REVIEW_GATE_MARKERS = ("review required", "review not approved")
 
-# #2947 (follow-up to #2687): the UAT gate — a human-attended block that only
-# `coord uat <id> --passed` (never a `coord merge` retry) can clear.
-# `evaluate_uat_verdict` (coord.merge_queue) always opens its message with
-# "uat verdict " — "uat verdict missing", "uat verdict FAILED: …", or the
-# board-unavailable stand-in "uat verdict required but board unavailable to
-# confirm" — so that one prefix covers every wording both `process()` (live
-# merge attempt) and `_entry_gate_status` (board/plan render) produce, the
-# same "both callers, one string" guarantee `_SMOKE_GATE_MARKERS`/
-# `_REVIEW_GATE_MARKERS` document above.
-_UAT_GATE_MARKERS = ("uat verdict",)
-
 # #2704: the branch-head-unknown condition
 # (`coord.merge_queue.UNKNOWN_BRANCH_HEAD_REASON`) is its OWN gate kind —
 # neither "smoke" nor "review" — even though `merge_gate_failures` reports it
@@ -3354,10 +3612,25 @@ def _merge_gate_kind(reason: str) -> str | None:
 
     #2947: `"uat"` is likewise its own kind, never folded into "review" or
     "smoke" — it is a human-attended gate with no re-runnable measurement
-    behind it (see `_UAT_GATE_MARKERS`), so callers must route it to a
-    bare wait for a human verdict, never a `coord merge` retry or an
-    automated re-test/re-review escalation.
+    behind it, so callers must route it to a bare wait for a human verdict,
+    never a `coord merge` retry or an automated re-test/re-review
+    escalation.
+
+    #3272 (S-4 of #3261): the UAT arm no longer hardcodes its own copy of
+    `evaluate_uat_verdict`'s message vocabulary — it looks the "uat"
+    `GateSpec`'s `identifies_reason` up in `coord.pipeline.GATE_REGISTRY`
+    and asks THAT, so a rewording of the message in `coord/merge_queue.py`
+    can never silently desync from what this module recognizes (the #2096
+    "one question, one answer" fix for the split that used to exist between
+    this module's private `_UAT_GATE_MARKERS` and
+    `coord.merge_queue.evaluate_uat_verdict`'s actual message). Deferred
+    import: `coord.pipeline` imports `coord.merge_queue` at module level, and
+    while nothing today imports `coord.drive` back, keeping this import
+    local avoids adding a module-level edge from a widely-imported module
+    like `drive.py` into `pipeline.py`'s own load order.
     """
+    from coord.pipeline import GATE_REGISTRY  # noqa: PLC0415
+
     r = (reason or "").lower()
     if _UNKNOWN_BRANCH_HEAD_MARKER in r:
         return "unknown_head"
@@ -3365,7 +3638,9 @@ def _merge_gate_kind(reason: str) -> str | None:
         return "smoke"
     if any(marker in r for marker in _REVIEW_GATE_MARKERS):
         return "review"
-    if any(marker in r for marker in _UAT_GATE_MARKERS):
+    uat_spec = GATE_REGISTRY.get("uat")
+    identifies_uat_reason = uat_spec.identifies_reason if uat_spec is not None else None
+    if identifies_uat_reason is not None and identifies_uat_reason(r):
         return "uat"
     return None
 
@@ -4194,6 +4469,38 @@ def _decide_merge(
             serialize_merge=True,
         )
 
+    # #3254: the FIFTH CI-outcome case, checked right after the four
+    # self-refreshing siblings above — `coord.merge_queue.is_ci_absent_reason`
+    # (#1904's `checks_absent`: this repo declares CI but reported ZERO
+    # checks for the PR, most commonly because the `pull_request` webhook
+    # that would have created a check suite never fired). This is the
+    # OPPOSITE of the four blocks above: NOTHING about waiting or re-polling
+    # can ever resolve it — a merge retry does not re-fire a `pull_request`
+    # event, and that event is the only thing that creates a check suite for
+    # a feature branch (rebasing onto a fresh commit and force-pushing
+    # produces one within seconds; polling the SAME head never does — see
+    # the issue). So this does not dispatch another bounded re-check the way
+    # the four siblings do (there is nothing for a re-check to observe
+    # changing); it dies immediately instead, WITHOUT touching
+    # `counters.merge_attempts` — costing zero of the `--max-merge-attempts`
+    # budget, same guarantee as the four siblings, but by exiting rather
+    # than by looping forever on a reading that will never change. The exit
+    # message is read back verbatim by `coord.drive_queue`'s
+    # `IssueFacts.merge_ci_absent` (sourced independently from the board,
+    # not from this exit text) to block the queue entry without spending a
+    # launch attempt either — see that module's own #3254 comment.
+    if is_ci_absent_reason(state.merge_reason):
+        return _die(
+            f"{state.merge_reason} — push a new commit; this gate cannot "
+            "clear on retry (#3254). No number of `coord merge` attempts "
+            "re-fires the `pull_request` webhook that creates a check suite "
+            "for this branch; only a new commit does. Investigate why CI "
+            "never triggered for this PR, then push a fix (even a trivial "
+            "commit) for a fresh check suite — or, once you have "
+            "confirmed it is safe: coord merge --only "
+            f"{state.merge_aid or state.work_aid} --force-merge"
+        )
+
     status = state.merge_status
     if status.upper() == "HUMAN_REQUIRED":
         return _die(
@@ -4432,6 +4739,75 @@ def parse_drive_session_name(session_name: str) -> tuple[str, int] | None:
     if not sep or not repo or not issue_str.isdigit():
         return None
     return repo, int(issue_str)
+
+
+def stop_live_driver_session(
+    repo: str, issue: int, *, host: TmuxHost = TmuxHost(None)
+) -> tuple[bool, str | None, str | None]:
+    """Kill the live ``coord drive --tmux`` session for REPO ISSUE, if any (#3282).
+
+    A driver never re-checks whether its own drive-queue row still exists, so
+    a bare dequeue orphans it: it keeps dispatching worker legs for an issue
+    that no longer has any representation in the queue. This is the ONE seam
+    every "remove this drive-queue entry" call path is expected to route
+    through after a successful dequeue, so none of them can independently
+    "forget" to own the driver they just orphaned (#2096's "one question, one
+    answer" — three independent implementations of "remove an entry" must not
+    disagree about whether it kills a live driver):
+
+    * ``coord.commands.drive_queue.drive_queue_remove`` (the CLI), via
+      ``coord.state.dequeue_drive_queue``'s local branch;
+    * the board daemon's own ``POST /drive-queue`` ``dequeue`` action
+      (``coord.serve_app.post_drive_queue``);
+    * the dashboard's local-mode fallback of the same
+      (``coord.dashboard.server``'s ``_drive_queue_write``).
+
+    ``host=TmuxHost(None)`` (local) by design, not a gap to close: per
+    :func:`drive_session_name`'s own module note, a drive session is LOCAL
+    ONLY — it runs a subprocess on whatever machine launched it. Every call
+    site above executes exactly where a drive-queue row write physically
+    lands: a local (non-daemon) write runs on the operator's own machine, and
+    a daemon-routed write is performed BY the daemon process itself, on the
+    daemon host — which is also the only machine ``coord drive-queue tick``
+    (and therefore every ``coord drive --tmux`` session it launches) ever
+    runs on. A THIN CLIENT must not call this function directly: it would
+    probe its own, unrelated host and find nothing to kill, exactly the
+    silent gap this closes — which is why the kill always happens on the
+    write side, never the caller side.
+
+    Returns ``(ok, session, detail)``:
+
+    * ``(True, None, None)`` — no live session; nothing to do.
+    * ``(True, session, None)`` — a live session existed and a FRESH
+      liveness re-probe, taken AFTER the kill attempt, confirms it is gone
+      now (#2096: never trust the subprocess's exit code alone).
+    * ``(False, session, detail)`` — a live session existed and could not be
+      confirmed dead; *detail* says why.
+    """
+    session = drive_session_name(repo, issue)
+    if not tmux_session_alive(session, host=host):
+        return True, None, None
+
+    try:
+        result = subprocess.run(
+            host.cmd(["kill-session", "-t", session]),
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        )
+    except (subprocess.SubprocessError, OSError) as exc:
+        return False, session, str(exc)
+
+    if result.returncode != 0:
+        return False, session, (result.stderr or result.stdout or "").strip()
+
+    # #2096: confirm from a fresh probe taken AFTER the kill, never from a
+    # zero returncode alone — `kill-session` can exit 0 against a session
+    # that respawns (e.g. a wrapping supervisor) without actually being gone.
+    if tmux_session_alive(session, host=host):
+        return False, session, "session still reports alive after kill-session"
+
+    return True, session, None
 
 
 def list_drive_sessions(*, host: TmuxHost = TmuxHost(None)) -> list[dict[str, Any]]:

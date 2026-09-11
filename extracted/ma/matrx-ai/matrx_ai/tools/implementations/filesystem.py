@@ -55,12 +55,39 @@ from matrx_ai.tools.kinds.filesystem import (
     FileWriteResult,
 )
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
+from matrx_ai.tools.output_caps import cap_json_list
 
 logger = logging.getLogger(__name__)
 
 MAX_READ_SIZE = 1_048_576  # 1 MB
 MAX_PATCH_SIZE = 5_242_880  # 5 MB hard cap on file size patches will touch
 MAX_LIST_ENTRIES = 500
+# Keep ample headroom for the listing envelope while staying below the universal
+# 50K result gate. Paths are user-controlled and a 500-row count cap alone is
+# not a character bound.
+MAX_LIST_OUTPUT_CHARS = 40_000
+
+
+def _bounded_listing(
+    *,
+    entries: list[dict[str, Any]],
+    path: str,
+    recursive: bool | None = None,
+    pattern: str | None = None,
+    limit: int | None = None,
+    truncated: bool = False,
+) -> DirectoryListing:
+    """Build an honest, provider-safe directory listing from compact entries."""
+    shown, cap = cap_json_list(entries, max_chars=MAX_LIST_OUTPUT_CHARS)
+    return DirectoryListing(
+        entries=[DirectoryEntry(**entry) for entry in shown],
+        count=len(shown),
+        path=path,
+        recursive=recursive,
+        pattern=pattern,
+        limit=limit,
+        truncated=truncated or cap.truncated,
+    )
 
 
 def _proxy_error(
@@ -426,15 +453,15 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 )
             return ToolResult(
                 success=True,
-                output=DirectoryListing(
-                    entries=[DirectoryEntry(**e) for e in entries],
-                    count=len(entries),
+                output=_bounded_listing(
+                    entries=entries,
                     path=sandbox_path,
                     recursive=parsed.recursive,
                     pattern=parsed.pattern or None,
                     limit=MAX_LIST_ENTRIES,
-                    truncated=bool(data.get("truncated", False)),
+                    truncated=bool(data.get("truncated", False) or data.get("nextPageToken")),
                 ).model_dump(mode="json"),
+                output_self_capped=True,
                 started_at=started_at,
                 completed_at=time.time(),
                 tool_name="fs_list",
@@ -461,6 +488,7 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
 
         entries: list[dict[str, Any]] = []
+        entry_limit_reached = False
         iterator = dirpath.rglob("*") if parsed.recursive else dirpath.iterdir()
         for entry in iterator:
             if parsed.pattern and not fnmatch.fnmatch(entry.name, parsed.pattern):
@@ -473,16 +501,20 @@ async def fs_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "size": entry.stat().st_size if entry.is_file() else 0,
                 }
             )
-            if len(entries) >= 500:
+            if len(entries) > MAX_LIST_ENTRIES:
+                entries.pop()
+                entry_limit_reached = True
                 break
 
         return ToolResult(
             success=True,
-            output=DirectoryListing(
-                entries=[DirectoryEntry(**e) for e in entries],
-                count=len(entries),
+            output=_bounded_listing(
+                entries=entries,
                 path=parsed.path,
+                limit=MAX_LIST_ENTRIES,
+                truncated=entry_limit_reached,
             ).model_dump(mode="json"),
+            output_self_capped=True,
             started_at=started_at,
             completed_at=time.time(),
             tool_name="fs_list",

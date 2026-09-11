@@ -429,6 +429,17 @@ function render({ model, el }) {
     renderThemeBtn();
     header.appendChild(themeBtn);
 
+    // Full-screen toggle button (expands the manager to fill the screen).
+    const FULLSCREEN_SVG = `__SLLS_ICON_FULLSCREEN__`;
+    const FULLSCREEN_EXIT_SVG = `__SLLS_ICON_FULLSCREEN_EXIT__`;
+    const fullscreenBtn = document.createElement("button");
+    fullscreenBtn.className = "slls-dle-btn slls-dle-btn-icon";
+    fullscreenBtn.type = "button";
+    header.appendChild(fullscreenBtn);
+    sllsSetupFullscreen(
+        root, fullscreenBtn, "slls-dle-fullscreen", FULLSCREEN_SVG, FULLSCREEN_EXIT_SVG
+    );
+
     // ----------- Status banner (shared) -----------
     const status = document.createElement("div");
     status.className = "slls-dle-status";
@@ -4091,7 +4102,14 @@ export default { render };
 # Inject SVG icons from the shared UI components module so every Semantic
 # Link Labs widget renders the same visual primitives (see
 # ``sempy_labs._ui_components.ICONS``).
-from sempy_labs._ui_components import ICONS as _UI_ICONS  # noqa: E402
+from sempy_labs._ui_components import (  # noqa: E402
+    ICONS as _UI_ICONS,
+    list_picker_datasets as _list_picker_datasets,
+    list_picker_workspaces as _list_picker_workspaces,
+    scoped_button_press_css as _ui_scoped_button_press_css,
+)
+
+_WIDGET_CSS += _ui_scoped_button_press_css(".slls-dle")
 
 _WIDGET_JS = (
     _WIDGET_JS.replace("__SLLS_ICON_PLUS__", _UI_ICONS["plus"])
@@ -4252,34 +4270,10 @@ def direct_lake_manager(
         return id_col, name_col
 
     def _list_workspaces_payload():
-        try:
-            dfW = fabric.list_workspaces()
-        except Exception:
-            return [{"id": initial_ws_id, "name": str(initial_ws_name or "")}]
-        id_col, name_col = _pick_columns(dfW, ["Id"], ["Name"])
-        if id_col is None or name_col is None:
-            return [{"id": initial_ws_id, "name": str(initial_ws_name or "")}]
-        rows = [
-            {"id": str(r[id_col]), "name": str(r[name_col])} for _, r in dfW.iterrows()
-        ]
-        rows.sort(key=lambda x: x["name"].lower())
-        return rows
+        return _list_picker_workspaces(initial_ws_id, initial_ws_name)
 
     def _list_datasets_payload(workspace_id):
-        try:
-            dfD = fabric.list_datasets(workspace=workspace_id, mode="rest")
-        except Exception:
-            return []
-        id_col, name_col = _pick_columns(
-            dfD, ["Dataset Id", "Dataset ID"], ["Dataset Name"]
-        )
-        if id_col is None or name_col is None:
-            return []
-        rows = [
-            {"id": str(r[id_col]), "name": str(r[name_col])} for _, r in dfD.iterrows()
-        ]
-        rows.sort(key=lambda x: x["name"].lower())
-        return rows
+        return _list_picker_datasets(workspace_id)
 
     def _list_source_items_payload(workspace_id, source_type):
         # Map the Direct Lake source types to fabric.list_items types.

@@ -314,9 +314,9 @@ def _sql_get_used_tables_impl(
             msg = str(e)
             if "is restricted. Contact support@tinybird.co" in msg:
                 raise InvalidFunction(msg=msg) from e
-            elif "Unknown function tb_secret" in msg:
+            if "Unknown function tb_secret" in msg:
                 raise InvalidFunction(msg="Unknown function tb_secret. Usage: {{tb_secret('secret_name')}}") from e
-            elif "Unknown function tb_var" in msg:
+            if "Unknown function tb_var" in msg:
                 raise InvalidFunction(msg="Unknown function tb_var. Usage: {{tb_var('var_name')}}") from e
             raise
         # Do not cache this fallback result: the returned sql string can contain
@@ -660,9 +660,7 @@ def replace_tables(
 
     # Fix for empty database names in JOINs - remove empty backticks like ``.table_name
     # that are generated when chquery.replace_tables processes tuples with empty database names
-    sql = sql.replace("``.", "")
-
-    return sql
+    return sql.replace("``.", "")
 
 
 def is_invalid_resource(

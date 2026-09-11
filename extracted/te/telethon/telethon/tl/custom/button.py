@@ -58,16 +58,7 @@ class Button:
         """
         Returns `True` if the button belongs to an inline keyboard.
         """
-        return isinstance(button, (
-            types.KeyboardButtonCopy,
-            types.KeyboardButtonBuy,
-            types.KeyboardButtonCallback,
-            types.KeyboardButtonGame,
-            types.KeyboardButtonSwitchInline,
-            types.KeyboardButtonUrl,
-            types.InputKeyboardButtonUrlAuth,
-            types.KeyboardButtonWebView,
-        ))
+        return isinstance(button, types.KeyboardInlineButton)
 
     @staticmethod
     def inline(text, data=None, style=None, icon=None):
@@ -95,7 +86,7 @@ class Button:
         if len(data) > 64:
             raise ValueError('Too many bytes for the data')
 
-        return types.KeyboardButtonCallback(text, data, style=Button._get_style(style, icon))
+        return types.KeyboardInlineButton(text, types.InlineButtonTypeCallback(data), style=Button._get_style(style, icon))
 
     @staticmethod
     def switch_inline(text, query='', same_peer=False, style=None, icon=None):
@@ -113,7 +104,7 @@ class Button:
         input field will be filled with the username of your bot followed
         by the query text, ready to make inline queries.
         """
-        return types.KeyboardButtonSwitchInline(text, query, same_peer, style=Button._get_style(style, icon))
+        return types.KeyboardInlineButton(text, types.InlineButtonTypeSwitchInline(query, same_peer), style=Button._get_style(style, icon))
 
     @staticmethod
     def url(text, url=None, style=None, icon=None):
@@ -129,7 +120,7 @@ class Button:
         the domain is trusted, and once confirmed the URL will open in their
         device.
         """
-        return types.KeyboardButtonUrl(text, url or text, style=Button._get_style(style, icon))
+        return types.KeyboardInlineButton(text, types.InlineButtonTypeUrl(url or text), style=Button._get_style(style, icon))
 
     @staticmethod
     def auth(text, url=None, style=None, icon=None, *, bot=None, write_access=False, fwd_text=None):
@@ -169,12 +160,14 @@ class Button:
         When the user clicks this button, a confirmation box will be shown
         to the user asking whether they want to login to the specified domain.
         """
-        return types.InputKeyboardButtonUrlAuth(
-            text=text,
-            url=url or text,
-            bot=utils.get_input_user(bot or types.InputUserSelf()),
-            request_write_access=write_access,
-            fwd_text=fwd_text,
+        return types.KeyboardInlineButton(
+            text,
+            types.InputInlineButtonTypeUrlAuth(
+                url=url or text,
+                bot=utils.get_input_user(bot or types.InputUserSelf()),
+                request_write_access=write_access,
+                fwd_text=fwd_text
+            ),
             style=Button._get_style(style, icon)
         )
 
@@ -218,7 +211,7 @@ class Button:
         same text on their own.
         """
         return cls(
-            types.KeyboardButton(text, style=cls._get_style(style, icon)),
+            types.KeyboardButton(text, types.ButtonTypeDefault(), style=cls._get_style(style, icon)),
             resize=resize,
             single_use=single_use,
             selective=selective,
@@ -240,7 +233,7 @@ class Button:
         bot, and if confirmed a message with geo media will be sent.
         """
         return cls(
-            types.KeyboardButtonRequestGeoLocation(text, style=cls._get_style(style, icon)),
+            types.KeyboardButton(text, types.ButtonTypeRequestGeoLocation(), style=cls._get_style(style, icon)),
             resize=resize,
             single_use=single_use,
             selective=selective,
@@ -262,7 +255,7 @@ class Button:
         bot, and if confirmed a message with contact media will be sent.
         """
         return cls(
-            types.KeyboardButtonRequestPhone(text, style=cls._get_style(style, icon)),
+            types.KeyboardButton(text, types.ButtonTypeRequestPhone(), style=cls._get_style(style, icon)),
             resize=resize,
             single_use=single_use,
             selective=selective,
@@ -291,7 +284,7 @@ class Button:
         poll will be shown, and if they do create one, the poll will be sent.
         """
         return cls(
-            types.KeyboardButtonRequestPoll(text, quiz=force_quiz, style=cls._get_style(style, icon)),
+            types.KeyboardButton(text, types.ButtonTypeRequestPoll(force_quiz), style=cls._get_style(style, icon)),
             resize=resize,
             single_use=single_use,
             selective=selective,
@@ -337,7 +330,7 @@ class Button:
         `Payments API <https://core.telegram.org/api/payments>`__
         documentation for more information.
         """
-        return types.KeyboardButtonBuy(text, style=Button._get_style(style, icon))
+        return types.KeyboardInlineButton(text, types.InlineButtonTypeBuy(), style=Button._get_style(style, icon))
 
     @staticmethod
     def game(text, style=None, icon=None):
@@ -351,4 +344,4 @@ class Button:
         `Games <https://core.telegram.org/api/bots/games>`__
         documentation for more information on using games.
         """
-        return types.KeyboardButtonGame(text, style=Button._get_style(style, icon))
+        return types.KeyboardInlineButton(text, types.InlineButtonTypeGame(), style=Button._get_style(style, icon))

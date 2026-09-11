@@ -793,6 +793,51 @@ class _IGatewayRefProxy(
 typing.cast(typing.Any, IGatewayRef).__jsii_proxy_class__ = lambda : _IGatewayRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IPipelineRef")
+class IPipelineRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "PipelineReference":
+        '''(experimental) A reference to a Pipeline resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPipelineRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Pipeline.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iotsitewise.IPipelineRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineRef")
+    def pipeline_ref(self) -> "PipelineReference":
+        '''(experimental) A reference to a Pipeline resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PipelineReference", jsii.get(self, "pipelineRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPipelineRef).__jsii_proxy_class__ = lambda : _IPipelineRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IPortalRef")
 class IPortalRef(
     _constructs_77d1e7e8.IConstruct,
@@ -881,6 +926,145 @@ class _IProjectRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.ITaskRef")
+class ITaskRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Task.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="taskRef")
+    def task_ref(self) -> "TaskReference":
+        '''(experimental) A reference to a Task resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITaskRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Task.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iotsitewise.ITaskRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="taskRef")
+    def task_ref(self) -> "TaskReference":
+        '''(experimental) A reference to a Task resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TaskReference", jsii.get(self, "taskRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITaskRef).__jsii_proxy_class__ = lambda : _ITaskRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.IWorkspaceRef")
+class IWorkspaceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IWorkspaceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Workspace.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_iotsitewise.IWorkspaceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceRef")
+    def workspace_ref(self) -> "WorkspaceReference":
+        '''(experimental) A reference to a Workspace resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("WorkspaceReference", jsii.get(self, "workspaceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IWorkspaceRef).__jsii_proxy_class__ = lambda : _IWorkspaceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.PipelineReference",
+    jsii_struct_bases=[],
+    name_mapping={"pipeline_arn": "pipelineArn"},
+)
+class PipelineReference:
+    def __init__(self, *, pipeline_arn: builtins.str) -> None:
+        '''A reference to a Pipeline resource.
+
+        :param pipeline_arn: The PipelineArn of the Pipeline resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iotsitewise as interfaces_iotsitewise
+            
+            pipeline_reference = interfaces_iotsitewise.PipelineReference(
+                pipeline_arn="pipelineArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70721047c2d0adf0766c4fd504250ed7570be8133079163c5abcd1d0359ffa27)
+            check_type(argname="argument pipeline_arn", value=pipeline_arn, expected_type=type_hints["pipeline_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "pipeline_arn": pipeline_arn,
+        }
+
+    @builtins.property
+    def pipeline_arn(self) -> builtins.str:
+        '''The PipelineArn of the Pipeline resource.'''
+        result = self._values.get("pipeline_arn")
+        assert result is not None, "Required property 'pipeline_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PipelineReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -1003,6 +1187,104 @@ class ProjectReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.TaskReference",
+    jsii_struct_bases=[],
+    name_mapping={"task_arn": "taskArn"},
+)
+class TaskReference:
+    def __init__(self, *, task_arn: builtins.str) -> None:
+        '''A reference to a Task resource.
+
+        :param task_arn: The TaskArn of the Task resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iotsitewise as interfaces_iotsitewise
+            
+            task_reference = interfaces_iotsitewise.TaskReference(
+                task_arn="taskArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0cc4d8ee167703ddd04a6101941ddc0e79006b38f9f770681475947aeb494866)
+            check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "task_arn": task_arn,
+        }
+
+    @builtins.property
+    def task_arn(self) -> builtins.str:
+        '''The TaskArn of the Task resource.'''
+        result = self._values.get("task_arn")
+        assert result is not None, "Required property 'task_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TaskReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_iotsitewise.WorkspaceReference",
+    jsii_struct_bases=[],
+    name_mapping={"workspace_arn": "workspaceArn"},
+)
+class WorkspaceReference:
+    def __init__(self, *, workspace_arn: builtins.str) -> None:
+        '''A reference to a Workspace resource.
+
+        :param workspace_arn: The WorkspaceArn of the Workspace resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_iotsitewise as interfaces_iotsitewise
+            
+            workspace_reference = interfaces_iotsitewise.WorkspaceReference(
+                workspace_arn="workspaceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__04bc951152d6e4454bb1b0e9b55d25799b9f186739baaab7d5eed6cb0034069d)
+            check_type(argname="argument workspace_arn", value=workspace_arn, expected_type=type_hints["workspace_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "workspace_arn": workspace_arn,
+        }
+
+    @builtins.property
+    def workspace_arn(self) -> builtins.str:
+        '''The WorkspaceArn of the Workspace resource.'''
+        result = self._values.get("workspace_arn")
+        assert result is not None, "Required property 'workspace_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "WorkspaceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "AccessPolicyReference",
     "AssetModelReference",
@@ -1018,10 +1300,16 @@ __all__ = [
     "IDashboardRef",
     "IDatasetRef",
     "IGatewayRef",
+    "IPipelineRef",
     "IPortalRef",
     "IProjectRef",
+    "ITaskRef",
+    "IWorkspaceRef",
+    "PipelineReference",
     "PortalReference",
     "ProjectReference",
+    "TaskReference",
+    "WorkspaceReference",
 ]
 
 publication.publish()
@@ -1081,6 +1369,13 @@ def _typecheckingstub__219fd8e8909bacd09e6fd45c24703df8b0ab052abec0e92596bc38508
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__70721047c2d0adf0766c4fd504250ed7570be8133079163c5abcd1d0359ffa27(
+    *,
+    pipeline_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e22d209b3458a45c845d0f086b6efe3ca2e75eed78de6397221a3f08157d8ccf(
     *,
     portal_arn: builtins.str,
@@ -1097,5 +1392,19 @@ def _typecheckingstub__4a8ae4c6854c75be3a7c7b370de23f31606b008da1f7c14d066fc1a1c
     """Type checking stubs"""
     pass
 
-for cls in [IAccessPolicyRef, IAssetModelRef, IAssetRef, IComputationModelRef, IDashboardRef, IDatasetRef, IGatewayRef, IPortalRef, IProjectRef]:
+def _typecheckingstub__0cc4d8ee167703ddd04a6101941ddc0e79006b38f9f770681475947aeb494866(
+    *,
+    task_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04bc951152d6e4454bb1b0e9b55d25799b9f186739baaab7d5eed6cb0034069d(
+    *,
+    workspace_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IAccessPolicyRef, IAssetModelRef, IAssetRef, IComputationModelRef, IDashboardRef, IDatasetRef, IGatewayRef, IPipelineRef, IPortalRef, IProjectRef, ITaskRef, IWorkspaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

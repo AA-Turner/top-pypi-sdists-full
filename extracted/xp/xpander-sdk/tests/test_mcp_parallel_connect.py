@@ -3,6 +3,7 @@
 import asyncio
 import time
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -188,3 +189,48 @@ def _http_401():
     return httpx.HTTPStatusError(
         "401", request=req, response=httpx.Response(401, request=req)
     )
+
+
+@pytest.mark.parametrize("eligible", [True, False])
+def test_background_task_without_user_builds_oauth_tool_only_when_eligible(
+    monkeypatch: pytest.MonkeyPatch,
+    eligible: bool,
+) -> None:
+    """Userless tasks authenticate with the sentinel only when backend eligible."""
+    server = MCPServerDetails(
+        url="https://background.example/mcp", auth_type=MCPServerAuthType.OAuth2
+    )
+    task = SimpleNamespace(
+        input=SimpleNamespace(user=None),
+        background_auth_eligible=eligible,
+        mcp_servers=[],
+        user_tokens={},
+    )
+    auth = AsyncMock(
+        return_value=MCPOAuthGetTokenResponse(
+            type=MCPOAuthResponseType.TOKEN_READY,
+            data=MCPOAuthGetTokenTokenReadyResponse(access_token="background-token"),
+        )
+    )
+    probe = AsyncMock(return_value=None)
+    monkeypatch.setattr(agno_module, "authenticate_mcp_server", auth)
+    monkeypatch.setattr(agno_module, "probe_mcp_server", probe)
+    notes = []
+    tools = asyncio.run(
+        agno_module._resolve_agent_tools(
+            agent=_fake_agent([server]), task=task, skipped_notes=notes
+        )
+    )
+    if eligible:
+        assert len(tools) == 1
+        assert auth.await_args.kwargs["user_id"] == "background"
+        assert (
+            probe.await_args.kwargs["headers"]["Authorization"]
+            == "Bearer background-token"
+        )
+    else:
+        assert tools == []
+        auth.assert_not_awaited()
+        probe.assert_not_awaited()
+        assert notes
+    assert task.input.user is None

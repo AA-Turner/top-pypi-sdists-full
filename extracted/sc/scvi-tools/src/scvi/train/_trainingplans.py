@@ -28,6 +28,26 @@ from ._metrics import ElboMetric
 TorchOptimizerCreator = Callable[[Iterable[torch.Tensor]], torch.optim.Optimizer]
 
 
+def _dynamo_frame_counts() -> tuple[int, int]:
+    """Frames dynamo has attempted and compiled so far, process-wide."""
+    from torch._dynamo.utils import counters
+
+    frames = counters.get("frames", {})
+    return frames.get("total", 0), frames.get("ok", 0)
+
+
+def _compilation_fell_back(before: tuple[int, int], after: tuple[int, int]) -> bool:
+    """Whether every frame dynamo attempted between the two readings failed to compile.
+
+    The counters are process-wide and cumulative, so the two readings are compared as a
+    delta rather than as absolute values: a second model in the same session must not
+    inherit the first one's successes.
+    """
+    attempted = after[0] - before[0]
+    compiled = after[1] - before[1]
+    return attempted > 0 and compiled == 0
+
+
 def _compute_kl_weight(
     epoch: int,
     step: int,
@@ -98,6 +118,10 @@ class TrainingPlan(pl.LightningModule):
     optimizer_creator
         A callable taking in parameters and returning a :class:`~torch.optim.Optimizer`.
         This allows using any PyTorch optimizer with custom hyperparameters.
+    fused_optimizer
+        Whether to use the fused implementation of the optimizer when the backend
+        supports it, falling back to the standard one when it does not. The fused path
+        issues far fewer kernels per step, which matters most on `mps`.
     lr
         Learning rate used for optimization when `optimizer_creator` is None.
     weight_decay
@@ -147,6 +171,7 @@ class TrainingPlan(pl.LightningModule):
         *,
         optimizer: Literal["Adam", "AdamW", "Custom"] = "Adam",
         optimizer_creator: TorchOptimizerCreator | None = None,
+        fused_optimizer: bool = True,
         lr: float = 1e-3,
         update_only_decoder: bool = False,
         weight_decay: float = 1e-6,
@@ -187,6 +212,7 @@ class TrainingPlan(pl.LightningModule):
         self.min_kl_weight = min_kl_weight
         self.max_kl_weight = max_kl_weight
         self.optimizer_creator = optimizer_creator
+        self.fused_optimizer = fused_optimizer
         self.update_only_decoder = update_only_decoder
         self.on_step = on_step
         self.on_epoch = on_epoch
@@ -198,11 +224,18 @@ class TrainingPlan(pl.LightningModule):
         self._n_obs_validation = None
 
         # Whether to compile the module first
+        self._compile_suppress_errors_before = None
+        self._compile_frames_before = None
         if compile:
             if compile_kwargs is None:
                 compile_kwargs = {}
             compile_kwargs["dynamic"] = compile_kwargs.get("dynamic", False)
+            # Suppressing dynamo's errors degrades a failed compilation to eager instead
+            # of raising. It is process-wide, so remember what it was and put it back in
+            # `on_train_end`; compilation itself is lazy, so it cannot be restored here.
+            self._compile_suppress_errors_before = torch._dynamo.config.suppress_errors
             torch._dynamo.config.suppress_errors = True
+            self._compile_frames_before = _dynamo_frame_counts()
             self.module = torch.compile(module, **compile_kwargs)
         else:
             self.module = module
@@ -349,8 +382,11 @@ class TrainingPlan(pl.LightningModule):
             met = loss_output.extra_metrics[key]
             if isinstance(met, torch.Tensor):
                 if met.shape != torch.Size([]):
-                    Warning(
-                        f"Extra tracked metrics {key} should be 0-d tensors. It will not be logged"
+                    warnings.warn(
+                        f"Extra tracked metrics {key} should be 0-d tensors. "
+                        "It will not be logged",
+                        UserWarning,
+                        stacklevel=settings.warnings_stacklevel,
                     )
                 else:
                     met = met.detach()
@@ -421,6 +457,20 @@ class TrainingPlan(pl.LightningModule):
                         },
                     )
 
+    def on_train_end(self):
+        """Undo the process-wide dynamo state that ``compile=True`` turned on."""
+        if self._compile_suppress_errors_before is None:
+            return
+        torch._dynamo.config.suppress_errors = self._compile_suppress_errors_before
+        if _compilation_fell_back(self._compile_frames_before, _dynamo_frame_counts()):
+            warnings.warn(
+                "`compile=True` was requested but every frame torch.compile attempted "
+                "fell back to eager, so the model trained uncompiled. Re-run with "
+                "`torch._dynamo.config.suppress_errors = False` to see why.",
+                UserWarning,
+                stacklevel=settings.warnings_stacklevel,
+            )
+
     def training_step(self, batch, batch_idx):
         """Training step for the model."""
         if "kl_weight" in self.loss_kwargs:
@@ -474,9 +524,24 @@ class TrainingPlan(pl.LightningModule):
 
         This type of function can be passed as the `optimizer_creator`
         """
-        return lambda params: optimizer_cls(
-            params, lr=self.lr, eps=self.eps, weight_decay=self.weight_decay
-        )
+
+        def create(params) -> torch.optim.Optimizer:
+            # `params` is usually a generator, and a rejected fused optimizer has to be
+            # retried with the same parameters, so materialise it once.
+            params = list(params)
+            kwargs = {"lr": self.lr, "eps": self.eps, "weight_decay": self.weight_decay}
+            if self.fused_optimizer:
+                try:
+                    return optimizer_cls(params, fused=True, **kwargs)
+                except (RuntimeError, ValueError, AssertionError, TypeError):
+                    # Whether fused is available depends on the device, the parameter
+                    # dtypes and the torch version, and torch says so by raising at
+                    # construction time. Its own rules are more reliable than a device
+                    # allowlist maintained here, so fall back on being told no.
+                    pass
+            return optimizer_cls(params, **kwargs)
+
+        return create
 
     def get_optimizer_creator(self):
         """Get the optimizer creator for the model."""
@@ -1284,8 +1349,8 @@ class LowLevelPyroTrainingPlan(pl.LightningModule):
         An instance of :class:`~scvi.module.base.PyroBaseModuleClass`. This object
         should have callable `model` and `guide` attributes or methods.
     loss_fn
-        A Pyro loss. Should be a subclass of :class:`~pyro.infer.ELBO`.
-        If `None`, defaults to :class:`~pyro.infer.Trace_ELBO`.
+        A Pyro loss. Should be a subclass of :class:`~pyro.infer.elbo.ELBO`.
+        If `None`, defaults to :class:`~pyro.infer.trace_elbo.Trace_ELBO`.
     optim
         A Pytorch optimizer class, e.g., :class:`~torch.optim.Adam`. If `None`,
         defaults to :class:`torch.optim.Adam`.
@@ -1298,7 +1363,7 @@ class LowLevelPyroTrainingPlan(pl.LightningModule):
         Number of epochs to scale weight on KL divergences from 0 to 1.
         Overrides `n_steps_kl_warmup` when both are not `None`.
     scale_elbo
-        Scale ELBO using :class:`~pyro.poutine.scale`. Potentially useful for avoiding
+        Scale ELBO using :func:`~pyro.poutine.handlers.scale`. Potentially useful for avoiding
         numerical inaccuracy when working with very large ELBO.
     """
 
@@ -1423,13 +1488,13 @@ class PyroTrainingPlan(LowLevelPyroTrainingPlan):
         An instance of :class:`~scvi.module.base.PyroBaseModuleClass`. This object
         should have callable `model` and `guide` attributes or methods.
     loss_fn
-        A Pyro loss. Should be a subclass of :class:`~pyro.infer.ELBO`.
-        If `None`, defaults to :class:`~pyro.infer.Trace_ELBO`.
+        A Pyro loss. Should be a subclass of :class:`~pyro.infer.elbo.ELBO`.
+        If `None`, defaults to :class:`~pyro.infer.trace_elbo.Trace_ELBO`.
     optim
-        A Pyro optimizer instance, e.g., :class:`~pyro.optim.Adam`. If `None`,
-        defaults to :class:`pyro.optim.Adam` optimizer with a learning rate of `1e-3`.
+        A Pyro optimizer instance, e.g., :func:`~pyro.optim.pytorch_optimizers.Adam`. If `None`,
+        defaults to :func:`~pyro.optim.pytorch_optimizers.Adam` optimizer with a learning rate of `1e-3`.
     optim_kwargs
-        Keyword arguments for **default** optimiser :class:`pyro.optim.Adam`.
+        Keyword arguments for **default** optimiser :func:`~pyro.optim.pytorch_optimizers.Adam`.
     n_steps_kl_warmup
         Number of training steps (minibatches) to scale weight on KL divergences from 0 to 1.
         Only activated when `n_epochs_kl_warmup` is set to None.
@@ -1437,7 +1502,7 @@ class PyroTrainingPlan(LowLevelPyroTrainingPlan):
         Number of epochs to scale weight on KL divergences from 0 to 1.
         Overrides `n_steps_kl_warmup` when both are not `None`.
     scale_elbo
-        Scale ELBO using :class:`~pyro.poutine.scale`. Potentially useful for avoiding
+        Scale ELBO using :func:`~pyro.poutine.handlers.scale`. Potentially useful for avoiding
         numerical inaccuracy when working with very large ELBO.
     blocked
         A list of Pyro parameters to block during training.
@@ -1520,10 +1585,10 @@ class PyroTrainingPlan(LowLevelPyroTrainingPlan):
         return torch.optim.Adam([self._dummy_param])
 
     def optimizer_step(self, *args, **kwargs):
-        pass
+        """No-op, as the Pyro optimizer steps inside the training step."""
 
     def backward(self, *args, **kwargs):
-        pass
+        """No-op, as Pyro computes the gradients inside the training step."""
 
 
 class ClassifierTrainingPlan(pl.LightningModule):
@@ -1718,7 +1783,11 @@ if is_package_installed("mlx"):
             elif hasattr(self.module, "_training"):
                 self.module._training = is_training
             else:
-                Warning("Unable to set module training state, may affect training performance")
+                warnings.warn(
+                    "Unable to set module training state, may affect training performance",
+                    UserWarning,
+                    stacklevel=settings.warnings_stacklevel,
+                )
 
         def get_kl_weight(self) -> float:
             """Compute the KL weight for the current step or epoch.

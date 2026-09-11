@@ -2878,6 +2878,7 @@ class BedrockEmbeddingModelConfigurationOutputTypeDef(TypedDict):
     embeddingDataType: NotRequired[EmbeddingDataTypeType]
     audio: NotRequired[list[AudioConfigurationTypeDef]]
     video: NotRequired[list[VideoConfigurationTypeDef]]
+    modelConfiguration: NotRequired[dict[str, Any]]
 
 
 class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
@@ -2885,6 +2886,7 @@ class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
     embeddingDataType: NotRequired[EmbeddingDataTypeType]
     audio: NotRequired[Sequence[AudioConfigurationTypeDef]]
     video: NotRequired[Sequence[VideoConfigurationTypeDef]]
+    modelConfiguration: NotRequired[Mapping[str, Any]]
 
 
 class CreateAgentAliasResponseTypeDef(TypedDict):
@@ -3316,6 +3318,9 @@ class ManagedKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
     embeddingModelArn: NotRequired[str]
     embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationOutputTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[
+        SupplementalDataStorageConfigurationOutputTypeDef
+    ]
 
 
 class VectorKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
@@ -3331,6 +3336,7 @@ class ManagedKnowledgeBaseConfigurationTypeDef(TypedDict):
     embeddingModelArn: NotRequired[str]
     embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[SupplementalDataStorageConfigurationTypeDef]
 
 
 class VectorKnowledgeBaseConfigurationTypeDef(TypedDict):

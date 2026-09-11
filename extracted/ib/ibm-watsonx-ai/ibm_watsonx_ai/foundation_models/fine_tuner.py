@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import datetime
 from typing import TYPE_CHECKING, Any, cast
-from warnings import warn
 
 from ibm_watsonx_ai.foundation_models.base_tuner import BaseTuner
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema, PeftParameters
@@ -59,12 +58,10 @@ class FineTuner(BaseTuner):
         gradient_checkpointing: bool | None = None,
     ):
         if api_client.CLOUD_PLATFORM_SPACES:
-            fine_tuning_deprecation_warning = (
-                "Foundation model fine tuning functionality in watsonx.ai SaaS is being deprecated and will no longer be available effective 10 Sep 2026. "
-                "If you use this capability, start planning your transition before the removal date to avoid disruption to your workflows. "
+            raise WMLClientError(
+                "Foundation model fine tuning functionality in watsonx.ai SaaS has not been supported since 10 Sep 2026. "
                 "To continue fine tuning models, use Red Hat OpenShift AI (RHOAI) running on Red Hat OpenShift on IBM Cloud (ROKS)."
             )
-            warn(fine_tuning_deprecation_warning, DeprecationWarning)
         elif api_client.ICP_PLATFORM_SPACES and api_client.CPD_version >= 6.0:
             raise WMLClientError(
                 "Foundation model fine tuning functionality has not been supported since IBM Cloud Pak® for Data 6.0.0"

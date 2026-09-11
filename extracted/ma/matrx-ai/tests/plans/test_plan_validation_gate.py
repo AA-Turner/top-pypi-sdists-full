@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from matrx_ai.plans import AgentPlan, AgentPlanValidationError, validate_plan
 from matrx_ai.plans.errors import raise_if_issues
 from matrx_ai.plans.validate import validate_plan_agents
@@ -448,8 +449,9 @@ async def test_for_each_over_non_array_schema_field_rejected():
 
 
 def test_pydantic_errors_render_clean():
-    from matrx_ai.plans.errors import issues_from_validation_error
     from pydantic import ValidationError
+
+    from matrx_ai.plans.errors import issues_from_validation_error
 
     try:
         AgentPlan.model_validate(
@@ -553,3 +555,138 @@ async def test_nested_input_key_named_for_each_is_not_special():
     with _mock_manager(rows):
         issues = await validate_plan_agents(plan, _CTX)
     assert not any("requires a list" in i.message for i in issues)
+
+
+# --- the production gate refuses, naming the violated rule ---
+#
+# Hosts run exactly ``raise_if_issues(validate_plan(plan))`` then
+# ``raise_if_issues(await validate_plan_agents(plan, ctx))`` (aidream
+# agent_plans/service.py, hindsight admission). Each shape below must be
+# REFUSED through that composition with the rendered line that names the rule,
+# its path, and its step — the text the planning agent self-corrects from.
+
+_STRUCTURAL_REFUSALS = [
+    pytest.param(
+        lambda: _plan([_step(1), _step(1)]),
+        r"\[steps\] \(step 1\) duplicate step number 1 — step numbers must be unique\.",
+        id="duplicate-step-number",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, depends_on=[2]), _step(2, depends_on=[1])]),
+        r"\[steps\] the dependency graph contains a cycle\.",
+        id="dependency-cycle",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, depends_on=[1])]),
+        r"\[steps\[1\]\.depends_on\] \(step 1\) a step cannot depend on itself\.",
+        id="self-dependency",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1), _step(2, depends_on=[7])]),
+        r"\[steps\[2\]\.depends_on\] \(step 2\) depends_on references undefined step 7\.",
+        id="undefined-dependency",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, inputs={"bad-key": "x"})]),
+        r"\[steps\[1\]\.inputs\.bad-key\] \(step 1\) input key 'bad-key' is not a valid identifier\.",
+        id="non-identifier-input-key",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, inputs={"x": "$steps.9.output"})]),
+        r"\[steps\[1\]\.inputs\.x\] \(step 1\) '\$steps\.9\.output' references undefined step 9\.",
+        id="undefined-step-reference",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, for_each="$item.cards")]),
+        r"\[steps\[1\]\.for_each\] \(step 1\) for_each cannot reference \$item\.",
+        id="for-each-over-item",
+    ),
+    pytest.param(
+        lambda: _plan(
+            [_step(1), _step(2, for_each="$steps.5.output.structured_output.cards", inputs={"q": "$item.q"})]
+        ),
+        r"\[steps\[2\]\.for_each\] \(step 2\) for_each references undefined step 5\.",
+        id="for-each-undefined-step",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1), _step(2, depends_on=[1], when="1 > 0")]),
+        r"\[steps\[2\]\.when\] \(step 2\) when must reference \$steps\.<dep>\.output\.<path> at least once\.",
+        id="when-without-reference",
+    ),
+    pytest.param(
+        lambda: _plan([_step(1, inputs={"x": "$inputs.missing"})]),
+        r"\[steps\[1\]\.inputs\.x\] \(step 1\) '\$inputs\.missing' does not resolve against plan\.inputs\.",
+        id="unresolvable-plan-input",
+    ),
+]
+
+
+@pytest.mark.parametrize("build_plan, rule", _STRUCTURAL_REFUSALS)
+def test_structural_gate_refuses_the_plan_naming_the_rule(build_plan, rule):
+    with pytest.raises(AgentPlanValidationError, match=rule) as exc_info:
+        raise_if_issues(validate_plan(build_plan()))
+    assert exc_info.value.error_type == "agent_plan_validation_gate"
+
+
+def test_structural_gate_lets_a_valid_plan_through():
+    plan = _plan(
+        [
+            _step(1, inputs={"user_input": "make cards"}),
+            _step(2, depends_on=[1], inputs={"front": "$steps.1.output.final_text"}),
+        ]
+    )
+    assert raise_if_issues(validate_plan(plan)) is None
+
+
+_AGENT_REFUSALS = [
+    pytest.param(
+        {_A1: _agent_row(is_active=False)},
+        [_step(1, inputs={"topic": "x"})],
+        rf"\[steps\[1\]\.agent_id\] \(step 1\) agent {_A1} is inactive or archived\.",
+        id="inactive-agent",
+    ),
+    pytest.param(
+        {_A1: _agent_row(is_archived=True)},
+        [_step(1, inputs={"topic": "x"})],
+        rf"\[steps\[1\]\.agent_id\] \(step 1\) agent {_A1} is inactive or archived\.",
+        id="archived-agent",
+    ),
+    pytest.param(
+        {},
+        [_step(1, inputs={"topic": "x"})],
+        rf"\[steps\[1\]\.agent_id\] \(step 1\) agent {_A1} could not be loaded: LookupError: agent {_A1} not found",
+        id="missing-agent",
+    ),
+    pytest.param(
+        {_A1: _agent_row()},
+        [_step(1, inputs={"topic": "x", "tone": "dry"})],
+        r"\[steps\[1\]\.inputs\.tone\] \(step 1\) agent Test Agent has no variable 'tone'\. "
+        r"Declared variables: front, topic\.",
+        id="unknown-variable",
+    ),
+    pytest.param(
+        {_A1: _agent_row()},
+        [_step(1, inputs={"front": "y"})],
+        r"\[steps\[1\]\.inputs\] \(step 1\) agent Test Agent requires variable 'topic' "
+        r"but this step does not supply it\.",
+        id="missing-required-variable",
+    ),
+    pytest.param(
+        {_A1: _agent_row(output_schema=None), _A2: _agent_row()},
+        [
+            _step(1, inputs={"topic": "x"}),
+            _step(2, agent_id=_A2, inputs={"topic": "y", "front": "$steps.1.output.structured_output.cards"}),
+        ],
+        r"\[steps\[2\]\.inputs\.front\] \(step 2\) '\$steps\.1\.output\.structured_output\.cards': "
+        r"agent Test Agent \(step 1\) has no output_schema",
+        id="structured-output-without-schema",
+    ),
+]
+
+
+@pytest.mark.parametrize("rows, steps, rule", _AGENT_REFUSALS)
+async def test_agent_gate_refuses_the_plan_naming_the_rule(rows, steps, rule):
+    plan = _plan(steps)
+    with _mock_manager(rows), pytest.raises(AgentPlanValidationError, match=rule) as exc_info:
+        raise_if_issues(await validate_plan_agents(plan, _CTX))
+    assert exc_info.value.error_type == "agent_plan_validation_gate"

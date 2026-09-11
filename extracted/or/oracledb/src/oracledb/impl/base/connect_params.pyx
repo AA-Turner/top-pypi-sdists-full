@@ -66,6 +66,50 @@ cdef class ConnectParamsImpl:
         self.driver_name = C_DEFAULTS.driver_name
         self.thick_mode_dsn_passthrough = C_DEFAULTS.thick_mode_dsn_passthrough
 
+    def __eq__(self, ConnectParamsImpl other_impl):
+        return other_impl.config_dir == self.config_dir \
+                and other_impl.user == self.user \
+                and other_impl.proxy_user == self.proxy_user \
+                and other_impl.events == self.events \
+                and other_impl.externalauth == self.externalauth \
+                and other_impl.mode == self.mode \
+                and other_impl.edition == self.edition \
+                and other_impl.appcontext == self.appcontext \
+                and other_impl.tag == self.tag \
+                and other_impl.matchanytag == self.matchanytag \
+                and other_impl.shardingkey == self.shardingkey \
+                and other_impl.supershardingkey == self.supershardingkey \
+                and other_impl.stmtcachesize == self.stmtcachesize \
+                and other_impl.disable_oob == self.disable_oob \
+                and other_impl.ssl_context is self.ssl_context \
+                and other_impl.description_list == self.description_list \
+                and other_impl._external_handle == self._external_handle \
+                and other_impl.debug_jdwp == self.debug_jdwp \
+                and other_impl.access_token_callback is \
+                        self.access_token_callback \
+                and other_impl.on_connect_callback is \
+                        self.on_connect_callback \
+                and other_impl.operation_callback is \
+                        self.operation_callback \
+                and other_impl.round_trip_callback is \
+                        self.round_trip_callback \
+                and other_impl._password == self._password \
+                and other_impl._new_password == self._new_password \
+                and other_impl._wallet_password == self._wallet_password \
+                and other_impl._token == self._token \
+                and other_impl._private_key == self._private_key \
+                and other_impl.program == self.program \
+                and other_impl.machine == self.machine \
+                and other_impl.terminal == self.terminal \
+                and other_impl.osuser == self.osuser \
+                and other_impl.driver_name == self.driver_name \
+                and other_impl.transaction_priority == \
+                        self.transaction_priority \
+                and other_impl.extra_auth_params == \
+                        self.extra_auth_params \
+                and other_impl.thick_mode_dsn_passthrough == \
+                        self.thick_mode_dsn_passthrough
+
     def set(self, dict args):
         """
         Sets the property values based on the supplied arguments. All values
@@ -103,11 +147,15 @@ cdef class ConnectParamsImpl:
         _set_str_param(args, "machine", self, check_network_character_set=True)
         _set_str_param(args, "osuser", self, check_network_character_set=True)
         _set_str_param(args, "driver_name", self)
+        _set_str_enum_param(args, "transaction_priority",
+                            ENUM_TRANSACTION_PRIORITY, self)
         _set_obj_param(args, "extra_auth_params", self)
         _set_bool_param(args, "thick_mode_dsn_passthrough",
                         &self.thick_mode_dsn_passthrough)
         self._set_access_token_param(args.get("access_token"))
-        self._set_on_connect_param(args.get("on_connect_callback"))
+        self._set_callback_param(args, "on_connect_callback", self)
+        self._set_callback_param(args, "operation_callback", self)
+        self._set_callback_param(args, "round_trip_callback", self)
 
         # set parameters found on Description instances
         self._default_description.set_from_args(args)
@@ -149,8 +197,7 @@ cdef class ConnectParamsImpl:
         Check to see that credentials have been supplied: either a password or
         an access token.
         """
-        if self._password is None and self._token is None \
-                and self.access_token_callback is None:
+        if self._password is None and not self.externalauth:
             errors._raise_err(errors.ERR_NO_CREDENTIALS)
 
     cdef int _copy(self, ConnectParamsImpl other_params) except -1:
@@ -176,6 +223,8 @@ cdef class ConnectParamsImpl:
         self.description_list = other_params.description_list
         self.access_token_callback = other_params.access_token_callback
         self.on_connect_callback = other_params.on_connect_callback
+        self.operation_callback = other_params.operation_callback
+        self.round_trip_callback = other_params.round_trip_callback
         self._external_handle = other_params._external_handle
         self._default_description = other_params._default_description
         self._default_address = other_params._default_address
@@ -189,6 +238,7 @@ cdef class ConnectParamsImpl:
         self.machine = other_params.machine
         self.osuser = other_params.osuser
         self.driver_name = other_params.driver_name
+        self.transaction_priority = other_params.transaction_priority
         self.extra_auth_params = other_params.extra_auth_params
         self.thick_mode_dsn_passthrough = \
                 other_params.thick_mode_dsn_passthrough
@@ -361,11 +411,25 @@ cdef class ConnectParamsImpl:
         Sets the access token parameter.
         """
         if val is not None:
+            self.externalauth = True
             if callable(val):
                 self.access_token_callback = val
             else:
                 self._set_access_token(val,
                                        errors.ERR_INVALID_ACCESS_TOKEN_PARAM)
+
+    cdef int _set_callback_param(
+        self, dict args, str name, object target
+    ) except -1:
+        """
+        Sets a callback parameter after validating it.
+        """
+        cdef object value
+        if name in args:
+            value = args[name]
+            if value is not None and not callable(value):
+                errors._raise_err(errors.ERR_INVALID_CALLABLE_FUN)
+            setattr(target, name, value)
 
     cdef int _set_new_password(self, object password_in) except -1:
         """
@@ -375,15 +439,6 @@ cdef class ConnectParamsImpl:
         if password_in is not None:
             password = self._transform_password(password_in)
             self._new_password = SecretValueImpl(password)
-
-    cdef int _set_on_connect_param(self, object val) except -1:
-        """
-        Sets the on_connect_callback parameter.
-        """
-        if val is not None:
-            if not callable(val):
-                errors._raise_err(errors.ERR_INVALID_CALLABLE_FUN)
-            self.on_connect_callback = val
 
     cdef int _set_password(self, object password_in) except -1:
         """
@@ -560,6 +615,14 @@ cdef class ConnectParamsNode:
         if must_have_children:
             self.children = []
 
+    def __eq__(self, ConnectParamsNode other):
+        if other is not None:
+            return other.source_route == self.source_route \
+                    and other.load_balance == self.load_balance \
+                    and other.failover == self.failover \
+                    and other.children == self.children
+        return NotImplemented
+
     cdef int _copy(self, ConnectParamsNode source) except -1:
         """
         Copies data from the source to this node.
@@ -635,6 +698,13 @@ cdef class Address(ConnectParamsNode):
         ConnectParamsNode.__init__(self, False)
         self.protocol = DEFAULT_PROTOCOL
         self.port = DEFAULT_PORT
+
+    def __eq__(self, Address other):
+        return other.host == self.host \
+                and other.port == self.port \
+                and other.protocol == self.protocol \
+                and other.https_proxy == self.https_proxy \
+                and other.https_proxy_port == self.https_proxy_port
 
     cdef str build_connect_string(self):
         """
@@ -792,6 +862,33 @@ cdef class Description(ConnectParamsNode):
         self.retry_delay = DEFAULT_RETRY_DELAY
         self.ssl_server_dn_match = True
         self.sdu = DEFAULT_SDU
+
+    def __eq__(self, Description other):
+        return other.expire_time == self.expire_time \
+                and other.retry_count == self.retry_count \
+                and other.retry_delay == self.retry_delay \
+                and other.sdu == self.sdu \
+                and other.tcp_connect_timeout == self.tcp_connect_timeout \
+                and other.service_name == self.service_name \
+                and other.instance_name == self.instance_name \
+                and other.server_type == self.server_type \
+                and other.sid == self.sid \
+                and other.cclass == self.cclass \
+                and other.connection_id_prefix == self.connection_id_prefix \
+                and other.pool_boundary == self.pool_boundary \
+                and other.pool_name == self.pool_name \
+                and other.purity == self.purity \
+                and other.ssl_server_dn_match == self.ssl_server_dn_match \
+                and other.use_tcp_fast_open == self.use_tcp_fast_open \
+                and other.use_sni == self.use_sni \
+                and other.ssl_server_cert_dn == self.ssl_server_cert_dn \
+                and other.ssl_version is self.ssl_version \
+                and other.wallet_location == self.wallet_location \
+                and other.extra_connect_data_args == \
+                        self.extra_connect_data_args \
+                and other.extra_security_args == self.extra_security_args \
+                and other.extra_args == self.extra_args \
+                and other.children == self.children
 
     cdef str _build_duration_str(self, double value):
         """

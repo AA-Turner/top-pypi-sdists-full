@@ -105,13 +105,12 @@ class PipeChecker(unittest.TestCase):
         headers = {"Authorization": f"Bearer {self.token}"}
         if self.http_method == "GET":
             return requests.get(pipe_url, headers=headers, verify=not getenv_bool("TB_DISABLE_SSL_CHECKS", False))
-        else:
-            return requests.post(
-                pipe_url,
-                headers=headers,
-                verify=not getenv_bool("TB_DISABLE_SSL_CHECKS", False),
-                data=self.pipe_request_params,
-            )
+        return requests.post(
+            pipe_url,
+            headers=headers,
+            verify=not getenv_bool("TB_DISABLE_SSL_CHECKS", False),
+            data=self.pipe_request_params,
+        )
 
     def _write_performance(self):
         return ""

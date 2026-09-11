@@ -43,6 +43,187 @@ else:
     _workflows_2b7f1587 = _LazyImport("projen.github.workflows")
 
 
+class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
+    '''(experimental) Fully qualified references (``owner/repo@ref``) for GitHub Actions.
+
+    Use these when authoring workflow steps, so that every step references a
+    reviewed action version.
+
+    :stability: experimental
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_CHECKOUT")
+    def ACTIONS_CHECKOUT(cls) -> builtins.str:
+        '''(experimental) actions/checkout at v7.0.1.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_CHECKOUT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_CREATE_GITHUB_APP_TOKEN")
+    def ACTIONS_CREATE_GITHUB_APP_TOKEN(cls) -> builtins.str:
+        '''(experimental) actions/create-github-app-token at v3.2.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_CREATE_GITHUB_APP_TOKEN"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_DEPENDENCY_REVIEW_ACTION")
+    def ACTIONS_DEPENDENCY_REVIEW_ACTION(cls) -> builtins.str:
+        '''(experimental) actions/dependency-review-action at v5.0.0.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_DEPENDENCY_REVIEW_ACTION"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_DOWNLOAD_ARTIFACT")
+    def ACTIONS_DOWNLOAD_ARTIFACT(cls) -> builtins.str:
+        '''(experimental) actions/download-artifact at v8.0.1.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_DOWNLOAD_ARTIFACT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_GITHUB_SCRIPT")
+    def ACTIONS_GITHUB_SCRIPT(cls) -> builtins.str:
+        '''(experimental) actions/github-script at v9.0.0.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_GITHUB_SCRIPT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_SETUP_DOTNET")
+    def ACTIONS_SETUP_DOTNET(cls) -> builtins.str:
+        '''(experimental) actions/setup-dotnet at v6.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_SETUP_DOTNET"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_SETUP_GO")
+    def ACTIONS_SETUP_GO(cls) -> builtins.str:
+        '''(experimental) actions/setup-go at v7.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_SETUP_GO"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_SETUP_JAVA")
+    def ACTIONS_SETUP_JAVA(cls) -> builtins.str:
+        '''(experimental) actions/setup-java at v6.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_SETUP_JAVA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_SETUP_NODE")
+    def ACTIONS_SETUP_NODE(cls) -> builtins.str:
+        '''(experimental) actions/setup-node at v7.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_SETUP_NODE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_SETUP_PYTHON")
+    def ACTIONS_SETUP_PYTHON(cls) -> builtins.str:
+        '''(experimental) actions/setup-python at v7.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_SETUP_PYTHON"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_STALE")
+    def ACTIONS_STALE(cls) -> builtins.str:
+        '''(experimental) actions/stale at v11.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_STALE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ACTIONS_UPLOAD_ARTIFACT")
+    def ACTIONS_UPLOAD_ARTIFACT(cls) -> builtins.str:
+        '''(experimental) actions/upload-artifact at v7.0.1.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "ACTIONS_UPLOAD_ARTIFACT"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMANNN_ACTION_SEMANTIC_PULL_REQUEST")
+    def AMANNN_ACTION_SEMANTIC_PULL_REQUEST(cls) -> builtins.str:
+        '''(experimental) amannn/action-semantic-pull-request at v6.1.1.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "AMANNN_ACTION_SEMANTIC_PULL_REQUEST"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS")
+    def AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS(cls) -> builtins.str:
+        '''(experimental) aws-actions/configure-aws-credentials at v6.2.3 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "AWS_ACTIONS_CONFIGURE_AWS_CREDENTIALS"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CODECOV_CODECOV_ACTION")
+    def CODECOV_CODECOV_ACTION(cls) -> builtins.str:
+        '''(experimental) codecov/codecov-action at v7.0.0 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "CODECOV_CODECOV_ACTION"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OVEN_SH_SETUP_BUN")
+    def OVEN_SH_SETUP_BUN(cls) -> builtins.str:
+        '''(experimental) oven-sh/setup-bun at v2.2.0.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "OVEN_SH_SETUP_BUN"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PETER_EVANS_CREATE_PULL_REQUEST")
+    def PETER_EVANS_CREATE_PULL_REQUEST(cls) -> builtins.str:
+        '''(experimental) peter-evans/create-pull-request at v8.1.1 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PETER_EVANS_CREATE_PULL_REQUEST"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PNPM_ACTION_SETUP")
+    def PNPM_ACTION_SETUP(cls) -> builtins.str:
+        '''(experimental) pnpm/action-setup at v6.0.10 (immutable).
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "PNPM_ACTION_SETUP"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SQREN_BACKPORT_GITHUB_ACTION")
+    def SQREN_BACKPORT_GITHUB_ACTION(cls) -> builtins.str:
+        '''(experimental) sqren/backport-github-action at v12.0.4.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.str, jsii.sget(cls, "SQREN_BACKPORT_GITHUB_ACTION"))
+
+
 class AutoApprove(
     _projen_04054675.Component,
     metaclass=jsii.JSIIMeta,
@@ -11069,6 +11250,7 @@ class WorkflowSteps(metaclass=jsii.JSIIMeta, jsii_type="projen.github.WorkflowSt
 
 
 __all__ = [
+    "ActionRefs",
     "AutoApprove",
     "AutoApproveOptions",
     "AutoMerge",

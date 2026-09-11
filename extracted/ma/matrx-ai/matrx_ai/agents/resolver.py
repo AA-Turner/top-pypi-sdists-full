@@ -155,6 +155,8 @@ class ConversationResolver:
                 conversation_id=conversation_id,
                 conversation_row=conv_row,
                 cache_state=cache_state_dict,
+                user_input=user_input,
+                config_overrides=config_overrides,
             )
         except Exception as prep_exc:
             # Prompt shaping is an optimisation — never let it break the run.

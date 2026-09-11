@@ -1,10 +1,19 @@
+import functools
+import shutil
 import typing as t
 from pathlib import Path
 
 import click
 from atproto_codegen.clients.generate_async_client import gen_client
+from atproto_codegen.config import CodegenConfig
+from atproto_codegen.exceptions import CodegenError
+from atproto_codegen.models import builder
 from atproto_codegen.models.generator import generate_models
 from atproto_codegen.namespaces.generator import generate_namespaces
+from atproto_codegen.subscriptions.generator import generate_subscriptions
+from atproto_codegen.utils import find_ruff
+
+_F = t.TypeVar('_F', bound=t.Callable[..., t.Any])
 
 
 class AliasedGroup(click.Group):
@@ -42,6 +51,19 @@ def echo(ctx: click.Context, *args: t.Any) -> None:
         click.echo(*args)
 
 
+def _reports_codegen_errors(func: _F) -> _F:
+    """Turn generator errors into CLI errors: a message instead of a traceback."""
+
+    @functools.wraps(func)
+    def wrapper(*args: t.Any, **kwargs: t.Any) -> t.Any:
+        try:
+            return func(*args, **kwargs)
+        except CodegenError as e:
+            raise click.ClickException(str(e)) from e
+
+    return t.cast('_F', wrapper)
+
+
 @click.group(cls=AliasedGroup)
 @click.option('--silent', '-s', is_flag=True, default=False, help='Disable output.')
 @click.pass_context
@@ -54,32 +76,43 @@ def atproto_cli(ctx: click.Context, silent: bool) -> None:
 @atproto_cli.group(cls=AliasedGroup)
 @click.option('--lexicon-dir', type=click.Path(exists=True), default=None, help='Path to dir with .JSON lexicon files.')
 @click.pass_context
+@_reports_codegen_errors
 def gen(ctx: click.Context, lexicon_dir: t.Optional[str]) -> None:
-    lexicon_dir_path = Path(lexicon_dir) if lexicon_dir else None
-    ctx.obj['lexicon_dir'] = lexicon_dir_path
+    ctx.obj['lexicon_dir'] = Path(lexicon_dir) if lexicon_dir else None
+    builder.clear_caches()
+    find_ruff()
+
+
+def _build_config(ctx: click.Context, output_dir: t.Optional[str] = None) -> CodegenConfig:
+    config = CodegenConfig()
+
+    lexicon_dir = ctx.obj.get('lexicon_dir')
+    if lexicon_dir:
+        config = config.with_overrides(emit_lexicon_dirs=(lexicon_dir,))
+    if output_dir:
+        config = config.with_overrides(output_dir=Path(output_dir))
+
+    return config
 
 
 @gen.command(name='all', help='Generated models, namespaces, and async clients with default configs.')
 @click.pass_context
+@_reports_codegen_errors
 def gen_all(ctx: click.Context) -> None:
     echo(ctx, 'Generating all:')
 
+    config = _build_config(ctx)
+
     echo(ctx, '- models...')
-    _gen_models()
+    generate_models(config)
     echo(ctx, '- namespaces...')
-    _gen_namespaces()
+    generate_namespaces(config)
+    echo(ctx, '- subscriptions...')
+    generate_subscriptions(config)
     echo(ctx, '- async clients...')
     _gen_async_version()
 
     echo(ctx, 'Done!')
-
-
-def _gen_models(*args: t.Any) -> None:
-    generate_models(*args)
-
-
-def _gen_namespaces(*args: t.Any) -> None:
-    generate_namespaces(*args)
 
 
 def _gen_async_version() -> None:
@@ -87,21 +120,17 @@ def _gen_async_version() -> None:
 
 
 @gen.command(name='models')
-@click.option('--output-dir', type=click.Path(exists=True), default=None)
+@click.option(
+    '--output-dir',
+    type=click.Path(exists=True),
+    default=None,
+    help='Root of the generated package. Models are written to its "models" subdir.',
+)
 @click.pass_context
+@_reports_codegen_errors
 def gen_models(ctx: click.Context, output_dir: t.Optional[str]) -> None:
     echo(ctx, 'Generating models...')
-
-    if output_dir:
-        # FIXME(MarshalX): remove hardcoded imports
-        click.secho(
-            "It doesn't work with '--output-dir' option very well because of hardcoded imports! Replace by yourself",
-            fg='red',
-        )
-        _gen_models(ctx.obj.get('lexicon_dir'), Path(output_dir))
-    else:
-        _gen_models(ctx.obj.get('lexicon_dir'))
-
+    generate_models(_build_config(ctx, output_dir))
     echo(ctx, 'Done!')
 
 
@@ -110,19 +139,74 @@ def gen_models(ctx: click.Context, output_dir: t.Optional[str]) -> None:
 @click.option('--async-filename', type=click.STRING, default=None, help='Should end with ".py".')
 @click.option('--sync-filename', type=click.STRING, default=None, help='Should end with ".py".')
 @click.pass_context
+@_reports_codegen_errors
 def gen_namespaces(
     ctx: click.Context, output_dir: t.Optional[str], async_filename: t.Optional[str], sync_filename: t.Optional[str]
 ) -> None:
     echo(ctx, 'Generating namespaces...')
 
-    output_dir_path = Path(output_dir) if output_dir else None
-    _gen_namespaces(ctx.obj.get('lexicon_dir'), output_dir_path, async_filename, sync_filename)
+    config = _build_config(ctx)
+    generate_namespaces(
+        config,
+        Path(output_dir) if output_dir else None,
+        async_filename,
+        sync_filename,
+    )
 
     echo(ctx, 'Done!')
 
 
+_GENERATED_DIRS = ('models', 'namespaces')
+_GENERATED_FILES = ('client.py', 'async_client.py', 'subscriptions.py')
+
+
+def _remove_generated_code(output_dir: Path) -> None:
+    """Drop what a previous run generated so modules of removed lexicons do not linger.
+
+    The package ``__init__.py`` is kept: it is created only when missing and may be hand-edited.
+    """
+    for name in _GENERATED_DIRS:
+        shutil.rmtree(output_dir.joinpath(name), ignore_errors=True)
+    for name in _GENERATED_FILES:
+        path = output_dir.joinpath(name)
+        if path.is_file():
+            path.unlink()
+
+
+@gen.command(
+    name='custom',
+    help='Generate a package (models, namespaces, client) from custom lexicons. '
+    'Previously generated code in the output dir is replaced.',
+)
+@click.option(
+    '--output-dir', type=click.Path(), required=True, help='Root of the package to generate. Created if missing.'
+)
+@click.option('--package', type=click.STRING, required=True, help='Import name of the generated package.')
+@click.option('--no-client', is_flag=True, default=False, help='Generate models and namespaces only.')
+@click.pass_context
+@_reports_codegen_errors
+def gen_custom(ctx: click.Context, output_dir: str, package: str, no_client: bool) -> None:
+    lexicon_dir = ctx.obj.get('lexicon_dir')
+    if not lexicon_dir:
+        raise click.UsageError("'--lexicon-dir' is required. Pass it before the subcommand: atp gen --lexicon-dir ...")
+
+    config = CodegenConfig(emit_lexicon_dirs=(lexicon_dir,), output_dir=Path(output_dir), package=package)
+
+    echo(ctx, f'Generating {package}:')
+    _remove_generated_code(config.output_dir)
+    echo(ctx, '- models...')
+    generate_models(config)
+    echo(ctx, '- namespaces...')
+    generate_namespaces(config, with_client=not no_client)
+    echo(ctx, '- subscriptions...')
+    generate_subscriptions(config)
+
+    echo(ctx, f'Done! Package written to {config.output_dir}')
+
+
 @gen.command(name='async')
 @click.pass_context
+@_reports_codegen_errors
 def gen_async_version(ctx: click.Context) -> None:
     echo(ctx, 'Generating async clients...')
     _gen_async_version()

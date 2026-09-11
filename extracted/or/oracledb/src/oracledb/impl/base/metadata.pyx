@@ -80,6 +80,8 @@ cdef class OracleMetadata:
             arrow_type = NANOARROW_TYPE_LARGE_STRING
         elif db_type_num == DB_TYPE_NUM_RAW:
             arrow_type = NANOARROW_TYPE_LARGE_BINARY
+        elif db_type_num in (DB_TYPE_NUM_INTERVAL_DS, DB_TYPE_NUM_INTERVAL_YM):
+            arrow_type = NANOARROW_TYPE_INTERVAL_MONTH_DAY_NANO
         elif db_type_num == DB_TYPE_NUM_VECTOR:
             if self.vector_flags & VECTOR_META_FLAG_SPARSE_VECTOR:
                 arrow_type = NANOARROW_TYPE_STRUCT
@@ -164,6 +166,7 @@ cdef class OracleMetadata:
             if db_type_num == DB_TYPE_NUM_BOOLEAN:
                 ok = True
         elif arrow_type in (NANOARROW_TYPE_DECIMAL128,
+                            NANOARROW_TYPE_DECIMAL256,
                             NANOARROW_TYPE_INT8,
                             NANOARROW_TYPE_INT16,
                             NANOARROW_TYPE_INT32,
@@ -222,6 +225,7 @@ cdef class OracleMetadata:
         if db_type_num == DB_TYPE_NUM_NUMBER:
             if arrow_type in (
                 NANOARROW_TYPE_DECIMAL128,
+                NANOARROW_TYPE_DECIMAL256,
                 NANOARROW_TYPE_DOUBLE,
                 NANOARROW_TYPE_FLOAT,
                 NANOARROW_TYPE_INT8,
@@ -320,6 +324,7 @@ cdef class OracleMetadata:
             ArrowType arrow_type = schema_impl.arrow_type
         if arrow_type in (
             NANOARROW_TYPE_DECIMAL128,
+            NANOARROW_TYPE_DECIMAL256,
             NANOARROW_TYPE_INT8,
             NANOARROW_TYPE_INT16,
             NANOARROW_TYPE_INT32,
@@ -356,6 +361,8 @@ cdef class OracleMetadata:
                             NANOARROW_TYPE_STRUCT,
                             NANOARROW_TYPE_FIXED_SIZE_LIST):
             metadata.dbtype = DB_TYPE_VECTOR
+        elif arrow_type == NANOARROW_TYPE_INTERVAL_MONTH_DAY_NANO:
+            metadata.dbtype = DB_TYPE_INTERVAL_DS
         else:
             errors._raise_err(errors.ERR_UNSUPPORTED_ARROW_TYPE,
                               arrow_type=schema_impl.get_type_name())

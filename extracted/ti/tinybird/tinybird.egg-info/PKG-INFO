@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.16
+Version: 4.6.18
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.18
+********
+
+- `Fixed` CLI commands (for example ``tb migrate-to-forward``) no longer abort on startup when the best-effort refresh of the cached workspace id/name fails for a reason other than authentication.
+
+4.6.17
+********
+
+- `Added` ``tb job retry <job_id>`` to retry eligible import and S3/GCS sync jobs in ``error`` or ``cancelled`` status.
 
 4.6.16
 ********

@@ -77,6 +77,7 @@ def diff_files(
             click.echo(f"Unsupported file type: {filename}")
         if lines:
             return [f"{l}\n" for l in lines.split("\n")] if with_format else lines  # noqa: E741
+        return None
 
     try:
         lines1 = parse(from_file, with_format)
@@ -86,7 +87,7 @@ def diff_files(
         raise click.ClickException(FeedbackManager.error_diff_file(filename=filename))
 
     if not lines1 or not lines2:
-        return
+        return None
 
     diff = difflib.unified_diff(
         lines1, lines2, fromfile=f"{Path(from_file).name} {from_file_suffix}", tofile=f"{to_file} {to_file_suffix}"

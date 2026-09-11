@@ -25,7 +25,7 @@ def memoize(_func=None, *, key_func=None):
     Exposes its memory via .memory attribute.
     """
     if _func is not None:
-        return memoize()(_func)
+        return memoize(key_func=key_func)(_func)
     return _memory_decorator({}, key_func)
 
 memoize.skip = SkipMemory
@@ -92,8 +92,11 @@ class CacheMemory(dict):
     def expire(self):
         i = bisect(self._expires, time.time())
         for _ in range(i):
-            self._expires.popleft()
-            self.pop(self._keys.popleft(), None)
+            expires_at = self._expires.popleft()
+            key = self._keys.popleft()
+            entry = self.get(key)
+            if entry is not None and entry[1] <= expires_at:
+                self.pop(key, None)
 
     def clear(self):
         dict.clear(self)

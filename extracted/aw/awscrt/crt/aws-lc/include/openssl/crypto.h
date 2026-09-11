@@ -115,6 +115,11 @@ OPENSSL_EXPORT int FIPS_is_entropy_cpu_jitter(void);
 // built in FIPS mode.
 OPENSSL_EXPORT uint32_t FIPS_version(void);
 
+// FIPS_module_name returns the name of the cryptographic module, "AWS-LC FIPS"
+// in FIPS builds and "AWS-LC" otherwise. Together with |FIPS_version| it
+// identifies the module, for example "AWS-LC FIPS module 5".
+OPENSSL_EXPORT const char *FIPS_module_name(void);
+
 // Deprecated functions.
 
 // OPENSSL_VERSION_TEXT contains a string the identifies the version of
@@ -185,6 +190,7 @@ OPENSSL_EXPORT void OPENSSL_load_builtin_modules(void);
 #define OPENSSL_INIT_NO_LOAD_CONFIG 0
 #define OPENSSL_INIT_ENGINE_ALL_BUILTIN 0
 #define OPENSSL_INIT_ATFORK 0
+#define OPENSSL_INIT_NO_ATEXIT 0
 
 // OPENSSL_init_crypto calls |CRYPTO_library_init| and returns one.
 OPENSSL_EXPORT int OPENSSL_init_crypto(uint64_t opts,

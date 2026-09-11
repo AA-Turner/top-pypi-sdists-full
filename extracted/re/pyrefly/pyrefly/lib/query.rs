@@ -28,12 +28,13 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::qname::QName;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_python::sys_info::SysInfo;
-use pyrefly_types::callable::FuncMetadata;
-use pyrefly_types::callable::Function;
-use pyrefly_types::callable::FunctionKind;
-use pyrefly_types::callable::PropertyRole;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassFields;
+use pyrefly_types::class::PrecomputedTParams;
+use pyrefly_types::function::FuncMetadata;
+use pyrefly_types::function::Function;
+use pyrefly_types::function::FunctionKind;
+use pyrefly_types::function::PropertyRole;
 use pyrefly_types::literal::Lit;
 use pyrefly_types::type_alias::TypeAliasData;
 use pyrefly_types::type_var::Restriction;
@@ -306,19 +307,24 @@ struct TypeShapeContext<'a> {
 
 impl TypeShapeContext<'_> {
     fn declared_type_param_arity_for_class(&self, class: &Class) -> Option<usize> {
-        if let Some(tparams) = class.precomputed_tparams() {
-            return nonzero_arity(tparams.len());
+        match class.precomputed_tparams() {
+            PrecomputedTParams::NotGeneric => None,
+            PrecomputedTParams::Precomputed(tparams) => nonzero_arity(tparams.len()),
+            // Legacy type variables, so the arity is only known once the
+            // `KeyTParams` binding has been solved.
+            PrecomputedTParams::FromBinding => {
+                let handle = Handle::new(
+                    class.module_name(),
+                    class.module_path().dupe(),
+                    self.source_handle.sys_info().dupe(),
+                );
+                let bindings = self.transaction.get_bindings(&handle)?;
+                let answers = self.transaction.get_answers(&handle)?;
+                let idx =
+                    bindings.key_to_idx_hashed_opt(Hashed::new(&KeyTParams(class.index())))?;
+                nonzero_arity(answers.get_idx(idx)?.len())
+            }
         }
-
-        let handle = Handle::new(
-            class.module_name(),
-            class.module_path().dupe(),
-            self.source_handle.sys_info().dupe(),
-        );
-        let bindings = self.transaction.get_bindings(&handle)?;
-        let answers = self.transaction.get_answers(&handle)?;
-        let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&KeyTParams(class.index())))?;
-        nonzero_arity(answers.get_idx(idx)?.len())
     }
 }
 
@@ -598,8 +604,8 @@ impl<'a> CalleesWithLocation<'a> {
         format!("{}.{}", n.module_name(), n.id())
     }
     fn class_name_from_def_kind(kind: &FunctionKind) -> String {
-        if let Some(f) = kind.definition_id()
-            && let Some(cls) = &f.cls
+        if let Some(f) = kind.to_func_symbol()
+            && let Some(cls) = f.cls.as_ref()
         {
             format!("{}.{}", f.module.name(), cls.name())
         } else if let FunctionKind::CallbackProtocol(c) = kind {
@@ -609,11 +615,11 @@ impl<'a> CalleesWithLocation<'a> {
         }
     }
     fn target_from_def_kind(kind: &FunctionKind, module_name_override: Option<&str>) -> String {
-        if let Some(f) = kind.definition_id() {
+        if let Some(f) = kind.to_func_symbol() {
             if let Some(module_name_override) = module_name_override {
                 format!("{module_name_override}.{}", f.name)
             } else {
-                match &f.cls {
+                match f.cls.as_ref() {
                     Some(cls) => {
                         format!("{}.{}.{}", f.module.name(), cls.name(), f.name)
                     }
@@ -683,8 +689,7 @@ impl<'a> CalleesWithLocation<'a> {
         } else {
             // Check if this is a builtins function that needs special casing.
             if let FunctionKind::Def(def) = &metadata.kind
-                && def.module.name().as_str() == "builtins"
-                && def.name == "repr"
+                && def.has_toplevel_qname("builtins", "repr")
                 && let Some(args) = call_arguments
                 && let Some(callee) = self.repr_from_arguments(args)
             {
@@ -780,6 +785,11 @@ impl<'a> CalleesWithLocation<'a> {
                     .iter()
                     .flat_map(Self::class_info_from_bound_obj)
                     .collect_vec(),
+                Restriction::ShapeExtension(extension) => extension
+                    .upper_bound_class_names()
+                    .into_iter()
+                    .map(|name| (name.to_owned(), false))
+                    .collect(),
             },
             Type::Union(u) => u
                 .members
@@ -909,6 +919,10 @@ impl<'a> CalleesWithLocation<'a> {
             Type::Quantified(q) => match &q.restriction {
                 Restriction::Bound(Type::ClassType(c)) => self.find_init_or_new(c.class_object()),
                 Restriction::Constraints(tys) => self.init_or_new_from_union(tys, callee_range),
+                Restriction::ShapeExtension(extension) => self.init_or_new_from_union(
+                    &extension.upper_bound_members(&self.transaction.get_stdlib(&self.handle)),
+                    callee_range,
+                ),
                 x => panic!(
                     "unexpected restriction {}: {x:?}",
                     self.module_info.display_range(callee_range)
@@ -940,6 +954,13 @@ impl<'a> CalleesWithLocation<'a> {
                 Restriction::Bound(b) => {
                     self.callee_from_type(b, call_target, callee_range, call_arguments)
                 }
+                Restriction::ShapeExtension(extension) => extension
+                    .upper_bound_members(&self.transaction.get_stdlib(&self.handle))
+                    .iter()
+                    .flat_map(|ty| {
+                        self.callee_from_type(ty, call_target, callee_range, call_arguments)
+                    })
+                    .collect(),
                 x => panic!(
                     "unexpected restriction {}: {x:?}",
                     self.module_info.display_range(callee_range)
@@ -1142,9 +1163,9 @@ impl Query {
                     (Some(String::from("property")), ty)
                 }
                 Type::ClassType(c)
-                    if c.name() == "classproperty" || c.name() == "cached_classproperty" =>
+                    if (c.name() == "classproperty" || c.name() == "cached_classproperty")
+                        && let Some(result_ty) = c.targs().as_slice().first() =>
                 {
-                    let result_ty = c.targs().as_slice().first().unwrap();
                     (Some(String::from("property")), result_ty)
                 }
                 _ => (None, ty),
@@ -1218,7 +1239,6 @@ impl Query {
                         _ => answers.get_idx(class_field_idx).map(|cf| cf.ty()),
                     };
                     let field_ty = field_ty?;
-                    let field_ty = answers.solver().for_export_boundary(field_ty);
                     let (kind, field_ty) = get_kind_and_field_type(&field_ty);
 
                     Some(Attribute {

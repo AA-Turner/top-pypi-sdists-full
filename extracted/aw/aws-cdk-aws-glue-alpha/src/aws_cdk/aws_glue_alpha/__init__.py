@@ -81,6 +81,17 @@ The Spark UI (`—enable-spark-ui`) is off by default; enable it by setting the
 You can find more details about version, worker type and other features in
 [Glue's public documentation](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-api-jobs-job.html).
 
+> **Note on continuous logging and encryption:** Because continuous logging is
+> enabled by default, job driver and executor stdout/stderr are streamed to
+> CloudWatch. Unless you attach a [`SecurityConfiguration`](#securityconfiguration)
+> with `cloudWatchEncryption`, these logs are written to the account-shared,
+> default Glue log group (`/aws-glue/jobs/logs-v2/`), which is **not** encrypted
+> with a customer-managed key. Since job logs can contain sensitive runtime data
+> (SQL statements, row values, error stack traces), attach a `SecurityConfiguration`
+> with `cloudWatchEncryption` for regulated workloads. The construct emits a
+> synthesis-time warning when continuous logging is on and no `SecurityConfiguration`
+> is attached.
+
 Reference the pyspark-etl-jobs.test.ts and scalaspark-etl-jobs.test.ts unit tests
 for examples of required-only and optional job parameters when creating these
 types of jobs.
@@ -262,8 +273,9 @@ Python shell jobs support a Python version that depends on the AWS Glue
 version you use. These can be used to schedule and run tasks that don't
 require an Apache Spark environment. Python shell jobs default to
 Python 3.9 and a MaxCapacity of `0.0625`. Python 3.9 supports pre-loaded
-analytics libraries using the `library-set=analytics` flag, which is
-enabled by default.
+analytics libraries, enabled by default (`librarySet: glue.LibrarySet.ANALYTICS`).
+Set `librarySet: glue.LibrarySet.NONE` when your libraries are custom or
+conflict with the pre-installed ones.
 
 Reference the pyspark-shell-job.test.ts unit tests for examples of
 required-only and optional job parameters when creating these types of jobs.
@@ -350,6 +362,52 @@ glue.PySparkEtlJob(stack, "SelectiveJob",
 
 This feature is available for all Spark job types (ETL, Streaming, Flex).
 
+### Job Arguments
+
+Glue jobs are configured through a map of name-value arguments (`DefaultArguments`). This construct
+manages several of these arguments on your behalf and exposes each one through a dedicated,
+strongly-typed prop:
+
+| Managed argument(s)                                                      | Prop                                                            |
+|--------------------------------------------------------------------------|-----------------------------------------------------------------|
+| `--enable-continuous-cloudwatch-log`, `--continuous-log-*`               | `continuousLogging`                                             |
+| `--enable-metrics`                                                       | `enableMetrics`                                                 |
+| `--enable-observability-metrics`                                         | `enableObservabilityMetrics`                                    |
+| `--enable-spark-ui`, `--spark-event-logs-path`                           | `sparkUI`                                                       |
+| `--job-language`, `--class`                                              | job class / `className`                                         |
+| `--extra-jars`, `--user-jars-first`, `--extra-py-files`, `--extra-files` | `extraJars`, `extraJarsFirst`, `extraPythonFiles`, `extraFiles` |
+| `library-set`                                                            | `librarySet` (Python Shell)                                     |
+
+The `defaultArguments` prop is the escape hatch for arguments this construct does **not** model.
+Use it for any argument without a dedicated prop:
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
+
+
+glue.PySparkEtlJob(stack, "PySparkETLJob",
+    role=role,
+    script=script,
+    default_arguments={
+        # an argument this construct does not manage
+        "--enable-glue-datacatalog": "true"
+    }
+)
+```
+
+To keep a single, unambiguous way to express each intent, setting a **construct-managed** argument
+(any argument in the table above) or a **Glue-reserved** argument (`--debug`, `--mode`,
+`--JOB_NAME`, `--endpoint`) through `defaultArguments` throws at synthesis time. This holds even
+when the feature is turned off — for example, `enableMetrics: false` combined with
+`defaultArguments: { '--enable-metrics': '' }` throws rather than silently re-enabling metrics.
+Configure managed arguments through their dedicated prop instead — for example, use
+`continuousLogging: { enabled: false }` rather than
+`defaultArguments: { '--enable-continuous-cloudwatch-log': 'false' }`.
+
 ### Enable Job Run Queuing
 
 AWS Glue job queuing monitors your account level quotas and limits. If quotas or limits are insufficient to start a Glue job run, AWS Glue will automatically queue the job and wait for limits to free up. Once limits become available, AWS Glue will retry the job run. Glue jobs will queue for limits like max concurrent job runs per account, max concurrent Data Processing Units (DPU), and resource unavailable due to IP address exhaustion in Amazon Virtual Private Cloud (Amazon VPC).
@@ -415,7 +473,7 @@ job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
 # Create a workflow and add a trigger that runs the job
 workflow = glue.Workflow(stack, "Workflow")
 workflow.add_on_demand_trigger("OnDemandTrigger",
-    actions=[glue.Action(job=job)]
+    actions=[glue.Action.job(job)]
 )
 ```
 
@@ -428,21 +486,36 @@ actions list using the job or crawler objects using conditional types.
 
 #### **2. Scheduled Triggers**
 
-You can create scheduled triggers using cron expressions. This construct
-provides daily and weekly convenience functions,
-as well as a custom function that allows you to create your own
-custom timing using the [existing event Schedule class](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Schedule.html)
-without having to build your own cron expressions. The L2 extracts
-the expression that Glue requires from the Schedule object. The constructor
-takes an optional description and a list of jobs or crawlers as actions.
+Use `addScheduledTrigger` with a `TriggerSchedule` to fire on a cron schedule.
+`TriggerSchedule.daily()` and `TriggerSchedule.weekly()` are convenience
+factories; `TriggerSchedule.cron(...)` lets you build any schedule from the
+[existing event Schedule class](https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_events.Schedule.html)
+without writing raw cron expressions. The L2 extracts the expression that Glue
+requires from the `TriggerSchedule`.
 
-#### **3. Notify  Event Triggers**
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
 
-There are two types of notify event triggers: batching and non-batching.
-For batching triggers, you must specify `BatchSize`. For non-batching
-triggers, `BatchSize` defaults to 1. For both triggers, `BatchWindow`
-defaults to 900 seconds, but you can override the window to align with
-your workload's requirements.
+job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+workflow = glue.Workflow(stack, "Workflow")
+
+workflow.add_scheduled_trigger("WeeklyTrigger",
+    actions=[glue.Action.job(job)],
+    schedule=glue.TriggerSchedule.weekly()
+)
+```
+
+#### **3. Event Triggers**
+
+Use `addEventTrigger` for EventBridge event-based triggers. There are two types:
+batching and non-batching. For batching triggers, you must specify `batchSize`.
+For non-batching triggers, `batchSize` defaults to 1. For both, `batchWindow`
+defaults to 900 seconds, but you can override the window to align with your
+workload's requirements.
 
 #### **4. Conditional Triggers**
 
@@ -460,13 +533,14 @@ certain types of data stores.
   than embedding credentials in `properties`.
 * **Networking - the CDK determines the best fit subnet for Glue connection
   configuration**
-  You can specify the exact subnet of the Connection when it's defined, but
-  you are not required to. Instead, you can provide a `vpc` and, optionally, a
-  `vpcSubnets` selection, and the L2 leverages the existing
+  Configure VPC placement through the `network` property, built with
+  `ConnectionNetwork.subnet(subnet)` to pin a specific subnet, or
+  `ConnectionNetwork.vpc(vpc, vpcSubnets?)` to let the L2 select one via the
+  existing
   [EC2 Subnet Selection](https://docs.aws.amazon.com/cdk/api/v2/python/aws_cdk.aws_ec2/SubnetSelection.html)
-  library to make the best choice selection for the subnet. A Glue connection
-  targets a single subnet, so the first subnet of the selection is used.
-  `subnet` and `vpc` are mutually exclusive.
+  library. A Glue connection targets a single subnet, so the first subnet of
+  the selection is used. The two factories are mutually exclusive, so a subnet
+  and a VPC can never be combined.
 
 Pin the connection to a specific subnet:
 
@@ -479,7 +553,7 @@ glue.Connection(self, "MyConnection",
     # The security groups granting AWS Glue inbound access to the data source within the VPC
     security_groups=[security_group],
     # The VPC subnet which contains the data source
-    subnet=subnet
+    network=glue.ConnectionNetwork.subnet(subnet)
 )
 ```
 
@@ -492,9 +566,8 @@ Or let the CDK select a subnet from a VPC:
 glue.Connection(self, "MyConnection",
     type=glue.ConnectionType.NETWORK,
     security_groups=[security_group],
-    vpc=vpc,
-    # Optional - defaults to private subnets
-    vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+    # vpcSubnets is optional - defaults to private subnets
+    network=glue.ConnectionNetwork.vpc(vpc, subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
 )
 ```
 
@@ -508,7 +581,7 @@ For RDS `Connection` by JDBC, it is recommended to manage credentials using AWS 
 glue.Connection(self, "RdsConnection",
     type=glue.ConnectionType.JDBC,
     security_groups=[security_group],
-    subnet=subnet,
+    network=glue.ConnectionNetwork.subnet(subnet),
     secret=db.secret,
     properties={
         "JDBC_CONNECTION_URL": f"jdbc:mysql://{db.clusterEndpoint.socketAddress}/databasename",
@@ -974,8 +1047,9 @@ glue.S3Table(self, "MyTable",
             min="2020-01-01",
             max="2023-12-31",
             format="yyyy-MM-dd",
-            interval=1,  # optional, defaults to 1
-            interval_unit=glue.DateIntervalUnit.DAYS
+            # `step` bundles interval + unit (supply both or neither). Optional at day
+            # precision or coarser; required when the format is sub-day (e.g. hours).
+            step=glue.DateProjectionStep(interval=1, interval_unit=glue.DateIntervalUnit.DAYS)
         )
     }
 )
@@ -1407,146 +1481,110 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
-@jsii.data_type(
+class Action(
+    metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.Action",
-    jsii_struct_bases=[],
-    name_mapping={
-        "arguments": "arguments",
-        "crawler": "crawler",
-        "job": "job",
-        "security_configuration": "securityConfiguration",
-        "timeout": "timeout",
-    },
-)
-class Action:
-    def __init__(
-        self,
+):
+    '''(experimental) An action initiated by a trigger.
+
+    An action runs exactly one target: use {@link Action.job} to run a job or
+    {@link Action.crawler} to run a crawler. Because these are separate factory
+    methods, an action can never target both or neither.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        import aws_cdk.aws_iam as iam
+        # stack: cdk.Stack
+        # role: iam.IRole
+        # script: glue.Code
+        
+        
+        # Create a job to run from the workflow
+        job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+        
+        # Create a workflow and add a trigger that runs the job
+        workflow = glue.Workflow(stack, "Workflow")
+        workflow.add_on_demand_trigger("OnDemandTrigger",
+            actions=[glue.Action.job(job)]
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="crawler")
+    @builtins.classmethod
+    def crawler(
+        cls,
+        crawler: "_aws_cdk_interfaces_aws_glue_ceddda9d.ICrawlerRef",
         *,
         arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        crawler: typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"] = None,
-        job: typing.Optional["IJob"] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-    ) -> None:
-        '''(experimental) Represents a trigger action.
+    ) -> "Action":
+        '''(experimental) Create an action that runs a crawler.
 
-        :param arguments: (experimental) The job arguments used when this trigger fires. Default: - no arguments are passed to the job
-        :param crawler: (experimental) The name of the crawler to be used with this action. Default: - no crawler is used
-        :param job: (experimental) The job to be executed. Default: - no job is executed
+        :param crawler: the crawler to run when the trigger fires.
+        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
         :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
-        :param timeout: (experimental) The job run timeout. This is the maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
 
         :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
-            
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
-            
-            action = glue_alpha.Action(
-                arguments={
-                    "arguments_key": "arguments"
-                },
-                crawler=cfn_crawler,
-                job=job,
-                security_configuration=security_configuration,
-                timeout=cdk.Duration.minutes(30)
-            )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__e2f4a93f6fef99092c85fff7b69cf437be0c5a98d9e06afa00fb1ae1012f66d9)
-            check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+            type_hints = cached_type_hints(_typecheckingstub__71e7eb7c8320d42e6b5a748aac110ce9e1f594fd81cb5c87c401669f87fd65ae)
             check_type(argname="argument crawler", value=crawler, expected_type=type_hints["crawler"])
-            check_type(argname="argument job", value=job, expected_type=type_hints["job"])
-            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
-            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if arguments is not None:
-            self._values["arguments"] = arguments
-        if crawler is not None:
-            self._values["crawler"] = crawler
-        if job is not None:
-            self._values["job"] = job
-        if security_configuration is not None:
-            self._values["security_configuration"] = security_configuration
-        if timeout is not None:
-            self._values["timeout"] = timeout
-
-    @builtins.property
-    def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The job arguments used when this trigger fires.
-
-        :default: - no arguments are passed to the job
-
-        :stability: experimental
-        '''
-        result = self._values.get("arguments")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def crawler(self) -> typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"]:
-        '''(experimental) The name of the crawler to be used with this action.
-
-        :default: - no crawler is used
-
-        :stability: experimental
-        '''
-        result = self._values.get("crawler")
-        return typing.cast(typing.Optional["_aws_cdk_aws_glue_ceddda9d.CfnCrawler"], result)
-
-    @builtins.property
-    def job(self) -> typing.Optional["IJob"]:
-        '''(experimental) The job to be executed.
-
-        :default: - no job is executed
-
-        :stability: experimental
-        '''
-        result = self._values.get("job")
-        return typing.cast(typing.Optional["IJob"], result)
-
-    @builtins.property
-    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) The ``SecurityConfiguration`` to be used with this action.
-
-        :default: - no security configuration is used
-
-        :stability: experimental
-        '''
-        result = self._values.get("security_configuration")
-        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
-
-    @builtins.property
-    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) The job run timeout.
-
-        This is the maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
-
-        :default: - the default timeout value set in the job definition
-
-        :stability: experimental
-        '''
-        result = self._values.get("timeout")
-        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Action(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+        options = CrawlerActionOptions(
+            arguments=arguments,
+            security_configuration=security_configuration,
+            timeout=timeout,
         )
+
+        return typing.cast("Action", jsii.sinvoke(cls, "crawler", [crawler, options]))
+
+    @jsii.member(jsii_name="job")
+    @builtins.classmethod
+    def job(
+        cls,
+        job: "_aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef",
+        *,
+        arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> "Action":
+        '''(experimental) Create an action that runs a job.
+
+        :param job: the job to run when the trigger fires.
+        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9884a2083a1da4da0e480705b09f2bf643a7063de8f1ad5753f5ae9ed5eda54d)
+            check_type(argname="argument job", value=job, expected_type=type_hints["job"])
+        options = JobActionOptions(
+            arguments=arguments,
+            security_configuration=security_configuration,
+            timeout=timeout,
+        )
+
+        return typing.cast("Action", jsii.sinvoke(cls, "job", [job, options]))
+
+
+class _ActionProxy(Action):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Action).__jsii_proxy_class__ = lambda : _ActionProxy
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CatalogEncryptionMode")
@@ -1922,7 +1960,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         # Create a workflow and add a trigger that runs the job
         workflow = glue.Workflow(stack, "Workflow")
         workflow.add_on_demand_trigger("OnDemandTrigger",
-            actions=[glue.Action(job=job)]
+            actions=[glue.Action.job(job)]
         )
     '''
 
@@ -2285,138 +2323,96 @@ class CompressionType(enum.Enum):
     '''
 
 
-@jsii.data_type(
+class Condition(
+    metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.Condition",
-    jsii_struct_bases=[],
-    name_mapping={
-        "crawler_name": "crawlerName",
-        "crawl_state": "crawlState",
-        "job": "job",
-        "logical_operator": "logicalOperator",
-        "state": "state",
-    },
-)
-class Condition:
-    def __init__(
-        self,
-        *,
-        crawler_name: typing.Optional[builtins.str] = None,
-        crawl_state: typing.Optional["CrawlerState"] = None,
-        job: typing.Optional["IJob"] = None,
-        logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
-        state: typing.Optional["JobState"] = None,
-    ) -> None:
-        '''(experimental) Represents a trigger condition.
+):
+    '''(experimental) A condition that determines when a conditional trigger fires.
 
-        :param crawler_name: (experimental) The name of the crawler to which this condition applies. Default: - no crawler is specified
-        :param crawl_state: (experimental) The condition crawler state. Default: - no crawler state is specified
-        :param job: (experimental) The job to which this condition applies. Default: - no job is specified
+    A condition watches exactly one target in exactly one state: use
+    {@link Condition.job} to watch a job or {@link Condition.crawler} to watch a
+    crawler. Because the state is a required argument of each factory, a condition
+    can never reference a target without its state, or both a job and a crawler.
+
+    :stability: experimental
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        import aws_cdk.aws_glue_alpha as glue_alpha
+        from aws_cdk.interfaces import aws_glue as interfaces_glue
+        
+        # crawler_ref: interfaces_glue.ICrawlerRef
+        
+        condition = glue_alpha.Condition.crawler(crawler_ref, glue_alpha.CrawlerState.RUNNING,
+            logical_operator=glue_alpha.ConditionLogicalOperator.EQUALS
+        )
+    '''
+
+    def __init__(self) -> None:
+        '''
+        :stability: experimental
+        '''
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="crawler")
+    @builtins.classmethod
+    def crawler(
+        cls,
+        crawler: "_aws_cdk_interfaces_aws_glue_ceddda9d.ICrawlerRef",
+        crawl_state: "CrawlerState",
+        *,
+        logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
+    ) -> "Condition":
+        '''(experimental) Create a condition on the state of a crawler.
+
+        :param crawler: the crawler to watch.
+        :param crawl_state: the crawler state that satisfies the condition.
         :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
-        :param state: (experimental) The condition job state. Default: - no job state is specified
 
         :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            
-            # job: glue_alpha.Job
-            
-            condition = glue_alpha.Condition(
-                crawler_name="crawlerName",
-                crawl_state=glue_alpha.CrawlerState.RUNNING,
-                job=job,
-                logical_operator=glue_alpha.ConditionLogicalOperator.EQUALS,
-                state=glue_alpha.JobState.SUCCEEDED
-            )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9b041a655f4373d135d58f5a2efa6cf794318f5c5e7237249c2ca94ebe40d818)
-            check_type(argname="argument crawler_name", value=crawler_name, expected_type=type_hints["crawler_name"])
+            type_hints = cached_type_hints(_typecheckingstub__3eb13f8d79125657b743cc76f03b5fe4be3bfd8358e976b0cda1fa170401c634)
+            check_type(argname="argument crawler", value=crawler, expected_type=type_hints["crawler"])
             check_type(argname="argument crawl_state", value=crawl_state, expected_type=type_hints["crawl_state"])
+        options = ConditionOptions(logical_operator=logical_operator)
+
+        return typing.cast("Condition", jsii.sinvoke(cls, "crawler", [crawler, crawl_state, options]))
+
+    @jsii.member(jsii_name="job")
+    @builtins.classmethod
+    def job(
+        cls,
+        job: "_aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef",
+        state: "JobState",
+        *,
+        logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
+    ) -> "Condition":
+        '''(experimental) Create a condition on the state of a job.
+
+        :param job: the job to watch.
+        :param state: the job state that satisfies the condition.
+        :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ab3f1152549bdcfb6fbfc83c30105c13e5c523303f53ce4d49d1acf23e71a0cf)
             check_type(argname="argument job", value=job, expected_type=type_hints["job"])
-            check_type(argname="argument logical_operator", value=logical_operator, expected_type=type_hints["logical_operator"])
             check_type(argname="argument state", value=state, expected_type=type_hints["state"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if crawler_name is not None:
-            self._values["crawler_name"] = crawler_name
-        if crawl_state is not None:
-            self._values["crawl_state"] = crawl_state
-        if job is not None:
-            self._values["job"] = job
-        if logical_operator is not None:
-            self._values["logical_operator"] = logical_operator
-        if state is not None:
-            self._values["state"] = state
+        options = ConditionOptions(logical_operator=logical_operator)
 
-    @builtins.property
-    def crawler_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the crawler to which this condition applies.
+        return typing.cast("Condition", jsii.sinvoke(cls, "job", [job, state, options]))
 
-        :default: - no crawler is specified
 
-        :stability: experimental
-        '''
-        result = self._values.get("crawler_name")
-        return typing.cast(typing.Optional[builtins.str], result)
+class _ConditionProxy(Condition):
+    pass
 
-    @builtins.property
-    def crawl_state(self) -> typing.Optional["CrawlerState"]:
-        '''(experimental) The condition crawler state.
-
-        :default: - no crawler state is specified
-
-        :stability: experimental
-        '''
-        result = self._values.get("crawl_state")
-        return typing.cast(typing.Optional["CrawlerState"], result)
-
-    @builtins.property
-    def job(self) -> typing.Optional["IJob"]:
-        '''(experimental) The job to which this condition applies.
-
-        :default: - no job is specified
-
-        :stability: experimental
-        '''
-        result = self._values.get("job")
-        return typing.cast(typing.Optional["IJob"], result)
-
-    @builtins.property
-    def logical_operator(self) -> typing.Optional["ConditionLogicalOperator"]:
-        '''(experimental) The logical operator for the condition.
-
-        :default: ConditionLogicalOperator.EQUALS
-
-        :stability: experimental
-        '''
-        result = self._values.get("logical_operator")
-        return typing.cast(typing.Optional["ConditionLogicalOperator"], result)
-
-    @builtins.property
-    def state(self) -> typing.Optional["JobState"]:
-        '''(experimental) The condition job state.
-
-        :default: - no job state is specified
-
-        :stability: experimental
-        '''
-        result = self._values.get("state")
-        return typing.cast(typing.Optional["JobState"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "Condition(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Condition).__jsii_proxy_class__ = lambda : _ConditionProxy
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.ConditionLogicalOperator")
@@ -2434,18 +2430,160 @@ class ConditionLogicalOperator(enum.Enum):
 
 
 @jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.ConditionOptions",
+    jsii_struct_bases=[],
+    name_mapping={"logical_operator": "logicalOperator"},
+)
+class ConditionOptions:
+    def __init__(
+        self,
+        *,
+        logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
+    ) -> None:
+        '''(experimental) Options shared by all trigger conditions.
+
+        :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_glue_alpha as glue_alpha
+            
+            condition_options = glue_alpha.ConditionOptions(
+                logical_operator=glue_alpha.ConditionLogicalOperator.EQUALS
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2dd0e58f2fb0230d37f0eac200c1c26b80f817156e9ed16bc962ad3c9f82b9ec)
+            check_type(argname="argument logical_operator", value=logical_operator, expected_type=type_hints["logical_operator"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if logical_operator is not None:
+            self._values["logical_operator"] = logical_operator
+
+    @builtins.property
+    def logical_operator(self) -> typing.Optional["ConditionLogicalOperator"]:
+        '''(experimental) The logical operator for the condition.
+
+        :default: ConditionLogicalOperator.EQUALS
+
+        :stability: experimental
+        '''
+        result = self._values.get("logical_operator")
+        return typing.cast(typing.Optional["ConditionLogicalOperator"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConditionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ConnectionNetwork(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-cdk/aws-glue-alpha.ConnectionNetwork",
+):
+    '''(experimental) VPC network placement for a Glue ``Connection``.
+
+    A Glue connection targets a single subnet. Choose the placement with one of
+    the mutually-exclusive factories — an explicit subnet, or a VPC to select one
+    from — so a subnet paired with a VPC, or a subnet selection without a VPC,
+    cannot be expressed.
+
+    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # security_group: ec2.SecurityGroup
+        # vpc: ec2.Vpc
+        
+        glue.Connection(self, "MyConnection",
+            type=glue.ConnectionType.NETWORK,
+            security_groups=[security_group],
+            # vpcSubnets is optional - defaults to private subnets
+            network=glue.ConnectionNetwork.vpc(vpc, subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+        )
+    '''
+
+    @jsii.member(jsii_name="subnet")
+    @builtins.classmethod
+    def subnet(cls, subnet: "_aws_cdk_aws_ec2_ceddda9d.ISubnet") -> "ConnectionNetwork":
+        '''(experimental) Pin the connection to a specific subnet.
+
+        :param subnet: the subnet the connection targets.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__887ab89399be39cdb709b57f9a608baf9c495f581da0cafa342427bd912d4430)
+            check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
+        return typing.cast("ConnectionNetwork", jsii.sinvoke(cls, "subnet", [subnet]))
+
+    @jsii.member(jsii_name="vpc")
+    @builtins.classmethod
+    def vpc(
+        cls,
+        vpc: "_aws_cdk_aws_ec2_ceddda9d.IVpc",
+        *,
+        availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+        one_per_az: typing.Optional[builtins.bool] = None,
+        subnet_filters: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.SubnetFilter"]] = None,
+        subnet_group_name: typing.Optional[builtins.str] = None,
+        subnets: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]] = None,
+        subnet_type: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"] = None,
+    ) -> "ConnectionNetwork":
+        '''(experimental) Select the connection's subnet from a VPC.
+
+        Since a Glue connection targets
+        a single subnet, the first subnet of the selection is used.
+
+        :param vpc: the VPC to select a subnet from.
+        :param availability_zones: Select subnets only in the given AZs. Default: no filtering on AZs is done
+        :param one_per_az: If true, return at most one subnet per AZ. Default: false
+        :param subnet_filters: List of provided subnet filters. Default: - none
+        :param subnet_group_name: Select the subnet group with the given name. Select the subnet group with the given name. This only needs to be used if you have multiple subnet groups of the same type and you need to distinguish between them. Otherwise, prefer ``subnetType``. This field does not select individual subnets, it selects all subnets that share the given subnet group name. This is the name supplied in ``subnetConfiguration``. At most one of ``subnetType`` and ``subnetGroupName`` can be supplied. Default: - Selection by type instead of by name
+        :param subnets: Explicitly select individual subnets. Use this if you don't want to automatically use all subnets in a group, but have a need to control selection down to individual subnets. Cannot be specified together with ``subnetType`` or ``subnetGroupName``. Default: - Use all subnets in a selected group (all private subnets by default)
+        :param subnet_type: Select all subnets of the given type. At most one of ``subnetType`` and ``subnetGroupName`` can be supplied. Default: SubnetType.PRIVATE_WITH_EGRESS (or ISOLATED or PUBLIC if there are no PRIVATE_WITH_EGRESS subnets)
+
+        :default: vpcSubnets - private subnets
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__74d7d624a85040952490b335183bd4fcc518ccea5486cc49ba8aad5685b9a66b)
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+        vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(
+            availability_zones=availability_zones,
+            one_per_az=one_per_az,
+            subnet_filters=subnet_filters,
+            subnet_group_name=subnet_group_name,
+            subnets=subnets,
+            subnet_type=subnet_type,
+        )
+
+        return typing.cast("ConnectionNetwork", jsii.sinvoke(cls, "vpc", [vpc, vpc_subnets]))
+
+
+@jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.ConnectionOptions",
     jsii_struct_bases=[],
     name_mapping={
         "connection_name": "connectionName",
         "description": "description",
         "match_criteria": "matchCriteria",
+        "network": "network",
         "properties": "properties",
         "secret": "secret",
         "security_groups": "securityGroups",
-        "subnet": "subnet",
-        "vpc": "vpc",
-        "vpc_subnets": "vpcSubnets",
     },
 )
 class ConnectionOptions:
@@ -2455,24 +2593,20 @@ class ConnectionOptions:
         connection_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+        network: typing.Optional["ConnectionNetwork"] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
-        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
-        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Base Connection Options.
 
         :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
         :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
-        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
-        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
 
         :stability: experimental
         :exampleMetadata: fixture=_generated
@@ -2485,46 +2619,31 @@ class ConnectionOptions:
             from aws_cdk import aws_ec2 as ec2
             from aws_cdk.interfaces import aws_secretsmanager as interfaces_secretsmanager
             
+            # connection_network: glue_alpha.ConnectionNetwork
             # secret_ref: interfaces_secretsmanager.ISecretRef
             # security_group: ec2.SecurityGroup
-            # subnet: ec2.Subnet
-            # subnet_filter: ec2.SubnetFilter
-            # vpc: ec2.Vpc
             
             connection_options = glue_alpha.ConnectionOptions(
                 connection_name="connectionName",
                 description="description",
                 match_criteria=["matchCriteria"],
+                network=connection_network,
                 properties={
                     "properties_key": "properties"
                 },
                 secret=secret_ref,
-                security_groups=[security_group],
-                subnet=subnet,
-                vpc=vpc,
-                vpc_subnets=ec2.SubnetSelection(
-                    availability_zones=["availabilityZones"],
-                    one_per_az=False,
-                    subnet_filters=[subnet_filter],
-                    subnet_group_name="subnetGroupName",
-                    subnets=[subnet],
-                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED
-                )
+                security_groups=[security_group]
             )
         '''
-        if isinstance(vpc_subnets, dict):
-            vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3994b494)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
+            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection_name is not None:
             self._values["connection_name"] = connection_name
@@ -2532,18 +2651,14 @@ class ConnectionOptions:
             self._values["description"] = description
         if match_criteria is not None:
             self._values["match_criteria"] = match_criteria
+        if network is not None:
+            self._values["network"] = network
         if properties is not None:
             self._values["properties"] = properties
         if secret is not None:
             self._values["secret"] = secret
         if security_groups is not None:
             self._values["security_groups"] = security_groups
-        if subnet is not None:
-            self._values["subnet"] = subnet
-        if vpc is not None:
-            self._values["vpc"] = vpc
-        if vpc_subnets is not None:
-            self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
@@ -2579,6 +2694,20 @@ class ConnectionOptions:
         '''
         result = self._values.get("match_criteria")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def network(self) -> typing.Optional["ConnectionNetwork"]:
+        '''(experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+
+        Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet,
+        or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one.
+
+        :default: - no VPC network placement
+
+        :stability: experimental
+        '''
+        result = self._values.get("network")
+        return typing.cast(typing.Optional["ConnectionNetwork"], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2622,55 +2751,6 @@ class ConnectionOptions:
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
-
-    @builtins.property
-    def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
-        '''(experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
-
-        Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a
-        specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the
-        CDK select one for you.
-
-        :default: - no subnet, unless ``vpc`` is provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("subnet")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
-
-    @builtins.property
-    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
-        '''(experimental) The VPC to connect to resources within.
-
-        When provided, the CDK selects a
-        subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single
-        subnet, so the first subnet of the selection is used.
-
-        Mutually exclusive with ``subnet``.
-
-        :default: - no VPC, the subnet is taken from ``subnet`` if provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
-
-    @builtins.property
-    def vpc_subnets(
-        self,
-    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
-        '''(experimental) Which subnets of ``vpc`` to select the connection subnet from.
-
-        Only used when
-        ``vpc`` is provided. Since a Glue connection targets a single subnet, the
-        first subnet of the selection is used.
-
-        :default: - private subnets
-
-        :stability: experimental
-        '''
-        result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2780,12 +2860,10 @@ class ConnectionPasswordEncryption:
         "connection_name": "connectionName",
         "description": "description",
         "match_criteria": "matchCriteria",
+        "network": "network",
         "properties": "properties",
         "secret": "secret",
         "security_groups": "securityGroups",
-        "subnet": "subnet",
-        "vpc": "vpc",
-        "vpc_subnets": "vpcSubnets",
         "type": "type",
     },
 )
@@ -2796,12 +2874,10 @@ class ConnectionProps(ConnectionOptions):
         connection_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+        network: typing.Optional["ConnectionNetwork"] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
-        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
-        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
         type: "ConnectionType",
     ) -> None:
         '''(experimental) Construction properties for ``Connection``.
@@ -2809,12 +2885,10 @@ class ConnectionProps(ConnectionOptions):
         :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
         :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
-        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
-        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
         :param type: (experimental) The type of the connection.
 
         :stability: experimental
@@ -2828,24 +2902,19 @@ class ConnectionProps(ConnectionOptions):
             glue.Connection(self, "MyConnection",
                 type=glue.ConnectionType.NETWORK,
                 security_groups=[security_group],
-                vpc=vpc,
-                # Optional - defaults to private subnets
-                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+                # vpcSubnets is optional - defaults to private subnets
+                network=glue.ConnectionNetwork.vpc(vpc, subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
             )
         '''
-        if isinstance(vpc_subnets, dict):
-            vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769cdb83e8)
             check_type(argname="argument connection_name", value=connection_name, expected_type=type_hints["connection_name"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument match_criteria", value=match_criteria, expected_type=type_hints["match_criteria"])
+            check_type(argname="argument network", value=network, expected_type=type_hints["network"])
             check_type(argname="argument properties", value=properties, expected_type=type_hints["properties"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
             check_type(argname="argument security_groups", value=security_groups, expected_type=type_hints["security_groups"])
-            check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-            check_type(argname="argument vpc_subnets", value=vpc_subnets, expected_type=type_hints["vpc_subnets"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "type": type,
@@ -2856,18 +2925,14 @@ class ConnectionProps(ConnectionOptions):
             self._values["description"] = description
         if match_criteria is not None:
             self._values["match_criteria"] = match_criteria
+        if network is not None:
+            self._values["network"] = network
         if properties is not None:
             self._values["properties"] = properties
         if secret is not None:
             self._values["secret"] = secret
         if security_groups is not None:
             self._values["security_groups"] = security_groups
-        if subnet is not None:
-            self._values["subnet"] = subnet
-        if vpc is not None:
-            self._values["vpc"] = vpc
-        if vpc_subnets is not None:
-            self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
@@ -2903,6 +2968,20 @@ class ConnectionProps(ConnectionOptions):
         '''
         result = self._values.get("match_criteria")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def network(self) -> typing.Optional["ConnectionNetwork"]:
+        '''(experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+
+        Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet,
+        or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one.
+
+        :default: - no VPC network placement
+
+        :stability: experimental
+        '''
+        result = self._values.get("network")
+        return typing.cast(typing.Optional["ConnectionNetwork"], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2948,55 +3027,6 @@ class ConnectionProps(ConnectionOptions):
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
-    def subnet(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]:
-        '''(experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
-
-        Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a
-        specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the
-        CDK select one for you.
-
-        :default: - no subnet, unless ``vpc`` is provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("subnet")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"], result)
-
-    @builtins.property
-    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
-        '''(experimental) The VPC to connect to resources within.
-
-        When provided, the CDK selects a
-        subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single
-        subnet, so the first subnet of the selection is used.
-
-        Mutually exclusive with ``subnet``.
-
-        :default: - no VPC, the subnet is taken from ``subnet`` if provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
-
-    @builtins.property
-    def vpc_subnets(
-        self,
-    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
-        '''(experimental) Which subnets of ``vpc`` to select the connection subnet from.
-
-        Only used when
-        ``vpc`` is provided. Since a Glue connection targets a single subnet, the
-        first subnet of the selection is used.
-
-        :default: - private subnets
-
-        :stability: experimental
-        '''
-        result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
-
-    @builtins.property
     def type(self) -> "ConnectionType":
         '''(experimental) The type of the connection.
 
@@ -3039,9 +3069,8 @@ class ConnectionType(
         glue.Connection(self, "MyConnection",
             type=glue.ConnectionType.NETWORK,
             security_groups=[security_group],
-            vpc=vpc,
-            # Optional - defaults to private subnets
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
+            # vpcSubnets is optional - defaults to private subnets
+            network=glue.ConnectionNetwork.vpc(vpc, subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)
         )
     '''
 
@@ -3585,6 +3614,109 @@ class ContinuousLoggingProps:
         )
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.CrawlerActionOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arguments": "arguments",
+        "security_configuration": "securityConfiguration",
+        "timeout": "timeout",
+    },
+)
+class CrawlerActionOptions:
+    def __init__(
+        self,
+        *,
+        arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''(experimental) Options for the execution of a crawler.
+
+        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_glue_alpha as glue_alpha
+            import aws_cdk as cdk
+            
+            # security_configuration: glue_alpha.SecurityConfiguration
+            
+            crawler_action_options = glue_alpha.CrawlerActionOptions(
+                arguments={
+                    "arguments_key": "arguments"
+                },
+                security_configuration=security_configuration,
+                timeout=cdk.Duration.minutes(30)
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d737ff705f56d3e9afa3fc038d4fc53dc3e849fe0ba442d99911093f47a9d2ce)
+            check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arguments is not None:
+            self._values["arguments"] = arguments
+        if security_configuration is not None:
+            self._values["security_configuration"] = security_configuration
+        if timeout is not None:
+            self._values["timeout"] = timeout
+
+    @builtins.property
+    def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) The arguments used when this trigger fires.
+
+        :default: - no arguments are passed to the job
+
+        :stability: experimental
+        '''
+        result = self._values.get("arguments")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
+        '''(experimental) The ``SecurityConfiguration`` to be used with this action.
+
+        :default: - no security configuration is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("security_configuration")
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The run timeout.
+
+        This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status.
+
+        :default: - the default timeout value set in the job definition
+
+        :stability: experimental
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CrawlerActionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CrawlerState")
 class CrawlerState(enum.Enum):
     '''(experimental) Represents the state of a crawler for a condition in the Glue Trigger API.
@@ -3754,11 +3886,9 @@ class DataFormat(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="2020-01-01",
-                    max="2023-12-31",
-                    format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
                 )
             }
         )
@@ -4416,8 +4546,9 @@ class DateIntervalUnit(enum.Enum):
                     min="2020-01-01",
                     max="2023-12-31",
                     format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    # `step` bundles interval + unit (supply both or neither). Optional at day
+                    # precision or coarser; required when the format is sub-day (e.g. hours).
+                    step=glue.DateProjectionStep(interval=1, interval_unit=glue.DateIntervalUnit.DAYS)
                 )
             }
         )
@@ -4463,13 +4594,7 @@ class DateIntervalUnit(enum.Enum):
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.DatePartitionProjectionConfigurationProps",
     jsii_struct_bases=[],
-    name_mapping={
-        "format": "format",
-        "max": "max",
-        "min": "min",
-        "interval": "interval",
-        "interval_unit": "intervalUnit",
-    },
+    name_mapping={"format": "format", "max": "max", "min": "min", "step": "step"},
 )
 class DatePartitionProjectionConfigurationProps:
     def __init__(
@@ -4478,16 +4603,14 @@ class DatePartitionProjectionConfigurationProps:
         format: builtins.str,
         max: builtins.str,
         min: builtins.str,
-        interval: typing.Optional[jsii.Number] = None,
-        interval_unit: typing.Optional["DateIntervalUnit"] = None,
+        step: typing.Optional[typing.Union["DateProjectionStep", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Properties for DATE partition projection configuration.
 
         :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
         :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
         :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param interval: (experimental) Interval between partition values. Required (together with ``intervalUnit``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
-        :param interval_unit: (experimental) Unit for the interval. Required (together with ``interval``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
+        :param step: (experimental) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         :exampleMetadata: infused
@@ -4512,28 +4635,28 @@ class DatePartitionProjectionConfigurationProps:
                         min="2020-01-01",
                         max="2023-12-31",
                         format="yyyy-MM-dd",
-                        interval=1,  # optional, defaults to 1
-                        interval_unit=glue.DateIntervalUnit.DAYS
+                        # `step` bundles interval + unit (supply both or neither). Optional at day
+                        # precision or coarser; required when the format is sub-day (e.g. hours).
+                        step=glue.DateProjectionStep(interval=1, interval_unit=glue.DateIntervalUnit.DAYS)
                     )
                 }
             )
         '''
+        if isinstance(step, dict):
+            step = DateProjectionStep(**step)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4d0542c1)
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument min", value=min, expected_type=type_hints["min"])
-            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
-            check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
+            check_type(argname="argument step", value=step, expected_type=type_hints["step"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "format": format,
             "max": max,
             "min": min,
         }
-        if interval is not None:
-            self._values["interval"] = interval
-        if interval_unit is not None:
-            self._values["interval_unit"] = interval_unit
+        if step is not None:
+            self._values["step"] = step
 
     @builtins.property
     def format(self) -> builtins.str:
@@ -4584,34 +4707,20 @@ class DatePartitionProjectionConfigurationProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def interval(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Interval between partition values.
+    def step(self) -> typing.Optional["DateProjectionStep"]:
+        '''(experimental) Interval step (``interval`` + ``intervalUnit``) between partition values.
 
-        Required (together with ``intervalUnit``) when ``format`` carries sub-day
-        precision — i.e. a field finer than a day, such as hours or AM/PM. At day
-        or coarser precision Athena defaults the step, so it is optional.
+        The two are supplied together, so a partial step cannot be expressed.
+        Required when ``format`` carries sub-day precision — a field finer than a
+        day, such as hours or AM/PM; at day or coarser precision Athena defaults
+        the step, so it may be omitted.
 
         :default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         '''
-        result = self._values.get("interval")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def interval_unit(self) -> typing.Optional["DateIntervalUnit"]:
-        '''(experimental) Unit for the interval.
-
-        Required (together with ``interval``) when ``format`` carries sub-day
-        precision — i.e. a field finer than a day, such as hours or AM/PM. At day
-        or coarser precision Athena defaults the step, so it is optional.
-
-        :default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
-
-        :stability: experimental
-        '''
-        result = self._values.get("interval_unit")
-        return typing.cast(typing.Optional["DateIntervalUnit"], result)
+        result = self._values.get("step")
+        return typing.cast(typing.Optional["DateProjectionStep"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4621,6 +4730,97 @@ class DatePartitionProjectionConfigurationProps:
 
     def __repr__(self) -> str:
         return "DatePartitionProjectionConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.DateProjectionStep",
+    jsii_struct_bases=[],
+    name_mapping={"interval": "interval", "interval_unit": "intervalUnit"},
+)
+class DateProjectionStep:
+    def __init__(
+        self,
+        *,
+        interval: jsii.Number,
+        interval_unit: "DateIntervalUnit",
+    ) -> None:
+        '''(experimental) A required-together interval step for DATE partition projection.
+
+        Bundling ``interval`` and ``intervalUnit`` into one value makes a partial step
+        (one without the other) unrepresentable.
+
+        :param interval: (experimental) Interval between partition values.
+        :param interval_unit: (experimental) Unit for the interval.
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            # my_database: glue.Database
+            
+            glue.S3Table(self, "MyTable",
+                database=my_database,
+                columns=[glue.Column(
+                    name="data",
+                    type=glue.Schema.STRING
+                )],
+                partition_keys=[glue.Column(
+                    name="date",
+                    type=glue.Schema.STRING
+                )],
+                data_format=glue.DataFormat.JSON,
+                partition_projection={
+                    "date": glue.PartitionProjectionConfiguration.date(
+                        min="2020-01-01",
+                        max="2023-12-31",
+                        format="yyyy-MM-dd",
+                        # `step` bundles interval + unit (supply both or neither). Optional at day
+                        # precision or coarser; required when the format is sub-day (e.g. hours).
+                        step=glue.DateProjectionStep(interval=1, interval_unit=glue.DateIntervalUnit.DAYS)
+                    )
+                }
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__15b49f6d84ce4fd19667ea98ecec118d7753d273dc50e0117bbcb9e3d643e188)
+            check_type(argname="argument interval", value=interval, expected_type=type_hints["interval"])
+            check_type(argname="argument interval_unit", value=interval_unit, expected_type=type_hints["interval_unit"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "interval": interval,
+            "interval_unit": interval_unit,
+        }
+
+    @builtins.property
+    def interval(self) -> jsii.Number:
+        '''(experimental) Interval between partition values.
+
+        :stability: experimental
+        '''
+        result = self._values.get("interval")
+        assert result is not None, "Required property 'interval' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def interval_unit(self) -> "DateIntervalUnit":
+        '''(experimental) Unit for the interval.
+
+        :stability: experimental
+        '''
+        result = self._values.get("interval_unit")
+        assert result is not None, "Required property 'interval_unit' is missing"
+        return typing.cast("DateIntervalUnit", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DateProjectionStep(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -5240,6 +5440,7 @@ typing.cast(typing.Any, IDatabase).__jsii_proxy_class__ = lambda : _IDatabasePro
 class IJob(
     _aws_cdk_ceddda9d.IResource,
     _aws_cdk_aws_iam_ceddda9d.IGrantable,
+    _aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef,
     typing_extensions.Protocol,
 ):
     '''(experimental) Interface representing a new or an imported Glue Job.
@@ -5520,6 +5721,7 @@ class IJob(
 class _IJobProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
     jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
+    jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef), # type: ignore[misc]
 ):
     '''(experimental) Interface representing a new or an imported Glue Job.
 
@@ -6035,47 +6237,51 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         '''
         ...
 
-    @jsii.member(jsii_name="addCustomScheduledTrigger")
-    def add_custom_scheduled_trigger(
+    @jsii.member(jsii_name="addConditionalTrigger")
+    def add_conditional_trigger(
         self,
         id: builtins.str,
         *,
-        schedule: "TriggerSchedule",
+        predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an custom-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: -
-        :param schedule: (experimental) The custom schedule for the trigger.
+        :param predicate: (experimental) The predicate for the trigger.
         :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
+
+        :return: a reference to the created trigger.
 
         :stability: experimental
         '''
         ...
 
-    @jsii.member(jsii_name="addDailyScheduledTrigger")
-    def add_daily_scheduled_trigger(
+    @jsii.member(jsii_name="addEventTrigger")
+    def add_event_trigger(
         self,
         id: builtins.str,
         *,
-        start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an daily-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add an EventBridge event-based trigger to the workflow.
 
         :param id: -
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
+        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
+
+        :return: a reference to the created trigger.
 
         :stability: experimental
         '''
@@ -6086,10 +6292,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: -
@@ -6097,27 +6303,33 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
+        :return: a reference to the created trigger.
+
         :stability: experimental
         '''
         ...
 
-    @jsii.member(jsii_name="addWeeklyScheduledTrigger")
-    def add_weekly_scheduled_trigger(
+    @jsii.member(jsii_name="addScheduledTrigger")
+    def add_scheduled_trigger(
         self,
         id: builtins.str,
         *,
+        schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an weekly-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a scheduled trigger to the workflow.
 
         :param id: -
+        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
         :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
+
+        :return: a reference to the created trigger.
 
         :stability: experimental
         '''
@@ -6155,88 +6367,94 @@ class _IWorkflowProxy(
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowName"))
 
-    @jsii.member(jsii_name="addCustomScheduledTrigger")
-    def add_custom_scheduled_trigger(
+    @jsii.member(jsii_name="addConditionalTrigger")
+    def add_conditional_trigger(
         self,
         id: builtins.str,
         *,
-        schedule: "TriggerSchedule",
+        predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an custom-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: -
-        :param schedule: (experimental) The custom schedule for the trigger.
+        :param predicate: (experimental) The predicate for the trigger.
         :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
+        :return: a reference to the created trigger.
+
         :stability: experimental
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9a8edbbfff28a637c2d2402c799a91b553fb59c01157c4c70ffcf1a7f8f45444)
+            type_hints = cached_type_hints(_typecheckingstub__987442fc814518de647c411b03390e82069274b6061f2e4d107745c1151ec13f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = CustomScheduledTriggerOptions(
-            schedule=schedule,
+        options = ConditionalTriggerOptions(
+            predicate=predicate,
             start_on_creation=start_on_creation,
             actions=actions,
             description=description,
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addConditionalTrigger", [id, options]))
 
-    @jsii.member(jsii_name="addDailyScheduledTrigger")
-    def add_daily_scheduled_trigger(
+    @jsii.member(jsii_name="addEventTrigger")
+    def add_event_trigger(
         self,
         id: builtins.str,
         *,
-        start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an daily-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add an EventBridge event-based trigger to the workflow.
 
         :param id: -
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
+        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
+        :return: a reference to the created trigger.
+
         :stability: experimental
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__9f1754a6bb9ef8a06f85ce73f713622dbde979c66851e316ad959044406462da)
+            type_hints = cached_type_hints(_typecheckingstub__f3a82d646b3a60322c48ebaa3842b3a5c91a449639b70300f632798a2e82ad96)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = DailyScheduleTriggerOptions(
-            start_on_creation=start_on_creation,
+        options = EventTriggerOptions(
+            event_batching_condition=event_batching_condition,
             actions=actions,
             description=description,
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addEventTrigger", [id, options]))
 
     @jsii.member(jsii_name="addOnDemandTrigger")
     def add_on_demand_trigger(
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: -
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
+
+        :return: a reference to the created trigger.
 
         :stability: experimental
         '''
@@ -6247,39 +6465,44 @@ class _IWorkflowProxy(
             actions=actions, description=description, name=name
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
 
-    @jsii.member(jsii_name="addWeeklyScheduledTrigger")
-    def add_weekly_scheduled_trigger(
+    @jsii.member(jsii_name="addScheduledTrigger")
+    def add_scheduled_trigger(
         self,
         id: builtins.str,
         *,
+        schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an weekly-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a scheduled trigger to the workflow.
 
         :param id: -
+        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
         :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
+        :return: a reference to the created trigger.
+
         :stability: experimental
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__0fd7c9b45aca9c890deb63491d41407ba6f9a686488058283d2b5539ac683f87)
+            type_hints = cached_type_hints(_typecheckingstub__6607c6e68360d49d2e99238d604180d69ba6237c83e821dc3fde6c81a999682a)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = WeeklyScheduleTriggerOptions(
+        options = ScheduledTriggerOptions(
+            schedule=schedule,
             start_on_creation=start_on_creation,
             actions=actions,
             description=description,
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addScheduledTrigger", [id, options]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IWorkflow).__jsii_proxy_class__ = lambda : _IWorkflowProxy
@@ -6536,6 +6759,109 @@ class InvalidCharHandlingAction(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.JobActionOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "arguments": "arguments",
+        "security_configuration": "securityConfiguration",
+        "timeout": "timeout",
+    },
+)
+class JobActionOptions:
+    def __init__(
+        self,
+        *,
+        arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+    ) -> None:
+        '''(experimental) Options for the execution of a job.
+
+        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_glue_alpha as glue_alpha
+            import aws_cdk as cdk
+            
+            # security_configuration: glue_alpha.SecurityConfiguration
+            
+            job_action_options = glue_alpha.JobActionOptions(
+                arguments={
+                    "arguments_key": "arguments"
+                },
+                security_configuration=security_configuration,
+                timeout=cdk.Duration.minutes(30)
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f5908fe4c09ff9c8725b74dc21fa64f86e5b35daa8bf9f0e8c7cab155fa8a7b)
+            check_type(argname="argument arguments", value=arguments, expected_type=type_hints["arguments"])
+            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
+            check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if arguments is not None:
+            self._values["arguments"] = arguments
+        if security_configuration is not None:
+            self._values["security_configuration"] = security_configuration
+        if timeout is not None:
+            self._values["timeout"] = timeout
+
+    @builtins.property
+    def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''(experimental) The arguments used when this trigger fires.
+
+        :default: - no arguments are passed to the job
+
+        :stability: experimental
+        '''
+        result = self._values.get("arguments")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
+        '''(experimental) The ``SecurityConfiguration`` to be used with this action.
+
+        :default: - no security configuration is used
+
+        :stability: experimental
+        '''
+        result = self._values.get("security_configuration")
+        return typing.cast(typing.Optional["ISecurityConfiguration"], result)
+
+    @builtins.property
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The run timeout.
+
+        This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status.
+
+        :default: - the default timeout value set in the job definition
+
+        :stability: experimental
+        '''
+        result = self._values.get("timeout")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JobActionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -7114,6 +7440,15 @@ class JobBase(
         '''
         ...
 
+    @builtins.property
+    @jsii.member(jsii_name="jobRef")
+    def job_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.JobReference":
+        '''(experimental) A reference to this Job resource, for use with the generated L1 ref interface.
+
+        :stability: experimental
+        '''
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.JobReference", jsii.get(self, "jobRef"))
+
 
 class _JobBaseProxy(
     JobBase,
@@ -7251,7 +7586,7 @@ class JobProps:
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -7407,7 +7742,16 @@ class JobProps:
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -7605,6 +7949,29 @@ class JobType(enum.Enum):
     https://docs.aws.amazon.com/glue/latest/dg/awsglue-ray-jobs-availability-change.html
 
     :stability: deprecated
+    '''
+
+
+@jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.LibrarySet")
+class LibrarySet(enum.Enum):
+    '''(experimental) The set of pre-installed Python libraries available to a Python shell job running Python 3.9.
+
+    :see: https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html#python-shell-supported-library
+    :stability: experimental
+    '''
+
+    ANALYTICS = "ANALYTICS"
+    '''(experimental) Include the common analytics libraries for Python 3.9 (e.g. pandas, numpy, scikit-learn, awswrangler).
+
+    :stability: experimental
+    '''
+    NONE = "NONE"
+    '''(experimental) Do not install the common library set.
+
+    Use this when your libraries are custom or conflict
+    with the pre-installed ones.
+
+    :stability: experimental
     '''
 
 
@@ -7913,8 +8280,9 @@ class PartitionProjectionConfiguration(
                     min="2020-01-01",
                     max="2023-12-31",
                     format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    # `step` bundles interval + unit (supply both or neither). Optional at day
+                    # precision or coarser; required when the format is sub-day (e.g. hours).
+                    step=glue.DateProjectionStep(interval=1, interval_unit=glue.DateIntervalUnit.DAYS)
                 )
             }
         )
@@ -7928,25 +8296,19 @@ class PartitionProjectionConfiguration(
         format: builtins.str,
         max: builtins.str,
         min: builtins.str,
-        interval: typing.Optional[jsii.Number] = None,
-        interval_unit: typing.Optional["DateIntervalUnit"] = None,
+        step: typing.Optional[typing.Union["DateProjectionStep", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "PartitionProjectionConfiguration":
         '''(experimental) Create a DATE partition projection configuration.
 
         :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
         :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
         :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param interval: (experimental) Interval between partition values. Required (together with ``intervalUnit``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
-        :param interval_unit: (experimental) Unit for the interval. Required (together with ``interval``) when ``format`` carries sub-day precision — i.e. a field finer than a day, such as hours or AM/PM. At day or coarser precision Athena defaults the step, so it is optional. Default: - Athena's default unit for the format's precision; required when ``format`` is sub-day precision
+        :param step: (experimental) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
         :stability: experimental
         '''
         props = DatePartitionProjectionConfigurationProps(
-            format=format,
-            max=max,
-            min=min,
-            interval=interval,
-            interval_unit=interval_unit,
+            format=format, max=max, min=min, step=step
         )
 
         return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "date", [props]))
@@ -8014,73 +8376,6 @@ class PartitionProjectionConfiguration(
         '''
         return typing.cast("PartitionProjectionType", jsii.get(self, "type"))
 
-    @builtins.property
-    @jsii.member(jsii_name="dateRange")
-    def date_range(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Range of partition values for DATE type.
-
-        Array of [start, end] as date strings.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "dateRange"))
-
-    @builtins.property
-    @jsii.member(jsii_name="digits")
-    def digits(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of digits to pad INTEGER partition values.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "digits"))
-
-    @builtins.property
-    @jsii.member(jsii_name="format")
-    def format(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Date format for DATE partition values (Java SimpleDateFormat).
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "format"))
-
-    @builtins.property
-    @jsii.member(jsii_name="integerRange")
-    def integer_range(self) -> typing.Optional[typing.List[jsii.Number]]:
-        '''(experimental) Range of partition values for INTEGER type.
-
-        Array of [min, max] as numbers.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[typing.List[jsii.Number]], jsii.get(self, "integerRange"))
-
-    @builtins.property
-    @jsii.member(jsii_name="interval")
-    def interval(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Interval between partition values.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "interval"))
-
-    @builtins.property
-    @jsii.member(jsii_name="intervalUnit")
-    def interval_unit(self) -> typing.Optional["DateIntervalUnit"]:
-        '''(experimental) Unit for DATE partition interval.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional["DateIntervalUnit"], jsii.get(self, "intervalUnit"))
-
-    @builtins.property
-    @jsii.member(jsii_name="values")
-    def values(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Explicit list of values for ENUM partitions.
-
-        :stability: experimental
-        '''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "values"))
-
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.PartitionProjectionType")
 class PartitionProjectionType(enum.Enum):
@@ -8123,7 +8418,7 @@ class Predicate:
     def __init__(
         self,
         *,
-        conditions: typing.Optional[typing.Sequence[typing.Union["Condition", typing.Dict[builtins.str, typing.Any]]]] = None,
+        conditions: typing.Optional[typing.Sequence["Condition"]] = None,
         logical: typing.Optional["PredicateLogical"] = None,
     ) -> None:
         '''(experimental) Represents a trigger predicate.
@@ -8140,16 +8435,10 @@ class Predicate:
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
             
-            # job: glue_alpha.Job
+            # condition: glue_alpha.Condition
             
             predicate = glue_alpha.Predicate(
-                conditions=[glue_alpha.Condition(
-                    crawler_name="crawlerName",
-                    crawl_state=glue_alpha.CrawlerState.RUNNING,
-                    job=job,
-                    logical_operator=glue_alpha.ConditionLogicalOperator.EQUALS,
-                    state=glue_alpha.JobState.SUCCEEDED
-                )],
+                conditions=[condition],
                 logical=glue_alpha.PredicateLogical.AND
             )
         '''
@@ -8234,6 +8523,7 @@ class PredicateLogical(enum.Enum):
         "timeout": "timeout",
         "extra_python_files": "extraPythonFiles",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
+        "library_set": "librarySet",
         "max_capacity": "maxCapacity",
         "python_version": "pythonVersion",
     },
@@ -8257,6 +8547,7 @@ class PythonShellJobProps(JobProps):
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        library_set: typing.Optional["LibrarySet"] = None,
         max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
     ) -> None:
@@ -8266,7 +8557,7 @@ class PythonShellJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -8277,8 +8568,9 @@ class PythonShellJobProps(JobProps):
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param library_set: (experimental) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
         :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
-        :param python_version: (experimental) Python Version The version of Python to use to execute this job. Default: 3.9 for Shell Jobs
+        :param python_version: (experimental) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
 
         :stability: experimental
         :exampleMetadata: infused
@@ -8312,6 +8604,7 @@ class PythonShellJobProps(JobProps):
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument extra_python_files", value=extra_python_files, expected_type=type_hints["extra_python_files"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
+            check_type(argname="argument library_set", value=library_set, expected_type=type_hints["library_set"])
             check_type(argname="argument max_capacity", value=max_capacity, expected_type=type_hints["max_capacity"])
             check_type(argname="argument python_version", value=python_version, expected_type=type_hints["python_version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8344,6 +8637,8 @@ class PythonShellJobProps(JobProps):
             self._values["extra_python_files"] = extra_python_files
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
+        if library_set is not None:
+            self._values["library_set"] = library_set
         if max_capacity is not None:
             self._values["max_capacity"] = max_capacity
         if python_version is not None:
@@ -8403,7 +8698,16 @@ class PythonShellJobProps(JobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -8545,6 +8849,21 @@ class PythonShellJobProps(JobProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def library_set(self) -> typing.Optional["LibrarySet"]:
+        '''(experimental) The set of pre-installed Python libraries to make available to the job.
+
+        Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are
+        custom or conflict with the pre-installed ones.
+
+        :default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
+
+        :see: https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html#python-shell-supported-library
+        :stability: experimental
+        '''
+        result = self._values.get("library_set")
+        return typing.cast(typing.Optional["LibrarySet"], result)
+
+    @builtins.property
     def max_capacity(self) -> typing.Optional["MaxCapacity"]:
         '''(experimental) The total number of DPU to assign to the Python Job.
 
@@ -8557,9 +8876,13 @@ class PythonShellJobProps(JobProps):
 
     @builtins.property
     def python_version(self) -> typing.Optional["PythonVersion"]:
-        '''(experimental) Python Version The version of Python to use to execute this job.
+        '''(experimental) The version of Python to use to execute this job.
 
-        :default: 3.9 for Shell Jobs
+        Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO``
+        (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue
+        and are no longer available for Python shell jobs.
+
+        :default: PythonVersion.THREE_NINE
 
         :stability: experimental
         '''
@@ -8687,7 +9010,7 @@ class RayJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -8874,7 +9197,16 @@ class RayJobProps(JobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -10186,7 +10518,7 @@ class SparkJobProps(JobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -10374,7 +10706,16 @@ class SparkJobProps(JobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -12194,7 +12535,7 @@ class TriggerOptions:
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12212,23 +12553,11 @@ class TriggerOptions:
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
             
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
+            # action: glue_alpha.Action
             
             trigger_options = glue_alpha.TriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
+                actions=[action],
             
                 # the properties below are optional
                 description="description",
@@ -12299,21 +12628,22 @@ class TriggerSchedule(
     '''(experimental) Represents a trigger schedule.
 
     :stability: experimental
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        import aws_cdk.aws_glue_alpha as glue_alpha
+        import aws_cdk as cdk
+        import aws_cdk.aws_iam as iam
+        # stack: cdk.Stack
+        # role: iam.IRole
+        # script: glue.Code
         
-        trigger_schedule = glue_alpha.TriggerSchedule.cron(
-            day="day",
-            hour="hour",
-            minute="minute",
-            month="month",
-            week_day="weekDay",
-            year="year"
+        job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+        workflow = glue.Workflow(stack, "Workflow")
+        
+        workflow.add_scheduled_trigger("WeeklyTrigger",
+            actions=[glue.Action.job(job)],
+            schedule=glue.TriggerSchedule.weekly()
         )
     '''
 
@@ -12353,6 +12683,17 @@ class TriggerSchedule(
 
         return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "cron", [options]))
 
+    @jsii.member(jsii_name="daily")
+    @builtins.classmethod
+    def daily(cls) -> "TriggerSchedule":
+        '''(experimental) Creates a schedule that fires once a day, at midnight UTC.
+
+        :return: A new TriggerSchedule instance.
+
+        :stability: experimental
+        '''
+        return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "daily", []))
+
     @jsii.member(jsii_name="expression")
     @builtins.classmethod
     def expression(cls, expression: builtins.str) -> "TriggerSchedule":
@@ -12368,6 +12709,17 @@ class TriggerSchedule(
             type_hints = cached_type_hints(_typecheckingstub__56ff882bc008a9c07c54cca389af52f69a512017f4daa61c64beb028d7e8c4cc)
             check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
         return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "expression", [expression]))
+
+    @jsii.member(jsii_name="weekly")
+    @builtins.classmethod
+    def weekly(cls) -> "TriggerSchedule":
+        '''(experimental) Creates a schedule that fires once a week, at midnight UTC on Sunday.
+
+        :return: A new TriggerSchedule instance.
+
+        :stability: experimental
+        '''
+        return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "weekly", []))
 
     @builtins.property
     @jsii.member(jsii_name="expressionString")
@@ -12406,11 +12758,9 @@ class Type(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Type"):
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="2020-01-01",
-                    max="2023-12-31",
-                    format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
                 )
             }
         )
@@ -12791,11 +13141,11 @@ class WorkflowBase(
         *,
         predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add a Condition (Predicate) based trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: The id of the trigger.
         :param predicate: (experimental) The predicate for the trigger.
@@ -12804,10 +13154,9 @@ class WorkflowBase(
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
-        :return: The created CfnTrigger resource.
+        :return: a reference to the created trigger.
 
         :stability: experimental
-        :throws: If a job is provided without a job state, or if a crawler is provided without a crawler state for any condition.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__198f86d215161a42a7d94a66d9c0e12667e8bcffc4f46d5be57675e9ef4ead34)
@@ -12820,92 +13169,19 @@ class WorkflowBase(
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addConditionalTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addConditionalTrigger", [id, options]))
 
-    @jsii.member(jsii_name="addCustomScheduledTrigger")
-    def add_custom_scheduled_trigger(
-        self,
-        id: builtins.str,
-        *,
-        schedule: "TriggerSchedule",
-        start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add a custom-scheduled trigger to the workflow.
-
-        :param id: The id of the trigger.
-        :param schedule: (experimental) The custom schedule for the trigger.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-
-        :return: The created CfnTrigger resource.
-
-        :stability: experimental
-        :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4b64c9ea4aa943f2aaa39146eead19ba4caefe548500334bcf049424b4d92e57)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = CustomScheduledTriggerOptions(
-            schedule=schedule,
-            start_on_creation=start_on_creation,
-            actions=actions,
-            description=description,
-            name=name,
-        )
-
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addCustomScheduledTrigger", [id, options]))
-
-    @jsii.member(jsii_name="addDailyScheduledTrigger")
-    def add_daily_scheduled_trigger(
-        self,
-        id: builtins.str,
-        *,
-        start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add a daily-scheduled trigger to the workflow.
-
-        :param id: The id of the trigger.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-
-        :return: The created CfnTrigger resource.
-
-        :stability: experimental
-        :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__3089f7f1ae9a630008cac3ee8cee8316f8c951d601bb0a7198347784a373bea8)
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = DailyScheduleTriggerOptions(
-            start_on_creation=start_on_creation,
-            actions=actions,
-            description=description,
-            name=name,
-        )
-
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addDailyScheduledTrigger", [id, options]))
-
-    @jsii.member(jsii_name="addNotifyEventTrigger")
-    def add_notify_event_trigger(
+    @jsii.member(jsii_name="addEventTrigger")
+    def add_event_trigger(
         self,
         id: builtins.str,
         *,
         event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add an Event Bridge based trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add an EventBridge event-based trigger to the workflow.
 
         :param id: The id of the trigger.
         :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
@@ -12913,32 +13189,31 @@ class WorkflowBase(
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
-        :return: The created CfnTrigger resource.
+        :return: a reference to the created trigger.
 
         :stability: experimental
-        :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__dcde671bf144ea3af2d4951815d73e1ed6c9fa50ab4cb6d1b1d8d392e35d7f5d)
+            type_hints = cached_type_hints(_typecheckingstub__a32096a81a8487c02396b4e5e70d6909c171ffdaf25fea1024c049fe18e70af4)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = NotifyEventTriggerOptions(
+        options = EventTriggerOptions(
             event_batching_condition=event_batching_condition,
             actions=actions,
             description=description,
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addNotifyEventTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addEventTrigger", [id, options]))
 
     @jsii.member(jsii_name="addOnDemandTrigger")
     def add_on_demand_trigger(
         self,
         id: builtins.str,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
         '''(experimental) Add an on-demand trigger to the workflow.
 
         :param id: The id of the trigger.
@@ -12946,10 +13221,9 @@ class WorkflowBase(
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
-        :return: The created CfnTrigger resource.
+        :return: a reference to the created trigger.
 
         :stability: experimental
-        :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef2bb127a7095832cbabb03ab806137724c70a57726a996979493b4efd025d33)
@@ -12958,42 +13232,44 @@ class WorkflowBase(
             actions=actions, description=description, name=name
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addOnDemandTrigger", [id, options]))
 
-    @jsii.member(jsii_name="addWeeklyScheduledTrigger")
-    def add_weekly_scheduled_trigger(
+    @jsii.member(jsii_name="addScheduledTrigger")
+    def add_scheduled_trigger(
         self,
         id: builtins.str,
         *,
+        schedule: "TriggerSchedule",
         start_on_creation: typing.Optional[builtins.bool] = None,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-    ) -> "_aws_cdk_aws_glue_ceddda9d.CfnTrigger":
-        '''(experimental) Add a weekly-scheduled trigger to the workflow.
+    ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
+        '''(experimental) Add a scheduled trigger to the workflow.
 
         :param id: The id of the trigger.
+        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
         :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
         :param name: (experimental) A name for the trigger. Default: - no name is provided
 
-        :return: The created CfnTrigger resource.
+        :return: a reference to the created trigger.
 
         :stability: experimental
-        :throws: If both job and crawler are provided, or if neither job nor crawler is provided.
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__71fdd9a6acd531f0ce5498cb855150abf8fa05c19c53a2e5bdfcfc502238e659)
+            type_hints = cached_type_hints(_typecheckingstub__630114deeb6f6732425ff4b320a07036c999ceb0be0ad71c8a8477810e5dc67f)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        options = WeeklyScheduleTriggerOptions(
+        options = ScheduledTriggerOptions(
+            schedule=schedule,
             start_on_creation=start_on_creation,
             actions=actions,
             description=description,
             name=name,
         )
 
-        return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTrigger", jsii.invoke(self, "addWeeklyScheduledTrigger", [id, options]))
+        return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef", jsii.invoke(self, "addScheduledTrigger", [id, options]))
 
     @jsii.member(jsii_name="buildWorkflowArn")
     def _build_workflow_arn(
@@ -13541,12 +13817,10 @@ class Connection(
         connection_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+        network: typing.Optional["ConnectionNetwork"] = None,
         properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
-        subnet: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.ISubnet"] = None,
-        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
-        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -13555,12 +13829,10 @@ class Connection(
         :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
         :param description: (experimental) The description of the connection. Default: no description
         :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
         :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
         :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
         :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param subnet: (experimental) The VPC subnet to connect to resources within a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Mutually exclusive with ``vpc``: provide ``subnet`` to pin the connection to a specific subnet, or provide ``vpc`` (optionally with ``vpcSubnets``) to let the CDK select one for you. Default: - no subnet, unless ``vpc`` is provided
-        :param vpc: (experimental) The VPC to connect to resources within. When provided, the CDK selects a subnet from this VPC using ``vpcSubnets``. A Glue connection targets a single subnet, so the first subnet of the selection is used. Mutually exclusive with ``subnet``. Default: - no VPC, the subnet is taken from ``subnet`` if provided
-        :param vpc_subnets: (experimental) Which subnets of ``vpc`` to select the connection subnet from. Only used when ``vpc`` is provided. Since a Glue connection targets a single subnet, the first subnet of the selection is used. Default: - private subnets
 
         :stability: experimental
         '''
@@ -13573,12 +13845,10 @@ class Connection(
             connection_name=connection_name,
             description=description,
             match_criteria=match_criteria,
+            network=network,
             properties=properties,
             secret=secret,
             security_groups=security_groups,
-            subnet=subnet,
-            vpc=vpc,
-            vpc_subnets=vpc_subnets,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -13670,135 +13940,6 @@ class Connection(
         :stability: experimental
         '''
         return typing.cast(builtins.str, jsii.get(self, "connectionName"))
-
-
-@jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.DailyScheduleTriggerOptions",
-    jsii_struct_bases=[TriggerOptions],
-    name_mapping={
-        "actions": "actions",
-        "description": "description",
-        "name": "name",
-        "start_on_creation": "startOnCreation",
-    },
-)
-class DailyScheduleTriggerOptions(TriggerOptions):
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        start_on_creation: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''(experimental) Properties for configuring a daily-scheduled Glue Trigger.
-
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
-            
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
-            
-            daily_schedule_trigger_options = glue_alpha.DailyScheduleTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                start_on_creation=False
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__82b5ccac754b61d190c2f59b0d706bf7ff5b249062c799856278c42ed61c98d8)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument start_on_creation", value=start_on_creation, expected_type=type_hints["start_on_creation"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if start_on_creation is not None:
-            self._values["start_on_creation"] = start_on_creation
-
-    @builtins.property
-    def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
-
-        :stability: experimental
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List["Action"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
-
-        :default: - no description
-
-        :stability: experimental
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
-
-        :default: - no name is provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_on_creation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to start the trigger on creation or not.
-
-        :default: - false
-
-        :stability: experimental
-        '''
-        result = self._values.get("start_on_creation")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DailyScheduleTriggerOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
 @jsii.implements(IDataQualityRuleset)
@@ -14070,6 +14211,131 @@ class Database(
         :stability: experimental
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationUri"))
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.EventTriggerOptions",
+    jsii_struct_bases=[TriggerOptions],
+    name_mapping={
+        "actions": "actions",
+        "description": "description",
+        "name": "name",
+        "event_batching_condition": "eventBatchingCondition",
+    },
+)
+class EventTriggerOptions(TriggerOptions):
+    def __init__(
+        self,
+        *,
+        actions: typing.Sequence["Action"],
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''(experimental) Properties for configuring an Event Bridge based Glue Trigger.
+
+        :param actions: (experimental) The actions initiated by this trigger.
+        :param description: (experimental) A description for the trigger. Default: - no description
+        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
+
+        :stability: experimental
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk.aws_glue_alpha as glue_alpha
+            import aws_cdk as cdk
+            
+            # action: glue_alpha.Action
+            
+            event_trigger_options = glue_alpha.EventTriggerOptions(
+                actions=[action],
+            
+                # the properties below are optional
+                description="description",
+                event_batching_condition=glue_alpha.EventBatchingCondition(
+                    batch_size=123,
+            
+                    # the properties below are optional
+                    batch_window=cdk.Duration.minutes(30)
+                ),
+                name="name"
+            )
+        '''
+        if isinstance(event_batching_condition, dict):
+            event_batching_condition = EventBatchingCondition(**event_batching_condition)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3327ed05e55003ef4483f577e6a7098e30b10560fb1411ff37aafe2bf84a519c)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument event_batching_condition", value=event_batching_condition, expected_type=type_hints["event_batching_condition"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if event_batching_condition is not None:
+            self._values["event_batching_condition"] = event_batching_condition
+
+    @builtins.property
+    def actions(self) -> typing.List["Action"]:
+        '''(experimental) The actions initiated by this trigger.
+
+        :stability: experimental
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.List["Action"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description for the trigger.
+
+        :default: - no description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A name for the trigger.
+
+        :default: - no name is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_batching_condition(self) -> typing.Optional["EventBatchingCondition"]:
+        '''(experimental) Batch condition for the trigger.
+
+        :default: - no batch condition
+
+        :stability: experimental
+        '''
+        result = self._values.get("event_batching_condition")
+        return typing.cast(typing.Optional["EventBatchingCondition"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EventTriggerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class ExternalTable(
@@ -14727,23 +14993,6 @@ class Job(
 
         return typing.cast("IJob", jsii.sinvoke(cls, "fromJobAttributes", [scope, id, attrs]))
 
-    @jsii.member(jsii_name="checkNoReservedArgs")
-    def _check_no_reserved_args(
-        self,
-        default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Check no usage of reserved arguments.
-
-        :param default_arguments: -
-
-        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__c73ae214298d84295ee298651aeb47e0e12bade619c1a92cdc6ccedaab1acbf2)
-            check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.invoke(self, "checkNoReservedArgs", [default_arguments]))
-
     @jsii.member(jsii_name="codeS3ObjectUrl")
     def _code_s3_object_url(self, code: "Code") -> builtins.str:
         '''
@@ -14756,42 +15005,98 @@ class Job(
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast(builtins.str, jsii.invoke(self, "codeS3ObjectUrl", [code]))
 
+    @jsii.member(jsii_name="mergeDefaultArguments")
+    def _merge_default_arguments(
+        self,
+        default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    ) -> typing.Mapping[builtins.str, builtins.str]:
+        '''(experimental) Merge the customer-supplied ``defaultArguments`` with the arguments this construct manages.
+
+        The construct owns every argument it emits — whether the value comes from a dedicated typed
+        prop (e.g. ``continuousLogging``, ``enableMetrics``, ``sparkUI``) or from the job class itself
+        (e.g. ``--job-language``). Those arguments, plus the arguments Glue reserves for its own use,
+        MUST be configured through their dedicated props rather than the untyped ``defaultArguments``
+        map, so there is exactly one way to express each intent. Passing such a key through
+        ``defaultArguments`` therefore throws instead of silently winning or being silently dropped.
+
+        A managed key whose supplied value is identical to the construct's value is not contradictory,
+        so it is allowed rather than rejected (auto-correcting config is preferred over errors).
+        Glue-reserved keys are never emitted by the construct, so there is no value to reconcile and
+        they always throw.
+
+        The reserved set is ``_managedArgumentKeys`` — every key the construct declared through
+        {@link setManagedArgument}, whether or not a value was emitted for it. It is deliberately NOT
+        derived from the keys that carry a value: a typed prop that turns a feature *off* (e.g.
+        ``enableMetrics: false``) emits no value but still reserves its key, so ``defaultArguments`` cannot
+        silently re-enable it.
+
+        Conflict detection relies on string equality of the argument keys, which cannot see through
+        unresolved tokens (e.g. a key produced by ``CfnJson`` that only resolves at deploy time). If a
+        key is a token, the check is skipped for that key and a synthesis-time warning is emitted, so
+        the (rare) case where a token key resolves to a managed argument at deploy time — in which the
+        construct-managed value would silently take precedence — is surfaced rather than hidden.
+
+        :param default_arguments: the caller-supplied escape-hatch arguments, if any.
+
+        :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__703dc37dca42a311b11c75cbcb4bc435b9e951b719d4fc806388265f0919a4b8)
+            check_type(argname="argument default_arguments", value=default_arguments, expected_type=type_hints["default_arguments"])
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.invoke(self, "mergeDefaultArguments", [default_arguments]))
+
+    @jsii.member(jsii_name="setManagedArgument")
+    def _set_managed_argument(
+        self,
+        key: builtins.str,
+        value: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''(experimental) Declare ``key`` as construct-managed and, when ``value`` is defined, emit it into the job's arguments.
+
+        This is the single sink for every argument a job construct derives from its typed props (or
+        from the job class itself). Call it once per managed key, passing ``undefined`` as the value when
+        the corresponding feature is turned off or unset — the key is still reserved from
+        ``defaultArguments`` either way, so a disabled feature cannot be re-enabled through the escape
+        hatch. There is deliberately no other way for a subclass to emit a managed argument, so the
+        reserved set can never drift from what is emitted.
+
+        :param key: the Glue argument key, e.g. ``--enable-metrics``.
+        :param value: the value to emit, or ``undefined`` to reserve the key without emitting it.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f97c5e5097883d944d088aa6c5e9585f928530bc593615113dad90e78b3c08bb)
+            check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "setManagedArgument", [key, value]))
+
     @jsii.member(jsii_name="setupContinuousLogging")
     def _setup_continuous_logging(
         self,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
-        *,
-        enabled: builtins.bool,
-        conversion_pattern: typing.Optional[builtins.str] = None,
-        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
-        log_stream_prefix: typing.Optional[builtins.str] = None,
-        quiet: typing.Optional[builtins.bool] = None,
-    ) -> typing.Any:
-        '''(experimental) Setup Continuous Logging Properties.
+        props: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        security_configuration: typing.Optional["ISecurityConfiguration"] = None,
+    ) -> None:
+        '''(experimental) Register (and, when enabled, emit) the continuous-logging arguments this job manages.
 
-        :param role: The IAM role to use for continuous logging.
-        :param enabled: (experimental) Enable continuous logging.
-        :param conversion_pattern: (experimental) Apply the provided conversion pattern. This is a Log4j Conversion Pattern to customize driver and executor logs. Default: ``%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n``
-        :param log_group: (experimental) Specify a custom CloudWatch log group name. Default: - a log group is created with name ``/aws-glue/jobs/logs-v2/``.
-        :param log_stream_prefix: (experimental) Specify a custom CloudWatch log stream prefix. Default: - the job run ID.
-        :param quiet: (experimental) Filter out non-useful Apache Spark driver/executor and Apache Hadoop YARN heartbeat log messages. Default: true
+        All five continuous-logging keys are reserved on every job type regardless of configuration:
+        they are always registered through {@link setManagedArgument}, and carry a value only when
+        logging is enabled. This keeps ``defaultArguments`` from re-enabling logging a user turned off.
 
-        :return: String containing the args for the continuous logging command
+        :param role: The IAM role to grant write access to a custom log group, if one is provided.
+        :param props: The properties for continuous logging configuration.
+        :param security_configuration: The security configuration attached to the job, if any.
 
         :stability: experimental
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-        props = ContinuousLoggingProps(
-            enabled=enabled,
-            conversion_pattern=conversion_pattern,
-            log_group=log_group,
-            log_stream_prefix=log_stream_prefix,
-            quiet=quiet,
-        )
-
-        return typing.cast(typing.Any, jsii.invoke(self, "setupContinuousLogging", [role, props]))
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+            check_type(argname="argument security_configuration", value=security_configuration, expected_type=type_hints["security_configuration"])
+        return typing.cast(None, jsii.invoke(self, "setupContinuousLogging", [role, props, security_configuration]))
 
     @builtins.property
     @jsii.member(jsii_name="role")
@@ -14822,142 +15127,6 @@ typing.cast(typing.Any, Job).__jsii_proxy_class__ = lambda : _JobProxy
 
 
 @jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.NotifyEventTriggerOptions",
-    jsii_struct_bases=[TriggerOptions],
-    name_mapping={
-        "actions": "actions",
-        "description": "description",
-        "name": "name",
-        "event_batching_condition": "eventBatchingCondition",
-    },
-)
-class NotifyEventTriggerOptions(TriggerOptions):
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''(experimental) Properties for configuring an Event Bridge based Glue Trigger.
-
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
-            
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
-            
-            notify_event_trigger_options = glue_alpha.NotifyEventTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
-            
-                # the properties below are optional
-                description="description",
-                event_batching_condition=glue_alpha.EventBatchingCondition(
-                    batch_size=123,
-            
-                    # the properties below are optional
-                    batch_window=cdk.Duration.minutes(30)
-                ),
-                name="name"
-            )
-        '''
-        if isinstance(event_batching_condition, dict):
-            event_batching_condition = EventBatchingCondition(**event_batching_condition)
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__4a2e35d7e09d9d41b0d7306e094ad4e1de4f204e3577edd1b3af514e42003c5a)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument event_batching_condition", value=event_batching_condition, expected_type=type_hints["event_batching_condition"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if event_batching_condition is not None:
-            self._values["event_batching_condition"] = event_batching_condition
-
-    @builtins.property
-    def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
-
-        :stability: experimental
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List["Action"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
-
-        :default: - no description
-
-        :stability: experimental
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
-
-        :default: - no name is provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_batching_condition(self) -> typing.Optional["EventBatchingCondition"]:
-        '''(experimental) Batch condition for the trigger.
-
-        :default: - no batch condition
-
-        :stability: experimental
-        '''
-        result = self._values.get("event_batching_condition")
-        return typing.cast(typing.Optional["EventBatchingCondition"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NotifyEventTriggerOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.OnDemandTriggerOptions",
     jsii_struct_bases=[TriggerOptions],
     name_mapping={"actions": "actions", "description": "description", "name": "name"},
@@ -14966,7 +15135,7 @@ class OnDemandTriggerOptions(TriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -14994,7 +15163,7 @@ class OnDemandTriggerOptions(TriggerOptions):
             # Create a workflow and add a trigger that runs the job
             workflow = glue.Workflow(stack, "Workflow")
             workflow.add_on_demand_trigger("OnDemandTrigger",
-                actions=[glue.Action(job=job)]
+                actions=[glue.Action.job(job)]
             )
         '''
         if __debug__:
@@ -15117,7 +15286,7 @@ class PySparkEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -15155,7 +15324,7 @@ class PySparkEtlJobProps(SparkJobProps):
             # Create a workflow and add a trigger that runs the job
             workflow = glue.Workflow(stack, "Workflow")
             workflow.add_on_demand_trigger("OnDemandTrigger",
-                actions=[glue.Action(job=job)]
+                actions=[glue.Action.job(job)]
             )
         '''
         if isinstance(continuous_logging, dict):
@@ -15290,7 +15459,16 @@ class PySparkEtlJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -15597,7 +15775,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -15758,7 +15936,16 @@ class PySparkFlexEtlJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -16048,7 +16235,7 @@ class PySparkStreamingJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -16209,7 +16396,16 @@ class PySparkStreamingJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -16474,6 +16670,7 @@ class PythonShellJob(
         *,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        library_set: typing.Optional["LibrarySet"] = None,
         max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
@@ -16496,13 +16693,14 @@ class PythonShellJob(
         :param id: -
         :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param library_set: (experimental) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
         :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
-        :param python_version: (experimental) Python Version The version of Python to use to execute this job. Default: 3.9 for Shell Jobs
+        :param python_version: (experimental) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -16521,6 +16719,7 @@ class PythonShellJob(
         props = PythonShellJobProps(
             extra_python_files=extra_python_files,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            library_set=library_set,
             max_capacity=max_capacity,
             python_version=python_version,
             role=role,
@@ -16691,7 +16890,7 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -16804,11 +17003,9 @@ class S3Table(
             data_format=glue.DataFormat.JSON,
             partition_projection={
                 "date": glue.PartitionProjectionConfiguration.date(
-                    min="2020-01-01",
-                    max="2023-12-31",
-                    format="yyyy-MM-dd",
-                    interval=1,  # optional, defaults to 1
-                    interval_unit=glue.DateIntervalUnit.DAYS
+                    min="NOW-3YEARS",
+                    max="NOW",
+                    format="yyyy-MM-dd"
                 )
             }
         )
@@ -17107,11 +17304,9 @@ class S3TableProps(TableBaseProps):
                 data_format=glue.DataFormat.JSON,
                 partition_projection={
                     "date": glue.PartitionProjectionConfiguration.date(
-                        min="2020-01-01",
-                        max="2023-12-31",
-                        format="yyyy-MM-dd",
-                        interval=1,  # optional, defaults to 1
-                        interval_unit=glue.DateIntervalUnit.DAYS
+                        min="NOW-3YEARS",
+                        max="NOW",
+                        format="yyyy-MM-dd"
                     )
                 }
             )
@@ -17486,7 +17681,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -17703,7 +17898,16 @@ class ScalaSparkEtlJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -18009,7 +18213,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -18221,7 +18425,16 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -18511,7 +18724,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -18723,7 +18936,16 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
-        These are emitted verbatim into the CloudFormation template, so avoid
+        This map is the escape hatch for Glue job arguments that this construct does not model. It
+        MUST NOT be used to set arguments that already have a dedicated prop — configure those through
+        the corresponding prop instead (``continuousLogging``, ``enableMetrics``,
+        ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``,
+        ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g.
+        ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``,
+        ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``)
+        here throws at synthesis time, so there is exactly one way to express each intent.
+
+        Also note that these are emitted verbatim into the CloudFormation template, so avoid
         placing secrets here in plaintext. Pass secrets to the job at runtime
         through AWS Secrets Manager instead. A synthesis-time warning is emitted
         when an argument key looks like a credential and holds a plaintext literal.
@@ -19016,7 +19238,7 @@ class SparkJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -19075,8 +19297,14 @@ class SparkJob(
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
-    ) -> typing.Mapping[builtins.str, builtins.str]:
-        '''
+    ) -> None:
+        '''(experimental) Register the arguments this construct manages for a Spark job.
+
+        These are owned by the construct
+        (derived from typed props). Each key is declared via {@link setManagedArgument} whether or not
+        the current configuration emits a value, so a disabled feature (e.g. ``enableMetrics: false``)
+        cannot be silently re-enabled through ``defaultArguments``.
+
         :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
@@ -19085,7 +19313,7 @@ class SparkJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -19117,21 +19345,19 @@ class SparkJob(
             timeout=timeout,
         )
 
-        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.invoke(self, "nonExecutableCommonArguments", [props]))
+        return typing.cast(None, jsii.invoke(self, "nonExecutableCommonArguments", [props]))
 
     @jsii.member(jsii_name="setupExtraCodeArguments")
     def _setup_extra_code_arguments(
         self,
-        args: typing.Mapping[builtins.str, builtins.str],
         *,
         extra_files: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars: typing.Optional[typing.Sequence["Code"]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
     ) -> None:
-        '''(experimental) Set the arguments for extra {@link Code}-related properties.
+        '''(experimental) Register the arguments for extra {@link Code}-related properties.
 
-        :param args: -
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
@@ -19139,9 +19365,6 @@ class SparkJob(
 
         :stability: experimental
         '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__11a4f0418c818bdc6ba201303ceec4eaa6c9b8afe366e2d0a6ff2c79abb82595)
-            check_type(argname="argument args", value=args, expected_type=type_hints["args"])
         props = SparkExtraCodeProps(
             extra_files=extra_files,
             extra_jars=extra_jars,
@@ -19149,7 +19372,7 @@ class SparkJob(
             extra_python_files=extra_python_files,
         )
 
-        return typing.cast(None, jsii.invoke(self, "setupExtraCodeArguments", [args, props]))
+        return typing.cast(None, jsii.invoke(self, "setupExtraCodeArguments", [props]))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
@@ -19191,8 +19414,8 @@ typing.cast(typing.Any, SparkJob).__jsii_proxy_class__ = lambda : _SparkJobProxy
 
 
 @jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.WeeklyScheduleTriggerOptions",
-    jsii_struct_bases=[DailyScheduleTriggerOptions],
+    jsii_type="@aws-cdk/aws-glue-alpha.StartableTriggerOptions",
+    jsii_struct_bases=[TriggerOptions],
     name_mapping={
         "actions": "actions",
         "description": "description",
@@ -19200,16 +19423,16 @@ typing.cast(typing.Any, SparkJob).__jsii_proxy_class__ = lambda : _SparkJobProxy
         "start_on_creation": "startOnCreation",
     },
 )
-class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
+class StartableTriggerOptions(TriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Properties for configuring a weekly-scheduled Glue Trigger.
+        '''(experimental) Base options for triggers that can be started when they are created.
 
         :param actions: (experimental) The actions initiated by this trigger.
         :param description: (experimental) A description for the trigger. Default: - no description
@@ -19224,23 +19447,11 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
             
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
+            # action: glue_alpha.Action
             
-            weekly_schedule_trigger_options = glue_alpha.WeeklyScheduleTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
+            startable_trigger_options = glue_alpha.StartableTriggerOptions(
+                actions=[action],
             
                 # the properties below are optional
                 description="description",
@@ -19249,7 +19460,7 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__421814cc7a3c83ad1d6ba6614b0f3fdf714d8ee7700d159d714589b93a3b2d4b)
+            type_hints = cached_type_hints(_typecheckingstub__9f017c87134dcef359e9fc4a62ea5e6f0a61b37d6b1d0d32475280feac1ca620)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -19314,7 +19525,7 @@ class WeeklyScheduleTriggerOptions(DailyScheduleTriggerOptions):
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "WeeklyScheduleTriggerOptions(%s)" % ", ".join(
+        return "StartableTriggerOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -19352,7 +19563,7 @@ class Workflow(
 
     // Add an on-demand trigger to the Workflow
     workflow.addOnDemandTrigger('OnDemandTrigger', {
-    actions: [{ job: job }],
+    actions: [glue.Action.job(job)],
     });
     :stability: experimental
     :exampleMetadata: infused
@@ -19372,7 +19583,7 @@ class Workflow(
         # Create a workflow and add a trigger that runs the job
         workflow = glue.Workflow(stack, "Workflow")
         workflow.add_on_demand_trigger("OnDemandTrigger",
-            actions=[glue.Action(job=job)]
+            actions=[glue.Action.job(job)]
         )
     '''
 
@@ -19722,7 +19933,7 @@ class Catalog(
 
 @jsii.data_type(
     jsii_type="@aws-cdk/aws-glue-alpha.ConditionalTriggerOptions",
-    jsii_struct_bases=[DailyScheduleTriggerOptions],
+    jsii_struct_bases=[StartableTriggerOptions],
     name_mapping={
         "actions": "actions",
         "description": "description",
@@ -19731,11 +19942,11 @@ class Catalog(
         "predicate": "predicate",
     },
 )
-class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
+class ConditionalTriggerOptions(StartableTriggerOptions):
     def __init__(
         self,
         *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
+        actions: typing.Sequence["Action"],
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
@@ -19757,31 +19968,14 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
             
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
+            # action: glue_alpha.Action
+            # condition: glue_alpha.Condition
             
             conditional_trigger_options = glue_alpha.ConditionalTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
+                actions=[action],
                 predicate=glue_alpha.Predicate(
-                    conditions=[glue_alpha.Condition(
-                        crawler_name="crawlerName",
-                        crawl_state=glue_alpha.CrawlerState.RUNNING,
-                        job=job,
-                        logical_operator=glue_alpha.ConditionLogicalOperator.EQUALS,
-                        state=glue_alpha.JobState.SUCCEEDED
-                    )],
+                    conditions=[condition],
                     logical=glue_alpha.PredicateLogical.AND
                 ),
             
@@ -19876,152 +20070,6 @@ class ConditionalTriggerOptions(DailyScheduleTriggerOptions):
         )
 
 
-@jsii.data_type(
-    jsii_type="@aws-cdk/aws-glue-alpha.CustomScheduledTriggerOptions",
-    jsii_struct_bases=[WeeklyScheduleTriggerOptions],
-    name_mapping={
-        "actions": "actions",
-        "description": "description",
-        "name": "name",
-        "start_on_creation": "startOnCreation",
-        "schedule": "schedule",
-    },
-)
-class CustomScheduledTriggerOptions(WeeklyScheduleTriggerOptions):
-    def __init__(
-        self,
-        *,
-        actions: typing.Sequence[typing.Union["Action", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        start_on_creation: typing.Optional[builtins.bool] = None,
-        schedule: "TriggerSchedule",
-    ) -> None:
-        '''(experimental) Properties for configuring a custom-scheduled Glue Trigger.
-
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param schedule: (experimental) The custom schedule for the trigger.
-
-        :stability: experimental
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk.aws_glue_alpha as glue_alpha
-            import aws_cdk as cdk
-            from aws_cdk import aws_glue as glue
-            
-            # cfn_crawler: glue.CfnCrawler
-            # job: glue_alpha.Job
-            # security_configuration: glue_alpha.SecurityConfiguration
-            # trigger_schedule: glue_alpha.TriggerSchedule
-            
-            custom_scheduled_trigger_options = glue_alpha.CustomScheduledTriggerOptions(
-                actions=[glue_alpha.Action(
-                    arguments={
-                        "arguments_key": "arguments"
-                    },
-                    crawler=cfn_crawler,
-                    job=job,
-                    security_configuration=security_configuration,
-                    timeout=cdk.Duration.minutes(30)
-                )],
-                schedule=trigger_schedule,
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                start_on_creation=False
-            )
-        '''
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__8daef2dc0ba7c10827d6d01bb5947a4521514ecea9e7c5ac00c800c7a90eb465)
-            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument start_on_creation", value=start_on_creation, expected_type=type_hints["start_on_creation"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actions": actions,
-            "schedule": schedule,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if start_on_creation is not None:
-            self._values["start_on_creation"] = start_on_creation
-
-    @builtins.property
-    def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
-
-        :stability: experimental
-        '''
-        result = self._values.get("actions")
-        assert result is not None, "Required property 'actions' is missing"
-        return typing.cast(typing.List["Action"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
-
-        :default: - no description
-
-        :stability: experimental
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
-
-        :default: - no name is provided
-
-        :stability: experimental
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_on_creation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to start the trigger on creation or not.
-
-        :default: - false
-
-        :stability: experimental
-        '''
-        result = self._values.get("start_on_creation")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def schedule(self) -> "TriggerSchedule":
-        '''(experimental) The custom schedule for the trigger.
-
-        :stability: experimental
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast("TriggerSchedule", result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CustomScheduledTriggerOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 class PySparkEtlJob(
     SparkJob,
     metaclass=jsii.JSIIMeta,
@@ -20057,7 +20105,7 @@ class PySparkEtlJob(
         # Create a workflow and add a trigger that runs the job
         workflow = glue.Workflow(stack, "Workflow")
         workflow.add_on_demand_trigger("OnDemandTrigger",
-            actions=[glue.Action(job=job)]
+            actions=[glue.Action.job(job)]
         )
     '''
 
@@ -20108,7 +20156,7 @@ class PySparkEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -20256,7 +20304,7 @@ class PySparkFlexEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -20403,7 +20451,7 @@ class PySparkStreamingJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -20605,7 +20653,7 @@ class ScalaSparkEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -20805,7 +20853,7 @@ class ScalaSparkFlexEtlJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -21004,7 +21052,7 @@ class ScalaSparkStreamingJob(
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
         :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
         :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. These are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
         :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
         :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
         :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
@@ -21075,6 +21123,140 @@ class ScalaSparkStreamingJob(
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
 
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-glue-alpha.ScheduledTriggerOptions",
+    jsii_struct_bases=[StartableTriggerOptions],
+    name_mapping={
+        "actions": "actions",
+        "description": "description",
+        "name": "name",
+        "start_on_creation": "startOnCreation",
+        "schedule": "schedule",
+    },
+)
+class ScheduledTriggerOptions(StartableTriggerOptions):
+    def __init__(
+        self,
+        *,
+        actions: typing.Sequence["Action"],
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        start_on_creation: typing.Optional[builtins.bool] = None,
+        schedule: "TriggerSchedule",
+    ) -> None:
+        '''(experimental) Properties for configuring a scheduled Glue Trigger.
+
+        :param actions: (experimental) The actions initiated by this trigger.
+        :param description: (experimental) A description for the trigger. Default: - no description
+        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
+        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            import aws_cdk.aws_iam as iam
+            # stack: cdk.Stack
+            # role: iam.IRole
+            # script: glue.Code
+            
+            job = glue.PySparkEtlJob(stack, "Job", role=role, script=script)
+            workflow = glue.Workflow(stack, "Workflow")
+            
+            workflow.add_scheduled_trigger("WeeklyTrigger",
+                actions=[glue.Action.job(job)],
+                schedule=glue.TriggerSchedule.weekly()
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e5ecfd5571344606774c131727204d591e3d9b7c2c5bf98784b9331db0674587)
+            check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument start_on_creation", value=start_on_creation, expected_type=type_hints["start_on_creation"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "actions": actions,
+            "schedule": schedule,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if start_on_creation is not None:
+            self._values["start_on_creation"] = start_on_creation
+
+    @builtins.property
+    def actions(self) -> typing.List["Action"]:
+        '''(experimental) The actions initiated by this trigger.
+
+        :stability: experimental
+        '''
+        result = self._values.get("actions")
+        assert result is not None, "Required property 'actions' is missing"
+        return typing.cast(typing.List["Action"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A description for the trigger.
+
+        :default: - no description
+
+        :stability: experimental
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A name for the trigger.
+
+        :default: - no name is provided
+
+        :stability: experimental
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_on_creation(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to start the trigger on creation or not.
+
+        :default: - false
+
+        :stability: experimental
+        '''
+        result = self._values.get("start_on_creation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def schedule(self) -> "TriggerSchedule":
+        '''(experimental) The schedule on which this trigger fires.
+
+        Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly},
+        {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+
+        :stability: experimental
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast("TriggerSchedule", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduledTriggerOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "Action",
     "AssetCode",
@@ -21092,16 +21274,17 @@ __all__ = [
     "CompressionType",
     "Condition",
     "ConditionLogicalOperator",
+    "ConditionOptions",
     "ConditionalTriggerOptions",
     "Connection",
+    "ConnectionNetwork",
     "ConnectionOptions",
     "ConnectionPasswordEncryption",
     "ConnectionProps",
     "ConnectionType",
     "ContinuousLoggingProps",
+    "CrawlerActionOptions",
     "CrawlerState",
-    "CustomScheduledTriggerOptions",
-    "DailyScheduleTriggerOptions",
     "DataCatalogEncryptionAtRest",
     "DataFormat",
     "DataFormatProps",
@@ -21112,9 +21295,11 @@ __all__ = [
     "DatabaseProps",
     "DateIntervalUnit",
     "DatePartitionProjectionConfigurationProps",
+    "DateProjectionStep",
     "Dqdl",
     "EnumPartitionProjectionConfigurationProps",
     "EventBatchingCondition",
+    "EventTriggerOptions",
     "ExecutionClass",
     "ExternalTable",
     "ExternalTableProps",
@@ -21131,6 +21316,7 @@ __all__ = [
     "IntegerPartitionProjectionConfigurationProps",
     "InvalidCharHandlingAction",
     "Job",
+    "JobActionOptions",
     "JobAttributes",
     "JobBase",
     "JobBookmarksEncryption",
@@ -21138,9 +21324,9 @@ __all__ = [
     "JobProps",
     "JobState",
     "JobType",
+    "LibrarySet",
     "MaxCapacity",
     "MetricType",
-    "NotifyEventTriggerOptions",
     "NumericOverflowHandlingAction",
     "OnDemandTriggerOptions",
     "OrcColumnMappingType",
@@ -21175,6 +21361,7 @@ __all__ = [
     "ScalaSparkFlexEtlJobProps",
     "ScalaSparkStreamingJob",
     "ScalaSparkStreamingJobProps",
+    "ScheduledTriggerOptions",
     "Schema",
     "SecurityConfiguration",
     "SecurityConfigurationProps",
@@ -21184,6 +21371,7 @@ __all__ = [
     "SparkJobProps",
     "SparkUILoggingLocation",
     "SparkUIProps",
+    "StartableTriggerOptions",
     "StorageParameter",
     "StorageParameters",
     "SurplusBytesHandlingAction",
@@ -21195,7 +21383,6 @@ __all__ = [
     "TriggerOptions",
     "TriggerSchedule",
     "Type",
-    "WeeklyScheduleTriggerOptions",
     "WorkerConfiguration",
     "WorkerType",
     "Workflow",
@@ -21207,11 +21394,20 @@ __all__ = [
 
 publication.publish()
 
-def _typecheckingstub__e2f4a93f6fef99092c85fff7b69cf437be0c5a98d9e06afa00fb1ae1012f66d9(
+def _typecheckingstub__71e7eb7c8320d42e6b5a748aac110ce9e1f594fd81cb5c87c401669f87fd65ae(
+    crawler: _aws_cdk_interfaces_aws_glue_ceddda9d.ICrawlerRef,
     *,
     arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    crawler: typing.Optional[_aws_cdk_aws_glue_ceddda9d.CfnCrawler] = None,
-    job: typing.Optional[IJob] = None,
+    security_configuration: typing.Optional[ISecurityConfiguration] = None,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9884a2083a1da4da0e480705b09f2bf643a7063de8f1ad5753f5ae9ed5eda54d(
+    job: _aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef,
+    *,
+    arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
@@ -21295,13 +21491,46 @@ def _typecheckingstub__043c8b76c78332fa2f7a0e1444ad14734d788355c87767ffb0dd0aac9
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9b041a655f4373d135d58f5a2efa6cf794318f5c5e7237249c2ca94ebe40d818(
+def _typecheckingstub__3eb13f8d79125657b743cc76f03b5fe4be3bfd8358e976b0cda1fa170401c634(
+    crawler: _aws_cdk_interfaces_aws_glue_ceddda9d.ICrawlerRef,
+    crawl_state: CrawlerState,
     *,
-    crawler_name: typing.Optional[builtins.str] = None,
-    crawl_state: typing.Optional[CrawlerState] = None,
-    job: typing.Optional[IJob] = None,
     logical_operator: typing.Optional[ConditionLogicalOperator] = None,
-    state: typing.Optional[JobState] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab3f1152549bdcfb6fbfc83c30105c13e5c523303f53ce4d49d1acf23e71a0cf(
+    job: _aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef,
+    state: JobState,
+    *,
+    logical_operator: typing.Optional[ConditionLogicalOperator] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2dd0e58f2fb0230d37f0eac200c1c26b80f817156e9ed16bc962ad3c9f82b9ec(
+    *,
+    logical_operator: typing.Optional[ConditionLogicalOperator] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__887ab89399be39cdb709b57f9a608baf9c495f581da0cafa342427bd912d4430(
+    subnet: _aws_cdk_aws_ec2_ceddda9d.ISubnet,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__74d7d624a85040952490b335183bd4fcc518ccea5486cc49ba8aad5685b9a66b(
+    vpc: _aws_cdk_aws_ec2_ceddda9d.IVpc,
+    *,
+    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+    one_per_az: typing.Optional[builtins.bool] = None,
+    subnet_filters: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.SubnetFilter]] = None,
+    subnet_group_name: typing.Optional[builtins.str] = None,
+    subnets: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISubnet]] = None,
+    subnet_type: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetType] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21311,12 +21540,10 @@ def _typecheckingstub__a1670baf78db937cd3601a16badd87755f3fc525b8fd6a352d45c2bc3
     connection_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+    network: typing.Optional[ConnectionNetwork] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
-    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21334,12 +21561,10 @@ def _typecheckingstub__d3fa037db6ada98c73a1d8889753f75c2f3c7513c8a41daf149dc5769
     connection_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+    network: typing.Optional[ConnectionNetwork] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
-    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
     type: ConnectionType,
 ) -> None:
     """Type checking stubs"""
@@ -21358,6 +21583,15 @@ def _typecheckingstub__6be4bb41017f52f2aa453e36400fa3a47b2e6bf3a87cf64d46e0345d6
     log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
     log_stream_prefix: typing.Optional[builtins.str] = None,
     quiet: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d737ff705f56d3e9afa3fc038d4fc53dc3e849fe0ba442d99911093f47a9d2ce(
+    *,
+    arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    security_configuration: typing.Optional[ISecurityConfiguration] = None,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21427,8 +21661,15 @@ def _typecheckingstub__48fd6dee3d59bed3adba9ad20063bd1666e567655b8b7bdca390054a4
     format: builtins.str,
     max: builtins.str,
     min: builtins.str,
-    interval: typing.Optional[jsii.Number] = None,
-    interval_unit: typing.Optional[DateIntervalUnit] = None,
+    step: typing.Optional[typing.Union[DateProjectionStep, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15b49f6d84ce4fd19667ea98ecec118d7753d273dc50e0117bbcb9e3d643e188(
+    *,
+    interval: jsii.Number,
+    interval_unit: DateIntervalUnit,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21522,23 +21763,23 @@ def _typecheckingstub__b1fcdc972ccb29fe1572e8970cb83faccd76d7cee7f09ed3f5c9571bc
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9a8edbbfff28a637c2d2402c799a91b553fb59c01157c4c70ffcf1a7f8f45444(
+def _typecheckingstub__987442fc814518de647c411b03390e82069274b6061f2e4d107745c1151ec13f(
     id: builtins.str,
     *,
-    schedule: TriggerSchedule,
+    predicate: typing.Union[Predicate, typing.Dict[builtins.str, typing.Any]],
     start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9f1754a6bb9ef8a06f85ce73f713622dbde979c66851e316ad959044406462da(
+def _typecheckingstub__f3a82d646b3a60322c48ebaa3842b3a5c91a449639b70300f632798a2e82ad96(
     id: builtins.str,
     *,
-    start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21548,18 +21789,19 @@ def _typecheckingstub__9f1754a6bb9ef8a06f85ce73f713622dbde979c66851e316ad9590444
 def _typecheckingstub__69dd208a64d173519d3c260e4e253ed29f7a8284b2092d82c939efacfa84dd90(
     id: builtins.str,
     *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__0fd7c9b45aca9c890deb63491d41407ba6f9a686488058283d2b5539ac683f87(
+def _typecheckingstub__6607c6e68360d49d2e99238d604180d69ba6237c83e821dc3fde6c81a999682a(
     id: builtins.str,
     *,
+    schedule: TriggerSchedule,
     start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -21578,6 +21820,15 @@ def _typecheckingstub__484bb6f13c480ca05473538c8ef5310f40aa9e016608105d0c2d41420
     min: jsii.Number,
     digits: typing.Optional[jsii.Number] = None,
     interval: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f5908fe4c09ff9c8725b74dc21fa64f86e5b35daa8bf9f0e8c7cab155fa8a7b(
+    *,
+    arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    security_configuration: typing.Optional[ISecurityConfiguration] = None,
+    timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -21731,7 +21982,7 @@ def _typecheckingstub__854153aaeace5af7af75594677e850d114f911156b5cd93d50a01feef
 
 def _typecheckingstub__5233ea5d1d11a87999051cc719f194e59b3cd7f55889538c9abae82b9130d1cb(
     *,
-    conditions: typing.Optional[typing.Sequence[typing.Union[Condition, typing.Dict[builtins.str, typing.Any]]]] = None,
+    conditions: typing.Optional[typing.Sequence[Condition]] = None,
     logical: typing.Optional[PredicateLogical] = None,
 ) -> None:
     """Type checking stubs"""
@@ -21754,6 +22005,7 @@ def _typecheckingstub__92a5b134cff0782ae2081737ca265c082c41e163672815acc2d80960f
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    library_set: typing.Optional[LibrarySet] = None,
     max_capacity: typing.Optional[MaxCapacity] = None,
     python_version: typing.Optional[PythonVersion] = None,
 ) -> None:
@@ -22166,7 +22418,7 @@ def _typecheckingstub__1c9aafcca958a02033eeb95ddd63beee8aecb98a8cca7c8cc2883a868
 
 def _typecheckingstub__a2b6cfceeecd381878a32bb25b4a4cf4ed62bd37face059db45d932548b13b92(
     *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22219,41 +22471,18 @@ def _typecheckingstub__198f86d215161a42a7d94a66d9c0e12667e8bcffc4f46d5be57675e9e
     *,
     predicate: typing.Union[Predicate, typing.Dict[builtins.str, typing.Any]],
     start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4b64c9ea4aa943f2aaa39146eead19ba4caefe548500334bcf049424b4d92e57(
-    id: builtins.str,
-    *,
-    schedule: TriggerSchedule,
-    start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3089f7f1ae9a630008cac3ee8cee8316f8c951d601bb0a7198347784a373bea8(
-    id: builtins.str,
-    *,
-    start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dcde671bf144ea3af2d4951815d73e1ed6c9fa50ab4cb6d1b1d8d392e35d7f5d(
+def _typecheckingstub__a32096a81a8487c02396b4e5e70d6909c171ffdaf25fea1024c049fe18e70af4(
     id: builtins.str,
     *,
     event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22263,18 +22492,19 @@ def _typecheckingstub__dcde671bf144ea3af2d4951815d73e1ed6c9fa50ab4cb6d1b1d8d392e
 def _typecheckingstub__ef2bb127a7095832cbabb03ab806137724c70a57726a996979493b4efd025d33(
     id: builtins.str,
     *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__71fdd9a6acd531f0ce5498cb855150abf8fa05c19c53a2e5bdfcfc502238e659(
+def _typecheckingstub__630114deeb6f6732425ff4b320a07036c999ceb0be0ad71c8a8477810e5dc67f(
     id: builtins.str,
     *,
+    schedule: TriggerSchedule,
     start_on_creation: typing.Optional[builtins.bool] = None,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22342,12 +22572,10 @@ def _typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a
     connection_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     match_criteria: typing.Optional[typing.Sequence[builtins.str]] = None,
+    network: typing.Optional[ConnectionNetwork] = None,
     properties: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     secret: typing.Optional[_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef] = None,
     security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    subnet: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.ISubnet] = None,
-    vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-    vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22371,16 +22599,6 @@ def _typecheckingstub__2376990bb2b0fdc1652696730260ad95accfa020e78a7421e67836ad9
 def _typecheckingstub__664a10af42e73be7ad7fc6b49fd43b23cdb7750d16ad9c795923ec494e582778(
     key: builtins.str,
     value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__82b5ccac754b61d190c2f59b0d706bf7ff5b249062c799856278c42ed61c98d8(
-    *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    start_on_creation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22432,6 +22650,16 @@ def _typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     database_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3327ed05e55003ef4483f577e6a7098e30b10560fb1411ff37aafe2bf84a519c(
+    *,
+    actions: typing.Sequence[Action],
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22522,43 +22750,36 @@ def _typecheckingstub__cd8db6c08c7bba32e81d8cda162918f634f3065c707bdd1ddfb404e32
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__c73ae214298d84295ee298651aeb47e0e12bade619c1a92cdc6ccedaab1acbf2(
-    default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__c7671592b9386519b22e4789d3523141c6bcaf1227c681ea7d0218b405b0f4bc(
     code: Code,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59(
-    role: _aws_cdk_aws_iam_ceddda9d.IRole,
-    *,
-    enabled: builtins.bool,
-    conversion_pattern: typing.Optional[builtins.str] = None,
-    log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
-    log_stream_prefix: typing.Optional[builtins.str] = None,
-    quiet: typing.Optional[builtins.bool] = None,
+def _typecheckingstub__703dc37dca42a311b11c75cbcb4bc435b9e951b719d4fc806388265f0919a4b8(
+    default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__4a2e35d7e09d9d41b0d7306e094ad4e1de4f204e3577edd1b3af514e42003c5a(
-    *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    event_batching_condition: typing.Optional[typing.Union[EventBatchingCondition, typing.Dict[builtins.str, typing.Any]]] = None,
+def _typecheckingstub__f97c5e5097883d944d088aa6c5e9585f928530bc593615113dad90e78b3c08bb(
+    key: builtins.str,
+    value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59(
+    role: _aws_cdk_aws_iam_ceddda9d.IRole,
+    props: typing.Optional[typing.Union[ContinuousLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    security_configuration: typing.Optional[ISecurityConfiguration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__15255b02dd87303fcda3b755c6c6ead28d6802686c7672987555002615d7ea5d(
     *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -22656,6 +22877,7 @@ def _typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b76
     *,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    library_set: typing.Optional[LibrarySet] = None,
     max_capacity: typing.Optional[MaxCapacity] = None,
     python_version: typing.Optional[PythonVersion] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
@@ -22877,20 +23099,9 @@ def _typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__11a4f0418c818bdc6ba201303ceec4eaa6c9b8afe366e2d0a6ff2c79abb82595(
-    args: typing.Mapping[builtins.str, builtins.str],
+def _typecheckingstub__9f017c87134dcef359e9fc4a62ea5e6f0a61b37d6b1d0d32475280feac1ca620(
     *,
-    extra_files: typing.Optional[typing.Sequence[Code]] = None,
-    extra_jars: typing.Optional[typing.Sequence[Code]] = None,
-    extra_jars_first: typing.Optional[builtins.bool] = None,
-    extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__421814cc7a3c83ad1d6ba6614b0f3fdf714d8ee7700d159d714589b93a3b2d4b(
-    *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     start_on_creation: typing.Optional[builtins.bool] = None,
@@ -22981,22 +23192,11 @@ def _typecheckingstub__4aca1bce64ca7efd22a9b190c3488fa96b7f83b2e8b73d367dec9d397
 
 def _typecheckingstub__ab9d66fdc68f25e74903c66aafd5ff47580ab1d23718aa6b5cde4731b0412c1b(
     *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
+    actions: typing.Sequence[Action],
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     start_on_creation: typing.Optional[builtins.bool] = None,
     predicate: typing.Union[Predicate, typing.Dict[builtins.str, typing.Any]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8daef2dc0ba7c10827d6d01bb5947a4521514ecea9e7c5ac00c800c7a90eb465(
-    *,
-    actions: typing.Sequence[typing.Union[Action, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    start_on_creation: typing.Optional[builtins.bool] = None,
-    schedule: TriggerSchedule,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23179,6 +23379,17 @@ def _typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567c
     security_configuration: typing.Optional[ISecurityConfiguration] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5ecfd5571344606774c131727204d591e3d9b7c2c5bf98784b9331db0674587(
+    *,
+    actions: typing.Sequence[Action],
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    start_on_creation: typing.Optional[builtins.bool] = None,
+    schedule: TriggerSchedule,
 ) -> None:
     """Type checking stubs"""
     pass

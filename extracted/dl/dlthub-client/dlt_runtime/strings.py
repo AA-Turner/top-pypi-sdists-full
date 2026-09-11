@@ -108,10 +108,10 @@ NON_INTERACTIVE_PICKER_CREATE_LINE: Final[str] = (
 )
 
 
-# Tail appended to every error that requires unpinning organization_id from config.toml.
+# Tail appended to every error that requires unpinning organization_id.
 UNPIN_ORG_REMEDIATION: Final[str] = (
-    "Remove `organization_id` from .dlt/config.toml manually to switch"
-    " organizations, then run `connect` again."
+    "Remove RUNTIME__ORGANIZATION_ID or organization_id under [runtime] in"
+    " your dlt config to switch organizations, then run `connect` again."
 )
 
 # `--org-id <id>` failed validation against the user's active orgs list.
@@ -119,9 +119,9 @@ ORG_ID_NOT_ACTIVE: Final[str] = (
     "--org-id '{org_id}' is not one of your active organizations. Valid: {valid}."
 )
 
-# Pinned `organization_id` in config.toml refers to an org the user is no longer in.
+# Pinned `organization_id` refers to an org the user is no longer in.
 PINNED_ORG_NOT_ACCESSIBLE: Final[str] = (
-    "Organization '{pinned_org_id}' pinned in .dlt/config.toml is not"
+    "Organization '{pinned_org_id}' pinned in your dlt config is not"
     " accessible. {remediation} Or check `dlthub workspace list` for"
     " membership."
 )
@@ -129,7 +129,7 @@ PINNED_ORG_NOT_ACCESSIBLE: Final[str] = (
 # `--org-id <id>` disagrees with the org pinned in config.toml.
 ORG_ID_CONFLICTS_WITH_PIN: Final[str] = (
     "--org-id '{org_id}' conflicts with the organization pinned in"
-    " .dlt/config.toml ('{pinned_label}'). {remediation}"
+    " your dlt config ('{pinned_label}'). {remediation}"
 )
 
 # Resolved workspace lives in a different org than the one pinned / in scope.
@@ -163,12 +163,61 @@ WORKSPACE_CREATE_REQUIRES_NAME: Final[str] = (
     " <name> --create`."
 )
 
-# `workspace connect` with no positional arg would drop into the picker,
-# therefore should be refused when an API key is used.
-WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY: Final[str] = (
+NOT_CONNECTED_TO_WORKSPACE: Final[str] = (
+    "Not connected to workspace. Run `dlthub workspace connect <name>` first."
+)
+
+WORKSPACE_API_KEY_NO_WORKSPACE: Final[str] = (
+    "A workspace API key is in use, but no workspace is connected. Run"
+    " `dlthub workspace connect` to connect to the key's workspace."
+)
+
+# The pin may come from RUNTIME__WORKSPACE_ID, which `workspace connect` cannot rewrite.
+WORKSPACE_API_KEY_PIN_MISMATCH: Final[str] = (
+    "A workspace API key is in use, but the configured workspace ID"
+    " {workspace_id} does not match the key's workspace"
+    " {bound_workspace_id}. Update RUNTIME__WORKSPACE_ID or workspace_id"
+    " under [runtime] in your dlt config, or remove it and run `dlthub"
+    " workspace connect`."
+)
+
+WORKSPACE_API_KEY_WRONG_WORKSPACE: Final[str] = (
+    "This workspace API key is bound to workspace '{bound_workspace_name}'"
+    " ({bound_workspace_id}) and cannot connect to '{workspace}'."
+)
+
+WORKSPACE_API_KEY_WRONG_ORG: Final[str] = (
+    "This workspace API key is bound to organization '{key_org_name}'"
+    " ({key_org_id}) and cannot connect in organization '{org_id}'."
+)
+
+WORKSPACE_API_KEY_ORG_MISMATCH: Final[str] = (
+    "A workspace API key is in use, but the pinned organization ID"
+    " {organization_id} does not match the key's organization"
+    " '{key_org_name}' ({key_org_id}). Remove RUNTIME__ORGANIZATION_ID or"
+    " organization_id under [runtime] in your dlt config to use this key."
+)
+
+# Rejected up front so every later branch can assume one of the two known kinds.
+API_KEY_UNRECOGNIZED: Final[str] = (
+    "Unrecognized API key format. Personal keys start with `dlt_u_` and"
+    " workspace keys with `dlt_sa_`. Check the configured api_key."
+)
+
+# An API key is a non-interactive credential, so it must never open the picker.
+PERSONAL_API_KEY_CONNECT_REQUIRES_NAME: Final[str] = (
     "API key mode requires an explicit workspace argument. Run `dlthub"
     " workspace connect <name>` or `dlthub workspace connect <name>"
     " --create`."
+)
+
+WORKSPACE_API_KEY_CANNOT_CREATE: Final[str] = (
+    "A workspace API key cannot create workspaces. Create one in the dltHub"
+    " web app, switch to a personal API key, or run `dlthub login`."
+)
+
+WORKSPACE_API_KEY_NO_ACCESS: Final[str] = (
+    "This API key has no accessible workspace. Its workspace may have been archived."
 )
 
 # A job selector / name / ref did not resolve locally or on the server.

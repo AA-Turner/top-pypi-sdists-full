@@ -104,6 +104,17 @@ class LazySparkSession:
                 # Use the session manager to create the session
                 self._spark = self._session_manager.create()
 
+                # Make this session findable by the UDF resolver, keyed by its
+                # SparkConnectClient -- which is what Expression.to_plan receives,
+                # so a UDF can resolve the runtime of the DataFrame it is applied
+                # to even when the notebook holds several sessions.
+                try:
+                    from sagemaker_studio.utils.udf import runtime as udf_runtime
+
+                    udf_runtime.register_session(self._spark, self._session_manager)
+                except Exception as e:
+                    logger.debug(f"Could not register the session with the UDF resolver: {e}")
+
                 # Log session creation metric
                 try:
                     from sagemaker_studio.utils.loggerutils import log_session_metric
@@ -241,6 +252,14 @@ class LazySparkSession:
             except Exception as e:
                 logger.error(f"Error while stopping session manager: {e}")
 
+        if self._spark is not None:
+            try:
+                from sagemaker_studio.utils.udf import runtime as udf_runtime
+
+                udf_runtime.unregister_session(self._spark)
+            except Exception as e:
+                logger.debug(f"Could not unregister the session from the UDF resolver: {e}")
+
         # Reset the Spark session reference
         self._spark = None
 
@@ -287,3 +306,53 @@ class LazySparkSession:
             "session_id": session_id,
             "session_type": self._SESSION_TYPE_MAP.get(manager_class, manager_class),
         }
+
+    # ------------------------------------------------------------------ #
+    # Worker-runtime resolution for version-routed UDFs
+    #
+    # The Spark WORKER's Python version is a property of the ENGINE, not of the
+    # session type: a Glue Spark Connect connection may be Glue 5.x (worker
+    # Python 3.11) or Glue 6.x (3.13), and get_session_info().session_type is
+    # "GLUE_SPARK_CONNECT" for both. Detection therefore lives in
+    # ``sagemaker_studio.utils.udf.runtime``, which reads it FROM THE ENGINE at
+    # runtime (connection metadata -> server conf -> one-shot worker probe) and
+    # only falls back to a static Glue-major table as a last resort.
+    #
+    # This class's job is just to make the session findable: register it with
+    # the resolver when it is created and unregister it when it stops.
+    #
+    # NOTE on UDF entry points: ``spark.udf`` keeps its native pyspark
+    # ``UDFRegistration`` property contract. Notebooks register UDFs via
+    # ``from pyspark.sql.functions import udf``, so the routing is installed
+    # into the notebook namespace by
+    # ``sagemaker_studio.utils.udf.install_udf_interceptor``.
+    # ------------------------------------------------------------------ #
+
+    def resolve_worker_runtime(self):
+        """Return the :class:`WorkerRuntime` of this connection's Spark workers."""
+        from sagemaker_studio.utils.udf import runtime as udf_runtime
+
+        spark = self._get_spark()
+        udf_runtime.register_session(spark, self._session_manager)
+        return udf_runtime.resolve_for_session(spark)
+
+    def resolve_engine_python_version(self, engine: str = None) -> str:
+        """Worker Python minor version for this connection (e.g. ``'3.13'``).
+
+        Retained for backward compatibility with callers that only need the
+        Python version; ``resolve_worker_runtime()`` also carries the engine's
+        Spark version and the detection source. The ``engine`` argument is
+        accepted and ignored: naming an engine label was a POC convenience that
+        runtime detection makes unnecessary.
+        """
+        return self.resolve_worker_runtime().python_version
+
+    def set_engine_python_version_override(self, version: str) -> None:
+        """Force the worker Python version for this session (TEST SEAM ONLY).
+
+        Production never needs this: detection is sourced from the engine. It
+        exists so tests and the local version-inversion harness can pin a value.
+        """
+        from sagemaker_studio.utils.udf import runtime as udf_runtime
+
+        udf_runtime.set_override(self._get_spark(), version)

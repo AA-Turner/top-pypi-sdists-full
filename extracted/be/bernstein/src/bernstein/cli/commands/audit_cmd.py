@@ -921,7 +921,10 @@ def _verify_grant_chains() -> bool:
                 sweep_findings.append(f"run {run_id}: {finding['summary']}")
 
     console.print()
-    if not failures:
+    # A chain whose every signature and HMAC verifies can still carry a grant
+    # the sweep marks as revoked-but-present. That is a failing grant state,
+    # so the sweep findings block the pass verdict exactly like a chain error.
+    if not failures and not sweep_findings:
         console.print(
             Panel("[bold green]Grant Chain Verification Passed[/bold green]", border_style="green", expand=False)
         )
@@ -4211,6 +4214,93 @@ def receipt_conform_cmd(receipt_path: str | None, verifier_path: str | None, as_
         console.print(f"OVERALL: {'[green]PASS[/green]' if ok else '[red]FAIL[/red]'}")
 
     raise SystemExit(0 if ok else 1)
+
+
+# ---------------------------------------------------------------------------
+# audit suppress - suppress a finding via GovernanceDecision (#5078)
+# ---------------------------------------------------------------------------
+
+
+@audit_group.command("suppress")
+@click.argument("finding_id")
+@click.option("--reason", required=True, help="Justification for suppressing this finding.")
+@click.option("--until", "expiry", required=True, help="Suppression expiry date in YYYY-MM-DD format.")
+@click.option(
+    "--actor",
+    default=None,
+    help="Who is suppressing (defaults to the OS user).",
+)
+def suppress_cmd(finding_id: str, reason: str, expiry: str, actor: str | None) -> None:
+    """Suppress a finding until a given date by anchoring a GovernanceDecision.
+
+    Creates a suppression record anchored in the govern-audit spine. The
+    finding id is accepted as a known condition for the stated window; the
+    decision is a chain-anchored artefact so it is independently verifiable.
+
+    The suppression expires automatically after the given date -- there is no
+    active enforcement in this command; downstream consumers (such as the audit
+    report generator) consult the suppression record to determine whether a
+    finding was accepted during its window.
+
+    EXAMPLES
+
+        bernstein audit suppress MDL-001 --reason "Vendor confirmed EOL, no fix available" --until 2026-12-31
+        bernstein audit suppress OBS-004 --reason "Risk accepted per security team" --until 2027-01-01
+    """
+    import time
+
+    from bernstein.core.govern.suppress import anchor_suppress_decision
+    from bernstein.core.security.audit import load_or_create_audit_key
+
+    lineage_root = Path(".sdd/lineage")
+    if not lineage_root.is_dir():
+        raise click.ClickException(f"lineage directory not found: {lineage_root}")
+
+    # Validate expiry date format
+    try:
+        from datetime import datetime
+
+        datetime.strptime(expiry, "%Y-%m-%d").date()
+    except ValueError:
+        raise click.ClickException(f"invalid --until date {expiry!r}: expected YYYY-MM-DD format") from None
+
+    try:
+        key = load_or_create_audit_key()
+    except Exception as exc:
+        raise click.ClickException(f"cannot load audit HMAC key: {exc}") from exc
+
+    now = int(time.time())
+    effective_actor = actor or _os_user()
+
+    anchored = anchor_suppress_decision(
+        lineage_root=lineage_root,
+        hmac_key=key,
+        finding_id=finding_id,
+        reason=reason,
+        expiry=expiry,
+        timestamp=now,
+        actor=effective_actor,
+    )
+
+    console.print()
+    console.print(
+        Panel(
+            "[bold]Finding Suppressed[/bold]",
+            border_style="green",
+            expand=False,
+        )
+    )
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="dim", no_wrap=True, min_width=14)
+    table.add_column("Value")
+    table.add_row("Finding ID", finding_id)
+    table.add_row("Until", expiry)
+    table.add_row("Reason", reason)
+    table.add_row("Actor", effective_actor)
+    table.add_row("Timestamp", str(now))
+    table.add_row("Spine anchor", anchored.journal_entry_hash)
+    console.print(table)
+    console.print()
 
 
 # ---------------------------------------------------------------------------

@@ -59,10 +59,12 @@ from .arrow_impl cimport (
     NANOARROW_TYPE_DATE32,
     NANOARROW_TYPE_DATE64,
     NANOARROW_TYPE_DECIMAL128,
+    NANOARROW_TYPE_DECIMAL256,
     NANOARROW_TYPE_DOUBLE,
     NANOARROW_TYPE_FIXED_SIZE_BINARY,
     NANOARROW_TYPE_FIXED_SIZE_LIST,
     NANOARROW_TYPE_FLOAT,
+    NANOARROW_TYPE_INTERVAL_MONTH_DAY_NANO,
     NANOARROW_TYPE_INT8,
     NANOARROW_TYPE_INT16,
     NANOARROW_TYPE_INT32,
@@ -86,7 +88,6 @@ import array
 import base64
 import collections
 import copy
-import copy
 import datetime
 import decimal
 import getpass
@@ -109,6 +110,7 @@ cdef type PY_TYPE_ARROW_ARRAY
 cdef type PY_TYPE_ASYNC_CURSOR
 cdef type PY_TYPE_ASYNC_LOB
 cdef type PY_TYPE_BOOL = bool
+cdef type PY_TYPE_CONNECT_PARAMS
 cdef type PY_TYPE_CURSOR
 cdef type PY_TYPE_DATAFRAME
 cdef type PY_TYPE_DATE = datetime.date
@@ -132,6 +134,7 @@ cdef type PY_TYPE_VAR
 cdef object ENUM_AUTH_MODE
 cdef object ENUM_POOL_GET_MODE
 cdef object ENUM_PURITY
+cdef object ENUM_TRANSACTION_PRIORITY
 
 cdef const char* DRIVER_NAME = "python-oracledb"
 cdef const char* DRIVER_VERSION
@@ -144,6 +147,10 @@ cdef const char* ENCODING_UTF16LE = "UTF_16_LE"
 
 # variables needed for dates when using pyarrow
 cdef cydatetime.datetime EPOCH_DATE = datetime.datetime(1970, 1, 1)
+
+@cython.freelist(20)
+cdef class SubOperation:
+    pass
 
 # protocols registered with the library
 REGISTERED_PROTOCOLS = {}

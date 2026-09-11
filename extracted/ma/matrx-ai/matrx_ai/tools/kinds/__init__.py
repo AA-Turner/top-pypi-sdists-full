@@ -47,14 +47,37 @@ Authority: ``common-docs/systems/content-ir-system/KINDS_EVERYWHERE_PLAN.md`` §
 from collections.abc import Iterable  # noqa: E402
 
 from matrx_graph.content_ir.model import KindModel  # noqa: E402
-
 from matrx_graph.nodes.text.regex import RegexExtractOutput  # noqa: E402
 
+from matrx_ai.tools.kinds.agent_ops import (  # noqa: E402
+    OfficeToolResult,
+    ResearchRunState,
+    RulebookToolResult,
+    SelfPromptResult,
+)
+from matrx_ai.tools.kinds.agent_tasks import AgentTaskList  # noqa: E402
 from matrx_ai.tools.kinds.cms import CMS_TOOL_RESULT_KINDS  # noqa: E402
+from matrx_ai.tools.kinds.code_docs import CodeTreeResult, LlmsTxtDocument  # noqa: E402
 from matrx_ai.tools.kinds.context_tools import (  # noqa: E402
     ContextToolResult,
     ContextWriteResult,
 )
+from matrx_ai.tools.kinds.database_tools import DATABASE_TOOL_RESULT_KINDS  # noqa: E402
+from matrx_ai.tools.kinds.execution import (  # noqa: E402
+    CalculationResult,
+    ShellExecution,
+)
+from matrx_ai.tools.kinds.fact_check import FactCheckReviewSet  # noqa: E402
+from matrx_ai.tools.kinds.filesystem import (  # noqa: E402
+    DirectoryCreateResult,
+    DirectoryListing,
+    FileEditResult,
+    FilePatchResult,
+    FileReadResult,
+    FileSearchResults,
+    FileWriteResult,
+)
+from matrx_ai.tools.kinds.ide import IdeStateFields  # noqa: E402
 from matrx_ai.tools.kinds.kind_authoring import (  # noqa: E402
     KindActivationResult,
     KindContentBlockResult,
@@ -77,10 +100,11 @@ from matrx_ai.tools.kinds.kind_instances import (  # noqa: E402
     KindInstancePage,
     KindInstanceWriteResult,
 )
-from matrx_ai.tools.kinds.database_tools import DATABASE_TOOL_RESULT_KINDS  # noqa: E402
+from matrx_ai.tools.kinds.media_forensics import (  # noqa: E402
+    MEDIA_FORENSICS_TOOL_RESULT_KINDS,
+)
 from matrx_ai.tools.kinds.scope_tools import ScopeSystemResult  # noqa: E402
-from matrx_ai.tools.kinds.value_store import ValueStoreResult  # noqa: E402
-from matrx_ai.tools.kinds.code_docs import CodeTreeResult, LlmsTxtDocument  # noqa: E402
+from matrx_ai.tools.kinds.text_tools import TextAnalysis  # noqa: E402
 from matrx_ai.tools.kinds.tool_components import (  # noqa: E402
     ToolComponentCode,
     ToolComponentContext,
@@ -96,19 +120,6 @@ from matrx_ai.tools.kinds.tool_loading import (  # noqa: E402
     ChromeToolsLoadResult,
     DesktopToolsLoadResult,
 )
-from matrx_ai.tools.kinds.execution import (  # noqa: E402
-    CalculationResult,
-    ShellExecution,
-)
-from matrx_ai.tools.kinds.filesystem import (  # noqa: E402
-    DirectoryCreateResult,
-    DirectoryListing,
-    FileEditResult,
-    FilePatchResult,
-    FileReadResult,
-    FileSearchResults,
-    FileWriteResult,
-)
 from matrx_ai.tools.kinds.tool_traces import (  # noqa: E402
     ToolTraceCallDetail,
     ToolTraceEventPage,
@@ -117,21 +128,17 @@ from matrx_ai.tools.kinds.tool_traces import (  # noqa: E402
     ToolTraceIncidentList,
     ToolTraceIncidentReport,
 )
-from matrx_ai.tools.kinds.ide import IdeStateFields  # noqa: E402
-from matrx_ai.tools.kinds.agent_ops import (  # noqa: E402
-    OfficeToolResult,
-    ResearchRunState,
-    RulebookToolResult,
-    SelfPromptResult,
-)
-from matrx_ai.tools.kinds.agent_tasks import AgentTaskList  # noqa: E402
+from matrx_ai.tools.kinds.tooling import ToolBundleListing  # noqa: E402
+from matrx_ai.tools.kinds.udt_content import WorkbookResult  # noqa: E402
+from matrx_ai.tools.kinds.user_secrets import UserSecretReceipt  # noqa: E402
+from matrx_ai.tools.kinds.value_store import ValueStoreResult  # noqa: E402
+from matrx_ai.tools.kinds.weather import WeatherHistoryReading  # noqa: E402
+from matrx_ai.tools.kinds.wheel import WheelSpinResult  # noqa: E402
 from matrx_ai.tools.kinds.workbench import (  # noqa: E402
     PicklistToolResult,
     SkillToolResult,
     TaskToolResult,
 )
-from matrx_ai.tools.kinds.udt_content import WorkbookResult  # noqa: E402
-from matrx_ai.tools.kinds.user_secrets import UserSecretReceipt  # noqa: E402
 from matrx_ai.tools.kinds.workflow_tools import (  # noqa: E402
     WorkflowAuthorResult,
     WorkflowCatalogResult,
@@ -139,9 +146,6 @@ from matrx_ai.tools.kinds.workflow_tools import (  # noqa: E402
     WorkflowPlanResult,
     WorkflowRunStatus,
 )
-from matrx_ai.tools.kinds.text_tools import TextAnalysis  # noqa: E402
-from matrx_ai.tools.kinds.tooling import ToolBundleListing  # noqa: E402
-from matrx_ai.tools.kinds.wheel import WheelSpinResult  # noqa: E402
 
 #: tool name → the KindModel its implementation returns.
 TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
@@ -178,6 +182,11 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     "text_regex_extract": RegexExtractOutput,
     "vsc_get_state": IdeStateFields,
     "random_wheel": WheelSpinResult,
+    # Verification-desk lookups (2026-09-10). Each shares ONE kind with its
+    # workflow node — `weather.history.lookup` and `web.factcheck.search` — the
+    # media_forensics precedent, not a node kind plus a twin tool kind.
+    "weather_history": WeatherHistoryReading,
+    "factcheck_search": FactCheckReviewSet,
     # widget_* — ONE implementation, MANY names (lead-w2d). Every widget tool
     # forwards to ctx_write.context_patch / ctx_create and returns its receipt,
     # so the family is ONE kind (see kinds/context_tools.py for why the patch
@@ -233,6 +242,9 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # `sql_query_result` reuse candidate was REJECTED after reading the
     # implementations (kinds/database_tools.py's docstring).
     **DATABASE_TOOL_RESULT_KINDS,
+    # image verification pair — ONE kind each, shared with the workflow nodes
+    # web.google.reverse_image_search / image.metadata.read (no twin slugs).
+    **MEDIA_FORENSICS_TOOL_RESULT_KINDS,
     # scope_system (aidream/services/scope_system/tools.py): render actions
     # reshaped from a bare string into `context` (a scalar cannot carry __kind).
     "scope_system": ScopeSystemResult,

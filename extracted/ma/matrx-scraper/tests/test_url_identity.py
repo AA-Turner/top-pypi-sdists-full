@@ -365,6 +365,54 @@ class TestCanonicalIdentityRulesApplied:
         assert normalize_url(once) == once
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # case: scheme + host lowered, path case kept, fragment dropped
+        ("HTTPS://Shop.Example.COM/Catalog/Item#reviews", "https://shop.example.com/Catalog/Item"),
+        # surrounding whitespace (sitemap <loc> / pasted input) is not identity —
+        # the trailing space is the part urlparse itself would keep
+        ("  https://example.com/pricing/ \n", "https://example.com/pricing"),
+        # every trailing slash, not just one
+        ("https://example.com/a//", "https://example.com/a"),
+        # path params and query survive verbatim
+        (
+            "https://example.com/cart;jsessionid=AB12?step=2",
+            "https://example.com/cart;jsessionid=AB12?step=2",
+        ),
+        # non-default port kept; slash before the query stripped; fragment dropped
+        ("http://example.com:8080/x/?q=1#top", "http://example.com:8080/x?q=1"),
+        # bare host gets the root path
+        ("https://EXAMPLE.com", "https://example.com/"),
+        # tracking params and query order are NOT yet normalized (migration-coupled)
+        (
+            "https://example.com/?utm_source=news&b=2&a=1",
+            "https://example.com/?utm_source=news&b=2&a=1",
+        ),
+    ],
+)
+def test_normalize_url_produces_the_hand_written_canonical_identity(raw: str, expected: str) -> None:
+    assert normalize_url(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected_key"),
+    [
+        ("http://www.example.com/p", "//example.com/p"),
+        # the scheme's DEFAULT port is not part of the alias key...
+        ("https://example.com:443/p/", "//example.com/p"),
+        ("http://example.com:80/p?x=1", "//example.com/p?x=1"),
+        # ...but any other port is a different origin and stays in it
+        ("https://example.com:8443/p", "//example.com:8443/p"),
+        ("http://example.com:443/p", "//example.com:443/p"),
+        # only a LEADING www. is an alias; a www label elsewhere is a real host
+        ("https://shop.www.example.com/p", "//shop.www.example.com/p"),
+    ],
+)
+def test_url_match_key_collapses_only_scheme_www_and_default_port(raw: str, expected_key: str) -> None:
+    assert url_match_key(raw) == expected_key
+
+
 class TestCanonicalIdentityRulesDeferred:
     """These currently pass THROUGH unchanged. Applying any of them re-hashes
     stored pages, so each is a deliberate migration-coupled decision. If one of

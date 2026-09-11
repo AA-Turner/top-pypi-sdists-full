@@ -35,15 +35,20 @@ class RotatedSecretUpdateSnowflake(object):
     """
     openapi_types = {
         'add_tag': 'list[str]',
+        'ara_enabled': 'bool',
         'authentication_credentials': 'str',
         'auto_rotate': 'str',
         'delete_protection': 'str',
         'description': 'str',
+        'enable_agentic_runtime_authority': 'bool',
+        'enable_ai_quorum': 'bool',
         'input_rule': 'list[str]',
         'item_custom_fields': 'dict(str, str)',
         'json': 'bool',
         'keep_prev_version': 'str',
         'key': 'str',
+        'lock_on_read': 'str',
+        'lock_ttl': 'str',
         'max_versions': 'str',
         'name': 'str',
         'new_name': 'str',
@@ -52,11 +57,14 @@ class RotatedSecretUpdateSnowflake(object):
         'private_key': 'str',
         'private_key_file_name': 'str',
         'rm_tag': 'list[str]',
+        'rotate_on_unlock': 'str',
         'rotated_password': 'str',
         'rotated_username': 'str',
         'rotation_event_in': 'list[str]',
         'rotation_hour': 'int',
         'rotation_interval': 'str',
+        'rotation_statement': 'str',
+        'skip_dry_run': 'str',
         'token': 'str',
         'uid_token': 'str',
         'use_capital_letters': 'str',
@@ -67,15 +75,20 @@ class RotatedSecretUpdateSnowflake(object):
 
     attribute_map = {
         'add_tag': 'add-tag',
+        'ara_enabled': 'ara-enabled',
         'authentication_credentials': 'authentication-credentials',
         'auto_rotate': 'auto-rotate',
         'delete_protection': 'delete_protection',
         'description': 'description',
+        'enable_agentic_runtime_authority': 'enable-agentic-runtime-authority',
+        'enable_ai_quorum': 'enable-ai-quorum',
         'input_rule': 'input-rule',
         'item_custom_fields': 'item-custom-fields',
         'json': 'json',
         'keep_prev_version': 'keep-prev-version',
         'key': 'key',
+        'lock_on_read': 'lock-on-read',
+        'lock_ttl': 'lock-ttl',
         'max_versions': 'max-versions',
         'name': 'name',
         'new_name': 'new-name',
@@ -84,11 +97,14 @@ class RotatedSecretUpdateSnowflake(object):
         'private_key': 'private-key',
         'private_key_file_name': 'private-key-file-name',
         'rm_tag': 'rm-tag',
+        'rotate_on_unlock': 'rotate-on-unlock',
         'rotated_password': 'rotated-password',
         'rotated_username': 'rotated-username',
         'rotation_event_in': 'rotation-event-in',
         'rotation_hour': 'rotation-hour',
         'rotation_interval': 'rotation-interval',
+        'rotation_statement': 'rotation-statement',
+        'skip_dry_run': 'skip_dry_run',
         'token': 'token',
         'uid_token': 'uid-token',
         'use_capital_letters': 'use-capital-letters',
@@ -97,22 +113,27 @@ class RotatedSecretUpdateSnowflake(object):
         'use_special_characters': 'use-special-characters'
     }
 
-    def __init__(self, add_tag=None, authentication_credentials='use-user-creds', auto_rotate=None, delete_protection=None, description='default_metadata', input_rule=None, item_custom_fields=None, json=False, keep_prev_version=None, key=None, max_versions=None, name=None, new_name=None, output_rule=None, password_length=None, private_key=None, private_key_file_name=None, rm_tag=None, rotated_password=None, rotated_username=None, rotation_event_in=None, rotation_hour=None, rotation_interval=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, add_tag=None, ara_enabled=None, authentication_credentials='use-user-creds', auto_rotate=None, delete_protection=None, description='default_metadata', enable_agentic_runtime_authority=None, enable_ai_quorum=None, input_rule=None, item_custom_fields=None, json=False, keep_prev_version=None, key=None, lock_on_read=None, lock_ttl=None, max_versions=None, name=None, new_name=None, output_rule=None, password_length=None, private_key=None, private_key_file_name=None, rm_tag=None, rotate_on_unlock=None, rotated_password=None, rotated_username=None, rotation_event_in=None, rotation_hour=None, rotation_interval=None, rotation_statement=None, skip_dry_run=None, token=None, uid_token=None, use_capital_letters=None, use_lower_letters=None, use_numbers=None, use_special_characters=None, local_vars_configuration=None):  # noqa: E501
         """RotatedSecretUpdateSnowflake - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._add_tag = None
+        self._ara_enabled = None
         self._authentication_credentials = None
         self._auto_rotate = None
         self._delete_protection = None
         self._description = None
+        self._enable_agentic_runtime_authority = None
+        self._enable_ai_quorum = None
         self._input_rule = None
         self._item_custom_fields = None
         self._json = None
         self._keep_prev_version = None
         self._key = None
+        self._lock_on_read = None
+        self._lock_ttl = None
         self._max_versions = None
         self._name = None
         self._new_name = None
@@ -121,11 +142,14 @@ class RotatedSecretUpdateSnowflake(object):
         self._private_key = None
         self._private_key_file_name = None
         self._rm_tag = None
+        self._rotate_on_unlock = None
         self._rotated_password = None
         self._rotated_username = None
         self._rotation_event_in = None
         self._rotation_hour = None
         self._rotation_interval = None
+        self._rotation_statement = None
+        self._skip_dry_run = None
         self._token = None
         self._uid_token = None
         self._use_capital_letters = None
@@ -136,6 +160,8 @@ class RotatedSecretUpdateSnowflake(object):
 
         if add_tag is not None:
             self.add_tag = add_tag
+        if ara_enabled is not None:
+            self.ara_enabled = ara_enabled
         if authentication_credentials is not None:
             self.authentication_credentials = authentication_credentials
         if auto_rotate is not None:
@@ -144,6 +170,10 @@ class RotatedSecretUpdateSnowflake(object):
             self.delete_protection = delete_protection
         if description is not None:
             self.description = description
+        if enable_agentic_runtime_authority is not None:
+            self.enable_agentic_runtime_authority = enable_agentic_runtime_authority
+        if enable_ai_quorum is not None:
+            self.enable_ai_quorum = enable_ai_quorum
         if input_rule is not None:
             self.input_rule = input_rule
         if item_custom_fields is not None:
@@ -154,6 +184,10 @@ class RotatedSecretUpdateSnowflake(object):
             self.keep_prev_version = keep_prev_version
         if key is not None:
             self.key = key
+        if lock_on_read is not None:
+            self.lock_on_read = lock_on_read
+        if lock_ttl is not None:
+            self.lock_ttl = lock_ttl
         if max_versions is not None:
             self.max_versions = max_versions
         self.name = name
@@ -169,6 +203,8 @@ class RotatedSecretUpdateSnowflake(object):
             self.private_key_file_name = private_key_file_name
         if rm_tag is not None:
             self.rm_tag = rm_tag
+        if rotate_on_unlock is not None:
+            self.rotate_on_unlock = rotate_on_unlock
         if rotated_password is not None:
             self.rotated_password = rotated_password
         if rotated_username is not None:
@@ -179,6 +215,10 @@ class RotatedSecretUpdateSnowflake(object):
             self.rotation_hour = rotation_hour
         if rotation_interval is not None:
             self.rotation_interval = rotation_interval
+        if rotation_statement is not None:
+            self.rotation_statement = rotation_statement
+        if skip_dry_run is not None:
+            self.skip_dry_run = skip_dry_run
         if token is not None:
             self.token = token
         if uid_token is not None:
@@ -214,6 +254,29 @@ class RotatedSecretUpdateSnowflake(object):
         """
 
         self._add_tag = add_tag
+
+    @property
+    def ara_enabled(self):
+        """Gets the ara_enabled of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :return: The ara_enabled of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._ara_enabled
+
+    @ara_enabled.setter
+    def ara_enabled(self, ara_enabled):
+        """Sets the ara_enabled of this RotatedSecretUpdateSnowflake.
+
+        Enable or disable Agentic Runtime Authority rule enforcement for this item. When false, user-defined input/output rules are stored but not enforced; the base security validation still runs.  AraEnabled is tri-state (nil/true/false), not a plain bool: it self-encodes its wire value (see akl.OptionalBool) so an explicit false survives the curl-proxy relay instead of being dropped like a default-false bool flag.  # noqa: E501
+
+        :param ara_enabled: The ara_enabled of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._ara_enabled = ara_enabled
 
     @property
     def authentication_credentials(self):
@@ -304,6 +367,52 @@ class RotatedSecretUpdateSnowflake(object):
         """
 
         self._description = description
+
+    @property
+    def enable_agentic_runtime_authority(self):
+        """Gets the enable_agentic_runtime_authority of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :return: The enable_agentic_runtime_authority of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_agentic_runtime_authority
+
+    @enable_agentic_runtime_authority.setter
+    def enable_agentic_runtime_authority(self, enable_agentic_runtime_authority):
+        """Sets the enable_agentic_runtime_authority of this RotatedSecretUpdateSnowflake.
+
+        EnableAra is the documented spelling of AraEnabled. Both set the same field; --ara-enabled shipped first and stays as an undocumented alias so existing scripts and the Terraform provider keep working.  # noqa: E501
+
+        :param enable_agentic_runtime_authority: The enable_agentic_runtime_authority of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_agentic_runtime_authority = enable_agentic_runtime_authority
+
+    @property
+    def enable_ai_quorum(self):
+        """Gets the enable_ai_quorum of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :return: The enable_ai_quorum of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enable_ai_quorum
+
+    @enable_ai_quorum.setter
+    def enable_ai_quorum(self, enable_ai_quorum):
+        """Sets the enable_ai_quorum of this RotatedSecretUpdateSnowflake.
+
+        Turns on AI Quorum checks for this item.  # noqa: E501
+
+        :param enable_ai_quorum: The enable_ai_quorum of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: bool
+        """
+
+        self._enable_ai_quorum = enable_ai_quorum
 
     @property
     def input_rule(self):
@@ -417,6 +526,52 @@ class RotatedSecretUpdateSnowflake(object):
         """
 
         self._key = key
+
+    @property
+    def lock_on_read(self):
+        """Gets the lock_on_read of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :return: The lock_on_read of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_on_read
+
+    @lock_on_read.setter
+    def lock_on_read(self, lock_on_read):
+        """Sets the lock_on_read of this RotatedSecretUpdateSnowflake.
+
+        Lock this secret after each successful value read  # noqa: E501
+
+        :param lock_on_read: The lock_on_read of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_on_read = lock_on_read
+
+    @property
+    def lock_ttl(self):
+        """Gets the lock_ttl of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Lock TTL in minutes  # noqa: E501
+
+        :return: The lock_ttl of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._lock_ttl
+
+    @lock_ttl.setter
+    def lock_ttl(self, lock_ttl):
+        """Sets the lock_ttl of this RotatedSecretUpdateSnowflake.
+
+        Lock TTL in minutes  # noqa: E501
+
+        :param lock_ttl: The lock_ttl of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._lock_ttl = lock_ttl
 
     @property
     def max_versions(self):
@@ -605,6 +760,29 @@ class RotatedSecretUpdateSnowflake(object):
         self._rm_tag = rm_tag
 
     @property
+    def rotate_on_unlock(self):
+        """Gets the rotate_on_unlock of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :return: The rotate_on_unlock of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._rotate_on_unlock
+
+    @rotate_on_unlock.setter
+    def rotate_on_unlock(self, rotate_on_unlock):
+        """Sets the rotate_on_unlock of this RotatedSecretUpdateSnowflake.
+
+        Rotate this secret after it is unlocked  # noqa: E501
+
+        :param rotate_on_unlock: The rotate_on_unlock of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._rotate_on_unlock = rotate_on_unlock
+
+    @property
     def rotated_password(self):
         """Gets the rotated_password of this RotatedSecretUpdateSnowflake.  # noqa: E501
 
@@ -714,6 +892,52 @@ class RotatedSecretUpdateSnowflake(object):
         """
 
         self._rotation_interval = rotation_interval
+
+    @property
+    def rotation_statement(self):
+        """Gets the rotation_statement of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        Snowflake rotation statement  # noqa: E501
+
+        :return: The rotation_statement of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._rotation_statement
+
+    @rotation_statement.setter
+    def rotation_statement(self, rotation_statement):
+        """Sets the rotation_statement of this RotatedSecretUpdateSnowflake.
+
+        Snowflake rotation statement  # noqa: E501
+
+        :param rotation_statement: The rotation_statement of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._rotation_statement = rotation_statement
+
+    @property
+    def skip_dry_run(self):
+        """Gets the skip_dry_run of this RotatedSecretUpdateSnowflake.  # noqa: E501
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :return: The skip_dry_run of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :rtype: str
+        """
+        return self._skip_dry_run
+
+    @skip_dry_run.setter
+    def skip_dry_run(self, skip_dry_run):
+        """Sets the skip_dry_run of this RotatedSecretUpdateSnowflake.
+
+        If set, dry-run will be skipped  # noqa: E501
+
+        :param skip_dry_run: The skip_dry_run of this RotatedSecretUpdateSnowflake.  # noqa: E501
+        :type: str
+        """
+
+        self._skip_dry_run = skip_dry_run
 
     @property
     def token(self):

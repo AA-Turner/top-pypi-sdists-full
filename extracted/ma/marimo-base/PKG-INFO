@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marimo-base
-Version: 0.24.0
+Version: 0.24.1
 Summary: A library for making reactive notebooks and apps
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -39,8 +39,8 @@ Requires-Dist: msgspec>=0.20.0
 Requires-Dist: pyzmq>=27.1.0 ; python_full_version < '3.15' and sys_platform != 'emscripten'
 Requires-Dist: python-lsp-server>=1.13.0 ; extra == 'lsp'
 Requires-Dist: python-lsp-ruff>=2.0.0 ; extra == 'lsp'
-Requires-Dist: mcp>=1.0.0,<2 ; extra == 'mcp'
-Requires-Dist: pydantic>2 ; extra == 'mcp'
+Requires-Dist: httpx2>=2.5.0,<3 ; extra == 'mcp'
+Requires-Dist: mcp>=2.0.0,<3 ; extra == 'mcp'
 Requires-Dist: opentelemetry-api~=1.28.0 ; extra == 'otel'
 Requires-Dist: opentelemetry-sdk~=1.28.0 ; extra == 'otel'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http~=1.28.0 ; extra == 'otel'

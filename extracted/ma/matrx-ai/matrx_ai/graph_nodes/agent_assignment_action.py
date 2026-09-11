@@ -33,10 +33,21 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.agent_action import (
     AgentStartStrictInput,
+    MandateSelectorInput,
     _resolve_conversation_start_fields,
     resolve_step_agent,
 )
 from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed
+
+
+class AssignmentAgentInput(AgentStartStrictInput, MandateSelectorInput):
+    """The per-item invocation template: an agent id, or a Mandate key.
+
+    Unlike Run Agent, a coordinated batch may still name a Mandate — it is
+    resolved ONCE for the whole batch, so a mid-batch rebind can never split
+    one batch across two doers. Exactly one selector may be set; the shared
+    resolver refuses both.
+    """
 
 
 class AgentAssignmentBatchInput(BaseModel):
@@ -44,7 +55,7 @@ class AgentAssignmentBatchInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    agent: AgentStartStrictInput = Field(
+    agent: AssignmentAgentInput = Field(
         description="Saved-agent invocation template applied once to every resolved assignment."
     )
     plan: AssignmentPlan = Field(

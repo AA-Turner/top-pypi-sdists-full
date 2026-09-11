@@ -13,7 +13,7 @@ jobs:
   dist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -31,11 +31,11 @@ jobs:
     name: ZipApp
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: wntrblm/nox@2026.04.10
+      - uses: wntrblm/nox@2026.08.17
         with:
           python-versions: "3.10"
 
@@ -48,7 +48,7 @@ jobs:
           path: particle.pyz
 
   publish:
-    needs: [dist]
+    needs: [dist, zipapp]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     environment:
@@ -57,6 +57,7 @@ jobs:
     permissions:
       id-token: write
       attestations: write
+      contents: write
 
     steps:
       - uses: actions/download-artifact@v8
@@ -65,7 +66,7 @@ jobs:
           path: dist
 
       - name: Generate artifact attestation for sdist and wheel
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: "dist/particle*"
 
@@ -85,6 +86,6 @@ jobs:
           files: ./zipapp/particle.pyz
 
       - name: Generate artifact attestation for zipapp
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: zipapp/particle.pyz

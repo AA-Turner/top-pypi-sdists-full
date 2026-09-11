@@ -35,35 +35,43 @@ class SAMLAccessRules(object):
     """
     openapi_types = {
         'allowed_redirect_ur_is': 'list[str]',
+        'authorized_gw_cluster_name': 'str',
         'bound_attributes': 'list[SAMLAttribute]',
         'idp_metadata_url': 'str',
         'idp_metadata_xml': 'str',
-        'unique_identifier': 'str'
+        'unique_identifier': 'str',
+        'use_dedicated_saml_urls': 'bool'
     }
 
     attribute_map = {
         'allowed_redirect_ur_is': 'allowed_redirect_URIs',
+        'authorized_gw_cluster_name': 'authorized_gw_cluster_name',
         'bound_attributes': 'bound_attributes',
         'idp_metadata_url': 'idp_metadata_url',
         'idp_metadata_xml': 'idp_metadata_xml',
-        'unique_identifier': 'unique_identifier'
+        'unique_identifier': 'unique_identifier',
+        'use_dedicated_saml_urls': 'use_dedicated_saml_urls'
     }
 
-    def __init__(self, allowed_redirect_ur_is=None, bound_attributes=None, idp_metadata_url=None, idp_metadata_xml=None, unique_identifier=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, allowed_redirect_ur_is=None, authorized_gw_cluster_name=None, bound_attributes=None, idp_metadata_url=None, idp_metadata_xml=None, unique_identifier=None, use_dedicated_saml_urls=None, local_vars_configuration=None):  # noqa: E501
         """SAMLAccessRules - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._allowed_redirect_ur_is = None
+        self._authorized_gw_cluster_name = None
         self._bound_attributes = None
         self._idp_metadata_url = None
         self._idp_metadata_xml = None
         self._unique_identifier = None
+        self._use_dedicated_saml_urls = None
         self.discriminator = None
 
         if allowed_redirect_ur_is is not None:
             self.allowed_redirect_ur_is = allowed_redirect_ur_is
+        if authorized_gw_cluster_name is not None:
+            self.authorized_gw_cluster_name = authorized_gw_cluster_name
         if bound_attributes is not None:
             self.bound_attributes = bound_attributes
         if idp_metadata_url is not None:
@@ -72,6 +80,8 @@ class SAMLAccessRules(object):
             self.idp_metadata_xml = idp_metadata_xml
         if unique_identifier is not None:
             self.unique_identifier = unique_identifier
+        if use_dedicated_saml_urls is not None:
+            self.use_dedicated_saml_urls = use_dedicated_saml_urls
 
     @property
     def allowed_redirect_ur_is(self):
@@ -95,6 +105,29 @@ class SAMLAccessRules(object):
         """
 
         self._allowed_redirect_ur_is = allowed_redirect_ur_is
+
+    @property
+    def authorized_gw_cluster_name(self):
+        """Gets the authorized_gw_cluster_name of this SAMLAccessRules.  # noqa: E501
+
+        AuthorizedGwClusterName binds the access method to a single GW cluster. When empty (or whitespace-only), GW-driven auth is disabled.  # noqa: E501
+
+        :return: The authorized_gw_cluster_name of this SAMLAccessRules.  # noqa: E501
+        :rtype: str
+        """
+        return self._authorized_gw_cluster_name
+
+    @authorized_gw_cluster_name.setter
+    def authorized_gw_cluster_name(self, authorized_gw_cluster_name):
+        """Sets the authorized_gw_cluster_name of this SAMLAccessRules.
+
+        AuthorizedGwClusterName binds the access method to a single GW cluster. When empty (or whitespace-only), GW-driven auth is disabled.  # noqa: E501
+
+        :param authorized_gw_cluster_name: The authorized_gw_cluster_name of this SAMLAccessRules.  # noqa: E501
+        :type: str
+        """
+
+        self._authorized_gw_cluster_name = authorized_gw_cluster_name
 
     @property
     def bound_attributes(self):
@@ -187,6 +220,29 @@ class SAMLAccessRules(object):
         """
 
         self._unique_identifier = unique_identifier
+
+    @property
+    def use_dedicated_saml_urls(self):
+        """Gets the use_dedicated_saml_urls of this SAMLAccessRules.  # noqa: E501
+
+        When true, the login AuthnRequest is signed with this access method's dedicated SP identity (Entity ID https://<sp>/saml/sp/{access_id} and ACS https://<sp>/saml/acs/{access_id}) instead of the shared global identity. Default false keeps the legacy global identity for backward compatibility.  # noqa: E501
+
+        :return: The use_dedicated_saml_urls of this SAMLAccessRules.  # noqa: E501
+        :rtype: bool
+        """
+        return self._use_dedicated_saml_urls
+
+    @use_dedicated_saml_urls.setter
+    def use_dedicated_saml_urls(self, use_dedicated_saml_urls):
+        """Sets the use_dedicated_saml_urls of this SAMLAccessRules.
+
+        When true, the login AuthnRequest is signed with this access method's dedicated SP identity (Entity ID https://<sp>/saml/sp/{access_id} and ACS https://<sp>/saml/acs/{access_id}) instead of the shared global identity. Default false keeps the legacy global identity for backward compatibility.  # noqa: E501
+
+        :param use_dedicated_saml_urls: The use_dedicated_saml_urls of this SAMLAccessRules.  # noqa: E501
+        :type: bool
+        """
+
+        self._use_dedicated_saml_urls = use_dedicated_saml_urls
 
     def to_dict(self):
         """Returns the model properties as a dict"""

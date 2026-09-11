@@ -8,9 +8,16 @@ import sys
 import tempfile
 from functools import cached_property
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
 
 from marimo import _loggers
 from marimo._dependencies.dependencies import DependencyManager
+from marimo._runtime.packages._micropip_streaming import (
+    stream_transaction_install,
+)
 from marimo._runtime.packages.module_name_to_pypi_name import (
     module_name_to_pypi_name,
 )
@@ -245,6 +252,63 @@ class MicropipPackageManager(PypiPackageManager):
                 log_callback(f"Failed to install {package}: {e}\n")
             return False
 
+    async def stream_install(
+        self,
+        packages: list[str],
+        *,
+        versions: dict[str, str | None] | None = None,
+        index_urls: list[str] | None = None,
+        log_callback_factory: Callable[[str], LogCallback] | None = None,
+    ) -> AsyncIterator[tuple[str, bool]]:
+        """Batch-install via micropip Transaction internals, streaming progress.
+
+        Wraps `stream_transaction_install` with marimo bookkeeping
+        (`_attempted_packages`) and log-callback glue.  Falls back to the
+        base sequential path if micropip's internal API has shifted.
+        """
+        assert is_pyodide()
+
+        if log_callback_factory:
+            for pkg in packages:
+                log_callback_factory(pkg)(f"Resolving {pkg}...\n")
+
+        yielded: set[str] = set()
+        try:
+            async for pkg, success in stream_transaction_install(
+                packages,
+                versions=versions,
+                index_urls=index_urls,
+            ):
+                # Mark only as the engine resolves each package — if the
+                # engine raises before any yields, the fallback path needs
+                # to start clean (it will mark via `install()`).
+                self._attempted_packages.add(pkg)
+                yielded.add(pkg)
+                if log_callback_factory:
+                    msg = (
+                        f"Successfully installed {pkg}\n"
+                        if success
+                        else f"Failed to install {pkg}\n"
+                    )
+                    log_callback_factory(pkg)(msg)
+                yield (pkg, success)
+        except (AttributeError, ImportError, TypeError):
+            # micropip's private Transaction API shifted; fall back to the
+            # base sequential path.  Narrow catch: install errors should
+            # surface, only API-shape mismatches trigger the fallback.
+            LOGGER.warning(
+                "micropip Transaction API unavailable, falling back to sequential installs",
+                exc_info=True,
+            )
+            remaining = [p for p in packages if p not in yielded]
+            async for result in super().stream_install(
+                remaining,
+                versions=versions,
+                index_urls=index_urls,
+                log_callback_factory=log_callback_factory,
+            ):
+                yield result
+
     async def uninstall(self, package: str, group: str | None = None) -> bool:
         # The `group` parameter is accepted for interface compatibility, but is ignored.
         del group
@@ -277,6 +341,14 @@ class UvPackageManager(PypiPackageManager):
     docs_url = "https://docs.astral.sh/uv/"
 
     SCRIPT_METADATA_MARKER = "# /// script"
+    _use_project = True
+
+    @classmethod
+    def for_pip_install(cls, python_exe: str) -> UvPackageManager:
+        """Target an interpreter without changing its uv project."""
+        manager = cls(python_exe=python_exe)
+        manager._use_project = False
+        return manager
 
     @cached_property
     def _uv_bin(self) -> str:
@@ -346,7 +418,24 @@ class UvPackageManager(PypiPackageManager):
                 log_callback=log_callback,
             )
 
-        # For uv pip install, try with output capture to enable fallback
+        import asyncio
+
+        return await asyncio.to_thread(
+            self._install_with_cache_fallback,
+            package,
+            upgrade=upgrade,
+            group=group,
+            log_callback=log_callback,
+        )
+
+    def _install_with_cache_fallback(
+        self,
+        package: str,
+        *,
+        upgrade: bool,
+        group: str | None,
+        log_callback: LogCallback | None,
+    ) -> bool:
         cmd = self.install_command(package, upgrade=upgrade, group=group)
 
         LOGGER.info(f"Running command: {cmd}")
@@ -388,9 +477,10 @@ class UvPackageManager(PypiPackageManager):
                     "\nRetrying with --no-cache due to cache write permission error...\n"
                 )
 
-            # Retry with --no-cache flag
-            cmd_with_no_cache = cmd + ["--no-cache"]
-            return await self.run(cmd_with_no_cache, log_callback=log_callback)
+            return self._run_sync(
+                cmd + ["--no-cache"],
+                log_callback=log_callback,
+            )
 
         return False
 
@@ -592,6 +682,9 @@ class UvPackageManager(PypiPackageManager):
         we are in a temporary virtual environment (e.g. `uvx marimo edit` or `uv --with=marimo run marimo edit`)
         or in the currently activated virtual environment (e.g. `uv venv`).
         """
+        if not self._use_project:
+            return False
+
         # Check we have a virtual environment
         venv_path = os.environ.get("VIRTUAL_ENV", None)
         if not venv_path:

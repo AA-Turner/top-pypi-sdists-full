@@ -1,8 +1,10 @@
 import contextlib
+import datetime
 import difflib
 import inspect
 import io
 import os
+import re
 import warnings
 
 import pytest
@@ -18,7 +20,7 @@ from prov.serializers.provxml import (
     _unescape_ncname_localpart,
     xml_qname_to_QualifiedName,
 )
-from prov.tests.conftest import roundtrip_document
+from prov.tests.conftest import add_ordered_namespaces, roundtrip_document
 
 EX_NS = ("ex", "http://example.com/ns/ex#")
 EX_TR = ("tr", "http://example.com/ns/tr#")
@@ -404,7 +406,7 @@ def test_deserialization_with_xsd_as_default_namespace():
 
 
 # The following cover ProvXMLSerializer error/warning paths not reached by
-# the round-trip fixtures (docs/test-gap-checklist.md, T13 item under
+# the round-trip fixtures (planning/test-gap-checklist.md, T13 item under
 # serializers/provxml.py).
 
 
@@ -826,7 +828,7 @@ def test_deserialize_ignores_tampered_default_parser(
 # Re-enabling it is a possible future coverage chore (2.4.0 window /
 # conformance phase), explicitly out of scope for the pytest-matrix
 # migration -- see design doc §4 Decision 3
-# (docs/superpowers/specs/2026-07-06-test-suite-redesign.md).
+# (planning/specs/2026-07-06-test-suite-redesign.md).
 
 
 def _perform_round_trip(filename, force_types=False):
@@ -835,3 +837,49 @@ def _perform_round_trip(filename, force_types=False):
     with io.BytesIO() as new_xml:
         document.serialize(format="xml", destination=new_xml, force_types=force_types)
         compare_xml(filename, new_xml)
+
+
+def test_bundle_namespace_order_follows_registration_in_xml():
+    # #337: bundle namespaces are declared in registration order.
+    document = prov.ProvDocument()
+    document.set_default_namespace("http://example.org/")
+    prefixes = add_ordered_namespaces(document.bundle("b1"))
+
+    xml_bytes = document.serialize(format="xml").encode()
+
+    declared = re.findall(rb"xmlns:(ex\d)=", xml_bytes)
+    assert [p.decode() for p in declared] == prefixes
+
+
+# #338: force_types coverage, independent of the disabled _perform_round_trip
+# scaffold above.
+
+XSI_TYPE = "{http://www.w3.org/2001/XMLSchema-instance}type"
+FORCE_TYPES_NS = {"ex": "http://example.org/", "prov": "http://www.w3.org/ns/prov#"}
+
+
+@pytest.mark.parametrize("force_types", [True, False])
+def test_force_types_controls_xsi_type_on_non_prov_attributes(force_types):
+    document = prov.ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity(
+        "ex:e1",
+        {
+            "ex:text": "plain",
+            "ex:count": 7,
+            "ex:when": datetime.datetime(2026, 9, 10, 12, 0, 0),
+            "prov:type": "a type",
+        },
+    )
+
+    root = etree.fromstring(
+        document.serialize(format="xml", force_types=force_types).encode()
+    )
+
+    def xsi_type(path):
+        return root.find(path, FORCE_TYPES_NS).get(XSI_TYPE)
+
+    assert xsi_type(".//ex:text") == ("xsd:string" if force_types else None)
+    assert xsi_type(".//ex:count") == "xsd:int"
+    assert xsi_type(".//ex:when") == "xsd:dateTime"
+    assert xsi_type(".//prov:type") == "xsd:string"

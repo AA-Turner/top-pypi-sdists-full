@@ -144,10 +144,13 @@ def build_wide(blocks, lookup, country, admin_1, product, season_name="Main"):
         out = out.dropna(subset=["admin_2"])
 
     out = out.dropna(subset=["yield", "area", "production"], how="all")
+    # All-Brazil lookups carry a per-municipality ADM1_NAME column; the
+    # constant --admin-1 string is only the single-state fallback.
+    admin_1_col = out["ADM1_NAME"] if "ADM1_NAME" in out.columns else admin_1
     wide = pd.DataFrame({
         "country": country,
         "fnid": out["code"],
-        "admin_1": admin_1,
+        "admin_1": admin_1_col,
         "admin_2": out["admin_2"],
         "ibge_name": out["NM_MUN"],
         "num_ID": out["code"].astype(int),
@@ -167,7 +170,8 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--csv", default=r"C:\Users\ritvik\Downloads\tabela1612.csv")
     p.add_argument("--lookup", default=r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets\mt_municipality_lookup.csv")
-    p.add_argument("--code-prefix", default="51", help="IBGE state code prefix (51 = MT)")
+    p.add_argument("--code-prefix", default="51",
+                   help="IBGE state code prefix (51 = MT); pass '' for all-Brazil")
     p.add_argument("--product-label", default="Soja (em grão)", help="SIDRA product column")
     p.add_argument("--product", default="Soybean", help="geocif crop display name")
     p.add_argument("--country", default="Brazil")

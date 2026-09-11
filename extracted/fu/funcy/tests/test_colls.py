@@ -151,6 +151,22 @@ def test_select_values():
     assert select_values(r'a', {1: 'a', 2: 'b'}) == {1: 'a'}
 
 
+def test_split_keys():
+    d = {'a': 1, 'b': 2, 1: 3, 2: 4}
+    yes, no = split_keys(lambda k: isinstance(k, str), d)
+    assert yes == {'a': 1, 'b': 2}
+    assert no == {1: 3, 2: 4}
+
+def test_split_keys_extended():
+    assert split_keys(r'^X-', {'X-A': 1, 'B': 2}) == ({'X-A': 1}, {'B': 2})
+    assert split_keys({1, 2}, {1: 'a', 3: 'b'}) == ({1: 'a'}, {3: 'b'})
+
+def test_split_keys_type():
+    yes, no = split_keys(_ == 'a', defaultdict(int, {'a': 1, 'b': 2}))
+    assert eq(yes, defaultdict(int, {'a': 1}))
+    assert eq(no, defaultdict(int, {'b': 2}))
+
+
 def test_compact():
     assert eq(compact([0, 1, None, 3]), [1, 3])
     assert eq(compact((0, 1, None, 3)), (1, 3))

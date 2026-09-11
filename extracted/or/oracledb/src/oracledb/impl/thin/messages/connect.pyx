@@ -36,9 +36,11 @@ cdef class ConnectMessage(Message):
         bytes connect_string_bytes
         uint16_t connect_string_len, redirect_data_len
         bint read_redirect_data_len
+        ConnectParamsImpl params
         Description description
         uint8_t packet_flags
         str redirect_data
+        Address address
         str host
         int port
 
@@ -106,12 +108,18 @@ cdef class ConnectMessage(Message):
         cdef:
             uint16_t service_options = TNS_GSO_DONT_CARE
             uint32_t connect_flags_1 = 0, connect_flags_2 = 0
-            uint8_t nsi_flags = \
-                    TNS_NSI_SUPPORT_SECURITY_RENEG | TNS_NSI_DISABLE_NA
+            uint8_t nsi_flags
+        nsi_flags = TNS_NSI_SUPPORT_SECURITY_RENEG
+        if not self.params.externalauth \
+                or self.address.protocol != "tcps" \
+                or self.description.wallet_location is None:
+            nsi_flags |= TNS_NSI_NA_DISABLED
         if buf._caps.supports_oob:
             service_options |= TNS_GSO_CAN_RECV_ATTENTION
             connect_flags_2 |= TNS_CHECK_OOB
-        buf.start_request(TNS_PACKET_TYPE_CONNECT, self.packet_flags)
+        buf.start_request(
+            TNS_PACKET_TYPE_CONNECT, self.name, self.packet_flags
+        )
         buf.write_uint16be(TNS_VERSION_DESIRED)
         buf.write_uint16be(TNS_VERSION_MINIMUM)
         buf.write_uint16be(service_options)
@@ -134,6 +142,6 @@ cdef class ConnectMessage(Message):
         buf.write_uint32be(connect_flags_2)
         if self.connect_string_len > TNS_MAX_CONNECT_DATA:
             buf.end_request()
-            buf.start_request(TNS_PACKET_TYPE_DATA)
+            buf.start_request(TNS_PACKET_TYPE_DATA, self.name)
         buf.write_bytes(self.connect_string_bytes)
         buf.end_request()

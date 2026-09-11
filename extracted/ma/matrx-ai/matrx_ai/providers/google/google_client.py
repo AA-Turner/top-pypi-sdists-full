@@ -1,5 +1,8 @@
+from typing import Any
+
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 from matrx_ai.providers.keys import resolve_api_key
 
@@ -28,3 +31,15 @@ def get_google_client() -> genai.Client:
         _clients.clear()
         _clients[api_key] = client
     return client
+
+
+def build_google_batch_inlined_request(
+    *, contents: Any, config: Any, metadata: dict[str, str]
+) -> Any:
+    """Build the SDK-shaped request used by Gemini's Batch API.
+
+    ``matrx-batch`` owns queue mechanics but deliberately remains independent
+    of provider SDKs. Hosts inject this factory with the canonical Google
+    client, keeping every ``google.genai`` value at this provider boundary.
+    """
+    return types.InlinedRequest(contents=contents, config=config, metadata=metadata)

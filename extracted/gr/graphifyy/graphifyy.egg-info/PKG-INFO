@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.57
+Version: 0.9.58
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/Graphify-Labs/graphify
@@ -120,6 +120,7 @@ Requires-Dist: openai; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: boto3; extra == "all"
 Requires-Dist: anthropic; extra == "all"
+Requires-Dist: psycopg[binary]; extra == "all"
 Requires-Dist: tree-sitter-sql; extra == "all"
 Requires-Dist: jieba; extra == "all"
 Requires-Dist: tree-sitter-dm; extra == "all"
@@ -131,7 +132,7 @@ Requires-Dist: robotframework>=4.0; extra == "all"
 Dynamic: license-file
 
 <p align="center">
-  <a href="https://graphify.com"><img src="https://raw.githubusercontent.com/Graphify-Labs/graphify/v8/docs/logo.png" width="300" height="140" alt="Graphify"/></a>
+  <a href="https://graphify.com"><img src="https://raw.githubusercontent.com/Graphify-Labs/graphify/v8/docs/graphify-card.png" width="300" height="214" alt="Graphify"/></a>
 </p>
 
 <p align="center">

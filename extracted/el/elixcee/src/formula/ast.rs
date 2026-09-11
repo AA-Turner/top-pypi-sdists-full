@@ -34,6 +34,12 @@ pub enum FormulaExpr {
     Number(f64),
     Str(String),
     Bool(bool),
+    /// An empty argument slot, such as the second argument in `F(1,,3)`.
+    /// Excel uses omitted arguments in optional-argument and LAMBDA calls;
+    /// keeping the slot in the AST is necessary for `ISOMITTED` to inspect
+    /// syntax without confusing omission with an explicitly supplied empty
+    /// value.
+    Omitted,
     CellRef {
         col: u32,
         row: u32,
@@ -70,6 +76,11 @@ pub enum FormulaExpr {
     UnaryMinus(Box<FormulaExpr>),
     FuncCall {
         name: String,
+        args: Vec<FormulaExpr>,
+    },
+    /// Invoke a first-class LAMBDA expression, e.g. `LAMBDA(x,x+1)(2)`.
+    Call {
+        callee: Box<FormulaExpr>,
         args: Vec<FormulaExpr>,
     },
 }

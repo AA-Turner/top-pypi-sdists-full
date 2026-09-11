@@ -46,7 +46,7 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from matrx_utils import vcprint
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
@@ -78,11 +78,18 @@ class AgentStartConfig(BaseModel):
     )
 
 
-class AgentStartStrictInput(BaseModel):
-    """Workflow-side request body for the ``ai.agent.start`` action.
+class AgentRunCommonInput(BaseModel):
+    """Everything an AI step needs to RUN, minus who runs it.
+
+    Two step types share this lift and nothing else: **Run Agent**
+    (``ai.agent.start``) adds ``agent_id`` + ``is_version``; **Run Mandate**
+    (``ai.mandate.start``) adds ``mandate_key``. They are different steps with
+    different selectors (Arman's ruling, 2026-09-10) — an agent is named by id
+    and version, a Mandate is a job the database resolves — so the selector
+    fields live on the two subclasses and NEVER on the same model.
 
     Field names are kept identical to ``aidream.api.routers.agents.AgentStartRequest``
-    so the action's input form is a 1:1 mirror of the API contract. Types
+    so a step's input form is a 1:1 mirror of the API contract. Types
     that live in the host application (``IdeState``, ``CacheBypass``) are
     accepted as ``dict`` and validated by the host-injected request class
     on the boundary.
@@ -96,53 +103,6 @@ class AgentStartStrictInput(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-
-    # --- target agent: a mandate (preferred), an explicit id, or both ---
-    #
-    # 🚨 A workflow definition that names ONLY an `agent_id` FREEZES that agent
-    # at authoring time — a hardcoded agent by another route, invisible to
-    # every org/user Binding, and the reason `deep_research_v1` carries four
-    # ids in the hardcoded-agents ratchet. `mandate_key` is the sanctioned
-    # form: code (here, the definition) names the JOB, and the DATABASE
-    # decides which Holder fulfils it, resolved fresh on EVERY run.
-    #
-    # EXACTLY ONE may be set. Naming both is REFUSED, naming both values
-    # (D-46 / C-32): which authority chose the agent is precisely the question
-    # a Mandate exists to answer, so there is no "one thing the caller can
-    # mean". Until 2026-08-20 the code instead read a second `agent_id` as a
-    # build-time "drift snapshot", warned, and continued — a silent default of
-    # exactly the shape the no-seed-fallback ruling deleted (Arman,
-    # 2026-08-16). Nothing ever read that snapshot.
-    mandate_key: str | None = Field(
-        default=None,
-        description=(
-            "Mandate key naming the JOB this step performs (e.g. "
-            "'podcast.deep_research'). The database decides which agent runs "
-            "it, resolved at run time — so an org or user Binding swaps this "
-            "step's agent without touching the workflow. Preferred over "
-            "agent_id, and mutually exclusive with it: a step naming both is "
-            "refused."
-        ),
-        json_schema_extra=field_extras(widget="mandate_agent_picker"),
-    )
-    agent_id: str | None = Field(
-        default=None,
-        description=(
-            "UUID of a specific agent (or agent version, when is_version=true). "
-            "Pins this step to one agent forever — prefer mandate_key. "
-            "Mutually exclusive with mandate_key: a step naming both is "
-            "refused, because a Mandate exists to settle which authority "
-            "picks the agent."
-        ),
-        json_schema_extra=field_extras(widget="agent_picker"),
-    )
-    is_version: bool = Field(
-        default=False,
-        description=(
-            "If true, `agent_id` is treated as a pinned version_id instead of a current-agent id."
-        ),
-        json_schema_extra=field_extras(widget="toggle"),
-    )
 
     # --- per-turn input ---
     user_input: str | list[dict[str, JsonValue]] | None = Field(
@@ -426,6 +386,75 @@ class AgentStartStrictInput(BaseModel):
     )
 
 
+def mandate_key_field(*, required: bool) -> Any:
+    """The Mandate selector, in the one place it is defined.
+
+    A Mandate names a JOB; the database decides which Holder (an agent, or a
+    whole workflow) fulfils it, resolved fresh on EVERY run — so an org or
+    user Binding can swap the doer without anyone editing the workflow. That
+    is the ONLY reason a workflow step names a Mandate: so one part of a
+    system-wide workflow can be tweaked without copying the whole thing.
+
+    It belongs to ``ai.mandate.start`` (Run Mandate), where it is REQUIRED.
+    ``ai.agent.start`` (Run Agent) does not have it and never will again
+    (Arman's ruling, 2026-09-10) — the two steps have nothing in common but
+    the plumbing they both need to make a call.
+    """
+    return Field(
+        **({} if required else {"default": None}),
+        description=(
+            "The job this step performs, named as a Mandate key (e.g. "
+            "'podcast.deep_research'). Your organization decides which agent "
+            "or workflow actually does it, looked up every time the step "
+            "runs — so the job can be reassigned without editing this "
+            "workflow."
+        ),
+        json_schema_extra=field_extras(widget="mandate_agent_picker"),
+    )
+
+
+class AgentStartStrictInput(AgentRunCommonInput):
+    """Run Agent's request body: the agent selector plus the shared run lift.
+
+    🚨 An agent is named by ID and VERSION — nothing else. A step that instead
+    names a JOB is a different step type entirely (``ai.mandate.start``, "Run
+    Mandate"); it has its own config and no agent id. Confusing the two is the
+    exact defect this split closed (Arman, 2026-09-10, superseding D-46's
+    "a workflow STEP names the Mandate, not an agent id").
+    """
+
+    agent_id: str | None = Field(
+        default=None,
+        description=(
+            "The agent this step runs. Pick one of your saved agents — this "
+            "step runs that agent, every time. (Turn on 'Pin to this version' "
+            "to freeze it at one saved version instead of always using the "
+            "agent's current form.)"
+        ),
+        json_schema_extra=field_extras(widget="agent_picker"),
+    )
+    is_version: bool = Field(
+        default=False,
+        description=(
+            "Pin to this version: run the exact saved version named above "
+            "instead of the agent's current form."
+        ),
+        json_schema_extra=field_extras(widget="toggle"),
+    )
+
+
+class MandateSelectorInput(AgentRunCommonInput):
+    """Shared run lift + an OPTIONAL Mandate selector, no agent selector.
+
+    Used by the step types that legitimately dispatch either way and are NOT
+    Run Agent (``ai.agent.produce``, ``ai.agent.assignment_batch``): they
+    declare ``agent_id`` through :class:`AgentStartStrictInput` and add this
+    key. Run Agent itself never inherits from here.
+    """
+
+    mandate_key: str | None = mandate_key_field(required=False)
+
+
 class AgentStartInput(AgentStartStrictInput):
     """Agent input plus authored top-level variable connection points.
 
@@ -436,6 +465,46 @@ class AgentStartInput(AgentStartStrictInput):
     """
 
     model_config = ConfigDict(extra="allow")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _refuse_mandate_key(cls, data: Any) -> Any:
+        """A Run Agent step carrying ``mandate_key`` is the WRONG STEP TYPE.
+
+        Because this model allows extras, an un-migrated definition would
+        otherwise fold the key into the agent's VARIABLES and run a
+        completely different thing in silence. Refuse it by name, and say
+        exactly what to do instead.
+
+        A key present but NULL carries no instruction at all — it is form
+        cruft from the era when Run Agent declared the field. Strip it with a
+        warning rather than failing a run over an empty value.
+        """
+        if "mandate_key" in cls.model_fields:
+            # A SUBCLASS that legitimately declares the selector
+            # (ai.agent.produce, ai.agent.assignment_batch). The refusal is
+            # Run Agent's, not the whole family's.
+            return data
+        if not isinstance(data, dict) or "mandate_key" not in data:
+            return data
+        value = data.get("mandate_key")
+        if value in (None, ""):
+            data = {k: v for k, v in data.items() if k != "mandate_key"}
+            vcprint(
+                "[ai.agent.start] dropped an empty `mandate_key` left on this "
+                "step by the old shared form. Run Agent has no mandate field; "
+                "the step is unaffected.",
+                color="yellow",
+            )
+            return data
+        raise ValueError(
+            "This is a Run Agent step, and it carries a mandate "
+            f"({value!r}). Run Agent runs ONE named agent — it has no mandate "
+            "field. A step that names a JOB and lets your organization decide "
+            "who does it is a different step: Run Mandate (ai.mandate.start). "
+            "Change this step's type to ai.mandate.start and keep the mandate, "
+            "or drop the mandate and pick an agent."
+        )
 
 
 # Former tool-wiring fields removed from BOTH this input and the host
@@ -536,7 +605,7 @@ class StepWorkflowMandate:
 
 
 async def resolve_step_agent(
-    inputs: AgentStartStrictInput, *, consumer: str
+    inputs: AgentRunCommonInput, *, consumer: str
 ) -> tuple[str, bool, dict[str, Any] | None]:
     """The three-value form of :func:`resolve_step_agent_full` (see it for the
     rules). Kept as the shape every existing agent step unpacks."""
@@ -546,46 +615,46 @@ async def resolve_step_agent(
 
 
 async def resolve_step_agent_full(
-    inputs: AgentStartStrictInput,
+    inputs: AgentRunCommonInput,
     *,
     consumer: str,
     allow_workflow_holder: bool = False,
 ) -> StepAgent | StepWorkflowMandate:
-    """Decide WHICH agent this step runs: the mandate's Holder, or a pinned id.
+    """Decide WHAT this step runs: the mandate's Holder, or the named agent.
 
-    ``mandate_key`` is the authority whenever it is present. On that path the
-    step resolves on EVERY run through the ONE door
+    THE SHARED LIFT, and the only thing the two step types share. Run Agent
+    (``ai.agent.start``) hands in an ``agent_id``; Run Mandate
+    (``ai.mandate.start``) hands in a ``mandate_key``. The models themselves
+    make the two mutually exclusive — Run Agent has no mandate field and Run
+    Mandate has no agent field (Arman's ruling, 2026-09-10) — so the
+    both-set refusal below can only fire for the two step types that
+    legitimately declare both (``ai.agent.produce``,
+    ``ai.agent.assignment_batch``).
+
+    On the mandate path the step resolves on EVERY run through the ONE door
     (`matrx_ai.mandates.resolve_mandate_by_key`), so an org/user Binding
     swapping the Holder takes effect on the next run with no edit to the
     workflow — and an unresolvable mandate REFUSES rather than running
     something nobody chose (there is no seed fallback, anywhere).
 
-    A step names EXACTLY ONE selector. Carrying both is REFUSED, naming both
-    values (D-46 / C-32) — which authority chose the agent is precisely the
-    question a Mandate exists to answer, so the two are not reconcilable.
-    Until 2026-08-20 this function instead treated a second ``agent_id`` as a
-    build-time "drift snapshot", warned, and ran the mandate's Holder anyway;
-    nobody ever recorded a reversal of D-46, and nothing ever read the
-    snapshot. Warn-and-continue is the silent-default shape the
-    no-seed-fallback ruling deleted (Arman, 2026-08-16), so the code was
-    brought back to the ruling rather than the ruling to the code.
-
     ``consumer`` names the step for alarms and the durable failure record —
     every node type that runs an authored agent shares this one door.
     """
-    if inputs.mandate_key and inputs.agent_id:
+    mandate_key = getattr(inputs, "mandate_key", None)
+    agent_id = getattr(inputs, "agent_id", None)
+    if mandate_key and agent_id:
         raise ValueError(
             f"{consumer} names BOTH a mandate and an agent id: mandate_key="
-            f"{inputs.mandate_key!r} and agent_id={inputs.agent_id!r}. A step "
+            f"{mandate_key!r} and agent_id={agent_id!r}. A step "
             f"names exactly one — the mandate (the database picks the Holder, "
             f"and org/user Bindings can swap it) or the id (pinned to that one "
             f"agent forever). Drop whichever is not the authority here; if the "
             f"mandate is, the id is vestigial and removing it changes nothing."
         )
-    if inputs.mandate_key:
+    if mandate_key:
         from matrx_ai.mandates import resolve_mandate_by_key
 
-        resolution = await resolve_mandate_by_key(inputs.mandate_key, consumer=consumer)
+        resolution = await resolve_mandate_by_key(mandate_key, consumer=consumer)
         if resolution.holder_type == "workflow":
             # SPEC §6.3 STEP-SIDE LIFT: a workflow step MAY name a
             # workflow-held mandate — it executes as a durable child workflow
@@ -594,22 +663,22 @@ async def resolve_step_agent_full(
             # Only node types that know how to run that lane opt in.
             if allow_workflow_holder and resolution.workflow_id:
                 return StepWorkflowMandate(
-                    mandate_key=inputs.mandate_key,
+                    mandate_key=mandate_key,
                     workflow_id=resolution.workflow_id,
                     workflow_version_id=resolution.workflow_version_id,
                     declared_output_kind=resolution.output_kind,
                 )
             raise ValueError(
-                f"{consumer}: mandate {inputs.mandate_key!r} resolved to a "
+                f"{consumer}: mandate {mandate_key!r} resolved to a "
                 f"WORKFLOW Holder, which this node type cannot execute — use "
-                f"ai.agent.start (it runs workflow-held mandates as durable "
-                f"child runs), or rebind the mandate to an agent."
+                f"ai.mandate.start (Run Mandate runs workflow-held mandates as "
+                f"durable child runs), or rebind the mandate to an agent."
             )
         source = resolution.source
         resolved_id = getattr(source, "agent_id", None)
         if not resolved_id:
             raise ValueError(
-                f"{consumer}: mandate {inputs.mandate_key!r} resolved to a source "
+                f"{consumer}: mandate {mandate_key!r} resolved to a source "
                 f"with no agent id ({type(source).__name__})."
             )
         return StepAgent(
@@ -620,22 +689,23 @@ async def resolve_step_agent_full(
             ),
             declared_output_kind=resolution.output_kind,
         )
-    if inputs.agent_id:
+    if agent_id:
         return StepAgent(
-            agent_id=inputs.agent_id,
-            is_version=inputs.is_version,
+            agent_id=agent_id,
+            is_version=bool(getattr(inputs, "is_version", False)),
             config_overrides=None,
             declared_output_kind=None,
         )
     raise ValueError(
-        f"{consumer} names no agent: set mandate_key (preferred — the database "
-        f"picks the agent, and org/user Bindings can swap it) or agent_id."
+        f"{consumer} names nothing to run. A Run Agent step needs an agent "
+        f"picked in `agent_id`; a Run Mandate step needs the job named in "
+        f"`mandate_key`."
     )
 
 
 def build_agent_request(
     ctx: NodeExecutionContext,
-    inputs: AgentStartInput,
+    inputs: AgentRunCommonInput,
     resolved: StepAgent,
     *,
     node_type: str,
@@ -715,8 +785,9 @@ def build_agent_request(
     # public request field. Preserve it on the host request's private
     # provenance channel so the resulting run remains attributable to the
     # Mandate without creating a second execution authority.
-    if inputs.mandate_key:
-        request._mandate_key = inputs.mandate_key
+    step_mandate_key = getattr(inputs, "mandate_key", None)
+    if step_mandate_key:
+        request._mandate_key = step_mandate_key
     return request
 
 
@@ -804,7 +875,7 @@ def require_agent_host(node_type: str) -> None:
 
 async def _run_workflow_held_mandate(
     ctx: NodeExecutionContext,
-    inputs: AgentStartInput,
+    inputs: AgentRunCommonInput,
     resolved: StepWorkflowMandate,
 ) -> NodeResult[AiExecutionResult]:
     """Execute a WORKFLOW-held mandate from a workflow step (SPEC §6.3 lift).
@@ -860,7 +931,10 @@ async def _run_workflow_held_mandate(
 @register_node(
     name="ai.agent.start",
     display_name="Run Agent",
-    description="Run one of your saved agents with your input and get its reply.",
+    description=(
+        "Run one of your saved agents with your input and get its reply. "
+        "You pick the agent."
+    ),
     category=NodeCategory.AGENT,
     determinism=ActionTier.NON_DETERMINISTIC,
     input_schema=AgentStartInput,
@@ -875,13 +949,12 @@ async def agent_start(
 ) -> NodeResult[AiExecutionResult]:
     require_agent_host("ai.agent.start")
     node_id = getattr(ctx, "node_id", None) or "?"
-    resolved = await resolve_step_agent_full(
-        inputs,
-        consumer=f"ai.agent.start:{node_id}",
-        allow_workflow_holder=has_ext("workflow_mandate_runner"),
-    )
-    if isinstance(resolved, StepWorkflowMandate):
-        return await _run_workflow_held_mandate(ctx, inputs, resolved)
+    # No `allow_workflow_holder`: Run Agent runs ONE named agent. A step whose
+    # doer is decided by the database is Run Mandate (`ai.mandate.start`), and
+    # that is the node type that lifts a workflow-held mandate into a durable
+    # child run.
+    resolved = await resolve_step_agent_full(inputs, consumer=f"ai.agent.start:{node_id}")
+    assert isinstance(resolved, StepAgent)  # no mandate field -> never a workflow Holder
     request = build_agent_request(ctx, inputs, resolved, node_type="ai.agent.start")
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 

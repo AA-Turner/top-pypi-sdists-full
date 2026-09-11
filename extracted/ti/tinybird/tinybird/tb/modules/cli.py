@@ -25,7 +25,6 @@ from tinybird.iterating.data_branch_modes import DataBranchMode
 from tinybird.tb import __cli__
 from tinybird.tb.check_pypi import CheckPypi
 from tinybird.tb.client import (
-    AuthException,
     AuthNoTokenException,
     TinyB,
 )
@@ -734,12 +733,15 @@ def cli(
     # Keep config path pointing to the user project root even when using a virtual SDK project.
     config["path"] = folder if sdk_virtual_project else str(project.path)
     # If they have passed a token or host as parameter and it's different that record in .tinyb, refresh the workspace id
+    # Best-effort only: e.g. a still-Classic workspace makes this v1 (Forward-only)
+    # call fail with a non-auth error, and that must not block the CLI from
+    # starting up (commands like `migrate-to-forward` are meant to run on it).
     if token or host:
         try:
             workspace = client.workspace_info(version="v1")
             config["id"] = workspace.get("id", "")
             config["name"] = workspace.get("name", "")
-        except (AuthNoTokenException, AuthException):
+        except Exception:
             pass
 
     ctx.ensure_object(dict)["config"] = config

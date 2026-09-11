@@ -7266,7 +7266,8 @@ _DRIVE_QUEUE_COLUMNS = (
     "attempts, deferrals, last_reason, reason_at, session_name, launched_at, "
     "enqueued_at, hold_after, hold_reason, resume_when, hold_state, "
     "hold_probes, launch_host, hold_scope, resumes, retry_backoff_at, "
-    "max_fix_rounds, no_acceptance"
+    "max_fix_rounds, no_acceptance, plan_destructive, apply_verdict, "
+    "apply_verdict_reason, apply_verdict_at"
 )
 
 # Fields `update_drive_queue_entry` may write. Deliberately excludes the
@@ -7296,6 +7297,15 @@ _DRIVE_QUEUE_UPDATABLE = frozenset(
         "launch_host",
         "resumes",
         "retry_backoff_at",
+        # #3236: the apply-verdict gate extension — written by `coord
+        # drive-queue apply-verdict`, the same generic `update` path
+        # `resume` already uses for `hold_state`/`hold_probes`. Deliberately
+        # NOT `plan_destructive` — that is operator-declared at `add` time,
+        # same provenance split as `hold_after`/`hold_reason`/`resume_when`
+        # above it.
+        "apply_verdict",
+        "apply_verdict_reason",
+        "apply_verdict_at",
     }
 )
 
@@ -7350,6 +7360,7 @@ def enqueue_drive_queue(
     hold_scope: str = "entry",
     max_fix_rounds: int | None = None,
     no_acceptance: bool = False,
+    plan_destructive: bool = False,
 ) -> int | None:
     """Add an issue to the drive queue (or update the entry already there).
 
@@ -7388,6 +7399,13 @@ def enqueue_drive_queue(
     posture as ``max_fix_rounds``: a later `add` that omits `--no-acceptance`
     clears a previously-set one rather than leaving it in place.
 
+    ``plan_destructive`` (#3236) declares this gate as carrying a
+    destroy/replace terraform plan — see
+    ``coord.drive_queue.validate_apply_gate``/``plan_is_destructive`` for
+    what enforces the hard rule this unlocks ("a destroy/replace plan never
+    auto-resumes via ``resume_when``"). Same replace-on-every-`add` posture
+    as ``max_fix_rounds``/``no_acceptance``.
+
     Routes to the daemon when ``board_service`` is set, else writes the local
     DB. Returns the local row id on the local path; the daemon's row id when
     routed.
@@ -7410,6 +7428,7 @@ def enqueue_drive_queue(
             "hold_scope": normalized_scope,
             "max_fix_rounds": max_fix_rounds,
             "no_acceptance": bool(no_acceptance),
+            "plan_destructive": bool(plan_destructive),
         },
     )
     if resp is not None:
@@ -7426,6 +7445,7 @@ def enqueue_drive_queue(
         hold_scope=normalized_scope,
         max_fix_rounds=max_fix_rounds,
         no_acceptance=no_acceptance,
+        plan_destructive=plan_destructive,
     )
 
 
@@ -7442,6 +7462,7 @@ def _enqueue_drive_queue_local(
     hold_scope: str = "entry",
     max_fix_rounds: int | None = None,
     no_acceptance: bool = False,
+    plan_destructive: bool = False,
 ) -> int:
     now = time.time()
     after_json = json.dumps([str(a) for a in (after or [])])
@@ -7465,6 +7486,7 @@ def _enqueue_drive_queue_local(
     if max_fix_rounds is not None and int(max_fix_rounds) < 1:
         max_fix_rounds = None
     no_acceptance_int = 1 if no_acceptance else 0
+    plan_destructive_int = 1 if plan_destructive else 0
 
     # #2846: wrapped in retry_on_locked like every other write in this
     # module — this upsert is idempotent by natural key (repo_name,
@@ -7491,7 +7513,8 @@ def _enqueue_drive_queue_local(
             sql.execute(conn,
                 "UPDATE drive_queue SET machine = ?, after_json = ?, hold_after = ?, "
                 "hold_reason = ?, resume_when = ?, hold_state = ?, hold_probes = 0, "
-                "hold_scope = ?, max_fix_rounds = ?, no_acceptance = ? WHERE id = ?",
+                "hold_scope = ?, max_fix_rounds = ?, no_acceptance = ?, "
+                "plan_destructive = ? WHERE id = ?",
                 (
                     machine,
                     after_json,
@@ -7502,6 +7525,7 @@ def _enqueue_drive_queue_local(
                     hold_scope,
                     max_fix_rounds,
                     no_acceptance_int,
+                    plan_destructive_int,
                     existing["id"],
                 ),
             )
@@ -7516,8 +7540,8 @@ def _enqueue_drive_queue_local(
             "INSERT INTO drive_queue "
             "(repo_name, issue_number, position, machine, after_json, enqueued_at, "
             " hold_after, hold_reason, resume_when, hold_state, hold_scope, "
-            " max_fix_rounds, no_acceptance) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " max_fix_rounds, no_acceptance, plan_destructive) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 repo_name,
                 issue_number,
@@ -7532,6 +7556,7 @@ def _enqueue_drive_queue_local(
                 hold_scope,
                 max_fix_rounds,
                 no_acceptance_int,
+                plan_destructive_int,
             ),
             pk_column="id",
         )
@@ -7566,11 +7591,29 @@ def _enqueue_drive_queue_local(
     return entry_id
 
 
-def dequeue_drive_queue(repo_name: str, issue_number: int) -> bool:
-    """Remove an issue from the drive queue, renumbering what's left.
+def dequeue_drive_queue(repo_name: str, issue_number: int) -> dict:
+    """Remove an issue from the drive queue, renumbering what's left — and,
+    #3282, own the live driver session that removal orphans.
 
-    Routes to the daemon when ``board_service`` is set. Returns whether a row
-    was actually removed.
+    Routes to the daemon when ``board_service`` is set. Either way, a
+    successful removal is followed by a
+    :func:`coord.drive.stop_live_driver_session` attempt: the daemon branch
+    lets the daemon's own ``/drive-queue`` ``dequeue`` handler
+    (``coord.serve_app.post_drive_queue``) do it — on the daemon host, the
+    only machine a drive session's tmux server can actually be reached from
+    — and the local branch does it in-process here, since a local
+    (non-daemon) write always executes on that same machine. Neither branch
+    probes for a driver when nothing was removed (an issue never in the
+    queue has nothing to orphan).
+
+    Returns ``{"removed": bool, "driver_ok": bool, "driver_session":
+    str | None, "driver_detail": str | None}``. ``driver_session`` is
+    ``None`` when no live session was found — nothing to report, the exact
+    pre-#3282 behaviour. ``driver_ok`` is only ever ``False`` when a live
+    session existed and could not be confirmed dead; ``driver_detail`` then
+    says why (see :func:`coord.drive.stop_live_driver_session`'s own
+    ``(ok, session, detail)`` contract, which this layers ``removed`` on top
+    of unchanged).
     """
     svc = _board_service()
     resp = _route_write(
@@ -7583,8 +7626,27 @@ def dequeue_drive_queue(repo_name: str, issue_number: int) -> bool:
         },
     )
     if resp is not None:
-        return bool(resp.get("deleted"))
-    return _dequeue_drive_queue_local(repo_name, issue_number)
+        return {
+            "removed": bool(resp.get("deleted")),
+            "driver_ok": bool(resp.get("driver_ok", True)),
+            "driver_session": resp.get("driver_session"),
+            "driver_detail": resp.get("driver_detail"),
+        }
+
+    removed = _dequeue_drive_queue_local(repo_name, issue_number)
+    driver_ok, driver_session, driver_detail = True, None, None
+    if removed:
+        from coord.drive import stop_live_driver_session  # noqa: PLC0415
+
+        driver_ok, driver_session, driver_detail = stop_live_driver_session(
+            repo_name, issue_number
+        )
+    return {
+        "removed": removed,
+        "driver_ok": driver_ok,
+        "driver_session": driver_session,
+        "driver_detail": driver_detail,
+    }
 
 
 def _dequeue_drive_queue_local(repo_name: str, issue_number: int) -> bool:
@@ -7836,6 +7898,70 @@ def get_issue_titles(keys: Iterable[tuple[str, int]]) -> dict[str, str]:
         ).fetchone()
         if row is not None and row["title"]:
             out[f"{repo}#{number}"] = row["title"]
+    return out
+
+
+def cached_open_issues(repo_names: Iterable[str]) -> list[dict]:
+    """Cached issue rows (``repo_name``, ``number``, ``title``, ``body``,
+    ``state``, ``labels`` — ``labels`` decoded to a plain ``list[str]``) for
+    every ``repo_names`` entry, straight off the locally-cached ``issues``
+    table — backs ``coord plans --lint-epics``'
+    :func:`coord.plans.find_unlabelled_epics` scan (#3227) and
+    ``--lint-stale-epics``' :func:`coord.plans.find_stale_epics` scan
+    (#3228), which needs ``body`` to parse each epic's declared children.
+
+    Routes to the daemon when ``board_service`` is set, else reads the local
+    ``issues`` table directly — the same split as :func:`get_issue_titles`,
+    for the same reason: a thin client (``coord web``/``coord plans`` pointed
+    at a remote daemon) has no local ``issues`` table, so a bare local SELECT
+    here would silently return an empty list and the lint would falsely
+    report "clean" on every machine but the daemon host.
+
+    Fail-soft like :func:`fetch_leg_counts`/``coord.reports._default_completed_source``:
+    an unreadable local DB (or a daemon predating the ``/issues`` route, or
+    any transport failure) degrades to ``[]`` rather than raising — a lint
+    scan should never crash the rest of ``coord plans``' output over this.
+    """
+    names = sorted({r for r in repo_names if r})
+    if not names:
+        return []
+    svc = _board_service()
+    if svc is not None:
+        from coord.client import fetch_cached_issues  # noqa: PLC0415
+
+        return fetch_cached_issues(svc, names)
+    return _cached_open_issues_local(names)
+
+
+def _cached_open_issues_local(repo_names: list[str] | None = None) -> list[dict]:
+    """Local-DB half of :func:`cached_open_issues` — also what the daemon's
+    ``GET /issues`` route runs, on the daemon's own DB, to serve a thin
+    client's request. ``repo_names=None`` reads every repo's rows.
+    """
+    try:
+        conn = get_connection()
+        if repo_names:
+            placeholders = ",".join("?" for _ in repo_names)
+            rows = sql.execute(
+                conn,
+                "SELECT repo_name, number, title, body, state, labels FROM issues "  # noqa: S608 — placeholders only
+                f"WHERE repo_name IN ({placeholders})",
+                tuple(repo_names),
+            ).fetchall()
+        else:
+            rows = sql.execute(
+                conn, "SELECT repo_name, number, title, body, state, labels FROM issues"
+            ).fetchall()
+    except Exception:  # noqa: BLE001 — an unreadable cache is an empty scan
+        return []
+    out: list[dict] = []
+    for r in rows:
+        row = dict(r)
+        try:
+            row["labels"] = json.loads(row.get("labels") or "[]")
+        except (TypeError, ValueError):
+            row["labels"] = []
+        out.append(row)
     return out
 
 

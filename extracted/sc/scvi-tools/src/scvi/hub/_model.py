@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 import anndata
 import mudata
 import rich
-from huggingface_hub import ModelCard, snapshot_download
 from rich.markdown import Markdown
 
 from scvi import settings
@@ -26,6 +25,7 @@ from ._constants import _SCVI_HUB
 
 if TYPE_CHECKING:
     from anndata import AnnData
+    from huggingface_hub import ModelCard
 
     from scvi.model.base import BaseModelClass
 
@@ -59,6 +59,7 @@ class HubModel:
     2. :doc:`/tutorials/notebooks/hub/scvi_hub_upload_and_large_files`
     """
 
+    @dependencies("huggingface_hub")
     def __init__(
         self,
         local_dir: str,
@@ -66,6 +67,8 @@ class HubModel:
         metadata: HubMetadata | str | None = None,
         model_card: HubModelCardHelper | ModelCard | str | None = None,
     ):
+        from huggingface_hub import ModelCard
+
         self._local_dir = local_dir
         self._repo_name = repo_name
 
@@ -136,9 +139,8 @@ class HubModel:
     ):
         """Push this model to huggingface.
 
-        If the dataset is too large to upload to huggingface, this will raise an
-         exception, prompting the user to upload the data elsewhere. Otherwise, the
-        data, model card, and metadata are all uploaded to the given model repo.
+        If the dataset is too large to upload to huggingface, this will raise an exception, prompting the user to upload the data elsewhere.
+        Otherwise, the data, model card, and metadata are all uploaded to the given model repo.
 
         Parameters
         ----------
@@ -150,7 +152,7 @@ class HubModel:
         repo_create
             Whether to create the repo
         repo_create_kwargs
-            Keyword arguments passed into :meth:`~huggingface_hub.create_repo` if
+            Keyword arguments passed into :meth:`~huggingface_hub.HfApi.create_repo` if
             ``repo_create=True``.
         collection_name
             The name of the collection to which the model belongs.
@@ -236,6 +238,7 @@ class HubModel:
             )
 
     @classmethod
+    @dependencies("huggingface_hub")
     def pull_from_huggingface_hub(
         cls,
         repo_name: str,
@@ -263,8 +266,10 @@ class HubModel:
             Whether to pull the :class:`~anndata.AnnData` object associated with the model. If
             ``True`` but the file does not exist, it will fail silently.
         kwargs
-            Additional keyword arguments to pass to :meth:`~huggingface_hub.snapshot_download`.
+            Additional keyword arguments to pass to :func:`~huggingface_hub.snapshot_download`.
         """
+        from huggingface_hub import ModelCard, snapshot_download
+
         if revision is None:
             warnings.warn(
                 "No revision was passed, so the default (latest) revision will be used.",
@@ -308,7 +313,7 @@ class HubModel:
         push_anndata
             Whether to push the :class:`~anndata.AnnData` object associated with the model.
         **kwargs
-            Keyword arguments passed into :func:`~boto3.client`.
+            Keyword arguments passed into ``boto3.client``.
         """
         from boto3 import client
 
@@ -341,6 +346,7 @@ class HubModel:
 
     @classmethod
     @dependencies("boto3")
+    @dependencies("huggingface_hub")
     def pull_from_s3(
         cls,
         s3_bucket: str,
@@ -370,7 +376,7 @@ class HubModel:
             Whether to use unsigned requests. If ``True`` and ``config`` is passed in ``kwargs``,
             ``config`` will be overwritten.
         **kwargs
-            Keyword arguments passed into :func:`~boto3.client`.
+            Keyword arguments passed into ``boto3.client``.
 
         Returns
         -------
@@ -378,6 +384,7 @@ class HubModel:
         """
         from boto3 import client
         from botocore import UNSIGNED, config
+        from huggingface_hub import ModelCard
 
         if unsigned:
             kwargs["config"] = config.Config(signature_version=UNSIGNED)

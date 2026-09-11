@@ -44,7 +44,7 @@ def process(
 
     # Ensure SHARED_WITH workspaces exist before build
     if not is_branch:
-        build_shared_with_workspaces(project=project, tb_client=tb_client, config=config)
+        build_shared_with_workspaces(project=project, tb_client=tb_client)
 
     build_failed = False
     build_error: Optional[str] = None
@@ -90,9 +90,7 @@ def process(
             click.echo(FeedbackManager.error(message=f"✗ {rebuild_str} failed"))
             if not watch and exit_on_error:
                 sys_exit("build_error", build_error or "Unknown error")
-        build_error = build_error or "Unknown error"
-
-        return build_error
+        return build_error or "Unknown error"
 
     if not silent:
         if build_result == False:  # noqa: E712
@@ -250,7 +248,7 @@ def build_project(
             if with_connections:
                 echo_dynamodb_local_backfill_feedback(build)
             return True
-        elif build_result == "failed":
+        if build_result == "failed":
             error = format_build_errors(result.get("errors", []))
         else:
             error = f"Unknown build result. Error: {result.get('error')}"
@@ -614,7 +612,7 @@ def build_vendored_workspaces(project: Project, tb_client: TinyB, config: dict[s
         click.echo(FeedbackManager.error_exception(error=e))
 
 
-def build_shared_with_workspaces(project: Project, tb_client: TinyB, config: dict[str, Any]) -> None:
+def build_shared_with_workspaces(project: Project, tb_client: TinyB) -> None:
     """Scan project for .datasource files and ensure SHARED_WITH workspaces exist."""
 
     try:

@@ -304,6 +304,58 @@ class TestDeclarationEnforcement:
         assert result.output_kind_errors == []
         assert captures == []
 
+    async def test_malformed_declared_kind_creates_structured_capture(
+        self, executor, kindful_tool, app_ctx_set, monkeypatch
+    ) -> None:
+        """A curated-kind failure cannot remain only an executor ERROR log."""
+        from matrx_graph.kinds import KindCheck
+
+        captures: list[dict[str, Any]] = []
+
+        async def fake_capture(**kwargs: Any) -> None:
+            captures.append(kwargs)
+
+        monkeypatch.setattr(
+            "matrx_ai.tools.executor._capture_tool_output_contract_drift",
+            fake_capture,
+        )
+
+        async def malformed_kind_check(*_args: Any, **_kwargs: Any) -> KindCheck:
+            return KindCheck(checked=True, errors=["unexpected field"])
+
+        monkeypatch.setattr(
+            "matrx_graph.kinds.check_against_kind",
+            malformed_kind_check,
+        )
+        kindful_tool.output_schema = {
+            "type": "object",
+            "properties": {"bundle": {"type": "string"}},
+            "required": ["bundle"],
+            "additionalProperties": False,
+        }
+
+        result = await _run(
+            executor,
+            {
+                "__kind": "tool_bundle_listing",
+                "bundle": "supabase",
+                "unexpected": "drift",
+            },
+        )
+
+        assert result.success is True
+        assert result.output_kind == "tool_bundle_listing"
+        assert result.output_kind_errors
+        assert len(captures) == 1
+        assert captures[0]["ctx"].tool_name == "kindful"
+        assert captures[0]["tool_name"] == "kindful"
+        assert captures[0]["output_kind"] == "tool_bundle_listing"
+        assert captures[0]["error_count"] > len(result.output_kind_errors)
+        assert captures[0]["validation_sources"] == (
+            "declared_kind",
+            "generated_output_contract",
+        )
+
 
 class TestBothHalvesStayOneFact:
     """The stored schema is DERIVED, never hand-written — that is what makes the

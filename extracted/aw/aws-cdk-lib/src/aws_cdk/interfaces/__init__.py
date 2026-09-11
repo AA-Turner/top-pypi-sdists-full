@@ -403,6 +403,7 @@ __all__ = [
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
     "aws_qldb",
@@ -715,6 +716,7 @@ if typing.TYPE_CHECKING:
     from . import aws_pinpoint as aws_pinpoint
     from . import aws_pinpointemail as aws_pinpointemail
     from . import aws_pipes as aws_pipes
+    from . import aws_pricingplanmanager as aws_pricingplanmanager
     from . import aws_proton as aws_proton
     from . import aws_qbusiness as aws_qbusiness
     from . import aws_qldb as aws_qldb
@@ -1025,6 +1027,7 @@ _SUBMODULES = {
     "aws_pinpoint",
     "aws_pinpointemail",
     "aws_pipes",
+    "aws_pricingplanmanager",
     "aws_proton",
     "aws_qbusiness",
     "aws_qldb",

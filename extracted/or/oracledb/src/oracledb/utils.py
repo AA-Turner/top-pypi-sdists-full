@@ -29,7 +29,7 @@
 # -----------------------------------------------------------------------------
 
 import functools
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 import uuid
 
 from .arrow_array import ArrowArray
@@ -41,11 +41,13 @@ from . import errors
 from . import thick_impl
 
 
-def check_parameter_length(name: str, value: str, max_length: int) -> None:
+def check_parameter_length(
+    name: str, value: str | None, max_length: int
+) -> None:
     """
-    Checks the maximum parameter length and raises an error if it exceeds it.
+    Checks the maximum UTF-8 encoded byte length of a parameter.
     """
-    if value is not None and len(value) > max_length:
+    if value is not None and len(value.encode()) > max_length:
         errors._raise_err(
             errors.ERR_PARAM_SIZE_TOO_LARGE, name=name, max_length=max_length
         )
@@ -100,7 +102,7 @@ def enquote_name(value: str, capitalize: bool = True) -> str:
     return f'"{value}"'
 
 
-def from_arrow(obj: Any) -> Union[DataFrame, ArrowArray]:
+def from_arrow(obj: Any) -> DataFrame | ArrowArray:
     """
     This method converts a data frame to a
     :ref:`DataFrame <oracledataframeobj>` or
@@ -121,10 +123,10 @@ def from_arrow(obj: Any) -> Union[DataFrame, ArrowArray]:
 
 
 def init_oracle_client(
-    lib_dir: Optional[Union[str, bytes]] = None,
-    config_dir: Optional[Union[str, bytes]] = None,
-    error_url: Optional[str] = None,
-    driver_name: Optional[str] = None,
+    lib_dir: str | bytes | None = None,
+    config_dir: str | bytes | None = None,
+    error_url: str | None = None,
+    driver_name: str | None = None,
 ):
     """
     Enables python-oracledb Thick mode by initializing the Oracle Client
@@ -184,7 +186,7 @@ def init_oracle_client(
     version>"``, where <name> is the name of the driver and <version> is its
     version. There should be a single space character before and after the
     colon. If this parameter is not set, then the value specified in
-    :attr:`oracledb.defaults.driver_name <defaults.driver_name>` is used. If
+    :attr:`oracledb.defaults.driver_name <Defaults.driver_name>` is used. If
     the value of this attribute is *None*, then the default value in
     python-oracledb Thick mode is like "python-oracledb thk : <version>". See
     :ref:`otherinit`.
@@ -239,7 +241,7 @@ def is_simple_sql_name(value: str) -> bool:
 
 
 def normalize_sessionless_transaction_id(
-    value: Optional[Union[bytes, str]] = None,
+    value: bytes | str | None = None,
 ) -> bytes:
     """
     Normalize and validate the transaction_id.
@@ -434,7 +436,7 @@ def unregister_params_hook(hook_function: Callable) -> None:
 
 
 def verify_stored_proc_args(
-    parameters: Union[list, tuple], keyword_parameters: dict
+    parameters: list | tuple, keyword_parameters: dict
 ) -> None:
     """
     Verifies that the arguments to a call to a stored procedure or function

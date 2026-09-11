@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from importlib.resources import files
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_js_resource(package: str, name: str) -> str:
     """Read a bundled ``<package>/js/<name>`` file, stripped of surrounding whitespace."""
-    # Chained single-segment joins: on Python 3.9, zipfile.Path.joinpath
-    # accepts only one argument, so a two-argument join breaks zip imports.
-    return (files(package) / "js" / name).read_text(encoding="utf-8").strip()
+    return files(package).joinpath("js", name).read_text(encoding="utf-8").strip()
 
 
 def load_js_asset(name: str) -> str:

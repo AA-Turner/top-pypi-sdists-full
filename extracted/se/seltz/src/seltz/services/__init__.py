@@ -59,12 +59,14 @@ from seltz_public_api.proto.v1.monitor_pb2 import (
     WebhookStatus,
 )
 from seltz_public_api.proto.v1.seltz_pb2 import (
+    ContentOptions,
     Document,
-    Fields,
     SearchRequest,
     SearchResponse,
     Snippet,
+    SnippetOptions,
 )
+from seltz_public_api.proto.v1.seltz_pb2 import Fields as FieldsMessage
 from seltz_public_api.proto.v1.seltz_pb2_grpc import SeltzServiceStub
 
 # Default per-call deadline (seconds) for unary RPCs, shared by all services.
@@ -92,9 +94,11 @@ __all__ = [
     "ListAgentRunsResponse",
     "SearchRequest",
     "SearchResponse",
-    "Fields",
+    "ContentOptions",
+    "FieldsMessage",
     "Document",
     "Snippet",
+    "SnippetOptions",
     "AnswerServiceStub",
     "AnswerRequest",
     "AnswerResponse",

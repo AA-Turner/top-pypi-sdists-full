@@ -10,9 +10,9 @@ from matrx_ai.tools.executor import (
     _capture_tool_input_contract_drift,
     _capture_tool_output_contract_drift,
     _capture_tool_result_kind_missing,
+    _capture_tool_result_kind_unavailable,
     _capture_tool_result_size_unmanaged,
     _is_expected_domain_failure,
-    _capture_tool_result_kind_unavailable,
 )
 from matrx_ai.tools.implementations.shell import shell_python
 from matrx_ai.tools.models import ToolDefinition
@@ -350,6 +350,7 @@ async def test_output_drift_creates_bounded_structured_capture(monkeypatch) -> N
         tool_name="kindcomp_get_code",
         output_kind="tool_io_kindcomp_get_code_output",
         error_count=1,
+        validation_sources=("generated_output_contract",),
     )
 
     assert captured["kind"] == TOOL_OUTPUT_CONTRACT_DRIFT_KIND
@@ -358,6 +359,7 @@ async def test_output_drift_creates_bounded_structured_capture(monkeypatch) -> N
         "tool_name": "kindcomp_get_code",
         "output_kind": "tool_io_kindcomp_get_code_output",
         "error_count": 1,
+        "validation_sources": ["generated_output_contract"],
     }
     assert "output" not in captured["context"]
 

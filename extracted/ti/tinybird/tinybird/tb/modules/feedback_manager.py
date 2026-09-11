@@ -1129,6 +1129,7 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     success_job_cancellation_cancelling = success_message(
         "** Job with id '{job_id}' is now in cancelling status and will be cancelled eventually"
     )
+    success_job_retried = success_message("** Job '{job_id}' retried as '{retried_job_id}'")
     success_datasource_alter = success_message("** The Data Source has been correctly updated.")
     success_datasource_kafka_connected = success_message(
         "** Data Source '{id}' created\n** Kafka streaming connection configured successfully!"

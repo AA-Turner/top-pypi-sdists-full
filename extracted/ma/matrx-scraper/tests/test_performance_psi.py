@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-import inspect
+from matrx_utils.source_guard import stable_source
 import threading
 
 import httpx
@@ -123,7 +123,7 @@ async def test_psi_json_decode_runs_off_the_event_loop(monkeypatch) -> None:
 
 
 def test_async_provider_clients_never_decode_json_on_the_event_loop() -> None:
-    source = inspect.getsource(performance)
+    source = stable_source(performance)
     tree = ast.parse(source)
     violations: list[str] = []
 

@@ -4,6 +4,8 @@ from enum import Enum
 import typing_extensions as te
 from httpx import Headers
 
+from atproto_client.exceptions import RequestErrorBase
+from atproto_client.models.common import XrpcError
 from atproto_client.models.utils import get_model_as_dict, get_model_as_json
 from atproto_client.request import AsyncRequest, Request, Response
 
@@ -19,6 +21,9 @@ class InvokeType(Enum):
 
 
 _BASE_API_URL = 'https://bsky.social/xrpc'
+
+_METHOD_NOT_SERVED_STATUSES = frozenset({404, 501})
+_METHOD_NOT_SERVED_ERRORS = frozenset({'MethodNotImplemented', 'XRPCNotSupported'})
 
 _CONTENT_TYPE_JSON = 'application/json'
 _DEFAULT_CONTENT_TYPE = _CONTENT_TYPE_JSON
@@ -48,6 +53,18 @@ def _handle_kwargs(kwargs: dict) -> None:
     kwargs.pop('output_encoding', None)
 
 
+def is_method_not_served(error: BaseException) -> bool:
+    """Return whether the server answered that it does not serve the method, rather than that the call failed."""
+    if not isinstance(error, RequestErrorBase) or error.response is None:
+        return False
+
+    if error.response.status_code in _METHOD_NOT_SERVED_STATUSES:
+        return True
+
+    content = error.response.content
+    return isinstance(content, XrpcError) and content.error in _METHOD_NOT_SERVED_ERRORS
+
+
 def _handle_base_url(base_url: t.Optional[str] = None) -> str:
     if base_url is None:
         return _BASE_API_URL
@@ -59,6 +76,9 @@ def _handle_base_url(base_url: t.Optional[str] = None) -> str:
 
 
 class _ClientCommonMethodsMixin:
+    def _inherit_clone_state(self, original: te.Self) -> None:
+        """Take over the state a freshly constructed clone must share with the client it was cloned from."""
+
     def clone(self) -> te.Self:
         """Clone the client instance.
 
@@ -67,7 +87,9 @@ class _ClientCommonMethodsMixin:
         Returns:
             Cloned client instance.
         """
-        return type(self)(base_url=self._base_url, request=self.request.clone())
+        cloned = type(self)(base_url=self._base_url, request=self.request.clone())
+        cloned._inherit_clone_state(self)
+        return cloned
 
     def update_base_url(self, base_url: t.Optional[str] = None) -> None:
         """Update XRPC base URL.

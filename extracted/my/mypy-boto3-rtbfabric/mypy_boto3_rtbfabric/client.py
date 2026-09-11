@@ -514,7 +514,8 @@ class RTBFabricClient(BaseClient):
         self, **kwargs: Unpack[UpdateResponderGatewayRequestTypeDef]
     ) -> UpdateResponderGatewayResponseTypeDef:
         """
-        Updates a responder gateway.
+        Updates the description, Auto Scaling group managed endpoint configuration,
+        trust store configuration, and client routing policy of a responder gateway.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rtbfabric/client/update_responder_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rtbfabric/client/#update_responder_gateway)

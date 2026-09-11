@@ -1,15 +1,13 @@
 Metadata-Version: 2.4
 Name: fiftyone-brain
-Version: 0.24.0
+Version: 0.25.0
 Summary: FiftyOne Brain
-Home-page: https://github.com/voxel51/fiftyone-brain
-Author: Voxel51, Inc.
-Author-email: info@voxel51.com
-License: Apache
+Author-email: Voxel51 <info@voxel51.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/voxel51/fiftyone-brain
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Image Processing
 Classifier: Topic :: Scientific/Engineering :: Image Recognition
@@ -30,17 +28,15 @@ License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: scipy>=1.2.0
 Requires-Dist: scikit-learn
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: imageio; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: voxel51-eta[storage]; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <div align="center">
 <p align="center">

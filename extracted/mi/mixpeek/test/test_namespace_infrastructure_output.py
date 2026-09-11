@@ -37,13 +37,11 @@ class TestNamespaceInfrastructureOutput(unittest.TestCase):
         if include_optional:
             return NamespaceInfrastructureOutput(
                 ray_cluster_id = 'ray_HqXzyCBw3_uufVPIPFhB9JcGRYnua_cdyyvLY8IzLpul9',
-                ray_head_node_url = '',
                 ray_dashboard_url = '',
                 qdrant_url = '',
                 qdrant_api_key_provided = True,
                 qdrant_collection = '012',
                 s3_vector_bucket = '',
-                compute_tier = 'shared',
                 max_concurrent_jobs = 1.0,
                 autoscaling_enabled = True,
                 min_workers = 0.0,

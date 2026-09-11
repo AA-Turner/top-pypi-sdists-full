@@ -36,7 +36,7 @@
 import functools
 import ssl
 import threading
-from typing import Callable, Type, Union, Any, Optional
+from typing import Callable, Type, Any
 
 import oracledb
 
@@ -53,10 +53,10 @@ class BaseConnectionPool(metaclass=BaseMetaClass):
 
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         *,
-        params: Optional[PoolParams] = None,
-        cache_name: Optional[str] = None,
+        params: PoolParams | None = None,
+        cache_name: str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -85,6 +85,8 @@ class BaseConnectionPool(metaclass=BaseMetaClass):
                 else:
                     impl = thick_impl.ThickPoolImpl(dsn, params_impl)
                 self._impl = impl
+                self._operation_callback = params_impl.operation_callback
+                self._round_trip_callback = params_impl.round_trip_callback
                 self.session_callback = params_impl.session_callback
                 self.on_connect_callback = params_impl.on_connect_callback
             except:
@@ -379,14 +381,14 @@ class ConnectionPool(BaseConnectionPool):
 
     def acquire(
         self,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        cclass: Optional[str] = None,
+        user: str | None = None,
+        password: str | None = None,
+        cclass: str | None = None,
         purity: int = oracledb.PURITY_DEFAULT,
-        tag: Optional[str] = None,
+        tag: str | None = None,
         matchanytag: bool = False,
-        shardingkey: Optional[list] = None,
-        supershardingkey: Optional[list] = None,
+        shardingkey: list | None = None,
+        supershardingkey: list | None = None,
     ) -> "connection_module.Connection":
         """
         Acquires a connection from the session pool and returns a
@@ -436,6 +438,8 @@ class ConnectionPool(BaseConnectionPool):
             shardingkey=shardingkey,
             supershardingkey=supershardingkey,
             on_connect_callback=self.on_connect_callback,
+            operation_callback=self._operation_callback,
+            round_trip_callback=self._round_trip_callback,
             pool=self,
         )
 
@@ -469,17 +473,17 @@ class ConnectionPool(BaseConnectionPool):
 
     def reconfigure(
         self,
-        min: Optional[int] = None,
-        max: Optional[int] = None,
-        increment: Optional[int] = None,
-        getmode: Optional[int] = None,
-        timeout: Optional[int] = None,
-        wait_timeout: Optional[int] = None,
-        max_lifetime_session: Optional[int] = None,
-        max_sessions_per_shard: Optional[int] = None,
-        soda_metadata_cache: Optional[bool] = None,
-        stmtcachesize: Optional[int] = None,
-        ping_interval: Optional[int] = None,
+        min: int | None = None,
+        max: int | None = None,
+        increment: int | None = None,
+        getmode: int | None = None,
+        timeout: int | None = None,
+        wait_timeout: int | None = None,
+        max_lifetime_session: int | None = None,
+        max_sessions_per_shard: int | None = None,
+        soda_metadata_cache: bool | None = None,
+        stmtcachesize: int | None = None,
+        ping_interval: int | None = None,
     ) -> None:
         """
         Reconfigures various parameters of a connection pool. The pool size can
@@ -558,7 +562,7 @@ class ConnectionPool(BaseConnectionPool):
     def release(
         self,
         connection: "connection_module.Connection",
-        tag: Optional[str] = None,
+        tag: str | None = None,
     ) -> None:
         """
         Releases the connection back to the pool now, rather than whenever
@@ -585,11 +589,9 @@ class ConnectionPool(BaseConnectionPool):
         if not isinstance(connection, connection_module.Connection):
             message = "connection must be an instance of oracledb.Connection"
             raise TypeError(message)
-        connection._verify_connected()
         if tag is not None:
             connection.tag = tag
-        self._impl.return_connection(connection._impl)
-        connection._impl = None
+        connection.close()
 
 
 def _pool_factory(
@@ -605,11 +607,11 @@ def _pool_factory(
 
     @functools.wraps(f)
     def create_pool(
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         *,
         pool_class: Type[ConnectionPool] = ConnectionPool,
-        pool_alias: Optional[str] = None,
-        params: Optional[PoolParams] = None,
+        pool_alias: str | None = None,
+        params: PoolParams | None = None,
         **kwargs,
     ) -> ConnectionPool:
         f(
@@ -628,79 +630,82 @@ def _pool_factory(
 
 @_pool_factory
 def create_pool(
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
     *,
     pool_class: Type[ConnectionPool] = ConnectionPool,
-    pool_alias: Optional[str] = None,
-    params: Optional[PoolParams] = None,
-    min: Optional[int] = None,
-    max: Optional[int] = None,
-    increment: Optional[int] = None,
-    connectiontype: Optional[Type["oracledb.Connection"]] = None,
-    getmode: Optional[oracledb.PoolGetMode] = None,
-    homogeneous: Optional[bool] = None,
-    timeout: Optional[int] = None,
-    wait_timeout: Optional[int] = None,
-    max_lifetime_session: Optional[int] = None,
-    session_callback: Optional[Callable] = None,
-    max_sessions_per_shard: Optional[int] = None,
-    soda_metadata_cache: Optional[bool] = None,
-    ping_interval: Optional[int] = None,
-    ping_timeout: Optional[int] = None,
-    user: Optional[str] = None,
-    proxy_user: Optional[str] = None,
-    password: Optional[str] = None,
-    newpassword: Optional[str] = None,
-    wallet_password: Optional[str] = None,
-    access_token: Optional[Union[str, tuple, Callable]] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    protocol: Optional[str] = None,
-    https_proxy: Optional[str] = None,
-    https_proxy_port: Optional[int] = None,
-    service_name: Optional[str] = None,
-    instance_name: Optional[str] = None,
-    sid: Optional[str] = None,
-    server_type: Optional[str] = None,
-    cclass: Optional[str] = None,
-    purity: Optional[oracledb.Purity] = None,
-    expire_time: Optional[int] = None,
-    retry_count: Optional[int] = None,
-    retry_delay: Optional[int] = None,
-    tcp_connect_timeout: Optional[float] = None,
-    ssl_server_dn_match: Optional[bool] = None,
-    ssl_server_cert_dn: Optional[str] = None,
-    wallet_location: Optional[str] = None,
-    events: Optional[bool] = None,
-    externalauth: Optional[bool] = None,
-    mode: Optional[oracledb.AuthMode] = None,
-    disable_oob: Optional[bool] = None,
-    stmtcachesize: Optional[int] = None,
-    edition: Optional[str] = None,
-    tag: Optional[str] = None,
-    matchanytag: Optional[bool] = None,
-    config_dir: Optional[str] = None,
-    appcontext: Optional[list] = None,
-    shardingkey: Optional[list] = None,
-    supershardingkey: Optional[list] = None,
-    debug_jdwp: Optional[str] = None,
-    connection_id_prefix: Optional[str] = None,
-    ssl_context: Optional[Any] = None,
-    sdu: Optional[int] = None,
-    pool_boundary: Optional[str] = None,
-    use_tcp_fast_open: Optional[bool] = None,
-    ssl_version: Optional[ssl.TLSVersion] = None,
-    program: Optional[str] = None,
-    machine: Optional[str] = None,
-    terminal: Optional[str] = None,
-    osuser: Optional[str] = None,
-    driver_name: Optional[str] = None,
-    use_sni: Optional[bool] = None,
-    thick_mode_dsn_passthrough: Optional[bool] = None,
-    extra_auth_params: Optional[dict] = None,
-    pool_name: Optional[str] = None,
-    on_connect_callback: Optional[Callable] = None,
-    handle: Optional[int] = None,
+    pool_alias: str | None = None,
+    params: PoolParams | None = None,
+    min: int | None = None,
+    max: int | None = None,
+    increment: int | None = None,
+    connectiontype: Type["oracledb.Connection"] | None = None,
+    getmode: oracledb.PoolGetMode | None = None,
+    homogeneous: bool | None = None,
+    timeout: int | None = None,
+    wait_timeout: int | None = None,
+    max_lifetime_session: int | None = None,
+    session_callback: Callable | None = None,
+    max_sessions_per_shard: int | None = None,
+    soda_metadata_cache: bool | None = None,
+    ping_interval: int | None = None,
+    ping_timeout: int | None = None,
+    user: str | None = None,
+    proxy_user: str | None = None,
+    password: str | None = None,
+    newpassword: str | None = None,
+    wallet_password: str | None = None,
+    access_token: str | tuple | Callable | None = None,
+    host: str | None = None,
+    port: int | None = None,
+    protocol: str | None = None,
+    https_proxy: str | None = None,
+    https_proxy_port: int | None = None,
+    service_name: str | None = None,
+    instance_name: str | None = None,
+    sid: str | None = None,
+    server_type: str | None = None,
+    cclass: str | None = None,
+    purity: oracledb.Purity | None = None,
+    expire_time: int | None = None,
+    retry_count: int | None = None,
+    retry_delay: int | None = None,
+    tcp_connect_timeout: float | None = None,
+    ssl_server_dn_match: bool | None = None,
+    ssl_server_cert_dn: str | None = None,
+    wallet_location: str | None = None,
+    events: bool | None = None,
+    externalauth: bool | None = None,
+    mode: oracledb.AuthMode | None = None,
+    disable_oob: bool | None = None,
+    stmtcachesize: int | None = None,
+    edition: str | None = None,
+    tag: str | None = None,
+    matchanytag: bool | None = None,
+    config_dir: str | None = None,
+    appcontext: list | None = None,
+    shardingkey: list | None = None,
+    supershardingkey: list | None = None,
+    debug_jdwp: str | None = None,
+    connection_id_prefix: str | None = None,
+    ssl_context: Any | None = None,
+    sdu: int | None = None,
+    pool_boundary: str | None = None,
+    use_tcp_fast_open: bool | None = None,
+    ssl_version: ssl.TLSVersion | None = None,
+    program: str | None = None,
+    machine: str | None = None,
+    terminal: str | None = None,
+    osuser: str | None = None,
+    driver_name: str | None = None,
+    use_sni: bool | None = None,
+    thick_mode_dsn_passthrough: bool | None = None,
+    extra_auth_params: dict | None = None,
+    pool_name: str | None = None,
+    on_connect_callback: Callable | None = None,
+    operation_callback: Callable | None = None,
+    round_trip_callback: Callable | None = None,
+    transaction_priority: oracledb.TransactionPriority | None = None,
+    handle: int | None = None,
 ) -> ConnectionPool:
     """
     Creates a connection pool with the supplied parameters and returns it.
@@ -908,9 +913,11 @@ def create_pool(
       (default: None)
 
     - ``wallet_location``: the directory where the wallet can be found. In
-      python-oracledb Thin mode this must be the directory containing the PEM-
-      encoded wallet file ewallet.pem. In python-oracledb Thick mode this must
-      be the directory containing the file cwallet.sso
+      python-oracledb Thin mode, a directory must contain the PEM-encoded
+      wallet file ewallet.pem. In python-oracledb Thick mode, a directory must
+      contain the file cwallet.sso. If the value specified is the keyword
+      ``SYSTEM``, it is handled the same way as an empty string or as not
+      specifying ``wallet_location``, and the system trust store is used
       (default: None)
 
     - ``events``: a boolean specifying whether events mode should be enabled.
@@ -1069,6 +1076,23 @@ def create_pool(
       object for DeepSec support
       (default: None)
 
+    - ``operation_callback``: a callable invoked before each database
+      operation. It receives the operation name followed by a mapping of the
+      operation arguments. It may return a completion callable, which receives
+      the result or raised exception
+      (default: None)
+
+    - ``round_trip_callback``: a callable invoked before each Thin mode round
+      trip. It receives the round trip name and may return a completion
+      callable, which receives the raised exception or *None* when the round
+      trip succeeds
+      (default: None)
+
+    - ``transaction_priority``: a member of the oracledb.TransactionPriority
+      enumeration that specifies the priority of any transaction that is
+      created by the connection
+      (default: None)
+
     - ``handle``: an integer representing a pointer to a valid service context
       handle. This value is only used in python-oracledb Thick mode. It should
       be used with extreme caution
@@ -1092,14 +1116,14 @@ class AsyncConnectionPool(BaseConnectionPool):
 
     def acquire(
         self,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        cclass: Optional[str] = None,
+        user: str | None = None,
+        password: str | None = None,
+        cclass: str | None = None,
         purity: int = oracledb.PURITY_DEFAULT,
-        tag: Optional[str] = None,
+        tag: str | None = None,
         matchanytag: bool = False,
-        shardingkey: Optional[list] = None,
-        supershardingkey: Optional[list] = None,
+        shardingkey: list | None = None,
+        supershardingkey: list | None = None,
     ) -> "connection_module.AsyncConnection":
         """
         Acquires a connection from the pool and returns an :ref:`asynchronous
@@ -1132,6 +1156,8 @@ class AsyncConnectionPool(BaseConnectionPool):
             shardingkey=shardingkey,
             supershardingkey=supershardingkey,
             on_connect_callback=self.on_connect_callback,
+            operation_callback=self._operation_callback,
+            round_trip_callback=self._round_trip_callback,
             pool=self,
         )
 
@@ -1168,7 +1194,7 @@ class AsyncConnectionPool(BaseConnectionPool):
     async def release(
         self,
         connection: "connection_module.AsyncConnection",
-        tag: Optional[str] = None,
+        tag: str | None = None,
     ) -> None:
         """
         Releases the connection back to the pool now. The connection will be
@@ -1185,11 +1211,9 @@ class AsyncConnectionPool(BaseConnectionPool):
                 "connection must be an instance of oracledb.AsyncConnection"
             )
             raise TypeError(message)
-        connection._verify_connected()
         if tag is not None:
             connection.tag = tag
-        await self._impl.return_connection(connection._impl)
-        connection._impl = None
+        await connection.close()
 
 
 def _async_pool_factory(
@@ -1205,11 +1229,11 @@ def _async_pool_factory(
 
     @functools.wraps(f)
     def create_pool_async(
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
         *,
         pool_class: Type[ConnectionPool] = AsyncConnectionPool,
-        pool_alias: Optional[str] = None,
-        params: Optional[PoolParams] = None,
+        pool_alias: str | None = None,
+        params: PoolParams | None = None,
         **kwargs,
     ) -> AsyncConnectionPool:
         f(
@@ -1229,79 +1253,82 @@ def _async_pool_factory(
 
 @_async_pool_factory
 def create_pool_async(
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
     *,
     pool_class: Type[ConnectionPool] = AsyncConnectionPool,
-    pool_alias: Optional[str] = None,
-    params: Optional[PoolParams] = None,
-    min: Optional[int] = None,
-    max: Optional[int] = None,
-    increment: Optional[int] = None,
-    connectiontype: Optional[Type["oracledb.AsyncConnection"]] = None,
-    getmode: Optional[oracledb.PoolGetMode] = None,
-    homogeneous: Optional[bool] = None,
-    timeout: Optional[int] = None,
-    wait_timeout: Optional[int] = None,
-    max_lifetime_session: Optional[int] = None,
-    session_callback: Optional[Callable] = None,
-    max_sessions_per_shard: Optional[int] = None,
-    soda_metadata_cache: Optional[bool] = None,
-    ping_interval: Optional[int] = None,
-    ping_timeout: Optional[int] = None,
-    user: Optional[str] = None,
-    proxy_user: Optional[str] = None,
-    password: Optional[str] = None,
-    newpassword: Optional[str] = None,
-    wallet_password: Optional[str] = None,
-    access_token: Optional[Union[str, tuple, Callable]] = None,
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    protocol: Optional[str] = None,
-    https_proxy: Optional[str] = None,
-    https_proxy_port: Optional[int] = None,
-    service_name: Optional[str] = None,
-    instance_name: Optional[str] = None,
-    sid: Optional[str] = None,
-    server_type: Optional[str] = None,
-    cclass: Optional[str] = None,
-    purity: Optional[oracledb.Purity] = None,
-    expire_time: Optional[int] = None,
-    retry_count: Optional[int] = None,
-    retry_delay: Optional[int] = None,
-    tcp_connect_timeout: Optional[float] = None,
-    ssl_server_dn_match: Optional[bool] = None,
-    ssl_server_cert_dn: Optional[str] = None,
-    wallet_location: Optional[str] = None,
-    events: Optional[bool] = None,
-    externalauth: Optional[bool] = None,
-    mode: Optional[oracledb.AuthMode] = None,
-    disable_oob: Optional[bool] = None,
-    stmtcachesize: Optional[int] = None,
-    edition: Optional[str] = None,
-    tag: Optional[str] = None,
-    matchanytag: Optional[bool] = None,
-    config_dir: Optional[str] = None,
-    appcontext: Optional[list] = None,
-    shardingkey: Optional[list] = None,
-    supershardingkey: Optional[list] = None,
-    debug_jdwp: Optional[str] = None,
-    connection_id_prefix: Optional[str] = None,
-    ssl_context: Optional[Any] = None,
-    sdu: Optional[int] = None,
-    pool_boundary: Optional[str] = None,
-    use_tcp_fast_open: Optional[bool] = None,
-    ssl_version: Optional[ssl.TLSVersion] = None,
-    program: Optional[str] = None,
-    machine: Optional[str] = None,
-    terminal: Optional[str] = None,
-    osuser: Optional[str] = None,
-    driver_name: Optional[str] = None,
-    use_sni: Optional[bool] = None,
-    thick_mode_dsn_passthrough: Optional[bool] = None,
-    extra_auth_params: Optional[dict] = None,
-    pool_name: Optional[str] = None,
-    on_connect_callback: Optional[Callable] = None,
-    handle: Optional[int] = None,
+    pool_alias: str | None = None,
+    params: PoolParams | None = None,
+    min: int | None = None,
+    max: int | None = None,
+    increment: int | None = None,
+    connectiontype: Type["oracledb.AsyncConnection"] | None = None,
+    getmode: oracledb.PoolGetMode | None = None,
+    homogeneous: bool | None = None,
+    timeout: int | None = None,
+    wait_timeout: int | None = None,
+    max_lifetime_session: int | None = None,
+    session_callback: Callable | None = None,
+    max_sessions_per_shard: int | None = None,
+    soda_metadata_cache: bool | None = None,
+    ping_interval: int | None = None,
+    ping_timeout: int | None = None,
+    user: str | None = None,
+    proxy_user: str | None = None,
+    password: str | None = None,
+    newpassword: str | None = None,
+    wallet_password: str | None = None,
+    access_token: str | tuple | Callable | None = None,
+    host: str | None = None,
+    port: int | None = None,
+    protocol: str | None = None,
+    https_proxy: str | None = None,
+    https_proxy_port: int | None = None,
+    service_name: str | None = None,
+    instance_name: str | None = None,
+    sid: str | None = None,
+    server_type: str | None = None,
+    cclass: str | None = None,
+    purity: oracledb.Purity | None = None,
+    expire_time: int | None = None,
+    retry_count: int | None = None,
+    retry_delay: int | None = None,
+    tcp_connect_timeout: float | None = None,
+    ssl_server_dn_match: bool | None = None,
+    ssl_server_cert_dn: str | None = None,
+    wallet_location: str | None = None,
+    events: bool | None = None,
+    externalauth: bool | None = None,
+    mode: oracledb.AuthMode | None = None,
+    disable_oob: bool | None = None,
+    stmtcachesize: int | None = None,
+    edition: str | None = None,
+    tag: str | None = None,
+    matchanytag: bool | None = None,
+    config_dir: str | None = None,
+    appcontext: list | None = None,
+    shardingkey: list | None = None,
+    supershardingkey: list | None = None,
+    debug_jdwp: str | None = None,
+    connection_id_prefix: str | None = None,
+    ssl_context: Any | None = None,
+    sdu: int | None = None,
+    pool_boundary: str | None = None,
+    use_tcp_fast_open: bool | None = None,
+    ssl_version: ssl.TLSVersion | None = None,
+    program: str | None = None,
+    machine: str | None = None,
+    terminal: str | None = None,
+    osuser: str | None = None,
+    driver_name: str | None = None,
+    use_sni: bool | None = None,
+    thick_mode_dsn_passthrough: bool | None = None,
+    extra_auth_params: dict | None = None,
+    pool_name: str | None = None,
+    on_connect_callback: Callable | None = None,
+    operation_callback: Callable | None = None,
+    round_trip_callback: Callable | None = None,
+    transaction_priority: oracledb.TransactionPriority | None = None,
+    handle: int | None = None,
 ) -> AsyncConnectionPool:
     """
     Creates a connection pool with the supplied parameters and returns it.
@@ -1509,9 +1536,11 @@ def create_pool_async(
       (default: None)
 
     - ``wallet_location``: the directory where the wallet can be found. In
-      python-oracledb Thin mode this must be the directory containing the PEM-
-      encoded wallet file ewallet.pem. In python-oracledb Thick mode this must
-      be the directory containing the file cwallet.sso
+      python-oracledb Thin mode, a directory must contain the PEM-encoded
+      wallet file ewallet.pem. In python-oracledb Thick mode, a directory must
+      contain the file cwallet.sso. If the value specified is the keyword
+      ``SYSTEM``, it is handled the same way as an empty string or as not
+      specifying ``wallet_location``, and the system trust store is used
       (default: None)
 
     - ``events``: a boolean specifying whether events mode should be enabled.
@@ -1670,6 +1699,23 @@ def create_pool_async(
       object for DeepSec support
       (default: None)
 
+    - ``operation_callback``: a callable invoked before each database
+      operation. It receives the operation name followed by a mapping of the
+      operation arguments. It may return a completion callable, which receives
+      the result or raised exception
+      (default: None)
+
+    - ``round_trip_callback``: a callable invoked before each Thin mode round
+      trip. It receives the round trip name and may return a completion
+      callable, which receives the raised exception or *None* when the round
+      trip succeeds
+      (default: None)
+
+    - ``transaction_priority``: a member of the oracledb.TransactionPriority
+      enumeration that specifies the priority of any transaction that is
+      created by the connection
+      (default: None)
+
     - ``handle``: an integer representing a pointer to a valid service context
       handle. This value is only used in python-oracledb Thick mode. It should
       be used with extreme caution
@@ -1710,9 +1756,28 @@ class NamedPools:
 named_pools = NamedPools()
 
 
+def check_pool_alias(
+    pool: ConnectionPool | AsyncConnectionPool | None, pool_alias: str
+) -> ConnectionPool | AsyncConnectionPool:
+    """
+    Validates the pool and pool_alias parameters used when creating a
+    connection and returns the pool to use.
+    """
+    if pool is not None:
+        errors._raise_err(
+            errors.ERR_DUPLICATED_PARAMETER,
+            deprecated_name="pool",
+            new_name="pool_alias",
+        )
+    pool = get_pool(pool_alias)
+    if pool is None:
+        errors._raise_err(errors.ERR_NAMED_POOL_MISSING, alias=pool_alias)
+    return pool
+
+
 def get_pool(
     pool_alias: str,
-) -> Union[ConnectionPool, AsyncConnectionPool, None]:
+) -> ConnectionPool | AsyncConnectionPool | None:
     """
     Returns a :ref:`ConnectionPool object <connpool>` from the python-oracledb
     pool cache. The pool must have been previously created by passing the same

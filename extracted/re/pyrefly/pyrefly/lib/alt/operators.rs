@@ -19,6 +19,7 @@ use pyrefly_types::simplify::intersect;
 use pyrefly_types::type_var::Restriction;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::CmpOp;
+use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprCompare;
 use ruff_python_ast::ExprUnaryOp;
@@ -34,6 +35,7 @@ use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::call::CallStyle;
 use crate::alt::callable::CallArg;
 use crate::alt::expr::MAX_TUPLE_LENGTH;
+use crate::alt::solve::TypeFormContext;
 use crate::alt::unwrap::HintRef;
 use crate::binding::binding::KeyAnnotation;
 use crate::config::error_kind::ErrorKind;
@@ -41,6 +43,7 @@ use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
+use crate::types::class::Class;
 use crate::types::literal::Lit;
 use crate::types::tuple::Tuple;
 use crate::types::types::Type;
@@ -53,7 +56,7 @@ enum EqualityCompatibilityGroup {
     Str,
 }
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     fn callable_dunder_helper(
         &self,
         method_type: Type,
@@ -283,22 +286,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     .mk_unpacked_tuple(Vec::new(), self.heap.mk_tuple(l.clone()), r.clone())
             }
             (Tuple::Unpacked(l), Tuple::Concrete(r)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l;
-                let mut new_suffix = l_suffix.clone();
+                let (l_prefix, l_middle, l_suffix) = l.parts();
+                let mut new_suffix = l_suffix.to_vec();
                 new_suffix.extend(r.clone());
                 self.heap
-                    .mk_unpacked_tuple(l_prefix.clone(), l_middle.clone(), new_suffix)
+                    .mk_unpacked_tuple(l_prefix.to_vec(), l_middle.clone(), new_suffix)
             }
             (Tuple::Concrete(l), Tuple::Unpacked(r)) => {
-                let (r_prefix, r_middle, r_suffix) = &**r;
+                let (r_prefix, r_middle, r_suffix) = r.parts();
                 let mut new_prefix = l.clone();
-                new_prefix.extend(r_prefix.clone());
+                new_prefix.extend(r_prefix.to_vec());
                 self.heap
-                    .mk_unpacked_tuple(new_prefix, r_middle.clone(), r_suffix.clone())
+                    .mk_unpacked_tuple(new_prefix, r_middle.clone(), r_suffix.to_vec())
             }
             (Tuple::Unbounded(l), Tuple::Unpacked(r)) => {
-                let (r_prefix, r_middle, r_suffix) = &**r;
-                let mut middle = r_prefix.clone();
+                let (r_prefix, r_middle, r_suffix) = r.parts();
+                let mut middle = r_prefix.to_vec();
                 middle.push((**l).clone());
                 middle.push(
                     self.unwrap_iterable(r_middle)
@@ -307,28 +310,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.heap.mk_unpacked_tuple(
                     Vec::new(),
                     self.heap.mk_unbounded_tuple(self.unions(middle)),
-                    r_suffix.clone(),
+                    r_suffix.to_vec(),
                 )
             }
             (Tuple::Unpacked(l), Tuple::Unbounded(r)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l;
-                let mut middle = l_suffix.clone();
+                let (l_prefix, l_middle, l_suffix) = l.parts();
+                let mut middle = l_suffix.to_vec();
                 middle.push((**r).clone());
                 middle.push(
                     self.unwrap_iterable(l_middle)
                         .unwrap_or_else(|| self.heap.mk_any_implicit()),
                 );
                 self.heap.mk_unpacked_tuple(
-                    l_prefix.clone(),
+                    l_prefix.to_vec(),
                     self.heap.mk_unbounded_tuple(self.unions(middle)),
                     Vec::new(),
                 )
             }
             (Tuple::Unpacked(l), Tuple::Unpacked(r)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l;
-                let (r_prefix, r_middle, r_suffix) = &**r;
-                let mut middle = l_suffix.clone();
-                middle.extend(r_prefix.clone());
+                let (l_prefix, l_middle, l_suffix) = l.parts();
+                let (r_prefix, r_middle, r_suffix) = r.parts();
+                let mut middle = l_suffix.to_vec();
+                middle.extend(r_prefix.to_vec());
                 middle.push(
                     self.unwrap_iterable(l_middle)
                         .unwrap_or_else(|| self.heap.mk_any_implicit()),
@@ -338,9 +341,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .unwrap_or_else(|| self.heap.mk_any_implicit()),
                 );
                 self.heap.mk_unpacked_tuple(
-                    l_prefix.clone(),
+                    l_prefix.to_vec(),
                     self.heap.mk_unbounded_tuple(self.unions(middle)),
-                    r_suffix.clone(),
+                    r_suffix.to_vec(),
                 )
             }
         }
@@ -383,10 +386,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         x: &ExprBinOp,
         hint: Option<HintRef>,
         errors: &ErrorCollector,
+        type_form_context: Option<TypeFormContext<'_>>,
     ) -> Type {
         let lhs;
         let rhs;
-        if Ast::is_list_literal_or_comprehension(&x.left) && x.op == Operator::Mult {
+        if x.op == Operator::BitOr
+            && let Some(type_form_context) = type_form_context
+        {
+            let member_context = TypeFormContext::UnionMember(&type_form_context);
+            lhs = self
+                .expr_infer_impl(&x.left, None, errors, Some(member_context))
+                .into_ty();
+            rhs = self
+                .expr_infer_impl(&x.right, None, errors, Some(member_context))
+                .into_ty();
+        } else if Ast::is_list_literal_or_comprehension(&x.left) && x.op == Operator::Mult {
             // If the expression is of the form [X] * Y where Y is a number, pass down the contextual
             // type hint when evaluating [X]
             rhs = self.expr_infer(&x.right, errors);
@@ -404,7 +418,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             rhs = self.expr_infer_with_hint(&x.right, hint, errors);
         } else {
             lhs = self.expr_infer(&x.left, errors);
-            rhs = self.expr_infer(&x.right, errors);
+            rhs = if x.op == Operator::BitOr
+                && matches!(&*x.right, Expr::Dict(_))
+                && matches!(&lhs, Type::ClassType(cls) if cls.class_object().is_builtin("dict"))
+            {
+                self.expr_infer_with_hint(&x.right, Some(HintRef::soft(&lhs)), errors)
+            } else {
+                self.expr_infer(&x.right, errors)
+            };
         }
 
         // Optimisation: If we have `Union[a, b] | Union[c, d]`, instead of unioning
@@ -568,15 +589,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // Then e1 + e2 should have a return type of Any since e2's __radd__  signature could be
                 // inconsistent with the signature of e1 __add__.
                 //
-                // Exception: when one operand is a shaped Tensor, fall through
-                // to dunder dispatch. Tensor's arithmetic dunders accept any
-                // numeric type and return Self, so the shape is preserved
-                // regardless of the other operand's type. Without this, e.g.
-                // Tensor[B, 1] / (2**n - 1.0) loses shape because 2**n is Any.
-                if (lhs.is_any() || rhs.is_any())
-                    && !matches!(lhs, Type::ShapedArray(_))
-                    && !matches!(rhs, Type::ShapedArray(_))
-                {
+                if lhs.is_any() || rhs.is_any() {
                     if let Type::Any(style) = &rhs {
                         return style.propagate();
                     } else if let Type::Any(style) = &lhs {
@@ -679,7 +692,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.try_binop_calls(&calls_to_try, range, errors, &context)
         };
         let base = self.expr_infer(&x.target, errors);
-        let rhs = self.expr_infer(&x.value, errors);
+        let rhs = if x.op == Operator::BitOr
+            && matches!(&*x.value, Expr::Dict(_))
+            && matches!(&base, Type::ClassType(cls) if cls.class_object().is_builtin("dict"))
+        {
+            self.expr_infer_with_hint(&x.value, Some(HintRef::soft(&base)), errors)
+        } else {
+            self.expr_infer(&x.value, errors)
+        };
         if matches!(x.op, Operator::Div | Operator::FloorDiv | Operator::Mod)
             && Self::is_literal_zero(&rhs)
         {
@@ -723,7 +743,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         });
         // If we're assigning to something with an annotation, make sure the produced value is assignable to it
         if let Some(ann) = ann.map(|k| self.get_idx(k)) {
-            self.check_final_reassignment(&ann, x.range(), errors);
+            self.check_final_reassignment(ann, x.range(), errors);
             if let Some(ann_ty) = ann.ty(self.heap, self.stdlib) {
                 if result.is_any() {
                     // Any provides no useful narrowing information, so preserve
@@ -828,6 +848,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 current_right_range,
                             )
                         };
+                        // `datetime` inherits from `date`, but their runtime ordering methods
+                        // reject the other type instead of honoring that nominal relationship.
+                        if matches!(op, CmpOp::Lt | CmpOp::LtE | CmpOp::Gt | CmpOp::GtE)
+                            && matches!(
+                                (left, right),
+                                (Type::ClassType(left), Type::ClassType(right))
+                                    if (left == self.stdlib.datetime()
+                                        && right == self.stdlib.date())
+                                        || (left == self.stdlib.date()
+                                            && right == self.stdlib.datetime())
+                            )
+                        {
+                            self.error(
+                                errors,
+                                x.range,
+                                ErrorKind::UnsupportedOperation,
+                                context().format(),
+                            );
+                            return self.heap.mk_class_type(self.stdlib.bool().clone());
+                        }
                         match op {
                             CmpOp::Is | CmpOp::IsNot => {
                                 // These comparisons never error.
@@ -1021,7 +1061,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match (left, right) {
             // If both are literals/None, check for predictable results
             (Type::Literal(l1), Type::Literal(l2)) => {
-                if l1 != l2 {
+                // Explicit/implicit literal style is typing metadata, not runtime identity.
+                if l1.value != l2.value {
                     emit_literal_warning(
                         &l1.value.to_string(),
                         &l2.value.to_string(),
@@ -1106,13 +1147,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         );
     }
 
-    fn equality_compatibility_group(&self, ty: &Type) -> Option<EqualityCompatibilityGroup> {
-        let class = match ty {
+    fn equality_class<'b>(&'b self, ty: &'b Type) -> Option<&'b Class> {
+        Some(match ty {
             Type::ClassType(cls) => cls.class_object(),
             Type::Literal(lit) => lit.value.general_class_type(self.stdlib).class_object(),
             Type::LiteralString(_) => self.stdlib.str().class_object(),
             _ => return None,
-        };
+        })
+    }
+
+    fn equality_compatibility_group(&self, ty: &Type) -> Option<EqualityCompatibilityGroup> {
+        let class = self.equality_class(ty)?;
         match (class.qname().module_name().as_str(), class.name().as_str()) {
             ("builtins", "bool" | "int" | "float" | "complex") | ("decimal", "Decimal") => {
                 Some(EqualityCompatibilityGroup::Numeric)
@@ -1124,5 +1169,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ("builtins", "str") => Some(EqualityCompatibilityGroup::Str),
             _ => None,
         }
+    }
+
+    /// Returns whether builtin equality may succeed without nominal type overlap.
+    pub(crate) fn equality_can_match_disjoint(&self, left: &Type, right: &Type) -> bool {
+        let compatibility_group = |ty: &Type| {
+            self.equality_compatibility_group(ty).or_else(|| {
+                let class = self.equality_class(ty)?;
+                self.get_mro_for_class(class)
+                    .ancestors_no_object()
+                    .iter()
+                    .find_map(|ancestor| {
+                        self.equality_compatibility_group(&Type::ClassType(ancestor.clone()))
+                    })
+            })
+        };
+        let left_class = self.equality_class(left);
+        let right_class = self.equality_class(right);
+        let left_group = compatibility_group(left);
+        left_class != right_class
+            && left_group.is_some()
+            && left_group == compatibility_group(right)
     }
 }

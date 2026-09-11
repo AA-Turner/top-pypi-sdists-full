@@ -81,13 +81,17 @@ def ensure_ext(filepath: str, ext: str, *, case_sensitive: bool = False) -> str:
         :return: The file path with the given extension.
     """
 
-def is_autoexec(dirpath: bytes | str) -> bool:
-    """Check if blend-files in a directory are trusted to run scripts automatically,
-    based on the excluded paths in the preferences.
-    The preference to enable automatic script execution isnt taken into account.
+def is_autoexec(
+    path: bytes | str, *, canonicalize: bool = False, strip_filename: bool = False
+) -> bool:
+    """Return false when a directory is excluded from running scripts automatically,
+    see `bpy.types.PreferencesFilePaths.autoexec_paths`.
 
-        :param dirpath: The directory to check, expected to end with a path separator.
-        :return: False when the directory matches an excluded path, otherwise True.
+        :param path: The directory to check, expected to end with a path separator.
+        :param canonicalize: Resolve the path first,
+    disable when its known to be resolved.
+        :param strip_filename: Use the directory of path, otherwise it is a directory already.
+        :return: True when blend-files in the directory are trusted to run scripts.
     """
 
 def is_subdir(path: bytes | str, directory: bytes | str) -> bool:

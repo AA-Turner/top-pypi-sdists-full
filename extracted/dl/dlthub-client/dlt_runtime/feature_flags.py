@@ -1,9 +1,9 @@
 # Python internals
-from enum import StrEnum
+from enum import Enum
 from typing import Protocol
 
 
-class FeatureFlag(StrEnum):
+class FeatureFlag(str, Enum):
     """Registry of WorkOS feature flag slugs."""
 
 

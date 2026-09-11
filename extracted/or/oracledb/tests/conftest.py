@@ -70,6 +70,7 @@
 # user for on premises databases is SYSTEM.
 # -----------------------------------------------------------------------------
 
+import datetime
 import importlib
 import os
 import platform
@@ -81,6 +82,19 @@ import numpy
 import oracledb
 import pandas
 import pytest
+
+# All of the tests depend on thick mode DSN passthrough being False for
+# consistency in behaviour
+oracledb.defaults.thick_mode_dsn_passthrough = False
+
+
+def pytest_ignore_collect(collection_path, config):
+    """
+    Informs pytest to completely ignore files in directories that contain code
+    that is only capable of being run by particular Python versions.
+    """
+    if "py314" in collection_path.parts and sys.version_info < (3, 14):
+        return True
 
 
 class DefaultsContextManager:
@@ -99,32 +113,55 @@ class DefaultsContextManager:
 
 class FullCodeErrorContextManager:
 
-    def __init__(self, full_codes):
+    def __init__(self, full_codes, cause_full_codes=[]):
         self.full_codes = full_codes
-        if len(full_codes) == 1:
-            self.message_fragment = f'Error "{full_codes[0]}"'
-        else:
-            message_fragment = ", ".join(f'"{s}"' for s in full_codes[:-1])
-            message_fragment += f' or "{full_codes[-1]}"'
-            self.message_fragment = f"One of the errors {message_fragment}"
+        self.message_fragment = self._get_message_fragment(full_codes)
+        self.cause_full_codes = cause_full_codes
+        self.cause_message_fragment = self._get_message_fragment(
+            cause_full_codes
+        )
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, tb):
-        if exc_type is None:
-            raise AssertionError(f"{self.message_fragment} was not raised.")
-        if not issubclass(exc_type, oracledb.Error):
-            return False
-        if issubclass(exc_type, oracledb.Error):
-            self.error_obj = exc_value.args[0]
-            if self.error_obj.full_code not in self.full_codes:
-                message = (
-                    f"{self.message_fragment} should have been raised but "
-                    f'"{self.error_obj.full_code}" was raised instead.'
-                )
-                raise AssertionError(message)
+        self.error_obj = self._check_exception(
+            exc_value, self.full_codes, self.message_fragment
+        )
+        if self.cause_full_codes:
+            self._check_exception(
+                exc_value.__cause__,
+                self.cause_full_codes,
+                self.cause_message_fragment,
+            )
         return True
+
+    def _check_exception(self, exc_value, full_codes, message_fragment):
+        """
+        Checks that the exception matches the requested criteria.
+        """
+        if exc_value is None:
+            raise AssertionError(f"{message_fragment} was not raised.")
+        if isinstance(exc_value, oracledb.Error):
+            error_obj = exc_value.args[0]
+            if error_obj.full_code in full_codes:
+                return error_obj
+        message = (
+            f"{message_fragment} should have been raised but "
+            f'"{exc_value}" was raised instead.'
+        )
+        raise AssertionError(message)
+
+    def _get_message_fragment(self, full_codes):
+        """
+        Returns a message fragement for the specified full codes.
+        """
+        if len(full_codes) == 1:
+            return f'Error "{full_codes[0]}"'
+        elif full_codes:
+            message_fragment = ", ".join(f'"{s}"' for s in full_codes[:-1])
+            message_fragment += f' or "{full_codes[-1]}"'
+            return f"One of the errors {message_fragment}"
 
 
 class SystemStatInfo:
@@ -195,6 +232,16 @@ class TestEnv:
         """
         if isinstance(df_val, numpy.ndarray):
             return df_val.tolist()
+        elif isinstance(df_val, pandas.DateOffset):
+            if df_val.months != 0:
+                sign = -1 if df_val.months < 0 else 1
+                years, months = divmod(df_val.months * sign, 12)
+                return oracledb.IntervalYM(
+                    years=years * sign, months=months * sign
+                )
+            return datetime.timedelta(
+                days=df_val.days, microseconds=df_val.microseconds
+            )
         elif pandas.isna(df_val):
             return None
         elif isinstance(df_val, dict):
@@ -245,8 +292,7 @@ class TestEnv:
         if self.use_thick_mode:
             if oracledb.is_thin_mode():
                 oracledb.init_oracle_client(lib_dir=self.oracle_client_path)
-            oracledb.defaults.thick_mode_dsn_passthrough = False
-            self.client_version = oracledb.clientversion()[:2]
+            self.client_version = oracledb.clientversion()[:3]
 
         # import any requested plugins
         if self.plugins is not None:
@@ -257,7 +303,7 @@ class TestEnv:
         # establish a connection to determine the remaining information
         params = self.get_connect_params()
         with oracledb.connect(dsn=self.connect_string, params=params) as conn:
-            version_parts = conn.version.split(".")[:2]
+            version_parts = conn.version.split(".")[:3]
             self.server_version = tuple(int(s) for s in version_parts)
             self.is_drcp = self._is_drcp()
             self.is_implicit_pooling = self._is_implicit_pooling()
@@ -322,52 +368,37 @@ class TestEnv:
         """
         return FullCodeErrorContextManager(full_codes)
 
+    def assert_raises_from_cause(self, primary_full_code, cause_full_code):
+        """
+        Verifies that the block of code raises an exception with the specified
+        primary full code with a cause corresponding to the cause full code.
+        """
+        return FullCodeErrorContextManager(
+            [primary_full_code], [cause_full_code]
+        )
+
     def create_schema(self, conn):
         """
         Creates the database objects used by the python-oracledb test suite.
         """
         self.drop_schema(conn)
-        self.run_sql_script(
-            conn,
-            "create_schema",
-            main_user=self.main_user,
-            main_password=self.main_password,
-            proxy_user=self.proxy_user,
-            proxy_password=self.proxy_password,
-            edition_name=self.edition_name,
-        )
+        self.run_sql_script(conn, "create_schema")
         if self.has_server_version(21):
-            self.run_sql_script(
-                conn, "create_schema_21", main_user=self.main_user
-            )
+            self.run_sql_script(conn, "create_schema_21")
         if self.has_server_version(23, 4):
-            self.run_sql_script(
-                conn, "create_schema_23_4", main_user=self.main_user
-            )
+            self.run_sql_script(conn, "create_schema_23_4")
         if self.has_server_version(23, 5):
-            self.run_sql_script(
-                conn, "create_schema_23_5", main_user=self.main_user
-            )
+            self.run_sql_script(conn, "create_schema_23_5")
         if self.has_server_version(23, 7):
-            self.run_sql_script(
-                conn, "create_schema_23_7", main_user=self.main_user
-            )
+            self.run_sql_script(conn, "create_schema_23_7")
         if self.is_on_oracle_cloud:
-            self.run_sql_script(
-                conn, "create_schema_cloud", main_user=self.main_user
-            )
+            self.run_sql_script(conn, "create_schema_cloud")
 
     def drop_schema(self, conn):
         """
         Drops the database objects used by the python-oracledb test suite.
         """
-        self.run_sql_script(
-            conn,
-            "drop_schema",
-            main_user=self.main_user,
-            proxy_user=self.proxy_user,
-            edition_name=self.edition_name,
-        )
+        self.run_sql_script(conn, "drop_schema")
 
     def defaults_context_manager(self, attribute, desired_value):
         """
@@ -586,18 +617,26 @@ class TestEnv:
                 """)
             return cursor.fetchone()
 
-    def has_client_and_server_version(self, major_version, minor_version=0):
+    def has_client_and_server_version(
+        self, major_version, minor_version=0, patch_version=0
+    ):
         """
         Returns a boolean indicating if the test environment is using a client
         version and a database with the specified version or later.
         """
-        if not self.has_client_version(major_version, minor_version):
+        if not self.has_client_version(
+            major_version, minor_version, patch_version
+        ):
             return False
-        if not self.has_server_version(major_version, minor_version):
+        if not self.has_server_version(
+            major_version, minor_version, patch_version
+        ):
             return False
         return True
 
-    def has_client_version(self, major_version, minor_version=0):
+    def has_client_version(
+        self, major_version, minor_version=0, patch_version=0
+    ):
         """
         Returns a boolean indicating if the test environment is using a client
         version with the specified version or later.
@@ -605,24 +644,41 @@ class TestEnv:
         self._initialize()
         if oracledb.is_thin_mode():
             return True
-        return self.client_version >= (major_version, minor_version)
+        return self.client_version >= (
+            major_version,
+            minor_version,
+            patch_version,
+        )
 
-    def has_server_version(self, major_version, minor_version=0):
+    def has_server_version(
+        self, major_version, minor_version=0, patch_version=0
+    ):
         """
         Returns a boolean indicating if the test environment is using a server
         version with the specified version or later.
         """
         self._initialize()
-        return self.server_version >= (major_version, minor_version)
+        return self.server_version >= (
+            major_version,
+            minor_version,
+            patch_version,
+        )
 
-    def run_sql_script(self, conn, script_name, **kwargs):
+    def run_sql_script(self, conn, script_name):
         """
         Runs the specified script with the specified replacement values.
         """
         statement_parts = []
         cursor = conn.cursor()
-        replace_values = [("&" + k + ".", v) for k, v in kwargs.items()] + [
-            ("&" + k, v) for k, v in kwargs.items()
+        params = dict(
+            main_user=self.main_user,
+            main_password=self.main_password,
+            proxy_user=self.proxy_user,
+            proxy_password=self.proxy_password,
+            edition_name=self.edition_name,
+        )
+        replace_values = [("&" + k + ".", v) for k, v in params.items()] + [
+            ("&" + k, v) for k, v in params.items()
         ]
         script_dir = os.path.dirname(__file__)
         file_name = os.path.join(script_dir, "sql", script_name + ".sql")
@@ -969,6 +1025,15 @@ def skip_unless_thin_mode(test_env):
     """
     if test_env.use_thick_mode:
         pytest.skip("requires thin mode")
+
+
+@pytest.fixture(scope="session")
+def skip_unless_transaction_priority_supported(test_env):
+    """
+    Skips the test if setting transaction priority is not supported.
+    """
+    if not test_env.has_client_and_server_version(23, 26, 2):
+        pytest.skip("no transaction priority support")
 
 
 @pytest.fixture(scope="session")

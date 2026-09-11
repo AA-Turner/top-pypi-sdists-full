@@ -1750,6 +1750,21 @@ async def _finalize_and_persist(
         result_end_position=post_count - 1 if has_new_messages else None,
     )
 
+    # Persist an explicit success fact on the generated assistant message.
+    # Future turns rely on this marker rather than reinterpreting arbitrary JSON
+    # (or a failed provider's valid-looking partial output) as proof that the
+    # one-answer structured contract was fulfilled. Full JSON Schema validation
+    # happens before the marker is written.
+    from matrx_ai.config.response_format import is_clean_structured_output_completion
+
+    if is_clean_structured_output_completion(metadata) and not skip_structured_output:
+        from matrx_ai.config.response_format import mark_structured_output_contract_satisfied
+
+        mark_structured_output_contract_satisfied(
+            completed.request.config,
+            result_start_position=completed.result_start_position,
+        )
+
     conv_id = conversation_id or current_request.conversation_id or None
     req_id = current_request.request_id or None
 
@@ -3667,6 +3682,9 @@ async def _execute_until_complete_inner(
                 current_timing.api_call_duration = time.time() - t0
                 current_timing.model = current_request.config.model
 
+                # Bound on EVERY path: the missing-usage capture below reads it
+                # even when request snapshots are disabled for this run.
+                snap_provider = state.snapshot_provider
                 if _request_snapshot_enabled(exec_ctx):
                     # Pull the payload captured by the provider's execute()
                     # just before the SDK call. Clear it so we don't carry it

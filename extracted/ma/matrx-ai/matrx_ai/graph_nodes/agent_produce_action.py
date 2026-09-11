@@ -60,6 +60,7 @@ from pydantic import BaseModel, ConfigDict
 from matrx_ai.graph_nodes.agent_action import (
     AgentStartConfig,
     AgentStartInput,
+    MandateSelectorInput,
     build_agent_request,
     require_agent_host,
     resolve_step_agent_full,
@@ -73,14 +74,20 @@ logger = logging.getLogger(__name__)
 _NODE_TYPE = "ai.agent.produce"
 
 
-class AgentProduceInput(AgentStartInput):
-    """Identical to ``ai.agent.start``'s input — same agent, same contract.
+class AgentProduceInput(AgentStartInput, MandateSelectorInput):
+    """``ai.agent.start``'s input, plus the optional Mandate selector.
 
     Deliberately a subclass and not a trimmed copy: everything the API supports
     the workflow supports, by construction. The kind is NOT an input field — it
     is the node instance's ``data.output_kind`` declaration, the same value the
     scheduler validates the result against. A second place to say it would be a
     second thing that can disagree.
+
+    Unlike Run Agent, this step keeps ``mandate_key``: its whole purpose is a
+    step whose OUTPUT KIND is the contract, and a Mandate declares an
+    ``output_kind`` this node checks its own declaration against
+    (``_assert_declarations_agree``). Exactly one selector may be set — the
+    shared resolver refuses both.
     """
 
 

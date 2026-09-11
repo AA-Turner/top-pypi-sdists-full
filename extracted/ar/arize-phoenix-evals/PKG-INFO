@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix-evals
-Version: 3.6.0
+Version: 3.7.0
 Summary: LLM Evaluations
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -40,7 +40,6 @@ Requires-Dist: openai>=1.0.0; extra == 'test'
 Requires-Dist: openinference-semantic-conventions; extra == 'test'
 Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pandas-stubs==2.0.3.230814; extra == 'test'
-Requires-Dist: respx; extra == 'test'
 Requires-Dist: tqdm; extra == 'test'
 Requires-Dist: types-tqdm; extra == 'test'
 Requires-Dist: typing-extensions<5,>=4.5; extra == 'test'
@@ -113,9 +112,10 @@ The `phoenix.evals.metrics` module provides ready-to-use evaluators for common t
 | Evaluator | Class | Description |
 | --------- | ----- | ----------- |
 | Faithfulness | `FaithfulnessEvaluator` | Detects hallucinations — checks if output is grounded in context |
+| Completeness | `CompletenessEvaluator` | Checks whether every active user request in a conversation was actually completed |
 | Conciseness | `ConcisenessEvaluator` | Evaluates whether the response is appropriately concise |
 | Correctness | `CorrectnessEvaluator` | Checks if the output is factually correct |
-| Document Relevance | `DocumentRelevanceEvaluator` | Measures how relevant a retrieved document is to a query |
+| Retrieval Relevance | `RetrievalRelevanceEvaluator` | Measures how relevant retrieved information is to a request |
 | Refusal | `RefusalEvaluator` | Detects whether the model refused to answer |
 | Tool Invocation | `ToolInvocationEvaluator` | Checks whether the correct tool was called with the right arguments |
 | Tool Selection | `ToolSelectionEvaluator` | Evaluates whether the right tool was selected for the task |

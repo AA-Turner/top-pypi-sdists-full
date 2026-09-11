@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import contextlib
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -668,13 +670,220 @@ def test_unrecoverable_locs_return_none() -> None:
     assert normalize_sitemap_loc("http://10.0.0.1/panel") is None
 
 
-def test_valid_locs_still_normalize_identically() -> None:
-    from matrx_scraper.utils.url import normalize_url
+@pytest.mark.parametrize(
+    ("loc", "expected"),
+    [
+        ("https://example.com/page", "https://example.com/page"),
+        ("https://example.com/page/", "https://example.com/page"),
+        ("http://www.example.com/a?b=1", "http://www.example.com/a?b=1"),
+        ("  HTTPS://Example.com/Docs/#top\n", "https://example.com/Docs"),
+    ],
+)
+def test_valid_locs_normalize_to_the_canonical_identity(loc: str, expected: str) -> None:
     from matrx_scraper.web_crawl.sitemap_sync import normalize_sitemap_loc
 
-    for loc in (
-        "https://example.com/page",
-        "https://example.com/page/",
-        "http://www.example.com/a?b=1",
-    ):
-        assert normalize_sitemap_loc(loc) == normalize_url(loc)
+    assert normalize_sitemap_loc(loc) == expected
+
+
+# ---------------------------------------------------------------------------
+# Captured payloads (tests/__fixtures__/sitemaps/): yoast.com, fetched
+# 2026-09-10 and trimmed to the first entries — real namespaces, the
+# xml-stylesheet PI, and <image:image> blocks nested inside <url>.
+# ---------------------------------------------------------------------------
+
+_SITEMAP_FIXTURES = Path(__file__).parent / "__fixtures__" / "sitemaps"
+
+
+def test_captured_yoast_urlset_yields_page_locs_never_nested_image_locs() -> None:
+    parsed = parse_sitemap_document((_SITEMAP_FIXTURES / "yoast_page-sitemap.xml").read_bytes())
+
+    assert parsed.kind == "urlset"
+    assert [entry.loc for entry in parsed.entries] == [
+        "https://yoast.com/",
+        "https://yoast.com/comment-policy/",
+        "https://yoast.com/kasteelfeesten/",
+        "https://yoast.com/wijchen-schaatst/",
+        "https://yoast.com/innovations/privacy-by-design/",
+    ]
+    assert [entry.lastmod for entry in parsed.entries[:2]] == [
+        datetime(2026, 7, 24, 17, 15, 16, tzinfo=UTC),
+        datetime(2015, 10, 9, 9, 53, 52, tzinfo=UTC),
+    ]
+
+
+def test_captured_yoast_sitemap_index_yields_child_sitemaps() -> None:
+    parsed = parse_sitemap_document((_SITEMAP_FIXTURES / "yoast_sitemap_index.xml").read_bytes())
+
+    assert parsed.kind == "sitemapindex"
+    assert parsed.child_locs == [
+        "https://yoast.com/post-sitemap.xml",
+        "https://yoast.com/post-sitemap2.xml",
+        "https://yoast.com/page-sitemap.xml",
+    ]
+    assert parsed.entries == []
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [("1.5", 1.0), ("-0.3", 0.0), ("0.25", 0.25), ("NaN", None)],
+)
+def test_parse_priority_is_clamped_into_the_protocol_range(raw: str, expected: float | None) -> None:
+    parsed = parse_sitemap_document(
+        f"<urlset><url><loc>https://acme.example/a</loc><priority>{raw}</priority></url></urlset>".encode()
+    )
+    assert parsed.entries[0].priority == expected
+
+
+@pytest.mark.asyncio
+async def test_one_child_fetch_exception_never_drops_its_sibling_sitemaps(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    origin = "https://acme.example"
+    responses = {
+        f"{origin}/sitemap.xml": _response(
+            f"{origin}/sitemap.xml",
+            200,
+            """<sitemapindex>
+              <sitemap><loc>https://acme.example/broken.xml</loc></sitemap>
+              <sitemap><loc>https://acme.example/pages.xml</loc></sitemap>
+            </sitemapindex>""",
+        ),
+        f"{origin}/pages.xml": _response(
+            f"{origin}/pages.xml",
+            200,
+            "<urlset><url><loc>https://acme.example/kept</loc></url></urlset>",
+        ),
+    }
+    monkeypatch.setattr(
+        "matrx_scraper.sitemaps.httpx.AsyncClient",
+        lambda **kwargs: _FakeClient(),
+    )
+
+    async def _get(client: object, url: str) -> tuple[str, httpx.Response]:
+        if url == f"{origin}/broken.xml":
+            raise httpx.ConnectError("connection reset by peer")
+        return url, responses.get(url) or _response(url, 404)
+
+    monkeypatch.setattr("matrx_scraper.sitemaps._safe_get", _get)
+
+    try:
+        crawl = await crawl_sitemap_documents(f"{origin}/")
+    except httpx.ConnectError as exc:
+        pytest.fail(f"one child sitemap's transport error aborted the whole sitemap walk: {exc}")
+
+    by_url = {doc.url: doc for doc in crawl.documents}
+    assert [entry.loc for entry in by_url[f"{origin}/pages.xml"].entries] == [
+        "https://acme.example/kept"
+    ]
+    assert by_url[f"{origin}/broken.xml"].kind == "unknown"
+    assert by_url[f"{origin}/broken.xml"].fetch_error == "ConnectError: connection reset by peer"
+    assert crawl.errors == [f"{origin}/broken.xml: ConnectError: connection reset by peer"]
+    assert crawl.url_total == 1
+
+
+@pytest.mark.asyncio
+async def test_self_referencing_index_is_fetched_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    origin = "https://acme.example"
+    responses = {
+        f"{origin}/robots.txt": _response(
+            f"{origin}/robots.txt", 200, "Sitemap: https://acme.example/sitemap.xml\n"
+        ),
+        f"{origin}/sitemap.xml": _response(
+            f"{origin}/sitemap.xml",
+            200,
+            """<sitemapindex>
+              <sitemap><loc>https://acme.example/sitemap.xml</loc></sitemap>
+              <sitemap><loc>https://acme.example/pages.xml</loc></sitemap>
+            </sitemapindex>""",
+        ),
+        f"{origin}/pages.xml": _response(
+            f"{origin}/pages.xml",
+            200,
+            """<urlset>
+              <url><loc>https://acme.example/a</loc></url>
+              <url><loc>https://acme.example/b</loc></url>
+            </urlset>""",
+        ),
+    }
+    safe_get = _wire_responses(monkeypatch, responses)
+
+    crawl = await crawl_sitemap_documents(f"{origin}/")
+
+    assert [doc.url for doc in crawl.documents] == [f"{origin}/sitemap.xml", f"{origin}/pages.xml"]
+    assert [call.args[1] for call in safe_get.await_args_list].count(f"{origin}/sitemap.xml") == 1
+    assert crawl.url_total == 2
+
+
+@pytest.mark.asyncio
+async def test_failed_refetch_keeps_what_the_last_success_learned_and_success_clears_stale_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Row state after a re-sync where the index now parses but its child
+    returns HTTP 500: the child's stored kind/counts/last_seen survive with the
+    failure recorded; the index's stale error from the previous run clears."""
+    origin = "https://acme.example"
+    responses = {
+        f"{origin}/sitemap.xml": _response(
+            f"{origin}/sitemap.xml",
+            200,
+            "<sitemapindex><sitemap><loc>https://acme.example/pages.xml</loc></sitemap></sitemapindex>",
+        ),
+        f"{origin}/pages.xml": _response(f"{origin}/pages.xml", 500, "upstream exploded"),
+    }
+    _wire_responses(monkeypatch, responses)
+
+    @contextlib.asynccontextmanager
+    async def fake_transaction(_db: str):
+        yield None
+
+    monkeypatch.setattr("matrx_scraper.web_crawl.sitemap_sync.transaction", fake_transaction)
+
+    learned_at = datetime(2026, 8, 1, tzinfo=UTC)
+    stored: dict[str, dict] = {
+        f"{origin}/sitemap.xml": {
+            "id": uuid4(), "url": f"{origin}/sitemap.xml", "kind": "sitemapindex",
+            "status_code": 503, "url_count": 0, "child_count": 1, "last_seen": learned_at,
+            "fetch_error": "RuntimeError: HTTP 503", "deleted_at": None,
+        },
+        f"{origin}/pages.xml": {
+            "id": uuid4(), "url": f"{origin}/pages.xml", "kind": "urlset",
+            "status_code": 200, "url_count": 40, "child_count": 0, "last_seen": learned_at,
+            "fetch_error": None, "deleted_at": None,
+        },
+    }
+
+    async def fake_sitemap_upsert(data, *, on_conflict, update_fields):
+        row = stored[data["url"]]
+        # ON CONFLICT DO UPDATE SET <update_fields>; None values are omitted.
+        for field in update_fields:
+            if data.get(field) is not None:
+                row[field] = data[field]
+        return SimpleNamespace(**row)
+
+    async def fake_sitemap_update_where(filters, **values):
+        row = next(r for r in stored.values() if str(r["id"]) == filters["id"])
+        row.update(values)
+
+    monkeypatch.setattr("matrx_scraper.web_crawl.sitemap_sync.WebSitemap.upsert", fake_sitemap_upsert)
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.sitemap_sync.WebSitemap.update_where", fake_sitemap_update_where
+    )
+    monkeypatch.setattr(
+        "matrx_scraper.web_crawl.sitemap_sync.upsert_observed_page_urls",
+        AsyncMock(return_value={}),
+    )
+
+    await sync_site_sitemaps(
+        site_id="site-1",
+        organization_id="org-1",
+        user_id="user-1",
+        root_url=f"{origin}/",
+    )
+
+    child = stored[f"{origin}/pages.xml"]
+    assert (child["kind"], child["url_count"], child["last_seen"]) == ("urlset", 40, learned_at)
+    assert (child["status_code"], child["fetch_error"]) == (500, "RuntimeError: HTTP 500")
+    index = stored[f"{origin}/sitemap.xml"]
+    assert (index["status_code"], index["fetch_error"], index["kind"]) == (200, None, "sitemapindex")

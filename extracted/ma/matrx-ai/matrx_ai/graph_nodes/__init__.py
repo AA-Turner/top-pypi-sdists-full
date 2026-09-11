@@ -12,6 +12,7 @@ Actions registered:
 - ``ai.chat.manual``           — full-control chat with explicit model +
                                  messages + tools.
 - ``ai.agent.start``           — run a saved agent with a user input.
+- ``ai.mandate.start``         — run a named JOB; the database picks the doer.
 - ``ai.agent.assignment_batch``— durable coordinated variable assignments.
 - ``ai.agent.tool_calling``    — inline agent loop with native provider
                                  tool calling.
@@ -60,6 +61,7 @@ def register_with_graph() -> None:
         image_action,
         image_pipeline_actions,
         llm_action,
+        mandate_action,
         scrape_action,
         search_action,
         transcribe_action,

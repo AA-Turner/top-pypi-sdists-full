@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-metricflow
-Version: 0.14.0
+Version: 0.15.0
 Summary: Execute commands against the MetricFlow semantic layer with dbt.
 Project-URL: Source Code, https://github.com/dbt-labs/metricflow/tree/main/dbt-metricflow
 Author-email: dbt Labs <info@dbtlabs.com>
@@ -20,7 +20,7 @@ Requires-Dist: click>=8.1.6
 Requires-Dist: dbt-core<1.13,>=1.11
 Requires-Dist: halo<0.1.0,>=0.0.31
 Requires-Dist: jinja2<3.7.0,>=3.1.6
-Requires-Dist: metricflow==0.212.0
+Requires-Dist: metricflow==0.213.0
 Requires-Dist: update-checker<0.19.0,>=0.18.0
 Provides-Extra: dbt-athena
 Requires-Dist: dbt-athena-community<1.10.0,>=1.8.0; extra == 'dbt-athena'
@@ -38,16 +38,15 @@ Provides-Extra: dbt-snowflake
 Requires-Dist: dbt-snowflake; extra == 'dbt-snowflake'
 Provides-Extra: dbt-trino
 Requires-Dist: dbt-trino; extra == 'dbt-trino'
+Provides-Extra: dbt-vertica
+Requires-Dist: dbt-vertica; extra == 'dbt-vertica'
 Provides-Extra: dev-env-requirements
 Requires-Dist: black<24,>=23.3; extra == 'dev-env-requirements'
-Requires-Dist: click>=8.1.6; extra == 'dev-env-requirements'
-Requires-Dist: dbt-core<1.12.0,>=1.10.4; extra == 'dev-env-requirements'
 Requires-Dist: dbt-duckdb<1.9.0,>=1.8.0; extra == 'dev-env-requirements'
 Requires-Dist: duckdb-engine<0.14.0,>=0.13.0; extra == 'dev-env-requirements'
 Requires-Dist: duckdb<1.6,>=1.5; extra == 'dev-env-requirements'
 Requires-Dist: dulwich<2.0,>=1.2; extra == 'dev-env-requirements'
 Requires-Dist: graphviz<0.21,>=0.18.2; extra == 'dev-env-requirements'
-Requires-Dist: halo<0.1.0,>=0.0.31; extra == 'dev-env-requirements'
 Requires-Dist: httpx<0.25,>=0.24; extra == 'dev-env-requirements'
 Requires-Dist: hypothesis<7,>=6.87; extra == 'dev-env-requirements'
 Requires-Dist: isort<6,>=5.12; extra == 'dev-env-requirements'
@@ -66,7 +65,6 @@ Requires-Dist: types-jsonschema<5,>=4.17; extra == 'dev-env-requirements'
 Requires-Dist: types-python-dateutil; extra == 'dev-env-requirements'
 Requires-Dist: types-pyyaml; extra == 'dev-env-requirements'
 Requires-Dist: types-tabulate; extra == 'dev-env-requirements'
-Requires-Dist: update-checker<0.19.0,>=0.18.0; extra == 'dev-env-requirements'
 Requires-Dist: varname<1,>=0.15.1; extra == 'dev-env-requirements'
 Description-Content-Type: text/markdown
 

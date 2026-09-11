@@ -266,14 +266,13 @@ class TinyB:
 
     async def alter_tokens(self, name: str, scopes: List[str]):
         if not scopes:
-            return
+            return None
         scopes_url: str = "&".join([f"scope={scope}" for scope in scopes])
         url = f"/v0/tokens/{name}"
         if len(url + "?" + scopes_url) > TinyB.MAX_GET_LENGTH:
             return await self._req(url, method="PUT", data=scopes_url)
-        else:
-            url = url + "?" + scopes_url
-            return await self._req(url, method="PUT", data="")
+        url = url + "?" + scopes_url
+        return await self._req(url, method="PUT", data="")
 
     async def datasources(self, branch: Optional[str] = None, used_by: bool = False) -> List[Dict[str, Any]]:
         params = {}
@@ -294,16 +293,13 @@ class TinyB:
         return await self._req(f"/v0/variables/{name}")
 
     async def create_secret(self, name: str, value: str):
-        response = await self._req("/v0/variables", method="POST", data={"name": name, "value": value})
-        return response
+        return await self._req("/v0/variables", method="POST", data={"name": name, "value": value})
 
     async def update_secret(self, name: str, value: str):
-        response = await self._req(f"/v0/variables/{name}", method="PUT", data={"value": value})
-        return response
+        return await self._req(f"/v0/variables/{name}", method="PUT", data={"value": value})
 
     async def delete_secret(self, name: str):
-        response = await self._req(f"/v0/variables/{name}", method="DELETE")
-        return response
+        return await self._req(f"/v0/variables/{name}", method="DELETE")
 
     async def get_connections(self, service: Optional[str] = None):
         params = {}
@@ -577,8 +573,7 @@ class TinyB:
         node_name = node["params"]["name"] if node.get("params", None) else node["name"]
         if datasource_name:
             params["datasource"] = datasource_name
-        response = await self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/analysis?{urlencode(params)}")
-        return response
+        return await self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/analysis?{urlencode(params)}")
 
     async def populate_node(
         self,
@@ -600,10 +595,7 @@ class TinyB:
             params.update({"populate_condition": populate_condition})
         if on_demand_compute:
             params.update({"on_demand_compute": "true"})
-        response = await self._req(
-            f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST"
-        )
-        return response
+        return await self._req(f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST")
 
     async def pipes(self, branch=None, dependencies: bool = False, node_attrs=None, attrs=None) -> List[Dict[str, Any]]:
         params = {
@@ -635,9 +627,8 @@ class TinyB:
         query_string = urlencode(params)
         if len(url + "?" + query_string) > TinyB.MAX_GET_LENGTH:
             return await self._req(f"/v0/pipes/{pipe_name_or_uid}.{format}", method="POST", data=params)
-        else:
-            url = url + "?" + query_string
-            return await self._req(url)
+        url = url + "?" + query_string
+        return await self._req(url)
 
     async def pipe_create(self, pipe_name: str, sql: str):
         return await self._req(
@@ -726,8 +717,7 @@ class TinyB:
 
         if len(sql) > TinyB.MAX_GET_LENGTH:
             return await self._req(f"/v0/sql?{urlencode(params)}", data=sql, method="POST")
-        else:
-            return await self._req(f"/v0/sql?q={quote(sql, safe='')}&{urlencode(params)}")
+        return await self._req(f"/v0/sql?q={quote(sql, safe='')}&{urlencode(params)}")
 
     async def jobs(self, status=None):
         jobs = (await self._req("/v0/jobs"))["jobs"]
@@ -922,7 +912,7 @@ class TinyB:
 
     async def add_workspaces_to_organization(self, organization_id: str, workspace_ids: List[str]):
         if not workspace_ids:
-            return
+            return None
         return await self._req(
             f"/v0/organizations/{organization_id}/workspaces",
             method="PUT",
@@ -1105,8 +1095,7 @@ class TinyB:
                 from tinybird.sql_toolset import format_sql
 
                 return format_sql(sql)
-            else:
-                return await self._sql_get_format_remote(sql, with_clickhouse_format)
+            return await self._sql_get_format_remote(sql, with_clickhouse_format)
         except ModuleNotFoundError:
             return await self._sql_get_format_remote(sql, with_clickhouse_format)
 
@@ -1168,8 +1157,7 @@ class TinyB:
         return next((connector for connector in result["connectors"] if connector_equals(connector, kwargs)), None)
 
     async def regions(self):
-        regions = await self._req("/v0/regions")
-        return regions
+        return await self._req("/v0/regions")
 
     async def datasource_query_copy(self, datasource_name: str, sql_query: str):
         params = {"copy_to": datasource_name}

@@ -17,8 +17,296 @@ use crate::vm::CellContent;
 type Position = (u32, u32);
 type SheetCells = HashMap<Position, CellContent>;
 type NodeKey = (String, u32, u32);
+type RangeDependent = (u32, u32, u32, u32, NodeKey);
 
 const SHEET_ROW_STRIDE: u32 = 2_000_000;
+
+/// A bounded, syntax-level dependency edge for snapshot/diagnostic consumers.
+/// Range edges remain ranges; they are never expanded into one record per cell.
+#[cfg(any(feature = "python", test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FormulaDependency {
+    pub source_sheet: String,
+    pub source_row: u32,
+    pub source_col: u32,
+    pub target_sheet: String,
+    pub target_kind: &'static str,
+    pub target_row: u32,
+    pub target_col: u32,
+    pub target_end_row: u32,
+    pub target_end_col: u32,
+}
+
+#[cfg(any(feature = "python", test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FormulaDependencyDiagnostic {
+    pub source_sheet: String,
+    pub source_row: u32,
+    pub source_col: u32,
+    pub kind: &'static str,
+    pub detail: String,
+}
+
+#[cfg(any(feature = "python", test))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FormulaIoCandidate {
+    pub sheet: String,
+    pub row: u32,
+    pub col: u32,
+    pub kind: &'static str,
+}
+
+/// Return bounded input/output candidates for agent-facing snapshots.
+/// Inputs retain range shape; they are not expanded to individual cells.
+#[cfg(any(feature = "python", test))]
+pub(crate) fn formula_io_candidates(
+    sheets: &HashMap<String, SheetCells>,
+) -> (Vec<FormulaIoCandidate>, Vec<FormulaIoCandidate>) {
+    let edges = formula_dependencies(sheets);
+    let formula_cells = sheets
+        .iter()
+        .flat_map(|(sheet, cells)| {
+            cells.iter().filter_map(move |(&(row, col), cell)| {
+                cell.formula
+                    .as_ref()
+                    .map(|_| (sheet.to_ascii_lowercase(), row, col))
+            })
+        })
+        .collect::<HashSet<_>>();
+    let mut inputs = edges
+        .iter()
+        .filter_map(|edge| {
+            let key = (
+                edge.target_sheet.to_ascii_lowercase(),
+                edge.target_row,
+                edge.target_col,
+            );
+            if edge.target_kind == "cell" && formula_cells.contains(&key) {
+                return None;
+            }
+            Some(FormulaIoCandidate {
+                sheet: edge.target_sheet.clone(),
+                row: edge.target_row,
+                col: edge.target_col,
+                kind: edge.target_kind,
+            })
+        })
+        .collect::<Vec<_>>();
+    inputs.sort_by(|left, right| {
+        (
+            left.sheet.to_ascii_lowercase(),
+            left.row,
+            left.col,
+            left.kind,
+        )
+            .cmp(&(
+                right.sheet.to_ascii_lowercase(),
+                right.row,
+                right.col,
+                right.kind,
+            ))
+    });
+    inputs.dedup_by(|left, right| {
+        left.sheet.eq_ignore_ascii_case(&right.sheet)
+            && left.row == right.row
+            && left.col == right.col
+            && left.kind == right.kind
+    });
+
+    let inbound = edges
+        .iter()
+        .map(|edge| {
+            (
+                edge.target_sheet.to_ascii_lowercase(),
+                edge.target_row,
+                edge.target_col,
+                edge.target_end_row,
+                edge.target_end_col,
+                edge.target_kind,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut outputs = formula_cells
+        .iter()
+        .filter_map(|(sheet, row, col)| {
+            let referenced = inbound.iter().any(|(target_sheet, r1, c1, r2, c2, kind)| {
+                target_sheet == sheet
+                    && if *kind == "cell" {
+                        *r1 == *row && *c1 == *col
+                    } else {
+                        *r1 <= *row && *c1 <= *col && *r2 >= *row && *c2 >= *col
+                    }
+            });
+            (!referenced).then(|| FormulaIoCandidate {
+                sheet: sheet.clone(),
+                row: *row,
+                col: *col,
+                kind: "formula",
+            })
+        })
+        .collect::<Vec<_>>();
+    outputs.sort_by(|left, right| {
+        (left.sheet.to_ascii_lowercase(), left.row, left.col).cmp(&(
+            right.sheet.to_ascii_lowercase(),
+            right.row,
+            right.col,
+        ))
+    });
+    (inputs, outputs)
+}
+
+/// Extract deterministic, bounded dependency edges without evaluating formulas.
+/// Parse failures are intentionally omitted; callers can inspect the formula
+/// text and parser diagnostics separately rather than treating an incomplete
+/// graph as authoritative.
+#[cfg(any(feature = "python", test))]
+pub(crate) fn formula_dependencies(sheets: &HashMap<String, SheetCells>) -> Vec<FormulaDependency> {
+    let mut edges = Vec::new();
+    for (sheet, cells) in sheets {
+        for (&(row, col), cell) in cells {
+            let Some(source) = cell.formula.as_deref() else {
+                continue;
+            };
+            let Ok(expr) = parse(source) else {
+                continue;
+            };
+            let mut refs = Vec::new();
+            let mut ranges = Vec::new();
+            collect_dependencies(&expr, sheet, &mut refs, &mut ranges);
+            for (target_sheet, target_row, target_col) in refs {
+                edges.push(FormulaDependency {
+                    source_sheet: sheet.clone(),
+                    source_row: row,
+                    source_col: col,
+                    target_sheet,
+                    target_kind: "cell",
+                    target_row,
+                    target_col,
+                    target_end_row: target_row,
+                    target_end_col: target_col,
+                });
+            }
+            for (target_sheet, r1, c1, r2, c2) in ranges {
+                edges.push(FormulaDependency {
+                    source_sheet: sheet.clone(),
+                    source_row: row,
+                    source_col: col,
+                    target_sheet,
+                    target_kind: "range",
+                    target_row: r1,
+                    target_col: c1,
+                    target_end_row: r2,
+                    target_end_col: c2,
+                });
+            }
+        }
+    }
+    edges.sort_by(|left, right| {
+        (
+            left.source_sheet.to_ascii_lowercase(),
+            left.source_row,
+            left.source_col,
+            left.target_sheet.to_ascii_lowercase(),
+            left.target_kind,
+            left.target_row,
+            left.target_col,
+            left.target_end_row,
+            left.target_end_col,
+        )
+            .cmp(&(
+                right.source_sheet.to_ascii_lowercase(),
+                right.source_row,
+                right.source_col,
+                right.target_sheet.to_ascii_lowercase(),
+                right.target_kind,
+                right.target_row,
+                right.target_col,
+                right.target_end_row,
+                right.target_end_col,
+            ))
+    });
+    edges.dedup();
+    edges
+}
+
+/// Report dependency information that cannot be represented as a complete
+/// edge list. This is diagnostic metadata, not an evaluation result.
+#[cfg(any(feature = "python", test))]
+pub(crate) fn formula_dependency_diagnostics(
+    sheets: &HashMap<String, SheetCells>,
+) -> Vec<FormulaDependencyDiagnostic> {
+    let sheet_names = sheets
+        .keys()
+        .map(|name| name.to_ascii_lowercase())
+        .collect::<HashSet<_>>();
+    let mut diagnostics = Vec::new();
+    for (sheet, cells) in sheets {
+        for (&(row, col), cell) in cells {
+            let Some(source) = cell.formula.as_deref() else {
+                continue;
+            };
+            let Ok(expr) = parse(source) else {
+                diagnostics.push(FormulaDependencyDiagnostic {
+                    source_sheet: sheet.clone(),
+                    source_row: row,
+                    source_col: col,
+                    kind: "parse_error",
+                    detail: "formula could not be parsed".to_string(),
+                });
+                continue;
+            };
+            let mut refs = Vec::new();
+            let mut ranges = Vec::new();
+            collect_dependencies(&expr, sheet, &mut refs, &mut ranges);
+            let mut missing = HashSet::new();
+            for (target_sheet, _, _) in refs {
+                if !sheet_names.contains(&target_sheet) {
+                    missing.insert(target_sheet);
+                }
+            }
+            for (target_sheet, _, _, _, _) in ranges {
+                if !sheet_names.contains(&target_sheet) {
+                    missing.insert(target_sheet);
+                }
+            }
+            for target_sheet in missing {
+                diagnostics.push(FormulaDependencyDiagnostic {
+                    source_sheet: sheet.clone(),
+                    source_row: row,
+                    source_col: col,
+                    kind: "unresolved_sheet",
+                    detail: target_sheet,
+                });
+            }
+        }
+    }
+    if has_formula_cycle(sheets) {
+        diagnostics.push(FormulaDependencyDiagnostic {
+            source_sheet: String::new(),
+            source_row: 0,
+            source_col: 0,
+            kind: "cycle",
+            detail: "formula dependency graph contains a cycle".to_string(),
+        });
+    }
+    diagnostics.sort_by(|left, right| {
+        (
+            left.source_sheet.to_ascii_lowercase(),
+            left.source_row,
+            left.source_col,
+            left.kind,
+            &left.detail,
+        )
+            .cmp(&(
+                right.source_sheet.to_ascii_lowercase(),
+                right.source_row,
+                right.source_col,
+                right.kind,
+                &right.detail,
+            ))
+    });
+    diagnostics
+}
 
 /// Recalculate every formula in a workbook containing at least one qualified
 /// reference. Returns `Ok(true)` when this slow path handled the workbook and
@@ -81,7 +369,10 @@ pub(crate) fn recalculate(
     }
 
     let mut dependents: HashMap<NodeKey, Vec<NodeKey>> = HashMap::new();
-    let mut range_dependents = Vec::new();
+    // Index range dependencies by their source sheet. Dirty propagation only
+    // needs to inspect ranges on the sheet whose value changed; keeping one
+    // flat list made every cross-sheet write scan unrelated ranges as well.
+    let mut range_dependents: HashMap<String, Vec<RangeDependent>> = HashMap::new();
     let mut indegree: HashMap<NodeKey, usize> = parsed.keys().map(|key| (key.clone(), 0)).collect();
     let mut nodes_by_sheet: HashMap<String, Vec<NodeKey>> = HashMap::new();
     for key in parsed.keys() {
@@ -112,7 +403,10 @@ pub(crate) fn recalculate(
         // over the sheet-local node index is sufficient and bounded by formula
         // count on that sheet.
         for (sheet, r1, c1, r2, c2) in ranges {
-            range_dependents.push((sheet.clone(), r1, c1, r2, c2, key.clone()));
+            range_dependents
+                .entry(sheet.clone())
+                .or_default()
+                .push((r1, c1, r2, c2, key.clone()));
             for reference in nodes_by_sheet
                 .get(&sheet)
                 .into_iter()
@@ -177,14 +471,11 @@ pub(crate) fn recalculate(
                     if let Some(children) = dependents.get(&input) {
                         queue.extend(children.iter().cloned());
                     }
-                    for (range_sheet, r1, c1, r2, c2, formula) in &range_dependents {
-                        if range_sheet == &sheet
-                            && *r1 <= row
-                            && row <= *r2
-                            && *c1 <= col
-                            && col <= *c2
-                        {
-                            queue.push_back(formula.clone());
+                    if let Some(ranges) = range_dependents.get(&sheet) {
+                        for (r1, c1, r2, c2, formula) in ranges {
+                            if *r1 <= row && row <= *r2 && *c1 <= col && col <= *c2 {
+                                queue.push_back(formula.clone());
+                            }
                         }
                     }
                 }
@@ -205,7 +496,13 @@ pub(crate) fn recalculate(
         }
         let expr = &parsed[&key];
         let mapped = remap_expr(expr, &key.0, &offsets)?;
-        let value = eval::evaluate(&mapped, &merged)?;
+        let sheet_number = names
+            .iter()
+            .position(|name| name.eq_ignore_ascii_case(&key.0))
+            .map_or(1, |index| index + 1);
+        let value = eval::with_sheet_context(sheet_number, names.len(), || {
+            eval::evaluate(&mapped, &merged)
+        })?;
         let offset = offsets[&key.0.to_ascii_lowercase()];
         let mapped_row = key
             .1
@@ -326,7 +623,13 @@ fn contains_qualified_ref(expr: &FormulaExpr) -> bool {
         }
         FormulaExpr::UnaryMinus(inner) => contains_qualified_ref(inner),
         FormulaExpr::FuncCall { args, .. } => args.iter().any(contains_qualified_ref),
-        FormulaExpr::Number(_) | FormulaExpr::Str(_) | FormulaExpr::Bool(_) => false,
+        FormulaExpr::Call { callee, args } => {
+            contains_qualified_ref(callee) || args.iter().any(contains_qualified_ref)
+        }
+        FormulaExpr::Number(_)
+        | FormulaExpr::Str(_)
+        | FormulaExpr::Bool(_)
+        | FormulaExpr::Omitted => false,
     }
 }
 
@@ -416,6 +719,12 @@ fn contains_named_range(
                     .iter()
                     .any(|arg| contains_named_range(arg, named_ranges, scoped_named_ranges))
         }
+        FormulaExpr::Call { callee, args } => {
+            contains_named_range(callee, named_ranges, scoped_named_ranges)
+                || args
+                    .iter()
+                    .any(|arg| contains_named_range(arg, named_ranges, scoped_named_ranges))
+        }
         FormulaExpr::BinOp { lhs, rhs, .. } => {
             contains_named_range(lhs, named_ranges, scoped_named_ranges)
                 || contains_named_range(rhs, named_ranges, scoped_named_ranges)
@@ -427,7 +736,8 @@ fn contains_named_range(
         | FormulaExpr::Str(_)
         | FormulaExpr::Bool(_)
         | FormulaExpr::CellRef { .. }
-        | FormulaExpr::Range { .. } => false,
+        | FormulaExpr::Range { .. }
+        | FormulaExpr::Omitted => false,
     }
 }
 
@@ -535,7 +845,16 @@ fn collect_dependencies(
                 collect_dependencies(arg, host, refs, ranges);
             }
         }
-        FormulaExpr::Number(_) | FormulaExpr::Str(_) | FormulaExpr::Bool(_) => {}
+        FormulaExpr::Call { callee, args } => {
+            collect_dependencies(callee, host, refs, ranges);
+            for arg in args {
+                collect_dependencies(arg, host, refs, ranges);
+            }
+        }
+        FormulaExpr::Number(_)
+        | FormulaExpr::Str(_)
+        | FormulaExpr::Bool(_)
+        | FormulaExpr::Omitted => {}
     }
 }
 
@@ -602,9 +921,17 @@ fn remap_expr(
                 .map(|arg| remap_expr(arg, host, offsets))
                 .collect::<Result<_, _>>()?,
         },
+        FormulaExpr::Call { callee, args } => FormulaExpr::Call {
+            callee: Box::new(remap_expr(callee, host, offsets)?),
+            args: args
+                .iter()
+                .map(|arg| remap_expr(arg, host, offsets))
+                .collect::<Result<_, _>>()?,
+        },
         FormulaExpr::Number(n) => FormulaExpr::Number(*n),
         FormulaExpr::Str(value) => FormulaExpr::Str(value.clone()),
         FormulaExpr::Bool(value) => FormulaExpr::Bool(*value),
+        FormulaExpr::Omitted => FormulaExpr::Omitted,
     })
 }
 
@@ -647,6 +974,38 @@ mod tests {
         );
         assert_eq!(sheets["Sheet2"][&(1, 1)].value, Variant::Integer(6));
         assert_eq!(sheets["Sheet1"][&(1, 2)].value, Variant::Integer(7));
+    }
+
+    #[test]
+    fn supplies_sheet_context_to_unqualified_sheet_functions() {
+        let mut sheets = HashMap::new();
+        sheets.insert(
+            "Sheet1".to_string(),
+            HashMap::from([
+                ((1, 1), cell(Variant::Empty, Some("=SHEET()"))),
+                ((1, 2), cell(Variant::Empty, Some("=Sheet2!A1"))),
+            ]),
+        );
+        sheets.insert(
+            "Sheet2".to_string(),
+            HashMap::from([
+                ((1, 1), cell(Variant::Empty, Some("=SHEET()"))),
+                ((1, 2), cell(Variant::Empty, Some("=Sheet1!A1"))),
+            ]),
+        );
+        assert!(
+            recalculate(
+                &mut sheets,
+                &HashMap::new(),
+                &HashMap::new(),
+                &HashMap::new(),
+                None,
+                true
+            )
+            .unwrap()
+        );
+        assert_eq!(sheets["Sheet1"][&(1, 1)].value, Variant::Integer(1));
+        assert_eq!(sheets["Sheet2"][&(1, 1)].value, Variant::Integer(2));
     }
 
     #[test]
@@ -1021,5 +1380,69 @@ mod tests {
         );
         assert_eq!(sheets["Sheet1"][&(2, 1)].value, Variant::Integer(4));
         assert_eq!(sheets["Sheet2"][&(1, 1)].value, Variant::Integer(7));
+    }
+
+    #[test]
+    fn formula_dependency_snapshot_edges_are_bounded_and_deterministic() {
+        let sheets = HashMap::from([(
+            "Sheet1".to_string(),
+            HashMap::from([(
+                (1, 1),
+                cell(Variant::Empty, Some("=Sheet2!B2+Sheet1!A1:A2")),
+            )]),
+        )]);
+        let edges = formula_dependencies(&sheets);
+        assert_eq!(edges.len(), 2);
+        assert_eq!(edges[0].target_kind, "range");
+        assert_eq!(edges[0].target_sheet, "sheet1");
+        assert_eq!((edges[0].target_row, edges[0].target_end_row), (1, 2));
+        assert_eq!(edges[1].target_kind, "cell");
+        assert_eq!(edges[1].target_sheet, "sheet2");
+    }
+
+    #[test]
+    fn formula_io_candidates_are_bounded_and_deterministic() {
+        let sheets = HashMap::from([(
+            "Sheet1".to_string(),
+            HashMap::from([
+                ((1, 1), cell(Variant::Integer(3), None)),
+                ((2, 1), cell(Variant::Empty, Some("=A1+1"))),
+                ((3, 1), cell(Variant::Empty, Some("=SUM(A1:A2)"))),
+            ]),
+        )]);
+        let (inputs, outputs) = formula_io_candidates(&sheets);
+        assert_eq!(inputs.len(), 2);
+        assert_eq!(
+            (inputs[0].sheet.as_str(), inputs[0].row, inputs[0].col),
+            ("sheet1", 1, 1)
+        );
+        assert_eq!(inputs[1].kind, "range");
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(
+            (outputs[0].sheet.as_str(), outputs[0].row, outputs[0].col),
+            ("sheet1", 3, 1)
+        );
+        assert_eq!(outputs[0].kind, "formula");
+    }
+
+    #[test]
+    fn formula_dependency_diagnostics_report_parse_missing_sheet_and_cycle() {
+        let sheets = HashMap::from([(
+            "Sheet1".to_string(),
+            HashMap::from([
+                ((1, 1), cell(Variant::Empty, Some("=Missing!A1"))),
+                ((1, 2), cell(Variant::Empty, Some("=B1"))),
+                ((1, 3), cell(Variant::Empty, Some("=A1"))),
+                ((1, 4), cell(Variant::Empty, Some("=+"))),
+            ]),
+        )]);
+        let diagnostics = formula_dependency_diagnostics(&sheets);
+        assert!(
+            diagnostics
+                .iter()
+                .any(|item| item.kind == "unresolved_sheet" && item.detail == "missing")
+        );
+        assert!(diagnostics.iter().any(|item| item.kind == "cycle"));
+        assert!(diagnostics.iter().any(|item| item.kind == "parse_error"));
     }
 }

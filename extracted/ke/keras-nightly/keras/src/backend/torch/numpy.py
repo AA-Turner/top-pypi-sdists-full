@@ -700,6 +700,15 @@ def copy(x):
     return torch.clone(x)
 
 
+def copysign(x1, x2):
+    x1 = convert_to_tensor(x1)
+    x2 = convert_to_tensor(x2)
+    dtype = dtypes.result_type(x1.dtype, x2.dtype, float)
+    x1 = cast(x1, dtype)
+    x2 = cast(x2, dtype)
+    return torch.copysign(x1, x2)
+
+
 def cos(x):
     x = convert_to_tensor(x)
     return torch.cos(x)
@@ -2521,3 +2530,19 @@ def column_stack(xs):
     dtype = dtypes.result_type(*(x.dtype for x in xs))
     xs = [cast(x, dtype) for x in xs]
     return torch.column_stack(xs)
+
+
+def cov(x):
+    x = convert_to_tensor(x)
+    if len(x.shape) > 2:
+        raise ValueError(
+            "Input tensor must have at most 2 dimensions. "
+            f"Received: x.shape={tuple(x.shape)}"
+        )
+
+    if standardize_dtype(x.dtype) == "bool":
+        x = cast(x, config.floatx())
+    elif standardize_dtype(x.dtype) == "int64":
+        x = cast(x, "float64")
+
+    return torch.cov(x)

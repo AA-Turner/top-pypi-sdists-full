@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: build
-Version: 1.6.0
+Version: 1.6.1
 Summary: A simple, correct Python build frontend
 Author-email: Filipe Laíns <lains@riseup.net>, Bernát Gábor <gaborjbernat@gmail.com>, layday <layday@protonmail.com>, Henry Schreiner <henryschreineriii@gmail.com>
 Requires-Python: >= 3.10

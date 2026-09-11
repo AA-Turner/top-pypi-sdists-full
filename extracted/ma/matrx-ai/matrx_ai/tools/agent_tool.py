@@ -400,9 +400,21 @@ async def execute_agent_tool(
         # run_agent's fork then copies the bumped metadata, so the child loop's
         # ToolContexts carry the true depth for the max_recursion_depth guard.
         # ctx.recursion_depth already IS parent+1 (set by _execute_agent).
-        # Reference mode: the child's tokens never reach the client (the
-        # descriptor + host event are the caller's signal) and the FULL output
-        # never enters the caller's context.
+        # Value-store modes: the FULL output is parked in the value store, so
+        # the child needs no client-delegated tools and must produce a
+        # COMPLETE output (a truncated one would be stored as if whole).
+        #
+        # 🚨 NESTED-AGENT STREAM LEAK — this is the ONE deliberate exception.
+        # `suppress_stream` below is keyed on `result_mode == "reference"`
+        # ONLY, NOT on this wider set. That is intentional, not an oversight:
+        # `reference` never puts the child's output in front of the user (the
+        # bounded descriptor + host event are the whole signal), so streaming
+        # it would be pure leakage. `inline_once` is an INLINE mode — its full
+        # output is delivered to the caller and the user THIS turn, and only
+        # stubbed on LATER turns; the "once" is about context retention across
+        # turns, not about visibility now. Muting it would hide output the
+        # caller explicitly asked to see inline. Recorded in
+        # scripts/nested_agent_streams_baseline.json.
         reference_mode = tool_def.result_mode in ("reference", "inline_once")
         # Handoff mode: the child's tokens ARE the response (they stream on the
         # parent wire) and its lifecycle events are suppressed on success —

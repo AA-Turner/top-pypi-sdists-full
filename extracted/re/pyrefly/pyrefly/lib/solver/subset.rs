@@ -16,6 +16,7 @@ use itertools::Itertools;
 use itertools::izip;
 use pyrefly_python::dunder;
 use pyrefly_types::callable::Callable;
+use pyrefly_types::data_frame::DataFrameKind;
 use pyrefly_types::dimension::Int;
 use pyrefly_types::dimension::ShapeError;
 use pyrefly_types::dimension::contains_var_in_type;
@@ -49,6 +50,8 @@ use starlark_map::small_map::SmallMap;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::callable::CallArg;
 use crate::alt::expr::TypeOrExpr;
+use crate::solver::shape::has_int_tuple_bound;
+use crate::solver::shape::type_as_intvar_solution;
 use crate::solver::solver::ArgumentSide;
 use crate::solver::solver::OpenTypedDictSubsetError;
 use crate::solver::solver::QuantifiedHandle;
@@ -58,16 +61,15 @@ use crate::solver::solver::SubsetCacheEntry;
 use crate::solver::solver::SubsetError;
 use crate::solver::solver::SubsetWithSnapshotResult;
 use crate::solver::solver::TypedDictSubsetError;
-use crate::solver::solver::type_as_intvar_solution;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::PrefixParam;
 use crate::types::callable::Required;
+use crate::types::callable::params_are_gradual_variadic;
 use crate::types::class::ClassType;
 use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
-use crate::types::simplify::unions;
 use crate::types::tuple::Tuple;
 use crate::types::type_alias::TypeAliasData;
 use crate::types::type_var::Restriction;
@@ -120,7 +122,7 @@ fn canonical_vararg_unpack_inner<'a>(ty: &'a Type, other: &Type) -> &'a Type {
         return ty;
     }
     if let Type::Tuple(Tuple::Unpacked(unpacked)) = ty {
-        let (prefix, middle, suffix) = unpacked.as_ref();
+        let (prefix, middle, suffix) = unpacked.parts();
         if prefix.is_empty() && suffix.is_empty() {
             return middle;
         }
@@ -142,27 +144,29 @@ fn is_int_class_type(cls: &ClassType) -> bool {
     cls.has_qname("shape_extensions", "Int")
 }
 
-/// Check if a param list has both `*args: Any` and `**kwargs: Any`
-fn has_any_args_and_kwargs(args: &[Param]) -> bool {
-    let has_vararg_any = args
-        .iter()
-        .any(|p| matches!(p, Param::Varargs(_, Type::Any(_))));
-    let has_kwargs_any = args
-        .iter()
-        .any(|p| matches!(p, Param::Kwargs(_, Type::Any(_))));
-    has_vararg_any && has_kwargs_any
-}
-
 fn params_have_any_args_and_kwargs(params: &Params) -> bool {
     match params {
-        Params::List(args) | Params::Partial(args) => has_any_args_and_kwargs(args.items()),
+        Params::List(args) | Params::Partial(args) => params_are_gradual_variadic(args.items()),
         Params::Ellipsis | Params::Materialization => false,
         Params::ParamSpec(_prefix, pspec) => {
             matches!(
                 pspec,
-                Type::ParamSpecValue(args) if has_any_args_and_kwargs(args.items())
+                Type::ParamSpecValue(args) if params_are_gradual_variadic(args.items())
             )
         }
+    }
+}
+
+/// Whether a callable-typed value should be treated as having gradual (`...`) parameters
+/// because its definition had both `*args` and `**kwargs` typed `Any`. For a `Function` we
+/// trust the definition-time flag, so an `Any` introduced by type-parameter substitution (e.g.
+/// `Proto[Any]` over `*args: T, **kwargs: T`) does not count. A bare `Callable` has no such
+/// metadata, so we fall back to inspecting its params.
+fn sig_is_gradual_variadic(ty: &Type) -> bool {
+    match ty {
+        Type::Function(f) => f.metadata.flags.has_gradual_variadic_params,
+        Type::Callable(c) => params_have_any_args_and_kwargs(&c.params),
+        _ => false,
     }
 }
 
@@ -194,7 +198,7 @@ fn any<T>(
 struct FreshForall {
     handle: QuantifiedHandle,
     ty: Type,
-    witness: ResidualWitnessContext,
+    witness: Option<ResidualWitnessContext>,
 }
 
 impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
@@ -215,21 +219,31 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         result.map_err(|_| SubsetError::Other)
     }
 
+    /// Constrain an unpacked vararg to the valid arities introduced by optional parameters.
+    fn is_subset_optional_prefixes(
+        &mut self,
+        unpack: &Type,
+        mut optional_prefixes: Vec<Type>,
+        full: Type,
+    ) -> Result<(), SubsetError> {
+        optional_prefixes.push(full.clone());
+        let accepted = self.solver.unions(optional_prefixes, self.type_order);
+        let unpack = canonical_vararg_unpack_inner(unpack, &accepted);
+        self.is_subset_eq(unpack, &accepted)
+    }
+
     /// Can a function with l_args be called as a function with u_args?
     fn is_subset_param_list(
         &mut self,
         l_args: &[Param],
         u_args: &[Param],
+        l_gradual: bool,
+        u_gradual: bool,
     ) -> Result<(), SubsetError> {
         // Don't short-circuit because we may want to pin/solve variables
         let result = self.is_subset_param_list_impl(l_args, u_args);
         match result {
-            Err(_)
-                if !self.solver.strict_callable_subtyping
-                    && (has_any_args_and_kwargs(l_args) || has_any_args_and_kwargs(u_args)) =>
-            {
-                Ok(())
-            }
+            Err(_) if !self.solver.strict_callable_subtyping && (l_gradual || u_gradual) => Ok(()),
             _ => result,
         }
     }
@@ -349,36 +363,43 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     Some(Param::Varargs(_, Type::Unpack(u))),
                 ) => {
                     let mut l_types = Vec::new();
+                    let mut l_optional_prefixes = Vec::new();
                     loop {
-                        if let Some(Param::PosOnly(_, l, _) | Param::Pos(_, l, _)) = l_arg {
+                        if let Some(Param::PosOnly(_, l, required) | Param::Pos(_, l, required)) =
+                            l_arg
+                        {
+                            // Each trailing optional positional parameter adds a valid shorter
+                            // sequence; a later required parameter makes earlier prefixes invalid.
+                            match required {
+                                Required::Required => l_optional_prefixes.clear(),
+                                Required::Optional(_) => l_optional_prefixes
+                                    .push(self.solver.heap.mk_concrete_tuple(l_types.clone())),
+                            }
                             l_types.push(l.clone());
                             l_arg = l_args.next();
                         } else if let Some(Param::Varargs(_, Type::Unpack(l))) = l_arg {
-                            self.is_subset_eq(
-                                u,
-                                &self.solver.heap.mk_unpacked_tuple(
-                                    l_types,
-                                    (**l).clone(),
-                                    Vec::new(),
-                                ),
-                            )?;
+                            let full = self.solver.heap.mk_unpacked_tuple(
+                                l_types,
+                                (**l).clone(),
+                                Vec::new(),
+                            );
+                            self.is_subset_optional_prefixes(u, l_optional_prefixes, full)?;
                             l_arg = l_args.next();
                             u_arg = u_args.next();
                             break;
                         } else if let Some(Param::Varargs(_, l)) = l_arg {
-                            self.is_subset_eq(
-                                u,
-                                &self.solver.heap.mk_unpacked_tuple(
-                                    l_types,
-                                    self.solver.heap.mk_unbounded_tuple(l.clone()),
-                                    Vec::new(),
-                                ),
-                            )?;
+                            let full = self.solver.heap.mk_unpacked_tuple(
+                                l_types,
+                                self.solver.heap.mk_unbounded_tuple(l.clone()),
+                                Vec::new(),
+                            );
+                            self.is_subset_optional_prefixes(u, l_optional_prefixes, full)?;
                             l_arg = l_args.next();
                             u_arg = u_args.next();
                             break;
                         } else {
-                            self.is_subset_eq(u, &self.solver.heap.mk_concrete_tuple(l_types))?;
+                            let full = self.solver.heap.mk_concrete_tuple(l_types);
+                            self.is_subset_optional_prefixes(u, l_optional_prefixes, full)?;
                             u_arg = u_args.next();
                             break;
                         }
@@ -448,6 +469,15 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
                 (Some(_), Some(Param::KwOnly(_, _, _) | Param::Kwargs(_, _))) => {
                     break;
+                }
+                (None, Some(Param::PosOnly(_, ty, _) | Param::Pos(_, ty, _))) => {
+                    let missing = std::iter::once(ty.clone())
+                        .chain(u_args.filter_map(|param| match param {
+                            Param::PosOnly(_, ty, _) | Param::Pos(_, ty, _) => Some(ty.clone()),
+                            _ => None,
+                        }))
+                        .collect();
+                    return Err(SubsetError::CallableMissingPositionalParameters(missing));
                 }
                 _ => return Err(SubsetError::Other),
             }
@@ -591,6 +621,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         &mut self,
         l_params: &Params,
         u_params: &Params,
+        l_gradual: bool,
+        u_gradual: bool,
     ) -> Result<(), SubsetError> {
         let result = match (l_params, u_params) {
             (Params::Ellipsis, Params::ParamSpec(_, pspec)) => {
@@ -611,7 +643,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             (
                 Params::List(l_args) | Params::Partial(l_args),
                 Params::List(u_args) | Params::Partial(u_args),
-            ) => self.is_subset_param_list(l_args.items(), u_args.items()),
+            ) => self.is_subset_param_list(l_args.items(), u_args.items(), l_gradual, u_gradual),
             (Params::List(ls) | Params::Partial(ls), Params::ParamSpec(args, pspec)) => {
                 self.is_paramlist_subset_of_paramspec(ls, args, pspec)
             }
@@ -623,17 +655,17 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             }
             (Params::Materialization, _) => Err(SubsetError::Other),
             (_, Params::Materialization) => {
-                self.is_subset_params(l_params, &Params::List(ParamList::everything()))
+                // `everything()` is the gradual `*args: Any, **kwargs: Any` list.
+                self.is_subset_params(
+                    l_params,
+                    &Params::List(ParamList::everything()),
+                    l_gradual,
+                    true,
+                )
             }
         };
         match result {
-            Err(_)
-                if !self.solver.strict_callable_subtyping
-                    && (params_have_any_args_and_kwargs(l_params)
-                        || params_have_any_args_and_kwargs(u_params)) =>
-            {
-                Ok(())
-            }
+            Err(_) if !self.solver.strict_callable_subtyping && (l_gradual || u_gradual) => Ok(()),
             _ => result,
         }
     }
@@ -649,8 +681,10 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
 
         // Save coinductive state so we can detect if any coinductive assumptions
         // were used during this protocol check.
-        let prev_coinductive = self.coinductive_assumptions_used;
+        let prev_coinductive =
+            self.coinductive_assumptions_used || self.type_order.coinductive_assumptions_used();
         self.coinductive_assumptions_used = false;
+        self.type_order.set_coinductive_assumptions_used(false);
 
         // For class-level coinductive reasoning: if the `got` type's type arguments
         // contain Vars, we're likely in a recursive pattern (e.g., checking method return
@@ -685,7 +719,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         // 2. No coinductive assumptions were used during this check
         //    (otherwise the result may be contingent on an assumption
         //    that could be invalidated by rollback)
-        let used_coinductive = self.coinductive_assumptions_used;
+        let used_coinductive =
+            self.coinductive_assumptions_used || self.type_order.coinductive_assumptions_used();
         if has_no_vars && !used_coinductive {
             self.solver
                 .store_protocol_cache(&got, &want, &res, self.type_order);
@@ -693,6 +728,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
 
         // Restore: propagate any coinductive usage upward
         self.coinductive_assumptions_used = prev_coinductive || used_coinductive;
+        self.type_order
+            .set_coinductive_assumptions_used(prev_coinductive || used_coinductive);
 
         res
     }
@@ -802,7 +839,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             }
             (Tuple::Unbounded(l), Tuple::Unbounded(u)) => self.is_subset_eq(l, u),
             (Tuple::Concrete(lelts), Tuple::Unpacked(u_unpacked)) => {
-                let (u_prefix, u_middle, u_suffix) = &**u_unpacked;
+                let (u_prefix, u_middle, u_suffix) = u_unpacked.parts();
                 if lelts.len() < u_prefix.len() + u_suffix.len() {
                     Err(SubsetError::Other)
                 } else {
@@ -821,7 +858,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
             }
             (Tuple::Unbounded(_), Tuple::Unpacked(u_unpacked)) => {
-                let (u_prefix, u_middle, u_suffix) = &**u_unpacked;
+                let (u_prefix, u_middle, u_suffix) = u_unpacked.parts();
                 if u_prefix.is_empty() && u_suffix.is_empty() {
                     self.is_subset_eq(&self.solver.heap.mk_tuple(got.clone()), u_middle)
                 } else {
@@ -829,13 +866,13 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
             }
             (Tuple::Unpacked(l_unpacked), Tuple::Unbounded(u)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l_unpacked;
+                let (l_prefix, l_middle, l_suffix) = l_unpacked.parts();
                 all(l_prefix.iter(), |l| self.is_subset_eq(l, u))?;
                 all(l_suffix.iter(), |l| self.is_subset_eq(l, u))?;
                 self.is_subset_eq(l_middle, &self.solver.heap.mk_tuple(want.clone()))
             }
             (Tuple::Unpacked(l_unpacked), Tuple::Concrete(uelts)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l_unpacked;
+                let (l_prefix, l_middle, l_suffix) = l_unpacked.parts();
                 if uelts.len() < l_prefix.len() + l_suffix.len() {
                     Err(SubsetError::Other)
                 } else {
@@ -854,8 +891,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
             }
             (Tuple::Unpacked(l_unpacked), Tuple::Unpacked(u_unpacked)) => {
-                let (l_prefix, l_middle, l_suffix) = &**l_unpacked;
-                let (u_prefix, u_middle, u_suffix) = &**u_unpacked;
+                let (l_prefix, l_middle, l_suffix) = l_unpacked.parts();
+                let (u_prefix, u_middle, u_suffix) = u_unpacked.parts();
                 // Invariant: 0-2 of these are non-empty
                 // l_before and u_before cannot both be non-empty
                 // l_after and u_after cannot both be non-empty
@@ -1007,7 +1044,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         }
     }
 
-    fn is_subset_tuple_to_int_tuple(
+    pub(crate) fn is_subset_tuple_to_int_tuple(
         &mut self,
         got: &Tuple,
         want: &IntTuple,
@@ -1022,7 +1059,13 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             return Err(SubsetError::Other);
         }
         if Self::int_tuple_has_carrier_middle(want) {
-            self.bind_tensor_dimensions(&IntTuple::from_tuple(got.clone()), want)
+            // Dimension binding recovers non-size elements to gradual dimensions, so
+            // validate the actual structurally first. This must not bind anything:
+            // the carrier is still unsolved, and callers can roll this attempt back.
+            let Some(got) = tuple_carrier_to_shape(&Type::Tuple(got.clone())) else {
+                return Err(SubsetError::Other);
+            };
+            self.bind_tensor_dimensions(&got, want)
         } else {
             self.is_subset_eq(&Type::Tuple(got.clone()), &want.to_tuple_type())
         }
@@ -1034,14 +1077,28 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         want_ts: &[PrefixParam],
         want_pspec: &Type,
     ) -> Result<(), SubsetError> {
-        if got.len() < want_ts.len() {
-            return Err(SubsetError::Other);
-        }
         // Preserve Pos vs PosOnly so that the subset checker can reject name mismatches
         // (e.g. Pos("a", int) vs Pos("self", K) fails, but PosOnly matches any name).
         let args: Vec<Param> = want_ts.iter().map(|p| p.to_param_preserve_name()).collect();
+        if got.len() < args.len() {
+            // Run the regular parameter matcher first so it can distinguish a type mismatch
+            // from parameters that are genuinely absent. A variadic parameter may consume the
+            // whole prefix, but inferring the remaining ParamSpec from it is not supported.
+            self.is_subset_param_list(
+                got.items(),
+                &args,
+                params_are_gradual_variadic(got.items()),
+                params_are_gradual_variadic(&args),
+            )?;
+            return Err(SubsetError::Other);
+        }
         let (pre, post) = got.items().split_at(args.len());
-        self.is_subset_param_list(pre, &args)?;
+        self.is_subset_param_list(
+            pre,
+            &args,
+            params_are_gradual_variadic(pre),
+            params_are_gradual_variadic(&args),
+        )?;
         self.is_subset_eq(
             &self
                 .solver
@@ -1062,7 +1119,12 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         }
         let args: Vec<Param> = got_ts.iter().map(|p| p.to_param_preserve_name()).collect();
         let (pre, post) = want.items().split_at(args.len());
-        self.is_subset_param_list(&args, pre)?;
+        self.is_subset_param_list(
+            &args,
+            pre,
+            params_are_gradual_variadic(&args),
+            params_are_gradual_variadic(pre),
+        )?;
         self.is_subset_eq(
             got_pspec,
             &self
@@ -1216,15 +1278,20 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
         // Save coinductive state so we can detect if any coinductive assumptions
         // were used during field comparisons (e.g., a field with a protocol type
         // that recursively references this TypedDict).
-        let prev_coinductive = self.coinductive_assumptions_used;
+        let prev_coinductive =
+            self.coinductive_assumptions_used || self.type_order.coinductive_assumptions_used();
         self.coinductive_assumptions_used = false;
+        self.type_order.set_coinductive_assumptions_used(false);
         let res = self.is_subset_typed_dict_inner(got, want);
-        let used_coinductive = self.coinductive_assumptions_used;
+        let used_coinductive =
+            self.coinductive_assumptions_used || self.type_order.coinductive_assumptions_used();
         if cacheable && !used_coinductive {
             self.solver
                 .store_typed_dict_cache(got, want, &res, self.type_order);
         }
         self.coinductive_assumptions_used = prev_coinductive || used_coinductive;
+        self.type_order
+            .set_coinductive_assumptions_used(prev_coinductive || used_coinductive);
         res
     }
 
@@ -1466,10 +1533,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             if successful_branch_captures.is_empty() {
                 unreachable!("successful overload probe must produce a branch capture");
             }
-            self.active_call_context.persist_overload_witness_captures(
-                witness.witness_hash(),
-                successful_branch_captures,
-            );
+            self.active_call_context
+                .persist_overload_witness_captures(witness.argument(), successful_branch_captures);
             true
         } else {
             false
@@ -1485,6 +1550,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             let argument_side = self.active_call_context.argument_side();
             let can_synthesize_witness = !matches!(argument_side, ArgumentSide::NotAnalyzingACall);
             if can_synthesize_witness
+                && let Some(argument) = self.active_call_context.argument()
                 && let eligible_vars = want
                     .collect_maybe_placeholder_vars()
                     .into_iter()
@@ -1492,12 +1558,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     .collect::<Vec<_>>()
                 && !eligible_vars.is_empty()
             {
-                let overload_type = Type::Overload(overload.clone());
-                let synthesized = ResidualWitnessContext::for_overload(
-                    &overload_type,
-                    &eligible_vars,
-                    argument_side,
-                );
+                let synthesized =
+                    ResidualWitnessContext::for_overload(argument, &eligible_vars, argument_side);
                 self.with_active_call_context(
                     self.active_call_context
                         .clone()
@@ -1603,12 +1665,14 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
 
     fn instantiate_fresh_forall(&self, forall: Forall<Forallable>, want: &Type) -> FreshForall {
         let (vs, got) = self.type_order.instantiate_fresh_forall(forall.clone());
-        let witness = ResidualWitnessContext::for_forall(
-            &Type::Forall(Box::new(forall)),
-            &vs,
-            want,
-            self.active_call_context.argument_side(),
-        );
+        let witness = self.active_call_context.argument().map(|argument| {
+            ResidualWitnessContext::for_forall(
+                argument,
+                &vs,
+                want,
+                self.active_call_context.argument_side(),
+            )
+        });
         FreshForall {
             handle: vs,
             ty: got,
@@ -1622,17 +1686,21 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             ty,
             witness,
         } = got;
-        let (result, mut maybe_witness) = self.with_active_call_context(
-            self.active_call_context
-                .clone()
-                .with_residual_witness(witness),
-            |me| {
-                (
-                    me.is_subset_eq(&ty, want),
-                    me.active_call_context.take_residual_witness(),
-                )
-            },
-        );
+        let (result, mut maybe_witness) = if let Some(witness) = witness {
+            self.with_active_call_context(
+                self.active_call_context
+                    .clone()
+                    .with_residual_witness(witness),
+                |me| {
+                    (
+                        me.is_subset_eq(&ty, want),
+                        me.active_call_context.take_residual_witness(),
+                    )
+                },
+            )
+        } else {
+            (self.is_subset_eq(&ty, want), None)
+        };
         let in_call_analysis = !matches!(
             self.active_call_context.argument_side(),
             ArgumentSide::NotAnalyzingACall
@@ -1641,7 +1709,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             && in_call_analysis
             && let Some(witness) = maybe_witness.as_mut()
         {
-            if let Some(deferred_vars) = self.take_witness_deferred_vars(witness.witness_hash()) {
+            if let Some(deferred_vars) = self.take_witness_deferred_vars(witness.argument()) {
                 witness.extend_deferred_vars(deferred_vars);
             }
             self.active_call_context.record_generic_residuals(witness);
@@ -1776,6 +1844,9 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     &self.type_order.get_type_alias(want_alias).as_type(),
                 )
             }
+            (got, Type::TypeForm(_)) if let Some(got_alias) = as_type_alias(got) => {
+                self.is_subset_eq(&self.type_order.get_type_alias(got_alias).as_type(), want)
+            }
             (Type::TypeAlias(got), _) => {
                 // We use `as_value` to get the alias's runtime type.
                 self.is_subset_eq(
@@ -1803,10 +1874,28 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             // Therefore try these quantified cases, but only pick them if they work.
             (Type::Quantified(q), u)
                 if let Restriction::Bound(bound) = q.restriction()
+                    // A bare inference variable can preserve the quantified type itself. Expanding
+                    // it to its bound here would make inference depend on which argument is checked
+                    // first (https://github.com/facebook/pyrefly/issues/4187).
+                    && !matches!(u, Type::Union(union) if union.members.iter().any(|t| matches!(t, Type::Var(_))))
                     && self
                         .solver
                         .with_snapshot(&u.collect_maybe_placeholder_vars(), || {
                             self.is_subset_eq(bound, u)
+                        })
+                        .is_ok() =>
+            {
+                Ok(())
+            }
+            (Type::Quantified(q), u)
+                if let Restriction::ShapeExtension(extension) = q.restriction()
+                    && self
+                        .solver
+                        .with_snapshot(&u.collect_maybe_placeholder_vars(), || {
+                            self.is_subset_eq(
+                                &extension.upper_bound(self.type_order.stdlib(), &self.solver.heap),
+                                u,
+                            )
                         })
                         .is_ok() =>
             {
@@ -1857,10 +1946,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 self.solver.expand_with_bounds(&mut got_expanded);
                 self.solver.expand_with_bounds(&mut want_expanded);
 
-                // Gradual-size fast path. `type_is_gradual_fast` is a by-reference
-                // equivalent of `is_gradual_size(&canonicalize(..))` for `Int`
-                // types, so we can short-circuit without allocating canonical
-                // copies on the common success path.
+                // Gradual-size fast path. This catches existing gradual leaves
+                // without allocating canonical copies on the common success path.
                 //
                 // Short-circuiting here before solving a fresh symbolic `want`
                 // (e.g. `Int[N]` for an unconstrained `IntVar` N) is safe and
@@ -1874,6 +1961,9 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
 
                 let got_canonical = got_expanded.clone().canonicalize();
                 let want_canonical = want_expanded.clone().canonicalize();
+                if is_gradual_size(&got_canonical) || is_gradual_size(&want_canonical) {
+                    return Ok(());
+                }
                 if got_canonical == want_canonical {
                     return Ok(());
                 }
@@ -2000,30 +2090,12 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 }
             }
             (l, Type::Overload(overload)) => {
-                let has_any_args_kwargs = match l {
-                    Type::Callable(c) => {
-                        if let Params::List(params) = &c.params {
-                            has_any_args_and_kwargs(params.items())
-                        } else {
-                            false
-                        }
-                    }
-                    Type::Function(f) => {
-                        if let Params::List(params) = &f.signature.params {
-                            has_any_args_and_kwargs(params.items())
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                };
+                let l_gradual = sig_is_gradual_variadic(l);
                 let result = all(overload.signatures.iter(), |u| {
                     self.is_subset_eq(l, &u.as_type())
                 });
                 match result {
-                    Err(_) if !self.solver.strict_callable_subtyping && has_any_args_kwargs => {
-                        Ok(())
-                    }
+                    Err(_) if !self.solver.strict_callable_subtyping && l_gradual => Ok(()),
                     _ => result,
                 }
             }
@@ -2125,12 +2197,14 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                     Type::Function(f) => &f.signature,
                     _ => unreachable!("guarded by pattern above"),
                 };
+                let l_gradual = sig_is_gradual_variadic(got);
+                let u_gradual = sig_is_gradual_variadic(want);
                 let argument_side = self.active_call_context.argument_side();
                 self.with_active_call_context(
                     self.active_call_context
                         .clone()
                         .with_argument_side(argument_side.negated()),
-                    |me| me.is_subset_params(&l_sig.params, &u_sig.params),
+                    |me| me.is_subset_params(&l_sig.params, &u_sig.params, l_gradual, u_gradual),
                 )?;
                 self.is_subset_eq(&l_sig.ret, &u_sig.ret)
             }
@@ -2166,6 +2240,22 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                         self.type_order.get_typed_dict_value_type(td),
                     )),
                 )
+            }
+            (Type::TypedDict(TypedDict::TypedDict(_)), Type::ClassType(want))
+                if !self.type_order.is_protocol(want.class_object())
+                    && !self.type_order.has_superclass(
+                        self.type_order.stdlib().mapping_object(),
+                        want.class_object(),
+                    )
+                    && !self.type_order.has_superclass(
+                        self.type_order.stdlib().dict_object(),
+                        want.class_object(),
+                    ) =>
+            {
+                // A declared TypedDict's nominal carrier is either Mapping or dict. Reject
+                // classes unrelated to both before calculating its value type, which may
+                // require solving recursive fields of the TypedDict currently being defined.
+                Err(SubsetError::Other)
             }
             (Type::TypedDict(td @ TypedDict::TypedDict(_)), _) => {
                 let stdlib = self.type_order.stdlib();
@@ -2209,11 +2299,24 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 &Type::ClassType(got.class.clone()),
                 &Type::ClassType(want.class.clone()),
             ),
-            // A DataFrame delegates subtyping to its underlying instance type in
-            // both directions.
+            (Type::DataFrame(got_schema), Type::DataFrame(want_schema)) => {
+                self.is_subset_eq(
+                    &got_schema.underlying_type(),
+                    &want_schema.underlying_type(),
+                )?;
+                if want_schema.kind == DataFrameKind::Polars && want_schema.is_contract() {
+                    ok_or(got_schema.satisfies(want_schema), SubsetError::Other)
+                } else {
+                    Ok(())
+                }
+            }
             (Type::DataFrame(schema), _) => self.is_subset_eq(&schema.underlying_type(), want),
+            (_, Type::DataFrame(schema))
+                if schema.kind == DataFrameKind::Polars && schema.is_contract() =>
+            {
+                Err(SubsetError::Other)
+            }
             (_, Type::DataFrame(schema)) => self.is_subset_eq(got, &schema.underlying_type()),
-            // A Series delegates subtyping to its underlying instance type in both directions.
             (Type::Series(schema), _) => self.is_subset_eq(&schema.underlying_type(), want),
             (_, Type::Series(schema)) => self.is_subset_eq(got, &schema.underlying_type()),
             // Any Int expression represents an integer dimension value, whether it is a
@@ -2358,7 +2461,8 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 self.is_subset_eq(&self.type_order.constructor_to_callable(got_cls), want)
             }
             (Type::ClassDef(got), Type::BoundMethod(_) | Type::Callable(_) | Type::Function(_)) => {
-                self.is_subset_eq(&Type::type_of(self.type_order.promote_silently(got)), want)
+                let constructor = self.type_order.constructor_to_callable_for_class_def(got);
+                self.is_subset_eq(&constructor, want)
             }
             (Type::ClassDef(got), Type::ClassDef(want)) => ok_or(
                 self.type_order.has_superclass(got, want),
@@ -2426,18 +2530,21 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             {
                 Err(SubsetError::Other)
             }
-            (Type::ClassDef(got), Type::Type(inner))
-                if let Type::ClassType(want_cls) = &**inner
-                    && self.type_order.is_protocol(want_cls.class_object())
-                    && self.type_order.is_protocol(got) =>
-            {
-                // We only allow concrete class names to be assigned to `type[T]` if `T` is a protocol
-                Err(SubsetError::TypeOfProtocolNeedsConcreteClass(
-                    want_cls.name().clone(),
-                ))
-            }
             (Type::ClassDef(got), Type::Type(want)) => {
-                self.is_subset_eq(&self.type_order.promote_silently(got), want)
+                let res = self.is_subset_eq(&self.type_order.promote_silently(got), want);
+                if res.is_ok()
+                    && got.is_protocol()
+                    && let Type::ClassType(want_cls) = &**want
+                    && want_cls.class_object().is_protocol()
+                {
+                    // We only allow concrete class names to be assigned to `type[T]` if `T` is a protocol.
+                    // We do this check after all other checks on these types so that callers in contexts
+                    // in which this error isn't applicable can drop it without losing other errors.
+                    return Err(SubsetError::TypeOfProtocolNeedsConcreteClass(
+                        want_cls.name().clone(),
+                    ));
+                }
+                res
             }
             (Type::Type(inner), Type::ClassDef(want))
                 if let Type::ClassType(got_cls) = &**inner =>
@@ -2449,6 +2556,19 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             }
             (Type::ClassDef(got), Type::ClassType(want)) => {
                 ok_or(self.type_order.has_metaclass(got, want), SubsetError::Other)
+            }
+            (Type::Type(inner), want @ Type::ClassType(_))
+                if matches!(&**inner, Type::SpecialForm(SpecialForm::Protocol)) =>
+            {
+                // Protocol is an instance of _ProtocolMeta. We need to hard-code this
+                // relationship because Protocol is marked as a special form in typeshed.
+                self.is_subset_eq(
+                    &self
+                        .solver
+                        .heap
+                        .mk_class_type(self.type_order.stdlib().protocol_meta().clone()),
+                    want,
+                )
             }
             (Type::Type(inner), Type::ClassType(want))
                 if let Type::ClassType(got_cls) = &**inner =>
@@ -2465,7 +2585,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 self.is_subset_eq(&got, want)
             }
             (Type::ClassType(got), Type::SelfType(want))
-                if got == want && self.type_order.is_final(got.class_object()) =>
+                if got == want && !self.type_order.is_subclassable(got.class_object()) =>
             {
                 Ok(())
             }
@@ -2485,7 +2605,7 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 let tuple_type = self.solver.heap.mk_class_type(
                     self.type_order
                         .stdlib()
-                        .tuple(unions(left_elts.clone(), &self.solver.heap)),
+                        .tuple(self.solver.unions(left_elts.clone(), self.type_order)),
                 );
                 self.is_subset_eq(&tuple_type, want)
             }
@@ -2497,12 +2617,9 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 self.is_subset_eq(&tuple_type, want)
             }
             (Type::Tuple(Tuple::Unpacked(unpacked)), _)
-                if matches!(unpacked.1, Type::Tuple(Tuple::Unbounded(_))) =>
+                if let (prefix, Type::Tuple(Tuple::Unbounded(middle)), suffix) =
+                    unpacked.parts() =>
             {
-                let (prefix, middle, suffix) = &**unpacked;
-                let Type::Tuple(Tuple::Unbounded(middle)) = middle else {
-                    unreachable!("guarded by matches! above")
-                };
                 let elts = prefix
                     .iter()
                     .chain(iter::once(&**middle))
@@ -2512,17 +2629,17 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
                 let tuple_type = self.solver.heap.mk_class_type(
                     self.type_order
                         .stdlib()
-                        .tuple(unions(elts, &self.solver.heap)),
+                        .tuple(self.solver.unions(elts, self.type_order)),
                 );
                 self.is_subset_eq(&tuple_type, want)
             }
             (Type::Tuple(Tuple::Unpacked(unpacked)), _) => {
-                let (prefix, middle, suffix) = &**unpacked;
+                let (prefix, middle, suffix) = unpacked.parts();
                 let elts = prefix.iter().chain(suffix).cloned().collect::<Vec<_>>();
                 let tuple_type = self.solver.heap.mk_class_type(
                     self.type_order
                         .stdlib()
-                        .tuple(unions(elts, &self.solver.heap)),
+                        .tuple(self.solver.unions(elts, self.type_order)),
                 );
                 self.is_subset_eq(&tuple_type, want)?;
                 self.is_subset_eq(middle, want)?;
@@ -2667,9 +2784,12 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             ),
             (Type::Ellipsis, Type::ParamSpecValue(_) | Type::Concatenate(_, _))
             | (Type::ParamSpecValue(_) | Type::Concatenate(_, _), Type::Ellipsis) => Ok(()),
-            (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => {
-                self.is_subset_param_list(ls.items(), us.items())
-            }
+            (Type::ParamSpecValue(ls), Type::ParamSpecValue(us)) => self.is_subset_param_list(
+                ls.items(),
+                us.items(),
+                params_are_gradual_variadic(ls.items()),
+                params_are_gradual_variadic(us.items()),
+            ),
             (Type::ParamSpecValue(ls), Type::Concatenate(us, u_pspec)) => {
                 self.is_paramlist_subset_of_paramspec(ls, us, u_pspec)
             }
@@ -2678,13 +2798,6 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             }
             (Type::Concatenate(ls, l_pspec), Type::Concatenate(us, u_pspec)) => {
                 self.is_paramspec_subset_of_paramspec(ls, l_pspec, us, u_pspec)
-            }
-            (Type::Ellipsis, _)
-                if let Some(ellipsis) = self.type_order.stdlib().ellipsis_type() =>
-            {
-                // Bit of a weird case - pretty sure we should be modelling these slightly differently
-                // - probably not as a dedicated Type alternative.
-                self.is_subset_eq(&self.solver.heap.mk_class_type(ellipsis.clone()), want)
             }
             (Type::None, _) => self.is_subset_eq(
                 &self
@@ -2818,27 +2931,54 @@ impl<'solver, 'subset, Ans: LookupAnswer> Subset<'solver, 'subset, Ans> {
             } else if param.kind() == QuantifiedKind::IntVar {
                 let got_arg = Self::intvar_targ_for_compare(got_arg)?;
                 let want_arg = Self::intvar_targ_for_compare(want_arg)?;
-                match variances.get(param.name()) {
-                    Variance::Covariant => self.is_subset_eq(&got_arg, &want_arg)?,
-                    Variance::Contravariant => self.is_subset_eq(&want_arg, &got_arg)?,
-                    Variance::Invariant | Variance::Bivariant => {
-                        self.is_consistent(&got_arg, &want_arg)?
+                self.check_targ_variance(variances.get(param.name()), &got_arg, &want_arg)?;
+            } else if self.solver.tensor_shapes && has_int_tuple_bound(param) {
+                match (
+                    IntTuple::from_shape_arg_or_tuple_carrier(got_arg),
+                    IntTuple::from_shape_arg_or_tuple_carrier(want_arg),
+                ) {
+                    (Some(got_shape), Some(want_shape))
+                        if (got_shape.is_shapeless() || want_shape.is_shapeless())
+                            && (matches!(got_arg, Type::Var(_))
+                                || matches!(want_arg, Type::Var(_))) =>
+                    {
+                        // A bare inference variable is a valid tuple carrier, so it projects to an
+                        // unpacked shape above. Do not let a gradual peer constrain that variable.
+                    }
+                    (Some(got_shape), Some(want_shape)) => {
+                        // A direct `IntTuple` bound gives this parameter shape semantics. Compare
+                        // its projected dimensions rather than its internal representation. Shape
+                        // arguments are matched as values against the expected shape pattern, so
+                        // generic parameter variance does not reverse this comparison.
+                        self.bind_tensor_dimensions(&got_shape, &want_shape)?;
+                    }
+                    _ if got_arg.is_any() || want_arg.is_any() => {
+                        // A gradual peer is compatible but provides no shape information.
+                    }
+                    _ => {
+                        self.check_targ_variance(variances.get(param.name()), got_arg, want_arg)?
                     }
                 }
             } else {
-                match variances.get(param.name()) {
-                    Variance::Covariant => self.is_subset_eq(got_arg, want_arg)?,
-                    Variance::Contravariant => self.is_subset_eq(want_arg, got_arg)?,
-                    // Technically, the right thing to do for bivariance would be to skip the
-                    // subset check. However, this leads to confusing and unintuitive behavior,
-                    // so we treat bivariant type parameters as invariant instead.
-                    Variance::Invariant | Variance::Bivariant => {
-                        self.is_consistent(got_arg, want_arg)?
-                    }
-                }
+                self.check_targ_variance(variances.get(param.name()), got_arg, want_arg)?;
             }
         }
         Ok(())
+    }
+
+    fn check_targ_variance(
+        &mut self,
+        variance: Variance,
+        got: &Type,
+        want: &Type,
+    ) -> Result<(), SubsetError> {
+        match variance {
+            Variance::Covariant => self.is_subset_eq(got, want),
+            Variance::Contravariant => self.is_subset_eq(want, got),
+            // Treating bivariant parameters as invariant avoids confusing assignments that skip
+            // type-argument compatibility entirely.
+            Variance::Invariant | Variance::Bivariant => self.is_consistent(got, want),
+        }
     }
 
     fn intvar_targ_for_compare(arg: &Type) -> Result<Type, SubsetError> {

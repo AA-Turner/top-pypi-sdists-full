@@ -102,5 +102,85 @@ class TestAthenaTransformerGetExecutionMetadata(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestAthenaTransformerToSqlalchemyConfig(unittest.TestCase):
+    """Tests for to_sqlalchemy_config credential handling."""
+
+    def _base_data(self):
+        return {"region": "us-east-1", "work_group": "primary"}
+
+    def test_static_credentials_passed_through(self):
+        data = {
+            **self._base_data(),
+            "aws_access_key_id": "AKIA",
+            "aws_secret_access_key": "secret",
+            "aws_session_token": "token",
+        }
+        config = AthenaTransformer.to_sqlalchemy_config(data)
+
+        connect_args = config["connect_args"]
+        self.assertEqual(
+            config["connection_string"], "awsathena+rest://@athena.us-east-1.amazonaws.com"
+        )
+        self.assertEqual(connect_args["aws_access_key_id"], "AKIA")
+        self.assertNotIn("botocore_session", connect_args)
+        self.assertNotIn("credential_provider", connect_args)
+
+    def test_credential_provider_converted_to_botocore_session(self):
+        """credential_provider must become a botocore_session (PyAthena allowlists that,
+        but drops credential_provider) so cross-account creds are actually applied."""
+        expiry = datetime(2099, 1, 1, tzinfo=timezone.utc).isoformat()
+        calls = []
+
+        def credential_provider():
+            calls.append(1)
+            return {
+                "access_key_id": "AKIA_XACCT",
+                "secret_access_key": "xacct-secret",
+                "session_token": "xacct-token",
+                "expiration": expiry,
+            }
+
+        data = {**self._base_data(), "credential_provider": credential_provider}
+        config = AthenaTransformer.to_sqlalchemy_config(data)
+
+        connect_args = config["connect_args"]
+        # credential_provider stripped so PyAthena never silently discards it
+        self.assertNotIn("credential_provider", connect_args)
+        session = connect_args["botocore_session"]
+        creds = session.get_credentials()
+        self.assertEqual(creds.access_key, "AKIA_XACCT")
+        self.assertEqual(creds.secret_key, "xacct-secret")
+        self.assertEqual(creds.token, "xacct-token")
+        self.assertTrue(calls)  # provider was actually invoked
+
+    def test_input_dict_not_mutated(self):
+        """to_sqlalchemy_config must not mutate its input (callers may retain the dict)."""
+        expiry = datetime(2099, 1, 1, tzinfo=timezone.utc).isoformat()
+
+        def credential_provider():
+            return {
+                "access_key_id": "AKIA",
+                "secret_access_key": "secret",
+                "expiration": expiry,
+            }
+
+        data = {**self._base_data(), "credential_provider": credential_provider}
+        original = dict(data)
+        AthenaTransformer.to_sqlalchemy_config(data)
+
+        self.assertEqual(data, original)
+        self.assertIn("credential_provider", data)
+        self.assertNotIn("botocore_session", data)
+
+    def test_credential_provider_missing_keys_raises(self):
+        def bad_provider():
+            return {"access_key_id": "AKIA"}  # missing secret_access_key + expiration
+
+        data = {**self._base_data(), "credential_provider": bad_provider}
+        with self.assertRaises(ValueError) as ctx:
+            AthenaTransformer.to_sqlalchemy_config(data)
+        self.assertIn("credential_provider must return a dict with keys", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

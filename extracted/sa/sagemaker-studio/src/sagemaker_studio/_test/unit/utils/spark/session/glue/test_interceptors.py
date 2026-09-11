@@ -2,6 +2,7 @@
 
 import datetime
 import sys
+import types
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -9,6 +10,9 @@ import pytest
 # ---------------------------------------------------------------------------
 # Module-level mock setup (must happen before importing the module under test)
 # ---------------------------------------------------------------------------
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 # Ensure grpc has real classes for subclassing (needed by base_interceptors).
 # We must handle the case where grpc is already in sys.modules as a Mock.
@@ -75,6 +79,56 @@ from sagemaker_studio.utils.spark.session.glue.interceptors import (  # noqa: E4
     CustomChannelBuilder,
     SparkConnectGRPCInterceptor,
 )
+
+# The stand-ins this module put into `sys.modules` above, kept for the fixture
+# below -- these tests, unlike the other modules', need them back while they RUN.
+_installed_stand_ins = {
+    _name: _module
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = set(_installed_stand_ins)
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
+
+_ABSENT = object()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _stand_ins_installed_while_these_tests_run():
+    """Reinstall this module's stand-ins for the duration of ITS tests only.
+
+    `glue/interceptors.py` imports `SparkConnectGrpcException` from
+    `pyspark.errors.exceptions.connect` at CALL time, and these tests assert on the
+    `_MockSparkConnectGrpcException` installed above -- so that stand-in has to be
+    in `sys.modules` while they run, not only while the module under test is
+    imported. Scoped to this module and undone at teardown, so collection and every
+    other test module still see whatever was really there.
+    """
+    saved = {name: sys.modules.get(name, _ABSENT) for name in _installed_stand_ins}
+    sys.modules.update(_installed_stand_ins)
+    yield
+    for name, module in saved.items():
+        if module is _ABSENT:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
+
 
 # ---------------------------------------------------------------------------
 # SparkConnectGRPCInterceptor tests

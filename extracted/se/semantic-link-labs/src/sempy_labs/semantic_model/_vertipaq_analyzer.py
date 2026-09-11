@@ -1,6 +1,5 @@
 import sempy.fabric as fabric
 import pandas as pd
-from IPython.display import display, HTML
 import zipfile
 import os
 import uuid
@@ -12,7 +11,6 @@ from sempy_labs._helper_functions import (
     format_dax_object_name,
     save_as_delta_table,
     resolve_workspace_capacity,
-    _base_api,
     _get_column_aggregate,
     resolve_workspace_name_and_id,
     resolve_dataset_name_and_id,
@@ -32,17 +30,23 @@ from sempy_labs._ui_components import (
     DARK_THEME_VARS as _UI_DARK_VARS,
     scoped_header_css as _ui_scoped_header_css,
     scoped_attribution_css as _ui_scoped_attribution_css,
+    scoped_button_press_css as _ui_scoped_button_press_css,
     render_header_html as _ui_render_header_html,
     render_attribution_html as _ui_render_attribution_html,
     theme_toggle_script as _ui_theme_toggle_script,
+    fullscreen_css as _ui_fullscreen_css,
     fullscreen_toggle_script as _ui_fullscreen_toggle_script,
+    list_picker_datasets as _list_picker_datasets,
+    list_picker_workspaces as _list_picker_workspaces,
+    SEARCH_SELECT_CSS as _UI_SEARCH_SELECT_CSS,
+    SEARCH_SELECT_JS as _UI_SEARCH_SELECT_JS,
 )
 
 # anywidget ESM for the interactive Vertipaq Analyzer (used only when the model
 # has Direct-Lake-over-Lakehouse tables so the "Delta Analyzer" button can run
 # Spark on demand and merge the results). It injects the pre-built static HTML +
 # JS and wires the Delta Analyzer button/dialog to the Python backend.
-_VPX_WIDGET_JS = r"""
+_VPX_WIDGET_JS = _UI_SEARCH_SELECT_JS + "\n" + r"""
 function render({ model, el }) {
     // Refreshed on every draw: switching models re-renders the widget with a
     // freshly scoped uid.
@@ -53,6 +57,7 @@ function render({ model, el }) {
     let pickWs = "";
     let pickDs = "";
     let renderPickerOptions = function () {};
+    let ensurePickerDatasets = function () {};
 
     function esc(s) {
         return String(s == null ? "" : s)
@@ -69,6 +74,32 @@ function render({ model, el }) {
     function rootEl() {
         const c = el.querySelector(".vpx-container");
         return c ? c.parentElement : null;
+    }
+
+    function statusEl() {
+        const root = rootEl();
+        if (root && root.classList.contains("vpx-picker-only")) {
+            return el.querySelector(".vpx-picker-screen .vpx-delta-status");
+        }
+        return el.querySelector(".vpx-container > .vpx-delta-status")
+            || el.querySelector(".vpx-picker-screen .vpx-delta-status");
+    }
+
+    function setAnalyzing(on) {
+        const root = rootEl();
+        if (root) {
+            if (on) root.classList.remove("vpx-picker-only");
+            root.setAttribute("aria-busy", on ? "true" : "false");
+        }
+        const progress = el.querySelector(".vpx-analysis-progress");
+        if (progress) {
+            progress.classList.toggle("vpx-active", on);
+            progress.setAttribute("aria-hidden", on ? "false" : "true");
+        }
+        if (on) {
+            const picker = el.querySelector(".vpx-picker-dialog");
+            if (picker) picker.style.display = "none";
+        }
     }
 
     function draw() {
@@ -201,7 +232,7 @@ function render({ model, el }) {
 
     function showStatus() {
         const s = model.get("status") || {};
-        const st = el.querySelector(".vpx-delta-status");
+        const st = statusEl();
         if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
         if (st) {
             if (s.message) {
@@ -223,7 +254,10 @@ function render({ model, el }) {
         // Status updates without a progress payload (e.g. "cancelling") keep
         // the last reported counter.
         if (s.progress) setProgress(s.progress);
-        if (s.done) setRunning(false);
+        if (s.done) {
+            setRunning(false);
+            setAnalyzing(false);
+        }
     }
 
     function wireDelta() {
@@ -289,24 +323,44 @@ function render({ model, el }) {
     // ---------- Workspace / semantic model picker ----------
     function wirePicker() {
         renderPickerOptions = function () {};
+        ensurePickerDatasets = function () {};
         const dialog = el.querySelector(".vpx-picker-dialog");
         if (!dialog) return;
+        const initialPicker = model.get("picker_initial") === true;
         const btn = el.querySelector(".vpx-picker-btn");
-        const wsSel = dialog.querySelector(".vpx-picker-ws");
-        const dsSel = dialog.querySelector(".vpx-picker-ds");
+        const wsHost = dialog.querySelector(".vpx-picker-ws");
+        const dsHost = dialog.querySelector(".vpx-picker-ds");
         const connectBtn = dialog.querySelector(".vpx-picker-connect");
-        const reloadBtn = dialog.querySelector(".vpx-picker-reload");
+        const reloadBtn = dialog.querySelector(".sl-reload-btn");
         let reloading = false;
-        function closeDialog() { dialog.style.display = "none"; }
-
-        function options(items, selected, placeholder) {
-            return '<option value="">' + placeholder + "</option>" +
-                items.map(function (i) {
-                    return '<option value="' + esc(i.id) + '"' +
-                        (i.id === selected ? " selected" : "") + ">" +
-                        esc(i.name) + "</option>";
-                }).join("");
+        function closeDialog() {
+            if (!initialPicker) dialog.style.display = "none";
         }
+
+        const wsPicker = createSearchSelect({
+            placeholder: "Select a workspace\u2026",
+            searchPlaceholder: "Filter workspaces\u2026",
+            ariaLabel: "Workspace",
+            emptyLabel: "Loading workspaces\u2026",
+            onChange: function (option) {
+                pickWs = option.value;
+                pickDs = "";
+                ensureDatasets();
+                renderOptions();
+            },
+        });
+        const dsPicker = createSearchSelect({
+            placeholder: "Select a semantic model\u2026",
+            searchPlaceholder: "Filter semantic models\u2026",
+            ariaLabel: "Semantic model",
+            emptyLabel: "Select a workspace first\u2026",
+            onChange: function (option) {
+                pickDs = option.value;
+                renderOptions();
+            },
+        });
+        wsHost.replaceChildren(wsPicker.el);
+        dsHost.replaceChildren(dsPicker.el);
 
         // Models already analyzed in this session: selecting one restores its
         // cached stats instantly instead of re-running the analysis.
@@ -343,19 +397,18 @@ function render({ model, el }) {
         function renderOptions() {
             const workspaces = model.get("workspaces") || [];
             const datasets = (model.get("datasets") || {})[pickWs];
-            wsSel.innerHTML = workspaces.length
-                ? options(workspaces, pickWs, "Select a workspace\u2026")
-                : '<option value="">Loading\u2026</option>';
-            if (!pickWs) {
-                dsSel.innerHTML = '<option value="">Select a workspace first\u2026</option>';
-            } else if (!datasets) {
-                dsSel.innerHTML = '<option value="">Loading\u2026</option>';
-            } else if (!datasets.length) {
-                dsSel.innerHTML = '<option value="">No semantic models</option>';
-            } else {
-                dsSel.innerHTML = options(datasets, pickDs, "Select a semantic model\u2026");
-            }
-            dsSel.disabled = !pickWs || !datasets;
+            wsPicker.setEmptyLabel(
+                workspaces.length ? "No workspaces" : "Loading workspaces\u2026");
+            wsPicker.setOptions(workspaces.map(function (item) {
+                return { value: item.id, label: item.name };
+            }), pickWs);
+            dsPicker.setEmptyLabel(!pickWs
+                ? "Select a workspace first\u2026"
+                : (!datasets ? "Loading semantic models\u2026" : "No semantic models"));
+            dsPicker.setOptions((datasets || []).map(function (item) {
+                return { value: item.id, label: item.name };
+            }), pickDs);
+            dsPicker.setDisabled(!pickWs || !datasets);
             connectBtn.disabled = !pickDs;
             if (reloadBtn) {
                 // Re-enabled once the refreshed workspace list comes back.
@@ -371,6 +424,7 @@ function render({ model, el }) {
                 dispatch("list_datasets", { workspace_id: pickWs });
             }
         }
+        ensurePickerDatasets = ensureDatasets;
 
         if (reloadBtn) reloadBtn.addEventListener("click", function () {
             // Force a fresh fetch of the workspace list and of the semantic
@@ -381,16 +435,6 @@ function render({ model, el }) {
             if (pickWs) dispatch("list_datasets", { workspace_id: pickWs });
         });
 
-        wsSel.addEventListener("change", function () {
-            pickWs = wsSel.value;
-            pickDs = "";
-            ensureDatasets();
-            renderOptions();
-        });
-        dsSel.addEventListener("change", function () {
-            pickDs = dsSel.value;
-            renderOptions();
-        });
         dialog.addEventListener("click", function (e) {
             if (e.target === dialog) closeDialog();
         });
@@ -400,14 +444,13 @@ function render({ model, el }) {
         connectBtn.addEventListener("click", function () {
             if (!pickDs) return;
             connectBtn.disabled = true;
-            // Close right away - the analysis runs in Python and replaces the
-            // whole widget when it finishes.
-            closeDialog();
-            const wsName = wsSel.selectedIndex >= 0
-                ? wsSel.options[wsSel.selectedIndex].text : "";
-            const dsName = dsSel.selectedIndex >= 0
-                ? dsSel.options[dsSel.selectedIndex].text : "";
-            const st = el.querySelector(".vpx-delta-status");
+            const wsName = wsPicker.label;
+            const dsName = dsPicker.label;
+            // Reveal the analyzer immediately. Python replaces this shell with
+            // the completed result, while the progress bar remains inside the
+            // same root in both normal and full-screen modes.
+            setAnalyzing(true);
+            const st = statusEl();
             if (st) {
                 st.textContent = "Running Vertipaq Analyzer on '" + dsName +
                     "' within the '" + wsName + "' workspace\u2026";
@@ -428,11 +471,23 @@ function render({ model, el }) {
             ensureDatasets();
             renderOptions();
         });
+        if (initialPicker) {
+            if (!pickWs) pickWs = model.get("workspace_id") || "";
+            if (!(model.get("workspaces") || []).length) {
+                dispatch("list_workspaces", {});
+            } else {
+                ensureDatasets();
+            }
+            renderOptions();
+        }
     }
 
     model.on("change:delta_results", mergeDelta);
     model.on("change:status", showStatus);
-    model.on("change:workspaces", function () { renderPickerOptions(); });
+    model.on("change:workspaces", function () {
+        renderPickerOptions();
+        ensurePickerDatasets();
+    });
     model.on("change:datasets", function () { renderPickerOptions(); });
     model.on("change:recent_models", function () { renderPickerOptions(); });
     model.on("change:html_content", draw);
@@ -629,15 +684,91 @@ def _get_delta_table_metadata(entity, lakehouse, workspace, schema):
     return zorder, clustering, deletion_vectors, auto_compact
 
 
-def _compute_table_delta_stats(info, skip_cardinality=True):
-    """Run the Delta Analyzer for a single Direct-Lake-over-Lakehouse source
-    table and return the pre-formatted stats to merge into the Vertipaq
-    Analyzer widget.
+_DELTA_TABLE_STAT_COLUMNS = [
+    "Delta Total Size",
+    "Delta Row Count",
+    "Row Groups",
+    "Parquet Files",
+    "V-Order",
+    "Z-Order",
+    "Liquid Clustering",
+    "Deletion Vectors",
+    "Auto-compaction",
+]
 
-    Returns a tuple ``(table_stats, column_stats_by_source_column)`` where
-    ``table_stats`` is a dict of formatted table-level values and
-    ``column_stats_by_source_column`` maps each source (delta) column name to a
-    dict of formatted per-column values.
+_DELTA_COLUMN_STAT_COLUMNS = [
+    "Delta Cardinality",
+    "Compressed Size",
+    "Uncompressed Size",
+]
+
+
+def _row_text(value):
+    """Normalize a dataframe/dict cell to a non-empty string, or None. Missing
+    values (``None``, ``NaN``, ``pd.NA``) are never strings, so they map to
+    None without triggering pandas' ambiguous-truth-value errors."""
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _direct_lake_delta_tables(partition_rows) -> list:
+    """Direct-Lake-over-Lakehouse source tables that the Delta Analyzer can run
+    on (it needs the source lakehouse + workspace + entity).
+
+    ``partition_rows`` is an iterable of partition mappings (e.g. the rows of
+    the Vertipaq Analyzer 'Partitions' dataframe).
+    """
+    delta_tables: list = []
+    seen = set()
+    for row in partition_rows:
+        if _row_text(row.get("Mode")) != "DirectLake":
+            continue
+        if _row_text(row.get("Source Type")) != "Lakehouse":
+            continue
+        table_name = _row_text(row.get("Table Name"))
+        lakehouse = _row_text(row.get("Source Name"))
+        entity = _row_text(row.get("Source Table Name"))
+        if not table_name or not lakehouse or not entity or table_name in seen:
+            continue
+        seen.add(table_name)
+        schema = _row_text(row.get("Source Schema Name"))
+        delta_tables.append(
+            {
+                "tableName": table_name,
+                "lakehouse": lakehouse,
+                "workspace": _row_text(row.get("Source Workspace")),
+                "entity": entity,
+                "schema": schema,
+                "deltaTableName": f"{schema}.{entity}" if schema else entity,
+            }
+        )
+    return delta_tables
+
+
+def _column_source_map(column_rows) -> dict:
+    """Map each model column to its source (delta) column name so the Delta
+    Analyzer per-column stats can be matched back to the model columns."""
+    mapping: dict = {}
+    for row in column_rows:
+        table_name = _row_text(row.get("Table Name"))
+        column_name = _row_text(row.get("Column Name"))
+        if not table_name or not column_name:
+            continue
+        mapping.setdefault(table_name, {})[column_name] = (
+            _row_text(row.get("Source Column")) or column_name
+        )
+    return mapping
+
+
+def _compute_table_delta_stats_raw(info, skip_cardinality=True):
+    """Run the Delta Analyzer for a single Direct-Lake-over-Lakehouse source
+    table and return its raw (unformatted) stats keyed by display label.
+
+    Returns a tuple ``(table_stats, column_stats_by_source_column)`` keyed by
+    the labels in :data:`_DELTA_TABLE_STAT_COLUMNS` and
+    :data:`_DELTA_COLUMN_STAT_COLUMNS`.
     """
     from sempy_labs._delta_analyzer import delta_analyzer
 
@@ -681,18 +812,15 @@ def _compute_table_delta_stats(info, skip_cardinality=True):
     )
 
     table_stats = {
-        "deltaTotalSize": format_bytes(total_size),
-        # Raw byte counts travel alongside the human-readable values so the
-        # frontend can sort these columns numerically ("9 KB" vs "1.2 MB").
-        "deltaTotalSizeRaw": total_size,
-        "deltaRowCount": f"{row_count:,}",
-        "deltaRowGroups": f"{row_groups:,}",
-        "deltaParquetFiles": f"{parquet_files:,}",
-        "deltaVorder": "Yes" if vorder else "No",
-        "deltaZOrder": ", ".join(zorder) if zorder else "No",
-        "deltaClustering": ", ".join(clustering) if clustering else "No",
-        "deltaDeletionVectors": "Yes" if deletion_vectors else "No",
-        "deltaAutoCompact": "Yes" if auto_compact else "No",
+        "Delta Total Size": total_size,
+        "Delta Row Count": row_count,
+        "Row Groups": row_groups,
+        "Parquet Files": parquet_files,
+        "V-Order": "Yes" if vorder else "No",
+        "Z-Order": ", ".join(zorder) if zorder else "No",
+        "Liquid Clustering": ", ".join(clustering) if clustering else "No",
+        "Deletion Vectors": "Yes" if deletion_vectors else "No",
+        "Auto-compaction": "Yes" if auto_compact else "No",
     }
 
     column_stats: dict = {}
@@ -703,25 +831,67 @@ def _compute_table_delta_stats(info, skip_cardinality=True):
             name = cr.get("Column Name")
             if name is None:
                 continue
-            entry = {
-                "compressedSize": format_bytes(_to_int(cr.get("Compressed Size", 0))),
-                "compressedSizeRaw": _to_int(cr.get("Compressed Size", 0)),
-                "uncompressedSize": format_bytes(
-                    _to_int(cr.get("Uncompressed Size", 0))
+            column_stats[name] = {
+                "Delta Cardinality": (
+                    _to_int(cr.get("Cardinality", 0)) if has_card else None
                 ),
-                "uncompressedSizeRaw": _to_int(cr.get("Uncompressed Size", 0)),
-                "cardinality": (
-                    f"{_to_int(cr.get('Cardinality', 0)):,}" if has_card else ""
-                ),
+                "Compressed Size": _to_int(cr.get("Compressed Size", 0)),
+                "Uncompressed Size": _to_int(cr.get("Uncompressed Size", 0)),
             }
-            column_stats[name] = entry
+
+    return table_stats, column_stats
+
+
+def _compute_table_delta_stats(info, skip_cardinality=True):
+    """Run the Delta Analyzer for a single Direct-Lake-over-Lakehouse source
+    table and return the pre-formatted stats to merge into the Vertipaq
+    Analyzer widget.
+
+    Returns a tuple ``(table_stats, column_stats_by_source_column)`` where
+    ``table_stats`` is a dict of formatted table-level values and
+    ``column_stats_by_source_column`` maps each source (delta) column name to a
+    dict of formatted per-column values. Numeric values are accompanied by a
+    ``...Raw`` entry carrying the underlying number so the frontend can sort on
+    magnitude instead of on the formatted text.
+    """
+    raw_table, raw_columns = _compute_table_delta_stats_raw(
+        info, skip_cardinality=skip_cardinality
+    )
+
+    table_stats = {
+        "deltaTotalSize": format_bytes(raw_table["Delta Total Size"]),
+        "deltaTotalSizeRaw": raw_table["Delta Total Size"],
+        "deltaRowCount": f"{raw_table['Delta Row Count']:,}",
+        "deltaRowCountRaw": raw_table["Delta Row Count"],
+        "deltaRowGroups": f"{raw_table['Row Groups']:,}",
+        "deltaRowGroupsRaw": raw_table["Row Groups"],
+        "deltaParquetFiles": f"{raw_table['Parquet Files']:,}",
+        "deltaParquetFilesRaw": raw_table["Parquet Files"],
+        "deltaVorder": raw_table["V-Order"],
+        "deltaZOrder": raw_table["Z-Order"],
+        "deltaClustering": raw_table["Liquid Clustering"],
+        "deltaDeletionVectors": raw_table["Deletion Vectors"],
+        "deltaAutoCompact": raw_table["Auto-compaction"],
+    }
+
+    column_stats: dict = {}
+    for name, raw in raw_columns.items():
+        cardinality = raw["Delta Cardinality"]
+        column_stats[name] = {
+            "compressedSize": format_bytes(raw["Compressed Size"]),
+            "compressedSizeRaw": raw["Compressed Size"],
+            "uncompressedSize": format_bytes(raw["Uncompressed Size"]),
+            "uncompressedSizeRaw": raw["Uncompressed Size"],
+            "cardinality": "" if cardinality is None else f"{cardinality:,}",
+            "cardinalityRaw": cardinality,
+        }
 
     return table_stats, column_stats
 
 
 @log
 def vertipaq_analyzer(
-    dataset: str | UUID,
+    dataset: Optional[str | UUID] = None,
     workspace: Optional[str | UUID] = None,
     export: Optional[Literal["table"]] = None,
     read_stats_from_data: bool = False,
@@ -729,6 +899,7 @@ def vertipaq_analyzer(
     export_workspace: Optional[str | UUID] = None,
     export_schema: Optional[str] = None,
     dark_mode: bool = False,
+    visualize: bool = True,
     _widget=None,
 ) -> dict[str, pd.DataFrame]:
     """
@@ -740,8 +911,9 @@ def vertipaq_analyzer(
 
     Parameters
     ----------
-    dataset : str | uuid.UUID
-        Name or ID of the semantic model.
+    dataset : str | uuid.UUID, default=None
+        Name or ID of the semantic model. When None and ``visualize=True``, a
+        workspace and semantic model picker is displayed.
     workspace : str| uuid.UUID, default=None
         The Fabric workspace name or ID in which the semantic model exists.
         Defaults to None which resolves to the workspace of the attached lakehouse
@@ -763,6 +935,10 @@ def vertipaq_analyzer(
         If True, renders the Vertipaq Analyzer visualization with a dark
         color theme. If False, renders with a light color theme. A toggle
         button in the header allows switching between modes at runtime.
+    visualize : bool, default=True
+        If True, displays the Vertipaq Analyzer or, when ``dataset`` is None,
+        a workspace and semantic model picker. If False, ``dataset`` is
+        required and only the dataframes are returned.
 
     Returns
     -------
@@ -776,6 +952,18 @@ def vertipaq_analyzer(
         raise ValueError(
             f"{icons.red_dot} Invalid value for 'export'. Expected None or 'table'."
         )
+
+    if dataset is None:
+        if not visualize:
+            raise ValueError("The 'dataset' parameter is required when visualize=False.")
+        if export is not None:
+            raise ValueError("The 'dataset' parameter is required when export='table'.")
+        _show_vertipaq_picker(
+            workspace=workspace,
+            dark_mode=dark_mode,
+            read_stats_from_data=read_stats_from_data,
+        )
+        return {}
 
     from sempy_labs.tom import connect_semantic_model
 
@@ -1587,7 +1775,7 @@ def vertipaq_analyzer(
         _update_dataframe_datatypes(df, col_types)
         final_dict[title] = df
 
-    if export is None:
+    if export is None and visualize:
         dfs = create_dfs(column_formatting="format")
         default_sort = {
             items["title"]: items["sortby"]
@@ -1596,41 +1784,10 @@ def vertipaq_analyzer(
         }
 
         # Direct-Lake-over-Lakehouse source tables that the Delta Analyzer can
-        # run on (needs the source lakehouse + workspace + entity). Only these
-        # tables enable the "Delta Analyzer" button in the widget.
-        delta_tables = []
-        _seen_dl = set()
-        for _p in partitions:
-            if (
-                _p.get("Mode") == "DirectLake"
-                and _p.get("Source Type") == "Lakehouse"
-                and _p.get("Source Name")
-                and _p.get("Source Table Name")
-                and _p.get("Table Name") not in _seen_dl
-            ):
-                _seen_dl.add(_p.get("Table Name"))
-                _schema = _p.get("Source Schema Name")
-                _entity = _p.get("Source Table Name")
-                delta_tables.append(
-                    {
-                        "tableName": _p.get("Table Name"),
-                        "lakehouse": _p.get("Source Name"),
-                        "workspace": _p.get("Source Workspace"),
-                        "entity": _entity,
-                        "schema": _schema,
-                        "deltaTableName": (
-                            f"{_schema}.{_entity}" if _schema else _entity
-                        ),
-                    }
-                )
-
-        # Map each model column to its source (delta) column name so the Delta
-        # Analyzer per-column stats can be matched back to the model columns.
-        column_source_map: dict = {}
-        for _c in columns:
-            column_source_map.setdefault(_c["Table Name"], {})[_c["Column Name"]] = (
-                _c.get("Source Column") or _c["Column Name"]
-            )
+        # run on. Only these tables enable the "Delta Analyzer" button in the
+        # widget.
+        delta_tables = _direct_lake_delta_tables(partitions)
+        column_source_map = _column_source_map(columns)
 
         visualize_vertipaq(
             dfs,
@@ -1647,6 +1804,9 @@ def vertipaq_analyzer(
             widget=_widget,
         )
 
+        return final_dict
+
+    if export is None:
         return final_dict
 
     # Export vertipaq to delta tables in lakehouse
@@ -1820,6 +1980,35 @@ def _vpx_restore_model(widget, key) -> bool:
     return True
 
 
+def _show_vertipaq_picker(
+    workspace: Optional[str | UUID] = None,
+    dark_mode: bool = False,
+    read_stats_from_data: bool = False,
+) -> None:
+    """Display the Vertipaq widget in its initial model-picker state."""
+
+    # Always resolve so the picker opens on the current workspace.
+    workspace_name, workspace_id = resolve_workspace_name_and_id(workspace)
+
+    empty_sections = {
+        "Model": {"data": pd.DataFrame(columns=["Dataset Name"])},
+        "Tables": {"data": pd.DataFrame()},
+        "Partitions": {"data": pd.DataFrame()},
+        "Columns": {"data": pd.DataFrame()},
+        "Relationships": {"data": pd.DataFrame()},
+        "Hierarchies": {"data": pd.DataFrame()},
+    }
+    visualize_vertipaq(
+        empty_sections,
+        dataset_name=None,
+        workspace_name=workspace_name,
+        dark_mode=dark_mode,
+        workspace_id=workspace_id,
+        read_stats_from_data=read_stats_from_data,
+        picker_initial=True,
+    )
+
+
 def visualize_vertipaq(
     dataframes,
     dataset_name,
@@ -1833,6 +2022,7 @@ def visualize_vertipaq(
     workspace_id=None,
     read_stats_from_data=False,
     widget=None,
+    picker_initial=False,
 ):
     """Render the Vertipaq Analyzer visualization.
 
@@ -1879,7 +2069,7 @@ def visualize_vertipaq(
     # The workspace / semantic model picker re-runs the analysis in Python, so
     # it is only available on the interactive (anywidget) render, which in turn
     # needs to know which model is currently shown.
-    can_pick = bool(dataset_id) and bool(workspace_id)
+    can_pick = bool(picker_initial) or (bool(dataset_id) and bool(workspace_id))
     # Scope the shared header CSS under the root selector so its rules win
     # against notebook host styles (e.g. Jupyter's ``.jp-RenderedHTMLCommon
     # button`` rules that would otherwise override the theme toggle
@@ -1888,6 +2078,13 @@ def visualize_vertipaq(
     # are NOT subject to f-string escaping and don't need doubling.
     ui_header_css_scoped = _ui_scoped_header_css(root_selector)
     ui_attribution_css_scoped = _ui_scoped_attribution_css(root_selector)
+    ui_button_press_css_scoped = _ui_scoped_button_press_css(root_selector)
+    ui_fullscreen_css = _ui_fullscreen_css(
+        root_selector,
+        "vpx-fs",
+        container_selector=".vpx-container",
+        bg_var="var(--vpx-bg)",
+    )
 
     # ── CSS ──────────────────────────────────────────────────────────────
     # Light theme is the default; the ``.vpx-dark`` modifier on the root
@@ -1897,6 +2094,8 @@ def visualize_vertipaq(
     styles = f"""
     <style>
     {ui_header_css_scoped}
+    {ui_fullscreen_css}
+    {_UI_SEARCH_SELECT_CSS}
     .vpx-{uid} {{
         {_UI_LIGHT_VARS}
         --vpx-accent: var(--ui-accent);
@@ -1925,6 +2124,55 @@ def visualize_vertipaq(
     }}
     .vpx-{uid}.vpx-dark {{
         {_UI_DARK_VARS}
+    }}
+    .vpx-{uid} .vpx-analysis-progress {{
+        display: none;
+        position: relative;
+        height: 3px;
+        overflow: hidden;
+        background: var(--ui-accent-soft);
+    }}
+    .vpx-{uid} .vpx-analysis-progress.vpx-active {{
+        display: block;
+    }}
+    .vpx-{uid} .vpx-analysis-progress::after {{
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        left: -35%;
+        width: 35%;
+        border-radius: inherit;
+        background: var(--vpx-accent);
+        animation: vpxAnalysisProgress{uid} 1s ease-in-out infinite;
+    }}
+    @keyframes vpxAnalysisProgress{uid} {{
+        from {{ transform: translateX(0); }}
+        to {{ transform: translateX(390%); }}
+    }}
+    .vpx-{uid}.vpx-picker-only {{
+        display: flex;
+        flex-direction: column;
+        min-height: 420px;
+        background: var(--vpx-bg);
+        border: 1px solid var(--vpx-border);
+        border-radius: var(--vpx-radius);
+        box-shadow: var(--vpx-shadow-lg);
+        overflow: hidden;
+    }}
+    .vpx-{uid}.vpx-picker-only .vpx-container {{
+        order: 1;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }}
+    .vpx-{uid}.vpx-picker-only .vpx-container > :not(.vpx-header) {{
+        display: none;
+    }}
+    .vpx-{uid}.vpx-picker-only .vpx-picker-screen {{
+        order: 2;
+    }}
+    .vpx-{uid}.vpx-picker-only .sl-attribution {{
+        order: 3;
     }}
     /* ── Fullscreen overlay ── */
     .vpx-{uid}.vpx-fs {{
@@ -1958,6 +2206,19 @@ def visualize_vertipaq(
     }}
     .vpx-{uid}.vpx-fs .vpx-table-wrap {{
         max-height: calc(100vh - 260px);
+    }}
+    .vpx-{uid}.vpx-picker-only.vpx-fs .vpx-container,
+    .vpx-{uid}.vpx-picker-only:fullscreen .vpx-container,
+    .vpx-{uid}.vpx-picker-only:-webkit-full-screen .vpx-container {{
+        flex: 0 0 auto;
+        min-height: 0;
+    }}
+    .vpx-{uid}.vpx-picker-only.vpx-fs .vpx-picker-screen,
+    .vpx-{uid}.vpx-picker-only:fullscreen .vpx-picker-screen,
+    .vpx-{uid}.vpx-picker-only:-webkit-full-screen .vpx-picker-screen {{
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
     }}
     .vpx-{uid} *, .vpx-{uid} *::before, .vpx-{uid} *::after {{
         box-sizing: border-box;
@@ -2619,40 +2880,133 @@ def visualize_vertipaq(
         cursor: default;
     }}
     /* ── Workspace / semantic model picker ── */
+    .vpx-{uid} .vpx-picker-screen {{
+        display: flex;
+        align-items: flex-start;
+        justify-content: stretch;
+        width: 100%;
+        min-height: 320px;
+        padding: 0 24px 24px;
+        background: var(--vpx-bg);
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-panel {{
+        width: 100%;
+        padding: 16px;
+        border: 1px solid var(--vpx-border);
+        border-radius: 14px;
+        background: var(--ui-surface);
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-headrow {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-head {{
+        min-width: 0;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-title {{
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--vpx-text);
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-subtitle {{
+        margin-top: 3px;
+        font-size: 12.5px;
+        color: var(--vpx-text-secondary);
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-fields {{
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-field {{
+        flex: 1 1 240px;
+        min-width: 0;
+        margin-bottom: 0;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-field .slls-ss-btn {{
+        border-radius: 999px;
+        padding: 7px 12px 7px 15px;
+        background: var(--ui-surface);
+        font-size: 13.5px;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-actions {{
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-picker-connect {{
+        padding: 7px 16px;
+        border-radius: 999px;
+        font-size: 13.5px;
+        font-weight: 500;
+    }}
+    .vpx-{uid} .vpx-picker-screen .vpx-delta-status {{
+        margin-top: 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--vpx-border);
+        border-radius: var(--vpx-radius-sm);
+        background: var(--vpx-bg-tertiary);
+    }}
+    @media (max-width: 640px) {{
+        .vpx-{uid} .vpx-picker-screen {{ min-height: 280px; padding: 0 16px 16px; }}
+        .vpx-{uid} .vpx-picker-screen .vpx-picker-fields {{
+            align-items: stretch;
+            flex-direction: column;
+        }}
+        .vpx-{uid} .vpx-picker-screen .vpx-picker-actions {{
+            justify-content: flex-end;
+        }}
+    }}
     .vpx-{uid} .vpx-picker-modal {{
+        height: min(720px, calc(100vh - 32px));
+        min-height: min(560px, calc(100vh - 32px));
         max-width: 900px;
+        max-height: calc(100vh - 32px);
+    }}
+    .vpx-{uid} .vpx-picker-modal > .vpx-delta-modal-head,
+    .vpx-{uid} .vpx-picker-modal > .vpx-delta-modal-foot {{
+        flex: 0 0 auto;
+    }}
+    .vpx-{uid} .vpx-picker-modal > .vpx-delta-modal-body {{
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+        flex-direction: column;
+        overflow: visible;
+    }}
+    .vpx-{uid} .vpx-picker-modal .vpx-picker-grid {{
+        flex: 1 1 auto;
+        min-height: 260px;
+        align-items: flex-start;
+    }}
+    .vpx-{uid} .vpx-picker-modal .slls-ss-panel {{
+        z-index: 90;
+    }}
+    .vpx-{uid} .vpx-picker-modal .slls-ss-list {{
+        max-height: min(360px, calc(100vh - 300px));
+    }}
+    @media (max-height: 600px), (max-width: 640px) {{
+        .vpx-{uid} .vpx-picker-modal {{
+            height: calc(100vh - 16px);
+            min-height: 0;
+            max-height: calc(100vh - 16px);
+        }}
+        .vpx-{uid} .vpx-picker-modal .vpx-picker-grid {{
+            min-height: 200px;
+        }}
+        .vpx-{uid} .vpx-picker-modal .slls-ss-list {{
+            max-height: max(140px, calc(100vh - 300px));
+        }}
     }}
     .vpx-{uid} .vpx-picker-top {{
         display: flex;
         justify-content: flex-end;
         margin-bottom: 16px;
-    }}
-    .vpx-{uid} .vpx-picker-reload {{
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        font-size: 13px;
-        font-weight: 600;
-        font-family: inherit;
-        color: var(--vpx-text);
-        background: var(--vpx-bg);
-        border: 1px solid var(--vpx-border-strong);
-        border-radius: var(--vpx-radius-sm);
-        cursor: pointer;
-        transition: border-color var(--vpx-transition);
-    }}
-    .vpx-{uid} .vpx-picker-reload:hover {{
-        border-color: var(--vpx-text-tertiary);
-    }}
-    .vpx-{uid} .vpx-picker-reload:disabled {{
-        opacity: 0.5;
-        cursor: default;
-    }}
-    .vpx-{uid} .vpx-picker-reload svg {{
-        width: 15px;
-        height: 15px;
-        flex-shrink: 0;
     }}
     .vpx-{uid} .vpx-picker-grid {{
         display: flex;
@@ -2743,6 +3097,7 @@ def visualize_vertipaq(
         color: #f5f5f7;
     }}
     {ui_attribution_css_scoped}
+    {ui_button_press_css_scoped}
     </style>
     """
 
@@ -2779,21 +3134,30 @@ def visualize_vertipaq(
             [
                 {
                     "id": picker_btn_id,
+                    "base": "sl-change-btn",
                     "cls": "vpx-picker-btn",
                     "icon": _UI_ICONS["swap"],
                     "title": "Change semantic model / workspace",
                 }
             ]
-            if can_pick
+            if can_pick and not picker_initial
             else []
         ),
     )
 
     html_parts = []
-    root_classes = f"vpx-{uid}" + (" vpx-dark" if dark_mode else "")
+    root_classes = (
+        f"vpx-{uid}"
+        + (" vpx-dark" if dark_mode else "")
+        + (" vpx-picker-only" if picker_initial else "")
+    )
     html_parts.append(f'<div class="{root_classes}">')
     html_parts.append('<div class="vpx-container">')
     html_parts.append(f'<div class="vpx-header">{header_html}</div>')
+    html_parts.append(
+        '<div class="vpx-analysis-progress" role="progressbar" '
+        'aria-label="Running Vertipaq Analyzer" aria-hidden="true"></div>'
+    )
 
     # Model summary cards
     if not model_df.empty:
@@ -2906,12 +3270,11 @@ def visualize_vertipaq(
             f"</div>"
         )
         html_parts.append('<div class="vpx-toolbar-controls">')
-        # Delta Analyzer button — placed to the left of the Bars button. Only
-        # on the Tables/Columns tabs (the tabs whose rows receive merged Delta
-        # Analyzer stats) and only when the model has Direct-Lake-over-Lakehouse
-        # source tables. Wired in the anywidget frontend (it must call back into
+        # Delta Analyzer button — placed to the left of the Bars button, on
+        # every tab, whenever the model has Direct-Lake-over-Lakehouse source
+        # tables. Wired in the anywidget frontend (it must call back into
         # Python to run Spark).
-        if has_delta and title in ("Tables", "Columns"):
+        if has_delta:
             delta_btn_title = (
                 "Run Delta Analyzer stats \u2014 pick which Direct Lake source "
                 "tables to analyze on Spark, then merge the results into the "
@@ -3130,41 +3493,74 @@ def visualize_vertipaq(
             "<svg ", '<svg class="vpx-toggle-icon" ', 1
         )
         picker_reload_icon = _UI_ICONS["refresh"]
-        html_parts.append(
-            f'<div class="vpx-delta-dialog vpx-picker-dialog">'
-            f'<div class="vpx-delta-modal vpx-picker-modal">'
-            f'<div class="vpx-delta-modal-head">{picker_dialog_icon}'
-            f"<div>"
-            f'<div class="vpx-delta-modal-title">Choose a semantic model</div>'
-            f'<div class="vpx-delta-modal-sub">Pick a workspace and semantic '
-            f"model to analyze.</div>"
-            f"</div>"
-            f'<button type="button" class="vpx-delta-close vpx-picker-close" '
-            f'aria-label="Close">\u00d7</button>'
-            f"</div>"
-            f'<div class="vpx-delta-modal-body">'
-            f'<div class="vpx-picker-top">'
-            f'<button type="button" class="vpx-picker-reload" '
-            f'title="Reload workspaces and semantic models">'
-            f"{picker_reload_icon}Reload</button>"
-            f"</div>"
-            f'<div class="vpx-picker-grid">'
-            f'<div class="vpx-picker-field"><label>Workspace</label>'
-            f'<select class="vpx-picker-select vpx-picker-ws"></select></div>'
-            f'<div class="vpx-picker-field"><label>Semantic model</label>'
-            f'<select class="vpx-picker-select vpx-picker-ds"></select></div>'
-            f"</div>"
-            f'<div class="vpx-picker-recent"></div>'
-            f"</div>"
-            f'<div class="vpx-delta-modal-foot">'
-            f'<button type="button" class="vpx-delta-cancel vpx-picker-cancel">'
-            f"Cancel</button>"
-            f'<button type="button" class="vpx-delta-run vpx-picker-connect" '
-            f"disabled>Connect</button>"
-            f"</div>"
-            f"</div>"
-            f"</div>"
-        )
+        if picker_initial:
+            html_parts.append(
+                f'<div class="vpx-picker-screen vpx-picker-dialog">'
+                f'<div class="vpx-picker-panel">'
+                f'<div class="vpx-picker-headrow">'
+                f'<div class="vpx-picker-head">'
+                f'<h2 class="vpx-picker-title">Connect to a semantic model</h2>'
+                f'<div class="vpx-picker-subtitle">Select a workspace and '
+                f"semantic model to begin.</div>"
+                f"</div>"
+                f'<button type="button" class="sl-reload-btn" '
+                f'title="Reload workspaces and semantic models" '
+                f'aria-label="Reload workspaces and semantic models">'
+                f"{picker_reload_icon}</button>"
+                f"</div>"
+                f'<div class="vpx-picker-fields">'
+                f'<div class="vpx-picker-field"><label>Workspace</label>'
+                f'<div class="vpx-picker-ws"></div></div>'
+                f'<div class="vpx-picker-field"><label>Semantic model</label>'
+                f'<div class="vpx-picker-ds"></div></div>'
+                f'<div class="vpx-picker-actions">'
+                f'<button type="button" class="vpx-delta-run vpx-picker-connect" '
+                f"disabled>Connect</button>"
+                f"</div>"
+                f"</div>"
+                f'<div class="vpx-picker-recent"></div>'
+                f'<div class="vpx-delta-status"></div>'
+                f"</div>"
+                f"</div>"
+            )
+        else:
+            html_parts.append(
+                f'<div class="vpx-delta-dialog vpx-picker-dialog">'
+                f'<div class="vpx-delta-modal vpx-picker-modal">'
+                f'<div class="vpx-delta-modal-head">{picker_dialog_icon}'
+                f"<div>"
+                f'<div class="vpx-delta-modal-title">Choose a semantic model</div>'
+                f'<div class="vpx-delta-modal-sub">Pick a workspace and semantic '
+                f"model to analyze.</div>"
+                f"</div>"
+                f'<button type="button" class="vpx-delta-close vpx-picker-close" '
+                f'aria-label="Close">\u00d7</button>'
+                f"</div>"
+                f'<div class="vpx-delta-modal-body">'
+                f'<div class="vpx-picker-top">'
+                f'<button type="button" class="sl-reload-btn" '
+                f'title="Reload workspaces and semantic models" '
+                f'aria-label="Reload workspaces and semantic models">'
+                f"{picker_reload_icon}</button>"
+                f"</div>"
+                f'<div class="vpx-picker-grid">'
+                f'<div class="vpx-picker-field"><label>Workspace</label>'
+                f'<div class="vpx-picker-ws"></div></div>'
+                f'<div class="vpx-picker-field"><label>Semantic model</label>'
+                f'<div class="vpx-picker-ds"></div></div>'
+                f"</div>"
+                f'<div class="vpx-picker-recent"></div>'
+                f'<div class="vpx-delta-status"></div>'
+                f"</div>"
+                f'<div class="vpx-delta-modal-foot">'
+                f'<button type="button" class="vpx-delta-cancel vpx-picker-cancel">'
+                f"Cancel</button>"
+                f'<button type="button" class="vpx-delta-run vpx-picker-connect" '
+                f"disabled>Connect</button>"
+                f"</div>"
+                f"</div>"
+                f"</div>"
+            )
 
     html_parts.append("</div>")  # root
 
@@ -3351,7 +3747,7 @@ def visualize_vertipaq(
     fullscreen_script = _ui_fullscreen_toggle_script(
         btn_id=fullscreen_btn_id,
         root_selector=root_selector,
-        fs_class="vpx-fs",
+        fullscreen_class="vpx-fs",
     )
 
     static_html = styles + "\n".join(html_parts)
@@ -3382,6 +3778,7 @@ def visualize_vertipaq(
         widget.delta_tables = delta_tables
         widget.delta_results = {}
         widget.status = {}
+        widget.picker_initial = False
         widget.uid = uid
         widget.script_content = raw_static_js
         # Set last: the frontend redraws on this trait.
@@ -3405,6 +3802,11 @@ def visualize_vertipaq(
         import anywidget
         import traitlets
     except ImportError:
+        if picker_initial:
+            raise ImportError(
+                "Selecting a semantic model requires the 'anywidget' package. "
+                "Install it with: pip install anywidget"
+            )
         display(HTML(static_html + static_scripts))
         return
 
@@ -3424,6 +3826,7 @@ def visualize_vertipaq(
         workspaces = traitlets.List().tag(sync=True)
         datasets = traitlets.Dict().tag(sync=True)
         recent_models = traitlets.List().tag(sync=True)
+        picker_initial = traitlets.Bool(False).tag(sync=True)
 
     # In a pure-Python (non-Spark) notebook the Delta Analyzer cannot run, so
     # surface an upfront hint next to the button.
@@ -3454,6 +3857,7 @@ def visualize_vertipaq(
         workspaces=[],
         datasets={},
         recent_models=[],
+        picker_initial=bool(picker_initial),
     )
 
     # Delta Analyzer metadata for the model currently shown. Kept on the widget
@@ -3464,7 +3868,9 @@ def visualize_vertipaq(
     # Every analyzed model is cached (rendered HTML/JS + Delta Analyzer
     # results) so the picker can switch back to it instantly.
     widget._cache = {}
-    widget._model_key = _vpx_model_key(workspace_id, dataset_id)
+    widget._model_key = (
+        "" if picker_initial else _vpx_model_key(workspace_id, dataset_id)
+    )
     widget._model_meta = {
         "dataset": dataset_name or "",
         "workspace": workspace_name or "",
@@ -3545,59 +3951,11 @@ def visualize_vertipaq(
                 "done": True,
             }
 
-    def _api_items(request):
-        """Collect ``{id, name}`` entries from a paginated Fabric list API."""
-        responses = _base_api(request=request, uses_pagination=True, client="fabric_sp")
-        return [
-            {"id": str(v.get("id")), "name": str(v.get("displayName"))}
-            for r in responses
-            for v in r.get("value", [])
-            if v.get("id")
-        ]
-
-    def _df_items(df, id_names, name_names):
-        """Collect ``{id, name}`` entries from a sempy dataframe, tolerating the
-        different column spellings across semantic-link versions."""
-        cols = list(df.columns)
-        id_col = next((c for c in id_names if c in cols), None)
-        name_col = next((c for c in name_names if c in cols), None)
-        if id_col is None or name_col is None:
-            return []
-        return [
-            {"id": str(r[id_col]), "name": str(r[name_col])} for _, r in df.iterrows()
-        ]
-
     def _list_workspaces_payload():
-        out = []
-        try:
-            out = _api_items("/v1/workspaces")
-        except Exception:
-            out = []
-        if not out:
-            try:
-                out = _df_items(fabric.list_workspaces(), ["Id", "ID"], ["Name"])
-            except Exception:
-                out = []
-        if not out:
-            return [{"id": str(workspace_id or ""), "name": str(workspace_name or "")}]
-        return sorted(out, key=lambda x: x["name"].lower())
+        return _list_picker_workspaces(workspace_id, workspace_name)
 
     def _list_datasets_payload(target_workspace_id):
-        out = []
-        try:
-            out = _api_items(f"/v1/workspaces/{target_workspace_id}/semanticModels")
-        except Exception:
-            out = []
-        if not out:
-            try:
-                out = _df_items(
-                    fabric.list_datasets(workspace=target_workspace_id),
-                    ["Dataset Id", "Dataset ID", "Id"],
-                    ["Dataset Name", "Name"],
-                )
-            except Exception:
-                out = []
-        return sorted(out, key=lambda x: x["name"].lower())
+        return _list_picker_datasets(target_workspace_id)
 
     def _connect(target_workspace_id, target_dataset_id, target_names=None):
         """Show the semantic model chosen in the picker: restored from the cache

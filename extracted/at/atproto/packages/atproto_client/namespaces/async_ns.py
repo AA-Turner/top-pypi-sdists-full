@@ -12,17 +12,17 @@ from atproto_client.models.utils import get_or_create, get_response_model
 from atproto_client.namespaces.base import AsyncNamespaceBase, AsyncRecordBase
 
 if t.TYPE_CHECKING:
-    from atproto_client.client.async_raw import AsyncClientRaw
+    from atproto_client.namespaces.base import AsyncXrpcClient
 
 
 class AppNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.bsky = AppBskyNamespace(self._client)
 
 
 class AppBskyNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.actor = AppBskyActorNamespace(self._client)
         self.ageassurance = AppBskyAgeassuranceNamespace(self._client)
@@ -497,7 +497,7 @@ class AppBskyActorStatusRecord(AsyncRecordBase):
 
 
 class AppBskyActorNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.contentVisibilityDeclaration = AppBskyActorContentvisibilitydeclarationRecord(self._client)
         self.profile = AppBskyActorProfileRecord(self._client)
@@ -2129,7 +2129,7 @@ class AppBskyFeedThreadgateRecord(AsyncRecordBase):
 
 
 class AppBskyFeedNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.generator = AppBskyFeedGeneratorRecord(self._client)
         self.like = AppBskyFeedLikeRecord(self._client)
@@ -3371,6 +3371,160 @@ class AppBskyGraphListitemRecord(AsyncRecordBase):
         return get_response_model(response, bool)
 
 
+class AppBskyGraphReferencelistoptoutRecord(AsyncRecordBase):
+    async def get(
+        self, repo: str, rkey: str, cid: t.Optional[str] = None, **kwargs: t.Any
+    ) -> 'models.AppBskyGraphReferencelistoptout.GetRecordResponse':
+        """Get a record.
+
+        Args:
+            repo: The repository (DID).
+            rkey: The record key (TID).
+            cid: The CID of the record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyGraphReferencelistoptout.GetRecordResponse`: Get record response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = models.ComAtprotoRepoGetRecord.Params(
+            collection='app.bsky.graph.referencelistoptout', repo=repo, rkey=rkey, cid=cid
+        )
+        response = await self._client.invoke_query(
+            'com.atproto.repo.getRecord', params=params_model, output_encoding='application/json', **kwargs
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoGetRecord.Response)
+        return models.AppBskyGraphReferencelistoptout.GetRecordResponse(
+            uri=response_model.uri,
+            cid=response_model.cid,
+            value=t.cast('models.AppBskyGraphReferencelistoptout.Record', response_model.value),
+        )
+
+    async def list(
+        self,
+        repo: str,
+        cursor: t.Optional[str] = None,
+        limit: t.Optional[int] = None,
+        reverse: t.Optional[bool] = None,
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyGraphReferencelistoptout.ListRecordsResponse':
+        """List a range of records in a collection.
+
+        Args:
+            repo: The repository (DID).
+            cursor: The cursor.
+            limit: The limit.
+            reverse: Whether to reverse the order.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyGraphReferencelistoptout.ListRecordsResponse`: List records response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = models.ComAtprotoRepoListRecords.Params(
+            collection='app.bsky.graph.referencelistoptout',
+            repo=repo,
+            cursor=cursor,
+            limit=limit,
+            reverse=reverse,
+        )
+        response = await self._client.invoke_query(
+            'com.atproto.repo.listRecords', params=params_model, output_encoding='application/json', **kwargs
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoListRecords.Response)
+        return models.AppBskyGraphReferencelistoptout.ListRecordsResponse(
+            records={
+                record.uri: t.cast('models.AppBskyGraphReferencelistoptout.Record', record.value)
+                for record in response_model.records
+            },
+            cursor=response_model.cursor,
+        )
+
+    async def create(
+        self,
+        repo: str,
+        record: 'models.AppBskyGraphReferencelistoptout.Record',
+        rkey: t.Optional[str] = None,
+        swap_commit: t.Optional[str] = None,
+        validate: t.Optional[bool] = True,
+        **kwargs: t.Any,
+    ) -> 'models.AppBskyGraphReferencelistoptout.CreateRecordResponse':
+        """Create a new record.
+
+        Args:
+            repo: The repository (DID).
+            record: The record.
+            rkey: The record key (TID).
+            swap_commit: The swap commit.
+            validate: Whether to validate the record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.AppBskyGraphReferencelistoptout.CreateRecordResponse`: Create record response.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = models.ComAtprotoRepoCreateRecord.Data(
+            collection='app.bsky.graph.referencelistoptout',
+            repo=repo,
+            record=record,
+            rkey=rkey,
+            swap_commit=swap_commit,
+            validate_=validate,
+        )
+        response = await self._client.invoke_procedure(
+            'com.atproto.repo.createRecord',
+            data=data_model,
+            input_encoding='application/json',
+            output_encoding='application/json',
+            **kwargs,
+        )
+        response_model = get_response_model(response, models.ComAtprotoRepoCreateRecord.Response)
+        return models.AppBskyGraphReferencelistoptout.CreateRecordResponse(
+            uri=response_model.uri, cid=response_model.cid
+        )
+
+    async def delete(
+        self,
+        repo: str,
+        rkey: str,
+        swap_commit: t.Optional[str] = None,
+        swap_record: t.Optional[str] = None,
+        **kwargs: t.Any,
+    ) -> bool:
+        """Delete a record, or ensure it doesn't exist.
+
+        Args:
+            repo: The repository (DID).
+            rkey: The record key (TID).
+            swap_commit: The swap commit.
+            swap_record: The swap record.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`bool`: Success status.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        data_model = models.ComAtprotoRepoDeleteRecord.Data(
+            collection='app.bsky.graph.referencelistoptout',
+            repo=repo,
+            rkey=rkey,
+            swap_commit=swap_commit,
+            swap_record=swap_record,
+        )
+        response = await self._client.invoke_procedure(
+            'com.atproto.repo.deleteRecord', data=data_model, input_encoding='application/json', **kwargs
+        )
+        return get_response_model(response, bool)
+
+
 class AppBskyGraphStarterpackRecord(AsyncRecordBase):
     async def get(
         self, repo: str, rkey: str, cid: t.Optional[str] = None, **kwargs: t.Any
@@ -3676,13 +3830,14 @@ class AppBskyGraphVerificationRecord(AsyncRecordBase):
 
 
 class AppBskyGraphNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.block = AppBskyGraphBlockRecord(self._client)
         self.follow = AppBskyGraphFollowRecord(self._client)
         self.list = AppBskyGraphListRecord(self._client)
         self.listblock = AppBskyGraphListblockRecord(self._client)
         self.listitem = AppBskyGraphListitemRecord(self._client)
+        self.referencelistoptout = AppBskyGraphReferencelistoptoutRecord(self._client)
         self.starterpack = AppBskyGraphStarterpackRecord(self._client)
         self.verification = AppBskyGraphVerificationRecord(self._client)
 
@@ -4465,7 +4620,7 @@ class AppBskyLabelerServiceRecord(AsyncRecordBase):
 
 
 class AppBskyLabelerNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.service = AppBskyLabelerServiceRecord(self._client)
 
@@ -4650,7 +4805,7 @@ class AppBskyNotificationDeclarationRecord(AsyncRecordBase):
 
 
 class AppBskyNotificationNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.declaration = AppBskyNotificationDeclarationRecord(self._client)
 
@@ -6096,13 +6251,13 @@ class AppBskyVideoNamespace(AsyncNamespaceBase):
 
 
 class ChatNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.bsky = ChatBskyNamespace(self._client)
 
 
 class ChatBskyNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.actor = ChatBskyActorNamespace(self._client)
         self.convo = ChatBskyConvoNamespace(self._client)
@@ -6264,7 +6419,7 @@ class ChatBskyActorDeclarationRecord(AsyncRecordBase):
 
 
 class ChatBskyActorNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.declaration = ChatBskyActorDeclarationRecord(self._client)
 
@@ -7618,14 +7773,14 @@ class ChatBskyNotificationNamespace(AsyncNamespaceBase):
 
 
 class ComNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.atproto = ComAtprotoNamespace(self._client)
         self.germnetwork = ComGermnetworkNamespace(self._client)
 
 
 class ComAtprotoNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.admin = ComAtprotoAdminNamespace(self._client)
         self.identity = ComAtprotoIdentityNamespace(self._client)
@@ -8470,7 +8625,7 @@ class ComAtprotoLexiconSchemaRecord(AsyncRecordBase):
 
 
 class ComAtprotoLexiconNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.schema = ComAtprotoLexiconSchemaRecord(self._client)
 
@@ -10109,19 +10264,19 @@ class ComGermnetworkDeclarationRecord(AsyncRecordBase):
 
 
 class ComGermnetworkNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.declaration = ComGermnetworkDeclarationRecord(self._client)
 
 
 class InternalNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.bsky = InternalBskyNamespace(self._client)
 
 
 class InternalBskyNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.actor = InternalBskyActorNamespace(self._client)
 
@@ -10155,13 +10310,13 @@ class InternalBskyActorNamespace(AsyncNamespaceBase):
 
 
 class NetworkNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.bsky = NetworkBskyNamespace(self._client)
 
 
 class NetworkBskyNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.jetstream = NetworkBskyJetstreamNamespace(self._client)
 
@@ -10380,7 +10535,7 @@ class NetworkBskyJetstreamNamespace(AsyncNamespaceBase):
 
 
 class SiteNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.standard = SiteStandardNamespace(self._client)
 
@@ -10690,7 +10845,7 @@ class SiteStandardPublicationRecord(AsyncRecordBase):
 
 
 class SiteStandardNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.graph = SiteStandardGraphNamespace(self._client)
         self.theme = SiteStandardThemeNamespace(self._client)
@@ -11003,7 +11158,7 @@ class SiteStandardGraphSubscriptionRecord(AsyncRecordBase):
 
 
 class SiteStandardGraphNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.recommend = SiteStandardGraphRecommendRecord(self._client)
         self.subscription = SiteStandardGraphSubscriptionRecord(self._client)
@@ -11162,19 +11317,19 @@ class SiteStandardThemeBasicRecord(AsyncRecordBase):
 
 
 class SiteStandardThemeNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.basic = SiteStandardThemeBasicRecord(self._client)
 
 
 class ToolsNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.ozone = ToolsOzoneNamespace(self._client)
 
 
 class ToolsOzoneNamespace(AsyncNamespaceBase):
-    def __init__(self, client: 'AsyncClientRaw') -> None:
+    def __init__(self, client: 'AsyncXrpcClient') -> None:
         super().__init__(client)
         self.communication = ToolsOzoneCommunicationNamespace(self._client)
         self.hosting = ToolsOzoneHostingNamespace(self._client)
@@ -11393,6 +11548,38 @@ class ToolsOzoneModerationNamespace(AsyncNamespaceBase):
             **kwargs,
         )
         return get_response_model(response, models.ToolsOzoneModerationDefs.ModEventView)
+
+    async def get_account_preferences(
+        self,
+        params: t.Union[
+            models.ToolsOzoneModerationGetAccountPreferences.Params,
+            models.ToolsOzoneModerationGetAccountPreferences.ParamsDict,
+        ],
+        **kwargs: t.Any,
+    ) -> 'models.ToolsOzoneModerationGetAccountPreferences.Response':
+        """Get private preferences for an account. Requires moderator or admin auth.
+
+        Args:
+            params: Parameters.
+            **kwargs: Arbitrary arguments to HTTP request.
+
+        Returns:
+            :obj:`models.ToolsOzoneModerationGetAccountPreferences.Response`: Output model.
+
+        Raises:
+            :class:`atproto.exceptions.AtProtocolError`: Base exception.
+        """
+        params_model = t.cast(
+            'models.ToolsOzoneModerationGetAccountPreferences.Params',
+            get_or_create(params, models.ToolsOzoneModerationGetAccountPreferences.Params),
+        )
+        response = await self._client.invoke_query(
+            'tools.ozone.moderation.getAccountPreferences',
+            params=params_model,
+            output_encoding='application/json',
+            **kwargs,
+        )
+        return get_response_model(response, models.ToolsOzoneModerationGetAccountPreferences.Response)
 
     async def get_account_timeline(
         self,

@@ -59,6 +59,13 @@ _KNOWN_MODELS = [
     ("meta.llama4-maverick-17b-instruct-v1:0", 1_000_000),
     ("qwen/qwen3-max", 1_000_000),
     ("minimax/minimax-m1", 1_000_000),
+    # 1.05M (GPT-5.6 / GPT-6 families)
+    ("gpt-6-astra", 1_050_000),
+    ("openai/gpt-6-astra", 1_050_000),
+    ("gpt-5.6-sol", 1_050_000),
+    ("gpt-5.6-terra", 1_050_000),
+    ("gpt-5.6-luna", 1_050_000),
+    ("openai/gpt-5.6-sol", 1_050_000),
     # 400K (GPT-5 family)
     ("gpt-5", 400_000),
     ("gpt-5-mini", 400_000),

@@ -69,6 +69,7 @@ __all__ = (
     "BatchStateType",
     "BgpStatusType",
     "BlockPublicAccessModeType",
+    "BootModeOverrideValuesType",
     "BootModeTypeType",
     "BootModeValuesType",
     "BundleTaskCompleteWaiterName",
@@ -840,6 +841,7 @@ BatchStateType = Literal[
 ]
 BgpStatusType = Literal["down", "up"]
 BlockPublicAccessModeType = Literal["block-bidirectional", "block-ingress", "off"]
+BootModeOverrideValuesType = Literal["uefi"]
 BootModeTypeType = Literal["legacy-bios", "uefi"]
 BootModeValuesType = Literal["legacy-bios", "uefi", "uefi-preferred"]
 BundleTaskCompleteWaiterName = Literal["bundle_task_complete"]

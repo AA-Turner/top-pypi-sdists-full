@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.8.0
+Version: 2.9.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -19,7 +19,6 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: aiohttp!=3.14.2
 Requires-Dist: aiosqlite>=0.21
 Requires-Dist: authlib>=1.6.6,<2
 Requires-Dist: click>=8.1.8,<9
@@ -40,7 +39,6 @@ Requires-Dist: requests>=2.32.4,<3
 Requires-Dist: starlette>=1.3.1,<2
 Requires-Dist: tenacity>=9,<10
 Requires-Dist: typing-extensions>=4.5,<5
-Requires-Dist: tzlocal>=5.3,<6
 Requires-Dist: uvicorn>=0.34,<1
 Requires-Dist: watchdog>=6,<7
 Requires-Dist: websockets>=15.0.1,<16
@@ -48,6 +46,7 @@ Requires-Dist: a2a-sdk[http-server]>=0.3.4,<2 ; extra == "a2a"
 Requires-Dist: google-cloud-agentidentitycredentials>=0.1,<0.2 ; extra == "agent-identity"
 Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "agent-identity"
 Requires-Dist: a2a-sdk[http-server]>=0.3.4,<2 ; extra == "all"
+Requires-Dist: aiohttp!=3.14.2 ; extra == "all"
 Requires-Dist: anthropic>=0.78 ; extra == "all"
 Requires-Dist: anyio>=4.9,<5 ; extra == "all"
 Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "all"
@@ -73,7 +72,7 @@ Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "all"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "all"
 Requires-Dist: google-cloud-resource-manager>=1.12,<2 ; extra == "all"
 Requires-Dist: google-cloud-secret-manager>=2.22,<3 ; extra == "all"
-Requires-Dist: google-cloud-spanner>=3.56,<4 ; extra == "all"
+Requires-Dist: google-cloud-spanner>=3.64,<4 ; extra == "all"
 Requires-Dist: google-cloud-speech>=2.30,<3 ; extra == "all"
 Requires-Dist: google-cloud-storage>=2.18,<4 ; extra == "all"
 Requires-Dist: google-cloud-texttospeech>=2.37 ; extra == "all"
@@ -83,6 +82,8 @@ Requires-Dist: kubernetes>=29 ; extra == "all"
 Requires-Dist: langgraph>=1.0.10,<2 ; extra == "all"
 Requires-Dist: langgraph-checkpoint>=4.1.1,<5 ; extra == "all"
 Requires-Dist: litellm>=1.84 ; extra == "all"
+Requires-Dist: livekit>=1,<2 ; extra == "all"
+Requires-Dist: livekit-api>=1,<2 ; extra == "all"
 Requires-Dist: llama-index-embeddings-google-genai>=0.3 ; extra == "all"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "all"
 Requires-Dist: lxml>=5.3 ; extra == "all"
@@ -100,6 +101,7 @@ Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "all"
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "all"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0,<2 ; extra == "all"
 Requires-Dist: pandas>=2.2.3 ; extra == "all"
+Requires-Dist: pillow>=10.3 ; extra == "all"
 Requires-Dist: protobuf>=6 ; extra == "all"
 Requires-Dist: pyarrow>=14 ; extra == "all"
 Requires-Dist: pypika>=0.50 ; extra == "all"
@@ -184,7 +186,7 @@ Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "gcp"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-resource-manager>=1.12,<2 ; extra == "gcp"
 Requires-Dist: google-cloud-secret-manager>=2.22,<3 ; extra == "gcp"
-Requires-Dist: google-cloud-spanner>=3.56,<4 ; extra == "gcp"
+Requires-Dist: google-cloud-spanner>=3.64,<4 ; extra == "gcp"
 Requires-Dist: google-cloud-speech>=2.30,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-storage>=2.18,<4 ; extra == "gcp"
 Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0 ; extra == "gcp"
@@ -193,6 +195,10 @@ Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2 ; extra == "gcp"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36 ; extra == "gcp"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0,<2 ; extra == "gcp"
 Requires-Dist: python-dateutil>=2.9.0.post0,<3 ; extra == "gcp"
+Requires-Dist: livekit>=1,<2 ; extra == "livekit"
+Requires-Dist: livekit-api>=1,<2 ; extra == "livekit"
+Requires-Dist: pillow>=10.3 ; extra == "livekit"
+Requires-Dist: aiohttp!=3.14.2 ; extra == "mcp"
 Requires-Dist: anyio>=4.9,<5 ; extra == "mcp"
 Requires-Dist: mcp>=1.24,<2 ; extra == "mcp"
 Requires-Dist: oci>=2.126 ; extra == "oci"
@@ -200,6 +206,7 @@ Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "
 Requires-Dist: opentelemetry-instrumentation-grpc>=0.43b0,<1 ; extra == "otel-gcp"
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.54b0,<1 ; extra == "otel-gcp"
 Requires-Dist: redis>=4.2 ; extra == "redis"
+Requires-Dist: aiohttp!=3.14.2 ; extra == "slack"
 Requires-Dist: slack-bolt>=1.22 ; extra == "slack"
 Requires-Dist: a2a-sdk>=0.3.4,<2 ; extra == "test"
 Requires-Dist: anthropic>=0.78 ; extra == "test"
@@ -227,7 +234,7 @@ Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "test"
 Requires-Dist: google-cloud-pubsub>=2,<3 ; extra == "test"
 Requires-Dist: google-cloud-resource-manager>=1.12,<2 ; extra == "test"
 Requires-Dist: google-cloud-secret-manager>=2.22,<3 ; extra == "test"
-Requires-Dist: google-cloud-spanner>=3.56,<4 ; extra == "test"
+Requires-Dist: google-cloud-spanner>=3.64,<4 ; extra == "test"
 Requires-Dist: google-cloud-speech>=2.30,<3 ; extra == "test"
 Requires-Dist: google-cloud-storage>=2.18,<4 ; extra == "test"
 Requires-Dist: hypothesis>=6 ; extra == "test"
@@ -237,6 +244,8 @@ Requires-Dist: langchain-community>=0.3.17 ; extra == "test"
 Requires-Dist: langgraph>=1.0.10,<2 ; extra == "test"
 Requires-Dist: langgraph-checkpoint>=4.1.1,<5 ; extra == "test"
 Requires-Dist: litellm>=1.84 ; extra == "test"
+Requires-Dist: livekit>=1,<2 ; extra == "test"
+Requires-Dist: livekit-api>=1,<2 ; extra == "test"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "test"
 Requires-Dist: lxml>=5.3 ; extra == "test"
 Requires-Dist: mcp>=1.24,<2 ; extra == "test"
@@ -250,6 +259,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.36 ; extra == "test"
 Requires-Dist: opentelemetry-instrumentation-google-genai>=0.7b1,<1 ; extra == "test"
 Requires-Dist: opentelemetry-resourcedetector-gcp>=1.9.0a0,<2 ; extra == "test"
 Requires-Dist: pandas>=2.2.3 ; extra == "test"
+Requires-Dist: pillow>=10.3 ; extra == "test"
 Requires-Dist: protobuf>=6 ; extra == "test"
 Requires-Dist: pyarrow>=14 ; extra == "test"
 Requires-Dist: pypika>=0.50 ; extra == "test"
@@ -287,6 +297,7 @@ Provides-Extra: e2b
 Provides-Extra: eval
 Provides-Extra: extensions
 Provides-Extra: gcp
+Provides-Extra: livekit
 Provides-Extra: mcp
 Provides-Extra: oci
 Provides-Extra: otel-gcp
@@ -477,6 +488,26 @@ A built-in development UI to help you test, evaluate, debug, and showcase your a
 adk eval \
     samples_for_testing/hello_world \
     samples_for_testing/hello_world/hello_world_eval_set_001.evalset.json
+```
+
+### 🚀 Deployment Options
+
+Deploying the Agent Locally with Docker Container:
+
+```bash
+adk deploy docker --with_ui <agent-folder>
+```
+
+Deploying the Agent in Google Cloud (Cloud Run)
+
+```bash
+adk deploy cloud_run --with_ui <agent-folder>
+```
+
+You may set the following environment variables in adk command, or in a .env file instead.
+
+```bash
+adk deploy cloud_run --with_ui --env GOOGLE_GENAI_USE_ENTERPRISE=1 <agent-folder>
 ```
 
 ## 📚 Documentation

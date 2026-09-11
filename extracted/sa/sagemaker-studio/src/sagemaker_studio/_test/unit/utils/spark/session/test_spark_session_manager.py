@@ -5,10 +5,15 @@ This module tests the abstract base class for Spark session providers.
 """
 
 import sys
+import types
 from abc import ABC
 from unittest.mock import Mock
 
 import pytest
+from botocore.config import Config
+
+# Snapshot `sys.modules` so the stand-ins installed below can be taken back out.
+_modules_before = dict(sys.modules)
 
 # Mock PySpark and gRPC modules before importing our code
 pyspark_modules = [
@@ -34,6 +39,28 @@ for module_name in pyspark_modules:
 from sagemaker_studio.utils.spark.session.spark_session_manager import (  # noqa: E402
     SparkSessionManager,
 )
+
+# Put `sys.modules` back as this module found it. The stand-ins above are needed
+# only for the import that just happened; pytest imports every test module during
+# COLLECTION, so one left installed here stays installed for the rest of the
+# session and silently changes what every later test imports.
+_stand_in_names = {
+    _name
+    for _name, _module in sys.modules.items()
+    if not isinstance(_module, types.ModuleType) and _module is not _modules_before.get(_name)
+}
+for _name in list(sys.modules):
+    if _name in _modules_before:
+        if sys.modules[_name] is not _modules_before[_name]:
+            sys.modules[_name] = _modules_before[_name]
+    elif _name in _stand_in_names or any(
+        _name.startswith(_root + ".") for _root in _stand_in_names
+    ):
+        # A stand-in, or something imported UNDER one. A real submodule reached
+        # through a mocked parent is registered without the parent ever gaining the
+        # attribute, so a later import of it fails ("cannot import name ...").
+        # Drop both kinds so the next importer builds a clean one.
+        del sys.modules[_name]
 
 
 class TestSparkSessionManager:
@@ -169,3 +196,37 @@ class TestSparkSessionManager:
         mgr2 = ConcreteManager()
         mgr1.set_user_spark_conf({"spark.a": "1"})
         assert mgr2._user_spark_conf is None
+
+    def test_client_retry_config_defaults(self):
+        """_client_retry_config() returns adaptive retries with max_attempts=5."""
+        cfg = SparkSessionManager._client_retry_config()
+        assert isinstance(cfg, Config)
+        assert cfg.retries == {"max_attempts": 5, "mode": "adaptive"}
+
+    def test_client_retry_config_merges_and_preserves_base(self):
+        """When given a base Config, retry settings are applied while base settings persist."""
+        base = Config(read_timeout=99, connect_timeout=7)
+        merged = SparkSessionManager._client_retry_config(base)
+
+        # Retry policy applied
+        assert merged.retries == {"max_attempts": 5, "mode": "adaptive"}
+        # Pre-existing (e.g. endpoint/service-model) settings preserved
+        assert merged.read_timeout == 99
+        assert merged.connect_timeout == 7
+        # Base config is not mutated in place
+        assert base.retries is None
+
+    def test_client_retry_config_available_to_subclasses(self):
+        """Concrete managers inherit the shared retry-config helper."""
+
+        class ConcreteManager(SparkSessionManager):
+            def create(self):
+                pass
+
+            def stop(self):
+                pass
+
+            def get_session_id(self):
+                pass
+
+        assert ConcreteManager()._client_retry_config().retries["mode"] == "adaptive"

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "marimo-base"
-version = "0.24.0"
+version = "0.24.1"
 description = "A library for making reactive notebooks and apps"
 dependencies = [
     "click>=8.0,<9; sys_platform != 'emscripten'",
@@ -81,8 +81,8 @@ lsp = [
     "python-lsp-ruff>=2.0.0",
 ]
 mcp = [
-    "mcp>=1.0.0,<2",
-    "pydantic>2",
+    "httpx2>=2.5.0,<3",
+    "mcp>=2.0.0,<3",
 ]
 otel = [
     "opentelemetry-api~=1.28.0",
@@ -165,7 +165,7 @@ test-optional = [
     "flax>=0.10.0; python_version == '3.12'",
     "torch>=2.4.0; python_version == '3.12'",
     "scikit-bio>=0.6.3; python_version == '3.12'",
-    "mcp>=1.0.0,<2",
+    "mcp>=2.0.0,<3",
     "pyzmq>=27.1.0",
     "weave>=0.51.0",
     "basedpyright>=1.28.0",
@@ -199,7 +199,7 @@ typecheck = [
     "types-Markdown>=3.6.0.20240316",
     "types-PyYAML>=6.0.12.20240808",
     "types-docutils>=0.21.0.20241128",
-    "mcp>=1.0.0,<2",
+    "mcp>=2.0.0,<3",
     "pyzmq>=27.1.0",
     "pyarrow-stubs",
 ]
@@ -247,29 +247,29 @@ wheel-exclude = [
     "marimo/_lsp",
     "marimo/_static/favicon-16x16.png",
     "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/CLAUDE.md",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/favicon-32x32.png",
+    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/manifest.json",
     "marimo/_static/favicon.ico",
     "marimo/_static/apple-touch-icon.png",
-    "marimo/_static/assets",
     "marimo/_static/logo.png",
-    "marimo/_static/manifest.json",
-    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/site.webmanifest",
+    "marimo/_static/CLAUDE.md",
+    "marimo/_static/assets",
+    "marimo/_static/favicon-32x32.png",
 ]
 source-exclude = [
     "marimo/_lsp",
     "marimo/_static/favicon-16x16.png",
     "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/CLAUDE.md",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/favicon-32x32.png",
+    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/manifest.json",
     "marimo/_static/favicon.ico",
     "marimo/_static/apple-touch-icon.png",
-    "marimo/_static/assets",
     "marimo/_static/logo.png",
-    "marimo/_static/manifest.json",
-    "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/site.webmanifest",
+    "marimo/_static/CLAUDE.md",
+    "marimo/_static/assets",
+    "marimo/_static/favicon-32x32.png",
 ]
 
 [tool.ruff]
@@ -307,18 +307,14 @@ ignore = [
     "G004",
     "TC001",
     "TC006",
-    "D301",
     "PERF203",
     "PERF401",
-    "PERF403",
     "PT011",
     "E501",
     "D415",
-    "FA102",
     "PLR1711",
     "ASYNC119",
     "BLE001",
-    "RUF059",
     "DTZ001",
     "PLW1510",
     "S110",
@@ -329,28 +325,30 @@ ignore = [
     "S102",
     "PYI036",
     "DTZ005",
-    "PLC0206",
-    "PYI066",
     "SIM115",
     "DTZ006",
     "DTZ007",
     "DTZ011",
-    "TRY401",
     "UP007",
     "DTZ012",
     "DTZ901",
-    "PLW0602",
     "S112",
-    "TRY203",
-    "PLC0105",
-    "PLW1508",
     "PLW1509",
     "DTZ002",
-    "PLE0704",
-    "PLW0642",
-    "T100",
-    "UP045",
     "D421",
+    "RUF069",
+    "PLW0108",
+    "RUF043",
+    "RUF065",
+    "PLC2801",
+    "FURB189",
+    "FURB152",
+    "FURB110",
+    "RUF036",
+    "FURB113",
+    "FURB171",
+    "NPY002",
+    "RUF100",
 ]
 extend-select = [
     "F",
@@ -414,6 +412,7 @@ convention = "google"
     "PLW1514",
 ]
 "dagger/*" = ["TID252"]
+"marimo/_runtime/patches.py" = ["T100"]
 "tests/_ast/test_codegen.py" = ["FLY002"]
 
 [tool.ruff.lint.isort]

@@ -8,8 +8,11 @@
 use lsp_types::Url;
 use lsp_types::request::PrepareRenameRequest;
 use lsp_types::request::Rename;
+use pyrefly_lsp_test::IndexingMode;
+use pyrefly_lsp_test::LspArgs;
 use pyrefly_lsp_test::object_model::InitializeSettings;
 use pyrefly_lsp_test::object_model::LspInteraction;
+use pyrefly_lsp_test::object_model::LspInteractionArgs;
 use serde_json::json;
 use tempfile::TempDir;
 
@@ -257,12 +260,18 @@ fn test_rename_editable_package_symbols_is_allowed() {
 }
 
 #[test]
-fn test_rename_kwarg_across_files() {
+fn test_rename_kwarg_in_unopened_file() {
     let root = get_test_files_root();
     let root_path = root.path().join("rename_kwargs_across_files");
     let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
 
-    let mut interaction = LspInteraction::new();
+    let mut interaction = LspInteraction::new_with_args(LspInteractionArgs {
+        args: LspArgs {
+            indexing_mode: IndexingMode::LazyBlocking,
+            ..LspInteractionArgs::default().args
+        },
+        ..Default::default()
+    });
     interaction.set_root(root_path.clone());
     interaction
         .initialize(InitializeSettings {
@@ -276,7 +285,6 @@ fn test_rename_kwarg_across_files() {
     let uses = root_path.join("uses.py");
 
     interaction.client.did_open("defs.py");
-    interaction.client.did_open("uses.py");
 
     interaction
         .client
@@ -306,6 +314,56 @@ fn test_rename_kwarg_across_files() {
                     {
                         "newText":"note",
                         "range":{"start":{"line":13,"character":31},"end":{"line":13,"character":38}}
+                    },
+                ]
+            }
+        }))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+/// Find-references reports `Person(...)` in usage.py as a reference to `Person.__init__`, but
+/// that range spells the class name. Rename must not rewrite it into the new method name.
+#[test]
+fn test_rename_dunder_init_skips_constructor_call_sites_across_files() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("constructor_references");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri.clone())]),
+            configuration: Some(Some(json!([{ "indexing_mode": "lazy_blocking" }]))),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let person = root_path.join("person.py");
+
+    interaction.client.did_open("person.py");
+    interaction.client.did_open("usage.py");
+
+    interaction
+        .client
+        .send_request::<Rename>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&person).unwrap().to_string()
+            },
+            "position": {
+                "line": 7,
+                "character": 10
+            },
+            "newName": "__init2__"
+        }))
+        .expect_response(json!({
+            "changes": {
+                Url::from_file_path(&person).unwrap().to_string(): [
+                    {
+                        "newText":"__init2__",
+                        "range":{"start":{"line":7,"character":8},"end":{"line":7,"character":16}}
                     },
                 ]
             }

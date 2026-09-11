@@ -30,6 +30,32 @@ from agentic_devtools.state import BOOTSTRAP_FILENAME, IDENTITY_CACHE_FILENAME
 __all__ = ["_setup_worktree_from_state"]
 
 
+def _parse_non_negative_timeout(value: Any) -> int | None:
+    """Parse a non-negative integer timeout from persisted state."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if not isinstance(value, str):
+        return None
+
+    stripped_value = value.strip()
+    if stripped_value.startswith(("+", "-")):
+        sign = stripped_value[0]
+        digits = stripped_value[1:]
+    else:
+        sign = ""
+        digits = stripped_value
+    if not digits.isdigit():
+        return None
+    if sign == "-":
+        return None
+    try:
+        return int(f"{sign}{digits}")
+    except (ValueError, OverflowError):
+        return None
+
+
 def _terminal_kwargs(terminal: bool) -> dict[str, Any]:
     """Return terminal-only keyword arguments without changing default calls."""
     return {"terminal": True} if terminal else {}
@@ -4801,12 +4827,8 @@ def _setup_worktree_from_state() -> None:
         except json.JSONDecodeError:
             pass
 
-    auto_execute_timeout = _SETUP_SCRIPT_TIMEOUT_SECONDS
-    if auto_execute_timeout_str:
-        try:
-            auto_execute_timeout = int(auto_execute_timeout_str)
-        except ValueError:
-            pass
+    parsed_timeout = _parse_non_negative_timeout(auto_execute_timeout_str)
+    auto_execute_timeout = _SETUP_SCRIPT_TIMEOUT_SECONDS if parsed_timeout is None else parsed_timeout
 
     # Default interactive to False; stored as "true" string to enable
     interactive = interactive_str == "true"
@@ -4925,7 +4947,7 @@ def start_worktree_setup_background(
     else:
         delete_value("worktree_setup.auto_execute_command")
     # Always persist the effective timeout so stale non-default values from
-    # prior runs (e.g. 300s for PR review) cannot leak into later invocations.
+    # prior runs cannot leak into later invocations.
     set_value("worktree_setup.auto_execute_timeout", str(auto_execute_timeout))
     set_value("worktree_setup.interactive", "true" if interactive else "false")
     set_value("worktree_setup.terminal", "true" if terminal else "false")

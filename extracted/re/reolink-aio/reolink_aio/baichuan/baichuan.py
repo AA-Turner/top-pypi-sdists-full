@@ -155,6 +155,8 @@ class Baichuan:
         self._connection: BaichuanTcpConnection | BaichuanUdpConnection | None = None
         self.connection_type: ConnectionEnum = connection_type
         self._login_mutex = asyncio.Lock()
+        self._logging_out = asyncio.Event()  # set = not logging out, unset = busy logging out
+        self._logging_out.set()
         self._loop = asyncio.get_event_loop()
         self._logged_in: bool = False
         self._login_sucess: bool = False
@@ -648,13 +650,29 @@ class Baichuan:
             return None
         return channel
 
-    async def _get_nonce(self) -> str:
+    async def _get_nonce(self, retry: int = RETRY_ATTEMPTS) -> str:
         """Get the nonce needed for the modern login"""
-        # send only a header to receive the nonce (alternatively use legacy login)
-        mess = await self.send(cmd_id=1, enc_type=EncType.BC, message_class="1465")
-        self._nonce = get_value_from_xml(mess, "nonce")
+        retry = retry - 1
+        self._nonce = None
+
+        if self.connection_type == ConnectionEnum.udp:
+            # Try to get the nonce from the UDP connection
+            try:
+                await self._connect_if_needed()
+            except (ReolinkTimeoutError, ReolinkConnectionError) as err:
+                if retry <= 0:
+                    raise
+                _LOGGER.debug("%s, trying again", err)
+                return await self._get_nonce(retry)
+            if self._connection is not None:
+                self._nonce = self._connection.nonce
+
         if self._nonce is None:
-            raise UnexpectedDataError(f"Baichuan host {self._host}: could not find nonce in response:\n{mess}")
+            # send only a header to receive the nonce (alternatively use legacy login)
+            mess = await self.send(cmd_id=1, enc_type=EncType.BC, message_class="1465")
+            self._nonce = get_value_from_xml(mess, "nonce")
+            if self._nonce is None:
+                raise UnexpectedDataError(f"Baichuan host {self._host}: could not find nonce in response:\n{mess}")
 
         aes_key_str = md5_str_modern(f"{self._nonce}-{self._password}")[0:16]
         self._aes_key = aes_key_str.encode("utf8")
@@ -965,11 +983,13 @@ class Baichuan:
                 if (abi := data.get("doorbellAbility")) is not None:
                     if (abi >> 1) & 1:  # shift 1
                         ver = self.http_api._api_version.setdefault("supportDoorbellLightKeepOff", {})
-                        assert isinstance(ver, dict)
+                        if TYPE_CHECKING:
+                            assert isinstance(ver, dict)
                         ver[channel] = 1
                     if (abi >> 2) & 1:  # shift 2
                         ver = self.http_api._api_version.setdefault("supportDoorbellLightKeepOn", {})
-                        assert isinstance(ver, dict)
+                        if TYPE_CHECKING:
+                            assert isinstance(ver, dict)
                         ver[channel] = 1
 
             if (ir_brightness := data.get("ir_brightness")) is not None:
@@ -1666,6 +1686,9 @@ class Baichuan:
     async def login(self) -> None:
         """Login using the Baichuan protocol"""
         async with self._login_mutex:
+            # wait untill any running logout is finished
+            await self._logging_out.wait()
+
             if self._logged_in:
                 return
 
@@ -1782,39 +1805,57 @@ class Baichuan:
         self._first_login = False
 
     async def logout(self) -> None:
-        """Close the TCP session and cleanup"""
-        if self._subscribed and not self.http_api.is_battery:
-            # first call unsubscribe_events
-            _LOGGER.debug("Baichuan host %s: logout called while still subscribed, keeping connection", self._host)
-            return
+        """Close the Baichuan session and cleanup"""
+        try:
+            async with self._login_mutex:
+                # block login untill this logout is complete, since login_mutex is non recursive it can't be used
+                self._logging_out.clear()
 
-        if self._battery_close_task is not None:
-            self._battery_close_task.cancel()
-            self._battery_close_task = None
+            if self._subscribed and not self.http_api.is_battery:
+                # first call unsubscribe_events
+                _LOGGER.debug("Baichuan host %s: logout called while still subscribed, keeping connection", self._host)
+                return
 
-        if self._logged_in and self._connection is not None:
-            try:
-                xml = xmls.LOGOUT_XML.format(userName=self._username, password=self._password)
-                await self.send(cmd_id=2, body=xml)
-            except ReolinkConnectionError:
-                _LOGGER.debug("Baichuan host %s: connection closed before logout confirmation", self._host)
-            except ReolinkError as err:
-                _LOGGER.error("Baichuan host %s: failed to logout: %s", self._host, err)
+            if self._battery_close_task is not None:
+                self._battery_close_task.cancel()
+                self._battery_close_task = None
 
-            try:
-                await self._connection.close()
-            except ConnectionResetError as err:
-                _LOGGER.debug("Baichuan host %s: connection already reset when trying to close: %s", self._host, err)
+            if self._logged_in and self._connection is not None:
+                # wait on responses of already send cmds
+                try:
+                    async with asyncio.timeout(5):
+                        while self._connection.receive_futures:
+                            expected_cmd_ids = ", ".join(map(str, self._connection.receive_futures.keys()))
+                            _LOGGER.debug("Baichuan host %s: waiting for cmd_id %s before logout...", self._host, expected_cmd_ids)
+                            receive_futures = (v for d in self._connection.receive_futures.values() for v in d.values())
+                            await asyncio.wait(receive_futures, return_when=asyncio.ALL_COMPLETED)
+                except asyncio.TimeoutError:
+                    _LOGGER.warning("Baichuan host %s: timeout of 5 sec waiting for cmd_id %s, continuing with logout", self._host, expected_cmd_ids)
 
-        if not self._webhook_subscribed:
-            self._events_active = False
+                try:
+                    xml = xmls.LOGOUT_XML.format(userName=self._username, password=self._password)
+                    await self.send(cmd_id=2, body=xml)
+                except ReolinkConnectionError:
+                    _LOGGER.debug("Baichuan host %s: connection closed before logout confirmation", self._host)
+                except ReolinkError as err:
+                    _LOGGER.error("Baichuan host %s: failed to logout: %s", self._host, err)
 
-        self._logged_in = False
-        self._last_login = 0  # rest to allow direct new login
-        self._nonce = None
-        self._aes_key = None
-        self._user_hash = None
-        self._password_hash = None
+                try:
+                    await self._connection.close()
+                except ConnectionResetError as err:
+                    _LOGGER.debug("Baichuan host %s: connection already reset when trying to close: %s", self._host, err)
+
+            if not self._webhook_subscribed:
+                self._events_active = False
+
+            self._logged_in = False
+            self._last_login = 0  # rest to allow direct new login
+            self._nonce = None
+            self._aes_key = None
+            self._user_hash = None
+            self._password_hash = None
+        finally:
+            self._logging_out.set()  # done, allow login again
 
     def register_callback(self, callback_id: str, callback: Callable[[], None], cmd_id: int | None = None, channel: int | None = None) -> None:
         """Register a callback which is called when a push event is received"""
@@ -1866,8 +1907,7 @@ class Baichuan:
                 self._abilities.setdefault(None, {})[None] = support
 
             # check if HTTP(s) API is supported
-            if self.api_version("netPort", no_key_return=55) <= 1:
-                self.http_api.baichuan_only = True
+            self.http_api.baichuan_only = (self.api_version("netPort", no_key_return=55) & 0x3F) <= 1
 
         # Host capabilities
         self.capabilities.setdefault(None, {}).setdefault(None, set())
@@ -1972,9 +2012,11 @@ class Baichuan:
             if doorbellVersion > 0:
                 self.http_api._is_doorbell[channel] = True
                 self.http_api._visitor_states.setdefault(channel, False)
-                if (doorbellVersion >> 0) & 1:
+                if (doorbellVersion >> 0) & 1 or (doorbellVersion >> 5) & 1:
+                    # bit 0 = bidirectional chime, bit 5 = unidirectional chime
                     ver = self.http_api._api_version.setdefault("supportDingDongCtrl", {})
-                    assert isinstance(ver, dict)
+                    if TYPE_CHECKING:
+                        assert isinstance(ver, dict)
                     ver[channel] = 1
                 if (doorbellVersion >> 1) & 1:
                     self._add_capability("hardwired_chime", channel)
@@ -2508,7 +2550,8 @@ class Baichuan:
 
         if (bc_port := self._ports.get("server", {}).get("port")) is not None and bc_port != self.port:
             _LOGGER.warning("Baichuan host %s: baichuan port changed from %s to %s", self._host, self.port, bc_port)
-            assert isinstance(bc_port, int)
+            if TYPE_CHECKING:
+                assert isinstance(bc_port, int)
             self.port = bc_port
 
         if self.rtsp_port is not None:
@@ -4456,61 +4499,71 @@ class Baichuan:
     @property
     def http_port(self) -> int | None:
         value = self._ports.get("http", {}).get("port")
-        assert isinstance(value, int | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, int | None)
         return value
 
     @property
     def https_port(self) -> int | None:
         value = self._ports.get("https", {}).get("port")
-        assert isinstance(value, int | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, int | None)
         return value
 
     @property
     def rtmp_port(self) -> int | None:
         value = self._ports.get("rtmp", {}).get("port")
-        assert isinstance(value, int | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, int | None)
         return value
 
     @property
     def rtsp_port(self) -> int | None:
         value = self._ports.get("rtsp", {}).get("port")
-        assert isinstance(value, int | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, int | None)
         return value
 
     @property
     def onvif_port(self) -> int | None:
         value = self._ports.get("onvif", {}).get("port")
-        assert isinstance(value, int | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, int | None)
         return value
 
     @property
     def http_enabled(self) -> bool | None:
         value = self._ports.get("http", {}).get("enable")
-        assert isinstance(value, bool | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, bool | None)
         return value
 
     @property
     def https_enabled(self) -> bool | None:
         value = self._ports.get("https", {}).get("enable")
-        assert isinstance(value, bool | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, bool | None)
         return value
 
     @property
     def rtmp_enabled(self) -> bool | None:
         value = self._ports.get("rtmp", {}).get("enable")
-        assert isinstance(value, bool | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, bool | None)
         return value
 
     @property
     def rtsp_enabled(self) -> bool | None:
         value = self._ports.get("rtsp", {}).get("enable")
-        assert isinstance(value, bool | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, bool | None)
         return value
 
     @property
     def onvif_enabled(self) -> bool | None:
         value = self._ports.get("onvif", {}).get("enable")
-        assert isinstance(value, bool | None)
+        if TYPE_CHECKING:
+            assert isinstance(value, bool | None)
         return value
 
     @property

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dlthub-client
-Version: 0.28.3
+Version: 0.28.4
 Summary: CLI tool for accessing dltHub runtime
 Author-email: "dltHub Inc." <services@dlthub.com>
 Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Sharf <dave@dlthub.com>
@@ -27,7 +27,9 @@ Requires-Dist: croniter>=6.0.0
 Requires-Dist: httpx>=0.26.0
 Requires-Dist: pathspec>=0.11.2
 Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: regex>=2024.4.16
 Requires-Dist: tabulate>=0.9.0
+Requires-Dist: typing-extensions>=4.9
 Description-Content-Type: text/markdown
 
 <h1 align="center">

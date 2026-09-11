@@ -4,8 +4,8 @@ This guardrail detects URLs in text and validates them against an allow list of
 permitted domains, IP addresses, and full URLs. It provides security features
 to prevent credential injection, typosquatting attacks, and unauthorized schemes.
 
-The guardrail uses regex patterns for URL detection and Pydantic for robust
-URL parsing and validation.
+The detection pipeline combines linear scanning with targeted regex patterns.
+Pydantic validates configuration, while ``urllib.parse`` handles URL parsing.
 
 Example Usage:
     Default configuration:
@@ -1573,7 +1573,7 @@ def _detect_urls(
     *,
     preserved_component_urls: frozenset[str] = frozenset(),
 ) -> list[str]:
-    """Detect URLs using regex patterns with deduplication.
+    """Detect URLs with a mixed scanning pipeline and deduplication.
 
     Detects URLs with explicit schemes (http, https, ftp, data, javascript,
     vbscript), domain-like patterns without schemes, and IP addresses.
@@ -1942,45 +1942,34 @@ def _is_url_allowed(
         except (AddressValueError, ValueError):
             allowed_ip = None
 
-        if allowed_ip is not None:
-            if url_ip is None:
-                continue
-            # Scheme matching for IPs: if both allow list and URL have explicit schemes, they must match
-            if has_explicit_scheme and url_had_explicit_scheme and allowed_scheme and allowed_scheme != scheme_lower:
-                continue
-            # Port matching: enforce if allow list has explicit port
-            if allowed_port_explicit is not None and allowed_port != url_port:
-                continue
-            if allowed_ip == url_ip:
-                return True
-
-            network_spec = allowed_host
-            if parsed_allowed.path not in ("", "/"):
-                network_spec = f"{network_spec}{parsed_allowed.path}"
-            try:
-                if network_spec and "/" in network_spec and url_ip in ip_network(network_spec, strict=False):
-                    return True
-            except (AddressValueError, ValueError):
-                # Path segment might not represent a CIDR mask; ignore.
-                pass
+        # Scheme and port restrictions apply to both host and network entries.
+        if has_explicit_scheme and url_had_explicit_scheme and allowed_scheme and allowed_scheme != scheme_lower:
             continue
-
-        if not allowed_host:
-            continue
-
-        allowed_domain = allowed_host.removeprefix("www.")
-
-        # Port matching: enforce if allow list has explicit port
         if allowed_port_explicit is not None and allowed_port != url_port:
             continue
 
-        host_matches = url_domain == allowed_domain or (allow_subdomains and url_domain.endswith(f".{allowed_domain}"))
-        if not host_matches:
-            continue
-
-        # Scheme matching: if both allow list and URL have explicit schemes, they must match
-        if has_explicit_scheme and url_had_explicit_scheme and allowed_scheme and allowed_scheme != scheme_lower:
-            continue
+        if allowed_ip is not None:
+            if url_ip is None:
+                continue
+            if allowed_path not in ("", "/"):
+                try:
+                    allowed_network = ip_network(f"{allowed_host}{allowed_path}", strict=False)
+                except (AddressValueError, ValueError):
+                    # An ordinary URL path is not a CIDR mask.
+                    pass
+                else:
+                    if url_ip in allowed_network:
+                        return True
+                    continue
+            if allowed_ip != url_ip:
+                continue
+        else:
+            if not allowed_host:
+                continue
+            allowed_domain = allowed_host.removeprefix("www.")
+            host_matches = url_domain == allowed_domain or (allow_subdomains and url_domain.endswith(f".{allowed_domain}"))
+            if not host_matches:
+                continue
 
         # Path matching with segment boundary respect
         if allowed_path not in ("", "/"):
@@ -2004,7 +1993,7 @@ def _is_url_allowed(
 
 
 async def urls(ctx: Any, data: str, config: URLConfig) -> GuardrailResult:
-    """Detects URLs using regex patterns, validates them with Pydantic, and checks against the allow list.
+    """Detect URLs, validate their security properties, and apply the allow list.
 
     Args:
         ctx: Context object.
@@ -2013,7 +2002,7 @@ async def urls(ctx: Any, data: str, config: URLConfig) -> GuardrailResult:
     """
     _ = ctx
 
-    # Detect URLs using regex patterns
+    # Detect URLs while preserving exact configured URL components.
     normalized_allow_list_urls = (allowed_url.strip() for allowed_url in config.url_allow_list)
     explicit_allow_list_urls = frozenset(
         allowed_url for allowed_url in normalized_allow_list_urls if _EXPLICIT_URL_SCHEME_RE.match(allowed_url) is not None
@@ -2077,7 +2066,7 @@ async def urls(ctx: Any, data: str, config: URLConfig) -> GuardrailResult:
 default_spec_registry.register(
     name="URL Filter",
     check_fn=urls,
-    description="URL filtering using regex + Pydantic with direct configuration.",
+    description="Detects URLs and filters them using direct allow-list and security configuration.",
     media_type="text/plain",
     metadata=GuardrailSpecMetadata(engine="RegEx"),
 )

@@ -36,8 +36,10 @@ What it owns
 ``stage="resolve"`` — once, in ``ConversationResolver.from_conversation_id``:
   1. pin the system-prompt date to the conversation's ``created_at`` so the
      cacheable system prefix never wobbles across midnight / reload,
-  2. the cache-gated context trim,
-  3. record the audit as ``AppContext.metadata["last_trim_report"]`` (which
+  2. relax a fulfilled persisted structured-output contract for a natural
+     follow-up (with an explicit INFO audit),
+  3. the cache-gated context trim,
+  4. record the audit as ``AppContext.metadata["last_trim_report"]`` (which
      persistence lands on iteration 1's ``cx_request.trim_summary``).
 
 ``stage="loop"`` — every iteration, at the executor's actual send boundary:
@@ -63,6 +65,7 @@ that fails is announced (yellow) and skipped, never fatal.
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -72,6 +75,8 @@ from typing import Any
 from matrx_utils import vcprint
 
 from matrx_ai.config.context_trim import TrimPolicy, TrimReport, trim_messages_context
+
+logger = logging.getLogger(__name__)
 
 STAGE_RESOLVE = "resolve"
 STAGE_LOOP = "loop"
@@ -110,6 +115,8 @@ async def prepare_for_send(
     conversation_row: Any | None = None,
     cache_state: dict[str, Any] | None = None,
     policy: TrimPolicy | None = None,
+    user_input: Any = None,
+    config_overrides: Any = None,
 ) -> SendPrep:
     """THE entry point. Shape ``config`` for the provider and audit what happened.
 
@@ -125,6 +132,8 @@ async def prepare_for_send(
         cache_state: explicit cache state override. When omitted the module
             resolves it (memo + live-send overlay).
         policy: trim policy override (tests); defaults to ``TrimPolicy()``.
+        user_input / config_overrides: resolve-stage turn intent used to decide
+            whether a completed structured contract may relax to text.
 
     Never raises. A failing step is logged and skipped.
     """
@@ -132,6 +141,18 @@ async def prepare_for_send(
 
     if stage == STAGE_RESOLVE and conversation_row is not None:
         _run_step(prep, "pin_system_date", lambda: _pin_system_date(config, conversation_row))
+
+    if stage == STAGE_RESOLVE:
+        _run_step(
+            prep,
+            "response_format_followup",
+            lambda: _apply_followup_response_format(
+                config,
+                user_input=user_input,
+                config_overrides=config_overrides,
+                prior_request_status=getattr(conversation_row, "last_request_status", None),
+            ),
+        )
 
     if stage == STAGE_LOOP:
         await _stage_reference_fences(prep, config)
@@ -173,6 +194,49 @@ async def prepare_for_send(
 # --------------------------------------------------------------------------- #
 # Steps                                                                        #
 # --------------------------------------------------------------------------- #
+
+
+def _apply_followup_response_format(
+    config: Any,
+    *,
+    user_input: Any,
+    config_overrides: Any,
+    prior_request_status: str | None,
+) -> None:
+    """Relax a completed one-answer JSON contract at the send boundary."""
+    from matrx_ai.config.response_format import (
+        response_format_transition_after_first_structured_answer,
+    )
+
+    transition = response_format_transition_after_first_structured_answer(
+        config,
+        user_input=user_input,
+        config_overrides=config_overrides,
+        prior_request_status=prior_request_status,
+    )
+    if transition is None:
+        return
+
+    config.response_format = {"type": "text"}
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        if ctx is not None:
+            transition["conversation_id"] = getattr(ctx, "conversation_id", None)
+            transition["origin_class"] = getattr(ctx, "origin_class", None)
+            ctx.metadata["response_format_transition"] = transition
+    except Exception:  # observability can never change response behavior
+        pass
+
+    logger.info(
+        "response_format_relaxed_after_first_structured_answer "
+        "conversation_id=%s from=%s to=text reason=%s origin_class=%s",
+        transition.get("conversation_id"),
+        transition["from"],
+        transition["reason"],
+        transition.get("origin_class"),
+    )
 
 
 def _gated_trim(

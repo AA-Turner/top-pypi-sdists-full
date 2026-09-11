@@ -1,3 +1,4 @@
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -13,8 +14,25 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class GetMetricsRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("read_mask",)
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(self, read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+
+class WideTableLayout(_message.Message):
+    __slots__ = ("namespace", "partitioned_by", "clustered_by")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTERED_BY_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    partitioned_by: str
+    clustered_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        partitioned_by: _Optional[str] = ...,
+        clustered_by: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
 
 class NamespaceObservedAtRange(_message.Message):
     __slots__ = ("namespace", "min_observed_at", "max_observed_at")
@@ -78,6 +96,7 @@ class GetMetricsResponse(_message.Message):
         "bigquery",
         "namespace_observed_at_ranges",
         "namespace_wide_table_row_counts",
+        "wide_table_layouts",
     )
     SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -86,6 +105,7 @@ class GetMetricsResponse(_message.Message):
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_OBSERVED_AT_RANGES_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_WIDE_TABLE_ROW_COUNTS_FIELD_NUMBER: _ClassVar[int]
+    WIDE_TABLE_LAYOUTS_FIELD_NUMBER: _ClassVar[int]
     skinny_tables_bytes: int
     wide_tables_bytes: int
     wide_mapping_table_bytes: int
@@ -93,6 +113,7 @@ class GetMetricsResponse(_message.Message):
     bigquery: BigQueryOfflineStorageDetails
     namespace_observed_at_ranges: _containers.RepeatedCompositeFieldContainer[NamespaceObservedAtRange]
     namespace_wide_table_row_counts: _containers.RepeatedCompositeFieldContainer[NamespaceWideTableRowCount]
+    wide_table_layouts: _containers.RepeatedCompositeFieldContainer[WideTableLayout]
     def __init__(
         self,
         skinny_tables_bytes: _Optional[int] = ...,
@@ -102,4 +123,5 @@ class GetMetricsResponse(_message.Message):
         bigquery: _Optional[_Union[BigQueryOfflineStorageDetails, _Mapping]] = ...,
         namespace_observed_at_ranges: _Optional[_Iterable[_Union[NamespaceObservedAtRange, _Mapping]]] = ...,
         namespace_wide_table_row_counts: _Optional[_Iterable[_Union[NamespaceWideTableRowCount, _Mapping]]] = ...,
+        wide_table_layouts: _Optional[_Iterable[_Union[WideTableLayout, _Mapping]]] = ...,
     ) -> None: ...

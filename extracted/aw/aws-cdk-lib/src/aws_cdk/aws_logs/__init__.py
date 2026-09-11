@@ -50,10 +50,17 @@ By default, the log group created by LogRetention will be retained after the sta
 
 ## Log Group Class
 
-CloudWatch Logs offers two classes of log groups:
+CloudWatch Logs offers three classes of log groups:
 
 1. The CloudWatch Logs Standard log class is a full-featured option for logs that require real-time monitoring or logs that you access frequently.
 2. The CloudWatch Logs Infrequent Access log class is a new log class that you can use to cost-effectively consolidate your logs. This log class offers a subset of CloudWatch Logs capabilities including managed ingestion, storage, cross-account log analytics, and encryption with a lower ingestion price per GB. The Infrequent Access log class is ideal for ad-hoc querying and after-the-fact forensic analysis on infrequently accessed logs.
+3. The CloudWatch Logs Delivery log class is used to deliver logs to a destination such as Amazon S3 or Amazon Data Firehose (for example, Lambda vended logs). A Delivery log group does not store log events itself; it forwards them to a destination configured through a subscription filter. Because of this, the Delivery log class does not support `retention`, `dataProtectionPolicy`, or `fieldIndexPolicies`; setting any of them together with `LogGroupClass.DELIVERY` results in a synthesis-time error.
+
+```python
+logs.LogGroup(self, "DeliveryLogGroup",
+    log_group_class=logs.LogGroupClass.DELIVERY
+)
+```
 
 For more details please check: [log group class documentation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatch_Logs_Log_Classes.html)
 
@@ -14757,7 +14764,7 @@ class LogGroup(
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: false
         :param encryption_key: The KMS customer managed key to encrypt the log group with. Default: Server-side encryption managed by the CloudWatch Logs service
         :param field_index_policies: Field Index Policies for this log group. Default: - no field index policies for this log group.
-        :param log_group_class: The class of the log group. Possible values are: STANDARD and INFREQUENT_ACCESS. INFREQUENT_ACCESS class provides customers a cost-effective way to consolidate logs which supports querying using Logs Insights. The logGroupClass property cannot be changed once the log group is created. Default: LogGroupClass.STANDARD
+        :param log_group_class: The class of the log group. Possible values are: STANDARD, INFREQUENT_ACCESS and DELIVERY. INFREQUENT_ACCESS class provides customers a cost-effective way to consolidate logs which supports querying using Logs Insights. The logGroupClass property cannot be changed once the log group is created. DELIVERY class is used to deliver logs to a destination such as Amazon S3 or Amazon Data Firehose (for example, Lambda vended logs). A Delivery log group forwards events to a destination instead of storing them, so it does not support ``retention``, ``dataProtectionPolicy``, or ``fieldIndexPolicies``; setting any of these together with ``LogGroupClass.DELIVERY`` results in a synthesis-time error. Default: LogGroupClass.STANDARD
         :param log_group_name: Name of the log group. Default: Automatically generated
         :param removal_policy: Determine the removal policy of this log group. Normally you want to retain the log group so you can diagnose issues from logs even after a deployment that no longer includes the log group. In that case, use the normal date-based retention policy to age out your logs. Default: RemovalPolicy.Retain
         :param retention: How long, in days, the log contents will be retained. To retain all logs, set this value to RetentionDays.INFINITE. Default: RetentionDays.TWO_YEARS
@@ -15281,12 +15288,23 @@ class LogGroup(
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_logs.LogGroupClass")
 class LogGroupClass(enum.Enum):
-    '''Class of Log Group.'''
+    '''Class of Log Group.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        logs.LogGroup(self, "DeliveryLogGroup",
+            log_group_class=logs.LogGroupClass.DELIVERY
+        )
+    '''
 
     STANDARD = "STANDARD"
     '''Default class of logs services.'''
     INFREQUENT_ACCESS = "INFREQUENT_ACCESS"
     '''Class for reduced logs services.'''
+    DELIVERY = "DELIVERY"
+    '''Class for delivering logs to a destination such as Amazon S3 or Amazon Data Firehose (for example, Lambda vended logs).'''
 
 
 class LogGroupGrants(
@@ -15420,7 +15438,7 @@ class LogGroupProps:
         :param deletion_protection_enabled: Indicates whether deletion protection is enabled for this log group. When enabled, deletion protection blocks all deletion operations until it is explicitly disabled. Default: false
         :param encryption_key: The KMS customer managed key to encrypt the log group with. Default: Server-side encryption managed by the CloudWatch Logs service
         :param field_index_policies: Field Index Policies for this log group. Default: - no field index policies for this log group.
-        :param log_group_class: The class of the log group. Possible values are: STANDARD and INFREQUENT_ACCESS. INFREQUENT_ACCESS class provides customers a cost-effective way to consolidate logs which supports querying using Logs Insights. The logGroupClass property cannot be changed once the log group is created. Default: LogGroupClass.STANDARD
+        :param log_group_class: The class of the log group. Possible values are: STANDARD, INFREQUENT_ACCESS and DELIVERY. INFREQUENT_ACCESS class provides customers a cost-effective way to consolidate logs which supports querying using Logs Insights. The logGroupClass property cannot be changed once the log group is created. DELIVERY class is used to deliver logs to a destination such as Amazon S3 or Amazon Data Firehose (for example, Lambda vended logs). A Delivery log group forwards events to a destination instead of storing them, so it does not support ``retention``, ``dataProtectionPolicy``, or ``fieldIndexPolicies``; setting any of these together with ``LogGroupClass.DELIVERY`` results in a synthesis-time error. Default: LogGroupClass.STANDARD
         :param log_group_name: Name of the log group. Default: Automatically generated
         :param removal_policy: Determine the removal policy of this log group. Normally you want to retain the log group so you can diagnose issues from logs even after a deployment that no longer includes the log group. In that case, use the normal date-based retention policy to age out your logs. Default: RemovalPolicy.Retain
         :param retention: How long, in days, the log contents will be retained. To retain all logs, set this value to RetentionDays.INFINITE. Default: RetentionDays.TWO_YEARS
@@ -15521,11 +15539,17 @@ class LogGroupProps:
 
     @builtins.property
     def log_group_class(self) -> typing.Optional["LogGroupClass"]:
-        '''The class of the log group. Possible values are: STANDARD and INFREQUENT_ACCESS.
+        '''The class of the log group. Possible values are: STANDARD, INFREQUENT_ACCESS and DELIVERY.
 
         INFREQUENT_ACCESS class provides customers a cost-effective way to consolidate
         logs which supports querying using Logs Insights. The logGroupClass property cannot
         be changed once the log group is created.
+
+        DELIVERY class is used to deliver logs to a destination such as Amazon S3 or Amazon
+        Data Firehose (for example, Lambda vended logs). A Delivery log group forwards events
+        to a destination instead of storing them, so it does not support ``retention``,
+        ``dataProtectionPolicy``, or ``fieldIndexPolicies``; setting any of these together with
+        ``LogGroupClass.DELIVERY`` results in a synthesis-time error.
 
         :default: LogGroupClass.STANDARD
         '''

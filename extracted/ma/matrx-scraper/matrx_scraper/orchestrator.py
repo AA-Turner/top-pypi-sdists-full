@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator
 
 from matrx_scraper.extractors import (
     extract_text_from_image_bytes,
-    extract_text_from_pdf_bytes,
+    extract_text_from_pdf_bytes_or_reason,
     extract_text_content,
 )
 from matrx_scraper.parser.core import ParserOrchestrator
@@ -26,6 +26,7 @@ from matrx_scraper.scraper import (
     fetch_normally_with_proxy,
     get_required_random_proxy,
 )
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -275,13 +276,17 @@ def _build_result_from_response(response: Response, fast: bool = False) -> Scrap
             result.title = overview["page_title"]
 
     elif ct == ContentType.PDF:
-        raw = (
-            extract_text_from_pdf_bytes(response.content_bytes) if response.content_bytes else None
+        raw, reason = (
+            extract_text_from_pdf_bytes_or_reason(response.content_bytes)
+            if response.content_bytes
+            else (None, "no response bytes")
         )
         result.raw_text = raw
         if not raw:
             result.success = False
-            result.failure_reason = "pdf_extraction_failed"
+            # The cause rides with the code — a missing [pdf] extra on the
+            # host must read as a deployment defect, never as "bad PDF".
+            result.failure_reason = f"pdf_extraction_failed: {reason}"
 
     elif ct == ContentType.IMAGE:
         raw = (
@@ -412,7 +417,7 @@ async def scrape(
                 char_count=len(result.text_data or result.ai_research_content or ""),
             )
         except Exception:
-            logger.warning("Failed to write cache for %s", url, exc_info=True)
+            logger.warning("Failed to write cache for %s", redact_url_secrets(url), exc_info=True)
 
     return result
 

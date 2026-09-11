@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-github-copilot
-Version: 1.0.3
+Version: 2.0.0
 Summary: GitHub Copilot integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.11
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: agent-framework-core>=1.15.0,<2
-Requires-Dist: github-copilot-sdk==1.0.2; python_version >= '3.11'
+Requires-Dist: github-copilot-sdk==1.0.11; python_version >= '3.11'
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -110,5 +110,34 @@ will be removed in a future version. Migrate to the `on_pre_tool_use` + `on_perm
 model described above. When `on_function_approval` is set, it gates `always_require` tools and
 the default ask-hook is not installed. It is **mutually exclusive** with `on_pre_tool_use` —
 setting both (whether at construction or per run) raises `ValueError`.
+
+## Workspace-driven session options
+
+`on_permission_request` and `on_pre_tool_use` gate **tool calls**. They do not cover
+configuration the CLI picks up from the working directory it runs in, which is a separate
+mechanism with its own switches.
+
+So that a session behaves the same way in every checkout, `GitHubCopilotAgent` leaves the
+following off by default:
+
+| Option | Default | Effect when enabled |
+| --- | --- | --- |
+| `enable_file_hooks` | `False` | The CLI loads file hooks from the working directory's `.github/hooks/` and runs the commands they define, independently of the tool-approval path. |
+
+Opt in per agent or per run when your workflow needs the checkout to drive the session:
+
+```python
+agent = GitHubCopilotAgent(
+    default_options=GitHubCopilotOptions(enable_file_hooks=True),
+)
+```
+
+Only enable these for a working directory whose contents you trust to act on the host.
+
+To make the default visible rather than silent, the agent logs a warning through the
+`agent_framework.github_copilot` logger the first time it starts a session in a working
+directory that defines hooks it is not loading. See
+[`github_copilot_with_file_hooks.py`](../../samples/02-agents/providers/github_copilot/github_copilot_with_file_hooks.py)
+for a runnable example.
 
 

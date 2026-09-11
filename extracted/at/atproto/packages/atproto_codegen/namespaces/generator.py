@@ -10,6 +10,7 @@ from atproto_lexicon.models import (
     LexXrpcQuery,
 )
 
+from atproto_codegen.config import CodegenConfig, get_config, use_config
 from atproto_codegen.consts import (
     DISCLAIMER,
     INPUT_DICT,
@@ -45,8 +46,6 @@ from atproto_codegen.utils import (
 )
 from atproto_codegen.utils import get_code_intent as _
 
-_NAMESPACES_OUTPUT_DIR = Path(__file__).parent.parent.parent.joinpath('atproto_client', 'namespaces')
-
 _NAMESPACES_SYNC_FILENAME = 'sync_ns.py'
 _NAMESPACES_ASYNC_FILENAME = 'async_ns.py'
 
@@ -63,17 +62,19 @@ def get_record_name(path_parts: t.List[str]) -> str:
 
 
 def _get_namespace_imports() -> str:
+    config = get_config()
+    base = config.base_package
+
     lines = [
         DISCLAIMER,
         'import typing as t',
         '',
-        'from atproto_client import models',
-        'from atproto_client.models.utils import get_or_create, get_response_model',
-        'from atproto_client.namespaces.base import AsyncRecordBase, AsyncNamespaceBase, NamespaceBase, RecordBase',
+        f'from {config.package} import models',
+        f'from {base}.models.utils import get_or_create, get_response_model',
+        f'from {base}.namespaces.base import AsyncRecordBase, AsyncNamespaceBase, NamespaceBase, RecordBase',
         '',
         'if t.TYPE_CHECKING:',
-        f'{_(1)}from atproto_client.client.async_raw import AsyncClientRaw',
-        f'{_(1)}from atproto_client.client.raw import ClientRaw',
+        f'{_(1)}from {base}.namespaces.base import AsyncXrpcClient, XrpcClient',
     ]
 
     return join_code(lines)
@@ -104,7 +105,7 @@ def _get_init_method(
     if not sub_namespaces and not record_names:
         return ''
 
-    client_typehint = "'ClientRaw'" if sync else "'AsyncClientRaw'"
+    client_typehint = "'XrpcClient'" if sync else "'AsyncXrpcClient'"
     lines = [f'{_(1)}def __init__(self, client: {client_typehint}) -> None:', f'{_(2)}super().__init__(client)']
 
     for sub_namespace in sub_namespaces:
@@ -406,32 +407,125 @@ def _generate_namespace_in_output(
             _generate_namespace_in_output(sub_node, output, sync=sync, parent_nodes=nodes_path)
 
 
+def _generate_raw_client(namespace_tree: dict, config: CodegenConfig, *, sync: bool) -> None:
+    """Generate the client that exposes every root namespace."""
+    base = config.base_package
+    ns_module = _NAMESPACES_SYNC_FILENAME[:-3] if sync else _NAMESPACES_ASYNC_FILENAME[:-3]
+    class_name = 'ClientRaw' if sync else 'AsyncClientRaw'
+    base_class = 'ClientBase' if sync else 'AsyncClientBase'
+
+    roots = sorted(node for node in namespace_tree if node != METHODS_KEY)
+
+    lines = [
+        DISCLAIMER,
+        'import typing as t',
+        '',
+        f'from {base}.client.base import {base_class}',
+        f'from {base}.namespaces import {ns_module}',
+        '',
+        '',
+        f'class {class_name}({base_class}):',
+        f'{_(1)}"""Group all root namespaces."""',
+        '',
+    ]
+    lines.extend(f"{_(1)}{root}: '{ns_module}.{get_namespace_name([root])}'" for root in roots)
+    lines.extend(
+        [
+            '',
+            f'{_(1)}def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:',
+            f'{_(2)}super().__init__(*args, **kwargs)',
+            '',
+        ]
+    )
+    lines.extend(f'{_(2)}self.{root} = {ns_module}.{get_namespace_name([root])}(self)' for root in roots)
+
+    filename = 'raw.py' if sync else 'async_raw.py'
+    filepath = config.output_dir.joinpath('client', filename)
+    write_code(filepath, join_code(lines))
+    format_code(filepath, root=config.output_dir)
+
+
+def _generate_custom_client(namespace_tree: dict, config: CodegenConfig, *, sync: bool) -> None:
+    """Generate a client that adds the package's root namespaces to the SDK's own."""
+    base = config.base_package
+    ns_module = _NAMESPACES_SYNC_FILENAME[:-3] if sync else _NAMESPACES_ASYNC_FILENAME[:-3]
+    prefix = '' if sync else 'Async'
+    sdk_client = f'{prefix}Client'
+
+    roots = sorted(node for node in namespace_tree if node != METHODS_KEY)
+    package_class = ''.join(p.capitalize() for p in config.package.split('_'))
+    class_name = f'{prefix}{package_class}Client'
+
+    lines = [
+        DISCLAIMER,
+        'import typing as t',
+        '',
+        f'from {base} import {sdk_client}',
+        f'from {config.package}.namespaces import {ns_module}',
+        '',
+        '',
+        f'def attach_{"" if sync else "async_"}namespaces(client: t.Any) -> None:',
+        f'{_(1)}"""Add this package\'s root namespaces to an existing client."""',
+    ]
+    lines.extend(f'{_(1)}client.{root} = {ns_module}.{get_namespace_name([root])}(client)' for root in roots)
+    lines.extend(
+        [
+            '',
+            '',
+            f'class {class_name}({sdk_client}):',
+            f'{_(1)}"""{sdk_client} with the root namespaces of this package."""',
+            '',
+        ]
+    )
+    lines.extend(f"{_(1)}{root}: '{ns_module}.{get_namespace_name([root])}'" for root in roots)
+    lines.extend(
+        [
+            '',
+            f'{_(1)}def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:',
+            f'{_(2)}super().__init__(*args, **kwargs)',
+            f'{_(2)}attach_{"" if sync else "async_"}namespaces(self)',
+        ]
+    )
+
+    filename = 'client.py' if sync else 'async_client.py'
+    filepath = config.output_dir.joinpath(filename)
+    write_code(filepath, join_code(lines))
+    format_code(filepath, root=config.output_dir)
+
+
 def generate_namespaces(
-    lexicon_dir: t.Optional[Path] = None,
+    config: t.Optional[CodegenConfig] = None,
     output_dir: t.Optional[Path] = None,
     async_filename: t.Optional[str] = None,
     sync_filename: t.Optional[str] = None,
+    with_client: bool = True,
 ) -> None:
-    if not output_dir:
-        output_dir = _NAMESPACES_OUTPUT_DIR
-    if not async_filename:
-        async_filename = _NAMESPACES_ASYNC_FILENAME
-    if not sync_filename:
-        sync_filename = _NAMESPACES_SYNC_FILENAME
+    with use_config(config or get_config()) as active:
+        writes_sdk_namespaces = output_dir is None or output_dir.resolve() == active.namespaces_output_dir.resolve()
+        output_dir = output_dir or active.namespaces_output_dir
+        async_filename = async_filename or _NAMESPACES_ASYNC_FILENAME
+        sync_filename = sync_filename or _NAMESPACES_SYNC_FILENAME
 
-    namespace_tree = build_namespaces(lexicon_dir)
+        namespace_tree = build_namespaces(active)
 
-    for sync in (True, False):
-        generated_code_lines_buffer: t.List[str] = []
-        _generate_namespace_in_output(namespace_tree, generated_code_lines_buffer, sync=sync, parent_nodes=[])
+        for sync in (True, False):
+            generated_code_lines_buffer: t.List[str] = []
+            _generate_namespace_in_output(namespace_tree, generated_code_lines_buffer, sync=sync, parent_nodes=[])
 
-        code = join_code([_get_namespace_imports(), *generated_code_lines_buffer])
+            code = join_code([_get_namespace_imports(), *generated_code_lines_buffer])
 
-        filename = sync_filename if sync else async_filename
-        filepath = output_dir.joinpath(filename)
+            filename = sync_filename if sync else async_filename
+            write_code(output_dir.joinpath(filename), code)
 
-        write_code(filepath, code)
+        if not active.is_self_gen:
+            write_code(output_dir.joinpath('__init__.py'), DISCLAIMER)
 
-    # TODO(MarshalX): generate ClientRaw as root of namespaces
+        format_code(output_dir, root=active.output_dir)
 
-    format_code(output_dir)
+        for sync in (True, False):
+            if not active.is_self_gen:
+                if with_client:
+                    _generate_custom_client(namespace_tree, active, sync=sync)
+            elif writes_sdk_namespaces:
+                # the raw client imports the namespaces from their SDK location, so it follows only those
+                _generate_raw_client(namespace_tree, active, sync=sync)

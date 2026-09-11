@@ -1,6 +1,6 @@
 [package]
 name = "rigour-core"
-version = "2.4.1"
+version = "2.5.0"
 edition = "2024"
 rust-version = "1.86"
 license = "MIT"
@@ -26,7 +26,7 @@ pyo3 = { version = "0.29", optional = true }
 # Phonetic algorithms (metaphone, soundex). Port of Apache commons-codec, pure
 # Rust. The upstream jellyfish Rust crate can't be used directly because it
 # hard-depends on pyo3 and is published as cdylib-only.
-rphonetic = "3"
+rphonetic = "4"
 
 # Unicode properties (Script, GeneralCategory) for codepoint_script /
 # text_scripts, plus transliteration (experimental::transliterate, gated
@@ -75,10 +75,10 @@ serde_json = "1"
 # (see the FILES table in `build.rs`); consumers `include_bytes!` the
 # OUT_DIR artifact and decode on use. Listed in both [dependencies]
 # (decode) and [build-dependencies] (build.rs encodes).
-zstd = "0.13"
+zstd = "0.14"
 
 [build-dependencies]
-zstd = "0.13"
+zstd = "0.14"
 
 # NOTE: no [profile.release] overrides. Defaults are fine; revisit if benchmarks
 # show measurable headroom from LTO / codegen-units=1.

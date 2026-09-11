@@ -2,6 +2,7 @@ import asyncio
 from typing import Sequence, Union, Tuple, Optional
 import asgi_csrf
 import collections
+import copy
 import datetime
 import functools
 import glob
@@ -87,6 +88,9 @@ app_root = Path(__file__).parent.parent
 
 # https://github.com/simonw/datasette/issues/283#issuecomment-781591015
 SQLITE_LIMIT_ATTACHED = 10
+_SQLITE_IDENTIFIER_CASE = str.maketrans(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"
+)
 
 Setting = collections.namedtuple("Setting", ("name", "default", "help"))
 SETTINGS = (
@@ -474,6 +478,65 @@ class Datasette:
                 orig[key] = upd_value
         return orig
 
+    def _metadata_sources(self, key, database, table):
+        yield from pm.hook.get_metadata(
+            datasette=self, key=key, database=database, table=table
+        )
+        # Local configuration takes precedence over plugin metadata.
+        yield self._metadata_local
+
+    def _table_permission_allows(self, database, table):
+        def normalize_tables(source, inherited):
+            if not isinstance(source, dict):
+                return source
+            source = dict(source)
+            if isinstance(source.get("tables"), dict):
+                tables = {}
+                for name, config in source["tables"].items():
+                    name = name.translate(_SQLITE_IDENTIFIER_CASE)
+                    previous = ((inherited or {}).get("tables") or {}).get(name)
+                    previous_configs = previous["configs"] if previous else [{}]
+                    # Keep source aliases separate so none can overwrite a denial.
+                    configs = tables.setdefault(name, {"configs": []})["configs"]
+                    for previous_config in previous_configs:
+                        if isinstance(previous_config, dict) and isinstance(
+                            config, dict
+                        ):
+                            merged = self._metadata_recursive_update(
+                                copy.deepcopy(previous_config), config
+                            )
+                        else:
+                            merged = config
+                        if merged not in configs:
+                            configs.append(merged)
+                source["tables"] = tables
+            return source
+
+        metadata = {}
+        for source in self._metadata_sources("tables", database, None):
+            source = normalize_tables(copy.deepcopy(source), metadata)
+            if isinstance(source, dict) and isinstance(source.get("databases"), dict):
+                databases = dict(source["databases"])
+                if database in databases:
+                    databases[database] = normalize_tables(
+                        databases[database],
+                        (metadata.get("databases") or {}).get(database),
+                    )
+                source["databases"] = databases
+            metadata = self._metadata_recursive_update(metadata, source)
+
+        database_metadata = (metadata.get("databases") or {}).get(database) or {}
+        tables = database_metadata.get("tables", metadata.get("tables")) or {}
+        configs = (tables.get(table.translate(_SQLITE_IDENTIFIER_CASE)) or {}).get(
+            "configs", []
+        )
+        # Same-source aliases are rules for one resource: an explicit denial wins.
+        return [
+            config["allow"]
+            for config in configs
+            if config and config.get("allow") is not None
+        ]
+
     def metadata(self, key=None, database=None, table=None, fallback=True):
         """
         Looks up metadata, cascading backwards from specified level.
@@ -484,16 +547,8 @@ class Datasette:
         ), "Cannot call metadata() with table= specified but not database="
         metadata = {}
 
-        for hook_dbs in pm.hook.get_metadata(
-            datasette=self, key=key, database=database, table=table
-        ):
+        for hook_dbs in self._metadata_sources(key, database, table):
             metadata = self._metadata_recursive_update(metadata, hook_dbs)
-
-        # security precaution!! don't allow anything in the local config
-        # to be overwritten. this is a temporary measure, not sure if this
-        # is a good idea long term or maybe if it should just be a concern
-        # of the plugin's implemtnation
-        metadata = self._metadata_recursive_update(metadata, self._metadata_local)
 
         databases = metadata.get("databases") or {}
 
@@ -587,15 +642,25 @@ class Datasette:
         conn.row_factory = sqlite3.Row
         conn.text_factory = lambda x: str(x, "utf-8", "replace")
         if self.sqlite_extensions:
+            # Only enable extension loading while loading configured extensions.
             conn.enable_load_extension(True)
-            for extension in self.sqlite_extensions:
-                # "extension" is either a string path to the extension
-                # or a 2-item tuple that specifies which entrypoint to load.
-                if isinstance(extension, tuple):
-                    path, entrypoint = extension
-                    conn.execute("SELECT load_extension(?, ?)", [path, entrypoint])
-                else:
-                    conn.execute("SELECT load_extension(?)", [extension])
+            try:
+                for extension in self.sqlite_extensions:
+                    # "extension" is either a string path to the extension
+                    # or a 2-item tuple that specifies which entrypoint to load.
+                    if isinstance(extension, tuple):
+                        path, entrypoint = extension
+                        if sys.version_info >= (3, 12):
+                            conn.load_extension(path, entrypoint=entrypoint)
+                        else:
+                            # The entrypoint argument was added in Python 3.12.
+                            conn.execute(
+                                "SELECT load_extension(?, ?)", [path, entrypoint]
+                            )
+                    else:
+                        conn.load_extension(extension)
+            finally:
+                conn.enable_load_extension(False)
         if self.setting("cache_size_kb"):
             conn.execute(f"PRAGMA cache_size=-{self.setting('cache_size_kb')}")
         # pylint: disable=no-member
@@ -679,6 +744,19 @@ class Datasette:
 
     async def permission_allowed(self, actor, action, resource=None, default=False):
         """Check permissions using the permissions_allowed plugin hook"""
+        if action == "view-table" and resource is not None:
+            database, table = resource
+            db = self.databases.get(database)
+            if db is not None:
+                # Use SQLite's spelling for both table and view permission hooks.
+                # NOCASE folds ASCII only, unlike str.lower() or str.casefold().
+                result = await db.execute(
+                    "select name from sqlite_master "
+                    "where type in ('table', 'view') and name = ? collate nocase",
+                    (table,),
+                )
+                if result.rows:
+                    resource = (database, result.rows[0][0])
         result = None
         for check in pm.hook.permission_allowed(
             datasette=self,
@@ -1269,7 +1347,7 @@ class Datasette:
                 if not database.is_mutable:
                     await database.table_counts(limit=60 * 60 * 1000)
 
-        asgi = asgi_csrf.asgi_csrf(
+        csrf_app = asgi_csrf.asgi_csrf(
             DatasetteRouter(self, routes),
             signing_secret=self._secret,
             cookie_name="ds_csrftoken",
@@ -1277,6 +1355,25 @@ class Datasette:
                 pm.hook.skip_csrf(datasette=self, scope=scope)
             ),
         )
+
+        async def asgi(scope, receive, send):
+            async def send_with_cookie_privacy(message):
+                # CSRF cookies are added outside the router's response wrapper.
+                # Apply their privacy policy after that middleware has run.
+                if message["type"] == "http.response.start":
+                    headers = message.get("headers", [])
+                    if any(key.lower() == b"set-cookie" for key, _ in headers):
+                        headers = [
+                            (key, value)
+                            for key, value in headers
+                            if key.lower() != b"cache-control"
+                        ]
+                        headers.append((b"cache-control", b"private, no-store"))
+                        message = dict(message, headers=headers)
+                await send(message)
+
+            await csrf_app(scope, receive, send_with_cookie_privacy)
+
         if self.setting("trace_debug"):
             asgi = AsgiTracer(asgi)
         asgi = AsgiLifespan(asgi)
@@ -1317,6 +1414,49 @@ class DatasetteRouter:
             path = "/" + path[len(base_url) :]
             scope = dict(scope, route_path=path)
         request = Request(scope, receive)
+        match, view = resolve_routes(self.routes, path)
+        is_static = view is favicon or getattr(view, "_datasette_static", False)
+        original_send = send
+
+        async def send(message):
+            if message["type"] == "http.response.start" and not (
+                is_static and message["status"] in (200, 304)
+            ):
+                # Apply privacy after rendering, including streaming responses
+                # and errors. Even a public resource can have actor-specific content.
+                headers = list(message.get("headers", []))
+                personalized = (
+                    request.actor is not None
+                    or "cookie" in request.headers
+                    or "authorization" in request.headers
+                    or any(key.lower() == b"set-cookie" for key, _ in headers)
+                )
+                if personalized:
+                    headers = [
+                        (key, value)
+                        for key, value in headers
+                        if key.lower() != b"cache-control"
+                    ]
+                    headers.append((b"cache-control", b"private, no-store"))
+
+                # Preserve variation specified by views and plugins, and ensure
+                # anonymous responses are not reused for credentialed requests.
+                vary = [
+                    part.strip()
+                    for key, value in headers
+                    if key.lower() == b"vary"
+                    for part in value.split(b",")
+                    if part.strip()
+                ]
+                if b"*" not in vary:
+                    for name in (b"Cookie", b"Authorization"):
+                        if name.lower() not in {part.lower() for part in vary}:
+                            vary.append(name)
+                headers = [(k, v) for k, v in headers if k.lower() != b"vary"]
+                headers.append((b"vary", b", ".join(vary)))
+                message = dict(message, headers=headers)
+            await original_send(message)
+
         # Populate request_messages if ds_messages cookie is present
         try:
             request._messages = self.ds.unsign(
@@ -1342,8 +1482,7 @@ class DatasetteRouter:
                 break
         scope_modifications["actor"] = actor or default_actor
         scope = dict(scope, **scope_modifications)
-
-        match, view = resolve_routes(self.routes, path)
+        request.scope = scope
 
         if match is None:
             return await self.handle_404(request, send)

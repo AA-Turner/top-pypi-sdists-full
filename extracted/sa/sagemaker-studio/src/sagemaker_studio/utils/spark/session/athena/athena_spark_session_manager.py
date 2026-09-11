@@ -84,11 +84,16 @@ class AthenaSparkSessionManager(SparkSessionManager):
                 "athena",
                 region_name=region,
                 endpoint_url=athena_endpoint_url,
+                config=self._client_retry_config(),
             )
         else:
-            self.athena_client = boto3.client("athena", region_name=region)
+            self.athena_client = boto3.client(
+                "athena", region_name=region, config=self._client_retry_config()
+            )
 
-        self.sts_client = boto3.client("sts", region_name=region)
+        self.sts_client = boto3.client(
+            "sts", region_name=region, config=self._client_retry_config()
+        )
         self.project = Project()
 
         # Use pre-resolved connection if available, otherwise look up

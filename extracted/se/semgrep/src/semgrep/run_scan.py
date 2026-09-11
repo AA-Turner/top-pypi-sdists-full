@@ -849,6 +849,7 @@ def adjust_matches_for_sca_rules(
     rpc_session: Optional[RpcSession] = None,
     enable_transitive_reachability: Optional[bool] = False,
     x_dependency_paths: bool = False,
+    gradle_module_attribution: bool = False,
 ) -> None:
     """
     Generates SCA findings based on the dependency-aware rules and the resolved subprojects.
@@ -877,7 +878,9 @@ def adjust_matches_for_sca_rules(
     for ecosystem, subprojects in resolved_subprojects.items():
         dependency_index[ecosystem] = []
         for subproject in subprojects:
-            idx = SubprojectDependencyIndex.from_subproject(subproject)
+            idx = SubprojectDependencyIndex.from_subproject(
+                subproject, gradle_module_attribution=gradle_module_attribution
+            )
             dependency_index[ecosystem].append((subproject, idx))
             num_dependencies += idx.num_deps
 
@@ -914,6 +917,7 @@ def adjust_matches_for_sca_rules(
                 rule,
                 dependency_index,
                 parent_indexes=parent_indexes,
+                gradle_module_attribution=gradle_module_attribution,
             )
 
             rule_matches_by_rule[rule] = dep_rule_matches
@@ -1191,6 +1195,7 @@ def run_rules(
             write_to_tr_cache=write_to_tr_cache,
             enable_transitive_reachability=enable_transitive_reachability,
             x_dependency_paths=x_dependency_paths,
+            gradle_module_attribution=dependency_resolution_config.gradle_module_attribution,
             fips_mode=fips_mode,
             rpc_session=rpc_session,
         )
@@ -1331,6 +1336,7 @@ def run_scan(
     allow_local_builds: bool = False,
     dump_rule_partitions_params: Optional[out.DumpRulePartitionsParams] = None,
     ptt_enabled: bool = False,
+    gradle_module_attribution: bool = False,
     resolve_all_deps_in_diff_scan: bool = False,
     run_symbol_analysis: bool = False,
     fips_mode: bool = False,
@@ -1548,6 +1554,7 @@ def run_scan(
     dependency_resolution_config = DependencyResolutionConfig(
         allow_local_builds=allow_local_builds,
         ptt_enabled=ptt_enabled,
+        gradle_module_attribution=gradle_module_attribution,
         resolve_untargeted_subprojects=resolve_all_deps_in_diff_scan,
         download_dependency_source_code=enable_transitive_reachability
         if enable_transitive_reachability is not None

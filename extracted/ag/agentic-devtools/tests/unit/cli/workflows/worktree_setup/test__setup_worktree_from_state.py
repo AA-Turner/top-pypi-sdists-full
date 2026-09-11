@@ -8,6 +8,74 @@ import pytest
 class TestSetupWorktreeFromState:
     """Tests for _setup_worktree_from_state function."""
 
+    @pytest.mark.parametrize(
+        "configured_timeout",
+        [
+            -1,
+            "-1",
+            True,
+            False,
+            1.5,
+            "1.5",
+            "",
+            "   ",
+            "not-a-timeout",
+            "+abc",
+            [],
+            {},
+        ],
+    )
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_invalid_auto_execute_timeout_uses_default(
+        self,
+        mock_get_value,
+        mock_setup_sync,
+        configured_timeout,
+    ):
+        """Test that invalid stored timeouts use the 1800-second default."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.auto_execute_timeout": configured_timeout,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        assert mock_setup_sync.call_args.kwargs["auto_execute_timeout"] == 1800
+
+    @pytest.mark.parametrize(
+        "configured_timeout, expected_timeout",
+        [
+            (0, 0),
+            ("0", 0),
+            (1200, 1200),
+            ("1200", 1200),
+            (" +1200 ", 1200),
+        ],
+    )
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
+    @patch("agentic_devtools.state.get_value")
+    def test_valid_auto_execute_timeout_is_preserved(
+        self,
+        mock_get_value,
+        mock_setup_sync,
+        configured_timeout,
+        expected_timeout,
+    ):
+        """Test that valid stored timeouts are passed through unchanged as integers."""
+        mock_get_value.side_effect = lambda key: {
+            "worktree_setup.issue_key": "PROJECT-1234",
+            "worktree_setup.auto_execute_timeout": configured_timeout,
+        }.get(key)
+
+        from agentic_devtools.cli.workflows.worktree_setup import _setup_worktree_from_state
+
+        _setup_worktree_from_state()
+
+        assert mock_setup_sync.call_args.kwargs["auto_execute_timeout"] == expected_timeout
+
     @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_in_background_sync")
     @patch("agentic_devtools.state.get_value")
     def test_reads_parameters_from_state(self, mock_get_value, mock_setup_sync):

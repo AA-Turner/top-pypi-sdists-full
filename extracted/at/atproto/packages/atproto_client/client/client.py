@@ -1,9 +1,12 @@
 import typing as t
+import warnings
 from threading import Lock
 
+from atproto_core.exceptions import AtProtocolError
 from atproto_core.uri import AtUri
 
 from atproto_client import models
+from atproto_client.client.base import is_method_not_served
 from atproto_client.client.methods_mixin import SessionMethodsMixin, TimeMethodsMixin
 from atproto_client.client.methods_mixin.headers import HeadersConfigurationMethodsMixin
 from atproto_client.client.methods_mixin.session import SessionDispatchMixin
@@ -26,6 +29,7 @@ class Client(SessionDispatchMixin, SessionMethodsMixin, TimeMethodsMixin, Header
 
         self._refresh_lock = Lock()
 
+        #: Profile of the logged-in account, when it was fetched at login.
         self.me: t.Optional[models.AppBskyActorDefs.ProfileViewDetailed] = None
 
     def _invoke(self, invoke_type: 'InvokeType', **kwargs: t.Any) -> 'Response':
@@ -78,20 +82,33 @@ class Client(SessionDispatchMixin, SessionMethodsMixin, TimeMethodsMixin, Header
         password: t.Optional[str] = None,
         session_string: t.Optional[str] = None,
         auth_factor_token: t.Optional[str] = None,
-    ) -> 'models.AppBskyActorDefs.ProfileViewDetailed':
+        fetch_bsky_profile: bool = True,
+    ) -> t.Optional['models.AppBskyActorDefs.ProfileViewDetailed']:
         """Authorize a client and get profile info.
 
         Args:
             login: Handle/username of the account.
             password: Main or app-specific password of the account.
-            session_string: Session string (use :py:attr:`~export_session_string` to get it).
+            session_string: Session string (use
+                :py:meth:`~atproto_client.client.methods_mixin.session.SessionMethodsMixin.export_session_string`
+                to get it).
             auth_factor_token: Auth factor token (for Email 2FA).
+            fetch_bsky_profile: Look up the Bluesky profile of the account after authorizing.
 
         Note:
             Either `session_string` or `login` and `password` should be provided.
 
+        Note:
+            Authorization itself uses only ``com.atproto.server``. The profile lookup is
+            ``app.bsky.actor.getProfile``, which not every PDS serves. A PDS that does not serve it
+            does not fail the login: :py:attr:`~atproto_client.client.client.Client.me` is
+            :obj:`None` and a warning is emitted. Any other failure of the lookup, such as an
+            expired session, propagates. Pass ``fetch_bsky_profile=False`` on a PDS without
+            ``app.bsky`` to skip the request and the warning.
+
         Returns:
-            :obj:`models.AppBskyActorDefs.ProfileViewDetailed`: Profile information.
+            :obj:`models.AppBskyActorDefs.ProfileViewDetailed`: Profile information,
+            or :obj:`None` when it was not fetched.
 
         Raises:
             :class:`atproto.exceptions.AtProtocolError`: Base exception.
@@ -103,8 +120,25 @@ class Client(SessionDispatchMixin, SessionMethodsMixin, TimeMethodsMixin, Header
         else:
             raise ValueError('Either session_string or login and password should be provided.')
 
-        self.me = self.app.bsky.actor.get_profile(models.AppBskyActorGetProfile.Params(actor=session.handle))
+        self.me = None
+        if fetch_bsky_profile:
+            self.me = self._fetch_bsky_profile(session.handle)
+
         return self.me
+
+    def _fetch_bsky_profile(self, handle: str) -> t.Optional['models.AppBskyActorDefs.ProfileViewDetailed']:
+        try:
+            return self.app.bsky.actor.get_profile(models.AppBskyActorGetProfile.Params(actor=handle))
+        except AtProtocolError as e:
+            if not is_method_not_served(e):
+                raise
+
+            warnings.warn(
+                f"Authorized, but could not fetch the Bluesky profile of '{handle}': {e}. "
+                '`me` is None. Pass `fetch_bsky_profile=False` to skip this lookup.',
+                stacklevel=3,
+            )
+            return None
 
     def send_post(
         self,

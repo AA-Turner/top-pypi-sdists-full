@@ -34,40 +34,48 @@ class UscList(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'gcp_project_id': 'str',
         'json': 'bool',
         'object_type': 'str',
         'page_size': 'int',
         'page_token': 'str',
+        'search': 'str',
         'token': 'str',
         'uid_token': 'str',
         'usc_name': 'str'
     }
 
     attribute_map = {
+        'gcp_project_id': 'gcp-project-id',
         'json': 'json',
         'object_type': 'object-type',
         'page_size': 'page-size',
         'page_token': 'page-token',
+        'search': 'search',
         'token': 'token',
         'uid_token': 'uid-token',
         'usc_name': 'usc-name'
     }
 
-    def __init__(self, json=False, object_type=None, page_size=None, page_token=None, token=None, uid_token=None, usc_name=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gcp_project_id=None, json=False, object_type=None, page_size=None, page_token=None, search=None, token=None, uid_token=None, usc_name=None, local_vars_configuration=None):  # noqa: E501
         """UscList - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._gcp_project_id = None
         self._json = None
         self._object_type = None
         self._page_size = None
         self._page_token = None
+        self._search = None
         self._token = None
         self._uid_token = None
         self._usc_name = None
         self.discriminator = None
 
+        if gcp_project_id is not None:
+            self.gcp_project_id = gcp_project_id
         if json is not None:
             self.json = json
         if object_type is not None:
@@ -76,11 +84,36 @@ class UscList(object):
             self.page_size = page_size
         if page_token is not None:
             self.page_token = page_token
+        if search is not None:
+            self.search = search
         if token is not None:
             self.token = token
         if uid_token is not None:
             self.uid_token = uid_token
         self.usc_name = usc_name
+
+    @property
+    def gcp_project_id(self):
+        """Gets the gcp_project_id of this UscList.  # noqa: E501
+
+        The GCP project to list secrets from (GCP only). Required when the connector spans multiple projects or uses folder/organization scope.  # noqa: E501
+
+        :return: The gcp_project_id of this UscList.  # noqa: E501
+        :rtype: str
+        """
+        return self._gcp_project_id
+
+    @gcp_project_id.setter
+    def gcp_project_id(self, gcp_project_id):
+        """Sets the gcp_project_id of this UscList.
+
+        The GCP project to list secrets from (GCP only). Required when the connector spans multiple projects or uses folder/organization scope.  # noqa: E501
+
+        :param gcp_project_id: The gcp_project_id of this UscList.  # noqa: E501
+        :type: str
+        """
+
+        self._gcp_project_id = gcp_project_id
 
     @property
     def json(self):
@@ -130,7 +163,7 @@ class UscList(object):
     def page_size(self):
         """Gets the page_size of this UscList.  # noqa: E501
 
-        Optional: number of items requested per response (Azure KV). When set, response may include next_token  # noqa: E501
+        Optional: number of items requested per response. When set, response may include next_token  # noqa: E501
 
         :return: The page_size of this UscList.  # noqa: E501
         :rtype: int
@@ -141,7 +174,7 @@ class UscList(object):
     def page_size(self, page_size):
         """Sets the page_size of this UscList.
 
-        Optional: number of items requested per response (Azure KV). When set, response may include next_token  # noqa: E501
+        Optional: number of items requested per response. When set, response may include next_token  # noqa: E501
 
         :param page_size: The page_size of this UscList.  # noqa: E501
         :type: int
@@ -171,6 +204,29 @@ class UscList(object):
         """
 
         self._page_token = page_token
+
+    @property
+    def search(self):
+        """Gets the search of this UscList.  # noqa: E501
+
+        Search query used to match secret names and paths.  # noqa: E501
+
+        :return: The search of this UscList.  # noqa: E501
+        :rtype: str
+        """
+        return self._search
+
+    @search.setter
+    def search(self, search):
+        """Sets the search of this UscList.
+
+        Search query used to match secret names and paths.  # noqa: E501
+
+        :param search: The search of this UscList.  # noqa: E501
+        :type: str
+        """
+
+        self._search = search
 
     @property
     def token(self):

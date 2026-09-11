@@ -21,6 +21,7 @@ use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
 use pyrefly_python::keywords::get_expression_keywords;
 use pyrefly_python::keywords::get_keywords;
+use pyrefly_python::keywords::is_valid_identifier;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::short_identifier::ShortIdentifier;
@@ -173,6 +174,33 @@ pub(crate) fn supports_snippet_completions(capabilities: &lsp_types::ClientCapab
         .unwrap_or(false)
 }
 
+/// Offers `name=` for one keyword argument, deduplicating against `seen`.
+///
+/// Names that cannot be written as a keyword argument are dropped. A functional
+/// `TypedDict` may declare members from arbitrary strings — both directly, as in
+/// `TypedDict("M", {"class": int})`, and via the parameters synthesized for its
+/// constructor — and inserting those would not parse.
+fn push_kwarg_completion(
+    name: &Name,
+    ty: &Type,
+    seen: &mut SmallSet<(String, String)>,
+    completions: &mut Vec<RankedCompletion>,
+) {
+    if !is_valid_identifier(name.as_str()) {
+        return;
+    }
+    let label = format!("{}=", name.as_str());
+    let detail = ty.to_string();
+    if seen.insert((label.clone(), detail.clone())) {
+        completions.push(RankedCompletion::new(CompletionItem {
+            label,
+            detail: Some(detail),
+            kind: Some(CompletionItemKind::VARIABLE),
+            ..Default::default()
+        }));
+    }
+}
+
 impl Transaction<'_> {
     /// Adds a common alias auto-import completion (e.g. `np` -> `numpy`).
     /// Returns the module name that was aliased when a completion was added.
@@ -220,7 +248,7 @@ impl Transaction<'_> {
     }
 
     /// Adds completion items for literal types (e.g., `Literal["foo", "bar"]`).
-    fn add_literal_completions_from_type(
+    pub(crate) fn add_literal_completions_from_type(
         param_type: &Type,
         completions: &mut Vec<RankedCompletion>,
         in_string_literal: bool,
@@ -363,22 +391,30 @@ impl Transaction<'_> {
                             | Param::PosOnly(Some(name), ty, _)
                             | Param::KwOnly(name, ty, _)
                             | Param::Varargs(Some(name), ty) => {
-                                let label = format!("{}=", name.as_str());
-                                let detail = ty.to_string();
-                                if name.as_str() != "self"
-                                    && seen.insert((label.clone(), detail.clone()))
+                                if name.as_str() != "self" {
+                                    push_kwarg_completion(&name, &ty, &mut seen, completions);
+                                }
+                            }
+                            // `**kwargs: Unpack[TypedDict]` accepts each field as a keyword
+                            // argument, so offer the fields rather than `kwargs` itself.
+                            Param::Kwargs(_, ref ty)
+                                if let Some(typed_dict) = ty.unpacked_typed_dict() =>
+                            {
+                                for (name, field) in self
+                                    .ad_hoc_solve(
+                                        handle,
+                                        "completion_typed_dict_kwargs",
+                                        |solver| solver.type_order().typed_dict_fields(typed_dict),
+                                    )
+                                    .into_iter()
+                                    .flatten()
                                 {
-                                    completions.push(RankedCompletion::new(CompletionItem {
-                                        label,
-                                        detail: Some(detail),
-                                        kind: Some(CompletionItemKind::VARIABLE),
-                                        ..Default::default()
-                                    }));
+                                    push_kwarg_completion(&name, &field.ty, &mut seen, completions);
                                 }
                             }
                             Param::Varargs(None, _)
-                            | Param::Kwargs(_, _)
-                            | Param::PosOnly(None, _, _) => {}
+                            | Param::PosOnly(None, _, _)
+                            | Param::Kwargs(..) => {}
                         }
                     }
                 }
@@ -706,7 +742,7 @@ impl Transaction<'_> {
                 });
             }
 
-            for module_name in self.search_modules_fuzzy(identifier_text) {
+            for module_name in self.search_modules_fuzzy(handle, identifier_text) {
                 if module_name == handle.module() {
                     continue;
                 }
@@ -1186,7 +1222,7 @@ impl Transaction<'_> {
                 let skip_value_completions = covering_nodes
                     .as_deref()
                     .is_some_and(|nodes| Self::is_typing_keyword_argument_name(nodes, position));
-                if !skip_value_completions {
+                if !skip_value_completions && !is_method_def {
                     let at_statement_start = matches!(
                         covering_nodes.as_deref().and_then(|nodes| nodes.get(1)),
                         Some(AnyNodeRef::StmtExpr(_))
@@ -1194,6 +1230,7 @@ impl Transaction<'_> {
                     let expression_only =
                         matches!(context, IdentifierContext::Expr(_)) && !at_statement_start;
                     Self::add_keyword_completions(handle, expression_only, &mut result);
+                    let local_completion_start = result.len();
                     let has_local_completions = self.add_local_variable_completions(
                         handle,
                         Some(&identifier),
@@ -1201,7 +1238,18 @@ impl Transaction<'_> {
                         expected_type.as_ref(),
                         &mut result,
                     );
-                    if auto_import && !has_local_completions {
+                    // Compare case-insensitively so a prefix-matching local
+                    // suppresses the auto-import even when the case differs.
+                    let identifier_lower = identifier.as_str().to_lowercase();
+                    let has_prefix_local_completion =
+                        result[local_completion_start..].iter().any(|completion| {
+                            completion
+                                .item
+                                .label
+                                .to_lowercase()
+                                .starts_with(&identifier_lower)
+                        });
+                    if auto_import && !has_prefix_local_completion {
                         self.add_autoimport_completions(
                             handle,
                             &identifier,
@@ -1270,6 +1318,12 @@ impl Transaction<'_> {
                             &nodes,
                             &mut result,
                             in_string_literal,
+                        );
+                        self.add_dict_value_literal_completions(
+                            handle,
+                            mod_module.as_ref(),
+                            position,
+                            &mut result,
                         );
                         // `dict_key_claimed` was computed up front; when a dict key was
                         // offered we skip the overload literal completions.

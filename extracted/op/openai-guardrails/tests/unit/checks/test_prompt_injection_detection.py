@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from guardrails.types import GuardrailLLMContextProto
+
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 import pytest
+from openai import AsyncOpenAI
 
 from guardrails.checks.text import prompt_injection_detection as pid_module
 from guardrails.checks.text.llm_base import LLMConfig, LLMOutput
@@ -15,6 +22,7 @@ from guardrails.checks.text.prompt_injection_detection import (
     _should_analyze,
     prompt_injection_detection,
 )
+from guardrails.runtime import ConfigBundle, GuardrailConfig, instantiate_guardrails, run_guardrails
 from guardrails.types import TokenUsage
 
 
@@ -144,7 +152,7 @@ async def test_prompt_injection_detection_triggers(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.9)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is True  # noqa: S101
 
@@ -161,7 +169,7 @@ async def test_prompt_injection_detection_no_trigger(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.9)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
     assert "Aligned" in result.info["observation"]  # noqa: S101
@@ -173,7 +181,7 @@ async def test_prompt_injection_detection_skips_without_history(monkeypatch: pyt
     context = _FakeContext([])
     config = LLMConfig(model="gpt-test", confidence_threshold=0.9)
 
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
     assert result.info["observation"] == "No conversation history available"  # noqa: S101
@@ -181,20 +189,24 @@ async def test_prompt_injection_detection_skips_without_history(monkeypatch: pyt
 
 @pytest.mark.asyncio
 async def test_prompt_injection_detection_handles_analysis_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Exceptions during analysis should return a skip result."""
+    """Analysis errors remain non-tripwire results and retain the original failure."""
     history = _make_history({"type": "function_call", "tool_name": "get_weather", "arguments": "{}"})
     context = _FakeContext(history)
 
+    error = RuntimeError("LLM failed")
+
     async def failing_llm(*_args: Any, **_kwargs: Any) -> PromptInjectionDetectionOutput:
-        raise RuntimeError("LLM failed")
+        raise error
 
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", failing_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
-    assert "Error during prompt injection detection check" in result.info["observation"]  # noqa: S101
+    assert "Error during prompt injection detection check" in result.info["observation"]
+    assert result.execution_failed is True
+    assert result.original_exception is error
 
 
 @pytest.mark.asyncio
@@ -210,7 +222,7 @@ async def test_prompt_injection_detection_llm_supports_sync_responses() -> None:
     context = SimpleNamespace(guardrail_llm=SimpleNamespace(responses=_SyncResponses()))
     config = LLMConfig(model="gpt-test", confidence_threshold=0.5)
 
-    parsed, token_usage = await pid_module._call_prompt_injection_detection_llm(context, "prompt", config)
+    parsed, token_usage = await pid_module._call_prompt_injection_detection_llm(cast("GuardrailLLMContextProto", context), "prompt", config)
 
     assert parsed is analysis  # noqa: S101
     assert token_usage.total_tokens == 75  # noqa: S101
@@ -232,7 +244,7 @@ async def test_prompt_injection_detection_skips_assistant_content(monkeypatch: p
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     # Should skip since we only analyze tool calls and outputs, not assistant content
     assert result.tripwire_triggered is False  # noqa: S101
@@ -257,7 +269,7 @@ async def test_prompt_injection_detection_skips_empty_assistant_messages(monkeyp
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
 
@@ -290,7 +302,7 @@ async def test_prompt_injection_detection_ignores_unknown_function_name_mismatch
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
     assert "align" in result.info["observation"].lower()  # noqa: S101
@@ -330,7 +342,7 @@ async def test_prompt_injection_detection_flags_tool_output_with_response_direct
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is True  # noqa: S101
     assert result.info["flagged"] is True  # noqa: S101
@@ -370,7 +382,7 @@ async def test_prompt_injection_detection_flags_tool_output_with_fake_conversati
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is True  # noqa: S101
     assert result.info["flagged"] is True  # noqa: S101
@@ -407,7 +419,7 @@ async def test_prompt_injection_detection_flags_tool_output_with_fake_user_messa
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is True  # noqa: S101
     assert result.info["flagged"] is True  # noqa: S101
@@ -444,7 +456,7 @@ async def test_prompt_injection_detection_allows_legitimate_tool_output(
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert result.tripwire_triggered is False  # noqa: S101
     assert result.info["flagged"] is False  # noqa: S101
@@ -486,7 +498,7 @@ async def test_prompt_injection_detection_respects_max_turns_config(
 
     # With max_turns=2, only "Old message 3" and "Recent message" should be in context
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7, max_turns=2)
-    await prompt_injection_detection(context, data="{}", config=config)
+    await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     # Verify old messages are not in the prompt
     prompt = captured_prompt[0]
@@ -524,7 +536,7 @@ async def test_prompt_injection_detection_single_turn_mode(
 
     # With max_turns=1, only "The actual request" should be used
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7, max_turns=1)
-    await prompt_injection_detection(context, data="{}", config=config)
+    await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     prompt = captured_prompt[0]
     # Previous context should NOT be included
@@ -569,7 +581,7 @@ async def test_prompt_injection_detection_includes_reasoning_when_enabled(
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7, include_reasoning=True)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert recorded_output_model == PromptInjectionDetectionOutput  # noqa: S101
     assert result.tripwire_triggered is True  # noqa: S101
@@ -608,7 +620,7 @@ async def test_prompt_injection_detection_excludes_reasoning_when_disabled(
     monkeypatch.setattr(pid_module, "_call_prompt_injection_detection_llm", fake_call_llm)
 
     config = LLMConfig(model="gpt-test", confidence_threshold=0.7, include_reasoning=False)
-    result = await prompt_injection_detection(context, data="{}", config=config)
+    result = await prompt_injection_detection(cast("GuardrailLLMContextProto", context), data="{}", config=config)
 
     assert recorded_output_model == LLMOutput  # noqa: S101
     assert result.tripwire_triggered is False  # noqa: S101
@@ -616,3 +628,49 @@ async def test_prompt_injection_detection_excludes_reasoning_when_disabled(
     assert "evidence" not in result.info  # noqa: S101
     assert result.info["flagged"] is False  # noqa: S101
     assert result.info["confidence"] == 0.1  # noqa: S101
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("failure", [RuntimeError("Provider unavailable"), ValueError("Invalid analysis response")])
+async def test_analysis_failure_respects_runtime_error_policy(strict: bool, failure: Exception) -> None:
+    """Actual check failures obey strict mode independently of tripwire suppression."""
+    client = Mock(spec=AsyncOpenAI)
+    parse = AsyncMock(side_effect=failure)
+    client.responses = SimpleNamespace(parse=parse)
+    context = SimpleNamespace(
+        guardrail_llm=client,
+        get_conversation_history=lambda: _make_history({"type": "function_call", "name": "get_weather", "arguments": "{}"}),
+    )
+    guardrails = instantiate_guardrails(ConfigBundle(guardrails=[GuardrailConfig(name="Prompt Injection Detection", config={"model": "gpt-test"})]))
+    if strict:
+        with pytest.raises(type(failure)) as caught:
+            await run_guardrails(context, "{}", "text/plain", guardrails, raise_guardrail_errors=True, suppress_tripwire=True)
+        assert caught.value is failure
+    else:
+        results = await run_guardrails(context, "{}", "text/plain", guardrails)
+        assert len(results) == 1
+        assert results[0].tripwire_triggered is False
+        assert results[0].execution_failed is True
+        assert results[0].original_exception is failure
+    parse.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "history",
+    [[], [{"type": "function_call", "name": "get_weather", "arguments": "{}"}], [{"role": "user", "content": "Weather?"}]],
+)
+async def test_intentional_skip_remains_safe_in_strict_mode(history: list[Any]) -> None:
+    """Inapplicable conversations remain no-ops even when execution errors are strict."""
+    client = Mock(spec=AsyncOpenAI)
+    parse = AsyncMock()
+    client.responses = SimpleNamespace(parse=parse)
+    context = SimpleNamespace(guardrail_llm=client, get_conversation_history=lambda: history)
+    guardrails = instantiate_guardrails(ConfigBundle(guardrails=[GuardrailConfig(name="Prompt Injection Detection", config={"model": "gpt-test"})]))
+    results = await run_guardrails(context, "{}", "text/plain", guardrails, raise_guardrail_errors=True)
+    assert len(results) == 1
+    assert results[0].tripwire_triggered is False
+    assert results[0].execution_failed is False
+    assert results[0].original_exception is None
+    parse.assert_not_awaited()

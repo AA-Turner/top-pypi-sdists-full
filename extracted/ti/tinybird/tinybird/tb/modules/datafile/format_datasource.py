@@ -83,8 +83,7 @@ def format_datasource(
         format_shared_with(file_parts, doc)
         format_forward_query(file_parts, doc)
     result = "".join(file_parts)
-    result = result.rstrip("\n") + "\n"
-    return result
+    return result.rstrip("\n") + "\n"
 
 
 def format_schema(file_parts: List[str], node: Dict[str, Any]) -> List[str]:

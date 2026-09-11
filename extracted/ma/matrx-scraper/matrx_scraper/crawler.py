@@ -93,6 +93,7 @@ from matrx_scraper.scraper import (
 from matrx_scraper.seo_audit import IMAGE_INVENTORY_LIMIT, audit_html
 from matrx_scraper.user_agents import normalize_user_agent
 from matrx_scraper.utils.url import normalize_url, validate_public_http_url
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -735,7 +736,7 @@ class SiteCrawler:
                 return None
             return parse_robots_txt(resp.text).crawl_delay_for(self.user_agent)
         except Exception as exc:
-            logger.info("crawl-delay probe failed for %s: %s", url, exc)
+            logger.info("crawl-delay probe failed for %s: %s", redact_url_secrets(url), redact_url_secrets(exc))
             return None
 
     async def _probe_platform(self) -> tuple[dict[str, str] | None, str | None]:
@@ -758,7 +759,7 @@ class SiteCrawler:
             body = resp.text[:200_000] if 200 <= resp.status_code < 300 else None
             return dict(resp.headers), body
         except Exception as exc:
-            logger.info("platform probe failed for %s: %s", self.seed_url, exc)
+            logger.info("platform probe failed for %s: %s", redact_url_secrets(self.seed_url), redact_url_secrets(exc))
             return None, None
 
     def _ramp_for(self, url: str) -> HostRamp | None:
@@ -1694,7 +1695,7 @@ class SiteCrawler:
                             or {}
                         )
                     except Exception:
-                        logger.exception("extractor runner failed for %s", item.url)
+                        logger.exception("extractor runner failed for %s", redact_url_secrets(item.url))
 
                 # Build the complete page summary before persistence. Canonical
                 # web persistence needs the extracted signals to create the
@@ -1735,7 +1736,7 @@ class SiteCrawler:
                                 )
                     except Exception as exc:
                         logger.warning(
-                            "body_persister failed for %s: %s", item.url, exc, exc_info=True
+                            "body_persister failed for %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True
                         )
                         await self._emit(
                             CrawlWarningEvent(
@@ -1792,7 +1793,7 @@ class SiteCrawler:
                     logger.warning(
                         "could not requeue in-flight item %s during worker cancellation "
                         "(the frontier lease reaper is the backstop)",
-                        item.url,
+                        redact_url_secrets(item.url),
                         exc_info=True,
                     )
                 raise
@@ -1809,7 +1810,7 @@ class SiteCrawler:
                     )
                 finally:
                     await self.queue.mark_failed(item.url, f"{type(exc).__name__}: {exc}")
-                    logger.warning("crawler error on %s: %s", item.url, exc, exc_info=True)
+                    logger.warning("crawler error on %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc), exc_info=True)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1846,7 +1847,7 @@ class SiteCrawler:
         outcome = f"HTTP {status}" if status is not None else type(error).__name__
         logger.warning(
             "proxied request failed for %s with %s; retrying directly",
-            url,
+            redact_url_secrets(url),
             outcome,
         )
         context: dict[str, Any] = {
@@ -1949,7 +1950,7 @@ class SiteCrawler:
                 user_agent=self._user_agent_override,
             )
         except Exception as exc:
-            logger.info("browser fallback failed for %s: %s", item.url, exc)
+            logger.info("browser fallback failed for %s: %s", redact_url_secrets(item.url), redact_url_secrets(exc))
             return None
 
     @staticmethod

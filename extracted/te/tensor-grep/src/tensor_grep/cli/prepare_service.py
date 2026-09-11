@@ -27,39 +27,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# AGT-03 (docs/plans/2026-09-07-agentic-quality-simplification.md Task 03): exact-string
-# allowlist of validation recipes the repo-map detectors themselves already emit (repo_map.py,
-# repo_map_lang_js.py, repo_map_lang_rust.py). This is deliberately NOT a shlex.split of
-# arbitrary `validation_commands` text -- the audit explicitly forbids converting unreviewed
-# shell strings into trusted argv, since a detector could someday surface a shell-only or
-# unrecognized recipe. Only a string that matches one of these known-safe recipes byte-for-byte
-# is ever turned into an executable argv; anything else falls back to `on_success.unavailable`.
-_KNOWN_VALIDATION_RECIPES: dict[str, tuple[str, ...]] = {
-    "pytest -q": ("pytest", "-q"),
-    "pytest": ("pytest",),
-    "uv run pytest -q": ("uv", "run", "pytest", "-q"),
-    "uv run pytest": ("uv", "run", "pytest"),
-    "cargo test": ("cargo", "test"),
-    "go test ./...": ("go", "test", "./..."),
-    "npm test": ("npm", "test"),
-    "pnpm test": ("pnpm", "test"),
-    "yarn test": ("yarn", "test"),
-}
+from tensor_grep.cli import prepare_protocol as _prepare_protocol
 
-
-def _select_validation_argv(validation_commands: list[str]) -> tuple[str, ...] | None:
-    """Pick a safe, reviewed argv for the first detected recipe that exactly matches the
-    allowlist above, or ``None`` if nothing in ``validation_commands`` is recognized.
-
-    Exact-match only: a string that merely starts with a known prefix (``"pytest -q; rm -rf /"``)
-    is intentionally rejected rather than truncated or split, so an attacker cannot smuggle
-    extra shell syntax past this gate by prefixing it with an innocuous-looking recipe.
-    """
-    for command in validation_commands:
-        argv = _KNOWN_VALIDATION_RECIPES.get(command)
-        if argv is not None:
-            return argv
-    return None
+# AGT-03 (docs/plans/2026-09-07-agentic-quality-simplification.md Task 03): the exact-string
+# validation-recipe allowlist and its selector now live in prepare_protocol.py, alongside the
+# typed `ValidationAdvice` record that consumes them -- this module must never import back into
+# prepare_protocol's own internals beyond `build_validation_advice`, the same one-direction rule
+# `_build_prepare_payload`'s own docstring states for `cli.main`. Kept as aliases here only
+# because tests may still reference the historical names on this module.
+_KNOWN_VALIDATION_RECIPES = _prepare_protocol._KNOWN_VALIDATION_RECIPES
+_select_validation_argv = _prepare_protocol._select_validation_argv
 
 
 def _build_prepare_blast_radius_floor(
@@ -294,6 +271,7 @@ def _build_prepare_payload(
     claim: bool,
     deadline_monotonic: float | None = None,
     include_next_action: bool = False,
+    repo_map: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Thin composition (CEO #5): ONE repo-map build supplies primary target, confidence,
     ask-user, and validation verbatim; the only NEW scan is the blast-radius floor (see
@@ -312,15 +290,23 @@ def _build_prepare_payload(
     ``build_agent_capsule``'s own public contract/return is completely untouched by this --
     `tg agent` / MCP / its existing tests keep calling it directly, exactly as before."""
     from tensor_grep.cli.agent_capsule import _command_ref, build_agent_capsule_from_map
-    from tensor_grep.cli.repo_map import (
-        DEFAULT_AGENT_REPO_MAP_LIMIT,
-        _copy_scan_limit,
-        build_repo_map,
-    )
+    from tensor_grep.cli.repo_map import _copy_scan_limit
 
-    rm = build_repo_map(
-        path, max_repo_files=DEFAULT_AGENT_REPO_MAP_LIMIT, deadline_monotonic=deadline_monotonic
-    )
+    if repo_map is not None:
+        # P9 (docs/plans/2026-09-07-agentic-quality-simplification.md Task 06): a caller that
+        # already holds a freshness-checked map (session_prepare, via session_root's
+        # `_snapshot_generation` identity) skips this function's own `build_repo_map` walk
+        # entirely. `repo_map` is trusted as-is -- freshness/identity is the CALLER's
+        # responsibility, never re-derived here.
+        rm = repo_map
+    else:
+        from tensor_grep.cli.repo_map import DEFAULT_AGENT_REPO_MAP_LIMIT, build_repo_map
+
+        rm = build_repo_map(
+            path,
+            max_repo_files=DEFAULT_AGENT_REPO_MAP_LIMIT,
+            deadline_monotonic=deadline_monotonic,
+        )
     capsule = build_agent_capsule_from_map(
         rm, query, deadline_monotonic=deadline_monotonic, _rescue_call_site_evidence=True
     )
@@ -482,29 +468,29 @@ def _build_prepare_payload(
 
     if include_next_action:
         target_path = str(target.get("file") or path)
-        detected_argv = _select_validation_argv(result["validation_commands"])
-        if detected_argv is not None:
+        # AGT-03 (docs/plans/2026-09-07-agentic-quality-simplification.md Task 03): this used to
+        # hardcode `uv run pytest -q` for EVERY repository regardless of detected language, so a
+        # Rust-only repo got Python test advice. Only emit a runnable `on_success` when
+        # `validation_commands` (detected by the capsule builder from the actual repo, never from
+        # unreviewed shell text) contains one of the allowlisted exact recipes; otherwise advise
+        # inspection instead of inventing a successful plan. Built via the typed
+        # `ValidationAdvice` record (prepare_protocol.py) so detected-recipe IDENTITY and
+        # execution AUTHORITY stay decoupled internally; projected back to the exact same
+        # `on_success` dict shape this function has always returned.
+        advice = _prepare_protocol.build_validation_advice(result["validation_commands"])
+        if advice.status == "available":
             on_success: dict[str, Any] = {
                 "type": "run",
-                "argv": list(detected_argv),
+                "argv": list(advice.argv),
                 "deadline_seconds": 300,
                 "max_output_bytes": 1000000,
                 "allow_network": False,
                 "fail_closed_on_timeout": True,
             }
         else:
-            # AGT-03 (docs/plans/2026-09-07-agentic-quality-simplification.md Task 03): this
-            # used to hardcode `uv run pytest -q` for EVERY repository regardless of detected
-            # language, so a Rust-only repo got Python test advice. Only emit a runnable
-            # `on_success` when `validation_commands` (detected by the capsule builder from the
-            # actual repo, never from unreviewed shell text) contains one of the allowlisted
-            # exact recipes; otherwise advise inspection instead of inventing a successful plan.
             on_success = {
                 "type": "unavailable",
-                "reason": (
-                    "no allowlisted validation recipe detected for this repository "
-                    "-- inspect the change manually before treating it as verified"
-                ),
+                "reason": advice.reason,
             }
         result["next_action"] = {
             "action": {
@@ -571,6 +557,7 @@ def build_prepare_snapshot(
     claim: bool = False,
     deadline_monotonic: float | None = None,
     include_next_action: bool = False,
+    repo_map: dict[str, Any] | None = None,
 ) -> PrepareSnapshotV1:
     """Build a `PrepareSnapshotV1` by calling the existing `_build_prepare_payload` and
     projecting its result onto typed fields. Delegates every computation to that function --
@@ -584,6 +571,7 @@ def build_prepare_snapshot(
         claim=claim,
         deadline_monotonic=deadline_monotonic,
         include_next_action=include_next_action,
+        repo_map=repo_map,
     )
     return PrepareSnapshotV1(
         version=int(payload.get("version") or 1),

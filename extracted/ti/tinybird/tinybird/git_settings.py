@@ -137,9 +137,7 @@ def bump_version(version: str, next_version: Optional[str]) -> str:
 
 
 def get_default_init_files_deploy(workspace_name: str) -> Dict[str, str]:
-    modified_files = {
+    return {
         path.replace("tinybird_", f"tinybird_{workspace_name.lower()}_"): content
         for path, content in DEFAULT_INIT_FILES_DEPLOY.items()
     }
-
-    return modified_files

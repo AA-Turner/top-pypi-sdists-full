@@ -146,6 +146,40 @@ file you are referencing. Zips from untrusted sources might be able to execute
 arbitrary code in the Lambda Function used by this module, and use its permissions
 to read or write unexpected files in the S3 bucket.
 
+## Referencing deployed object versions
+
+When you deploy a single zip file without extracting it (`extract: false`) to a
+**versioned** destination bucket, you can obtain the S3 `VersionId` of each deployed
+object via `objectVersionIds`. This is useful when a consumer must reference a specific,
+immutable version of a deployed object — for example a Lambda function that references its
+code in S3 by version rather than copying it.
+
+```python
+import aws_cdk as cdk
+
+
+bucket = s3.Bucket(self, "CodeBucket", versioned=True)
+
+deployment = s3deploy.BucketDeployment(self, "DeployCode",
+    sources=[s3deploy.Source.asset("/path/to/handler.zip")],
+    destination_bucket=bucket,
+    extract=False
+)
+
+# `objectVersionIds` positionally matches `objectKeys`
+object_key = cdk.Fn.select(0, deployment.object_keys)
+version_id = cdk.Fn.select(0, deployment.object_version_ids)
+```
+
+`objectVersionIds` returns a list of tokenized version IDs that positionally matches
+`objectKeys`. It is only supported with `extract: false` (reading it with `extract: true`
+throws), and requires versioning to be enabled on the destination bucket — otherwise the
+returned version IDs are empty strings. Because the list is defined to align with `objectKeys`,
+it also requires `outputObjectKeys` to remain enabled (its default); reading it with
+`outputObjectKeys: false` throws. A consumer holding a version reference pins that
+specific object version, so it should not rely on `prune` semantics for lifecycle of the
+referenced version.
+
 ## Retain on Delete
 
 By default, the contents of the destination bucket will **not** be deleted when the
@@ -916,6 +950,36 @@ class BucketDeployment(
         first source file in your bucket deployment.
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "objectKeys"))
+
+    @builtins.property
+    @jsii.member(jsii_name="objectVersionIds")
+    def object_version_ids(self) -> typing.List[builtins.str]:
+        '''The S3 version IDs of the objects deployed to the destination bucket.
+
+        Returns a list of tokenized version IDs, positionally matching ``objectKeys``: the version ID at
+        a given index corresponds to the object key at the same index.
+
+        This is useful when a consumer must reference a specific, immutable version of a deployed
+        object — for example a Lambda function that references its code in S3 by version rather than
+        copying it.
+
+        Requires versioning to be enabled on the destination bucket; otherwise the returned version IDs
+        will be empty strings. Only supported with ``extract`` set to ``false``, where each source zip maps
+        1:1 to a destination object. Reading this accessor with ``extract`` set to ``true`` (the default)
+        throws. It also requires ``outputObjectKeys`` to remain enabled (the default), since the returned
+        list is defined to be positionally aligned with ``objectKeys``; reading it with
+        ``outputObjectKeys`` set to ``false`` throws.
+
+        :remarks:
+
+        ``objectVersionIds`` is positionally aligned with ``objectKeys``: the version ID at index ``i``
+        corresponds to the object key at index ``i``. The handler builds both lists in a single
+        deterministic pass over the sources, in ``sources`` order.
+
+        For example, use ``Fn.select(0, deployment.objectVersionIds)`` to reference the version ID of the
+        first source file in your bucket deployment.
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "objectVersionIds"))
 
 
 @jsii.data_type(
@@ -1815,6 +1879,12 @@ class DeployTimeSubstitutedFile(
     @jsii.member(jsii_name="objectKey")
     def object_key(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "objectKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="objectVersionIds")
+    def object_version_ids(self) -> typing.List[builtins.str]:
+        '''``objectVersionIds`` is not supported for ``DeployTimeSubstitutedFile``, which always extracts its file (``extract`` is forced to ``true``), so there is no single deployed object to version.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "objectVersionIds"))
 
 
 @jsii.data_type(

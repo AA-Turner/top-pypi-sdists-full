@@ -6861,8 +6861,6 @@ class CfnCapability(
         # The values are placeholders you should change.
         from aws_cdk import aws_eks as eks
         
-        # ack: Any
-        
         cfn_capability = eks.CfnCapability(self, "MyCfnCapability",
             capability_name="capabilityName",
             cluster_name="clusterName",
@@ -6872,7 +6870,10 @@ class CfnCapability(
         
             # the properties below are optional
             configuration=eks.CfnCapability.CapabilityConfigurationProperty(
-                ack=ack,
+                ack=eks.CfnCapability.AckProperty(
+                    disabled_services=["disabledServices"],
+                    enable_cross_namespace=False
+                ),
                 argo_cd=eks.CfnCapability.ArgoCdProperty(
                     aws_idc=eks.CfnCapability.AwsIdcProperty(
                         idc_instance_arn="idcInstanceArn",
@@ -7198,6 +7199,85 @@ class CfnCapability(
             type_hints = cached_type_hints(_typecheckingstub__eb37ce6f0e5ae3f7fc9be815c224238918f0f32968ca83cdb3707245d23f81d8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCapability.AckProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "disabled_services": "disabledServices",
+            "enable_cross_namespace": "enableCrossNamespace",
+        },
+    )
+    class AckProperty:
+        def __init__(
+            self,
+            *,
+            disabled_services: typing.Optional[typing.Sequence[builtins.str]] = None,
+            enable_cross_namespace: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Configuration settings for an ACK (AWS Controllers for Kubernetes) capability.
+
+            :param disabled_services: A list of ACK service names to disable. Controllers for services in this list are not installed or managed.
+            :param enable_cross_namespace: Whether cross-namespace references are enabled for ACK controllers. When not specified, the service default applies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-ack.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                ack_property = eks.CfnCapability.AckProperty(
+                    disabled_services=["disabledServices"],
+                    enable_cross_namespace=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0ade30aae0487651d2e896bdb6740cb0f5d668fa623457bf4eec2e64d70a0960)
+                check_type(argname="argument disabled_services", value=disabled_services, expected_type=type_hints["disabled_services"])
+                check_type(argname="argument enable_cross_namespace", value=enable_cross_namespace, expected_type=type_hints["enable_cross_namespace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if disabled_services is not None:
+                self._values["disabled_services"] = disabled_services
+            if enable_cross_namespace is not None:
+                self._values["enable_cross_namespace"] = enable_cross_namespace
+
+        @builtins.property
+        def disabled_services(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of ACK service names to disable.
+
+            Controllers for services in this list are not installed or managed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-ack.html#cfn-eks-capability-ack-disabledservices
+            '''
+            result = self._values.get("disabled_services")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def enable_cross_namespace(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether cross-namespace references are enabled for ACK controllers.
+
+            When not specified, the service default applies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-ack.html#cfn-eks-capability-ack-enablecrossnamespace
+            '''
+            result = self._values.get("enable_cross_namespace")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AckProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCapability.ArgoCdProperty",
@@ -7544,14 +7624,14 @@ class CfnCapability(
         def __init__(
             self,
             *,
-            ack: typing.Any = None,
+            ack: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.AckProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             argo_cd: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.ArgoCdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration settings for a capability.
 
             The structure of this object varies depending on the capability type.
 
-            :param ack: 
+            :param ack: Configuration settings for an ACK (AWS Controllers for Kubernetes) capability.
             :param argo_cd: Configuration settings for an Argo CD capability. This includes the Kubernetes namespace, IAM Identity Center integration, RBAC role mappings, and network access configuration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-capabilityconfiguration.html
@@ -7563,10 +7643,11 @@ class CfnCapability(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_eks as eks
                 
-                # ack: Any
-                
                 capability_configuration_property = eks.CfnCapability.CapabilityConfigurationProperty(
-                    ack=ack,
+                    ack=eks.CfnCapability.AckProperty(
+                        disabled_services=["disabledServices"],
+                        enable_cross_namespace=False
+                    ),
                     argo_cd=eks.CfnCapability.ArgoCdProperty(
                         aws_idc=eks.CfnCapability.AwsIdcProperty(
                             idc_instance_arn="idcInstanceArn",
@@ -7603,12 +7684,15 @@ class CfnCapability(
                 self._values["argo_cd"] = argo_cd
 
         @builtins.property
-        def ack(self) -> typing.Any:
-            '''
+        def ack(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.AckProperty"]]:
+            '''Configuration settings for an ACK (AWS Controllers for Kubernetes) capability.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-capabilityconfiguration.html#cfn-eks-capability-capabilityconfiguration-ack
             '''
             result = self._values.get("ack")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.AckProperty"]], result)
 
         @builtins.property
         def argo_cd(
@@ -7811,8 +7895,6 @@ class CfnCapabilityProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_eks as eks
             
-            # ack: Any
-            
             cfn_capability_props = eks.CfnCapabilityProps(
                 capability_name="capabilityName",
                 cluster_name="clusterName",
@@ -7822,7 +7904,10 @@ class CfnCapabilityProps:
             
                 # the properties below are optional
                 configuration=eks.CfnCapability.CapabilityConfigurationProperty(
-                    ack=ack,
+                    ack=eks.CfnCapability.AckProperty(
+                        disabled_services=["disabledServices"],
+                        enable_cross_namespace=False
+                    ),
                     argo_cd=eks.CfnCapability.ArgoCdProperty(
                         aws_idc=eks.CfnCapability.AwsIdcProperty(
                             idc_instance_arn="idcInstanceArn",
@@ -27948,6 +28033,14 @@ def _typecheckingstub__eb37ce6f0e5ae3f7fc9be815c224238918f0f32968ca83cdb3707245d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0ade30aae0487651d2e896bdb6740cb0f5d668fa623457bf4eec2e64d70a0960(
+    *,
+    disabled_services: typing.Optional[typing.Sequence[builtins.str]] = None,
+    enable_cross_namespace: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4dd514956ba9407bf8fbdec188d0163809209d4f0283595fe34f7c33f29754a8(
     *,
     aws_idc: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.AwsIdcProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -27978,7 +28071,7 @@ def _typecheckingstub__026a54a07cf582ba5a94a8e2596033884e1eef3478ff12b2e65ffd1c3
 
 def _typecheckingstub__8d38a3a7c2404193e0d7b39f9c2fc80a04e6cf17decf02ceb0696aa9ebf53d95(
     *,
-    ack: typing.Any = None,
+    ack: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.AckProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     argo_cd: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.ArgoCdProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

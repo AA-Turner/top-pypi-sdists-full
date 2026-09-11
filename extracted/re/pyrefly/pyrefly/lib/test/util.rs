@@ -6,6 +6,7 @@
  */
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -21,6 +22,7 @@ use pyrefly_build::source_db::map_db::MapDatabase;
 use pyrefly_config::error::ErrorDisplayConfig;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_config::error_kind::Severity;
+use pyrefly_python::ignore::TypeIgnoreUnknownTagBehavior;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
@@ -28,6 +30,7 @@ use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::fs_anyhow;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::thread_pool::TEST_THREAD_COUNT;
 use pyrefly_util::trace::init_tracing;
@@ -38,6 +41,7 @@ use ruff_source_file::PositionEncoding;
 use ruff_source_file::SourceLocation;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use tempfile::TempDir;
 
 use crate::binding::binding::KeyExport;
 use crate::config::base::InferReturnTypes;
@@ -51,9 +55,46 @@ use crate::state::errors::Errors;
 use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::state::State;
+use crate::state::state::StateReader;
 use crate::state::subscriber::TestSubscriber;
 use crate::types::class::Class;
 use crate::types::types::Type;
+
+pub fn get_test_files_root() -> TempDir {
+    let mut source_files =
+        std::env::current_dir().expect("std:env::current_dir() unavailable for test");
+    let test_files_path = std::env::var("TEST_FILES_PATH")
+        .expect("TEST_FILES_PATH env var not set: cargo or buck should set this automatically");
+    source_files.push(test_files_path);
+
+    // Copy the fixtures so tests can mutate them and behave consistently under Cargo and Buck.
+    let temp_dir = TempDir::with_prefix("pyrefly_lsp_test").unwrap();
+    copy_dir_recursively(&source_files, temp_dir.path());
+    temp_dir
+}
+
+fn copy_dir_recursively(src: &Path, dst: &Path) {
+    if !dst.exists() {
+        std::fs::create_dir_all(dst).unwrap();
+    }
+
+    for entry in fs_anyhow::read_dir(src).unwrap() {
+        let entry = entry.unwrap();
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() {
+            copy_dir_recursively(&src_path, &dst_path);
+        } else {
+            std::fs::copy(src_path, dst_path).unwrap();
+        }
+    }
+}
+
+pub fn shape_extensions_env() -> TestEnv {
+    let path = std::env::var("SHAPE_EXTENSIONS_TEST_PATH")
+        .expect("SHAPE_EXTENSIONS_TEST_PATH must be set");
+    TestEnv::new_with_site_package_paths(&[&path])
+}
 
 #[macro_export]
 macro_rules! testcase {
@@ -105,6 +146,7 @@ pub struct TestEnv {
     check_unannotated_defs: bool,
     infer_return_types: InferReturnTypes,
     infer_with_first_use: bool,
+    non_exhaustive_match_open_type_error: bool,
     recursion_depth_limit: Option<u32>,
     site_package_path: Vec<PathBuf>,
     implicitly_defined_attribute_error: bool,
@@ -132,6 +174,8 @@ pub struct TestEnv {
     strict_partial_subtyping: bool,
     spec_compliant_overloads: bool,
     legacy_overload_expansion: bool,
+    treat_all_caps_as_final: bool,
+    type_ignore_unknown_tag_behavior: TypeIgnoreUnknownTagBehavior,
     no_any_return_error: bool,
     no_any_return_explicit_error: bool,
     no_any_return_implicit_error: bool,
@@ -159,6 +203,7 @@ impl TestEnv {
             check_unannotated_defs: true,
             infer_return_types: InferReturnTypes::Checked,
             infer_with_first_use: true,
+            non_exhaustive_match_open_type_error: false,
             recursion_depth_limit: None,
             site_package_path: Vec::new(),
             implicitly_defined_attribute_error: false,
@@ -186,6 +231,8 @@ impl TestEnv {
             strict_partial_subtyping: false,
             spec_compliant_overloads: false,
             legacy_overload_expansion: false,
+            treat_all_caps_as_final: false,
+            type_ignore_unknown_tag_behavior: TypeIgnoreUnknownTagBehavior::Suppress,
             no_any_return_error: false,
             no_any_return_explicit_error: false,
             no_any_return_implicit_error: false,
@@ -402,6 +449,11 @@ impl TestEnv {
         self
     }
 
+    pub fn enable_non_exhaustive_match_open_type_error(mut self) -> Self {
+        self.non_exhaustive_match_open_type_error = true;
+        self
+    }
+
     pub fn enable_strict_partial_subtyping(mut self) -> Self {
         self.strict_partial_subtyping = true;
         self
@@ -414,6 +466,19 @@ impl TestEnv {
 
     pub fn enable_legacy_overload_expansion(mut self) -> Self {
         self.legacy_overload_expansion = true;
+        self
+    }
+
+    pub fn enable_treat_all_caps_as_final(mut self) -> Self {
+        self.treat_all_caps_as_final = true;
+        self
+    }
+
+    pub fn with_type_ignore_unknown_tag_behavior(
+        mut self,
+        behavior: TypeIgnoreUnknownTagBehavior,
+    ) -> Self {
+        self.type_ignore_unknown_tag_behavior = behavior;
         self
     }
 
@@ -556,6 +621,9 @@ impl TestEnv {
         config.root.strict_partial_subtyping = Some(self.strict_partial_subtyping);
         config.root.spec_compliant_overloads = Some(self.spec_compliant_overloads);
         config.root.legacy_overload_expansion = Some(self.legacy_overload_expansion);
+        config.root.treat_all_caps_as_final = Some(self.treat_all_caps_as_final);
+        let unknown_tag_behavior = self.type_ignore_unknown_tag_behavior;
+        config.root.type_ignore_unknown_tag_behavior = Some(unknown_tag_behavior);
         if config.root.errors.is_none() {
             config.root.errors = Some(ErrorDisplayConfig::new(HashMap::new()));
         };
@@ -608,11 +676,14 @@ impl TestEnv {
         if self.no_any_return_implicit_error {
             errors.set_error_severity(ErrorKind::NoAnyReturnImplicit, Severity::Error);
         }
+        if self.non_exhaustive_match_open_type_error {
+            errors.set_error_severity(ErrorKind::NonExhaustiveMatchOpenType, Severity::Error);
+        }
         if self.implicit_reexport_error {
             errors.set_error_severity(ErrorKind::ImplicitReexport, Severity::Error);
         }
         if self.pytorch_efficiency_lint_error {
-            config.root.pytorch_efficiency_lints = Some(true);
+            errors.set_error_severity(ErrorKind::PytorchEfficiencyLints, Severity::Error);
         }
         if self.incompatible_comparison_error {
             errors.set_error_severity(ErrorKind::IncompatibleComparison, Severity::Error);
@@ -686,15 +757,6 @@ impl TestEnv {
         transaction.as_mut().run(&handles, self.run_require, None);
         state.commit_transaction(transaction, None);
         subscriber.finish();
-        let project_root = PathBuf::new();
-        print_errors(
-            project_root.as_path(),
-            &state
-                .transaction()
-                .get_errors(handles.iter())
-                .collect_errors()
-                .ordinary,
-        );
         (state, move |module| {
             let name = ModuleName::from_str(module);
             Handle::new(
@@ -790,7 +852,20 @@ pub fn mk_multi_file_state(
     default_require_level: Require,
     assert_zero_errors: bool,
 ) -> (HashMap<&'static str, Handle>, State) {
-    let mut test_env = TestEnv::new();
+    mk_multi_file_state_with_env(
+        TestEnv::new(),
+        files,
+        default_require_level,
+        assert_zero_errors,
+    )
+}
+
+pub fn mk_multi_file_state_with_env(
+    mut test_env: TestEnv,
+    files: &[(&'static str, &str)],
+    default_require_level: Require,
+    assert_zero_errors: bool,
+) -> (HashMap<&'static str, Handle>, State) {
     for (name, code) in files {
         test_env.add(name, code);
     }
@@ -802,19 +877,15 @@ pub fn mk_multi_file_state(
         handles.insert(*name, handle(name));
     }
     if assert_zero_errors {
-        assert_eq!(
-            state
-                .transaction()
-                .get_errors(handles.values())
-                .collect_errors()
-                .ordinary
-                .len(),
-            0
+        let errors = state
+            .transaction()
+            .get_errors(handles.values())
+            .collect_errors()
+            .ordinary;
+        assert!(
+            errors.is_empty(),
+            "Expected no errors, but got: {errors:#?}"
         );
-    }
-    let mut handles = HashMap::new();
-    for (name, _) in files {
-        handles.insert(*name, handle(name));
     }
     (handles, state)
 }
@@ -956,11 +1027,19 @@ pub fn testcase_for_macro(
         } else {
             let (state, handle) = env.clone().to_state();
             let t = state.transaction();
+            let project_root = PathBuf::new();
             // First check against main, so we can capture any import order errors.
-            check(t.get_errors(&[handle("main")]))?;
+            let main_errors = t.get_errors(&[handle("main")]);
+            print_errors(
+                project_root.as_path(),
+                &main_errors.collect_display_errors(),
+            );
+            check(main_errors)?;
             // THen check all handles, so we make sure the rest of the TestEnv is valid.
             let handles = env.modules.map(|(x, _, _)| handle(x.as_str()));
-            check(state.transaction().get_errors(handles.iter()))?;
+            let env_errors = state.transaction().get_errors(handles.iter());
+            print_errors(project_root.as_path(), &env_errors.collect_display_errors());
+            check(env_errors)?;
         }
         if start.elapsed().as_secs() <= limit {
             return Ok(());
@@ -976,10 +1055,10 @@ pub fn mk_state(code: &str) -> (Handle, State) {
     (handle("main"), state)
 }
 
-pub fn get_class(name: &str, handle: &Handle, state: &State) -> Class {
-    let solutions = state.transaction().get_solutions(handle).unwrap();
+pub fn get_class(name: &str, handle: &Handle, reader: &StateReader) -> Class {
+    let solutions = reader.get_solutions(handle).unwrap();
 
-    match &**solutions.get(&KeyExport(Name::new(name))) {
+    match solutions.get(&KeyExport(Name::new(name))) {
         Type::ClassDef(cls) => cls.dupe(),
         _ => unreachable!(),
     }

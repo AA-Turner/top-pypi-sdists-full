@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bambi
-Version: 0.20.0
+Version: 0.21.0
 Summary: BAyesian Model Building Interface in Python
 Maintainer-email: Tomás Capretto <tomicapretto@gmail.com>, Osvaldo Martin <aloctavodia@gmail.com>, Gabriel Stechschulte <stechschulteg@gmail.com>, Ravin Kumar <ravinsdrive@gmail.com>
 License: MIT License

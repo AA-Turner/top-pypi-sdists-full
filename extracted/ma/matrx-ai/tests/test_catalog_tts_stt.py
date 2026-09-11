@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +16,8 @@ from matrx_ai.catalog.resolve import (
 )
 from matrx_ai.config import AudioContent, MessageList, UnifiedMessage
 from matrx_ai.processing.audio.audio_preprocessing import preprocess_audio_in_messages
-from matrx_ai.processing.audio.groq_transcription import GroqSTT
 from matrx_ai.processing.audio.stt import STTRequest, STTUsage
+from matrx_ai.providers.groq.stt import GroqSTT
 from matrx_ai.testing.profile_factory import make_profile
 
 
@@ -164,7 +166,7 @@ async def test_groq_stt_sends_only_catalog_translated_sdk_kwargs(monkeypatch) ->
     async def _prepared(*args: Any, **kwargs: Any) -> tuple[tuple[str, bytes], float]:
         return ("clip.wav", b"audio"), 0.001
 
-    import matrx_ai.processing.audio.groq_transcription as module
+    import matrx_ai.providers.groq.stt as module
 
     monkeypatch.setattr(module, "_client", lambda: _Client())
     monkeypatch.setattr(module, "prepare_audio_file", _prepared)
@@ -290,10 +292,44 @@ def test_no_tts_registry_facts_or_direct_groq_transcription_seam() -> None:
     production = "\n".join(
         path.read_text()
         for path in package.rglob("*.py")
-        if path.name != "groq_transcription.py" and "tests" not in path.parts
+        if "providers" not in path.parts and "tests" not in path.parts
     )
     assert "GroqTranscription" not in production
     assert "from groq import Groq" not in production
+    legacy_source = (package / "processing" / "audio" / "groq_transcription.py").read_text()
+    assert "groq import" not in legacy_source
+    assert "providers.groq.stt import GroqSTT" in legacy_source
+
+
+def test_legacy_groq_stt_import_is_compatible_without_importing_the_sdk(monkeypatch) -> None:
+    import builtins
+    import sys
+
+    for module_name in (
+        "groq",
+        "matrx_ai.providers.groq.stt",
+        "matrx_ai.providers.groq",
+        "matrx_ai.processing.audio.groq_transcription",
+    ):
+        sys.modules.pop(module_name, None)
+    real_import = builtins.__import__
+
+    def reject_groq(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == "groq":
+            raise AssertionError("Groq SDK must stay unloaded until adapter execution")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_groq)
+    import matrx_ai.processing.audio.groq_transcription as legacy
+    from matrx_ai.providers.unified_client import (
+        UnifiedAIClient,
+        reset_provider_client_cache,
+    )
+
+    assert legacy.GroqSTT.__module__ == "matrx_ai.providers.groq.stt"
+    reset_provider_client_cache()
+    client = UnifiedAIClient._build_provider_client("groq_stt", "GroqSTT")
+    assert type(client).__name__ == "GroqSTT"
 
     migration = (
         Path(__file__).parents[3]
@@ -303,3 +339,25 @@ def test_no_tts_registry_facts_or_direct_groq_transcription_seam() -> None:
     ).read_text()
     assert "HAVING count(v.id) <> 1" in migration
     assert "translator_key='groq_stt'" in migration
+
+
+def test_groq_stt_provider_import_is_cold_safe_and_does_not_load_sdk() -> None:
+    """The provider must import before the legacy facade without an SDK cycle."""
+    package_root = Path(__file__).parents[1]
+    program = (
+        "import sys; "
+        f"sys.path.insert(0, {str(package_root)!r}); "
+        "import matrx_ai.providers.groq.stt as stt; "
+        "assert stt.GroqSTT.__module__ == 'matrx_ai.providers.groq.stt'; "
+        "assert 'groq' not in sys.modules; "
+        "from matrx_ai.processing.audio import GroqSTT; "
+        "assert GroqSTT is stt.GroqSTT; "
+        "assert 'groq' not in sys.modules"
+    )
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", program],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr

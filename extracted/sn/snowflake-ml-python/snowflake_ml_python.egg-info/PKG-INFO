@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.54.0
+Version: 2.0.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -220,7 +220,6 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -230,14 +229,13 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: cachetools>=3.1.1
 Requires-Dist: cloudpickle>=2.0.0
 Requires-Dist: fsspec[http]<2026,>=2024.6.1
-Requires-Dist: h2<5,>=4.3.0
 Requires-Dist: importlib_resources<7,>=6.1.1
 Requires-Dist: jinja2<4,>=3.1.0
 Requires-Dist: numpy<3,>=1.23
@@ -250,34 +248,39 @@ Requires-Dist: pyjwt<3,>=2.0.0
 Requires-Dist: pytimeparse<2,>=1.1.8
 Requires-Dist: pyyaml<7,>=6.0
 Requires-Dist: retrying<2,>=1.3.3
-Requires-Dist: scikit-learn<1.9
 Requires-Dist: scipy<2,>=1.9
-Requires-Dist: shap<1,>=0.46.0
 Requires-Dist: snowflake-connector-python[pandas]<5,>=3.17.3
-Requires-Dist: snowflake-snowpark-python!=1.26.0,<2,>=1.17.0
+Requires-Dist: snowflake-snowpark-python<2,>=1.37.0
 Requires-Dist: sqlparse<1,>=0.4
 Requires-Dist: tqdm<5
 Requires-Dist: typing-extensions<5,>=4.1.0
-Requires-Dist: xgboost<4
 Provides-Extra: all
 Requires-Dist: altair<7,>=5; extra == "all"
 Requires-Dist: catboost<2,>=1.2.0; extra == "all"
+Requires-Dist: h2<5,>=4.3.0; extra == "all"
+Requires-Dist: httpx<1,>=0.28.1; extra == "all"
 Requires-Dist: keras<4,>=2.0.0; extra == "all"
 Requires-Dist: lightgbm<5,>=4.1.0; extra == "all"
 Requires-Dist: mlflow<4,>=2.16.0; extra == "all"
 Requires-Dist: prophet<2,>=1.1.0; extra == "all"
+Requires-Dist: scikit-learn<1.9; extra == "all"
 Requires-Dist: sentence-transformers<6,>=2.7.0; extra == "all"
 Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "all"
+Requires-Dist: shap<1,>=0.46.0; extra == "all"
 Requires-Dist: streamlit<2,>=1.30.0; extra == "all"
 Requires-Dist: tensorflow<3,>=2.17.0; extra == "all"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "all"
 Requires-Dist: torch<3,>=2.0.1; extra == "all"
 Requires-Dist: torchdata<1,>=0.4; extra == "all"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "all"
+Requires-Dist: xgboost<4; extra == "all"
 Provides-Extra: altair
 Requires-Dist: altair<7,>=5; extra == "altair"
 Provides-Extra: catboost
 Requires-Dist: catboost<2,>=1.2.0; extra == "catboost"
+Provides-Extra: feature-store
+Requires-Dist: h2<5,>=4.3.0; extra == "feature-store"
+Requires-Dist: httpx<1,>=0.28.1; extra == "feature-store"
 Provides-Extra: keras
 Requires-Dist: keras<4,>=2.0.0; extra == "keras"
 Requires-Dist: tensorflow<3,>=2.17.0; extra == "keras"
@@ -296,6 +299,10 @@ Provides-Extra: mlflow
 Requires-Dist: mlflow<4,>=2.16.0; extra == "mlflow"
 Provides-Extra: prophet
 Requires-Dist: prophet<2,>=1.1.0; extra == "prophet"
+Provides-Extra: scikit-learn
+Requires-Dist: scikit-learn<1.9; extra == "scikit-learn"
+Provides-Extra: shap
+Requires-Dist: shap<1,>=0.46.0; extra == "shap"
 Provides-Extra: streamlit
 Requires-Dist: streamlit<2,>=1.30.0; extra == "streamlit"
 Provides-Extra: tensorflow
@@ -309,6 +316,8 @@ Requires-Dist: sentencepiece<0.3,>=0.1.95; extra == "transformers"
 Requires-Dist: tokenizers<1,>=0.15.1; extra == "transformers"
 Requires-Dist: torch<3,>=2.0.1; extra == "transformers"
 Requires-Dist: transformers!=4.51.3,<6,>=4.39.3; extra == "transformers"
+Provides-Extra: xgboost
+Requires-Dist: xgboost<4; extra == "xgboost"
 Dynamic: license-file
 
 # Snowflake ML Python
@@ -370,7 +379,7 @@ In Snowflake Warehouse notebook environments, snowflake-ml-python can be install
 Follow the [installation instructions](https://docs.snowflake.com/en/developer-guide/snowpark-ml/index#installing-snowpark-ml)
 in the Snowflake documentation.
 
-Python versions 3.9 to 3.12 are supported. You can use [miniconda](https://docs.conda.io/en/latest/miniconda.html) or
+Python versions 3.10 to 3.13 are supported. You can use [miniconda](https://docs.conda.io/en/latest/miniconda.html) or
 [anaconda](https://www.anaconda.com/) to create a Conda environment (recommended),
 or [virtualenv](https://docs.python.org/3/tutorial/venv.html) to create a virtual environment.
 
@@ -416,7 +425,81 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.54.0
+## 2.0.0
+
+Release candidate for the `snowflake-ml-python` 2.0 major release. This is a breaking
+release that removes deprecated APIs and slims down the default install footprint.
+
+### New Features
+
+* Feature Store: added `alter_online_service(size=...)`, which changes the size of an existing Online Service. The
+  call returns as soon as the request is recorded; the change runs in the background and can take hours on a large
+  Online Service, which keeps serving online reads and stream ingestion throughout. Poll
+  `get_online_service_status()` until `status` is `RUNNING` at the requested size.
+
+### Bug Fixes
+
+* Feature Store: `delete_feature_view` now drops the online feature table before the
+  offline dynamic table or view, so a dependent FeatureGroup (error 099940) does not
+  leave an orphaned offline object.
+
+### Behavior Changes
+
+* Registry: Models logged from a Snowflake Container Runtime notebook without an explicit
+  `target_platforms` now default to both Warehouse and Snowpark Container Services instead of
+  Snowpark Container Services only. Warehouse is no longer dropped from the default target
+  platforms.
+* Dependencies: `scikit-learn`, `xgboost`, and `shap` are no longer required dependencies of
+  `snowflake-ml-python`. They are now optional extras. Install them with
+  `pip install snowflake-ml-python[scikit-learn]`, `[xgboost]`, `[shap]`, or `[all]` when using
+  the corresponding functionality. Extras are independent: `[xgboost]` and `[lightgbm]` install
+  only those libraries, not `scikit-learn`. Native XGBoost or LightGBM models (for example
+  logging to the Model Registry) only need `[xgboost]` or `[lightgbm]`.
+  `snowflake.ml.modeling` estimators always require `scikit-learn`, so the XGBoost and LightGBM
+  wrappers need `pip install "snowflake-ml-python[xgboost,scikit-learn]"` or
+  `"snowflake-ml-python[lightgbm,scikit-learn]"`.
+* Feature Store: Added an optional `feature_store` extra. Install `snowflake-ml-python[feature_store]`
+  to pull in `httpx`, which is required for online feature serving reads. `httpx` is not installed by
+  the default `snowflake-ml-python` install. Conda users still need to install `httpx` separately
+  (for example `conda install httpx`) to use the online Feature Store.
+* Modeling: Importing a `snowflake.ml.modeling` subpackage (for example
+  `snowflake.ml.modeling.linear_model`, `snowflake.ml.modeling.xgboost`,
+  `snowflake.ml.modeling.lightgbm`, or `snowflake.ml.modeling.preprocessing`) without the optional
+  dependencies it needs now raises an actionable `ImportError` that names only the missing
+  package(s), instead of a confusing missing-attribute error.
+  `scikit-learn` and `xgboost` are attributed to the 2.0 dependency change; `lightgbm` was
+  already an optional extra before 2.0.
+
+### Deprecations
+
+* Modeling: The `snowflake.ml.modeling` estimators and preprocessing transformers are deprecated and
+  will be removed in a future release. Importing a `snowflake.ml.modeling` subpackage now emits a
+  `DeprecationWarning`. Train models with the native scikit-learn, XGBoost, or LightGBM estimators
+  and log them to the Snowflake Model Registry (`snowflake.ml.registry`) instead.
+
+### Breaking Changes
+
+* Generic: Require python >= 3.10. Python 3.9 is no longer supported.
+* Removed the deprecated `snowflake.ml.utils.connection_params.SnowflakeLoginOptions` public API
+  (deprecated since 1.8.5).
+* Registry: `ModelVersion.run_batch` now runs on `EXECUTE INFERENCE JOB SERVICE`. The single
+  `job_spec` argument is replaced by the `resources_spec`, `inference_spec`, and `image_build_spec`
+  blocks, and input may be supplied as either a DataFrame (`X`) or an existing stage path
+  (`input_stage_location`). `output_spec.stage_location` is treated as a base: results are written
+  under a per-job subdirectory, `<stage_location>/<job_name>/`. `output_spec.base_stage_location`,
+  `job_spec.job_name_prefix`, and `job_spec.block` no longer exist.
+* Registry: Removed the `snowflake.ml.model.batch` module. Use `snowflake.ml.model.batch_inference`,
+  which exports `BatchInferenceTask` alongside the input, output, resources, inference, and image
+  build spec classes.
+* Feature Store: Feature views created before 1.42.0 that use the `last_distinct_n` or
+  `first_distinct_n` aggregation function can no longer be read offline. `generate_dataset`,
+  `generate_training_set`, `retrieve_feature_values`, and `read_feature_view` now raise a
+  `ValueError` for such feature views. Re-create the feature view to restore offline reads.
+* Dependencies: `snowflake-snowpark-python` must now be `>=1.37.0`. Earlier releases import
+  `pkg_resources`, which `setuptools` removed in 82.0.0, so they fail to import in environments
+  with a current `setuptools`.
+
+## 1.54.0 (2026-08-31)
 
 ### New Features
 
@@ -432,6 +515,9 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 * Experiment Tracking: Source provenance now also records the id of the enclosing ML job when a run is created from
   inside one.
+* ML Jobs: `submit_file`, `submit_directory`, `submit_from_stage`, and `@remote` accept a `comment` kwarg, attached as
+  the comment on the job service. When omitted, the comment defaults to the `application` name configured on the
+  session, so jobs submitted by a tool or partner integration remain attributable after the fact.
 
 ### Bug Fixes
 

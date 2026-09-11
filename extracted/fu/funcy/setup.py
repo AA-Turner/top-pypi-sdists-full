@@ -14,7 +14,7 @@ setup(
     description='A fancy and practical functional tools',
     long_description=README,
     long_description_content_type="text/x-rst",
-    url='http://github.com/Suor/funcy',
+    url='https://github.com/Suor/funcy',
     license='BSD',
 
     packages=['funcy'],
@@ -33,6 +33,9 @@ setup(
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
 

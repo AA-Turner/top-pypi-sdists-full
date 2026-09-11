@@ -69,7 +69,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:  # a type-only reference: no import at run time, no cycle
+    from matrx_ai.agents.named import NamedAgent
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -553,7 +556,10 @@ class Judge:
             from matrx_ai.mandates import run_mandated
 
         contract = self.contract
-        agent_cls = self._agent_cls
+        # The agent CLASS carries the mandate key (NamedAgent.mandate_key), so
+        # naming the type here is what declares this a holder pass-through — the
+        # aidream markers cannot cross the package boundary.
+        agent_cls: type[NamedAgent] = self._agent_cls
         # Granular delivery (2026-08-22): every value the harness has in scope is
         # its own named variable — dicts/lists raw, the prompt door canonicalizes.
         # Never a fused `payload_json` blob again (THE USER-INPUT LAW / Provision

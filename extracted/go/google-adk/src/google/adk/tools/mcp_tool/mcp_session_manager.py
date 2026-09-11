@@ -40,7 +40,6 @@ import urllib.parse
 import google.auth
 import google.auth.credentials
 from google.auth.transport.requests import Request
-import httpx
 
 try:
   from google.auth.aio.credentials import Credentials as AsyncCredentials
@@ -57,17 +56,20 @@ except ImportError:
 
   _AIO_SUPPORTED = False
 
-from mcp import ClientSession
-from mcp import SamplingCapability
-from mcp import StdioServerParameters
-from mcp.client.session import ElicitationFnT
-from mcp.client.session import SamplingFnT
-from mcp.client.sse import sse_client
-from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import create_mcp_http_client as _create_mcp_http_client
-from mcp.client.streamable_http import streamable_http_client
 from pydantic import BaseModel
 from pydantic import ConfigDict
+
+from ...dependencies import _httpx as httpx
+from ...dependencies._mcp import ClientSession
+from ...dependencies._mcp import create_mcp_http_client as _create_mcp_http_client
+from ...dependencies._mcp import ElicitationFnT
+from ...dependencies._mcp import IS_MCP_SDK_V2
+from ...dependencies._mcp import SamplingCapability
+from ...dependencies._mcp import SamplingFnT
+from ...dependencies._mcp import sse_client
+from ...dependencies._mcp import stdio_client
+from ...dependencies._mcp import StdioServerParameters
+from ...dependencies._mcp import streamable_http_client
 
 try:
   from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
@@ -112,8 +114,18 @@ def create_mcp_http_client(
       timeout=timeout,
       auth=auth,
   )
-  if _HAS_HTTPX_INSTRUMENTOR:
+  # The instrumentor is built against httpx 1.x: handed an `httpx2` client it
+  # wraps without complaint, then fails on the first request. Until an httpx2
+  # instrumentor exists, 2.x goes untraced rather than broken.
+  if _HAS_HTTPX_INSTRUMENTOR and not IS_MCP_SDK_V2:
     HTTPXClientInstrumentor.instrument_client(client)
+  elif _HAS_HTTPX_INSTRUMENTOR:
+    # Otherwise the MCP spans just vanish, with nothing pointing back here.
+    logger.debug(
+        'MCP HTTP calls are not traced: the OpenTelemetry httpx instrumentor is'
+        ' built against httpx, and MCP SDK 2.x pairs with httpx2. Tracing'
+        ' returns when an httpx2 instrumentor exists.'
+    )
   return client
 
 
@@ -487,6 +499,13 @@ def retry_on_errors(func):
   return wrapper
 
 
+def _is_google_api_host(host: str | None) -> bool:
+  """Returns whether host is a Google API endpoint."""
+  if not host:
+    return False
+  return host == 'googleapis.com' or host.endswith('.googleapis.com')
+
+
 class _RefreshableAsyncCredentials(AsyncCredentials):
   """Adapter to refresh sync credentials asynchronously."""
 
@@ -499,6 +518,7 @@ class _RefreshableAsyncCredentials(AsyncCredentials):
     self._creds = creds
     self._target_host = target_host
     self._lock = asyncio.Lock()
+    self._warned_non_google_host = False
 
   async def before_request(
       self,
@@ -507,13 +527,26 @@ class _RefreshableAsyncCredentials(AsyncCredentials):
       url: str,
       headers: dict[str, str],
   ) -> None:
-    if self._target_host:
-      parsed_url = urllib.parse.urlparse(url)
-      if parsed_url.netloc != self._target_host:
-        logger.debug(
-            'Skipping token injection for redirect to %s', parsed_url.netloc
+    parsed_url = urllib.parse.urlparse(url)
+    if self._target_host and parsed_url.netloc != self._target_host:
+      logger.debug(
+          'Skipping token injection for redirect to %s', parsed_url.netloc
+      )
+      return
+
+    # Application Default Credentials are issued to the caller by Google, so
+    # the bearer token only goes to Google API hosts. Other MCP servers are
+    # still reached over the mTLS channel, just without the token.
+    if not _is_google_api_host(parsed_url.hostname):
+      if not self._warned_non_google_host:
+        self._warned_non_google_host = True
+        logger.warning(
+            'Not attaching Application Default Credentials to non-Google host'
+            ' %s. Configure explicit authentication for this MCP server if it'
+            ' requires credentials.',
+            parsed_url.hostname,
         )
-        return
+      return
 
     if any(k.lower() == 'authorization' for k in headers):
       logger.debug('Authorization header already present, not overwriting')

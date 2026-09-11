@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-vuetify
-Version: 3.2.5
+Version: 3.2.6
 Summary: Vuetify widgets for trame
 Author: Kitware Inc.
 License: MIT
@@ -13,10 +13,10 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: trame-client<4,>=3.7
+Requires-Dist: trame-client<5,>=3.7
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: ruff; extra == "dev"

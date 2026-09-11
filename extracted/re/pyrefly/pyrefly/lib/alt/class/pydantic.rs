@@ -5,17 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::sync::Arc;
-
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_graph::index::Idx;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_types::annotation::Annotation;
-use pyrefly_types::callable::FuncMetadata;
-use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::callable::Param;
 use pyrefly_types::callable::Required;
+use pyrefly_types::function::FuncMetadata;
+use pyrefly_types::function::FunctionKind;
 use pyrefly_types::keywords::DataclassFieldKeywords;
 use pyrefly_types::lit_int::LitInt;
 use pyrefly_types::literal::Lit;
@@ -29,6 +27,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
+use crate::alt::class::class_field::DataclassMember;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
@@ -100,7 +99,7 @@ enum PydanticParamKey {
     Name(Name),
 }
 
-impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
+impl<'ctx, 'answer, Ans: LookupAnswer> AnswersSolver<'ctx, 'answer, Ans> {
     pub fn get_pydantic_root_model_type_via_mro(
         &self,
         class: &Class,
@@ -133,14 +132,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         root_model_type: Type,
         has_strict: bool,
     ) -> ClassSynthesizedField {
-        let (root_requiredness, root_model_type) =
-            if root_model_type.is_any() || matches!(root_model_type, Type::Quantified(_)) {
-                (Required::Optional(None), root_model_type)
-            } else if has_strict {
-                (Required::Required, root_model_type)
-            } else {
-                (Required::Required, self.heap.mk_any_explicit())
-            };
+        let is_any_or_quantified =
+            root_model_type.is_any() || matches!(root_model_type, Type::Quantified(_));
+        let has_default = matches!(
+            self.get_dataclass_member(cls, &ROOT),
+            DataclassMember::Field(_, keywords) if keywords.default.is_some()
+        );
+        let root_requiredness = if is_any_or_quantified || has_default {
+            Required::Optional(None)
+        } else {
+            Required::Required
+        };
+        let root_model_type = if is_any_or_quantified || has_strict {
+            root_model_type
+        } else {
+            self.heap.mk_any_explicit()
+        };
         let root_param = Param::Pos(ROOT, root_model_type, root_requiredness);
         let params = vec![self.class_self_param(cls, false), root_param];
         let ty = self.synthesized_method(cls, dunder::INIT, params, self.heap.mk_none());
@@ -157,7 +164,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             return None;
         }
-        let tparams = self.get_class_tparams(cls);
+        let tparams = self.get_class_tparams(cls)?;
         // `RootModel` should always have a type parameter unless we're working with a broken copy
         // of Pydantic.
         let tparam = tparams.iter().next()?;
@@ -181,7 +188,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// dataclass parents whose config values (e.g. strict) may have different defaults.
     fn find_inherited_keyword_value<T>(
         &self,
-        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, &ClassMetadata)],
         extractor: impl Fn(&DataclassMetadata) -> T,
     ) -> Option<T> {
         bases_with_metadata
@@ -225,7 +232,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let metadata = self.get_metadata_for_class(cls.class_object());
                 if matches!(metadata.pydantic_model_kind(), Some(RootModel))
                     && let Some((root_type, _)) =
-                        self.get_pydantic_root_model_type_via_mro(cls.class_object(), &metadata)
+                        self.get_pydantic_root_model_type_via_mro(cls.class_object(), metadata)
                 {
                     // Recursively expand if the inner type is also a RootModel
                     // Return union of immediate inner type AND recursive expansion
@@ -243,10 +250,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
     pub fn pydantic_config(
         &self,
-        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, &ClassMetadata)],
         pydantic_config_dict: &PydanticConfigDict,
         keywords: &[(Name, Annotation)],
-        decorators: &[(Arc<Decorator>, TextRange)],
+        decorators: &[(&Decorator, TextRange)],
         errors: &ErrorCollector,
         range: TextRange,
     ) -> Option<PydanticConfig> {
@@ -254,13 +261,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Handle both @dataclass and @dataclass(...) forms
         let is_pydantic_dataclass_metadata = |meta: &FuncMetadata| {
             matches!(&meta.kind, FunctionKind::Def(id)
-                if id.module.name() == ModuleName::pydantic_dataclasses()
-                    && id.name.as_str() == "dataclass")
+                if id.qname.module_name() == ModuleName::pydantic_dataclasses()
+                    && id.qname.id().as_str() == "dataclass")
         };
         let is_pydantic_dataclass = decorators.iter().any(|(decorator, _)| {
             decorator
                 .ty
-                .visit_toplevel_func_metadata(&is_pydantic_dataclass_metadata)
+                .toplevel_func_metadata()
+                .is_some_and(&is_pydantic_dataclass_metadata)
                 || matches!(&decorator.ty, Type::KwCall(call)
                     if is_pydantic_dataclass_metadata(&call.func_metadata))
         });
@@ -481,7 +489,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         keywords: &[(Name, Annotation)],
         value_from_config_dict: Option<bool>,
-        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, &ClassMetadata)],
         extract_from_metadata: impl Fn(&DataclassMetadata) -> bool,
         default: bool,
     ) -> bool {
@@ -501,7 +509,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         name: &Name,
         keywords: &[(Name, Annotation)],
         value_from_config_dict: Option<bool>,
-        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, &ClassMetadata)],
         extract_from_metadata: impl Fn(&DataclassMetadata) -> Option<bool>,
     ) -> Option<bool> {
         self.extract_bool_flag(keywords, name)

@@ -23,7 +23,6 @@ use pyrefly_util::uniques::UniqueFactory;
 use ruff_python_ast::name::Name;
 
 use crate::callable::Callable;
-use crate::callable::Function;
 use crate::callable::Param;
 use crate::callable::ParamList;
 use crate::callable::Params;
@@ -31,6 +30,8 @@ use crate::callable::PrefixParam;
 use crate::class::Class;
 use crate::class::ClassType;
 use crate::dimension::Int;
+use crate::function::Function;
+use crate::identity::IdentityIgnored;
 use crate::keywords::KwCall;
 use crate::literal::LitStyle;
 use crate::literal::Literal;
@@ -148,7 +149,7 @@ impl TypeHeap {
     pub fn mk_union(&self, members: Vec<Type>) -> Type {
         Type::Union(Box::new(Union {
             members,
-            display_name: None,
+            display_name: IdentityIgnored(None),
         }))
     }
 
@@ -156,7 +157,7 @@ impl TypeHeap {
     pub fn mk_union_with_name(&self, members: Vec<Type>, display_name: (ModuleName, Name)) -> Type {
         Type::Union(Box::new(Union {
             members,
-            display_name: Some(display_name),
+            display_name: IdentityIgnored(Some(display_name)),
         }))
     }
 
@@ -176,8 +177,10 @@ impl TypeHeap {
     }
 
     /// Create a `Type::Type` wrapping an inner type.
-    pub fn mk_type(&self, inner: Type) -> Type {
-        Type::Type(Box::new(inner))
+    ///
+    /// This matches the `Type::type_of` helper.
+    pub fn mk_type_of(&self, inner: Type) -> Type {
+        Type::type_of(inner)
     }
 
     /// Create a `Type::TypeForm` wrapping an inner type (PEP 747).
@@ -339,13 +342,6 @@ impl TypeHeap {
         Type::callable_concatenate(params, param_spec, ret)
     }
 
-    /// Create a `Type::Type` wrapping an inner type.
-    ///
-    /// This is an alias for `mk_type` matching the `Type::type_of` helper.
-    pub fn mk_type_of(&self, inner: Type) -> Type {
-        Type::type_of(inner)
-    }
-
     /// Create a `Type::Literal` from a Literal.
     pub fn mk_literal(&self, literal: Literal) -> Type {
         Type::Literal(Box::new(literal))
@@ -414,11 +410,6 @@ impl TypeHeap {
     /// Create a `Type::Kwargs` from a Quantified.
     pub fn mk_kwargs(&self, quantified: Quantified) -> Type {
         Type::Kwargs(Box::new(quantified))
-    }
-
-    /// Create a `Type::Ellipsis`.
-    pub fn mk_ellipsis(&self) -> Type {
-        Type::Ellipsis
     }
 
     /// Create a `Type::TypeAlias` from a TypeAliasData.

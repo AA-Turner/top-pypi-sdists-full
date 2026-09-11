@@ -22,27 +22,34 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from seltz_public_api.proto.v1 import options_pb2 as seltz__public__api_dot_proto_dot_v1_dot_options__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%seltz_public_api/proto/v1/seltz.proto\x12\x19seltz_public_api.proto.v1\"\xf1\x03\n\rSearchRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x05 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12$\n\x0bmax_results\x18\x06 \x01(\rH\x01R\nmaxResults\x88\x01\x01\x12\x19\n\x05scope\x18\x07 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\'\n\x0finclude_domains\x18\x08 \x03(\tR\x0eincludeDomains\x12\'\n\x0f\x65xclude_domains\x18\t \x03(\tR\x0e\x65xcludeDomains\x12 \n\tfrom_date\x18\n \x01(\tH\x03R\x08\x66romDate\x88\x01\x01\x12\x1c\n\x07to_date\x18\x0b \x01(\tH\x04R\x06toDate\x88\x01\x01\x12\x17\n\x04tier\x18\x0c \x01(\tH\x05R\x04tier\x88\x01\x01\x12>\n\x06\x66ields\x18\r \x01(\x0b\x32!.seltz_public_api.proto.v1.FieldsH\x06R\x06\x66ields\x88\x01\x01\x42\n\n\x08_api_keyB\x0e\n\x0c_max_resultsB\x08\n\x06_scopeB\x0c\n\n_from_dateB\n\n\x08_to_dateB\x07\n\x05_tierB\t\n\x07_fieldsJ\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04J\x04\x08\x04\x10\x05R\x08includesR\x07\x63ontextR\x07profile\">\n\x06\x46ields\x12\x18\n\x07\x63ontent\x18\x01 \x01(\x08R\x07\x63ontent\x12\x1a\n\x08snippets\x18\x02 \x01(\x08R\x08snippets\"\xd3\x01\n\x08\x44ocument\x12\x15\n\x03url\x18\x01 \x01(\tH\x00R\x03url\x88\x01\x01\x12\x1d\n\x07\x63ontent\x18\x02 \x01(\tH\x01R\x07\x63ontent\x88\x01\x01\x12*\n\x0epublished_date\x18\x03 \x01(\tH\x02R\rpublishedDate\x88\x01\x01\x12>\n\x08snippets\x18\x04 \x03(\x0b\x32\".seltz_public_api.proto.v1.SnippetR\x08snippetsB\x06\n\x04_urlB\n\n\x08_contentB\x11\n\x0f_published_date\"\x94\x02\n\x0eSnippetOptions\x12&\n\x0cmax_snippets\x18\x01 \x01(\rH\x00R\x0bmaxSnippets\x88\x01\x01\x12\x34\n\x14max_snippets_per_doc\x18\x02 \x01(\rH\x01R\x11maxSnippetsPerDoc\x88\x01\x01\x12\"\n\nmax_tokens\x18\x03 \x01(\rH\x02R\tmaxTokens\x88\x01\x01\x12\x30\n\x12max_tokens_per_doc\x18\x04 \x01(\rH\x03R\x0fmaxTokensPerDoc\x88\x01\x01\x42\x0f\n\r_max_snippetsB\x17\n\x15_max_snippets_per_docB\r\n\x0b_max_tokensB\x15\n\x13_max_tokens_per_doc\"+\n\x07Snippet\x12\x17\n\x04text\x18\x01 \x01(\tH\x00R\x04text\x88\x01\x01\x42\x07\n\x05_text\"S\n\x0eSearchResponse\x12\x41\n\tdocuments\x18\x01 \x03(\x0b\x32#.seltz_public_api.proto.v1.DocumentR\tdocuments2o\n\x0cSeltzService\x12_\n\x06Search\x12(.seltz_public_api.proto.v1.SearchRequest\x1a).seltz_public_api.proto.v1.SearchResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%seltz_public_api/proto/v1/seltz.proto\x12\x19seltz_public_api.proto.v1\x1a\'seltz_public_api/proto/v1/options.proto\"\xf1\x03\n\rSearchRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x05 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12$\n\x0bmax_results\x18\x06 \x01(\rH\x01R\nmaxResults\x88\x01\x01\x12\x19\n\x05scope\x18\x07 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\'\n\x0finclude_domains\x18\x08 \x03(\tR\x0eincludeDomains\x12\'\n\x0f\x65xclude_domains\x18\t \x03(\tR\x0e\x65xcludeDomains\x12 \n\tfrom_date\x18\n \x01(\tH\x03R\x08\x66romDate\x88\x01\x01\x12\x1c\n\x07to_date\x18\x0b \x01(\tH\x04R\x06toDate\x88\x01\x01\x12\x17\n\x04tier\x18\x0c \x01(\tH\x05R\x04tier\x88\x01\x01\x12>\n\x06\x66ields\x18\r \x01(\x0b\x32!.seltz_public_api.proto.v1.FieldsH\x06R\x06\x66ields\x88\x01\x01\x42\n\n\x08_api_keyB\x0e\n\x0c_max_resultsB\x08\n\x06_scopeB\x0c\n\n_from_dateB\n\n\x08_to_dateB\x07\n\x05_tierB\t\n\x07_fieldsJ\x04\x08\x02\x10\x03J\x04\x08\x03\x10\x04J\x04\x08\x04\x10\x05R\x08includesR\x07\x63ontextR\x07profile\"\xaf\x02\n\x06\x46ields\x12)\n\x0f\x63ontent_enabled\x18\x01 \x01(\x08H\x00R\x0e\x63ontentEnabled\x12T\n\x0f\x63ontent_options\x18\x03 \x01(\x0b\x32).seltz_public_api.proto.v1.ContentOptionsH\x00R\x0e\x63ontentOptions\x12+\n\x10snippets_enabled\x18\x02 \x01(\x08H\x01R\x0fsnippetsEnabled\x12T\n\x0fsnippet_options\x18\x04 \x01(\x0b\x32).seltz_public_api.proto.v1.SnippetOptionsH\x01R\x0esnippetOptionsB\x0f\n\x07\x63ontent\x12\x04\x88\xb5\x18\x01\x42\x10\n\x08snippets\x12\x04\x88\xb5\x18\x01\"\xd3\x01\n\x08\x44ocument\x12\x15\n\x03url\x18\x01 \x01(\tH\x00R\x03url\x88\x01\x01\x12\x1d\n\x07\x63ontent\x18\x02 \x01(\tH\x01R\x07\x63ontent\x88\x01\x01\x12*\n\x0epublished_date\x18\x03 \x01(\tH\x02R\rpublishedDate\x88\x01\x01\x12>\n\x08snippets\x18\x04 \x03(\x0b\x32\".seltz_public_api.proto.v1.SnippetR\x08snippetsB\x06\n\x04_urlB\n\n\x08_contentB\x11\n\x0f_published_date\"n\n\x0e\x43ontentOptions\x12>\n\x19max_characters_per_result\x18\x01 \x01(\rH\x00R\x16maxCharactersPerResult\x88\x01\x01\x42\x1c\n\x1a_max_characters_per_result\"\xa6\x02\n\x0eSnippetOptions\x12&\n\x0cmax_snippets\x18\x01 \x01(\rH\x00R\x0bmaxSnippets\x88\x01\x01\x12:\n\x17max_snippets_per_result\x18\x02 \x01(\rH\x01R\x14maxSnippetsPerResult\x88\x01\x01\x12\"\n\nmax_tokens\x18\x03 \x01(\rH\x02R\tmaxTokens\x88\x01\x01\x12\x36\n\x15max_tokens_per_result\x18\x04 \x01(\rH\x03R\x12maxTokensPerResult\x88\x01\x01\x42\x0f\n\r_max_snippetsB\x1a\n\x18_max_snippets_per_resultB\r\n\x0b_max_tokensB\x18\n\x16_max_tokens_per_result\"+\n\x07Snippet\x12\x17\n\x04text\x18\x01 \x01(\tH\x00R\x04text\x88\x01\x01\x42\x07\n\x05_text\"S\n\x0eSearchResponse\x12\x41\n\tdocuments\x18\x01 \x03(\x0b\x32#.seltz_public_api.proto.v1.DocumentR\tdocuments2o\n\x0cSeltzService\x12_\n\x06Search\x12(.seltz_public_api.proto.v1.SearchRequest\x1a).seltz_public_api.proto.v1.SearchResponse\"\x00\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'seltz_public_api.proto.v1.seltz_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_SEARCHREQUEST']._serialized_start=69
-  _globals['_SEARCHREQUEST']._serialized_end=566
-  _globals['_FIELDS']._serialized_start=568
-  _globals['_FIELDS']._serialized_end=630
-  _globals['_DOCUMENT']._serialized_start=633
-  _globals['_DOCUMENT']._serialized_end=844
-  _globals['_SNIPPETOPTIONS']._serialized_start=847
-  _globals['_SNIPPETOPTIONS']._serialized_end=1123
-  _globals['_SNIPPET']._serialized_start=1125
-  _globals['_SNIPPET']._serialized_end=1168
-  _globals['_SEARCHRESPONSE']._serialized_start=1170
-  _globals['_SEARCHRESPONSE']._serialized_end=1253
-  _globals['_SELTZSERVICE']._serialized_start=1255
-  _globals['_SELTZSERVICE']._serialized_end=1366
+  _globals['_FIELDS'].oneofs_by_name['content']._loaded_options = None
+  _globals['_FIELDS'].oneofs_by_name['content']._serialized_options = b'\210\265\030\001'
+  _globals['_FIELDS'].oneofs_by_name['snippets']._loaded_options = None
+  _globals['_FIELDS'].oneofs_by_name['snippets']._serialized_options = b'\210\265\030\001'
+  _globals['_SEARCHREQUEST']._serialized_start=110
+  _globals['_SEARCHREQUEST']._serialized_end=607
+  _globals['_FIELDS']._serialized_start=610
+  _globals['_FIELDS']._serialized_end=913
+  _globals['_DOCUMENT']._serialized_start=916
+  _globals['_DOCUMENT']._serialized_end=1127
+  _globals['_CONTENTOPTIONS']._serialized_start=1129
+  _globals['_CONTENTOPTIONS']._serialized_end=1239
+  _globals['_SNIPPETOPTIONS']._serialized_start=1242
+  _globals['_SNIPPETOPTIONS']._serialized_end=1536
+  _globals['_SNIPPET']._serialized_start=1538
+  _globals['_SNIPPET']._serialized_end=1581
+  _globals['_SEARCHRESPONSE']._serialized_start=1583
+  _globals['_SEARCHRESPONSE']._serialized_end=1666
+  _globals['_SELTZSERVICE']._serialized_start=1668
+  _globals['_SELTZSERVICE']._serialized_end=1779
 # @@protoc_insertion_point(module_scope)

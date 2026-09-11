@@ -11,6 +11,7 @@ from matrx_scraper.extractors import (
     extract_text_content,
 )
 from matrx_scraper.features.extensions import get_condenser_1
+from matrx_scraper.utils.proxy import redact_url_secrets
 
 LOCAL_DEBUG = False
 
@@ -29,7 +30,7 @@ async def _report_fetch_failure(response: Any, *, url: str, operation: str) -> N
             context={"url": url, "operation": operation, "failure_reason": reason},
         )
     vcprint(
-        f"{operation} could not access {url} ({reason})",
+        f"{operation} could not access {redact_url_secrets(url)} ({reason})",
         color="yellow",
         log_level=logging.WARNING,
         stdout=False,

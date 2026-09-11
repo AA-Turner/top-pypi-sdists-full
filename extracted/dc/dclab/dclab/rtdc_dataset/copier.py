@@ -54,7 +54,7 @@ def rtdc_copy(src_h5file: h5py.Group,
     bytes_total:
         If specified, will be set to the estimated total size in bytes
         (uncompressed) that will be written to the new file.
-        The basin definitions are not included due to their variable size.
+        The basin *definitions* are not included due to their variable size.
         Logs are also not included, because the line length may vary.
     bytes_written:
         Number of bytes written to the output file during the copying process
@@ -406,6 +406,7 @@ def h5ds_copy(src_loc: h5py.Group,
 
     elif recursive and isinstance(src, h5py.Group):
         dst_rec = dst_loc.require_group(dst_name)
+        dst_rec.attrs.update(src.attrs)
         for key in src:
             h5ds_copy(src_loc=src,
                       src_name=key,
@@ -431,8 +432,8 @@ def get_size(h5_obj: h5py.Group | h5py.Dataset | list | tuple | None
     """
     size = 0
     if isinstance(h5_obj, h5py.Group):
-        for key in h5_obj.keys():
-            size += get_size(h5_obj[key])
+        for item in h5_obj.values():
+            size += get_size(item)
     elif isinstance(h5_obj, h5py.Dataset):
         size += h5_obj.nbytes
     elif isinstance(h5_obj, (tuple, list)):

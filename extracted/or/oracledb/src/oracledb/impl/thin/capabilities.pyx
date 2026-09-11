@@ -104,12 +104,16 @@ cdef class Capabilities:
         bint supports_end_user_security_context
         bint supports_pipelining
         bint supports_request_boundaries
+        bint supports_ha_readiness
+        bint supports_txn_priority
         uint32_t sdu
 
     def __init__(self):
         self._init_compile_caps()
         self._init_runtime_caps()
         self.sdu = 8192                 # initial value to use
+        if sys.platform != "win32":
+            self.supports_oob = True
 
     cdef void _adjust_for_protocol(self, uint16_t protocol_version,
                                    uint16_t protocol_options, uint32_t flags):
@@ -118,7 +122,8 @@ cdef class Capabilities:
         to the initial connection request.
         """
         self.protocol_version = protocol_version
-        self.supports_oob = protocol_options & TNS_GSO_CAN_RECV_ATTENTION
+        if self.supports_oob:
+            self.supports_oob = protocol_options & TNS_GSO_CAN_RECV_ATTENTION
         if flags & TNS_ACCEPT_FLAG_FAST_AUTH:
             self.supports_fast_auth = True
         if flags & TNS_ACCEPT_FLAG_CHECK_OOB:
@@ -136,10 +141,15 @@ cdef class Capabilities:
             self.compile_caps[TNS_CCAP_FIELD_VERSION] = self.ttc_field_version
         if server_caps[TNS_CCAP_TTC4] & TNS_CCAP_EXPLICIT_BOUNDARY:
             self.supports_request_boundaries = True
-        if len(server_caps) > TNS_CCAP_FEATURE_BACKPORT2 \
-                and (server_caps[TNS_CCAP_FEATURE_BACKPORT2] \
-                    & TNS_CCAP_END_USER_SEC_CTX_PIGGYBACK):
-            self.supports_end_user_security_context = True
+        if len(server_caps) > TNS_CCAP_FEATURE_BACKPORT2:
+            if server_caps[TNS_CCAP_FEATURE_BACKPORT2] \
+                    & TNS_CCAP_END_USER_SEC_CTX_PIGGYBACK:
+                self.supports_end_user_security_context = True
+            if server_caps[TNS_CCAP_FEATURE_BACKPORT2] & TNS_CCAP_TXN_PRIORITY:
+                self.supports_txn_priority = True
+        if len(server_caps) > TNS_CCAP_TTC6 \
+                and (server_caps[TNS_CCAP_TTC6] & TNS_CCAP_TTC6_HA_READINESS):
+            self.supports_ha_readiness = True
 
     @cython.boundscheck(False)
     cdef void _adjust_for_server_runtime_caps(self, bytearray server_caps):
@@ -229,8 +239,10 @@ cdef class Capabilities:
                 TNS_CCAP_VECTOR_FEATURE_BINARY | \
                 TNS_CCAP_VECTOR_FEATURE_SPARSE
         self.compile_caps[TNS_CCAP_OCI3] = TNS_CCAP_OCI3_OCSSYNC
+        self.compile_caps[TNS_CCAP_TTC6] = TNS_CCAP_TTC6_HA_READINESS
         self.compile_caps[TNS_CCAP_FEATURE_BACKPORT2] = \
-                TNS_CCAP_END_USER_SEC_CTX_PIGGYBACK
+                TNS_CCAP_END_USER_SEC_CTX_PIGGYBACK | \
+                TNS_CCAP_TXN_PRIORITY
 
     @cython.boundscheck(False)
     cdef void _init_runtime_caps(self):

@@ -7,12 +7,17 @@ mod workbook;
 pub use ast::{FormulaExpr, SheetQualifier};
 pub use eval::evaluate;
 pub(crate) use eval::references_another_sheet;
+pub(crate) use eval::with_sheet_context;
 pub use parser::{RefOccurrence, parse, parse_with_refs};
 pub use rewrite::{
     MoveRect, MoveRewrite, RefAxis, StructuralEdit, rename_sheet_references, shift_references,
     translate_references_for_move,
 };
 pub(crate) use workbook::recalculate as recalculate_workbook;
+#[cfg(feature = "python")]
+pub(crate) use workbook::{
+    formula_dependencies, formula_dependency_diagnostics, formula_io_candidates,
+};
 
 /// Return whether a workbook's parsed formula dependency graph is cyclic.
 /// This is a diagnostic signal; it does not change best-effort calculation.

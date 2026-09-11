@@ -9,11 +9,10 @@ pint.facets.systems.registry
 from __future__ import annotations
 
 from numbers import Number
-from typing import TYPE_CHECKING, Generic
+from typing import TYPE_CHECKING
 
 from ... import errors
 from ...compat import TypeAlias
-from ..plain import QuantityT, UnitT
 
 if TYPE_CHECKING:
     from ..._typing import Quantity, Unit
@@ -29,8 +28,8 @@ from . import objects
 from .definitions import SystemDefinition
 
 
-class GenericSystemRegistry(
-    Generic[QuantityT, UnitT], GenericGroupRegistry[QuantityT, UnitT]
+class GenericSystemRegistry[QuantityT: Quantity, UnitT: Unit](
+    GenericGroupRegistry[QuantityT, UnitT]
 ):
     """Handle of Systems.
 
@@ -113,6 +112,24 @@ class GenericSystemRegistry(
             self._base_units_cache = {}
 
         self._default_system_name = name
+
+    def __getattr__(self, item: str) -> UnitT:
+        """Get a unit by name, considering the default system if set.
+
+        If a default system is set, try to get the system-specific variant
+        of the unit first (e.g., "imperial_gallon" if system is "imperial"
+        and item is "gallon"). Fall back to the parent implementation if
+        not found or if no default system is set.
+        """
+        # If a default system is set, try system-specific unit first
+        if self._default_system_name:
+            system_specific_name = f"{self._default_system_name}_{item}"
+            # Check if the system-specific unit exists in the registry
+            if system_specific_name in self._units:
+                return super().__getattr__(system_specific_name)
+
+        # Fall back to parent implementation
+        return super().__getattr__(item)
 
     def get_system(self, name: str, create_if_needed: bool = True) -> objects.System:
         """Return a Group.
