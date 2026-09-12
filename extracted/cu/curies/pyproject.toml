@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "curies"
-version = "0.15.0"
+version = "0.15.1"
 description = "Idiomatic conversion between URIs and compact URIs (CURIEs)"
 readme = "README.md"
 classifiers = [
@@ -40,6 +40,7 @@ requires-python = ">=3.11"
 dependencies = [
     "pystow>=0.9.0",
     "pydantic>=2.0",
+    "typing-extensions",
 ]
 
 [[project.authors]]
@@ -61,7 +62,7 @@ flask = [
 fastapi = [
     "fastapi",
     "python-multipart",
-    "httpx",
+    "httpx2",
     "defusedxml",
     "uvicorn",
 ]
@@ -82,6 +83,8 @@ tests = [
     "pytest",
     "coverage[toml]",
     "requests",
+    "httpx",
+    "httpx2",
 ]
 docs = [
     "sphinx>=8",
@@ -103,6 +106,8 @@ typing = [
     "types-Markdown",
     "types-defusedxml",
     "types-tqdm",
+    "httpx",
+    "httpx2",
 ]
 docs-lint = [
     { include-group = "docs" },
@@ -136,6 +141,7 @@ max-line-length = 120
 
 [tool.pytest.ini_options]
 markers = ["""slow: marks tests as slow (deselect with '-m "not slow"')"""]
+filterwarnings = ["ignore::pyparsing.PyparsingDeprecationWarning"]
 
 [tool.coverage.run]
 branch = true
@@ -221,7 +227,7 @@ known-first-party = [
 docstring-code-format = true
 
 [tool.bumpversion]
-current_version = "0.15.0"
+current_version = "0.15.1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?'
 serialize = [
     "{major}.{minor}.{patch}-{release}+{build}",

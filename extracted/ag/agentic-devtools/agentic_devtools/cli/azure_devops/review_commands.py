@@ -184,6 +184,7 @@ def _refresh_pr_details_for_commit(
     current_commit_hash: str,
 ) -> dict[str, Any] | None:
     """Reload PR details until the API commit matches local HEAD or attempts are exhausted."""
+    from ..workflows.base import _safe_print
     from .pull_request_details_commands import get_pull_request_details
 
     for attempt in range(1, _POST_SYNC_PR_DETAILS_REFRESH_ATTEMPTS + 1):
@@ -192,7 +193,7 @@ def _refresh_pr_details_for_commit(
             with open(details_path, encoding="utf-8") as details_file:
                 refreshed_raw = json.load(details_file)
         except (OSError, SystemExit, TypeError, ValueError) as exc:
-            print(
+            _safe_print(
                 f"Warning: Could not refresh PR details after sync (attempt "
                 f"{attempt}/{_POST_SYNC_PR_DETAILS_REFRESH_ATTEMPTS}): {exc}",
                 file=sys.stderr,
@@ -202,7 +203,7 @@ def _refresh_pr_details_for_commit(
                 refreshed_commit_id = _extract_source_commit_id(refreshed_raw)
                 if refreshed_commit_id == current_commit_hash:
                     return refreshed_raw
-                print(
+                _safe_print(
                     f"Warning: Refreshed PR details commit "
                     f"({refreshed_commit_id or 'missing'}) did not match local HEAD "
                     f"({current_commit_hash}) on attempt "
@@ -210,7 +211,7 @@ def _refresh_pr_details_for_commit(
                     file=sys.stderr,
                 )
             else:
-                print(
+                _safe_print(
                     f"Warning: Refreshed PR details had unexpected type "
                     f"{type(refreshed_raw).__name__!r} on attempt "
                     f"{attempt}/{_POST_SYNC_PR_DETAILS_REFRESH_ATTEMPTS}.",
@@ -271,9 +272,10 @@ def checkout_and_sync_branch(
         rebase_onto_main,
         reset_branch_to_origin,
     )
+    from ..workflows.base import _safe_print
 
     # Step 1: Checkout the source branch
-    print(f"\nChecking out PR source branch: {source_branch}...")
+    _safe_print(f"\nChecking out PR source branch: {source_branch}...")
     checkout_result = checkout_branch(source_branch, dry_run=dry_run)
 
     if not checkout_result.is_success:
@@ -325,30 +327,30 @@ def checkout_and_sync_branch(
     push_succeeded: bool | None = None
     fetch_success = fetch_main(dry_run=dry_run)
     if not fetch_success:
-        print("Warning: Could not fetch from origin/main, continuing without rebase...")
+        _safe_print("Warning: Could not fetch from origin/main, continuing without rebase...")
     else:
         # Step 3: Rebase onto main (continue even on conflicts)
-        print("Rebasing onto origin/main...")
+        _safe_print("Rebasing onto origin/main...")
         rebase_result = rebase_onto_main(dry_run=dry_run)
 
         if rebase_result.is_success:
-            print("Branch is synced with main.")
+            _safe_print("Branch is synced with main.")
             # Step 3b: Auto-push if rebase rewrote history
             if rebase_result.was_rebased:
                 push_succeeded = _try_force_push_after_rebase(dry_run)
         elif rebase_result.needs_manual_resolution:
             had_rebase_conflicts = True
             # Continue with review but warn about conflicts
-            print(f"\n{'=' * 60}")
-            print("⚠️  REBASE CONFLICTS DETECTED")
-            print("=" * 60)
-            print("The branch has conflicts with main that should be resolved.")
-            print("However, the review can continue with the current branch state.")
-            print("After the review, you may want to resolve conflicts separately.")
-            print("=" * 60 + "\n")
+            _safe_print(f"\n{'=' * 60}")
+            _safe_print("⚠️  REBASE CONFLICTS DETECTED")
+            _safe_print("=" * 60)
+            _safe_print("The branch has conflicts with main that should be resolved.")
+            _safe_print("However, the review can continue with the current branch state.")
+            _safe_print("After the review, you may want to resolve conflicts separately.")
+            _safe_print("=" * 60 + "\n")
         else:
-            print(f"Warning: {rebase_result.message}")
-            print("Continuing with review...")
+            _safe_print(f"Warning: {rebase_result.message}")
+            _safe_print("Continuing with review...")
 
     artifact_commit_hash_short: str | None = None
     if save_files_on_branch:
@@ -361,7 +363,7 @@ def checkout_and_sync_branch(
             set_value("review.commit_hash_short", artifact_commit_hash_short)
 
     # Step 4: Get files changed on this branch vs main
-    print("\nIdentifying files changed on this branch...")
+    _safe_print("\nIdentifying files changed on this branch...")
     diff_ref: str | None = None
     if save_files_on_branch:
         (
@@ -382,7 +384,7 @@ def checkout_and_sync_branch(
         change_types_on_branch = {}
         rename_sources_on_branch = {}
     files_set = set(files_on_branch)
-    print(f"Found {len(files_set)} file(s) changed on this branch.")
+    _safe_print(f"Found {len(files_set)} file(s) changed on this branch.")
 
     # Optionally save files_on_branch to JSON for async workflows
     if save_files_on_branch and pull_request_id:
@@ -424,7 +426,7 @@ def checkout_and_sync_branch(
                 f,
                 indent=2,
             )
-        print(f"Saved files on branch to: {files_on_branch_path}")
+        _safe_print(f"Saved files on branch to: {files_on_branch_path}")
 
     return True, None, files_set, had_rebase_conflicts, push_succeeded
 
@@ -605,6 +607,8 @@ def _fetch_and_display_jira_issue(issue_key: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
+    from ..workflows.base import _safe_print
+
     try:
         from ..jira.get_commands import get_issue
         from ..jira.state_helpers import set_jira_value
@@ -617,13 +621,13 @@ def _fetch_and_display_jira_issue(issue_key: str) -> bool:
         return True
     except SystemExit:
         # get_issue calls sys.exit(1) on failure - catch and continue
-        print(
+        _safe_print(
             f"Warning: Jira issue {issue_key} could not be fetched. Proceeding with PR review only.",
             file=sys.stderr,
         )
         return False
     except Exception as e:
-        print(f"Warning: Failed to fetch Jira issue {issue_key}: {e}", file=sys.stderr)
+        _safe_print(f"Warning: Failed to fetch Jira issue {issue_key}: {e}", file=sys.stderr)
         return False
 
 
@@ -660,6 +664,7 @@ def generate_review_prompts(
     """
     from datetime import datetime
 
+    from ..workflows.base import _safe_print
     from .review_helpers import (
         filter_threads,
         get_threads_for_file,
@@ -685,6 +690,8 @@ def generate_review_prompts(
     )
     prompts_dir = temp_dir / "pull-request-review" / dir_name
     prompts_dir.mkdir(parents=True, exist_ok=True)
+    set_value("review.artifact_dir_name", dir_name)
+    set_value("review.artifact_dir_pr_id", str(pull_request_id))
 
     # Load pr_details from temp file if not provided
     if pr_details is None:
@@ -753,7 +760,7 @@ def generate_review_prompts(
         for file_detail in files_payload:
             raw_path = file_detail.get("path", "")
             if not isinstance(raw_path, str):
-                print(
+                _safe_print(
                     f"Warning: Skipping PR file record with non-string path: {raw_path!r}",
                     file=sys.stderr,
                 )
@@ -773,7 +780,7 @@ def generate_review_prompts(
                 for new_path, old_path in branch_rename_sources.items()
             }
             missing_paths = [branch_original_by_normalized[normalized] for normalized in missing_normalized]
-            print(
+            _safe_print(
                 f"Warning: {len(missing_paths)} file(s) changed on the branch were missing from the PR "
                 f"file listing; adding them to the review queue: {', '.join(missing_paths)}",
                 file=sys.stderr,
@@ -842,7 +849,7 @@ def generate_review_prompts(
                         {"line": line.line_number, "content": line.content} for line in diff_info.removed.lines
                     ]
                 except Exception as exc:
-                    print(
+                    _safe_print(
                         f"Warning: Could not load git diff metadata for recovered file '{missing_path}': {exc}",
                         file=sys.stderr,
                     )
@@ -851,7 +858,7 @@ def generate_review_prompts(
                         try:
                             patch = get_diff_patch(base_ref, compare_ref, git_lookup_target)
                         except Exception as exc:
-                            print(
+                            _safe_print(
                                 f"Warning: Could not load git patch for recovered file '{missing_path}': {exc}",
                                 file=sys.stderr,
                             )
@@ -922,7 +929,7 @@ def generate_review_prompts(
         if normalized_branch_files is not None:
             normalized_for_comparison = _normalize_path_for_comparison(file_path)
             if normalized_for_comparison not in normalized_branch_files:
-                print(f"Skipping file not on branch (likely from merged PR): {file_path}")
+                _safe_print(f"Skipping file not on branch (likely from merged PR): {file_path}")
                 skipped_not_on_branch_count += 1
                 skipped_files.append(SkippedFile(path=file_path, reason="not_on_branch"))
                 continue
@@ -986,14 +993,14 @@ def generate_review_prompts(
                 json.dump(pr_details, f, indent=2)
             os.replace(temp_details_path, details_path)
         except OSError as exc:
-            print(
+            _safe_print(
                 f"Warning: Could not persist filtered PR details artifact: {exc}",
                 file=sys.stderr,
             )
             try:
                 temp_details_path.unlink(missing_ok=True)
             except OSError as cleanup_exc:
-                print(
+                _safe_print(
                     f"Warning: Could not remove temporary PR details artifact: {cleanup_exc}",
                     file=sys.stderr,
                 )
@@ -1131,6 +1138,8 @@ def print_review_instructions(
     skipped_not_on_branch_count: int = 0,
 ) -> None:
     """Print instructions for the AI agent to follow."""
+    from ..workflows.base import _safe_print
+
     print("")
     print("=" * 60)
     print("PULL REQUEST REVIEW WORKFLOW")
@@ -1140,16 +1149,16 @@ def print_review_instructions(
     print(f"Prompts generated: {prompts_generated}")
     if skipped_not_on_branch_count > 0:
         print(f"Skipped (not on branch, from merged PRs): {skipped_not_on_branch_count}")
-    print(f"Prompts directory: {prompts_dir}")
+    _safe_print(f"Prompts directory: {prompts_dir}")
     print("")
     print("=" * 60)
     print("SHARED CONTEXT FOR THIS REVIEW")
     print("=" * 60)
     print("")
     print("Review snapshots are saved in the prompts folder:")
-    print("  • pull-request-files.json - All files in the PR diff")
-    print("  • pull-request-threads.json - Existing comment threads")
-    print("  • pull-request-jira-issue.json - Linked Jira issue details")
+    _safe_print("  • pull-request-files.json - All files in the PR diff")
+    _safe_print("  • pull-request-threads.json - Existing comment threads")
+    _safe_print("  • pull-request-jira-issue.json - Linked Jira issue details")
     print("")
     print("Keep analysis scoped to one file at a time; use shared artifacts for background context.")
     print("")
@@ -1177,11 +1186,11 @@ def print_review_instructions(
     print("IMPORTANT NOTES")
     print("=" * 60)
     print("")
-    print("• After reviewing the final file, the overarching PR comments will be")
+    _safe_print("• After reviewing the final file, the overarching PR comments will be")
     print("  generated automatically. This may take up to 30 seconds.")
-    print("• DO NOT RUN ANY COMMANDS after submitting the final file review!")
+    _safe_print("• DO NOT RUN ANY COMMANDS after submitting the final file review!")
     print("  Wait for the process to complete.")
-    print("• After all files are reviewed, provide a summary of your findings.")
+    _safe_print("• After all files are reviewed, provide a summary of your findings.")
     print("")
 
     if prompts_generated == 0:
@@ -1192,6 +1201,8 @@ def print_review_instructions(
 
 def _persist_processing_paths_to_review_state(pull_request_id: int, prompts_dir: Path) -> None:
     """Best-effort persistence of queue processingPath metadata into review-state.json."""
+    from ..workflows.base import _safe_print
+
     queue_path = prompts_dir / "queue.json"
     if not queue_path.exists():
         return
@@ -1233,7 +1244,7 @@ def _persist_processing_paths_to_review_state(pull_request_id: int, prompts_dir:
             for path, file_entry in state.files.items():
                 file_entry.processingPath = processing_by_path.get(path)
     except (FileNotFoundError, FileLockError, OSError, ValueError) as exc:
-        print(
+        _safe_print(
             "Warning: Could not persist processing path metadata to review-state.json; "
             f"continuing without processing-path audit trail: {exc}",
             file=sys.stderr,
@@ -1261,6 +1272,7 @@ def _scaffold_threads_for_review(
             or None to include all PR files.
         rebase_conflicts: True if rebase conflicts were detected during checkout.
     """
+    from ..workflows.base import _safe_print
     from .review_scaffold import scaffold_review_threads
 
     try:
@@ -1331,7 +1343,7 @@ def _scaffold_threads_for_review(
             force_rereview=force_rereview,
         )
     except Exception as e:
-        print(f"Warning: Scaffolding failed: {e}", file=sys.stderr)
+        _safe_print(f"Warning: Scaffolding failed: {e}", file=sys.stderr)
 
 
 def setup_pull_request_review() -> None:
@@ -1358,12 +1370,13 @@ def setup_pull_request_review() -> None:
     Use setup_pull_request_review_async when background execution is required.
     """
     from ...state import delete_value, set_value
+    from ..workflows.base import _safe_print
     from .pull_request_details_commands import get_pull_request_details
 
     # Read parameters from state
     pr_id_str = get_value("pull_request_id")
     if not pr_id_str:
-        print("ERROR: pull_request_id is required in state.", file=sys.stderr)
+        _safe_print("ERROR: pull_request_id is required in state.", file=sys.stderr)
         sys.exit(1)
     pull_request_id = int(pr_id_str)
 
@@ -1428,15 +1441,15 @@ def setup_pull_request_review() -> None:
     except Exception as exc:
         # Bootstrap is best-effort: review proceeds using _unscoped if this
         # fails (e.g., not in a git repo).  Log the error for debugging.
-        print(f"WARNING: bootstrap state init failed: {exc}", file=sys.stderr)
+        _safe_print(f"WARNING: bootstrap state init failed: {exc}", file=sys.stderr)
 
     # Step 1: Fetch Jira issue details if we have a key
     if jira_issue_key:
-        print(f"\nFetching Jira issue details for {jira_issue_key}...")
+        _safe_print(f"\nFetching Jira issue details for {jira_issue_key}...")
         jira_fetch_success = _fetch_and_display_jira_issue(jira_issue_key)
         if not jira_fetch_success:
             set_value("review.jira_fetch_failed", "true")
-            print(
+            _safe_print(
                 "Warning: Jira issue fetch failed. Review will proceed without acceptance criteria context.",
                 file=sys.stderr,
             )
@@ -1446,7 +1459,7 @@ def setup_pull_request_review() -> None:
         delete_value("review.jira_fetch_failed")
 
     # Step 2: Fetch PR details
-    print(f"\nFetching pull request details for PR {pull_request_id}...")
+    _safe_print(f"\nFetching pull request details for PR {pull_request_id}...")
     get_pull_request_details()
 
     # Load the PR details from the temp file
@@ -1454,7 +1467,7 @@ def setup_pull_request_review() -> None:
     details_path = temp_dir / "temp-get-pull-request-details-response.json"
 
     if not details_path.exists():
-        print("ERROR: PR details file not found after fetch.", file=sys.stderr)
+        _safe_print("ERROR: PR details file not found after fetch.", file=sys.stderr)
         sys.exit(1)
 
     with open(details_path, encoding="utf-8") as f:
@@ -1470,7 +1483,7 @@ def setup_pull_request_review() -> None:
     last_merge = pr_info.get("lastMergeSourceCommit")
     if not isinstance(last_merge, dict):
         if last_merge is not None:
-            print(
+            _safe_print(
                 f"Warning: lastMergeSourceCommit has unexpected type "
                 f"{type(last_merge).__name__!r}; review artifacts will be scoped by PR ID.",
                 file=sys.stderr,
@@ -1481,7 +1494,7 @@ def setup_pull_request_review() -> None:
         # Treat empty string as "absent", but warn and normalize any other non-string value.
         if not isinstance(source_commit_id, str):
             if source_commit_id != "":  # pragma: no branch
-                print(
+                _safe_print(
                     f"Warning: lastMergeSourceCommit.commitId has unexpected type "
                     f"{type(source_commit_id).__name__!r}; review artifacts will be scoped by PR ID.",
                     file=sys.stderr,
@@ -1502,7 +1515,7 @@ def setup_pull_request_review() -> None:
         commit_hash_short = source_commit_id[:12]
         # Validate that commit_hash_short is safe to persist and use as a path segment.
         if not is_safe_dir_segment(commit_hash_short):
-            print(
+            _safe_print(
                 "Warning: Derived commit_hash_short contains unexpected characters; "
                 "review artifacts will be scoped by PR ID.",
                 file=sys.stderr,
@@ -1519,7 +1532,7 @@ def setup_pull_request_review() -> None:
     files_on_branch: set[str] | None = None
     had_rebase_conflicts = False
     if source_branch:
-        print(f"\nChecking out source branch '{source_branch}' and syncing with main...")
+        _safe_print(f"\nChecking out source branch '{source_branch}' and syncing with main...")
         (
             checkout_success,
             checkout_error,
@@ -1542,15 +1555,15 @@ def setup_pull_request_review() -> None:
             delete_value("review.rebase_conflicts_detected")
 
         if not checkout_success:
-            print("", file=sys.stderr)
-            print("=" * 60, file=sys.stderr)
-            print("BRANCH CHECKOUT/SYNC ISSUE", file=sys.stderr)
-            print("=" * 60, file=sys.stderr)
-            print("", file=sys.stderr)
-            print(f"Error: {checkout_error}", file=sys.stderr)
-            print("", file=sys.stderr)
-            print("Please resolve this issue and re-run the workflow.", file=sys.stderr)
-            print("", file=sys.stderr)
+            _safe_print("", file=sys.stderr)
+            _safe_print("=" * 60, file=sys.stderr)
+            _safe_print("BRANCH CHECKOUT/SYNC ISSUE", file=sys.stderr)
+            _safe_print("=" * 60, file=sys.stderr)
+            _safe_print("", file=sys.stderr)
+            _safe_print(f"Error: {checkout_error}", file=sys.stderr)
+            _safe_print("", file=sys.stderr)
+            _safe_print("Please resolve this issue and re-run the workflow.", file=sys.stderr)
+            _safe_print("", file=sys.stderr)
             sys.exit(1)
 
         if not is_dry_run() and push_succeeded in (True, None):
@@ -1561,7 +1574,7 @@ def setup_pull_request_review() -> None:
 
                 refreshed_pr_details = _refresh_pr_details_for_commit(details_path, current_commit_hash)
                 if refreshed_pr_details is None:
-                    print(
+                    _safe_print(
                         "Error: Could not load PR details for the post-sync HEAD commit. "
                         "Please re-run the workflow to refresh review data.",
                         file=sys.stderr,
@@ -1570,7 +1583,7 @@ def setup_pull_request_review() -> None:
                 pr_details = refreshed_pr_details
                 pr_info = pr_details.get("pullRequest", pr_details)
             elif current_commit_hash is None and push_succeeded is True:
-                print(
+                _safe_print(
                     "Error: Could not determine the post-sync HEAD commit after "
                     "a rewritten branch was pushed. Artifact scope and API payload "
                     "may be inconsistent. Please re-run the workflow.",
@@ -1578,10 +1591,10 @@ def setup_pull_request_review() -> None:
                 )
                 sys.exit(1)
     else:
-        print("Warning: Could not determine source branch from PR details", file=sys.stderr)
+        _safe_print("Warning: Could not determine source branch from PR details", file=sys.stderr)
 
     # Step 4: Generate review prompts
-    print("\nGenerating file review prompts...")
+    _safe_print("\nGenerating file review prompts...")
     unchanged_files = _detect_unchanged_files(pull_request_id, pr_details)
     prompts_generated, _, skipped_not_on_branch_count, prompts_dir, skipped_files = generate_review_prompts(
         pull_request_id,
@@ -1610,7 +1623,7 @@ def setup_pull_request_review() -> None:
             # FileLockError — lock contention
             # OSError — permission or I/O issue
             # ValueError (incl. json.JSONDecodeError) — corrupt state file
-            print(
+            _safe_print(
                 "Warning: Could not persist skipped files to review-state.json; "
                 f"continuing without skipped-file audit trail: {exc}",
                 file=sys.stderr,
@@ -1623,7 +1636,7 @@ def setup_pull_request_review() -> None:
 
         generate_v2_review_artifacts(pull_request_id, pr_details, prompts_dir)
     except Exception as exc:
-        print(
+        _safe_print(
             f"Warning: v2 review artifact generation failed (setup unaffected): {exc}",
             file=sys.stderr,
         )
@@ -1667,6 +1680,11 @@ def setup_pull_request_review() -> None:
 
         repo_review_focus_areas = load_review_focus_areas(repo_root)
 
+        artifact_dir_name = prompts_dir.name
+        if not isinstance(artifact_dir_name, str) or not artifact_dir_name:
+            artifact_dir_name = ""
+        artifact_dir = (Path("pull-request-review") / artifact_dir_name).as_posix()
+
         workflow_context = {
             "pull_request_id": pull_request_id,
             "jira_issue_key": jira_issue_key or "",
@@ -1678,6 +1696,8 @@ def setup_pull_request_review() -> None:
             "pr_url": pr_url,
             "source_code_platform": "AzureDevOps",
             "repo_review_focus_areas": repo_review_focus_areas or "",
+            "review_artifact_dir_name": artifact_dir_name,
+            "review_artifact_dir": artifact_dir,
         }
 
         set_workflow_state(
@@ -1687,9 +1707,9 @@ def setup_pull_request_review() -> None:
             context=workflow_context,
         )
 
-        print("\n" + "=" * 60)
-        print("WORKFLOW INITIALIZED: pull-request-review")
-        print("=" * 60)
+        _safe_print("\n" + "=" * 60)
+        _safe_print("WORKFLOW INITIALIZED: pull-request-review")
+        _safe_print("=" * 60)
 
         variables = {
             "pull_request_id": pull_request_id,
@@ -1702,6 +1722,8 @@ def setup_pull_request_review() -> None:
             "repo_review_focus_areas": repo_review_focus_areas or "",
             "pr_url": pr_url,
             "source_code_platform": "AzureDevOps",
+            "review_artifact_dir_name": artifact_dir_name,
+            "review_artifact_dir": artifact_dir,
         }
 
         load_and_render_prompt(
@@ -1715,8 +1737,8 @@ def setup_pull_request_review() -> None:
     except ImportError as e:  # pragma: no cover
         # Defensive fallback for stripped/broken installs where workflow modules
         # are unavailable at runtime.
-        print(f"ERROR: Could not initialize workflow: {e}", file=sys.stderr)
+        _safe_print(f"ERROR: Could not initialize workflow: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Could not initialize workflow: {e}", file=sys.stderr)
+        _safe_print(f"ERROR: Could not initialize workflow: {e}", file=sys.stderr)
         sys.exit(1)

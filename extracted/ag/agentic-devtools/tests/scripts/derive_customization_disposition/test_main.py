@@ -75,7 +75,10 @@ def test_verify_authored_fails_on_an_unexpected_unit(tmp_path: Path) -> None:
     """An authored skill the map does not expect fails the comparison."""
     skill = tmp_path / ".agents" / "skills" / "agdt-surprise"
     skill.mkdir(parents=True)
-    (skill / "SKILL.md").write_text("# Surprise\n", encoding="utf-8")
+    (skill / "SKILL.md").write_text(
+        "---\nname: agdt-surprise\n---\n\n# Surprise\n",
+        encoding="utf-8",
+    )
     assert (
         derive.main(
             [
@@ -140,7 +143,7 @@ def test_verify_partition_enforces_fixture_total_by_default(tmp_path: Path) -> N
         "| `.github/agents/agdt.a.agent.md` | `agdt.a` | skill | singleton-a | `agdt-a` | residue |\n",
         encoding="utf-8",
     )
-    # The table has 1 valid row; without --expected-total the fixture count (266) is
+    # The table has 1 valid row; without --expected-total the fixture-derived corpus count is
     # used and the mismatch causes verification to fail.
     assert derive.main(["--verify-partition", "--out", str(out)]) == 1
 

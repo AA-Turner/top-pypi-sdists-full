@@ -12,10 +12,13 @@ Distinct from ``test_error_diagnostics.py``, which pins what the messages *say*;
 pins which exception type comes out at all.
 """
 
+import importlib
 from pathlib import Path
 
+import numpy as np
 import pytest
 
+import timezonefinder
 from timezonefinder import TimezoneFinder, TimezoneFinderL
 from timezonefinder.coord_accessors import FileCoordAccessor, MemoryCoordAccessor
 from timezonefinder.zone_names import get_zone_names_path, read_zone_names
@@ -68,6 +71,43 @@ def test_zone_name_from_id_lets_a_non_integer_raise_type_error(tf: TimezoneFinde
         tf.zone_name_from_id("Europe/Berlin")  # type: ignore[arg-type]
 
 
+# Every public method that takes an id. A negative index is valid Python and counts from
+# the end, so each of these used to answer ``-1`` - the conventional "not found" sentinel
+# of an index lookup - with the last entry of the dataset instead of raising.
+NEGATIVE_ID_CALLS = {
+    "zone_id_of": lambda tf: tf.zone_id_of(-1),
+    "zone_ids_of": lambda tf: tf.zone_ids_of(np.array([-1])),
+    "zone_name_from_id": lambda tf: tf.zone_name_from_id(-1),
+    "zone_name_from_boundary_id": lambda tf: tf.zone_name_from_boundary_id(-1),
+}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("method", sorted(NEGATIVE_ID_CALLS))
+def test_a_negative_id_is_rejected_rather_than_counted_from_the_end(
+    tf: TimezoneFinder, method: str
+):
+    """``:raises ValueError:`` covers a negative id, not only an out-of-range one."""
+    with pytest.raises(ValueError, match="non-negative"):
+        NEGATIVE_ID_CALLS[method](tf)
+
+
+@pytest.mark.unit
+def test_zone_ids_of_rejects_an_array_that_is_only_partly_negative(tf: TimezoneFinder):
+    """One bad id poisons the answer for the whole array, so one is enough to reject."""
+    with pytest.raises(ValueError, match="non-negative"):
+        tf.zone_ids_of(np.array([0, -1]))
+
+
+@pytest.mark.unit
+def test_the_guards_leave_valid_ids_answering(tf: TimezoneFinder):
+    """The rejected range stops at zero: the first id of each kind still resolves."""
+    assert tf.zone_name_from_id(0) == tf.timezone_names[0]
+    assert tf.zone_id_of(0) == int(tf.zone_ids[0])
+    assert tf.zone_ids_of(np.array([0]))[0] == tf.zone_ids[0]
+    assert tf.zone_name_from_boundary_id(0) == tf.timezone_names[tf.zone_id_of(0)]
+
+
 @pytest.mark.unit
 def test_read_zone_names_raises_for_a_missing_file(tmp_path: Path):
     """It does not return an empty list for a directory without the names file."""
@@ -92,10 +132,22 @@ def test_in_memory_selects_the_coordinate_access_mode(in_memory, expected_access
         assert isinstance(finder.holes.coordinates, expected_accessor)
 
 
+@pytest.mark.unit
+def test_the_lightweight_finder_refuses_in_memory():
+    """It loads no polygon data, so there is no access mode for the flag to select.
+
+    The CLI has always refused ``--in-memory`` with ``-f 3``/``-f 4`` for exactly this
+    reason; the Python API used to accept it in silence and promise a speedup it could
+    not deliver.
+    """
+    with pytest.raises(TypeError, match="in_memory"):
+        TimezoneFinderL(in_memory=True)  # type: ignore[call-arg]
+
+
 @pytest.fixture(scope="module")
 def tfl() -> TimezoneFinderL:
     """``TimezoneFinderL``, which the last two usage snippets are written against."""
-    return TimezoneFinderL(in_memory=True)
+    return TimezoneFinderL()
 
 
 @pytest.mark.unit
@@ -133,3 +185,48 @@ def test_usage_docs_example_returns_the_annotated_zone(
     finder = request.getfixturevalue(finder_fixture)
     lookup = getattr(finder, method_name)
     assert lookup(**USAGE_DOCS_EXAMPLE_COORDS) == USAGE_DOCS_EXAMPLE_ZONE
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("lng", [-180.0, -120.0, 0.0, 120.0, 180.0])
+def test_certain_timezone_at_has_no_match_at_the_exact_south_pole(
+    tf: TimezoneFinder, lng: float
+):
+    """The usage docs name the pole as a reachable exact-boundary ambiguity."""
+    assert tf.certain_timezone_at(lng=lng, lat=-90.0) is None
+    assert tf.timezone_at(lng=lng, lat=-90.0) == "Antarctica/McMurdo"
+
+
+def _packages_declaring_a_surface() -> list[str]:
+    """Every importable package under ``timezonefinder`` that declares an ``__all__``."""
+    root = Path(timezonefinder.__file__).parent
+    names = []
+    for init_path in sorted(root.rglob("__init__.py")):
+        relative = init_path.parent.relative_to(root.parent)
+        module_name = ".".join(relative.parts)
+        if "generated" in relative.parts:
+            continue
+        if hasattr(importlib.import_module(module_name), "__all__"):
+            names.append(module_name)
+    return names
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("module_name", _packages_declaring_a_surface())
+def test_declared_public_names_resolve(module_name: str):
+    """Every name in an ``__all__`` is an attribute the module actually has.
+
+    ``__all__`` is the package's own statement of its public surface, and nothing
+    else checks it: a name listed there that does not exist costs nothing until
+    someone writes ``import *``, which then fails with an ``AttributeError`` naming
+    a symbol they never asked for. ``timezonefinder.flatbuf.schemas`` listed its
+    three ``.fbs`` files that way - data files next to the module, not submodules of
+    it - so the declared surface described something unimportable for several
+    releases.
+    """
+    module = importlib.import_module(module_name)
+    missing = [name for name in module.__all__ if not hasattr(module, name)]
+    assert not missing, (
+        f"{module_name}.__all__ declares {missing}, which the module does not "
+        f"define - `from {module_name} import *` raises AttributeError on them"
+    )

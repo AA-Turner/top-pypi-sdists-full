@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.4
+Version: 1.0.5
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -57,7 +57,7 @@ Requires-Dist: ollama>=0.4.7 ; extra == 'ollama'
 Requires-Dist: openai>=3.4.0,<4 ; extra == 'openai'
 Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
-Requires-Dist: tavily-python>=0.7.4,<0.8 ; extra == 'tavily'
+Requires-Dist: tavily-python>=0.7.4,<0.9 ; extra == 'tavily'
 Requires-Dist: opentelemetry-sdk>=1.20 ; extra == 'tracing'
 Requires-Dist: xai-sdk>=1.12.2,<2 ; extra == 'xai'
 Requires-Dist: zai-sdk>=0.2.3,<1 ; extra == 'zai'
@@ -129,7 +129,7 @@ Description-Content-Type: text/markdown
   <a href="https://playground.ag2.ai">💡 Playground</a> |
   <a href="https://github.com/ag2ai/build-with-ag2">💡 Examples</a> |
   <a href="https://docs.ag2.ai/docs/contributor-guide/contributing/">🤝 Contributing</a> |
-  <a href="#related-papers">📝 Cite paper</a> |
+  <a href="https://arxiv.org/abs/2308.08155">📝 Cite paper</a> |
   <a href="https://discord.gg/pAbnFJrkgZ">💬 Join Discord</a> |
   <a href="#ag2-classic-the-autogen-namespace">🏛️ AG2 Classic</a>
 </p>
@@ -165,11 +165,8 @@ The project is currently maintained by a [dynamic group of volunteers](MAINTAINE
     - [Orchestrating Multiple Agents](#orchestrating-multiple-agents)
     - [The agent harness: knowledge and compaction](#the-agent-harness-knowledge-and-compaction)
     - [Advanced agentic design patterns](#advanced-agentic-design-patterns)
-  - [Announcements](#announcements)
   - [Code style and linting](#code-style-and-linting)
-  - [Related papers](#related-papers)
   - [Contributors Wall](#contributors-wall)
-  - [Cite the project](#cite-the-project)
   - [License](#license)
 
 ## AG2 Classic (the `autogen.*` namespace)

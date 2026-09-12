@@ -13,7 +13,6 @@ not fatal.
 
 from __future__ import annotations
 
-import importlib
 from typing import Any
 
 from matrx_ai.tools.declared import DeclaredTool, declared_families, declared_tools
@@ -24,16 +23,54 @@ from matrx_ai.tools.validation.engine import ValidationReport, validate
 _DEFAULT_DECLARATION_MODULES = ("matrx_ai.tools._generated_declarations",)
 
 
+def _load_declaration_module(module_path: str) -> object:
+    """Load a registry-owned declaration module through THE declared-module seam.
+
+    Hosts may supply declaration modules this package cannot enumerate in
+    advance. ``matrx_utils.module_loading.load_declared_module`` keeps that
+    extension seam open, mirrors normal import cache and failed-import cleanup,
+    and refuses any provider SDK name — which is why the mandate/provider scan
+    accepts it as a fact.
+    """
+    from matrx_utils.module_loading import load_declared_module
+
+    return load_declared_module(module_path)
+
+
 def import_declaration_modules(extra: tuple[str, ...] = ()) -> list[str]:
     """Import every declaration module so the @tool registry fills. Returns the
-    list of modules that failed to import (name + reason), for reporting."""
+    list of failures (name + reason), for reporting.
+
+    Two failure grains are reported, and BOTH must reach the boot drift gate:
+
+    * the whole declaration module failed to import (``<module>: <exc>``);
+    * the module imported but one of its per-tool ``_reg`` calls could not
+      bind its implementation — a missing ``_MODULE_LOADERS`` entry or a
+      broken implementation import. The generated module isolates those into
+      its own ``IMPORT_FAILURES`` list so one bad tool never blocks the rest;
+      harvesting that list here is what makes the isolation LOUD instead of
+      silent. (Live incident 2026-09-12: five tools, ``memory`` among them,
+      silently never registered and were dropped at request pre-flight while
+      the gate reported a clean boot.)
+    """
     failures: list[str] = []
     for mod in (*_DEFAULT_DECLARATION_MODULES, *extra):
         try:
-            importlib.import_module(mod)
+            module = _load_declaration_module(mod)
         except Exception as exc:  # noqa: BLE001 - surfaced, not swallowed
             failures.append(f"{mod}: {exc!r}")
+            continue
+        failures.extend(declaration_tool_failures(module, module_name=mod))
     return failures
+
+
+def declaration_tool_failures(module: object, *, module_name: str) -> list[str]:
+    """Per-tool registration failures a declaration module isolated into its
+    ``IMPORT_FAILURES`` list, rendered as ``<module>: <entry>`` lines."""
+    entries = getattr(module, "IMPORT_FAILURES", None)
+    if not isinstance(entries, list):
+        return []
+    return [f"{module_name}: {entry}" for entry in entries if isinstance(entry, str) and entry]
 
 
 def _row_value(obj: Any, key: str, default: Any = None) -> Any:

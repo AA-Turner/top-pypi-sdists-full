@@ -1,38 +1,24 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cloup
-Version: 3.1.0
+Version: 4.0.0
 Summary: Adds features to Click: option groups, constraints, subcommand sections and help themes.
-Home-page: https://github.com/janLuke/cloup
-Author: Gianluca Gippetto
-Author-email: gianluca.gippetto@gmail.com
-License: BSD 3-Clause
-Keywords: CLI,click,argument groups,option groups,constraints,help colors,help themes,help styles
+Project-URL: Homepage, https://github.com/janLuke/cloup
+Author-email: Gianluca Gippetto <gianluca.gippetto@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: CLI,argument groups,click,constraints,help colors,help styles,help themes,option groups
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: click<9.0,>=8.5.0
+Requires-Dist: typing-extensions; python_version < '3.12'
 Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: click<9.0,>=8.1.0
-Requires-Dist: typing_extensions; python_version <= "3.10"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 .. docs-index-start
 
@@ -73,7 +59,7 @@ Overview
 `Click <https://github.com/pallets/click>`_ with several features that make it
 more expressive and configurable:
 
-- **option groups** and an (optional) help section for positional arguments
+- **option groups**
 
 - **constraints**, like ``mutually_exclusive``, that can be applied to option groups
   or to any group of parameters, even *conditionally*
@@ -90,15 +76,23 @@ more expressive and configurable:
   - use a different layout when the terminal width is below a certain threshold
     in order to improve readability
 
-- suggestions like "did you mean <subcommand>?" when you mistype a subcommand.
+- additional parameter types, e.g. path types that use ``pathlib.Path`` instead of
+  ``str`` by default.
 
-Moreover, Cloup improves on **IDE support** providing decorators with *detailed*
-type hints and adding the static methods ``Context.settings()`` and
-``HelpFormatter.settings()`` for creating dictionaries of settings.
+- command decorators with individually typed keyword arguments, plus typed helpers
+  such as ``Context.settings()`` and ``HelpFormatter.settings()``, for better IDE
+  and static type checker support.
 
-Cloup is **statically type-checked** with MyPy in strict mode and extensively **tested**
+Cloup is **statically type-checked** with MyPy and Pyrefly and extensively **tested**
 against multiple versions of Python with nearly 100% coverage.
 
+Does it replace Click?
+======================
+
+Since version 4.0.0, Cloup makes an effort to re-export the public symbols in Click's
+top-level namespace. Applications using Cloup can therefore access most Click
+functionality through ``cloup`` without maintaining separate top-level imports from
+both packages.
 
 A simple example
 ================
@@ -169,7 +163,7 @@ Links
 =====
 
 * Documentation (release_ | development_)
-* `Changelog <https://cloup.readthedocs.io/en/stable/pages/changelog.html>`_
+* `Release notes <https://github.com/janLuke/cloup/releases>`_
 * `GitHub repository <https://github.com/janLuke/cloup>`_
 * `Q&A and discussions <https://github.com/janLuke/cloup/discussions>`_
 

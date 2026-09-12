@@ -104,8 +104,8 @@ class PermissionBridge(t.Protocol):
 class EngineContext:
     """Everything an engine needs to run one turn.
 
-    The native engine uses only ``agent`` + ``trajectory`` (it reaches the rest
-    through ``agent``). Foreign engines additionally use ``goal``, ``dispatch``
+    The native engine uses ``agent``, ``trajectory``, and ``message_metadata``.
+    Foreign engines additionally use ``goal``, ``dispatch``
     (to run observational hooks on translated events), and ``permission``.
     """
 
@@ -116,6 +116,8 @@ class EngineContext:
     """Run an event through the agent's hooks (metrics + reactions). Foreign
     engines call this per translated event; the native engine dispatches inline."""
     permission: "PermissionBridge | None" = None
+    message_metadata: dict[str, t.Any] | None = None
+    """Informational metadata for the initiating user message, never authorization."""
 
 
 class AgentEngine(ABC):

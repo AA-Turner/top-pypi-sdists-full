@@ -85,7 +85,7 @@ class SessionHydrator:
         session = self.session_factory(
             session_id,
             model=session_data.get("model", ""),
-            project=session_data.get("project_name"),
+            project=session_data.get("project_key"),
             capability_name=capability_name,
             capability=capability_obj,
             agent_def=agent_def,

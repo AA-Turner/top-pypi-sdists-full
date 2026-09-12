@@ -86,6 +86,14 @@ _NEW_KEY = "new_in_window"
 #: other than "the tracker is fine, look again".
 _UNTRACKED_KEY = "untracked_detections"
 
+#: PERSISTENT diagnostic, the ``by: identity`` counterpart (MLAPP-262 E2): detections of a
+#: configured entity that carried no identity and so could not be deduplicated as a subject.
+#: Not published, for the same reason as above.  This one carries more weight than its
+#: track-id sibling: a resolver that has stopped identifying anybody and an empty doorway
+#: both publish zero distinct subjects, and this counter is the only thing that separates
+#: them -- it climbs when faces are arriving and none of them is being recognized.
+_UNIDENTIFIED_KEY = "unidentified_detections"
+
 
 def _tracks_from_previous(
     previous: Mapping[str, PrimitiveOutput],
@@ -189,15 +197,17 @@ class UniqueCount:
                 :meth:`StateStore.end_window` and to any future durable backing.
 
         Note:
-            ``config.by`` is ``Literal["track_id"]`` -- one strategy, checked at manifest
-            load.  It is read rather than ignored so that adding a second strategy later is
-            a change here and not a silent no-op.
+            ``config.by`` selects the de-duplication key: ``track_id`` (distinct tracked
+            objects) or ``identity`` (distinct subjects, MLAPP-262 E2).  The guard below is
+            kept deliberately: the manifest schema and this runtime must never disagree about
+            which strategies exist, because a strategy the manifest allows and the runtime
+            ignores publishes a plausible-looking wrong number rather than failing.
         """
-        if config.by != "track_id":
+        if config.by not in ("track_id", "identity"):
             raise ValueError(
                 f"unique_count.by={config.by!r} is not implemented. UniqueCountConfig "
-                "accepts only 'track_id'; a strategy the manifest allows but the runtime "
-                "silently ignores would publish a plausible-looking wrong number."
+                "accepts 'track_id' or 'identity'; a strategy the manifest allows but the "
+                "runtime silently ignores would publish a plausible-looking wrong number."
             )
         self._config = config
         self._state = state
@@ -227,8 +237,9 @@ class UniqueCount:
         new_this_frame = 0
         for entity, ids in current.items():
             bucket = seen.setdefault(entity, {})
-            for track_id in sorted(ids):  # sorted: deterministic, which O5 asserts on
-                key = str(track_id)
+            for key in sorted(ids):  # sorted: deterministic, which O5 asserts on
+                # `key` is a track id or an identity depending on config.by; _current_ids
+                # normalises both to str so this fold has one shape.
                 if key not in bucket:
                     bucket[key] = 1
                     new_this_frame += 1
@@ -256,28 +267,70 @@ class UniqueCount:
             values[f"per_category.{entity}"] = len(seen.get(entity, {}))
         return PrimitiveOutput(values=values)
 
-    def _current_ids(self, ctx: FrameContext) -> dict[str, set[int]]:
-        """This frame's ``{entity: {track_id}}``, from the best available source."""
+    def _current_ids(self, ctx: FrameContext) -> dict[str, set[str]]:
+        """This frame's ``{entity: {dedup_key}}``, from the best available source.
+
+        Keys are strings in both strategies: a track id is an int and an identity is a str,
+        and :meth:`process` has always stringified before touching the seen-set, so
+        normalising here keeps one code path downstream instead of two.
+        """
+        if self._config.by == "identity":
+            # NOT the tracker shortcut below. `previous` carries TrackStates, whose ids are
+            # track ids -- reading them here would count distinct tracks and publish the
+            # number under a metric the manifest named "distinct subjects". That is the
+            # plausible-wrong-number failure this stage's guard exists to prevent, so the
+            # identity strategy reads detections and only detections.
+            return self._current_identities(ctx)
+
         from_tracker = _tracks_from_previous(ctx.previous, self._entities, ctx.zone)
         if from_tracker is not None:
-            return from_tracker
+            return {entity: {str(i) for i in ids} for entity, ids in from_tracker.items()}
 
-        found: dict[str, set[int]] = {}
+        found: dict[str, set[str]] = {}
         untracked = 0
         for detection in ctx.of_entity(*self._categories):
             if detection.track_id is None:
                 untracked += 1
                 continue
-            found.setdefault(detection.entity, set()).add(int(detection.track_id))
+            found.setdefault(detection.entity, set()).add(str(int(detection.track_id)))
         if untracked:
             # Loud in the state, not silent: an unmeasured drop is how "the count is too
             # low" becomes unanswerable (PY-10's argument, applied to tracking).
             self._state.incr(_UNTRACKED_KEY, untracked, lifetime=Lifetime.PERSISTENT)
         return found
 
+    def _current_identities(self, ctx: FrameContext) -> dict[str, set[str]]:
+        """This frame's ``{entity: {identity}}``.  MLAPP-262 (E2).
+
+        A detection with no identity -- an unrecognized face, an unread plate, or any stream
+        whose resolver is down -- is **excluded and tallied**, never folded in. Both
+        alternatives are wrong in a way that looks right:
+
+        * folding them under one placeholder key counts every unidentified subject in the
+          deployment's history as a single person;
+        * treating each as distinct counts the same unrecognized person once per frame, which
+          at 25 fps invents 1,500 people a minute.
+
+        Excluding them makes ``total`` mean "distinct subjects actually identified", and the
+        separate tally is what distinguishes a quiet camera from a dead resolver -- the
+        signal that FR has no other way to report, because a broken resolver and an empty
+        doorway both publish zero recognitions.
+        """
+        found: dict[str, set[str]] = {}
+        unidentified = 0
+        for detection in ctx.of_entity(*self._categories):
+            identity = detection.identity
+            if not identity:  # None and "" alike: an empty string is not a subject
+                unidentified += 1
+                continue
+            found.setdefault(detection.entity, set()).add(identity)
+        if unidentified:
+            self._state.incr(_UNIDENTIFIED_KEY, unidentified, lifetime=Lifetime.PERSISTENT)
+        return found
+
     @staticmethod
     def _total(seen: Mapping[str, Mapping[str, Any]]) -> int:
-        """Distinct ``(entity, track_id)`` pairs across every bucket."""
+        """Distinct ``(entity, dedup_key)`` pairs across every bucket."""
         return sum(len(bucket) for bucket in seen.values())
 
     # -- per window ---------------------------------------------------------

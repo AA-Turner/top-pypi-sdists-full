@@ -1090,3 +1090,98 @@ class TestRegionalConfigKeys(unittest.TestCase):
 
         src = inspect.getsource(mod.run)
         self.assertIn("s2s_countries not in the yield table", src)
+
+
+class TestPredictorPanel(unittest.TestCase):
+    """run() persists the fitted predictors so the heatmaps never recompute
+    them. The panel must carry provenance (hindcast / climatology_fill /
+    forecast) because the fill years are excluded from BOTH training and
+    the figures, and the two layers used to disagree about which years
+    those are (viz REAL_YEARS vs experiments EVAL_SPAN)."""
+
+    @staticmethod
+    def _fx(years, fnids, hy=None):
+        import numpy as np
+        import pandas as pd
+
+        rows = []
+        for y in years:
+            for i, f in enumerate(fnids):
+                rows.append({"fnid": f, "year": y,
+                             "z_PRCPTOT": 0.1 * y % 3 + 0.01 * i,
+                             "z_P_GF": -0.05 * (y % 5) + 0.02 * i})
+        return pd.DataFrame(rows)
+
+    def test_rows_carry_kind_value_and_months(self):
+        from geocif.experiments.s2s_africa import predictor_panel_rows
+
+        feats = ["z_PRCPTOT", "z_P_GF"]
+        fx_h = self._fx(range(1995, 2019), ["A", "B", "C"])
+        fx_f = self._fx([2027], ["A", "B", "C"])
+        rows = predictor_panel_rows(
+            "Malawi", "maize", "Main", fx_h, fx_f, feats,
+            planting=11, offset=3, wraps=True, harvest_year=2027)
+        import pandas as pd
+
+        df = pd.DataFrame(rows)
+        # provenance: hindcast era ends where the real inits end (wraps ->
+        # 2017 harvest uses the 2016 init); later joined years are fill
+        self.assertEqual(set(df.loc[df.year <= 2017, "kind"]), {"hindcast"})
+        self.assertEqual(set(df.loc[(df.year > 2017) & (df.year < 2027),
+                                    "kind"]), {"climatology_fill"})
+        self.assertEqual(set(df.loc[df.year == 2027, "kind"]), {"forecast"})
+        # value is the mean across units, not any single unit's row
+        one = df[(df.year == 1995) & (df.predictor == "z_PRCPTOT")]
+        expect = fx_h[fx_h.year == 1995]["z_PRCPTOT"].mean()
+        self.assertAlmostEqual(float(one["value"].iloc[0]), expect, places=4)
+        self.assertTrue((df.n_units == 3).all())
+        # months metadata: Nov planting at offset 3 keeps the whole season
+        self.assertEqual(df["season_months"].iloc[0], "11,12,1,2")
+        self.assertEqual(df["gf_months"].iloc[0], "1,2")
+        self.assertEqual(int(df["init_year"].iloc[0]), 2026)
+        self.assertEqual(int(df["init_month"].iloc[0]), 8)
+
+    def test_forecast_rows_come_only_from_the_forecast_frame(self):
+        """fx_h can never contribute a 'forecast' row, and a missing
+        forecast frame yields hindcast rows only."""
+        from geocif.experiments.s2s_africa import predictor_panel_rows
+        import pandas as pd
+
+        feats = ["z_PRCPTOT", "z_P_GF"]
+        fx_h = self._fx(range(1995, 2000), ["A", "B"])
+        rows = predictor_panel_rows(
+            "Malawi", "maize", "Main", fx_h, None, feats,
+            planting=11, offset=3, wraps=True, harvest_year=2027)
+        df = pd.DataFrame(rows)
+        self.assertNotIn("forecast", set(df.kind))
+
+    def test_run_wires_the_panel_next_to_the_fit(self):
+        """Parsed, not grepped: inspect.getsource includes comments, so a
+        substring check passes with the whole feature commented out."""
+        import ast
+        import inspect
+        import textwrap
+
+        from geocif.experiments import s2s_africa as mod
+
+        tree = ast.parse(textwrap.dedent(inspect.getsource(mod.run)))
+        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+        names = {n.func.id for n in calls if isinstance(n.func, ast.Name)}
+        self.assertIn("predictor_panel_rows", names)
+        # the panel captures the UNCLIPPED forecast features, so
+        # out-of-support saturation stays visible on the heatmap
+        panel_call = next(n for n in calls
+                          if isinstance(n.func, ast.Name)
+                          and n.func.id == "predictor_panel_rows")
+        args = [x.id for x in panel_call.args if isinstance(x, ast.Name)]
+        self.assertIn("fx_h", args)
+        self.assertIn("fx_f", args)
+        self.assertNotIn("fxc", args, "clipped features would hide the "
+                                      "out-of-support saturation")
+        # ...and it is actually written out
+        writes = [n for n in calls
+                  if isinstance(n.func, ast.Attribute)
+                  and n.func.attr == "to_csv"]
+        consts = {c.value for w in writes for c in ast.walk(w)
+                  if isinstance(c, ast.Constant) and isinstance(c.value, str)}
+        self.assertIn("predictors.csv", consts)

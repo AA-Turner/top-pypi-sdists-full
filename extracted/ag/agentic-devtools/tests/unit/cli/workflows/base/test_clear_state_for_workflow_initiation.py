@@ -6,6 +6,24 @@ from agentic_devtools import state
 from agentic_devtools.cli.workflows.base import clear_state_for_workflow_initiation
 
 
+class _Cp1252Stream:
+    """Stream that rejects non-ASCII text like a cp1252 console."""
+
+    encoding = "cp1252"
+
+    def __init__(self) -> None:
+        self.writes: list[str] = []
+
+    def write(self, text: str) -> int:
+        if any(ord(character) > 127 for character in text):
+            raise UnicodeEncodeError("charmap", text, 0, len(text), "character maps to <undefined>")
+        self.writes.append(text)
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+
 class TestClearStateForWorkflowInitiation:
     """Tests for clear_state_for_workflow_initiation function."""
 
@@ -131,3 +149,18 @@ class TestClearStateForWorkflowInitiation:
             clear_state_for_workflow_initiation(preserve_run_id=True)
 
         assert mock_save.call_count <= 1
+
+    def test_reset_message_falls_back_to_ascii_on_encoding_error(self, temp_state_dir):
+        """Should clear state and retry the reset message with an ASCII marker."""
+        state.set_value("workflow", {"name": "test"})
+        state.set_value("agdt_run_id", "abc123")
+        stream = _Cp1252Stream()
+
+        with patch("agentic_devtools.cli.workflows.base.sys.stdout", stream):
+            clear_state_for_workflow_initiation()
+
+        output = "".join(stream.writes)
+        assert "[OK] Reset workflow tracking state" in output
+        assert output.isascii()
+        assert state.get_value("workflow") is None
+        assert state.get_value("agdt_run_id") is None

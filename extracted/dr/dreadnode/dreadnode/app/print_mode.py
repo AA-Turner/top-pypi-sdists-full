@@ -12,10 +12,14 @@ from dreadnode.app.client.runtime_client import DEFAULT_MODEL
 from dreadnode.app.tui import wire_events as we
 from dreadnode.app.tui.wire_events import parse_wire_event
 
+if t.TYPE_CHECKING:
+    from dreadnode.app.config import Profile
+
 
 async def run_print_mode(
     prompt: str,
     *,
+    profile: "Profile | None" = None,
     model: str | None = None,
     agent: str | None = None,
     capabilities_dirs: list[str] | None = None,
@@ -26,11 +30,24 @@ async def run_print_mode(
     platform_url: str | None = None,
     project_memory_preload_limit: int = 20,
 ) -> None:
-    """Run a single prompt headlessly: stream response text to stdout, progress to stderr."""
+    """Run a single prompt headlessly: stream response text to stdout, progress to stderr.
 
-    # Resolve model: explicit flag > profile default > hardcoded default
+    ``profile`` is the caller's already-resolved profile — the CLI passes the
+    one built from ``--profile`` plus the scope flags and ``DREADNODE_*`` env
+    vars. Without it the profile is re-derived from whichever entry is active
+    on disk, which drops every one of those overrides.
+    """
+
+    # Resolve model: explicit flag > profile default > hardcoded default. With
+    # a resolved profile in hand the disk fallback is skipped entirely — it
+    # reads whichever profile is active on disk, which is not necessarily the
+    # one ``--profile`` selected.
     if model is None:
-        model = _resolve_default_model(platform_url)
+        model = (
+            (profile.default_model or DEFAULT_MODEL)
+            if profile is not None
+            else _resolve_default_model(platform_url)
+        )
 
     client = ManagedRuntimeClient(
         server_url=server_url,
@@ -42,7 +59,10 @@ async def run_print_mode(
     )
 
     # Load platform profile if available
-    _apply_platform_profile(client, platform_url)
+    if profile is not None:
+        client.set_platform_profile(profile)
+    else:
+        _apply_platform_profile(client, platform_url)
 
     # Suppress noisy library output (litellm ANSI errors, etc.) from stdout/stderr
     # by redirecting litellm's output during the run.

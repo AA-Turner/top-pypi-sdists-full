@@ -1026,18 +1026,16 @@ fn state_hash(frontier: &[FEntry]) -> u64 {
 ///
 /// Every generated frontier entry is already standardized and canonicalized
 /// with the stock-identity policy. The one externally supplied root entry is
-/// inserted into `cache` from its parsed molecule before search starts. A
-/// direct set miss can therefore be cached as `false` without reparsing and
-/// restandardizing the same canonical SMILES on the hot path.
+/// inserted into `cache` from its parsed molecule before search starts. Both
+/// positive and negative lookups are memoized, so repeated frontier visits do
+/// not even repeat the stock-set hash lookup on the hot path.
 fn is_bb_cached(smiles: &str, env: &ChemEnv, cache: &mut FxHashMap<String, bool>) -> bool {
-    if env.is_building_block_smiles(smiles) {
-        return true;
-    }
     if let Some(&cached) = cache.get(smiles) {
         return cached;
     }
-    cache.insert(smiles.to_owned(), false);
-    false
+    let matched = env.is_building_block_smiles(smiles);
+    cache.insert(smiles.to_owned(), matched);
+    matched
 }
 
 /// Pluggable molecule value estimator for the A* heuristic (Retro*-style).
@@ -1249,7 +1247,10 @@ impl TemplatePolicyPrior {
         {
             return scores.clone();
         }
-        let decision = self.policy.rank_templates(target, &self.templates);
+        // The manifest contract is canonical-smiles-v1. Use the same
+        // standardized canonical key for the model call and the cache so
+        // equivalent input spellings cannot produce different orderings.
+        let decision = self.policy.rank_templates(&cache_key, &self.templates);
         let known: std::collections::HashSet<&str> = self
             .templates
             .iter()
@@ -5559,6 +5560,34 @@ mod tests {
     }
 
     #[test]
+    fn template_policy_receives_standardized_canonical_target() {
+        struct RecordingPolicy {
+            targets: std::sync::Mutex<Vec<String>>,
+        }
+
+        impl TemplatePolicy for RecordingPolicy {
+            fn rank_templates(
+                &self,
+                target: &str,
+                _templates: &[TemplateInfo],
+            ) -> TemplatePolicyDecision {
+                self.targets.lock().unwrap().push(target.to_owned());
+                TemplatePolicyDecision::default()
+            }
+        }
+
+        let rules = default_rules();
+        let policy = std::sync::Arc::new(RecordingPolicy {
+            targets: std::sync::Mutex::new(Vec::new()),
+        });
+        let prior = TemplatePolicyPrior::new(policy.clone(), &rules);
+        let _ = prior.prior(&rules[0].name, "OCC");
+        let expected = canonical_stock_identity_from_smiles("OCC").unwrap();
+
+        assert_eq!(policy.targets.lock().unwrap().as_slice(), [expected]);
+    }
+
+    #[test]
     fn direct_generator_entries_keep_checked_proposals_in_search_shape() {
         struct FixtureGenerator;
         impl crate::retro_generator::RetroGenerator for FixtureGenerator {
@@ -5752,6 +5781,8 @@ mod tests {
 
         assert!(!is_bb_cached(&ethane, &env, &mut cache));
         assert_eq!(cache.get(&ethane), Some(&false));
+        assert!(is_bb_cached(&ethanol, &env, &mut cache));
+        assert_eq!(cache.get(&ethanol), Some(&true));
         assert!(is_bb_cached(&ethanol, &env, &mut cache));
     }
 

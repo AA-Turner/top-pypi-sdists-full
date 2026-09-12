@@ -233,6 +233,16 @@ class PermissionName(str, Enum):
     DASHBOARD_READ = 'dashboard_read'
     DASHBOARD_UPDATE = 'dashboard_update'
     DASHBOARD_DELETE = 'dashboard_delete'
+    ORGANIZATION_CREATE_DISCOVERY_SOURCE = 'organization_create_discovery_source'
+    ORGANIZATION_LIST_DISCOVERY_SOURCES = 'organization_list_discovery_sources'
+    DISCOVERY_SOURCE_READ = 'discovery_source_read'
+    DISCOVERY_SOURCE_UPDATE = 'discovery_source_update'
+    DISCOVERY_SOURCE_DELETE = 'discovery_source_delete'
+    ORGANIZATION_CREATE_DISCOVERY_SOURCE_CONFIG = 'organization_create_discovery_source_config'
+    ORGANIZATION_LIST_DISCOVERY_SOURCE_CONFIGS = 'organization_list_discovery_source_configs'
+    DISCOVERY_SOURCE_CONFIG_READ = 'discovery_source_config_read'
+    DISCOVERY_SOURCE_CONFIG_UPDATE = 'discovery_source_config_update'
+    DISCOVERY_SOURCE_CONFIG_DELETE = 'discovery_source_config_delete'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

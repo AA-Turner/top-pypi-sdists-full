@@ -213,6 +213,37 @@ class Profile(BaseModel):
             copy._project = project
         return copy
 
+    def with_scope(
+        self,
+        *,
+        organization: t.Any = UNSET,
+        workspace: t.Any = UNSET,
+        project: t.Any = UNSET,
+    ) -> "Profile":
+        """Return a copy whose saved scope is the one given, with no overrides left.
+
+        For scope *switches* — the ``/workspace`` command, the workspace
+        picker, cross-workspace resume — where the chosen value has to become
+        the effective one. ``model_copy`` carries the ephemeral CLI/env
+        overrides across, and those win over the persisted defaults, so a copy
+        that only rewrote ``default_*`` would report the old scope from every
+        accessor and leave the runtime pointed at it.
+
+        Arguments left ``UNSET`` keep their saved value; ``None`` clears it.
+        """
+        update: dict[str, t.Any] = {}
+        if organization is not UNSET:
+            update["default_organization"] = organization
+        if workspace is not UNSET:
+            update["default_workspace"] = workspace
+        if project is not UNSET:
+            update["default_project"] = project
+        copy = self.model_copy(update=update)
+        copy._organization = UNSET
+        copy._workspace = UNSET
+        copy._project = UNSET
+        return copy
+
     def validate_scope(self, api: "ApiClient") -> None:
         """Validate scope against server, fill gaps.  Mutates private attrs only.
 

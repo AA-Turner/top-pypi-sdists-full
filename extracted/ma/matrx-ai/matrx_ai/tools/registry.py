@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
-import sys
 import traceback
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -52,20 +50,29 @@ async def _capture_definition_load_failure(
 def _schedule_definition_load_failure(
     exc: BaseException, *, tool_name: str, row: dict[str, Any]
 ) -> None:
-    """Persist async startup/reload failures when an event loop is available."""
+    """Persist a definition load failure durably — detached on a running loop,
+    synchronously (``asyncio.run``) when called from a sync load path such as
+    a script or sync boot, so a row that failed to load is never only a
+    console line."""
+    coro = _capture_definition_load_failure(
+        exc,
+        tool_name=tool_name,
+        tool_id=str(row["id"]) if row.get("id") else None,
+        source_kind=str(row["source_kind"]) if row.get("source_kind") else None,
+    )
     try:
         asyncio.get_running_loop()
     except RuntimeError:
+        try:
+            asyncio.run(coro)
+        except Exception as capture_exc:  # noqa: BLE001 - capture must never break a load
+            vcprint(
+                f"[ToolRegistry] definition-load failure capture failed: {capture_exc!r} "
+                f"(original: {exc!r} for tool {tool_name!r})",
+                color="red",
+            )
         return
-    detached_task(
-        _capture_definition_load_failure(
-            exc,
-            tool_name=tool_name,
-            tool_id=str(row["id"]) if row.get("id") else None,
-            source_kind=str(row["source_kind"]) if row.get("source_kind") else None,
-        ),
-        name="capture_tool_registry_definition_load_failure",
-    )
+    detached_task(coro, name="capture_tool_registry_definition_load_failure")
 
 
 class ToolRegistry:
@@ -835,7 +842,11 @@ class ToolRegistry:
     async def _fetch_tools_async() -> list[dict[str, Any]]:
         try:
             items = await get_tool_def_manager().filter_items(is_active=True)
-            return [item.to_dict() for item in items]
+            # ORM serialization recursively walks arbitrary tool JSON schemas.
+            # A registry refresh is triggered by an async LISTEN callback, so
+            # doing that CPU-bound walk on the request loop freezes the whole
+            # API process for the duration of a large catalog reload.
+            return await asyncio.to_thread(lambda: [item.to_dict() for item in items])
         except Exception as exc:
             vcprint(
                 {
@@ -1283,23 +1294,13 @@ class ToolRegistry:
             function_path = f"matrx_ai.{function_path}"
         module_path, func_name = function_path.rsplit(".", 1)
         # Tool definitions are persisted and may name an extension module, so
-        # this is intentionally an open dotted-path seam.  Use the import-spec
-        # protocol rather than an opaque computed import_module() call: it
-        # preserves unloaded third-party tools and lets the mandate scanner
-        # inspect every normal package import independently.
-        module = sys.modules.get(module_path)
-        if module is None:
-            spec = importlib.util.find_spec(module_path)
-            if spec is None or spec.loader is None:
-                raise ModuleNotFoundError(f"No importable tool module named {module_path!r}")
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[module_path] = module
-            try:
-                spec.loader.exec_module(module)
-            except Exception:
-                if sys.modules.get(module_path) is module:
-                    sys.modules.pop(module_path, None)
-                raise
+        # this is an open dotted-path seam by design. It loads through THE
+        # declared-module seam (matrx_utils.module_loading): normal import
+        # semantics, provider SDK names refused at runtime, and a fact the
+        # mandate/provider scan can see.
+        from matrx_utils.module_loading import load_declared_module
+
+        module = load_declared_module(module_path)
         func = getattr(module, func_name)
         return func
 

@@ -45,7 +45,7 @@ def test_z_interp_log(
         expected_y = np.log10(level) / 2.5
         lines = cont_gen.lines(level)
         if TYPE_CHECKING:
-            lines = cast(cpy.LineReturn_Separate, lines)
+            lines = cast("cpy.LineReturn_Separate", lines)
         assert len(lines) == 1
         line_y = lines[0][:, 1]
         assert_allclose(line_y, expected_y, atol=1e-15)
@@ -63,7 +63,7 @@ def test_z_interp_log(
         for i, level in enumerate(levels):
             lines = cont_gen.lines(func(level))
             if TYPE_CHECKING:
-                lines = cast(cpy.LineReturn_Separate, lines)
+                lines = cast("cpy.LineReturn_Separate", lines)
             assert len(lines) == 1
             assert_allclose(lines[0], all_lines[i][0], atol=1e-15)
 
@@ -79,7 +79,7 @@ def test_z_interp_log_saddle(name: str) -> None:
     for level in [1.1, 9.9, 10.1, 99.9]:
         lines = cont_gen.lines(level)
         if TYPE_CHECKING:
-            lines = cast(cpy.LineReturn_Separate, lines)
+            lines = cast("cpy.LineReturn_Separate", lines)
         assert len(lines) == 2
         for line in lines:
             assert line.shape == (2, 2)
@@ -102,5 +102,5 @@ def test_z_interp_negative(name: str) -> None:
             _ = contour_generator(z=z, name=name, z_interp=ZInterp.Log)
 
     # Mask out negative value so no exception.
-    z = np.ma.masked_less_equal(z, 0.0)  # type: ignore[no-untyped-call]
+    z = np.ma.masked_less_equal(z, 0.0)
     _ = contour_generator(z=z, name=name, z_interp=ZInterp.Log)

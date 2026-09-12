@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skpro
-Version: 2.15.0
+Version: 2.15.1
 Summary: A unified framework for tabular probabilistic regression, time-to-event prediction, and probability distributions in python
 Author: Franz Király
 Author-email: skpro developers <info@sktime.net>
@@ -32,11 +32,11 @@ Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
-Requires-Dist: numpy<2.5,>=1.21.0
+Requires-Dist: numpy<2.6,>=1.21.0
 Requires-Dist: pandas<3.1.0,>=1.1.0
 Requires-Dist: packaging
 Requires-Dist: scikit-base<1.2.0,>=0.6.1
-Requires-Dist: scikit-learn<1.8.0,>=0.24.0
+Requires-Dist: scikit-learn<1.10.0,>=0.24.0
 Requires-Dist: scipy<2.0.0,>=1.2.0
 Provides-Extra: all-extras
 Requires-Dist: distfit; python_version < "3.13" and extra == "all-extras"
@@ -73,7 +73,7 @@ Dynamic: license-file
 
 <a href="https://skpro.readthedocs.io/en/latest"><img src="https://github.com/sktime/skpro/blob/main/docs/source/images/skpro-banner.png" width="500" align="right" /></a>
 
-:rocket: **Version 2.11.0 out now!** [Read the release notes here.](https://skpro.readthedocs.io/en/latest/changelog.html).
+:rocket: **Version 2.15.1 out now!** [Read the release notes here.](https://skpro.readthedocs.io/en/latest/changelog.html).
 
 `skpro` is a library for supervised probabilistic prediction in python.
 It provides `scikit-learn`-like, `scikit-base` compatible interfaces to:

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote
 
-from ...state import get_state_dir, is_safe_dir_segment, read_modify_write_state
+from ...state import get_state_dir, get_value, is_safe_dir_segment, read_modify_write_state
 from ..subprocess_utils import run_safe
 from .auth import get_auth_headers, get_pat
 from .config import (
@@ -1149,6 +1149,12 @@ def resolve_review_artifact_dir_name(
                     file=sys.stderr,
                 )
             return fallback
+        configured_dir_name = get_value("review.artifact_dir_name")
+        configured_pr_id = get_value("review.artifact_dir_pr_id")
+        if isinstance(configured_dir_name, str) and str(configured_pr_id) == str(pull_request_id):
+            configured_dir_name = configured_dir_name.strip()
+            if configured_dir_name and is_safe_dir_segment(configured_dir_name):
+                return configured_dir_name
         candidate = _discover_commit_hash_short_fallback(pull_request_id, get_state_dir())
         if candidate is not None:
             resolved = candidate

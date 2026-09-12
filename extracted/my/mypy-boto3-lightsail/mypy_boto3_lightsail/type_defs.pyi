@@ -280,6 +280,7 @@ __all__ = (
     "DiskSnapshotTypeDef",
     "DiskTypeDef",
     "DistributionBundleTypeDef",
+    "DistributionCustomErrorResponseTypeDef",
     "DnsRecordCreationStateTypeDef",
     "DomainEntryOutputTypeDef",
     "DomainEntryTypeDef",
@@ -866,6 +867,12 @@ class InstanceEntryTypeDef(TypedDict):
     availabilityZone: str
     userData: NotRequired[str]
 
+class DistributionCustomErrorResponseTypeDef(TypedDict):
+    errorCode: NotRequired[int]
+    responseCode: NotRequired[str]
+    responsePagePath: NotRequired[str]
+    errorCachingMinTTL: NotRequired[int]
+
 class InputOriginTypeDef(TypedDict):
     name: NotRequired[str]
     regionName: NotRequired[RegionNameType]
@@ -1348,6 +1355,7 @@ class OriginTypeDef(TypedDict):
     protocolPolicy: NotRequired[OriginProtocolPolicyEnumType]
     responseTimeout: NotRequired[int]
     ipAddressType: NotRequired[OriginIpAddressTypeEnumType]
+    isPrivateOriginAccessEnabled: NotRequired[bool]
 
 class LoadBalancerTlsCertificateDnsRecordCreationStateTypeDef(TypedDict):
     code: NotRequired[LoadBalancerTlsCertificateDnsRecordCreationStateCodeType]
@@ -2783,6 +2791,8 @@ class LightsailDistributionTypeDef(TypedDict):
     ipAddressType: NotRequired[IpAddressTypeType]
     tags: NotRequired[list[TagTypeDef]]
     viewerMinimumTlsProtocolVersion: NotRequired[str]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[list[DistributionCustomErrorResponseTypeDef]]
 
 CacheSettingsUnionTypeDef = Union[CacheSettingsTypeDef, CacheSettingsOutputTypeDef]
 
@@ -2992,6 +3002,9 @@ class CreateDistributionRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
     certificateName: NotRequired[str]
     viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
 
 class UpdateDistributionRequestTypeDef(TypedDict):
     distributionName: str
@@ -3003,6 +3016,9 @@ class UpdateDistributionRequestTypeDef(TypedDict):
     viewerMinimumTlsProtocolVersion: NotRequired[ViewerMinimumTlsProtocolVersionEnumType]
     certificateName: NotRequired[str]
     useDefaultCertificate: NotRequired[bool]
+    enablePrivateOriginAccess: NotRequired[bool]
+    defaultRootObject: NotRequired[str]
+    customErrorResponses: NotRequired[Sequence[DistributionCustomErrorResponseTypeDef]]
 
 class ContainerServiceTypeDef(TypedDict):
     containerServiceName: NotRequired[str]

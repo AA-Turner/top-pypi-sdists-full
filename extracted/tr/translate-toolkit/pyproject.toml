@@ -24,7 +24,7 @@ lint = [
   {include-group = "pylint"}
 ]
 pre-commit = [
-  "prek==0.5.0"
+  "prek==0.5.2"
 ]
 pylint = [
   "pylint==4.0.8"
@@ -37,7 +37,7 @@ test = [
 ]
 types = [
   "setuptools>=61.2",
-  "ty==0.0.77",
+  "ty==0.0.80",
   "types-lxml==2026.2.16"
 ]
 

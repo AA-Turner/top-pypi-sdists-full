@@ -90,6 +90,12 @@ class AgentProduceInput(AgentStartInput, MandateSelectorInput):
     shared resolver refuses both.
     """
 
+    # Pydantic merges multiple-inheritance config from left to right, so the
+    # strict MandateSelectorInput base would otherwise overwrite
+    # AgentStartInput's dynamic variable-port contract. Produce nodes accept
+    # the same author-exposed top-level variables as Run Agent.
+    model_config = ConfigDict(extra="allow")
+
 
 class AgentProducedOutput(BaseModel):
     """The kind's own payload, verbatim — this node's output IS the answer.
@@ -133,7 +139,9 @@ def _declared_kind(ctx: NodeExecutionContext) -> str:
     return kind
 
 
-def _assert_declarations_agree(ctx: NodeExecutionContext, kind: str, mandate_kind: str | None) -> None:
+def _assert_declarations_agree(
+    ctx: NodeExecutionContext, kind: str, mandate_kind: str | None
+) -> None:
     """The graph's declaration and the Mandate's must be the same kind.
 
     A mandate that declares nothing structural (``text`` / ``json`` / unset, or

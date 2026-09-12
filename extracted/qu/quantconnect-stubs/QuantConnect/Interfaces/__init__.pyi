@@ -1948,6 +1948,15 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
 
     @property
     @abc.abstractmethod
+    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """
+        Gets a read-only view of the brokerage data shared by the brokerage, data queue handler or any other component,
+        for example account information. Usually empty when not running in live mode
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
     def current_slice(self) -> QuantConnect.Data.Slice:
         """Returns the current Slice object"""
         ...
@@ -2355,6 +2364,14 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
         Set the available TickType supported by each SecurityType in SecurityManager
         
         :param available_data_types: >The different TickType each Security supports
+        """
+        ...
+
+    def set_brokerage_data(self, brokerage_data: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+        """
+        Sets the brokerage data read-only view
+        
+        :param brokerage_data: The brokerage data
         """
         ...
 

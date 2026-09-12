@@ -112,6 +112,7 @@ class Exceptions(BaseClientExceptions):
     NotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     TooManyRequestsException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
 
 
 class MediaConvertClient(BaseClient):

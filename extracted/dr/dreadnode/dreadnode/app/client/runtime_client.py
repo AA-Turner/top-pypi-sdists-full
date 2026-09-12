@@ -12,6 +12,7 @@ import json
 import os
 import time
 import typing as t
+import warnings
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
@@ -760,11 +761,11 @@ class RuntimeClient:
         return session
 
     @contextlib.asynccontextmanager
-    async def workflow(
+    async def session_group(
         self,
         title: str,
         *,
-        kind: t.Literal["worker_run", "evaluation_item", "workflow"] = "workflow",
+        kind: t.Literal["worker_run", "evaluation_item", "workflow", "workflow_run"] = "workflow",
         project: str | None = None,
         capability: str | None = None,
         capability_version: str | None = None,
@@ -776,6 +777,11 @@ class RuntimeClient:
         If the local runtime is not connected to the platform, the context still
         runs and yields ``None`` so capability logic does not fail just because
         grouping is unavailable.
+
+        Note on ``kind``: the default ``"workflow"`` is the historical value for
+        these ad-hoc groupings and is kept for compatibility. **Authored
+        workflow runs use ``"workflow_run"``** — a distinct literal, so ad-hoc
+        groupings can never be mistaken for real runs of a compiled workflow.
         """
         await self.start()
         group_id: str | None = None
@@ -828,6 +834,43 @@ class RuntimeClient:
                     )
         finally:
             self._active_session_group_id.reset(token)
+
+    def workflow(
+        self,
+        title: str,
+        *,
+        kind: t.Literal["worker_run", "evaluation_item", "workflow", "workflow_run"] = "workflow",
+        project: str | None = None,
+        capability: str | None = None,
+        capability_version: str | None = None,
+        worker: str | None = None,
+        metadata: dict[str, t.Any] | None = None,
+    ) -> t.AsyncContextManager[str | None]:
+        """Deprecated alias for :meth:`session_group`.
+
+        Renamed because "workflow" now means an *authored* workflow — a compiled
+        graph of typed events and steps executed by a scheduler. This method only
+        ever created a session grouping, which is a different thing, and having
+        one word mean both is a permanent support and documentation hazard.
+
+        Kept working so existing capability code does not break. Prefer
+        :meth:`session_group`.
+        """
+        warnings.warn(
+            "RuntimeClient.workflow() is deprecated; use RuntimeClient.session_group(). "
+            "'workflow' now refers to an authored workflow definition.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.session_group(
+            title,
+            kind=kind,
+            project=project,
+            capability=capability,
+            capability_version=capability_version,
+            worker=worker,
+            metadata=metadata,
+        )
 
     async def get_session(self, session_id: str) -> models.SessionInfo | None:
         """Fetch a single session by id, hydrating from the platform if needed.

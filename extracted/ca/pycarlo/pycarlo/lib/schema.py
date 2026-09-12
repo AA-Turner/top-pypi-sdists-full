@@ -12238,8 +12238,8 @@ class ConversationEvalDimensionInput(sgqlc.types.Input):
     (unknown template, both/neither set, oversize custom criteria)
     abort the entire request via a top-level GraphQL error. Per-
     dimension ``error`` fields in the result are reserved for
-    dispatcher-side failures (Bedrock invocation timeout, malformed
-    model response).
+    execution failures (warehouse evaluation timeout, malformed model
+    response).
     """
 
     __schema__ = schema
@@ -22951,6 +22951,9 @@ class AgentCost(sgqlc.types.Type):
         "cache_savings",
         "trace_count",
         "conversation_count",
+        "warehouse_cost",
+        "warehouse_cost_as_of",
+        "warehouse_cost_available",
         "traces",
         "conversations",
         "series",
@@ -22970,14 +22973,46 @@ class AgentCost(sgqlc.types.Type):
     trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
     """How many traces the window total covers. Counts only traces with a
     priced span, so it is not the trace count the summary read
-    reports. None when the read was scoped to traces, conversations or
-    buckets.
+    reports. None when the read was scoped to traces or conversations.
     """
 
     conversation_count = sgqlc.types.Field(Int, graphql_name="conversationCount")
     """How many conversations the window total covers. A Cortex thread id
     of '0' reads as no conversation and is not counted. None when the
-    read was scoped to traces, conversations or buckets.
+    read was scoped to traces or conversations.
+    """
+
+    warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
+    """The warehouse compute credits Snowflake attributes to this agent's
+    SQL queries over the window, in `costUnit` -- the same credits
+    `cost` counts tokens in. A lower bound on the agent's share of the
+    bill: warehouse idle time belongs to no query and is attributed to
+    none. Zero when the window attributed nothing, which is what an
+    agent served entirely from the result cache costs. None when the
+    attribution view could not be read: the collector role may lack
+    IMPORTED PRIVILEGES ON DATABASE SNOWFLAKE, or the read may run
+    past its statement timeout on a wide window, which the warehouse
+    answers by cancelling the query. Set when the window was read
+    whole -- unscoped, with or without a bucket size.
+    """
+
+    warehouse_cost_as_of = sgqlc.types.Field(DateTime, graphql_name="warehouseCostAsOf")
+    """How far `warehouseCost` has filled in: the latest query end the
+    attribution view covers in the window. Account-wide rather than
+    this agent's, so it reads as the view's coverage of the window.
+    Attribution trails execution by about three hours, so a window
+    that just ended is not done filling. A span breakdown sets it the
+    same way, from the latest attribution cutoff its rows carry. None
+    when the view could not be read, when nothing in the window was
+    attributed account-wide, or -- on a breakdown -- when its traces
+    recorded no query ids, leaving no row to carry the cutoff.
+    """
+
+    warehouse_cost_available = sgqlc.types.Field(Boolean, graphql_name="warehouseCostAvailable")
+    """Whether the attribution read behind the spans' `warehouseCost`
+    answered. False means a span's null `warehouseCost` says the read
+    failed -- the grant missing, or the request's budget spent -- not
+    that the span ran no SQL. Set on a span breakdown only.
     """
 
     traces = sgqlc.types.Field(
@@ -30496,10 +30531,7 @@ class ConversationEvalDimensionError(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("kind", "message")
     kind = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="kind")
-    """Failure category. One of SPAN_REJECTED, TEMPLATE_NOT_FOUND,
-    SQL_TEMPLATE_UNSUPPORTED, CATALOG_INCONSISTENT,
-    MALFORMED_RESPONSE, INVOCATION_FAILED, TIMEOUT.
-    """
+    """Failure category for this dimension."""
 
     message = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="message")
     """Human-readable failure detail."""
@@ -30514,7 +30546,7 @@ class ConversationEvalResult(sgqlc.types.Type):
     """Conversation id evaluated"""
 
     model_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="modelId")
-    """Resolved Bedrock model id used for the evaluations"""
+    """Model id used for the evaluations"""
 
     eval_dimensions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationEvalDimension))),
@@ -30721,8 +30753,8 @@ class ConversationMessageV2(sgqlc.types.Type):
 
 
 class ConversationSpan(sgqlc.types.Type):
-    """A single LLM span in a conversation thread (has_prompts or
-    has_completions).
+    """A single span in a conversation thread (is_tool_call, has_prompts,
+    or has_completions).
     """
 
     __schema__ = schema
@@ -31175,10 +31207,22 @@ class CostAgentWarehouseScopeOutput(sgqlc.types.Type):
 
 class CostBucket(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("bucket_start", "cost")
+    __field_names__ = ("bucket_start", "cost", "warehouse_cost")
     bucket_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="bucketStart")
 
     cost = sgqlc.types.Field(Float, graphql_name="cost")
+
+    warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
+    """The warehouse compute credits Snowflake attributes to this agent's
+    SQL queries whose spans fall in the bucket, in the response's
+    `costUnit`. Zero when the bucket's queries attributed nothing. A
+    query whose span carries no trace id -- or whose trace's spans all
+    match the SqlExecution_CortexAnalyst exclusion -- counts in the
+    response's `warehouseCost` but lands in no bucket, so the rows can
+    sum below it. None for every bucket when the attribution view
+    could not be read -- the agent-level `warehouseCostAsOf` is None
+    then too.
+    """
 
 
 class CostTimeSeriesPointOutput(sgqlc.types.Type):
@@ -78717,13 +78761,17 @@ class Query(sgqlc.types.Type):
     """(experimental) Cost of an agent's model calls over a time range,
     in the unit its platform bills. With none of traceIds,
     conversationIds, bucketSize or spanBreakdown set, it also returns
-    cacheSavings, traceCount and conversationCount for that window.
-    Read separately from the trace and summary queries because it
-    crosses to the customer's warehouse — the prompt-cache counts it
-    needs exist nowhere else — so a client can render first and fill
-    cost in after. Returns empty for any agent whose platform
-    publishes no per-token cost; today that is everything except
-    Cortex.
+    cacheSavings, traceCount, conversationCount, warehouseCost and
+    warehouseCostAsOf for that window. A bucketSize with no traceIds
+    or conversationIds returns the window whole: those same figures
+    alongside the series, each bucket carrying its attributed
+    warehouse credits beside the token cost, so the summary page's
+    cards and chart load from a single call. Read separately from the
+    trace and summary queries because it crosses to the customer's
+    warehouse — the prompt-cache counts it needs exist nowhere else —
+    so a client can render first and fill cost in after. Returns empty
+    for any agent whose platform publishes no per-token cost; today
+    that is everything except Cortex.
 
     Arguments:
 
@@ -78737,23 +78785,27 @@ class Query(sgqlc.types.Type):
     * `conversation_ids` (`[String!]`): Scope to these conversations
       and return one cost per conversation. Cannot be combined with
       traceIds -- passing both is rejected.
-    * `bucket_size` (`TraceBucketSize`): Return a time series bucketed
-      at this size instead of a single total.
+    * `bucket_size` (`TraceBucketSize`): Bucket the window at this
+      size. Unscoped, the window total and its figures come back
+      alongside the series; scoped to traceIds, only the series.
     * `span_breakdown` (`Boolean`): Return one cost per LLM call in
       the traces named by traceIds -- the spans carrying a model or a
-      token count. Tool executions and the trace root carry neither
-      and are not returned. Each row carries the model, the four token
-      counts, and the four rates its price was computed from; cost is
-      null when the price book has no rate for the model. A single
-      component is indicative, not exact: Cortex's input count
-      includes its cache writes, so NEW_INPUT is overstated and cache
-      writes are counted twice. The components sum to the span's
-      total, and that total is the same value the other grains sum to
-      -- an estimate that converges over a window, not a figure to
-      reconcile one span against a bill. Requires traceIds (at most
-      100). Cannot be combined with bucketSize or conversationIds.
-      Defaults to false: omit it (or send false) to get the grain the
-      other arguments select.
+      token count -- plus, when the attribution view is readable, one
+      row per SqlExecution span, which carries no token cost but the
+      warehouse credits its queries were attributed. The response
+      carries warehouseCostAsOf, the account-wide attribution cutoff,
+      with the same meaning as the window grain's field. Each LLM row
+      carries the model, the four token counts, and the four rates its
+      price was computed from; cost is null when the price book has no
+      rate for the model. A single component is indicative, not exact:
+      Cortex's input count includes its cache writes, so NEW_INPUT is
+      overstated and cache writes are counted twice. The components
+      sum to the span's total, and that total is the same value the
+      other grains sum to -- an estimate that converges over a window,
+      not a figure to reconcile one span against a bill. Requires
+      traceIds (at most 100). Cannot be combined with bucketSize or
+      conversationIds. Defaults to false: omit it (or send false) to
+      get the grain the other arguments select.
     """
 
     get_agent_cost_totals = sgqlc.types.Field(
@@ -78978,9 +79030,10 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Get LLM spans for a conversation ordered
-    chronologically as a thread. Returns spans with has_prompts=true
-    or has_completions=true for the given conversation_id, enabling
-    inspection of the full prompt/completion exchange.
+    chronologically as a thread. Returns spans with is_tool_call=true,
+    has_prompts=true, or has_completions=true for the given
+    conversation_id, enabling inspection of the full prompt/completion
+    exchange.
 
     Arguments:
 
@@ -105961,6 +106014,7 @@ class SpanCost(sgqlc.types.Type):
         "model",
         "cost",
         "components",
+        "warehouse_cost",
     )
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """The span's stored id."""
@@ -105990,6 +106044,19 @@ class SpanCost(sgqlc.types.Type):
         graphql_name="components",
     )
     """The four terms the price sums."""
+
+    warehouse_cost = sgqlc.types.Field(Float, graphql_name="warehouseCost")
+    """The warehouse compute credits Snowflake attributes to the SQL
+    queries this span ran, in the response's `costUnit`. One span per
+    query carries the credits: the SqlExecution leaf that ran it, or
+    the tool wrapper above it when no leaf span recorded the query. A
+    SqlExecution span joins the breakdown with a null `cost` and no
+    components; a span that also carried tokens keeps its `cost`
+    alongside. Zero when the span's queries attributed nothing as of
+    the attribution cutoff. None when the span ran no warehouse SQL,
+    or when the attribution view could not be read -- then the SQL
+    spans are absent and every listed span's warehouseCost is None.
+    """
 
 
 class SpanCostComponent(sgqlc.types.Type):
@@ -114510,6 +114577,8 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "status",
         "tables",
         "assets",
+        "active_assets",
+        "active_fields",
         "audiences",
         "monitor_tags",
         "monitor_uuids",
@@ -114608,6 +114677,17 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     assets = sgqlc.types.Field(sgqlc.types.list_of(AssetOutput), graphql_name="assets")
     """Assets (MCONs) associated with the alert"""
+
+    active_assets = sgqlc.types.Field(sgqlc.types.list_of(AssetOutput), graphql_name="activeAssets")
+    """Assets (MCONs) associated with the alert's active events. Resolved
+    events are excluded: an event resolved on one table stops badging
+    that table while the alert stays active on another.
+    """
+
+    active_fields = sgqlc.types.Field(sgqlc.types.list_of(AssetOutput), graphql_name="activeFields")
+    """Fields (MCONs) breached by the alert's active field-metric events,
+    synthesized from event data.
+    """
 
     audiences = sgqlc.types.Field(sgqlc.types.list_of(AudienceRef), graphql_name="audiences")
     """List of audiences associated with the alert"""

@@ -40,7 +40,6 @@ from ..utils import (
     check_predict_input,
     check_residuals_input,
     check_interval,
-    _normalize_interval_scale,
     input_to_frame,
     exog_to_direct_numpy,
     expand_index,
@@ -2000,8 +1999,6 @@ class ForecasterDirect(ForecasterBase):
                 self.in_sample_residuals_by_bin_ = {}
                 for b in range(self.binner.n_bins_):
                     bin_residuals = residuals[bins == b]
-                    if len(bin_residuals) == 0:
-                        continue
                     if len(bin_residuals) > max_sample:
                         bin_residuals = bin_residuals[
                             rng.integers(low=0, high=len(bin_residuals), size=max_sample)
@@ -2633,7 +2630,7 @@ class ForecasterDirect(ForecasterBase):
         References
         ----------
         .. [1] MAPIE - Model Agnostic Prediction Interval Estimator.
-               https://mapie.readthedocs.io/en/stable/theoretical_description_regression.html#the-split-method
+               https://mapie.readthedocs.io/en/stable/content/conformal-prediction/regression/#2-the-split-method
 
         """
 
@@ -2761,7 +2758,7 @@ class ForecasterDirect(ForecasterBase):
 
             **Changed in version 0.23.0:** `interval` is now expressed as
             quantiles (0-1) instead of percentiles (0-100). Passing percentiles
-            is deprecated and emits a `FutureWarning`.
+            is not longer supported and will raise a `ValueError`.
         n_boot : int, default 250
             Number of bootstrapping iterations to perform when estimating prediction
             intervals.
@@ -2797,14 +2794,13 @@ class ForecasterDirect(ForecasterBase):
                https://otexts.com/fpp3/prediction-intervals.html
         
         .. [2] MAPIE - Model Agnostic Prediction Interval Estimator.
-               https://mapie.readthedocs.io/en/stable/theoretical_description_regression.html#the-split-method
+               https://mapie.readthedocs.io/en/stable/content/conformal-prediction/regression/#2-the-split-method
     
         """
 
         if method == "bootstrapping":
             
             if isinstance(interval, (list, tuple)):
-                interval = _normalize_interval_scale(interval)
                 check_interval(interval=interval, ensure_symmetric_intervals=False)
                 interval = np.array(interval)
             else:
@@ -2837,7 +2833,6 @@ class ForecasterDirect(ForecasterBase):
         elif method == 'conformal':
 
             if isinstance(interval, (list, tuple)):
-                interval = _normalize_interval_scale(interval)
                 check_interval(interval=interval, ensure_symmetric_intervals=True)
                 nominal_coverage = interval[1] - interval[0]
             else:

@@ -5,6 +5,7 @@ from ..Trackers.integration import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import AlertConfig, BaseConfig
 from ..utils import apply_category_mapping, filter_by_categories, filter_by_confidence, match_results_structure
+from ..utils.format_utils import face_landmarks
 from ..utils.location_name_cache import LocationNameCache
 from .embedding_manager import EmbeddingConfig, EmbeddingManager
 from .face_recognition_client import FacialRecognitionClient

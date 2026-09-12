@@ -36,10 +36,11 @@ class TestTriggerDefsRetrieverCanaryNotificationConfig(unittest.TestCase):
         model = TriggerDefsRetrieverCanaryNotificationConfig()
         if include_optional:
             return TriggerDefsRetrieverCanaryNotificationConfig(
+                include_internal_diagnostics = True,
                 channels = [
                     { }
                     ],
-                notify_on = 'failure'
+                notify_on = 'change'
             )
         else:
             return TriggerDefsRetrieverCanaryNotificationConfig(

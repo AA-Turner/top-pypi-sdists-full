@@ -26,6 +26,7 @@ if str(_REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from agentic_devtools.cli.ci.evaluator.diff_heuristic import check_lines_modified  # noqa: E402
+from agentic_devtools.cli.ci.review_thread_state import fetch_review_thread_states  # noqa: E402
 
 _REVIEW_URL_PATTERN = re.compile(
     r"^https://github\.com/(?P<owner>[A-Za-z0-9_.-]+)/(?P<repo>[A-Za-z0-9_.-]+)"
@@ -509,6 +510,26 @@ def _comment_metadata(comment: Any, review_url: str) -> dict[str, Any]:
         else "None",
         "comment_type": "suppressed" if suppressed else "inline",
     }
+
+
+def _filter_unresolved_review_comments(*, provider: Any, pr_number: int, comments: list[Any]) -> list[Any]:
+    """Discard comments whose review thread is already resolved.
+
+    Suppressed findings use synthetic negative IDs until a thread is created, so they
+    remain eligible for dispatch. Providers without thread-state support retain the
+    previous behavior and return the recovered comments unchanged.
+    """
+    result = fetch_review_thread_states(provider, pr_number)
+    if result.degraded:
+        return comments
+    thread_states = result.states
+    return [
+        comment
+        for comment in comments
+        if not isinstance(getattr(comment, "id", None), int)
+        or comment.id < 0
+        or not thread_states.get(comment.id, (False, False))[0]
+    ]
 
 
 def _parse_follow_up_issue(task_text: str) -> dict[str, Any] | None:
@@ -1526,6 +1547,14 @@ def main() -> int:
 
     args = _build_parser().parse_args()
     owner, repo, pr_number, review_id = _parse_review_url(args.review_url)
+    if args.post_task_link and not args.dispatch_task:
+        raise ValueError("--post-task-link requires --dispatch-task")
+    if args.monitor and not args.post_task_link:
+        raise ValueError("--monitor requires --post-task-link")
+    if args.resume and not args.post_task_link:
+        raise ValueError("--resume requires --post-task-link")
+    if args.poll_interval_seconds < 0:
+        raise ValueError("--poll-interval-seconds must be non-negative")
     review_body = _load_review_body(
         content_file=args.content_file,
         owner=owner,
@@ -1535,11 +1564,22 @@ def main() -> int:
     )
     suppressed_comments = _parse_suppressed_from_review_body(review_body, source_review_id=review_id)
     provider = GitHubActionsProvider(f"{owner}/{repo}")
+
+    def _fresh_provider() -> Any:
+        return GitHubActionsProvider(f"{owner}/{repo}")
+
     review_comments = provider.list_review_comments(pr_number, review_id)
     review_comments = _deduplicate_review_comments(review_comments, suppressed_comments)
     review_comments.sort(key=lambda comment: not (comment.is_suppressed and not comment.html_url))
     if not review_comments:
         raise RuntimeError("No inline or suppressed CCR findings were recovered from the review.")
+    review_comments = _filter_unresolved_review_comments(
+        provider=provider,
+        pr_number=pr_number,
+        comments=review_comments,
+    )
+    if not review_comments:
+        return 0
     head_sha = _load_head_sha(
         owner=owner,
         repo=repo,
@@ -1547,14 +1587,6 @@ def main() -> int:
         supplied=args.head_sha,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    if args.post_task_link and not args.dispatch_task:
-        raise ValueError("--post-task-link requires --dispatch-task")
-    if args.monitor and not args.post_task_link:
-        raise ValueError("--monitor requires --post-task-link")
-    if args.resume and not args.post_task_link:
-        raise ValueError("--resume requires --post-task-link")
-    if args.poll_interval_seconds < 0:
-        raise ValueError("--poll-interval-seconds must be non-negative")
     dispatch_config: tuple[str, str, str] | None = None
     if args.dispatch_task:
         base_ref = _load_pr_ref(
@@ -1603,6 +1635,9 @@ def main() -> int:
                 marker=marker,
                 provider=provider,
             )
+            thread_states = fetch_review_thread_states(_fresh_provider(), pr_number)
+            if not thread_states.degraded and thread_states.states.get(comment_id, (False, False))[0]:
+                continue
             dispatch_comment = replace(comment, id=comment_id, html_url=html_url, is_suppressed=False)
             record.update(
                 {
@@ -1613,7 +1648,16 @@ def main() -> int:
             )
         prepared_comments.append((dispatch_comment, record))
 
-    def _render_and_dispatch(ordinal: int, comment: Any, record: dict[str, Any]) -> None:
+    def _render_and_dispatch(ordinal: int, comment: Any, record: dict[str, Any]) -> bool:
+        if dispatch_config is not None:
+            thread_states = fetch_review_thread_states(_fresh_provider(), pr_number)
+            if (
+                not thread_states.degraded
+                and isinstance(getattr(comment, "id", None), int)
+                and comment.id >= 0
+                and thread_states.states.get(comment.id, (False, False))[0]
+            ):
+                return False
         body = _build_repair_comment(
             head_sha=head_sha,
             repair_type="review",
@@ -1657,6 +1701,7 @@ def main() -> int:
                 }
             )
             task_records.append(record)
+        return True
 
     def _write_initial_state() -> Path:
         state_path = _state_path(args.output_dir, pr_number, review_id)
@@ -1676,7 +1721,8 @@ def main() -> int:
             resume_record = _find_resume_record(resume_records, prepared_record) if args.resume else None
             if resume_record is None:
                 record = prepared_record
-                _render_and_dispatch(ordinal, comment, record)
+                if not _render_and_dispatch(ordinal, comment, record):
+                    continue
             else:
                 record = resume_record
                 record["ordinal"] = ordinal
@@ -1709,7 +1755,7 @@ def main() -> int:
                         completion_records=[record],
                     )
         if args.monitor and _tasks_ready_for_takeover(task_records):
-            _run_takeover_after_monitor(owner=owner, repo=repo, pr_number=pr_number, provider=provider)
+            _run_takeover_after_monitor(owner=owner, repo=repo, pr_number=pr_number, provider=_fresh_provider())
     else:
         for ordinal, (comment, prepared_record) in enumerate(prepared_comments, start=1):
             resume_record = _find_resume_record(resume_records, prepared_record) if args.resume else None
@@ -1754,7 +1800,7 @@ def main() -> int:
                 provider=provider,
             )
             if _tasks_ready_for_takeover(task_records):
-                _run_takeover_after_monitor(owner=owner, repo=repo, pr_number=pr_number, provider=provider)
+                _run_takeover_after_monitor(owner=owner, repo=repo, pr_number=pr_number, provider=_fresh_provider())
     return 0
 
 

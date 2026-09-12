@@ -98,6 +98,7 @@ flow_viewer/org_id,ws_id,flow_folder_id:
     - r:jobs/org_id,ws_id,flow_folder_id
     - r:job_run/org_id,ws_id,flow_folder_id,{env=*}
     - dh_viewer_sandbox/org_id,ws_id
+    - file_viewer_sandbox/org_id,ws_id
 flow_execute_sandbox/org_id,ws_id,flow_folder_id:
     - execute:flows/org_id,ws_id,flow_folder_id,{env=sandbox}
     - execute:flows/org_id,ws_id,flow_folder_id,{env=test}
@@ -109,6 +110,7 @@ flow_execute_live/org_id,ws_id,flow_folder_id:
 flow_editor/org_id,ws_id,flow_folder_id:
     - flow_viewer/org_id,ws_id,flow_folder_id
     - flow_execute_sandbox/org_id,ws_id,flow_folder_id
+    - file_user_sandbox/org_id,ws_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
     - w:jobs/org_id,ws_id,flow_folder_id
@@ -192,7 +194,17 @@ data_admin/org_id,ws_id:
     - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
     - w:workspace_feature_query/org_id,ws_id,{env=live,component=status,current_status_live=*}
 
-# P141c file role, carved verbatim from the ws_* roles (capability-neutral)
+# P141c file roles, carved verbatim from the ws_* roles (capability-neutral)
+file_viewer_sandbox/org_id,ws_id:
+    - r:workspace_file/org_id,ws_id,{env=sandbox}
+file_user_sandbox/org_id,ws_id:
+    - file_viewer_sandbox/org_id,ws_id
+    - w:workspace_file/org_id,ws_id,{env=sandbox}
+file_viewer_live/org_id,ws_id:
+    - r:workspace_file/org_id,ws_id,{env=live}
+file_user_live/org_id,ws_id:
+    - file_viewer_live/org_id,ws_id
+    - w:workspace_file/org_id,ws_id,{env=live}
 file_user/org_id,ws_id:
     - r+w:workspace_file/org_id,ws_id,{env=*}
 
@@ -200,15 +212,18 @@ file_user/org_id,ws_id:
 data_case_viewer/org_id,ws_id:
     - data_viewer/org_id,ws_id
     - case_reviewer/org_id,ws_id
-    - file_user/org_id,ws_id
+    - file_viewer_sandbox/org_id,ws_id
+    - file_viewer_live/org_id,ws_id
 data_case_editor/org_id,ws_id:
     - data_editor/org_id,ws_id
     - case_editor/org_id,ws_id
-    - file_user/org_id,ws_id
+    - file_user_sandbox/org_id,ws_id
+    - file_user_live/org_id,ws_id
 data_case_admin/org_id,ws_id:
     - data_admin/org_id,ws_id
     - case_admin/org_id,ws_id
-    - file_user/org_id,ws_id
+    - file_user_sandbox/org_id,ws_id
+    - file_user_live/org_id,ws_id
 
 # roles assignable via admin panel
 oncall_group:
@@ -276,6 +291,7 @@ api_key_sandbox/org_id,ws_id:
     - r:workspace_management/org_id,ws_id,{env=sandbox,type=*}
     - r+w:workspace_review_case/org_id,ws_id,{env=sandbox}
     - r+w:workspace_case/org_id,ws_id
+    - r:workspace_case_template/org_id,ws_id
     - api_key_wizard/org_id,ws_id
 api_key_production/org_id,ws_id:
     - d_member/org_id

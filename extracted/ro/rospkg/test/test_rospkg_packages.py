@@ -34,6 +34,8 @@ import os
 import subprocess
 import tempfile
 
+import pytest
+
 
 def get_package_test_path():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), 'package_tests'))
@@ -236,6 +238,59 @@ def test_RosPackage_get_depends():
             assert retval == rospackval, "[%s]: %s vs. %s" % (p, retval, rospackval)
 
 
+@pytest.mark.parametrize('resource_type', ['package', 'stack'])
+@pytest.mark.parametrize('invalid_manifest', [False, True])
+@pytest.mark.parametrize('dependencies', [
+    {'root': ['branch'], 'branch': ['leaf', 'bad'], 'leaf': []},
+    {'root': ['branch', 'bad'], 'branch': ['root'], 'leaf': []},
+], ids=['chain', 'cycle'])
+def test_get_depends_repeated_failure(tmp_path, resource_type, invalid_manifest, dependencies):
+    from rospkg import InvalidManifest, ResourceNotFound, RosPack, RosStack
+
+    manifest_name = 'manifest.xml' if resource_type == 'package' else 'stack.xml'
+    for name, depends in dependencies.items():
+        path = tmp_path / name
+        path.mkdir()
+        (path / manifest_name).write_text(
+            '<{0}><license>BSD</license>{1}</{0}>'.format(
+                resource_type,
+                ''.join('<depend {}="{}"/>'.format(resource_type, dep) for dep in depends)))
+
+    if invalid_manifest:
+        path = tmp_path / 'bad'
+        path.mkdir()
+        (path / manifest_name).write_text(
+            '<{0}><depend/></{0}>'.format(resource_type))
+
+    manager = RosPack if resource_type == 'package' else RosStack
+    r = manager(ros_paths=[str(tmp_path)])
+    error = InvalidManifest if invalid_manifest else ResourceNotFound
+
+    assert r.get_depends('leaf') == []
+    for _ in range(3):
+        for name in ('root', 'branch'):
+            with pytest.raises(error):
+                r.get_depends(name)
+        assert r.get_depends('leaf') == []
+
+
+def test_get_rosdeps_repeated_failure(tmp_path):
+    from rospkg import RosPack, ResourceNotFound
+    for name, depends, rosdeps in [('A', ['B'], []), ('B', ['C'], ['dep_b'])]:
+        path = tmp_path / name
+        path.mkdir()
+        (path / 'manifest.xml').write_text(
+            '<package><license>BSD</license>%s%s</package>' % (
+                ''.join(f'<depend package="{dep}"/>' for dep in depends),
+                ''.join(f'<rosdep name="{dep}"/>' for dep in rosdeps)
+            )
+        )
+    r = RosPack(ros_paths=[str(tmp_path)])
+    for _ in range(3):
+        with pytest.raises(ResourceNotFound):
+            r.get_rosdeps('A')
+
+
 def get_stack_test_path():
     return os.path.abspath(os.path.join(os.path.dirname(__file__), 'stack_tests'))
 
@@ -356,3 +411,100 @@ def test_get_depends_on():
             retval = set(r.get_depends_on(p, True))
             rospackval = set(rospack_depends_on(p))
             assert retval == rospackval, "[%s]: %s vs. %s" % (p, retval, rospackval)
+
+
+def get_invalid_manifest_test_path():
+    return os.path.join(os.path.dirname(__file__), 'invalid_manifest_tests')
+
+
+def test_RosPack_list_robust():
+    from rospkg import RosPack, InvalidManifest
+
+    base_dir = get_invalid_manifest_test_path()
+
+    # Test each case individually using the respective path
+    # 1. Missing name element
+    p1 = os.path.join(base_dir, 'pkg_missing_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        RosPack(ros_paths=[p1]).list()
+    assert "missing <name> element" in str(excinfo.value)
+    assert p1 in str(excinfo.value)
+
+    # 2. Empty name element
+    p2 = os.path.join(base_dir, 'pkg_empty_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        RosPack(ros_paths=[p2]).list()
+    assert "empty <name> element" in str(excinfo.value)
+    assert p2 in str(excinfo.value)
+
+    # 3. Whitespace-only name element
+    p3 = os.path.join(base_dir, 'pkg_whitespace_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        RosPack(ros_paths=[p3]).list()
+    assert "empty <name> element" in str(excinfo.value)
+    assert p3 in str(excinfo.value)
+
+    # 4. Malformed XML
+    p4 = os.path.join(base_dir, 'pkg_malformed_xml')
+    with pytest.raises(InvalidManifest) as excinfo:
+        RosPack(ros_paths=[p4]).list()
+    assert "malformed XML" in str(excinfo.value)
+    assert p4 in str(excinfo.value)
+
+    # 5. Missing root element
+    p5 = os.path.join(base_dir, 'pkg_missing_root')
+    with pytest.raises(InvalidManifest) as excinfo:
+        RosPack(ros_paths=[p5]).list()
+    assert "malformed XML" in str(excinfo.value)
+    assert p5 in str(excinfo.value)
+
+    # 6. Valid package with valid name element
+    p6 = os.path.join(base_dir, 'pkg_valid')
+    packages = RosPack(ros_paths=[p6]).list()
+    assert 'my_valid_pkg' in packages
+    assert len(packages) == 1
+
+
+def test_get_package_name_robust():
+    from rospkg import get_package_name, InvalidManifest
+
+    base_dir = get_invalid_manifest_test_path()
+
+    # 1. Missing name element
+    p1 = os.path.join(base_dir, 'pkg_missing_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        get_package_name(p1)
+    assert "missing <name> element" in str(excinfo.value)
+    assert p1 in str(excinfo.value)
+
+    # 2. Empty name element
+    p2 = os.path.join(base_dir, 'pkg_empty_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        get_package_name(p2)
+    assert "empty <name> element" in str(excinfo.value)
+    assert p2 in str(excinfo.value)
+
+    # 3. Whitespace-only name element
+    p3 = os.path.join(base_dir, 'pkg_whitespace_name')
+    with pytest.raises(InvalidManifest) as excinfo:
+        get_package_name(p3)
+    assert "empty <name> element" in str(excinfo.value)
+    assert p3 in str(excinfo.value)
+
+    # 4. Malformed XML
+    p4 = os.path.join(base_dir, 'pkg_malformed_xml')
+    with pytest.raises(InvalidManifest) as excinfo:
+        get_package_name(p4)
+    assert "malformed XML" in str(excinfo.value)
+    assert p4 in str(excinfo.value)
+
+    # 5. Completely empty file
+    p5 = os.path.join(base_dir, 'pkg_missing_root')
+    with pytest.raises(InvalidManifest) as excinfo:
+        get_package_name(p5)
+    assert "malformed XML" in str(excinfo.value)
+    assert p5 in str(excinfo.value)
+
+    # 6. Valid package
+    p6 = os.path.join(base_dir, 'pkg_valid')
+    assert get_package_name(p6) == 'my_valid_pkg'

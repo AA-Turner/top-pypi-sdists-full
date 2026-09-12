@@ -757,8 +757,18 @@ impl ApiClient {
         .await
     }
 
-    pub async fn redeem_organization_invite(&self, uri: &str) -> Result<()> {
-        self.get(uri).await?.empty().await
+    pub async fn redeem_organization_invite(
+        &self,
+        organization_id: Uuid,
+        params: &RedeemInviteArgs,
+    ) -> Result<()> {
+        self.post(&format!(
+            "/api/v1/organization/{organization_id}/invite/redeem"
+        ))
+        .json(params)
+        .await?
+        .empty()
+        .await
     }
 
     pub async fn get_organization_members(

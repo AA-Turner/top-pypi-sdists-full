@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-filer
-Version: 3.5.1
+Version: 3.6.0
 Summary: A file management application for django that makes handling of files and images a breeze.
 Author-email: Divio AG <info@divio.ch>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>
@@ -25,6 +25,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Framework :: Django CMS
 Classifier: Framework :: Django CMS :: 3.11
 Classifier: Framework :: Django CMS :: 4.0
@@ -40,10 +41,14 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: django>=3.2
 Requires-Dist: django-polymorphic<5.0
-Requires-Dist: easy-thumbnails[svg]
+Requires-Dist: easy-thumbnails
 Requires-Dist: py-svg-hush
 Provides-Extra: heif
 Requires-Dist: pillow-heif; extra == "heif"
+Provides-Extra: avif
+Requires-Dist: pillow-avif-plugin; extra == "avif"
+Provides-Extra: svg
+Requires-Dist: easy-thumbnails[svg]; extra == "svg"
 Dynamic: license-file
 
 ============

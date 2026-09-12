@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mne
-Version: 1.13.0
+Version: 1.13.2
 Summary: MNE-Python is an open-source Python package for exploring, visualizing, and analyzing human neurophysiological data. It provides methods for data input/output, preprocessing, visualization, source estimation, time-frequency analysis, machine learning, and statistics.
 Project-URL: Bug Tracker, https://github.com/mne-tools/mne-python/issues/
 Project-URL: Documentation, https://mne.tools/
@@ -83,10 +83,10 @@ Requires-Dist: snirf; extra == 'full'
 Requires-Dist: statsmodels>=0.6; extra == 'full'
 Requires-Dist: threadpoolctl; extra == 'full'
 Requires-Dist: traitlets; extra == 'full'
-Requires-Dist: trame; extra == 'full'
 Requires-Dist: trame-pyvista; extra == 'full'
 Requires-Dist: trame-vtk; extra == 'full'
 Requires-Dist: trame-vuetify!=3.2.3; extra == 'full'
+Requires-Dist: trame<4; extra == 'full'
 Requires-Dist: vtk>=9.2; extra == 'full'
 Requires-Dist: xlrd; extra == 'full'
 Provides-Extra: full-no-qt
@@ -135,10 +135,10 @@ Requires-Dist: snirf; extra == 'full-no-qt'
 Requires-Dist: statsmodels>=0.6; extra == 'full-no-qt'
 Requires-Dist: threadpoolctl; extra == 'full-no-qt'
 Requires-Dist: traitlets; extra == 'full-no-qt'
-Requires-Dist: trame; extra == 'full-no-qt'
 Requires-Dist: trame-pyvista; extra == 'full-no-qt'
 Requires-Dist: trame-vtk; extra == 'full-no-qt'
 Requires-Dist: trame-vuetify!=3.2.3; extra == 'full-no-qt'
+Requires-Dist: trame<4; extra == 'full-no-qt'
 Requires-Dist: vtk>=9.2; extra == 'full-no-qt'
 Requires-Dist: xlrd; extra == 'full-no-qt'
 Provides-Extra: full-pyqt6
@@ -189,10 +189,10 @@ Requires-Dist: snirf; extra == 'full-pyqt6'
 Requires-Dist: statsmodels>=0.6; extra == 'full-pyqt6'
 Requires-Dist: threadpoolctl; extra == 'full-pyqt6'
 Requires-Dist: traitlets; extra == 'full-pyqt6'
-Requires-Dist: trame; extra == 'full-pyqt6'
 Requires-Dist: trame-pyvista; extra == 'full-pyqt6'
 Requires-Dist: trame-vtk; extra == 'full-pyqt6'
 Requires-Dist: trame-vuetify!=3.2.3; extra == 'full-pyqt6'
+Requires-Dist: trame<4; extra == 'full-pyqt6'
 Requires-Dist: vtk>=9.2; extra == 'full-pyqt6'
 Requires-Dist: xlrd; extra == 'full-pyqt6'
 Provides-Extra: full-pyside6
@@ -242,10 +242,10 @@ Requires-Dist: snirf; extra == 'full-pyside6'
 Requires-Dist: statsmodels>=0.6; extra == 'full-pyside6'
 Requires-Dist: threadpoolctl; extra == 'full-pyside6'
 Requires-Dist: traitlets; extra == 'full-pyside6'
-Requires-Dist: trame; extra == 'full-pyside6'
 Requires-Dist: trame-pyvista; extra == 'full-pyside6'
 Requires-Dist: trame-vtk; extra == 'full-pyside6'
 Requires-Dist: trame-vuetify!=3.2.3; extra == 'full-pyside6'
+Requires-Dist: trame<4; extra == 'full-pyside6'
 Requires-Dist: vtk>=9.2; extra == 'full-pyside6'
 Requires-Dist: xlrd; extra == 'full-pyside6'
 Provides-Extra: hdf5

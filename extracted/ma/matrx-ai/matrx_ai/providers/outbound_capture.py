@@ -269,34 +269,16 @@ def _httpx_flavor_of_class(cls: type) -> Any | None:
 
 
 def _load_sdk_module(sdk_name: str) -> Any:
-    """Load an absolute SDK module name without hiding it in ``import_module``.
-
-    ``resolve_sdk_httpx`` has always accepted arbitrary importable SDK names,
-    including plugin SDKs which have not yet been imported by the host.  That
-    is a runtime-extension contract, not a closed provider inventory.  Use the
-    importlib spec protocol directly so the mandate scanner can distinguish
-    this declared loader from an opaque dynamic ``import_module`` target.
-
-    The ``sys.modules`` registration before ``exec_module`` mirrors Python's
-    normal import semantics: packages can resolve circular imports and a
-    failed initialization does not leave a half-loaded module behind.
+    """Import an SDK by name. This IS the provider layer, whose job is reaching
+    SDKs: ``resolve_sdk_httpx`` accepts any importable SDK name, including plugin
+    SDKs the host has not imported yet. A plain ``import_module`` is the honest
+    spelling — the mandate/provider scan treats a computed load inside
+    ``matrx_ai/providers/**`` as the layer doing its job, not as a bypass of it.
+    (Until 2026-09-12 this was the same import re-spelled as find_spec +
+    exec_module so the scanner would stop seeing it; that disguise is now
+    reported wherever it appears.)
     """
-    existing = sys.modules.get(sdk_name)
-    if existing is not None:
-        return existing
-
-    spec = importlib.util.find_spec(sdk_name)
-    if spec is None or spec.loader is None:
-        raise ModuleNotFoundError(f"No importable SDK module named {sdk_name!r}")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[sdk_name] = module
-    try:
-        spec.loader.exec_module(module)
-    except Exception:
-        if sys.modules.get(sdk_name) is module:
-            sys.modules.pop(sdk_name, None)
-        raise
+    module = importlib.import_module(sdk_name)
     return module
 
 

@@ -22,6 +22,10 @@ from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.mandates import (
+    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    step_metadata,
+)
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
     AiMessage,
@@ -96,9 +100,10 @@ class ChatManualInput(BaseModel):
 async def chat_manual(
     ctx: NodeExecutionContext, inputs: ChatManualInput
 ) -> NodeResult[AiExecutionResult]:
+    from matrx_connect.context.app_context import set_app_context
+
     from matrx_ai.config import UnifiedConfig
     from matrx_ai.orchestrator.executor import execute_ai_request
-    from matrx_connect.context.app_context import set_app_context
 
     # The AppContext on the scheduler's forked step is what matrx-ai reads
     # via get_app_context(). If the caller supplied a conversation_id, push
@@ -136,7 +141,8 @@ async def chat_manual(
         config,
         max_iterations=inputs.max_iterations,
         max_retries_per_iteration=inputs.max_retries_per_iteration,
-        metadata=inputs.metadata or None,
+        metadata=step_metadata(inputs.metadata, spec_type="ai.chat"),
+        mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.

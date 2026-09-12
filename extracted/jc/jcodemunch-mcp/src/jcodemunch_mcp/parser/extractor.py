@@ -4,7 +4,7 @@ import bisect
 import logging
 import re
 from typing import Any, Optional
-from tree_sitter_language_pack import get_parser
+from .grammar_pack import get_parser  # #608: records a grammar failure, then re-raises
 
 from .racket_reader import read_racket
 
@@ -451,6 +451,7 @@ def _parse_with_spec(
         parser = get_parser(spec.ts_language)
         tree = parser.parse(source_bytes)
     except Exception:
+        # A grammar that could not be loaded was recorded by grammar_pack.get_parser.
         return []
 
     symbols: list[Symbol] = []
@@ -3928,7 +3929,7 @@ def _parse_nix_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
     Bindings whose RHS is a `function_expression` are classified as functions;
     all others are classified as constants.
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
     parser = _get_parser("nix")
     tree = parser.parse(source_bytes)
 
@@ -4041,7 +4042,7 @@ def _parse_vue_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
     Line numbers are offset to match positions in the original .vue file.
     """
     from pathlib import Path as _Path
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
 
     vue_parser = _get_parser("vue")
     tree = vue_parser.parse(source_bytes)
@@ -4383,7 +4384,7 @@ def _parse_svelte_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
     """
     from pathlib import Path as _Path
 
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
 
     svelte_parser = _get_parser("svelte")
     tree = svelte_parser.parse(source_bytes)
@@ -4787,8 +4788,13 @@ def _parse_ejs_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
 # Razor (.cshtml / .razor) custom symbol extractor
 # ---------------------------------------------------------------------------
 
-_RAZOR_SCRIPT_RE = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.IGNORECASE | re.DOTALL)
-_RAZOR_STYLE_RE = re.compile(r"<style\b([^>]*)>(.*?)</style>", re.IGNORECASE | re.DOTALL)
+# `</script\b[^>]*>`: browsers end the block at any `</script` followed by whitespace, junk
+# attributes or `>` (`</script >`, `</script\t\n bar>`), and a regex ending at a bare `</script>`
+# would run on to the NEXT close tag and swallow the markup between (CodeQL py/bad-tag-filter,
+# code-scanning alerts 13 and 14; the first fix admitted whitespace only and CodeQL named the
+# attribute form on the PR).
+_RAZOR_SCRIPT_RE = re.compile(r"<script\b([^>]*)>(.*?)</script\b[^>]*>", re.IGNORECASE | re.DOTALL)
+_RAZOR_STYLE_RE = re.compile(r"<style\b([^>]*)>(.*?)</style\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _RAZOR_ID_RE = re.compile(r"""\bid\s*=\s*["']([^"'<>]+)["']""", re.IGNORECASE)
 _RAZOR_SCRIPT_SRC_RE = re.compile(r"""\bsrc\s*=\s*["']([^"'<>]+)["']""", re.IGNORECASE)
 _RAZOR_CODE_BLOCK_RE = re.compile(r"@(?:functions|code)\s*\{", re.IGNORECASE)
@@ -4799,8 +4805,8 @@ _RAZOR_INJECT_RE = re.compile(r'^@inject\s+(\S+)\s+(\w+)', re.MULTILINE)
 # Astro (.astro) — mixed-language components: TypeScript frontmatter + HTML template
 # + optional <script> (client JS) and <style> blocks.
 # Grammar reference: https://github.com/virchau13/tree-sitter-astro
-_ASTRO_SCRIPT_RE = re.compile(r"<script\b([^>]*)>(.*?)</script>", re.IGNORECASE | re.DOTALL)
-_ASTRO_STYLE_RE = re.compile(r"<style\b([^>]*)>(.*?)</style>", re.IGNORECASE | re.DOTALL)
+_ASTRO_SCRIPT_RE = re.compile(r"<script\b([^>]*)>(.*?)</script\b[^>]*>", re.IGNORECASE | re.DOTALL)  # see the Razor twin
+_ASTRO_STYLE_RE = re.compile(r"<style\b([^>]*)>(.*?)</style\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _ASTRO_SCRIPT_SRC_RE = re.compile(r"""\bsrc\s*=\s*["']([^"'<>]+)["']""", re.IGNORECASE)
 _ASTRO_SCRIPT_LANG_RE = re.compile(r"""\blang\s*=\s*["']([^"'<>]+)["']""", re.IGNORECASE)
 _ASTRO_SCRIPT_TYPE_RE = re.compile(r"""\btype\s*=\s*["']([^"'<>]+)["']""", re.IGNORECASE)
@@ -5437,7 +5443,7 @@ def _parse_lua_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
 
     Preceding ``--`` line-comments are collected as docstrings.
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
     parser = _get_parser("lua")
     tree = parser.parse(source_bytes)
 
@@ -5555,7 +5561,7 @@ def _parse_luau_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
 
     Preceding ``--`` line-comments are collected as docstrings.
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
     parser = _get_parser("luau")
     tree = parser.parse(source_bytes)
 
@@ -5742,7 +5748,7 @@ def _parse_erlang_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
 
     Docstrings are collected from preceding ``comment`` siblings (``%% …``).
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
 
     parser = _get_parser("erlang")
     tree = parser.parse(source_bytes)
@@ -5996,7 +6002,7 @@ def _parse_fortran_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
 
     Preceding ``!`` comments are collected as docstrings.
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
 
     parser = _get_parser("fortran")
     tree = parser.parse(source_bytes)
@@ -6190,7 +6196,7 @@ def _parse_sql_symbols(source_bytes: bytes, filename: str) -> list[Symbol]:
     ``{% snapshot %}``, ``{% materialization %}``) are extracted as symbols
     before stripping.
     """
-    from tree_sitter_language_pack import get_parser as _get_parser
+    from .grammar_pack import get_parser as _get_parser
     from .sql_preprocessor import strip_jinja, is_jinja_sql, extract_dbt_directives
 
     # Extract dbt directives before stripping Jinja (macro, test, snapshot, etc.)

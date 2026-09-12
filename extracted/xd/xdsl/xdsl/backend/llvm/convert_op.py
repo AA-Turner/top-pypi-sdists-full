@@ -106,6 +106,7 @@ _CAST_OP_NAMES: dict[type[Operation], str] = {
     llvm.IntToPtrOp: "inttoptr",
     llvm.BitcastOp: "bitcast",
     llvm.FPExtOp: "fpext",
+    llvm.FPTruncOp: "fptrunc",
     llvm.SIToFPOp: "sitofp",
 }
 
@@ -219,7 +220,9 @@ def _convert_fneg(
     op: llvm.FNegOp, builder: ir.IRBuilder, val_map: dict[SSAValue, ir.Value]
 ):
     operand = val_map[op.arg]
-    val_map[op.res] = builder.fneg(operand)
+    val_map[op.res] = builder.fneg(
+        operand, flags=[f.value for f in op.fastmathFlags.data]
+    )
 
 
 def _convert_call(

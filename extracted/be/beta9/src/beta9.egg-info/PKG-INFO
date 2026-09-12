@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beta9
-Version: 0.1.266
+Version: 0.1.267
 Author-email: "beam.cloud" <support@beam.cloud>
 Requires-Python: <4.0,>=3.8
 Requires-Dist: typeguard<3.0.0,>=2.13.3; python_version < "3.9"

@@ -24,6 +24,13 @@ SPAN_ATTRIBUTE_LABEL = f"{SPAN_NAMESPACE}.label"
 SPAN_ATTRIBUTE_TAGS_ = f"{SPAN_NAMESPACE}.tags"
 SPAN_ATTRIBUTE_PROJECT = f"{SPAN_NAMESPACE}.project"
 SPAN_ATTRIBUTE_SESSION_ID = f"{SPAN_NAMESPACE}.session.id"
+# Workflow attribution. Carried on the agent's own spans rather than emitted as a
+# separate span tree: the workflow fact log already owns step timing, and a second
+# copy in trace storage would be a weaker answer to the same question. These make
+# a run one attribute filter — "every span this run produced" — without
+# duplicating state.
+SPAN_ATTRIBUTE_WORKFLOW_RUN_ID = f"{SPAN_NAMESPACE}.workflow.run.id"
+SPAN_ATTRIBUTE_WORKFLOW_UNIT = f"{SPAN_NAMESPACE}.workflow.unit"
 SPAN_ATTRIBUTE_PARAMS = f"{SPAN_NAMESPACE}.params"
 SPAN_ATTRIBUTE_INPUTS = f"{SPAN_NAMESPACE}.inputs"
 SPAN_ATTRIBUTE_METRICS = f"{SPAN_NAMESPACE}.metrics"

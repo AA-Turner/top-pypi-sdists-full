@@ -12,6 +12,7 @@ organizing facts according to presentation hierarchies, validating calculations,
 and handling dimensional qualifiers.
 """
 import datetime
+import itertools
 import re
 from pathlib import Path
 from textwrap import dedent
@@ -30,7 +31,13 @@ from edgar.attachments import Attachments
 from edgar.config import VERBOSE_EXCEPTIONS
 from edgar.core import log
 from edgar.richtools import repr_rich
-from edgar.xbrl.core import STANDARD_LABEL, STANDARD_TAXONOMIES, split_element_id, unit_currency_measure
+from edgar.xbrl.core import (
+    STANDARD_LABEL,
+    STANDARD_TAXONOMIES,
+    normalize_decimals,
+    split_element_id,
+    unit_currency_measure,
+)
 from edgar.xbrl.models import Axis, Domain, PresentationNode, is_negated_label_role
 from edgar.xbrl.parsers import XBRLParser
 from edgar.xbrl.period_selector import select_periods
@@ -1423,7 +1430,50 @@ class XBRL:
         # Issue edgartools-os99: Adjust levels when calculation tree reveals flat subtotal patterns
         line_items = self._adjust_levels_by_calculation_parent(line_items)
 
+        line_items = self._prune_empty_structural_items(line_items)
+
         return line_items
+
+    @staticmethod
+    def _prune_empty_structural_items(line_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Drop abstract line items whose subtree carries no filed value.
+
+        A presentation linkbase declares its hypercube inline -- ``[Table]``,
+        ``[Axis]``, ``[Domain]``, then one node per axis member -- and every one
+        of those nodes becomes a line item even though no fact ever hangs off it.
+        Tesla's operations statement emits four automotive member headings that
+        way, so a view filtering the dimensional facts leaves a run of labels
+        that read like data rows and are permanently empty (GH #1224). Keep an
+        abstract row only when it, or something under it, carries a value.
+        """
+        def carries_value(item: Dict[str, Any]) -> bool:
+            return bool(item.get('has_values')) or bool(item.get('values'))
+
+        def is_structural(item: Dict[str, Any]) -> bool:
+            # A hypercube node is not a line item whichever way the filing was
+            # loaded. from_files() reads the schema and marks these abstract;
+            # from_directory() does not always find the .xsd, and then only the
+            # concept name and the bracketed standard label say what they are.
+            if item.get('is_abstract'):
+                return True
+            concept = item.get('concept') or ''
+            label = item.get('label') or ''
+            return (concept.endswith(('Axis', 'Domain', 'Member', 'LineItems', 'Table'))
+                    or any(bracket in label for bracket in
+                           ('[Axis]', '[Domain]', '[Member]', '[Line Items]', '[Table]')))
+
+        pruned = []
+        for index, item in enumerate(line_items):
+            if is_structural(item) and not carries_value(item):
+                level = item.get('level', 0)
+                subtree = itertools.takewhile(
+                    lambda descendant: descendant.get('level', 0) > level,
+                    line_items[index + 1:]
+                )
+                if not any(carries_value(descendant) for descendant in subtree):
+                    continue
+            pruned.append(item)
+        return pruned
 
     def _generate_line_items(self, element_id: str, nodes: Dict[str, PresentationNode],
                              result: List[Dict[str, Any]], period_filter: Optional[str] = None,
@@ -1642,15 +1692,10 @@ class XBRL:
                     # Store the selected fact's value
                     values[period_key] = fact.numeric_value if fact.numeric_value is not None else fact.value
 
-                    # Store the decimals info for proper scaling
-                    if fact.decimals is not None:
-                        try:
-                            if fact.decimals == 'INF':
-                                decimals[period_key] = 0  # Infinite precision, no scaling
-                            else:
-                                decimals[period_key] = int(fact.decimals)
-                        except (ValueError, TypeError):
-                            decimals[period_key] = 0  # Default
+                    # Store the decimals info for scaling and for accuracy
+                    fact_decimals = normalize_decimals(fact.decimals)
+                    if fact_decimals is not None:
+                        decimals[period_key] = fact_decimals
 
                     # Store unit_ref for this period
                     units[period_key] = fact.unit_ref
@@ -1691,14 +1736,9 @@ class XBRL:
                         fact = synthetic['fact']
                         context_id = synthetic['context_id']
 
-                        if fact.decimals is not None:
-                            try:
-                                if fact.decimals == 'INF':
-                                    decimals[period_key] = 0
-                                else:
-                                    decimals[period_key] = int(fact.decimals)
-                            except (ValueError, TypeError):
-                                decimals[period_key] = 0
+                        fact_decimals = normalize_decimals(fact.decimals)
+                        if fact_decimals is not None:
+                            decimals[period_key] = fact_decimals
 
                         units[period_key] = fact.unit_ref
 
@@ -1728,15 +1768,10 @@ class XBRL:
 
                     values[period_key] = fact.numeric_value if fact.numeric_value is not None else fact.value
 
-                    # Store the decimals info for proper scaling
-                    if fact.decimals is not None:
-                        try:
-                            if fact.decimals == 'INF':
-                                decimals[period_key] = 0
-                            else:
-                                decimals[period_key] = int(fact.decimals)
-                        except (ValueError, TypeError):
-                            decimals[period_key] = 0
+                    # Store the decimals info for scaling and for accuracy
+                    fact_decimals = normalize_decimals(fact.decimals)
+                    if fact_decimals is not None:
+                        decimals[period_key] = fact_decimals
 
                     units[period_key] = fact.unit_ref
 
@@ -1758,14 +1793,9 @@ class XBRL:
                         fact = synthetic['fact']
                         context_id = synthetic['context_id']
 
-                        if fact.decimals is not None:
-                            try:
-                                if fact.decimals == 'INF':
-                                    decimals[period_key] = 0
-                                else:
-                                    decimals[period_key] = int(fact.decimals)
-                            except (ValueError, TypeError):
-                                decimals[period_key] = 0
+                        fact_decimals = normalize_decimals(fact.decimals)
+                        if fact_decimals is not None:
+                            decimals[period_key] = fact_decimals
 
                         units[period_key] = fact.unit_ref
 
@@ -1872,14 +1902,9 @@ class XBRL:
                             continue
 
                     # Store decimals
-                    if fact.decimals is not None:
-                        try:
-                            if fact.decimals == 'INF':
-                                dim_decimals[period_key] = 0
-                            else:
-                                dim_decimals[period_key] = int(fact.decimals)
-                        except (ValueError, TypeError):
-                            dim_decimals[period_key] = 0
+                    fact_decimals = normalize_decimals(fact.decimals)
+                    if fact_decimals is not None:
+                        dim_decimals[period_key] = fact_decimals
 
                     # Store unit_ref for this period
                     dim_units[period_key] = fact.unit_ref

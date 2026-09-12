@@ -259,16 +259,49 @@ class GoogleTranslator(BaseTranslator):
             # goes on ``response_json_schema`` (NOT ``response_schema``, which is the
             # OpenAPI-subset Schema type) and requires ``response_mime_type``.
             #
-            # Google Search and streamed structured output are compatible on Gemini
-            # 3.7 Flash. Re-verified 2026-08-17 with 12/12 genuinely grounded,
-            # citation-heavy responses: every concatenated stream was complete JSON
-            # and passed the requested schema. Keep the provider-native contract on
-            # the same single call whether or not Search is enabled.
+            # GOOGLE DEFECT CONTAINMENT — RESTORED 2026-09-11. When Google Search
+            # actually grounds a STREAMED response, ``response_json_schema`` drops a
+            # contiguous span of the answer at the boundary of the first grounded
+            # citation segment, so the concatenated stream is unparseable JSON. It is
+            # Google's bug, proven at the SSE-chunk level over raw HTTP with none of
+            # our code in the path, and reported on Google's own forum
+            # (discuss.ai.google.dev/t/176967).
+            #
+            # This containment was removed on 2026-08-17 on the strength of "12/12
+            # genuinely grounded trials passed". THAT TEST COULD NOT DETECT THE BUG:
+            # at the measured ~9.4% failure rate, twelve clean runs in a row happens
+            # 31% of the time. Measured again 2026-09-11 at N=96 per model, raw HTTP,
+            # the exact config this branch sends:
+            #
+            #   provider-native schema + Search .... 9/96 corrupt  (both 3.7 and 3.8)
+            #   this containment + Search .......... 0/96 corrupt  (both 3.7 and 3.8)
+            #
+            # NEVER re-remove this on a small sample. Any future "Google fixed it"
+            # claim needs N>=96 per model against THIS branch's exact request shape.
+            # Corroboration: vercel/ai#11815 reports Search grounding + structured
+            # outputs is preview-only on GA Gemini 3 models, and ours are GA.
+            #
+            # Keep the unified response_format untouched so ``extract_json``, kind
+            # validation and STRUCTURED_OUTPUT still enforce the saved contract —
+            # only Google's broken request switch is omitted, and only for the exact
+            # grounded+structured combination. Non-grounded requests keep native
+            # structured output.
             if config.response_format and not is_tts:
                 google_schema = self._build_google_response_schema(config.response_format)
                 if google_schema is not None:
-                    generation_config_kwargs["response_mime_type"] = "application/json"
-                    generation_config_kwargs["response_json_schema"] = google_schema
+                    if config.internal_web_search:
+                        grounded_json_contract = self._grounded_json_text_contract(
+                            google_schema
+                        )
+                        existing_system = generation_config_kwargs.get("system_instruction")
+                        generation_config_kwargs["system_instruction"] = (
+                            f"{str(existing_system).rstrip()}\n\n{grounded_json_contract}"
+                            if existing_system
+                            else grounded_json_contract
+                        )
+                    else:
+                        generation_config_kwargs["response_mime_type"] = "application/json"
+                        generation_config_kwargs["response_json_schema"] = google_schema
 
             # Safety posture on every text + image generate_content call:
             # low for adults (Gemini over-blocks legitimate content), STRICT for
@@ -370,6 +403,39 @@ class GoogleTranslator(BaseTranslator):
             "contents": contents,
             "config": generated_config,
         }
+
+    # Markers the grounded-JSON containment wraps its payload in. The digest
+    # before MATRX_JSON_BEGIN is what absorbs Google's dropped span; extract_json
+    # ignores the envelope and selects the schema-matching fenced object.
+    _GROUNDED_JSON_BEGIN = "MATRX_JSON_BEGIN"
+    _GROUNDED_JSON_END = "MATRX_JSON_END"
+
+    @staticmethod
+    def _grounded_json_text_contract(schema: dict[str, Any]) -> str:
+        """The one-call text envelope for grounded Gemini JSON responses.
+
+        The 150-word grounded section is an INTEGRITY BUFFER, not ceremony.
+        Google's drop lands on the first grounded citation segment, so the fix is
+        to give it real grounded prose to land in. Measured 2026-08-15 and again
+        2026-09-11 (N=96/model): fixed intro/outro filler and a provider-enforced
+        preamble FIELD both still reproduced the truncation; a substantive
+        grounded digest before the JSON did not (0/96 on 3.7 and 3.8).
+        """
+        import json as _json
+
+        compact_schema = _json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
+        begin = GoogleTranslator._GROUNDED_JSON_BEGIN
+        end = GoogleTranslator._GROUNDED_JSON_END
+        return f"""GEMINI GROUNDED-JSON STREAM CONTRACT:
+This is still ONE response and ONE Google Search-grounded model call.
+1. Use Google Search whenever the request benefits from current or sourced facts.
+2. Start the response with the heading `GROUNDED RESEARCH DIGEST` and write at least 150 words of substantive prose summarizing the searched facts. Put source attribution, Google citation markers, and grounding-dependent explanations in this section before starting the JSON.
+3. After the digest is complete, write the marker `{begin}` on its own line.
+4. Immediately after that marker, write exactly one fenced `json` object conforming to the JSON Schema below. Do not truncate or omit any field. Keep source URLs when the schema asks for them, but do not add citation-marker syntax that violates the schema.
+5. After the closing fence, write `{end}` on its own line and nothing else.
+
+JSON Schema:
+{compact_schema}"""
 
     @staticmethod
     def _build_google_response_schema(

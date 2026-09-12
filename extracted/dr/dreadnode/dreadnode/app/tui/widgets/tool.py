@@ -17,7 +17,6 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme as RichTheme
 from textual.reactive import reactive
-from textual.widget import Widget
 
 from dreadnode.app.tui.theme import (
     ACCENT,
@@ -34,6 +33,7 @@ from dreadnode.app.tui.theme import (
     SYNTAX_THEME,
     WARNING,
 )
+from dreadnode.app.tui.widgets.selection import COPY_CHROME, CopyableText, SelectableWidget
 
 if TYPE_CHECKING:
     from rich.console import (
@@ -45,6 +45,7 @@ if TYPE_CHECKING:
         RenderResult,
     )
     from rich.markdown import MarkdownContext
+    from textual.visual import Visual
 
 # Short label rendered in place of the raw URL when a tool result carries
 # a deep link — the URL itself can be 100+ chars wide and wraps past the
@@ -130,15 +131,24 @@ class _ThemedCodeBlock(CodeBlock):
     """
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
-        code = str(self.text).rstrip()
-        yield Syntax(
-            code,
-            self.lexer_name,
-            theme=self.theme,
-            background_color=CODE_BG,
-            word_wrap=True,
-            padding=1,
-        )
+        # Remove the fence's terminal newline, but retain trailing whitespace
+        # on the final code line so selecting it does not silently change it.
+        code = str(self.text).rstrip("\n")
+        syntax = Syntax(code, self.lexer_name, theme=self.theme, background_color=CODE_BG)
+        highlighted = syntax.highlight(code)
+        padding_style = Style(bgcolor=CODE_BG) + COPY_CHROME
+        width = options.max_width
+        yield Segment(" " * width, padding_style)
+        yield Segment.line()
+        inner_options = options.update(width=max(1, width - 2), height=None)
+        for line in console.render_lines(CopyableText(highlighted), inner_options, pad=False):
+            yield Segment(" ", padding_style)
+            yield from line
+            remaining = max(0, width - 1 - Segment.get_line_length(line))
+            yield Segment(" " * remaining, padding_style)
+            yield Segment.line()
+        yield Segment(" " * width, padding_style)
+        yield Segment.line()
 
 
 # Style names Rich resolves via ``console.get_style`` while rendering Markdown.
@@ -268,7 +278,7 @@ class _GutterFrame:
         # budget so later siblings (e.g. the meta section) get clipped.
         # Clear height so each body renders at its natural row count.
         inner_options = options.update(width=inner_width, height=None)
-        prefix = Segment(self.gutter, console.get_style(self.gutter_style))
+        prefix = Segment(self.gutter, console.get_style(self.gutter_style) + COPY_CHROME)
         new_line = Segment.line()
         for line in console.render_lines(self.renderable, inner_options, pad=False):
             yield prefix
@@ -329,10 +339,12 @@ class _SectionedRenderable:
             # later sections) and (b) crowds subsequent sections off the
             # widget's row budget so they don't render.
             inner_options = options.update(width=inner_width, height=None)
-            prefix_style = console.get_style(section.prefix_style)
+            prefix_style = console.get_style(section.prefix_style) + COPY_CHROME
             first_seg = Segment(section.first_prefix, prefix_style)
             cont_seg = Segment(section.continuation_prefix, prefix_style)
-            for i, line in enumerate(console.render_lines(section.body, inner_options, pad=False)):
+            for i, line in enumerate(
+                console.render_lines(CopyableText(section.body), inner_options, pad=False)
+            ):
                 yield first_seg if i == 0 else cont_seg
                 yield from line
                 yield new_line
@@ -449,7 +461,7 @@ def render_tool_call(
     return Group(frame, _GutterFrame(body))
 
 
-class ToolCall(Widget):
+class ToolCall(SelectableWidget):
     """A widget to display a tool call — in-progress or completed.
 
     Used by both the live interactive stream (tool_start → tool_end) and the
@@ -587,8 +599,11 @@ class ToolCall(Widget):
             return ThemedMarkdown(self.expanded_body)
         return Text(self.expanded_body)
 
-    def render(self) -> RenderableType:
-        """Render the tool call."""
+    def render(self) -> Visual:
+        """Render the tool call with selection support."""
+        return self.selectable_visual(self._render_tool_call())
+
+    def _render_tool_call(self) -> RenderableType:
         if self.policy_denial:
             return render_tool_call(
                 self.tool_name,

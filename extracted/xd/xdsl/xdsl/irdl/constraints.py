@@ -999,6 +999,17 @@ class IntVarConstraint(IntConstraint):
     constraint: IntConstraint
     """The constraint that the variable must satisfy."""
 
+    @staticmethod
+    def get(
+        name: str, constraint: int | TypeForm[int] | IntConstraint = AnyInt()
+    ) -> IntConstraint:
+        if not isinstance(constraint, IntConstraint):
+            from xdsl.irdl import get_int_constraint
+
+            constraint = get_int_constraint(constraint)
+
+        return IntVarConstraint(name, constraint)
+
     def verify(
         self,
         i: int,
@@ -1282,6 +1293,21 @@ class RangeVarConstraint(RangeConstraint[AttributeCovT]):
 
     constraint: RangeConstraint[AttributeCovT]
     """The constraint that the variable must satisfy."""
+
+    @staticmethod
+    def get(
+        name: str,
+        constraint: IRDLAttrConstraint[AttributeInvT]
+        | RangeConstraint[AttributeInvT] = AnyRange(),
+    ) -> RangeConstraint[AttributeInvT]:
+        if not isinstance(constraint, RangeConstraint):
+            from xdsl.irdl import irdl_to_attr_constraint
+
+            constraint = RangeOf(irdl_to_attr_constraint(constraint))
+
+        return RangeVarConstraint(
+            name, cast(RangeConstraint[AttributeInvT], constraint)
+        )
 
     def verify(
         self,

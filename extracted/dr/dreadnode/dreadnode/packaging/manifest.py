@@ -143,6 +143,15 @@ class CommandWrapperManifest(BaseModel):
         return self
 
 
+class CapabilitySecretManifest(BaseModel):
+    """A credential a capability declares for users before installation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(pattern=r"^[A-Za-z_][A-Za-z0-9_]*$")
+    required: bool = True
+
+
 class CapabilityManifest(BaseManifest):
     """Capability manifest stored in OCI config and on disk."""
 
@@ -159,6 +168,10 @@ class CapabilityManifest(BaseManifest):
     skills: list[str] | None = None
     policies: list[str] | None = None
     workers: dict[str, t.Any] | None = None
+    # A list of source paths, not a name-keyed map: one Workflow object per file,
+    # so the name lives in the source and cannot drift (PRD §19 D-08). Compiled to
+    # a topology document at build time.
+    workflows: list[str] | None = None
     mcp: dict[str, t.Any] | None = None
     author: dict[str, str] | None = None
     license: str | None = None
@@ -167,6 +180,7 @@ class CapabilityManifest(BaseManifest):
     dependencies: dict[str, t.Any] | None = None
     checks: list[dict[str, t.Any]] | None = None
     flags: dict[str, t.Any] | None = None
+    secrets: list[CapabilitySecretManifest] | None = None
     # Structured item production config. Supported forms:
     # true/false for enable/disable, a registry identifier or list of identifiers,
     # or a mapping of optional local models as "module:PydanticClass". Dict forms may
@@ -181,6 +195,9 @@ class CapabilityManifest(BaseManifest):
         names = [command.name for command in self.commands or []]
         if len(names) != len(set(names)):
             raise ValueError("command wrapper names must be unique")
+        secret_names = [secret.name for secret in self.secrets or []]
+        if len(secret_names) != len(set(secret_names)):
+            raise ValueError("capability secret names must be unique")
         return self
 
 

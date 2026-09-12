@@ -17416,6 +17416,16 @@ async function fetchSettings() {
   }
   return readJson("/v1/settings");
 }
+async function fetchCloudReviewSettings() {
+  return readJson("/v1/cloud-review", { cache: "no-store" });
+}
+async function changeCloudReviewSettings(input) {
+  return readJson("/v1/cloud-review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, confirm: `cloud-review.${input.action}` })
+  });
+}
 async function updateSettings(settings) {
   if (isGuardDemoMode()) {
     const current = await fetchSettings();
@@ -25827,6 +25837,9 @@ function commandReasonLabel(reason) {
 function commandInteractionLabel(item) {
   return item.prompted ? "Guard asked for review" : "No review prompt recorded";
 }
+function commandInvocationLabel(preview) {
+  return preview === null || preview.length === 0 ? "Command not recorded" : preview;
+}
 function safeEvidenceId(value) {
   if (value === null || value.length > 256 || !/^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$/.test(value)) {
     return "Unavailable";
@@ -25924,6 +25937,13 @@ function EvidenceField(props) {
     /* @__PURE__ */ jsxRuntimeExports.jsx("dd", { className: "mt-0.5 text-sm font-medium text-brand-dark", children: props.value })
   ] });
 }
+function CommandValue(props) {
+  const label = commandInvocationLabel(props.preview);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "sm:col-span-2", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("dt", { className: "text-xs font-medium text-slate-500", children: "Command" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("dd", { className: "mt-0.5", children: props.preview === null ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-slate-500", children: label }) : /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "block select-text whitespace-pre-wrap break-all font-mono text-[13px] leading-5 text-brand-dark", children: label }) })
+  ] });
+}
 function extensionPatternHref(extensionId, ruleId) {
   const url = new URL(guardAwareHref(`/extensions/${extensionId}`), window.location.origin);
   const fragment = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
@@ -25996,6 +26016,7 @@ function CommandActivityDetail(props) {
       )
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("dl", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(CommandValue, { preview: props.activity.invocation_preview }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceField, { label: "Decision", value: commandDecisionLabel(props.activity.policy_action) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceField, { label: "Execution proof", value: commandExecutionLabel(props.activity.execution_status) }),
       /* @__PURE__ */ jsxRuntimeExports.jsx(EvidenceField, { label: "Proof source", value: commandProofLabel(props.activity.proof_level) }),
@@ -26470,8 +26491,11 @@ function CommandRow(props) {
   } else if (props.item.decision_reason_code === "no_match") {
     ruleLabel = "No rule match";
   }
+  const commandLabel = commandInvocationLabel(props.item.invocation_preview);
+  const hasCommand = props.item.invocation_preview !== null;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: props.selected ? "bg-brand-blue/[0.04]" : "hover:bg-slate-50/70", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "whitespace-nowrap px-3 py-3 text-xs text-slate-600", children: recordedTime(props.item.occurred_at) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "max-w-[28rem] px-3 py-3", children: hasCommand ? /* @__PURE__ */ jsxRuntimeExports.jsx("code", { className: "block truncate font-mono text-[13px] leading-5 text-brand-dark", title: commandLabel, children: commandLabel }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-sm text-slate-500", children: commandLabel }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm font-medium text-brand-dark", children: safeEvidenceId(props.item.harness) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm text-brand-dark", children: commandDecisionLabel(props.item.policy_action) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { className: "px-3 py-3 text-sm text-brand-dark", children: commandExecutionLabel(props.item.execution_status) }),
@@ -26500,9 +26524,10 @@ function CommandActivityTable(props) {
     return /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyState, { title: "No command activity", body: "No recorded commands match these filters.", tone: "teach" });
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { "aria-label": "Command activity records", className: "w-full min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-slate-200 bg-white [contain:inline-size]", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-w-full overflow-x-auto [contain:paint]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "w-full min-w-[760px] border-collapse text-left", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "max-w-full overflow-x-auto [contain:paint]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("table", { className: "w-full min-w-[920px] border-collapse text-left", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("thead", { className: "border-b border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2.5", children: "Time" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2.5", children: "Command" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2.5", children: "App" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2.5", children: "Decision" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx("th", { className: "px-3 py-2.5", children: "Execution proof" }),
@@ -26600,6 +26625,11 @@ function stringValue(value, kind, max = 256) {
 function nullableString(value, kind, max = 256) {
   return value === null ? null : stringValue(value, kind, max);
 }
+function nullableInvocationPreview(value) {
+  if (value === void 0 || value === null) return null;
+  if (typeof value !== "string" || value.length === 0 || value.length > 4096) invalid("command activity");
+  return value;
+}
 function booleanValue(value, kind) {
   if (typeof value !== "boolean") invalid(kind);
   return value;
@@ -26670,6 +26700,7 @@ function normalizeActivity(value) {
     persistence_latency_bucket: stringValue(item.persistence_latency_bucket, "command activity"),
     feedback_label: item.feedback_label === null ? null : enumValue(item.feedback_label, FEEDBACK_LABELS, "command activity"),
     schema_version: stringValue(item.schema_version, "command activity"),
+    invocation_preview: nullableInvocationPreview(item.invocation_preview),
     matches
   };
 }
@@ -31335,7 +31366,7 @@ function useRouteFocus(view, mainSelector = "main#main-content") {
 }
 const HomeWorkspace = lazyWorkspace("home-dashboard", () => __vitePreload(() => import("./chunks/home-dashboard.js"), true ? __vite__mapDeps([0,1]) : void 0).then((m) => ({ default: m.HomeWorkspace })));
 const FleetWorkspace = lazyWorkspace("fleet-workspace", () => __vitePreload(() => import("./chunks/fleet-workspace.js"), true ? __vite__mapDeps([2,3,4,5]) : void 0).then((m) => ({ default: m.FleetWorkspace })));
-const SettingsWorkspace = lazyWorkspace("settings-workspace", () => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([6,3]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
+const SettingsWorkspace = lazyWorkspace("settings-workspace", () => __vitePreload(() => import("./chunks/settings-workspace.js"), true ? __vite__mapDeps([6,3,5]) : void 0).then((m) => ({ default: m.SettingsWorkspace })));
 const ExtensionsWorkspace = lazyWorkspace(
   "extensions-workspace",
   () => __vitePreload(() => import("./chunks/extensions-workspace.js"), true ? __vite__mapDeps([7,8]) : void 0).then((module) => ({ default: module.ExtensionsWorkspace }))
@@ -32183,7 +32214,7 @@ export {
   openPackageFirewallAuthorizeFallback as Z,
   waitForCloudConnection as _,
   EvidenceActivityHeatmapMini as a,
-  GuardHarnessActionError as a$,
+  guardAwareHref as a$,
   HiMiniWrenchScrewdriver as a0,
   HiMiniExclamationCircle as a1,
   ProofStrip as a2,
@@ -32194,33 +32225,33 @@ export {
   PROTECTION_POSTURE_COPY as a7,
   POSTURE_OUTCOME_COLUMNS as a8,
   getDefaultExportFromCjs as a9,
-  deriveProtectionPosture as aA,
-  Tag as aB,
-  approvalGateCooldownLabel as aC,
-  fetchLocalCliApi as aD,
-  fetchExtensionControlApi as aE,
-  useResolvedApprovalGate as aF,
-  HiMiniArrowPath as aG,
-  HiMiniInformationCircle as aH,
-  isApprovalProofSubmitDisabled as aI,
-  ApprovalProofFieldInputs as aJ,
-  buildApprovalProofCredentials as aK,
-  GenIcon as aL,
-  HiMiniGlobeAlt as aM,
-  HiMiniCube as aN,
-  HiMiniServerStack as aO,
-  HiMiniFolder as aP,
-  FaWindows as aQ,
-  FaAws as aR,
-  approvalProofRecentlySatisfied as aS,
-  HiMiniArrowLeft as aT,
-  HiMiniPlus as aU,
-  HiMiniCheck as aV,
-  HiMiniNoSymbol as aW,
-  startGuardCloudConnect as aX,
-  HiMiniArrowTopRightOnSquare as aY,
-  guardAwareHref as aZ,
-  runHarnessAction as a_,
+  exportSettings as aA,
+  setupDesktopNotifications as aB,
+  WorkspacePageHeader as aC,
+  HiMiniMagnifyingGlass as aD,
+  isProtectionPosture as aE,
+  deriveProtectionPosture as aF,
+  Tag as aG,
+  approvalGateCooldownLabel as aH,
+  fetchLocalCliApi as aI,
+  fetchExtensionControlApi as aJ,
+  useResolvedApprovalGate as aK,
+  HiMiniInformationCircle as aL,
+  buildApprovalProofCredentials as aM,
+  GenIcon as aN,
+  HiMiniGlobeAlt as aO,
+  HiMiniCube as aP,
+  HiMiniServerStack as aQ,
+  HiMiniFolder as aR,
+  FaWindows as aS,
+  FaAws as aT,
+  approvalProofRecentlySatisfied as aU,
+  HiMiniArrowLeft as aV,
+  HiMiniPlus as aW,
+  HiMiniCheck as aX,
+  HiMiniNoSymbol as aY,
+  startGuardCloudConnect as aZ,
+  HiMiniArrowTopRightOnSquare as a_,
   React as aa,
   HiMiniKey as ab,
   HiMiniLockClosed as ac,
@@ -32228,112 +32259,114 @@ export {
   HiMiniAdjustmentsHorizontal as ae,
   HiMiniCircleStack as af,
   TabBar as ag,
-  resolveProtectionLevelCopy as ah,
-  fetchSettings as ai,
-  fetchRuntimeSnapshot as aj,
-  clearPolicy as ak,
-  clearReviewQueue as al,
-  revokeApprovalGateCooldown as am,
-  disableApprovalGateTotp as an,
-  importSettings as ao,
-  resetSettings as ap,
-  enrollApprovalGateTotp as aq,
-  verifyApprovalGateTotp as ar,
-  clearEvidence as as,
-  exportDiagnostics as at,
-  repairApprovalCenter as au,
-  exportSettings as av,
-  setupDesktopNotifications as aw,
-  WorkspacePageHeader as ax,
-  HiMiniMagnifyingGlass as ay,
-  isProtectionPosture as az,
+  fetchCloudReviewSettings as ah,
+  isApprovalProofSubmitDisabled as ai,
+  HiMiniArrowPath as aj,
+  ApprovalProofFieldInputs as ak,
+  changeCloudReviewSettings as al,
+  resolveProtectionLevelCopy as am,
+  fetchSettings as an,
+  fetchRuntimeSnapshot as ao,
+  clearPolicy as ap,
+  clearReviewQueue as aq,
+  revokeApprovalGateCooldown as ar,
+  disableApprovalGateTotp as as,
+  importSettings as at,
+  resetSettings as au,
+  enrollApprovalGateTotp as av,
+  verifyApprovalGateTotp as aw,
+  clearEvidence as ax,
+  exportDiagnostics as ay,
+  repairApprovalCenter as az,
   HiMiniCommandLine as b,
-  downloadBlob as b$,
-  HiMiniRocketLaunch as b0,
-  HiMiniTrash as b1,
-  isGuardDemoMode as b2,
-  fetchGuardApi as b3,
-  formatHarnessCommand as b4,
-  fetchApprovalPage as b5,
-  fetchPolicy as b6,
-  HiMiniHome as b7,
-  appSetupTarget as b8,
-  guardActionPresentation as b9,
-  fetchPackageFirewallStatus as bA,
-  runPackageAudit as bB,
-  resolveSupplyChainAuditFailure as bC,
-  runPackageSync as bD,
-  startPackageFirewallConnect as bE,
-  PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE as bF,
-  repairSupplyChainProtection as bG,
-  runPackageFirewallAction as bH,
-  parseInterceptProofSnapshot as bI,
-  activatePackageFirewallRuntime as bJ,
-  EntitlementNotice as bK,
-  fetchReceipts as bL,
-  lazyWorkspace as bM,
-  __vitePreload as bN,
-  scopeLabel as bO,
-  HiMiniDocumentText as bP,
-  HiMiniCloudArrowUp as bQ,
-  HiMiniCodeBracket as bR,
-  HiMiniClipboardDocument as bS,
-  HiMiniUsers as bT,
-  HiMiniIdentification as bU,
-  policyActionLabel as bV,
-  createCloudExceptionRequest as bW,
-  HiMiniArrowRight as bX,
-  HiMiniPuzzlePiece as bY,
-  fetchCloudExceptions as bZ,
-  fetchCloudExceptionRequests as b_,
-  DEFAULT_FILTER_STATE as ba,
-  filterEvidence as bb,
-  sortEvidence as bc,
-  computeMetrics as bd,
-  CommandActivityWorkspace as be,
-  EvidenceFilterBar as bf,
-  EvidenceInsightStrip as bg,
-  EvidenceActionList as bh,
-  EvidenceActionDetail as bi,
-  policyIdentityKey as bj,
-  clearLabelForScope as bk,
-  HiMiniChartBar as bl,
-  isSupplyChainAuditIncomplete as bm,
-  isSupplyChainAuditEvidence as bn,
-  readString$1 as bo,
-  isRecord$3 as bp,
-  HiMiniClock as bq,
-  IconActionButton as br,
-  HiMiniBeaker as bs,
-  ActivationSummary as bt,
-  ActionResultPanel as bu,
-  HiMiniBugAnt as bv,
-  GuardModalLayer as bw,
-  ConnectFlowCard as bx,
-  ApprovalProofInline as by,
-  HiMiniCloudArrowDown as bz,
+  fetchCloudExceptions as b$,
+  runHarnessAction as b0,
+  GuardHarnessActionError as b1,
+  HiMiniRocketLaunch as b2,
+  HiMiniTrash as b3,
+  isGuardDemoMode as b4,
+  fetchGuardApi as b5,
+  formatHarnessCommand as b6,
+  fetchApprovalPage as b7,
+  fetchPolicy as b8,
+  HiMiniHome as b9,
+  ApprovalProofInline as bA,
+  HiMiniCloudArrowDown as bB,
+  fetchPackageFirewallStatus as bC,
+  runPackageAudit as bD,
+  resolveSupplyChainAuditFailure as bE,
+  runPackageSync as bF,
+  startPackageFirewallConnect as bG,
+  PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE as bH,
+  repairSupplyChainProtection as bI,
+  runPackageFirewallAction as bJ,
+  parseInterceptProofSnapshot as bK,
+  activatePackageFirewallRuntime as bL,
+  EntitlementNotice as bM,
+  fetchReceipts as bN,
+  lazyWorkspace as bO,
+  __vitePreload as bP,
+  scopeLabel as bQ,
+  HiMiniDocumentText as bR,
+  HiMiniCloudArrowUp as bS,
+  HiMiniCodeBracket as bT,
+  HiMiniClipboardDocument as bU,
+  HiMiniUsers as bV,
+  HiMiniIdentification as bW,
+  policyActionLabel as bX,
+  createCloudExceptionRequest as bY,
+  HiMiniArrowRight as bZ,
+  HiMiniPuzzlePiece as b_,
+  appSetupTarget as ba,
+  guardActionPresentation as bb,
+  DEFAULT_FILTER_STATE as bc,
+  filterEvidence as bd,
+  sortEvidence as be,
+  computeMetrics as bf,
+  CommandActivityWorkspace as bg,
+  EvidenceFilterBar as bh,
+  EvidenceInsightStrip as bi,
+  EvidenceActionList as bj,
+  EvidenceActionDetail as bk,
+  policyIdentityKey as bl,
+  clearLabelForScope as bm,
+  HiMiniChartBar as bn,
+  isSupplyChainAuditIncomplete as bo,
+  isSupplyChainAuditEvidence as bp,
+  readString$1 as bq,
+  isRecord$3 as br,
+  HiMiniClock as bs,
+  IconActionButton as bt,
+  HiMiniBeaker as bu,
+  ActivationSummary as bv,
+  ActionResultPanel as bw,
+  HiMiniBugAnt as bx,
+  GuardModalLayer as by,
+  ConnectFlowCard as bz,
   HiMiniChevronRight as c,
-  PolicyStatField as c0,
-  PaginationControls as c1,
-  HiMiniArrowDownTray as c2,
-  HiMiniQueueList as c3,
-  Surface as c4,
-  HiMiniCheckBadge as c5,
-  fetchMcpPolicyRequest as c6,
-  resolveMcpPolicyRequest as c7,
-  HiMiniDocumentPlus as c8,
-  HiMiniDocumentMagnifyingGlass as c9,
-  fetchSupplyChainBundle as ca,
-  isSupplyChainScannerEvidence as cb,
-  isBlockedGuardAction as cc,
-  HiMiniShieldExclamation as cd,
-  HiMiniComputerDesktop as ce,
-  HiMiniChevronLeft as cf,
-  HiMiniFunnel as cg,
-  HiMiniArrowDown as ch,
-  HiMiniArrowUp as ci,
-  runAuditRemediation as cj,
-  HiMiniSignal as ck,
+  fetchCloudExceptionRequests as c0,
+  downloadBlob as c1,
+  PolicyStatField as c2,
+  PaginationControls as c3,
+  HiMiniArrowDownTray as c4,
+  HiMiniQueueList as c5,
+  Surface as c6,
+  HiMiniCheckBadge as c7,
+  fetchMcpPolicyRequest as c8,
+  resolveMcpPolicyRequest as c9,
+  HiMiniDocumentPlus as ca,
+  HiMiniDocumentMagnifyingGlass as cb,
+  fetchSupplyChainBundle as cc,
+  isSupplyChainScannerEvidence as cd,
+  isBlockedGuardAction as ce,
+  HiMiniShieldExclamation as cf,
+  HiMiniComputerDesktop as cg,
+  HiMiniChevronLeft as ch,
+  HiMiniFunnel as ci,
+  HiMiniArrowDown as cj,
+  HiMiniArrowUp as ck,
+  runAuditRemediation as cl,
+  HiMiniSignal as cm,
   createCommandActivityClient as d,
   updateSettings as e,
   fetchCommandActivityApi as f,

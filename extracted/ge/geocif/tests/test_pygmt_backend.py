@@ -76,16 +76,71 @@ def test_in_process_render_receives_params_dict(tmp_path, monkeypatch):
 
 
 def test_renderer_is_self_contained():
-    """The bridge helper runs in a bare pygmt env: no geocif imports."""
-    tree = ast.parse(RENDERER.read_text(encoding="utf-8"))
+    """The bridge helper runs in a bare pygmt env with no geocif on path.
+
+    Since the style constants moved to viz/_style.py the renderer dual-
+    imports them: the package form for in-process use, guarded by an
+    ImportError handler that imports the same-directory `_style` the bare
+    env resolves via sys.path[0]. A geocif import is therefore acceptable
+    ONLY when its handler actually provides the fallback — an
+    `except ImportError: pass` handler would satisfy a naive "is it inside
+    a try?" check while leaving the bridge broken — and only when both
+    forms import the SAME names.
+    """
+    src = RENDERER.read_text(encoding="utf-8")
+    tree = ast.parse(src)
+
+    guarded, pairs = set(), []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Try):
+            continue
+        handlers = [h for h in node.handlers
+                    if isinstance(h.type, ast.Name)
+                    and h.type.id == "ImportError"]
+        if not handlers:
+            continue
+        # the handler must itself import something, not just `pass`
+        fallback = [n for h in handlers for n in ast.walk(h)
+                    if isinstance(n, ast.ImportFrom)]
+        if not fallback:
+            continue
+        tried = [n for b in node.body for n in ast.walk(b)
+                 if isinstance(n, ast.ImportFrom) and n.module]
+        for t in tried:
+            guarded.add(t.module)
+            pairs.append((t, fallback))
+        for fb in fallback:
+            if fb.module:
+                guarded.add(fb.module)
+
     imported = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             imported.update(a.name.split(".")[0] for a in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module:
+            if node.module in guarded:
+                continue                   # dual import, fallback verified
             imported.add(node.module.split(".")[0])
-    assert "geocif" not in imported, "renderer must not import geocif"
-    assert imported <= {"os", "sys", "json", "tempfile", "geopandas", "pygmt"}
+    assert "geocif" not in imported, "unguarded geocif import in renderer"
+    assert imported <= {"os", "sys", "json", "tempfile", "geopandas",
+                        "pygmt", "pandas"}
+
+    assert pairs, "no guarded dual import found"
+    for tried, fallback in pairs:
+        want = {a.name for a in tried.names}
+        got = set().union(*({a.name for a in fb.names} for fb in fallback))
+        assert want == got, (
+            f"dual import disagrees: {tried.module} imports {want}, "
+            f"fallback imports {got}")
+
+    # the bare-env sibling must itself be importable with no third party
+    stree = ast.parse(RENDERER.with_name("_style.py").read_text(
+        encoding="utf-8"))
+    top = {a.names[0].name.split(".")[0] for a in stree.body
+           if isinstance(a, ast.Import)}
+    top |= {a.module.split(".")[0] for a in stree.body
+            if isinstance(a, ast.ImportFrom) and a.module}
+    assert top <= {"logging"}, top
 
 
 def test_renderer_has_no_embedded_quotes():

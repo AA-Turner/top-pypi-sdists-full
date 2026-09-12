@@ -28,10 +28,31 @@ def test_ai_pr_loop_supervisor_command_reports_scan(monkeypatch, capsys) -> None
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         ai_pr_loop_supervisor_command()
 
     assert json.loads(capsys.readouterr().out) == {"errors": [], "ok": True}
+
+
+def test_ai_pr_loop_supervisor_command_rejects_invalid_config_before_setup(monkeypatch, capsys) -> None:
+    from agentic_devtools.cli.ci.supervisor_command import ai_pr_loop_supervisor_command
+
+    monkeypatch.setattr(sys, "argv", ["agdt-ai-pr-loop-supervisor"])
+    with (
+        patch(
+            "agentic_devtools.cli.ci.supervisor_command.load_supervisor_config",
+            side_effect=ValueError("mode must be 'audit'"),
+        ),
+        patch("agentic_devtools.cli.ci.supervisor_command.shutil.which") as which,
+        patch("agentic_devtools.cli.ci.supervisor_command.resolve_github_repo") as resolve_repo,
+    ):
+        with pytest.raises(SystemExit) as exc:
+            ai_pr_loop_supervisor_command()
+
+    assert exc.value.code == 2
+    assert "Error: invalid supervisor config: mode must be 'audit'" in capsys.readouterr().err
+    which.assert_not_called()
+    resolve_repo.assert_not_called()
 
 
 def test_ai_pr_loop_supervisor_command_uses_separate_scan_budget(monkeypatch, capsys) -> None:
@@ -54,7 +75,7 @@ def test_ai_pr_loop_supervisor_command_uses_separate_scan_budget(monkeypatch, ca
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 5, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 5, SupervisorConfig())
         ai_pr_loop_supervisor_command()
 
     assert json.loads(capsys.readouterr().out) == {"errors": [], "ok": True}
@@ -91,7 +112,7 @@ def test_ai_pr_loop_supervisor_command_preserves_task_loader_error(monkeypatch, 
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         ai_pr_loop_supervisor_command()
 
     assert json.loads(capsys.readouterr().out)["errors"] == ["agent_tasks: unavailable"]
@@ -113,7 +134,7 @@ def test_ai_pr_loop_supervisor_command_records_workflow_run_error(monkeypatch, c
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         provider_cls.return_value.list_workflow_runs.side_effect = RuntimeError("runs unavailable")
         ai_pr_loop_supervisor_command()
 
@@ -144,7 +165,7 @@ def test_ai_pr_loop_supervisor_command_falls_back_when_provider_lacks_enrichment
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         ai_pr_loop_supervisor_command()
 
     assert json.loads(capsys.readouterr().out)["errors"] == []
@@ -166,7 +187,7 @@ def test_ai_pr_loop_supervisor_command_allows_provider_without_workflow_runs(mon
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         ai_pr_loop_supervisor_command()
 
     assert json.loads(capsys.readouterr().out)["errors"] == []
@@ -180,6 +201,27 @@ def test_ai_pr_loop_supervisor_command_rejects_invalid_limit(monkeypatch) -> Non
         with pytest.raises(SystemExit) as exc:
             ai_pr_loop_supervisor_command()
     assert exc.value.code == 2
+
+
+def test_ai_pr_loop_supervisor_command_rejects_unsupported_mode_before_setup(monkeypatch) -> None:
+    from agentic_devtools.cli.ci.supervisor_command import ai_pr_loop_supervisor_command
+
+    monkeypatch.setattr(sys, "argv", ["agdt-ai-pr-loop-supervisor"])
+    with (
+        patch("agentic_devtools.cli.ci.supervisor_command.load_supervisor_config") as load_config,
+        patch("agentic_devtools.cli.ci.supervisor_command.shutil.which") as which,
+        patch("agentic_devtools.cli.ci.supervisor_command.GitHubActionsProvider") as provider,
+    ):
+        from agentic_devtools.cli.ci.supervisor import SupervisorConfig
+        from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
+
+        load_config.return_value = SupervisorRuntimeConfig("diagnose_only", 10, SupervisorConfig())
+        with pytest.raises(SystemExit) as exc:
+            ai_pr_loop_supervisor_command()
+
+    assert exc.value.code == 2
+    which.assert_not_called()
+    provider.assert_not_called()
 
 
 def test_ai_pr_loop_supervisor_command_reports_scan_failure(monkeypatch) -> None:
@@ -197,7 +239,7 @@ def test_ai_pr_loop_supervisor_command_reports_scan_failure(monkeypatch) -> None
         from agentic_devtools.cli.ci.supervisor import SupervisorConfig
         from agentic_devtools.cli.ci.supervisor_command import SupervisorRuntimeConfig
 
-        load_config.return_value = SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        load_config.return_value = SupervisorRuntimeConfig("audit", 10, SupervisorConfig())
         with pytest.raises(SystemExit) as exc:
             ai_pr_loop_supervisor_command()
     assert exc.value.code == 1

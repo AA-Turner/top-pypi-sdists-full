@@ -17,6 +17,8 @@ class TestPrReviewDelegatePromptRendering:
             "completed_count": "3",
             "pending_count": "2",
             "total_count": "5",
+            "review_artifact_dir_name": "e8f8350144db",
+            "review_artifact_dir": "pull-request-review/e8f8350144db",
         }
 
     def test_renders_without_error(self):
@@ -46,6 +48,15 @@ class TestPrReviewDelegatePromptRendering:
         """One file-reviewer per file is the only path."""
         result = self._render(**self._base_variables())
         assert "file-reviewer" in result
+
+    def test_shared_artifacts_use_commit_scoped_directory(self):
+        """Both delegation modes use the resolved directory for shared artifacts."""
+        result = self._render(**self._base_variables())
+
+        assert "<state_dir>/pull-request-review/e8f8350144db/" in result
+        assert "pull-request-review/e8f8350144db/manifest.json" in result
+        assert "answers/" in result
+        assert "relative to the workflow state root" in result
 
     def test_single_agent_cli_fallback_guidance_present(self):
         """Headless CLI sessions have direct file-review guidance."""

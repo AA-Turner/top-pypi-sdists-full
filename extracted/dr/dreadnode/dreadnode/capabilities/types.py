@@ -250,6 +250,24 @@ class WorkerDef:
 
 
 @dataclass
+class WorkflowDef:
+    """Parsed workflow entry from a capability manifest.
+
+    Declared as a **list of source paths**, symmetric with ``agents``/``tools``/
+    ``hooks``/``skills`` rather than the name-keyed ``workers`` map: there is one
+    ``Workflow`` object per file, so the name lives in the source and cannot
+    drift from a second declaration in the manifest (PRD §19 D-08).
+
+    The compiled topology is produced at *build* time and travels in the package
+    — the platform never imports capability Python.
+    """
+
+    path: Path
+    name: str | None = None
+    """Filled in after compilation; the ``Workflow(name=...)`` from the source."""
+
+
+@dataclass
 class DependencySpec:
     """Declared runtime dependencies from capability.yaml.
 

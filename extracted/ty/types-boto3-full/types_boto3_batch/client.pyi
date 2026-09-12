@@ -40,6 +40,8 @@ from .paginator import (
 )
 from .type_defs import (
     CancelJobRequestTypeDef,
+    CancelJobsRequestTypeDef,
+    CancelJobsResponseTypeDef,
     CreateComputeEnvironmentRequestTypeDef,
     CreateComputeEnvironmentResponseTypeDef,
     CreateConsumableResourceRequestTypeDef,
@@ -101,7 +103,11 @@ from .type_defs import (
     SubmitServiceJobResponseTypeDef,
     TagResourceRequestTypeDef,
     TerminateJobRequestTypeDef,
+    TerminateJobsRequestTypeDef,
+    TerminateJobsResponseTypeDef,
     TerminateServiceJobRequestTypeDef,
+    TerminateServiceJobsRequestTypeDef,
+    TerminateServiceJobsResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateComputeEnvironmentRequestTypeDef,
     UpdateComputeEnvironmentResponseTypeDef,
@@ -171,6 +177,14 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/cancel_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#cancel_job)
+        """
+
+    def cancel_jobs(self, **kwargs: Unpack[CancelJobsRequestTypeDef]) -> CancelJobsResponseTypeDef:
+        """
+        Cancels up to 50 jobs in an Batch job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/cancel_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#cancel_jobs)
         """
 
     def create_compute_environment(
@@ -516,6 +530,16 @@ class BatchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#terminate_job)
         """
 
+    def terminate_jobs(
+        self, **kwargs: Unpack[TerminateJobsRequestTypeDef]
+    ) -> TerminateJobsResponseTypeDef:
+        """
+        Terminates up to 50 jobs in a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#terminate_jobs)
+        """
+
     def terminate_service_job(
         self, **kwargs: Unpack[TerminateServiceJobRequestTypeDef]
     ) -> dict[str, Any]:
@@ -524,6 +548,16 @@ class BatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_service_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#terminate_service_job)
+        """
+
+    def terminate_service_jobs(
+        self, **kwargs: Unpack[TerminateServiceJobsRequestTypeDef]
+    ) -> TerminateServiceJobsResponseTypeDef:
+        """
+        Terminates up to 50 service jobs in a job queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/batch/client/terminate_service_jobs.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_batch/client/#terminate_service_jobs)
         """
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:

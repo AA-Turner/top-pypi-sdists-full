@@ -1,6 +1,6 @@
 """Guard the memory footprint against a regression that changes its order of magnitude.
 
-`CLAUDE.md` requires this package to stay usable in containers with
+`contributing/core-contributor-contract.md` requires this package to stay usable in containers with
 constrained memory, and specifically that `in_memory=False` remains a viable
 low-memory option. The trend chart tracks how the footprint *drifts*; these
 ceilings catch the change that would make it meaningless in the first place -
@@ -57,10 +57,19 @@ def measured_heap() -> dict[str, float]:
     time.
     """
     samples = measure_configs(CONFIGS, repetitions=1)
-    return {
+    measured = {
         config.id: samples[metric_name(config.id, "steady_heap")][0]
         for config in CONFIGS
     }
+    # A probe that could not report a metric yields None, which would otherwise reach
+    # the comparison below and fail as a TypeError naming neither the configuration nor
+    # the metric that went missing.
+    unmeasured = sorted(name for name, value in measured.items() if value is None)
+    assert not unmeasured, (
+        f"the memory probe reported no steady_heap for {unmeasured}, so their "
+        "footprint cannot be checked against a ceiling"
+    )
+    return {name: float(value) for name, value in measured.items() if value is not None}
 
 
 @pytest.mark.unit

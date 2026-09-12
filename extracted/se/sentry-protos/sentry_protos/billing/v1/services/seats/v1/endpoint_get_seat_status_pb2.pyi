@@ -31,6 +31,10 @@ class _ExternalProductSeatStatusEnumTypeWrapper(google.protobuf.internal.enum_ty
     """Alive and well."""
     EXTERNAL_PRODUCT_SEAT_STATUS_DISABLED: _ExternalProductSeatStatus.ValueType  # 3
     """The billing platform deems this seat object unusable for billing reasons."""
+    EXTERNAL_PRODUCT_SEAT_STATUS_INVALID: _ExternalProductSeatStatus.ValueType  # 4
+    """The billing platform cannot determine the seat status from the request.
+    For example: the organziation does not have a billing platform contract
+    """
 
 class ExternalProductSeatStatus(_ExternalProductSeatStatus, metaclass=_ExternalProductSeatStatusEnumTypeWrapper):
     """The status of a seat object from the perspective of the external product
@@ -44,6 +48,10 @@ EXTERNAL_PRODUCT_SEAT_STATUS_ACTIVE: ExternalProductSeatStatus.ValueType  # 2
 """Alive and well."""
 EXTERNAL_PRODUCT_SEAT_STATUS_DISABLED: ExternalProductSeatStatus.ValueType  # 3
 """The billing platform deems this seat object unusable for billing reasons."""
+EXTERNAL_PRODUCT_SEAT_STATUS_INVALID: ExternalProductSeatStatus.ValueType  # 4
+"""The billing platform cannot determine the seat status from the request.
+For example: the organziation does not have a billing platform contract
+"""
 global___ExternalProductSeatStatus = ExternalProductSeatStatus
 
 @typing.final

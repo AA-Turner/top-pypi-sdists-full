@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: arize-phoenix
-Version: 20.9.0
+Version: 20.11.0
 Summary: AI Observability and Evaluation
 Project-URL: Documentation, https://arize.com/docs/phoenix/
 Project-URL: Issues, https://github.com/Arize-ai/phoenix/issues
@@ -21,8 +21,8 @@ Requires-Dist: aioitertools
 Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: alembic<2,>=1.3.0
 Requires-Dist: anthropic<2,>=1
-Requires-Dist: arize-phoenix-client>=3.4.0
-Requires-Dist: arize-phoenix-evals>=3.6.0
+Requires-Dist: arize-phoenix-client>=3.5.0
+Requires-Dist: arize-phoenix-evals>=3.7.0
 Requires-Dist: arize-phoenix-otel>=0.17.0
 Requires-Dist: arize-phoenix-sqlean
 Requires-Dist: authlib>=1.8.0
@@ -43,7 +43,7 @@ Requires-Dist: ldap3
 Requires-Dist: numpy
 Requires-Dist: openinference-instrumentation-openai>=0.1.41
 Requires-Dist: openinference-instrumentation>=0.1.60
-Requires-Dist: openinference-semantic-conventions>=0.1.34
+Requires-Dist: openinference-semantic-conventions>=0.1.35
 Requires-Dist: opentelemetry-exporter-otlp
 Requires-Dist: opentelemetry-proto>=1.12.0
 Requires-Dist: opentelemetry-sdk

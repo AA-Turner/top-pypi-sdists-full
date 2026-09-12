@@ -31,13 +31,14 @@ class TestSetupPullRequestReviewFocusAreas:
         }
         return mapping.get(key, default)
 
-    def _run_setup(self, pr_details, focus_areas_return):
+    def _run_setup(self, pr_details, focus_areas_return, prompts_dir=None):
         """Run setup_pull_request_review with mocked dependencies, return captured calls."""
         from agentic_devtools.cli.azure_devops.review_commands import (
             setup_pull_request_review,
         )
 
         captured_variables = {}
+        generated_prompts_dir = prompts_dir or MagicMock()
 
         def capture_render(workflow_name, step_name, variables, **kwargs):
             captured_variables.update(variables)
@@ -71,7 +72,7 @@ class TestSetupPullRequestReviewFocusAreas:
                         ):
                             with patch(
                                 "agentic_devtools.cli.azure_devops.review_commands.generate_review_prompts",
-                                return_value=(3, 0, 0, MagicMock(), []),
+                                return_value=(3, 0, 0, generated_prompts_dir, []),
                             ):
                                 with patch(
                                     "agentic_devtools.cli.azure_devops.review_commands.print_review_instructions"
@@ -127,6 +128,24 @@ class TestSetupPullRequestReviewFocusAreas:
         variables = self._run_setup(self._make_pr_details(), None)
 
         assert variables.get("source_code_platform") == "AzureDevOps"
+
+    def test_artifact_context_matches_commit_scoped_prompts_directory(self, tmp_path):
+        """Setup passes the generated commit-scoped directory to later review prompts."""
+        prompts_dir = tmp_path / "pull-request-review" / "e8f8350144db"
+
+        variables = self._run_setup(self._make_pr_details(), None, prompts_dir=prompts_dir)
+
+        assert variables["review_artifact_dir_name"] == "e8f8350144db"
+        assert variables["review_artifact_dir"] == "pull-request-review/e8f8350144db"
+
+    def test_artifact_context_preserves_pr_fallback_directory(self, tmp_path):
+        """Setup passes the PR-scoped fallback when no commit directory is available."""
+        prompts_dir = tmp_path / "pull-request-review" / "PR123"
+
+        variables = self._run_setup(self._make_pr_details(), None, prompts_dir=prompts_dir)
+
+        assert variables["review_artifact_dir_name"] == "PR123"
+        assert variables["review_artifact_dir"] == "pull-request-review/PR123"
 
     def test_load_review_focus_areas_called_with_git_root(self):
         """Test that load_review_focus_areas is called with the git repo root when available."""

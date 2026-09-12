@@ -37,6 +37,32 @@ TOOL_RESULT_KIND_MISSING_KIND = "tool_result_kind_missing"
 TOOL_RESULT_KIND_UNAVAILABLE_KIND = "tool_result_kind_unavailable"
 TOOL_RESULT_SIZE_UNMANAGED_KIND = "tool_result_size_unmanaged"
 
+# These tools validate a caller-selected process deadline themselves. The
+# executor's registry default is a dispatch fallback, not a second shorter
+# process limit: otherwise a valid 121–300s shell request is cancelled before
+# its own implementation can enforce the declared deadline.
+_CALLER_BOUNDED_PROCESS_TOOLS = frozenset({"shell_execute", "shell_python"})
+
+
+def _dispatch_timeout_seconds(
+    tool_def: ToolDefinition,
+    arguments: dict[str, Any],
+    *,
+    is_delegated: bool,
+) -> float:
+    """Return the executor deadline without undercutting process-tool input contracts."""
+    if is_delegated:
+        return _DELEGATED_DISPATCH_TIMEOUT_SECONDS
+
+    configured_timeout = tool_def.timeout_seconds
+    if tool_def.name not in _CALLER_BOUNDED_PROCESS_TOOLS:
+        return configured_timeout
+
+    requested_timeout = arguments.get("timeout_seconds")
+    if not isinstance(requested_timeout, (int, float)) or isinstance(requested_timeout, bool):
+        return configured_timeout
+    return max(configured_timeout, float(requested_timeout))
+
 
 def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
     """Return true for deliberate tool refusals that are not operational errors."""
@@ -1377,8 +1403,10 @@ class ToolExecutor:
         # deliberately SHORT and decoupled from the user's answer window, which
         # is durable (cx_tool_call.expires_at + /resume), not a held request task.
         is_delegated = bool(client_tools and tool_name in client_tools)
-        dispatch_timeout = (
-            _DELEGATED_DISPATCH_TIMEOUT_SECONDS if is_delegated else tool_def.timeout_seconds
+        dispatch_timeout = _dispatch_timeout_seconds(
+            tool_def,
+            arguments,
+            is_delegated=is_delegated,
         )
         cancellation_after_completion: asyncio.CancelledError | None = None
         try:

@@ -350,7 +350,22 @@ def _summarize_capability(p: dict[str, t.Any]) -> str:
     visibility = "public" if p.get("is_public") else "private"
     description = p.get("description")
     suffix = f" [dim]-[/dim] {description}" if description else ""
-    return f"[cyan]{name}[/cyan]@[dim]{version}[/dim] {_visibility_markup(visibility)}{suffix}"
+    secrets = p.get("secrets")
+    required_secrets = (
+        [
+            secret.get("name")
+            for secret in secrets
+            if isinstance(secret, dict) and secret.get("required", True)
+        ]
+        if isinstance(secrets, list)
+        else []
+    )
+    credential_notice = (
+        f" [yellow]requires credentials: {', '.join(str(secret) for secret in required_secrets)}[/yellow]"
+        if required_secrets
+        else ""
+    )
+    return f"[cyan]{name}[/cyan]@[dim]{version}[/dim] {_visibility_markup(visibility)}{suffix}{credential_notice}"
 
 
 _CAPABILITY_LIST_ROW_FIELDS: tuple[str, ...] = (
@@ -360,6 +375,7 @@ _CAPABILITY_LIST_ROW_FIELDS: tuple[str, ...] = (
     "author_name",
     "license",
     "component_counts",
+    "secrets",
     "version_count",
     "versions",
     "created_at",

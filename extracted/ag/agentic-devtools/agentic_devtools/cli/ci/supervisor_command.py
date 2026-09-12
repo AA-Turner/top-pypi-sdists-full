@@ -27,6 +27,8 @@ from agentic_devtools.cli.ci.supervisor import (
 from agentic_devtools.cli.github.repo_resolution import resolve_github_repo
 from agentic_devtools.cli.subprocess_utils import run_safe
 
+SUPPORTED_SUPERVISOR_MODE = "audit"
+
 
 @dataclass(frozen=True)
 class SupervisorRuntimeConfig:
@@ -38,20 +40,22 @@ class SupervisorRuntimeConfig:
 
 
 def load_supervisor_config(path: Path) -> SupervisorRuntimeConfig:
-    """Load staged supervisor settings, falling back to report-only defaults."""
+    """Load staged supervisor settings, falling back to audit defaults."""
     if not path.exists():
-        return SupervisorRuntimeConfig("report_only", 10, SupervisorConfig())
+        return SupervisorRuntimeConfig(SUPPORTED_SUPERVISOR_MODE, 10, SupervisorConfig())
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"could not load supervisor config: {exc}") from exc
     if not isinstance(payload, dict):
         raise ValueError("supervisor config must be a JSON object")
-    mode = payload.get("mode", "report_only")
+    mode = payload.get("mode", SUPPORTED_SUPERVISOR_MODE)
     max_candidates = payload.get("max_candidates", 10)
     thresholds = payload.get("thresholds", {})
     if not isinstance(mode, str) or not mode.strip():
         raise ValueError("mode must be a non-empty string")
+    if mode.strip() != SUPPORTED_SUPERVISOR_MODE:
+        raise ValueError(f"mode must be {SUPPORTED_SUPERVISOR_MODE!r}")
     if type(max_candidates) is not int or max_candidates <= 0:
         raise ValueError("max_candidates must be a positive integer")
     if not isinstance(thresholds, dict):
@@ -195,15 +199,26 @@ def ai_pr_loop_supervisor_command() -> None:
     parser.add_argument("--max-candidates", type=int, default=10, help="Maximum PRs to report")
     args = parser.parse_args()
 
+    try:
+        runtime_config = load_supervisor_config(Path(".github/ai-pr-loop-supervisor.json"))
+    except ValueError as exc:
+        print(f"Error: invalid supervisor config: {exc}", file=sys.stderr)
+        sys.exit(2)
+    if runtime_config.mode != SUPPORTED_SUPERVISOR_MODE:
+        print(
+            f"Error: unsupported supervisor mode {runtime_config.mode!r}; "
+            f"only {SUPPORTED_SUPERVISOR_MODE!r} is supported.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     if shutil.which("gh") is None:
         print("Error: 'gh' CLI not found on PATH.", file=sys.stderr)
         sys.exit(10)
     if args.max_candidates <= 0:
         print("Error: --max-candidates must be positive.", file=sys.stderr)
         sys.exit(2)
-
     repo = resolve_github_repo(args.repo or os.environ.get("GITHUB_REPOSITORY"))
-    runtime_config = load_supervisor_config(Path(".github/ai-pr-loop-supervisor.json"))
     provider = GitHubActionsProvider(repo=repo)
     tasks, task_error = load_agent_tasks(repo)
     loop_runs: Sequence[object] = ()

@@ -83,18 +83,18 @@ def pytest_sessionfinish(session):
             contexts = data.contexts_by_lineno(filename=filename)
 
             rev = {}
-            for lineno, contexts in contexts.items():
+            for contexts in contexts.values():
                 for context in contexts:
                     if context and context.endswith("|run"):
                         key = _format_context(context)
-                        rev.setdefault(key, []).append(lineno)
+                        rev[key] = True
                         has_contexts = True
 
             # Coverage cannot credit a declaration to any test: it runs once, while
             # its module is imported, before the first test starts. Reading import
             # statements is the only way to tell which tests depend on one.
             for key in importers.get(os.path.abspath(filename), ()):
-                rev.setdefault(key, [1])
+                rev[key] = True
 
             if rev:
                 name = os.path.relpath(filename)

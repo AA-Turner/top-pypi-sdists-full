@@ -10863,11 +10863,11 @@ class CustomFilterCollection:
 
     def custom(self, operatorType1 : int, criteria1 : Any, isAnd : bool, operatorType2 : int, criteria2 : Any) -> None:
         '''Filters a list with custom criteria.
-        :param operatorType1: 
-        :param criteria1: 
+        :param operatorType1: :class:`FilterOperatorType`. The filter operator type
+        :param criteria1: The custom criteria
         :param isAnd: 
-        :param operatorType2: 
-        :param criteria2: '''
+        :param operatorType2: :class:`FilterOperatorType`. The filter operator type
+        :param criteria2: The custom criteria'''
         raise NotImplementedError()
 
 
@@ -19493,6 +19493,7 @@ class IFilePathProvider:
 
 
 
+
 class ImageActiveXControl:
     '''Represents the image control.'''
 
@@ -25654,7 +25655,7 @@ class OoxmlSaveOptions:
         raise NotImplementedError()
 
     def setEnableZip64(self, value : bool) -> None:
-        '''Always use ZIP64 extensions when writing zip archives, even when unnecessary.
+        '''Use ZIP64 extensions when writing zip archives, as necessary.
         :param value: '''
         raise NotImplementedError()
 
@@ -25695,7 +25696,7 @@ class OoxmlSaveOptions:
         raise NotImplementedError()
 
     def getEnableZip64(self) -> bool:
-        '''Always use ZIP64 extensions when writing zip archives, even when unnecessary.'''
+        '''Use ZIP64 extensions when writing zip archives, as necessary.'''
         raise NotImplementedError()
 
     def getEmbedOoxmlAsOleObject(self) -> bool:
@@ -28247,7 +28248,7 @@ class PivotAreaFilter:
         raise NotImplementedError()
 
     def getFieldIndex(self) -> int:
-        '''Gets the index of the field which this filter refers to.
+        '''Gets the index of the field in the source fields which this filter refers to.
         A value of -2 indicates the values field.'''
         raise NotImplementedError()
 
@@ -28767,6 +28768,10 @@ class PivotField:
         The default value is false.'''
         raise NotImplementedError()
 
+    def group(self) -> bool:
+        '''Automatically group the field.'''
+        raise NotImplementedError()
+
     def setShowCompact(self, value : bool) -> None:
         '''Indicates whether to display labels of the next field in the same column on the Pivot Table view
         :param value: '''
@@ -28870,7 +28875,7 @@ class PivotField:
 
     @overload
     def groupBy(self, interval : float, newField : bool) -> None:
-        '''Automatically group the field with internal
+        '''Automatically group the field with interval
         :param interval: The internal of group.
         :param newField: Indicates whether adding a new field to the pivottable.'''
         raise NotImplementedError()
@@ -29936,6 +29941,10 @@ class PivotGlobalizationSettings:
         '''Gets the local text of "Months".'''
         raise NotImplementedError()
 
+    def getTextOfOr(self) -> str:
+        '''Gets all local formatted string of "or".'''
+        raise NotImplementedError()
+
     def getTextOfProtection(self) -> str:
         ''':deprecated: Use PivotGlobalizationSettings.GetTextOfProtectedName(string) method instead.'''
         raise NotImplementedError()
@@ -29953,6 +29962,11 @@ class PivotGlobalizationSettings:
         '''Gets the text of :class:`PivotFieldSubtotalType` type in the PivotTable.
         :param subTotalType: :class:`PivotFieldSubtotalType`. The :class:`PivotFieldSubtotalType`
         :returns: The text of given type'''
+        raise NotImplementedError()
+
+    def getTextOf24Hours(self) -> list[str]:
+        '''Gets all local formatted string of 24 hours.
+        The default value is 12 AM, 1 AM, 2 AM, 3 AM, 4 AM, 5 AM, 6 AM, 7 AM, 8 AM, 9 AM, 10 AM, 11 AM, 12 PM, 1 PM, 2 PM, 3 PM, 4 PM, 5 PM, 6 PM, 7 PM, 8 PM, 9 PM, 10 PM, 11 PM.'''
         raise NotImplementedError()
 
     def getTextOfRowLabels(self) -> str:
@@ -29981,6 +29995,12 @@ class PivotGlobalizationSettings:
 
     def getTextOf4Quaters(self) -> list[str]:
         ''':deprecated: Use PivotGlobalizationSettings.GetTextOf4Quarters() method instead.'''
+        raise NotImplementedError()
+
+    def getFormatOfDayGroup(self) -> str:
+        '''Gets the number format of pivot day group.
+        Only used when grouping the pivot field by days.
+        The default vaule is "d-MMM";'''
         raise NotImplementedError()
 
     def getTextOfGrandTotal(self) -> str:
@@ -30439,16 +30459,6 @@ class PivotTable:
         when the user double-clicks the PivotTable field.'''
         raise NotImplementedError()
 
-    @overload
-    def setUngroup(self, baseFieldIndex : int) -> None:
-        ''':deprecated: Use PivotField.Ungroup() method instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setUngroup(self, pivotField : PivotField) -> None:
-        ''':deprecated: Use PivotField.Ungroup() method instead.'''
-        raise NotImplementedError()
-
     def isMultipleFieldFilters(self) -> bool:
         ''':deprecated: Use PivotTable.AllowMultipleFiltersPerField property instead.'''
         raise NotImplementedError()
@@ -30642,26 +30652,6 @@ class PivotTable:
 
     def getShowValuesRow(self) -> bool:
         '''Indicates whether showing values row.'''
-        raise NotImplementedError()
-
-    @overload
-    def setManualGroupField(self, baseFieldIndex : int, startVal : float, endVal : float, groupByList : list[Any], intervalNum : float) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setManualGroupField(self, pivotField : PivotField, startVal : float, endVal : float, groupByList : list[Any], intervalNum : float) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setManualGroupField(self, baseFieldIndex : int, startVal : DateTime, endVal : DateTime, groupByList : list[Any], intervalNum : int) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setManualGroupField(self, pivotField : PivotField, startVal : DateTime, endVal : DateTime, groupByList : list[Any], intervalNum : int) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
     def getPivotTableStyleType(self) -> int:
@@ -31169,6 +31159,11 @@ class PivotTable:
         :param value: '''
         raise NotImplementedError()
 
+    def exportViewToJson(self, options : PivotViewToJsonOptions) -> str:
+        '''Exports pivot view as JSON.
+        :param options: '''
+        raise NotImplementedError()
+
     def setEnableDrilldown(self, value : bool) -> None:
         '''Indicates whether drilldown is enabled.
         :param value: '''
@@ -31324,16 +31319,6 @@ class PivotTable:
 
     def setPreserveFormatting(self, value : bool) -> None:
         ''':deprecated: Use PivotTable.PreserveCellFormattingOnUpdate property instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setAutoGroupField(self, baseFieldIndex : int) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
-        raise NotImplementedError()
-
-    @overload
-    def setAutoGroupField(self, pivotField : PivotField) -> None:
-        ''':deprecated: Use PivotField.GroupBy() method instead.'''
         raise NotImplementedError()
 
     def isSelected(self) -> bool:
@@ -31791,6 +31776,17 @@ class PivotTableRefreshOption:
         :param value: '''
         raise NotImplementedError()
 
+    def setKeepCachedLocalGroupData(self, value : bool) -> None:
+        '''Indicates whether to keep cached local group data if the maximum and minimum values remain unchanged.
+        The default value is false which means refreshing group with local setting.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getKeepCachedLocalGroupData(self) -> bool:
+        '''Indicates whether to keep cached local group data if the maximum and minimum values remain unchanged.
+        The default value is false which means refreshing group with local setting.'''
+        raise NotImplementedError()
+
     def getReserveMissingPivotItemType(self) -> int:
         '''Represents how to reserve missing pivot items.
         See :class:`ReserveMissingPivotItemType`'''
@@ -32096,6 +32092,28 @@ class PivotTableStyleType:
 
     CUSTOM : PivotTableStyleType
     ''''''
+
+
+class PivotViewToJsonOptions:
+    '''The options of exporting pivot view as json.'''
+
+    def setIndent(self, value : str) -> None:
+        '''Indicates the indent.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setFileName(self, value : str) -> None:
+        '''Sets the file which stores exported JSON.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getFileName(self) -> str:
+        '''Gets the file which stores exported JSON.'''
+        raise NotImplementedError()
+
+    def getIndent(self) -> str:
+        '''Indicates the indent.'''
+        raise NotImplementedError()
 
 
 class PlacementType:
@@ -36787,7 +36805,7 @@ class Shape:
         raise NotImplementedError()
 
     def getWorksheet(self) -> Worksheet:
-        '''Gets the :meth:`Shape.getWorksheet()` object which contains this shape.'''
+        '''Gets the :class:`Worksheet` object which contains this shape.'''
         raise NotImplementedError()
 
     def getHeightInShape(self) -> int:
@@ -48976,7 +48994,7 @@ class Worksheet:
         raise NotImplementedError()
 
     def getCells(self) -> Cells:
-        '''Gets the :meth:`Worksheet.getCells()` collection.'''
+        '''Gets the :class:`Cells` collection.'''
         raise NotImplementedError()
 
     def removeAllDrawingObjects(self) -> None:

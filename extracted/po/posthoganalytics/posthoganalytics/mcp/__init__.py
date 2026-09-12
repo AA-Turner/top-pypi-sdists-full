@@ -31,6 +31,7 @@ rather than bundled. ``PostHogMCP`` for custom dispatchers needs nothing beyond 
 
 from __future__ import annotations
 
+import weakref
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -69,9 +70,17 @@ from .asgi import (
     get_mcp_session,
 )
 from ._sink import McpEventSink
+from .feedback import (
+    SEND_FEEDBACK_TOOL_NAME,
+    get_feedback_tool_descriptor,
+    resolve_collect_feedback_options,
+    send_feedback_result,
+)
 from .tools import get_more_tools_result
 from .types import (
     CaptureEventData,
+    CollectFeedbackOptions,
+    FeedbackReport,
     MCPAnalyticsContextOptions,
     MCPAnalyticsModelOptions,
     MCPAnalyticsModelSource,
@@ -91,8 +100,12 @@ __all__ = [
     "MCPAnalyticsModelSource",
     "UserIdentity",
     "CaptureEventData",
+    "CollectFeedbackOptions",
+    "FeedbackReport",
     "PreparedToolCall",
     "get_more_tools_result",
+    "send_feedback_result",
+    "SEND_FEEDBACK_TOOL_NAME",
     # Read HTTP headers inside identify / intent_fallback /
     # event_properties callbacks on either SDK major: the per-request context
     # arrives as extra["ctx"] and its shape differs between them.
@@ -254,11 +267,18 @@ def instrument(
         )
     _warn_if_unsupported_mcp_version()
 
+    # Fail fast on a `collect_feedback` config error (reserved extra key,
+    # undeclared extra_required) — before the try below, so it raises instead of
+    # degrading to the no-op handle and first surfacing at tools/list time.
+    feedback_options = resolve_collect_feedback_options(opts.collect_feedback)
+    if feedback_options is not None:
+        get_feedback_tool_descriptor(feedback_options)
+
     key = _canonical_server(server)
 
     try:
-        # Imported inside the try: the adapters touch major-specific modules, and
-        # an import error must degrade to the no-op handle, not crash the host.
+        # MCP is an optional peer: load adapters only when instrumentation is
+        # requested, inside the no-crash boundary. Class probes stay major-specific.
         from ._compatibility import (
             is_fastmcp,
             is_fastmcp_v2,
@@ -266,39 +286,48 @@ def instrument(
             is_mcpserver,
             uses_v2_handler_registry,
         )
+        from ._instrument_fastmcp import instrument_fastmcp
+        from ._instrument_lowlevel import instrument_fastmcp_v2, instrument_low_level
+        from ._instrument_v2 import instrument_lowlevel_v2, instrument_mcpserver_v2
 
         client = _resolve_client(posthog_client)
         if client is None:
             log("Warning: no PostHog client available; MCP events will not be sent.")
 
-        if get_server_tracking_data(key) is not None:
+        existing_data = get_server_tracking_data(key)
+        data = existing_data
+        if data is None:
+            sink = McpEventSink(client) if client is not None else None
+            data = MCPAnalyticsData(
+                options=opts, sink=sink, session_id=new_session_id()
+            )
+
+        if is_fastmcp_v2(server) and uses_v2_handler_registry(key):
+            data.standalone_fastmcp = weakref.ref(server)
+
+        # A standalone FastMCP wrapper and its low-level server share one tracking
+        # key, so instrumenting the second of the pair must still attach what only
+        # that object provides: the wrapper's schema lookup and ASGI app factories.
+        if existing_data is not None:
+            autowire_stateless_mint(server)
             log("instrument() - server already instrumented, skipping initialization")
             return McpAnalytics(key)
 
-        sink = McpEventSink(client) if client is not None else None
-        data = MCPAnalyticsData(options=opts, sink=sink, session_id=new_session_id())
         set_server_tracking_data(key, data)
 
         if is_fastmcp(server):
-            from ._instrument_fastmcp import instrument_fastmcp
-
             instrument_fastmcp(server, data)
         elif is_mcpserver(server):
-            from ._instrument_v2 import instrument_mcpserver_v2
-
             instrument_mcpserver_v2(server, data)
         elif is_fastmcp_v2(server):
-            from ._instrument_lowlevel import instrument_fastmcp_v2
-
-            instrument_fastmcp_v2(server, data)
+            if uses_v2_handler_registry(server._mcp_server):
+                instrument_lowlevel_v2(server._mcp_server, data)
+            else:
+                instrument_fastmcp_v2(server, data)
         elif is_low_level_server(server):
             if uses_v2_handler_registry(server):
-                from ._instrument_v2 import instrument_lowlevel_v2
-
                 instrument_lowlevel_v2(server, data)
             else:
-                from ._instrument_lowlevel import instrument_low_level
-
                 instrument_low_level(server, data)
         else:
             raise TypeError(

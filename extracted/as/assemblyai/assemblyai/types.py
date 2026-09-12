@@ -119,6 +119,19 @@ class Settings(BaseSettings):
     sync_http_timeout: float = 60.0
     "The HTTP timeout for synchronous transcription requests. Kept above the server's 30s deadline so the client doesn't race it."
 
+    sync_live_http_timeout: float = 180.0
+    "The HTTP timeout for streamed synchronous transcription requests (`transcribe_live`). Like every httpx timeout it bounds each socket operation, not the request as a whole: connecting, each write of a chunk, and each read while waiting for the response after the last byte. Time spent waiting on the caller's producer is not counted, so it need not cover the recording. The sync API caps audio at 120 seconds and independently aborts an upload that goes silent."
+
+    dictation_base_url: str = "https://dictation.assemblyai.com"
+    "The base URL for the Dictation API (used by `DictationTranscriber`)"
+
+    dictation_http_timeout: float = 300.0
+    """The HTTP timeout for Dictation API requests. Like every httpx timeout it
+    bounds each socket operation — connecting, each write, each read while
+    waiting for the response — not the request end to end, so time spent
+    producing audio is not counted. Sized to outlast the final segment's
+    inference plus the LLM pass over the transcript."""
+
     polling_interval: float = Field(default=3.0, gt=0.0)
     "The default polling interval for long-running requests (e.g. polling the `Transcript`'s status)"
 
@@ -2677,10 +2690,11 @@ class ListTranscriptResponse(BaseModel):
 # Caps mirror the sync service's `config` part. `prompt` and `keyterms_prompt`
 # over their caps are rejected; `conversation_context` over its caps is
 # trimmed (oldest turns first), matching the server.
-_SYNC_MAX_PROMPT_LEN = 4096
-_SYNC_MAX_KEYTERMS_PROMPT_LEN = 2048
-_SYNC_MAX_CONVERSATION_CONTEXT_TURNS = 100
-_SYNC_MAX_CONVERSATION_CONTEXT_LEN = 4096
+_SYNC_MAX_PROMPT_LEN = 6000
+_SYNC_MAX_KEYTERMS_PROMPT_LEN = 8000
+_SYNC_MAX_KEYTERMS_COUNT = 100
+_SYNC_MAX_CONVERSATION_CONTEXT_TURNS = 500
+_SYNC_MAX_CONVERSATION_CONTEXT_LEN = 16000
 
 
 def _normalize_conversation_context(v):
@@ -2728,10 +2742,10 @@ class SyncTranscriptionConfig(BaseModel):
     "The sync speech model to route to. Sent as the `X-AAI-Model` header."
 
     prompt: Optional[str] = Field(default=None, max_length=_SYNC_MAX_PROMPT_LEN)
-    "Custom transcription instruction prepended to the model's system prompt. Max 4096 characters."
+    "Custom transcription instruction prepended to the model's system prompt. Max 6000 characters."
 
     keyterms_prompt: Optional[List[str]] = None
-    "Keyterms biasing the decoder. Whitespace is stripped and empty terms dropped. Max 2048 characters total."
+    "Keyterms biasing the decoder. Whitespace is stripped and empty terms dropped. Max 100 terms / 8000 characters total."
 
     conversation_context: Optional[Union[str, List[str]]] = None
     """Prior turns from the same conversation, in chronological order (oldest
@@ -2739,8 +2753,8 @@ class SyncTranscriptionConfig(BaseModel):
     audio so it transcribes the clip with better continuity and proper-noun
     consistency. Include turns from either side of the conversation (e.g. a
     voice agent's replies) as separate entries; entries carry no speaker labels.
-    A single string is accepted and treated as one turn. Capped at 100 turns /
-    4096 characters total — over-cap context is trimmed (oldest turns dropped
+    A single string is accepted and treated as one turn. Capped at 500 turns /
+    16000 characters total — over-cap context is trimmed (oldest turns dropped
     first), not rejected, and the oldest turns are likewise dropped first when
     the prompt exceeds the model token budget, so put the most recent turn
     last."""
@@ -2772,6 +2786,10 @@ class SyncTranscriptionConfig(BaseModel):
             if not v:
                 return None
             terms = [t.strip() for t in v if t and t.strip()]
+            if len(terms) > _SYNC_MAX_KEYTERMS_COUNT:
+                raise ValueError(
+                    f"keyterms_prompt exceeds {_SYNC_MAX_KEYTERMS_COUNT} terms (got {len(terms)})"
+                )
             total = sum(len(t) for t in terms)
             if total > _SYNC_MAX_KEYTERMS_PROMPT_LEN:
                 raise ValueError(
@@ -2791,6 +2809,10 @@ class SyncTranscriptionConfig(BaseModel):
             if not v:
                 return None
             terms = [t.strip() for t in v if t and t.strip()]
+            if len(terms) > _SYNC_MAX_KEYTERMS_COUNT:
+                raise ValueError(
+                    f"keyterms_prompt exceeds {_SYNC_MAX_KEYTERMS_COUNT} terms (got {len(terms)})"
+                )
             total = sum(len(t) for t in terms)
             if total > _SYNC_MAX_KEYTERMS_PROMPT_LEN:
                 raise ValueError(

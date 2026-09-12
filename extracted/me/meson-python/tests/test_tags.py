@@ -176,3 +176,23 @@ def test_tag_stable_abi_multiarch():
     }, pure=False, limited_api=True)
     abi = 'abi3.abi3t' if STABLE_ABI_KIND == 'abi3t' else 'abi3'
     assert str(builder.tag) == f'{INTERPRETER}-{abi}-{PLATFORM}'
+
+
+@pytest.mark.skipif(sys.implementation.name != 'cpython', reason='fallback implemented for CPython only')
+def test_abi_tag_fallback(monkeypatch):
+    assert mesonpy._tags.get_abi_tag() == ABI
+
+    sysconfig_get_config_var = sysconfig.get_config_var
+
+    def get_config_var(name):
+        value = sysconfig_get_config_var(name)
+        if name == 'EXT_SUFFIX':
+            value = '.' + value.split('.')[-1]
+        return value
+
+    # Remove $SOABI from $EXT_SUFFIX to simulate a Python interpreter
+    # that does not implement PEP 3149.  Verify that the fallback code
+    # produces the same ABI tag.
+    monkeypatch.setattr(sysconfig, 'get_config_var', get_config_var)
+
+    assert mesonpy._tags.get_abi_tag() == ABI

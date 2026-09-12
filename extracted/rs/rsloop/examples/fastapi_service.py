@@ -8,14 +8,14 @@ import os
 import signal
 import sys
 import time
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Coroutine
+from typing import Any, TypeVar, cast
 
-from fastapi import FastAPI, Query
 import uvicorn
-
+from fastapi import FastAPI, Query
 
 EventLoopFactory = Callable[[], asyncio.AbstractEventLoop]
+ResultT = TypeVar("ResultT")
 EVENT_LOOP_CHOICES = ("asyncio", "std-async", "uvloop", "winloop", "rsloop")
 
 app = FastAPI(
@@ -57,9 +57,9 @@ def loop_factory_for(loop_name: str) -> EventLoopFactory:
                 "winloop is not installed. Run with `uv run --with winloop ...`."
             ) from exc
 
-        factory = getattr(winloop, "new_event_loop", None)
-        if callable(factory):
-            return factory
+        winloop_factory: Any = getattr(winloop, "new_event_loop", None)
+        if callable(winloop_factory):
+            return cast(EventLoopFactory, winloop_factory)
 
         policy_cls = getattr(winloop, "EventLoopPolicy", None) or getattr(
             winloop, "WinLoopPolicy", None
@@ -82,15 +82,18 @@ def loop_factory_for(loop_name: str) -> EventLoopFactory:
     raise AssertionError(f"unsupported event loop: {loop_name}")
 
 
-def run_with_loop(loop_name: str, coro: Any) -> Any:
+def run_with_loop(
+    loop_name: str,
+    coroutine: Coroutine[Any, Any, ResultT],
+) -> ResultT:
     loop_factory = loop_factory_for(loop_name)
     if sys.version_info[:2] >= (3, 12):
-        return asyncio.run(coro, loop_factory=loop_factory)
+        return asyncio.run(coroutine, loop_factory=loop_factory)
 
     loop = loop_factory()
     try:
         asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro)
+        return loop.run_until_complete(coroutine)
     finally:
         asyncio.set_event_loop(None)
         loop.close()
@@ -172,7 +175,7 @@ async def maybe_wait_closed(writer: asyncio.StreamWriter) -> None:
         return
     try:
         await wait_closed()
-    except Exception:
+    except (BrokenPipeError, ConnectionResetError):
         return
 
 
@@ -268,7 +271,7 @@ def main() -> int:
     app.state.selected_event_loop = normalize_event_loop(args.event_loop)
     previous_sigint_handler = signal.getsignal(signal.SIGINT)
 
-    def interrupt_handler(signum: int, frame: Any) -> None:
+    def interrupt_handler(_signum: int, _frame: Any) -> None:
         raise KeyboardInterrupt
 
     try:

@@ -1,6 +1,6 @@
 [project]
 name = "pytest-mergify"
-version = "2026.9.7.1"
+version = "2026.9.11.1"
 description = "Pytest plugin for Mergify"
 authors = [{ name = "Julien Danjou", email = "jd@mergify.com" }]
 license = "Apache-2.0"
@@ -29,6 +29,13 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "freezegun>=1.5.5",
     "pytest-xdist>=3.0",
+]
+
+# Kept out of `dev` so the release can install it with `--only-group check`,
+# which skips building the project -- these inspect finished wheels and have no
+# use for the extension module.
+check = [
+    "abi3audit>=0.0.17",
 ]
 
 # Compiled build (maturin): the wheel now bundles the Rust binding as

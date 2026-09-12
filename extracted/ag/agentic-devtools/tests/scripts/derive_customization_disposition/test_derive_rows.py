@@ -18,8 +18,22 @@ def test_one_row_per_unit() -> None:
     assert len({r.path for r in ROWS}) == len(ROWS)
 
 
+def test_shipped_supervision_skill_declares_disabled_child_dispatch() -> None:
+    """The shipped supervision skill activates the dormant-subagent exemption."""
+    skill = (REPO_ROOT / ".agents/skills/ai-pr-loop-supervision/SKILL.md").read_text(encoding="utf-8")
+    assert derive._CHILD_DISPATCH_DISABLED_RE.search(skill) is not None
+
+
+def test_disabled_child_dispatch_rejects_unrelated_missing_t4_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disabled child dispatch exempts only dormant supervision subagents."""
+    monkeypatch.setitem(derive.T4_VERBOSE_OUTPUT, "agdt.unrelated-missing", "Unexpected entry.")
+
+    with pytest.raises(ValueError, match="agdt.unrelated-missing"):
+        derive.derive_rows(REPO_ROOT)
+
+
 def test_row_count_matches_the_classification_fixture() -> None:
-    """266 units is the same corpus `skill_classification_expected.json` describes."""
+    """The classification fixture describes the same corpus `derive_rows()` reads."""
     import json
 
     fixture = REPO_ROOT / "tests" / "fixtures" / "skill_classification_expected.json"
@@ -31,6 +45,14 @@ def test_batches_partition_the_rows() -> None:
     derive.assert_partition(ROWS, expected_total=len(ROWS))
     counts = Counter(r.batch for r in ROWS)
     assert sum(counts[b] for b in derive.BATCHES) == len(ROWS)
+
+
+def test_disabled_child_dispatch_does_not_hide_unrelated_t4_entries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disabled child dispatch does not exempt units outside the loaded corpus."""
+    monkeypatch.setitem(derive.T4_VERBOSE_OUTPUT, "agdt.unrelated-t4-unit", "test integrity entry")
+
+    with pytest.raises(ValueError, match="agdt.unrelated-t4-unit"):
+        derive.derive_rows(REPO_ROOT)
 
 
 def test_no_target_slug_collisions() -> None:

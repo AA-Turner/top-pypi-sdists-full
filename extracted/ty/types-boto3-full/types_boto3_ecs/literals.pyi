@@ -77,6 +77,7 @@ __all__ = (
     "EFSTransitEncryptionType",
     "EnvironmentFileTypeType",
     "ExecuteCommandLoggingType",
+    "ExpressCpuArchitectureType",
     "ExpressGatewayServiceIncludeType",
     "ExpressGatewayServiceScalingMetricType",
     "ExpressGatewayServiceStatusCodeType",
@@ -260,6 +261,7 @@ EFSAuthorizationConfigIAMType = Literal["DISABLED", "ENABLED"]
 EFSTransitEncryptionType = Literal["DISABLED", "ENABLED"]
 EnvironmentFileTypeType = Literal["s3"]
 ExecuteCommandLoggingType = Literal["DEFAULT", "NONE", "OVERRIDE"]
+ExpressCpuArchitectureType = Literal["ARM64", "X86_64"]
 ExpressGatewayServiceIncludeType = Literal["TAGS"]
 ExpressGatewayServiceScalingMetricType = Literal[
     "AVERAGE_CPU", "AVERAGE_MEMORY", "REQUEST_COUNT_PER_TARGET"

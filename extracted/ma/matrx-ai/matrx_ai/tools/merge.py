@@ -1098,6 +1098,7 @@ def merge_request_tools(
                 _td is not None
                 and _td.tool_type == ToolType.LOCAL
                 and not (_td.function_path or "").strip()
+                and not getattr(_td, "_callable", None)
                 and _name not in delegated_set
             ):
                 # A client-only tool on a server-originated request is not a

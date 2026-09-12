@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.200"
+version = "0.8.202"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -20,7 +20,7 @@ classifiers = [
 dependencies = [
     "python-dotenv >=1.0.0",
     "cognite-sdk>=8.6.0,<9.0.0",
-    "httpx>=0.28.1",
+    "httpx2>=2.12.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
     "rich >=13.9.4",
@@ -72,7 +72,6 @@ dev = [
     "types-toml >=0.10.8.20240310",
     "twine >=6.0.0",
     "toml >=0.10.2; python_version >= '3.11'",
-    "pytest-freezegun >=0.4.2",
     "pytest-cov >=6.0.0",
     "setuptools >=75.0.0",
     "fastparquet >=2024.5.0",
@@ -82,6 +81,7 @@ dev = [
     "responses>=0.25.7",
     "respx>=0.22.0",
     "pytest-json-report>=1.5.0",
+    "pytest-durations>=1.9.0",
 ]
 
 [tool.uv]
@@ -116,6 +116,10 @@ minversion = "8.0"
 testpaths = [
     "tests",
     "cognite_toolkit",
+]
+addopts = [
+    "-p",
+    "tests.httpx2_alias_plugin",
 ]
 markers = ["toolkit: big smoke tests"]
 

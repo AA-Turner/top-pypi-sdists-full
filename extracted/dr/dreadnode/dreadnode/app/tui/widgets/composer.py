@@ -16,7 +16,6 @@ Shell mode:
 
 from __future__ import annotations
 
-import difflib
 import re
 import typing as t
 from dataclasses import dataclass
@@ -32,6 +31,7 @@ from textual.widgets import TextArea
 
 if t.TYPE_CHECKING:
     from textual.events import Key, Paste
+    from textual.widgets.text_area import Edit, EditResult
 
     from dreadnode.app.tui.widgets.overlay_mixin import OverlayMixin
 
@@ -43,6 +43,9 @@ class PastedSegment:
 
 
 _PASTE_RE = re.compile(r"\[pasted ~(\d+) lines?\]")
+# Snapshots are keyed by undo checkpoint, and Textual keeps 50 of those, so a
+# checkpoint we can no longer undo back to is one we need no content for.
+_PASTE_HISTORY_LIMIT = 50
 
 
 class ComposerInput(TextArea):
@@ -101,8 +104,11 @@ class ComposerInput(TextArea):
         kwargs.setdefault("highlight_cursor_line", False)
         super().__init__(**kwargs)
         self._placeholder = placeholder
-        self._pastes: list[PastedSegment] = []
-        self._last_display_text = ""
+        # One entry per placeholder in the display text, in document order. None means
+        # the placeholder has no backing content — the user typed the literal text.
+        self._pastes: list[PastedSegment | None] = []
+        self._paste_history: dict[int, tuple[str, list[PastedSegment | None]]] = {}
+        self._pending_paste: PastedSegment | None = None
 
     @property
     def value(self) -> str:
@@ -124,6 +130,7 @@ class ComposerInput(TextArea):
     def clear_pastes(self) -> None:
         """Clear tracked pasted segments."""
         self._pastes.clear()
+        self._paste_history.clear()
 
     def _document_index(self, location: tuple[int, int]) -> int:
         """Convert a document (row, column) location to a text index."""
@@ -150,11 +157,11 @@ class ComposerInput(TextArea):
         event.prevent_default()
         event.stop()
         placeholder = f"[pasted ~{line_count} line{'s' if line_count != 1 else ''}]"
-        insertion_index = self._document_index(self.cursor_location)
-        visual_index = len(_PASTE_RE.findall(self.text[:insertion_index]))
-        self._pastes.insert(visual_index, PastedSegment(content=pasted, line_count=line_count))
-        self.insert(placeholder)
-        self._last_display_text = self.text
+        self._pending_paste = PastedSegment(content=pasted, line_count=line_count)
+        try:
+            self.insert(placeholder)
+        finally:
+            self._pending_paste = None
 
     def _resolve_pastes(self, display_text: str) -> str:
         pastes = iter(self._pastes)
@@ -165,23 +172,99 @@ class ComposerInput(TextArea):
 
         return _PASTE_RE.sub(replacer, display_text)
 
+    def _paste_at(self, index: int) -> PastedSegment | None:
+        return self._pastes[index] if 0 <= index < len(self._pastes) else None
+
+    def edit(self, edit: Edit) -> EditResult:
+        """Re-index tracked segments across an edit by the document range it replaces.
+
+        Placeholder text carries no identity — two pastes of the same line count read
+        identically — so a diff of the placeholder strings cannot say which one an
+        edit removed. The range being replaced can: segments are matched to the
+        positions that survive it. Undo and redo do not come through here at all;
+        `_sync_pastes` restores those from the snapshot history.
+        """
+        kept_before, kept_after = self._split_pastes_around(edit)
+        result = super().edit(edit)
+        added = len(_PASTE_RE.findall(edit.text))
+        if added == 1 and self._pending_paste is not None:
+            added_pastes: list[PastedSegment | None] = [self._pending_paste]
+        else:
+            added_pastes = [None] * added
+        self._pastes = kept_before + added_pastes + kept_after
+        # Snapshot ahead of the queued Changed message so this is what lands.
+        self._remember_pastes(self.text)
+        return result
+
+    def _split_pastes_around(
+        self, edit: Edit
+    ) -> tuple[list[PastedSegment | None], list[PastedSegment | None]]:
+        """Partition segments into those wholly before and wholly after the edit.
+
+        A segment whose placeholder the edit overlaps is dropped: its text no longer
+        survives in the document, so nothing backs it.
+        """
+        start = self._document_index(edit.top)
+        end = self._document_index(edit.bottom)
+        kept_before: list[PastedSegment | None] = []
+        kept_after: list[PastedSegment | None] = []
+        for index, match in enumerate(_PASTE_RE.finditer(self.text)):
+            if match.end() <= start:
+                kept_before.append(self._paste_at(index))
+            elif match.start() >= end:
+                kept_after.append(self._paste_at(index))
+        return kept_before, kept_after
+
+    def _remember_pastes(self, display_text: str) -> None:
+        """Snapshot the current segments against the undo checkpoint they belong to.
+
+        Keying on the checkpoint rather than the display text is what makes this
+        safe: the same text recurs with different content — paste, delete, paste
+        again — and a text-keyed snapshot hands the second paste's content back to
+        the first. The text is kept only to verify a hit before trusting it.
+        """
+        depth = len(self.history.undo_stack)
+        for redo_only in [key for key in self._paste_history if key > depth]:
+            del self._paste_history[redo_only]
+        if any(self._pastes):
+            self._paste_history[depth] = (display_text, list(self._pastes))
+        else:
+            self._paste_history.pop(depth, None)
+        while len(self._paste_history) > _PASTE_HISTORY_LIMIT:
+            del self._paste_history[min(self._paste_history)]
+
+    def _restore_pastes(self, display_text: str) -> bool:
+        """Bring back the segments for an undo or redo target, if we still hold them."""
+        remembered = self._paste_history.get(len(self.history.undo_stack))
+        if remembered is None or remembered[0] != display_text:
+            return False
+        self._pastes = list(remembered[1])
+        return True
+
+    def load_text(self, text: str) -> None:
+        """Replace the document wholesale.
+
+        Textual drops its undo history here, so the snapshots keyed against it go
+        too, and nothing in the new text is backed by a tracked paste.
+        """
+        super().load_text(text)
+        self.clear_pastes()
+
     def _sync_pastes(self, display_text: str) -> None:
-        old_placeholders = [match.group(0) for match in _PASTE_RE.finditer(self._last_display_text)]
-        new_placeholders = [match.group(0) for match in _PASTE_RE.finditer(display_text)]
-        if len(new_placeholders) < len(old_placeholders) and self._pastes:
-            matcher = difflib.SequenceMatcher(a=old_placeholders, b=new_placeholders)
-            removed: list[int] = []
-            for tag, start, end, _new_start, _new_end in matcher.get_opcodes():
-                if tag in {"delete", "replace"}:
-                    removed.extend(range(start, end))
-            for index in reversed(removed):
-                if index < len(self._pastes):
-                    del self._pastes[index]
-        if len(new_placeholders) < len(self._pastes):
-            self._pastes = self._pastes[: len(new_placeholders)]
-        elif not new_placeholders:
-            self._pastes.clear()
-        self._last_display_text = display_text
+        """Re-bind segments to the placeholders on screen after the document changes.
+
+        Forward edits are already re-indexed by `edit`, which knows the range it
+        replaced. Undo and redo bypass `edit` entirely and restore placeholder
+        *text* whose segment was dropped, so they are served from the checkpoint
+        snapshots. Anything else leaves the placeholders unbacked, and they resolve
+        to their own literal label — visibly wrong in the composer, rather than
+        quietly binding someone else's content.
+        """
+        if not self._restore_pastes(display_text):
+            placeholders = len(_PASTE_RE.findall(display_text))
+            if placeholders != len(self._pastes):
+                self._pastes = [None] * placeholders
+        self._remember_pastes(display_text)
 
     def _remove_paste_at_cursor(self, *, forward: bool) -> bool:
         """Delete a tracked paste placeholder as one editing operation."""
@@ -192,13 +275,11 @@ class ComposerInput(TextArea):
         placeholders = list(_PASTE_RE.finditer(text))
         for index, match in enumerate(placeholders):
             at_boundary = cursor == (match.end() if not forward else match.start())
-            if not at_boundary or index >= len(self._pastes):
+            if not at_boundary or self._paste_at(index) is None:
                 continue
             start = self._document_location(match.start())
             end = self._document_location(match.end())
-            del self._pastes[index]
             self.delete(start, end)
-            self._last_display_text = self.text
             return True
         return False
 

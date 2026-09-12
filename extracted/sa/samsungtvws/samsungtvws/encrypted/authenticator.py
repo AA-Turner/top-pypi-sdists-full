@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import re
 import struct
@@ -23,6 +24,40 @@ PRIVATE_KEY = "2fd6334713816fae018cdee4656c5033a8d6b00e8eaea07b3624999242e962471
 WB_KEY = "abbb120c09e7114243d1fa0102163b27"
 TRANS_KEY = "6c9474469ddf7578f3e5ad8a4c703d99"
 PRIME = "b361eb0ab01c3439f2c16ffda7b05e3e320701ebee3e249123c3586765fd5bf6c1dfa88bb6bb5da3fde74737cd88b6a26c5ca31d81d18e3515533d08df619317063224cf0943a2f29a5fe60c1c31ddf28334ed76a6478a1122fb24c4a94c8711617ddfe90cf02e643cd82d4748d6d4a7ca2f47d88563aa2baf6482e124acd7dd"
+
+
+class SamsungTVEncryptedError(Exception):
+    """Base error for the encrypted (PIN) pairing flow.
+
+    Subclasses Exception so existing callers doing ``except Exception`` keep
+    working while new callers can catch specific conditions.
+    """
+
+
+class SamsungTVEncryptedPairingExpiredError(SamsungTVEncryptedError):
+    """The TV returned an empty ``auth_data`` payload.
+
+    This means the on-screen PIN / CloudPINPage pairing window has expired or
+    was never validly started. It is retryable: restart pairing
+    (``start_pairing`` -> ``try_pin`` -> ``get_session_id_and_close``).
+    """
+
+
+class SamsungTVEncryptedResponseError(SamsungTVEncryptedError):
+    """The TV returned a non-empty response that could not be parsed."""
+
+
+def _extract_auth_data(response_text: str) -> str:
+    """Return the (possibly empty) ``auth_data`` payload from a pairing response.
+
+    The TV normally replies with ``{"auth_data": "<json string>"}``. When the
+    body is not JSON, fall back to the raw text so the caller's regex can still
+    attempt a match.
+    """
+    try:
+        return json.loads(response_text).get("auth_data", "") or ""
+    except (ValueError, AttributeError):
+        return response_text
 
 
 def _encrypt_parameter_data_with_aes(data: bytes) -> bytes:
@@ -299,7 +334,8 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
         self._host = host
         self._web_session = web_session
         self._port = port
-        self._timeout = timeout
+        # timeout=0 disables the timeout (-> None), matching the rest of the SDK.
+        self._timeout: float | None = None if timeout == 0 else timeout
         self._sk_prime: bytes | None = None
 
     def _get_full_url(self, route: str) -> str:
@@ -313,13 +349,15 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
     async def _show_pin_page_on_tv(self) -> None:
         url = self._get_full_url("ws/apps/CloudPINPage")
         LOGGER.debug("Tx: POST %s", url)
-        async with self._web_session.post(url, data="pin4") as response:
+        async with self._web_session.post(
+            url, data="pin4", timeout=self._timeout
+        ) as response:
             LOGGER.debug("Rx: %s", await response.text())
 
     async def _check_pin_page_on_tv(self) -> bool:
         url = self._get_full_url("ws/apps/CloudPINPage")
         LOGGER.debug("Tx: GET %s", url)
-        async with self._web_session.get(url) as response:
+        async with self._web_session.get(url, timeout=self._timeout) as response:
             LOGGER.debug("Rx: %s", await response.text())
             page = await response.text()
         output = re.search("state>([^<>]*)</state>", page, flags=re.IGNORECASE)
@@ -340,7 +378,7 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
     async def _first_step_of_pairing(self) -> None:
         url = self._get_full_request_url(0) + "&type=1"
         LOGGER.debug("Tx: GET %s", url)
-        async with self._web_session.get(url) as response:
+        async with self._web_session.get(url, timeout=self._timeout) as response:
             LOGGER.debug("Rx: %s", await response.text())
 
     async def _second_step_of_pairing(self, pin: str) -> dict[str, bytes] | None:
@@ -355,7 +393,9 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
         )
         url = self._get_full_request_url(1)
         LOGGER.debug("Tx: POST %s", url)
-        async with self._web_session.post(url, data=content) as response:
+        async with self._web_session.post(
+            url, data=content, timeout=self._timeout
+        ) as response:
             LOGGER.debug("Rx: %s", await response.text())
             response_text = await response.text()
 
@@ -398,25 +438,46 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
         )
         url = self._get_full_request_url(2)
         LOGGER.debug("Tx: POST %s", url)
-        async with self._web_session.post(url, data=content) as response:
-            LOGGER.debug("Rx: %s", await response.text())
+        async with self._web_session.post(
+            url, data=content, timeout=self._timeout
+        ) as response:
             response_text = await response.text()
+        LOGGER.debug("Rx: %s", response_text)
 
-        if "secure-mode" in response_text:
-            raise Exception("TODO: Implement handling of encryption flag!!!!")
+        auth_data = _extract_auth_data(response_text)
+
+        # An empty auth_data means the PIN/pairing window has expired (or was
+        # never validly started) -- a distinct, retryable condition rather than
+        # a malformed response. Surface it clearly so callers can re-pair.
+        if not auth_data:
+            raise SamsungTVEncryptedPairingExpiredError(
+                "TV returned empty auth_data at step 2 -- the PIN/pairing window "
+                f"likely expired; restart pairing. (raw: {response_text!r})"
+            )
+
+        if "secure-mode" in auth_data:
+            raise SamsungTVEncryptedError(
+                "TV requested the secure-mode encryption flag, which is not "
+                f"implemented. (raw: {response_text!r})"
+            )
 
         output = re.search(
             r"ClientAckMsg.*?:.*?(\d[0-9a-zA-Z]*).*?session_id.*?(\d)",
-            response_text,
+            auth_data,
             flags=re.IGNORECASE,
         )
         if output is None:
-            raise Exception("Unable to get session_id and/or ClientAckMsg!!!")
+            raise SamsungTVEncryptedResponseError(
+                "Could not parse ClientAckMsg/session_id from the TV response. "
+                f"(raw: {response_text!r})"
+            )
 
         client_ack = output.group(1)
         assert self._sk_prime
         if not _parse_client_acknowledge(client_ack, self._sk_prime):
-            raise Exception("Parse client ack message failed.")
+            raise SamsungTVEncryptedResponseError(
+                f"Client ack message validation failed. (raw: {response_text!r})"
+            )
 
         session_id = output.group(2)
         LOGGER.info("Got sessionId: %s", session_id)
@@ -426,7 +487,7 @@ class SamsungTVEncryptedWSAsyncAuthenticator:
     async def _close_pin_page_on_tv(self) -> None:
         url = self._get_full_url("ws/apps/CloudPINPage/run")
         LOGGER.debug("Tx: DELETE %s", url)
-        async with self._web_session.delete(url) as response:
+        async with self._web_session.delete(url, timeout=self._timeout) as response:
             LOGGER.debug("Rx: %s", await response.text())
 
     async def get_session_id_and_close(self) -> str:

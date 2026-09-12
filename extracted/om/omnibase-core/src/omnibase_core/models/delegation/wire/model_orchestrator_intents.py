@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from omnibase_core.enums.enum_budget_action import EnumBudgetAction
+from omnibase_core.enums.enum_credential_source import EnumCredentialSource
 from omnibase_core.models.delegation.wire.model_delegation_wire_request import (
     ModelDelegationRequest,
     validate_response_format,
@@ -107,6 +108,43 @@ class ModelInferenceIntent(BaseModel):
             "Secret reference for authenticated model backends. The effect "
             "boundary resolves the referenced secret value immediately before "
             "making the outbound provider call."
+        ),
+    )
+    # OMN-18201: what the ROUTING AUTHORITY expected the effect boundary to
+    # authenticate with. The sibling ``api_key_ref`` above is the reference
+    # itself; this is the claim that one was supposed to be there.
+    #
+    # The two are not redundant, and the difference is the whole point. An
+    # absent ``api_key_ref`` is ambiguous on its own: it is what a genuinely
+    # auth-free backend looks like, and it is also what a customer's route
+    # looks like after its reference has gone missing anywhere between the
+    # routing decision and this call. The effect boundary cannot tell those
+    # apart, so it did the only thing an absent reference permits -- it posted
+    # the request with no Authorization header, and the vendor's 401 came back
+    # as the delegation's failure. That is an unauthenticated outbound call on
+    # a customer's route, made silently, with the platform reporting the
+    # vendor for a condition it could have refused locally.
+    #
+    # Stamped by the producer of the intent, which is the only party that has
+    # read the routing decision. ``CUSTOMER_KEY`` / ``HOUSE`` mean a credential
+    # of that class is REQUIRED: the boundary refuses before any outbound call
+    # if it cannot resolve one. ``NONE`` is a deliberate declaration that this
+    # backend takes no credential -- a customer's own local model, say -- and
+    # is the only value under which a headerless call is legitimate.
+    #
+    # ``None`` is an intent from a producer that predates this field and makes
+    # no claim either way; the boundary keeps the pre-OMN-18201 behaviour for
+    # it rather than refusing traffic mid-release. It is NOT a synonym for
+    # ``EnumCredentialSource.NONE``, which is a positive assertion that no
+    # credential is needed.
+    expected_credential_source: EnumCredentialSource | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Credential class the routing authority expected this call to be "
+            "authenticated with. CUSTOMER_KEY/HOUSE require the effect "
+            "boundary to resolve one or refuse; NONE declares an auth-free "
+            "backend; absent is a legacy producer making no claim."
         ),
     )
     extra_headers: dict[str, str] | None = Field(
@@ -253,6 +291,22 @@ class ModelInferenceResponseData(BaseModel):
         description=(
             "Declared provider for the route that produced this response. Never "
             "reconstructed from tenant configuration after execution."
+        ),
+    )
+    # OMN-18196: which credential actually served this call, stamped by the
+    # effect boundary from the binding it resolved. This is the ONLY place the
+    # fact exists first-hand; every downstream carrier copies it. A consumer
+    # must never re-derive it from ``model_used``, ``route``, ``provider`` or a
+    # tier name -- the same model is reachable on a customer key and on a house
+    # credential, which is exactly why the field exists. ``None`` is a response
+    # emitted before this field existed, NOT a call that ran without a
+    # credential; that case is ``EnumCredentialSource.NONE``.
+    credential_source: EnumCredentialSource | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+        description=(
+            "Credential class the effect boundary resolved for this call. "
+            "Absent is explicit legacy provenance, not an absent credential."
         ),
     )
     # string-id-ok: tenant identity is a named slug (e.g. "omninode"), not a UUID.

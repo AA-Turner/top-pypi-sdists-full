@@ -47,7 +47,7 @@ or fork-and-run); it is not something an append-only door should half-honor.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from matrx_ai.config import UnifiedConfig
@@ -141,10 +141,9 @@ async def _default_loader(conversation_id: str) -> list[UnifiedMessage]:
     continuation sees on ``/chat`` is byte-for-byte the history it sees on
     ``/conversations/{id}`` — one funnel, never a second reader.
     """
-    from matrx_ai.agents.resolver import _load_unified_config
+    from matrx_ai.agents.resolver import _load_persisted_messages
 
-    stored: Any = await _load_unified_config(conversation_id)
-    return list(stored.messages)
+    return await _load_persisted_messages(conversation_id)
 
 
 __all__ = [

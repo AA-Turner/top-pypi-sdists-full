@@ -2,7 +2,6 @@
 
 from collections.abc import Iterable
 from logging import getLogger
-from re import finditer, split
 from time import time
 from typing import cast, final
 
@@ -18,6 +17,7 @@ from .parsers import (
     parse_wl,
 )
 from .structure import (
+    NVRAM,
     REGEX,
     TEMP_COMMANDS,
     AuthConfig,
@@ -25,7 +25,6 @@ from .structure import (
     Device,
     DNSRecord,
     Mode,
-    Nvram,
     Settings,
     TempCommand,
     TransferRates,
@@ -238,7 +237,8 @@ class AsusWrt:
         Args:
             parameter_to_fetch (str): The parameter we are targeting to fetch.
         """
-        target: str = r"\|".join(Nvram.get(parameter_to_fetch, set()))
+        nvram_set = cast(set[str], NVRAM.get(parameter_to_fetch, set()))
+        target: str = r"\|".join(nvram_set)
         cmd = Command.NVRAM.format(target)
 
         data = await self._connection.run_command(cmd)
@@ -304,18 +304,20 @@ class AsusWrt:
         def handle32bitwrap(v: int) -> int:
             return v if v > 0 else v + _BIT_WRAP
 
-        def _add_if_match(line: str) -> TransferRates | None:
-            parts = split(r"[\s:]+", line.strip())
-            if parts[0] in ["eth0", "vlan1"]:
-                return TransferRates(
+        rates_dict: dict[str, TransferRates] = {}
+        for line in list(net_dev_lines)[2:]:
+            parts = REGEX.TRX_PART.split(line.strip())
+            if (
+                parts[0] in [self.wan_interface, "vlan1"]
+                and parts[0] not in rates_dict
+            ):
+                rates_dict[parts[0]] = TransferRates(
                     handle32bitwrap(int(parts[1])),
                     handle32bitwrap(int(parts[9])),
                 )
-            return None
 
-        eth, vlan = list(
-            filter(None, map(_add_if_match, list(net_dev_lines)[2:]))
-        )
+        eth = rates_dict.get(self.wan_interface, TransferRates(0, 0))
+        vlan = rates_dict.get("vlan1", TransferRates(0, 0))
 
         inetrx = handle32bitwrap(eth.rx - vlan.rx)
         inettx = handle32bitwrap(eth.tx - vlan.tx)
@@ -515,7 +517,7 @@ class AsusWrt:
             return None
 
         vpns: list[dict[str, str]] = []
-        for m in finditer(REGEX.VPN_LIST, vpn_list):
+        for m in REGEX.VPN_LIST.finditer(vpn_list):
             vpn_id = m.group("id")
             pid = await self._connection.run_command(
                 Command.GET_PID_OF.format(name=f"vpnclient{vpn_id}")

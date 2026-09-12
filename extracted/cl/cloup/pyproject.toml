@@ -1,0 +1,129 @@
+[build-system]
+requires = [
+  "hatchling",
+  "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "cloup"
+description = "Adds features to Click: option groups, constraints, subcommand sections and help themes."
+authors = [
+  { name = "Gianluca Gippetto", email = "gianluca.gippetto@gmail.com" },
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+keywords = [
+  "CLI",
+  "click",
+  "argument groups",
+  "option groups",
+  "constraints",
+  "help colors",
+  "help themes",
+  "help styles",
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "click >= 8.5.0, < 9.0",
+  'typing_extensions; python_version < "3.12"',
+]
+dynamic = [
+  "readme",
+  "version",
+]
+
+[project.urls]
+Homepage = "https://github.com/janLuke/cloup"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/cloup/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cloup"]
+
+[tool.hatch.metadata.hooks.custom]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pyrefly]
+preset = "default"
+project-includes = ["src/cloup", "tests", "examples"]
+search-path = ["src", ".", "examples/manim"]
+ignore-missing-imports = ["click_default_group"]
+
+[tool.pyrefly.errors]
+unused-ignore = "error"
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+# Match Mypy's default behavior for dynamic test helpers; annotated tests remain checked.
+check-unannotated-defs = false
+
+[tool.ruff]
+extend-exclude = ["docs", "src/cloup/_version.py"]
+include = [
+  "examples/**/*.py",
+  "hatch_build.py",
+  "scripts/expand-hatch-envs.py",
+  "src/**/*.py",
+  "src/**/*.pyi",
+  "tests/**/*.py",
+]
+line-length = 90
+target-version = "py310"
+
+[tool.ruff.lint]
+# Preserve Flake8's non-formatting error coverage while leaving formatter-owned
+# whitespace and line-length rules to `ruff format`. W503 has no Ruff equivalent.
+select = [
+  "E4",
+  "E7",
+  "E9",
+  "F",
+  "I",
+  "UP006",
+  "UP007",
+  "UP031",
+  "UP032",
+  "UP035",
+  "UP037",
+  "UP045",
+  "W",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Examples are standalone programs: their sibling modules are local imports, while
+# the installed ``cloup`` package is external from their perspective.
+"examples/**/*.py" = ["I001"]
+# Import order here is part of package initialization because modules imported later
+# refer back to public names exposed by ``cloup``.
+"src/cloup/__init__.py" = ["I001"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "\\.\\.\\.",
+  "if TYPE_CHECKING:",
+]
+
+[tool.coverage.run]
+omit = ["src/cloup/_version.py"]
+parallel = true
+relative_files = true
+source = ["cloup"]

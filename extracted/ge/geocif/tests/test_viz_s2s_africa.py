@@ -397,27 +397,30 @@ class TestSharedOutlookStyling(unittest.TestCase):
     colorbar geometry.
     """
 
-    def test_style_constants_come_from_the_shared_renderer(self):
+    def test_style_constants_come_from_the_shared_home(self):
+        """Constants come from the GMT-free viz/_style."""
         import inspect
 
         from geocif.viz import s2s_africa as viz
 
         src = inspect.getsource(viz.maps)
-        self.assertIn("from geocif.viz._pygmt_render import", src)
-        for k in ("POLY_PEN", "COAST_KW", "CBAR_POS", "BORDER_PEN",
-                  "ANNOT_FONT", "ANNOT_BOX"):
+        self.assertIn("from geocif.viz._style import", src)
+        for k in ("POLY_PEN", "COAST_KW", "CBAR_POS", "BORDER_PEN"):
             self.assertIn(k, src, k)
 
-    def test_the_import_is_lazy(self):
-        """_pygmt_render imports pygmt at its top (it doubles as a standalone
-        subprocess renderer), so a module-scope import here would make the
-        charts and heatmaps unrenderable on a machine with no GMT."""
+    def test_the_map_helper_import_stays_inside_maps(self):
+        """geopandas is still a module-scope import of _pygmt_render, so a
+        module-scope import HERE would make the charts and heatmaps
+        unrenderable wherever geopandas is missing. The style constants
+        come from the stdlib-only _style instead, which is why they can be
+        imported at the top."""
         import inspect
 
         from geocif.viz import s2s_africa as viz
 
         head = inspect.getsource(viz).split("def _dirs")[0]
         self.assertNotIn("_pygmt_render", head)
+        self.assertIn("from geocif.viz._style import", head)
 
     def test_frame_is_the_gmt_default_not_plain(self):
         """The outlook maps use the fancy (checkered) frame."""
@@ -464,9 +467,6 @@ class TestSharedOutlookStyling(unittest.TestCase):
         src = inspect.getsource(viz.maps)
         # def + choropleth + anomaly + yield + region_roc + support
         self.assertEqual(src.count("_value_map("), 6)
-        # the renderer annotates every map, via the shared fit heuristic
-        self.assertIn("_annotate(fig, g, value_col, fmt)", src)
-        self.assertIn("effective_annotate_regions", src)
         # and no wrapper bypasses it with its own colorbar
         self.assertEqual(src.count("fig.colorbar("), 1)
 
@@ -489,3 +489,218 @@ class TestFontsMatchTheOutlookMaps(unittest.TestCase):
         self.assertIn("FONT_TITLE", cfg)
         self.assertNotIn("FONT_LABEL", cfg)
         self.assertNotIn("FONT_ANNOT", cfg)
+
+
+class TestMapsShareOneDedupPolicy(unittest.TestCase):
+    """For the 13 two-season countries an fnid appears under both seasons,
+    so every per-fnid map must pick the SAME row or the maps describe
+    different forecasts of the same place."""
+
+    #: column -> the direction that means "worst case first", since
+    #: drop_duplicates keeps the first row. Checking only that SOME sort
+    #: precedes the dedup is not enough: `sort_values("P_low")` ascending
+    #: keeps the LOWEST-risk season and still matches a column-only regex.
+    POLICY = {"P_low": "descending", "oos_max_sigma": "descending",
+              "ahat": "ascending", "yhat_tha": "ascending"}
+
+    def _dedups(self):
+        import inspect
+        import re
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        return src, re.findall(
+            r'sort_values\(\s*"(\w+)"([^)]*)\)\s*\n?\s*\.?'
+            r'drop_duplicates\("fnid"\)', src)
+
+    def test_every_dedup_is_sorted_first(self):
+        src, found = self._dedups()
+        self.assertEqual(src.count('drop_duplicates("fnid")'), len(found),
+                         "an unsorted drop_duplicates('fnid') slipped in")
+
+    def test_each_sort_runs_in_the_worst_case_first_direction(self):
+        _, found = self._dedups()
+        self.assertTrue(found)
+        for col, args in found:
+            self.assertIn(col, self.POLICY, f"unknown dedup key {col}")
+            descending = "ascending=False" in args
+            want = self.POLICY[col] == "descending"
+            self.assertEqual(descending, want,
+                             f'{col} dedup must sort '
+                             f'{self.POLICY[col]}; got "{args.strip()}"')
+
+    def test_the_two_verdict_maps_follow_the_p_low_row(self):
+        """region ROC and season display a value that does not itself
+        define 'worst', so they inherit the P_low map's choice."""
+        _, found = self._dedups()
+        self.assertEqual(sum(1 for c, _ in found if c == "P_low"), 3)
+
+
+class TestDefensibleBaseline(unittest.TestCase):
+    """The t/ha map's shown-vs-withheld split, tested as BEHAVIOUR.
+
+    It used to live in a closure inside maps(), reachable only with GMT
+    installed, so the only available check was grepping maps() for the
+    literal fix text — which would still pass if the mask were inverted.
+    """
+
+    def _frame(self):
+        return pd.DataFrame({
+            "fnid": ["A", "B", "C", "D"],
+            # NaN = the trend never got a defensible baseline at all
+            "trend_extrap_err_pct": [np.nan, 5.0, 20.0, 55.5],
+        })
+
+    def test_nan_is_withheld_not_shown(self):
+        from geocif.viz.s2s_africa import defensible_baseline
+
+        ok = defensible_baseline(self._frame(), 20.0)
+        self.assertFalse(bool(ok.iloc[0]), "NaN must not be shown")
+        self.assertTrue(bool(ok.iloc[1]))
+        self.assertTrue(bool(ok.iloc[2]), "the bound itself is inclusive")
+        self.assertFalse(bool(ok.iloc[3]))
+
+    def test_every_unit_lands_in_exactly_one_layer(self):
+        """The docstring promises the map never implies coverage it does
+        not have: shown and withheld must partition the frame, with no
+        unit falling through to render as land outside the analysis."""
+        from geocif.viz.s2s_africa import defensible_baseline
+
+        g = self._frame()
+        ok = defensible_baseline(g, 20.0)
+        shown, withheld = g[ok], g[~ok]
+        self.assertEqual(len(shown) + len(withheld), len(g))
+        self.assertEqual(set(shown.fnid) | set(withheld.fnid),
+                         set(g.fnid))
+        self.assertEqual(set(shown.fnid) & set(withheld.fnid), set())
+        self.assertIn("A", set(withheld.fnid))
+
+    def test_all_nan_column_withholds_everything(self):
+        from geocif.viz.s2s_africa import defensible_baseline
+
+        g = pd.DataFrame({"fnid": ["A", "B"],
+                          "trend_extrap_err_pct": [np.nan, np.nan]})
+        self.assertFalse(defensible_baseline(g, 20.0).any())
+
+    def test_both_call_sites_use_the_helper(self):
+        """The skip-the-map gate and the shown/withheld split must agree:
+        two hand-written masks are how they drift apart."""
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        self.assertEqual(src.count("defensible_baseline("), 2)
+        self.assertNotIn('["trend_extrap_err_pct"].notna()', src)
+
+
+class TestPredictorPanelRenderer(unittest.TestCase):
+    """predictor_heatmaps is a pure read of predictors.csv when present."""
+
+    @staticmethod
+    def _write_run_dir(out):
+        import pandas as pd
+
+        rows = []
+        for y in (1995, 1996, 1997):
+            for f, v in (("z_PRCPTOT", 0.2 * (y - 1995)),
+                         ("z_P_GF", -0.1)):
+                rows.append(dict(country="Malawi", crop="maize",
+                                 season_name="Main", offset=3, init_year=2026,
+                                 init_month=8, season_months="11,12,1,2",
+                                 gf_months="1,2", year=y, kind="hindcast",
+                                 predictor=f, value=v, n_units=7))
+        for f in ("z_PRCPTOT", "z_P_GF"):
+            rows.append(dict(country="Malawi", crop="maize",
+                             season_name="Main", offset=3, init_year=2026,
+                             init_month=8, season_months="11,12,1,2",
+                             gf_months="1,2", year=2018,
+                             kind="climatology_fill", predictor=f,
+                             value=0.0, n_units=7))
+            rows.append(dict(country="Malawi", crop="maize",
+                             season_name="Main", offset=3, init_year=2026,
+                             init_month=8, season_months="11,12,1,2",
+                             gf_months="1,2", year=2027, kind="forecast",
+                             predictor=f, value=-2.5, n_units=7))
+        pd.DataFrame(rows).to_csv(out / "predictors.csv", index=False)
+        pd.DataFrame([dict(country="Malawi", crop="maize",
+                           season_name="Main", status="forecast",
+                           planting_month=11, harvest_month=4, wraps=True,
+                           harvest_year=2027)]
+                     ).to_csv(out / "combinations.csv", index=False)
+
+    def test_renders_from_panel_and_hides_climatology_fill(self):
+        import tempfile
+
+        import pandas as pd
+
+        from geocif.viz.s2s_africa import predictor_heatmaps
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self._write_run_dir(out)
+            base = predictor_heatmaps(out, out, "unused.csv")
+            plots, csvs = base / "plots", base / "csvs"
+            self.assertTrue((plots / "Malawi_maize_Main.png").exists())
+            m = pd.read_csv(csvs / "Malawi_maize_Main.csv")
+            # fill years never reach the figure matrix; forecast year does
+            self.assertNotIn(2018, set(m.year))
+            self.assertIn(2027, set(m.year))
+            tidy = pd.read_csv(csvs / "predictor_values_all.csv")
+            self.assertEqual(set(tidy.columns),
+                             {"country", "crop", "season_name", "offset",
+                              "predictor", "year", "value", "n_units"})
+            for d in (plots, csvs):
+                self.assertTrue((d / "lookup_plots_csvs.csv").exists())
+
+    def test_missing_panel_falls_back_with_a_warning(self):
+        import tempfile
+
+        import pandas as pd
+
+        from geocif.viz import s2s_africa as viz
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            # no predictors.csv, and zero forecast rows so the legacy path
+            # returns before touching S2S inputs
+            pd.DataFrame([dict(country="Malawi", crop="maize",
+                               season_name="Main", status="too_early")]
+                         ).to_csv(out / "combinations.csv", index=False)
+            with self.assertLogs("geocif.viz.s2s_africa",
+                                 level="WARNING") as cm:
+                viz.predictor_heatmaps(out, out, "unused.csv")
+            self.assertTrue(any("predictors.csv" in m for m in cm.output))
+
+
+class TestMapsCarryNoRegionAnnotations(unittest.TestCase):
+    """These maps span countries at admin-2; region labels do not fit.
+
+    The label-fit heuristic passed them (36 Somali districts is under the
+    200-unit cap and each polygon is nominally wide enough for its name),
+    but the rendered result was overlapping label boxes covering the
+    coastline. The region name for a polygon lives in the companion CSV,
+    which is where a reader looks it up.
+    """
+
+    def test_no_annotation_call_survives(self):
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        for probe in ("_annotate(", "annotate_centroids",
+                      "effective_annotate_regions", "fig.text("):
+            self.assertNotIn(probe, src, probe)
+
+    def test_region_names_still_reach_the_companion_csv(self):
+        """Dropping the labels must not drop the lookup — otherwise a
+        polygon becomes unidentifiable."""
+        import inspect
+
+        from geocif.viz import s2s_africa as viz
+
+        src = inspect.getsource(viz.maps)
+        self.assertIn('"ADMIN1", "ADMIN2"', src)
+        self.assertIn('drop(columns="geometry")', src)

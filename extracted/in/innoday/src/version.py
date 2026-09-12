@@ -158,7 +158,7 @@ def get_version() -> str:
     return compute_version_from_tags()
 
 
-__version__ = "0.1.344-beta"  # frozen for this CI build only, never committed
+__version__ = "0.1.346-beta"  # frozen for this CI build only, never committed
 
 
 def get_display_version() -> str:

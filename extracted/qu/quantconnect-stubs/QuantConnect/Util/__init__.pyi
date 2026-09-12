@@ -3068,6 +3068,42 @@ class OptionPayoff(System.Object):
         """
         ...
 
+    @staticmethod
+    def is_at_the_money(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> bool:
+        """
+        Whether the option is at the money: the strike equals the underlying price
+        
+        :param underlying_price: The price of the underlying
+        :param strike: The strike price of the option
+        :param right: The option right of the option, call or put
+        :returns: True if the strike equals the underlying price.
+        """
+        ...
+
+    @staticmethod
+    def is_in_the_money(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> bool:
+        """
+        Whether the option is in the money: a call with the strike below the underlying price, a put with the strike above it
+        
+        :param underlying_price: The price of the underlying
+        :param strike: The strike price of the option
+        :param right: The option right of the option, call or put
+        :returns: True if the option has intrinsic value.
+        """
+        ...
+
+    @staticmethod
+    def is_out_of_the_money(underlying_price: float, strike: float, right: QuantConnect.OptionRight) -> bool:
+        """
+        Whether the option is out of the money: a call with the strike above the underlying price, a put with the strike below it
+        
+        :param underlying_price: The price of the underlying
+        :param strike: The strike price of the option
+        :param right: The option right of the option, call or put
+        :returns: True if the option has no intrinsic value and is not at the money.
+        """
+        ...
+
 
 class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.SecurityIdentifier, str]):
     """A JsonConverter implementation that serializes a SecurityIdentifier as a string"""

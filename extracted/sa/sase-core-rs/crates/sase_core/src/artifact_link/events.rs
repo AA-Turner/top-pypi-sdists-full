@@ -21,6 +21,10 @@ pub const ARTIFACT_LINK_EVENT_WIRE_SCHEMA_VERSION: u64 = 1;
 pub const ARTIFACT_LINK_EVENT_REDUCTION_WIRE_SCHEMA_VERSION: u64 = 1;
 
 const LINK_EVENT_PATH_PREFIX: &str = "link-events/v1";
+const ARTIFACT_LINK_STABLE_FACT_CREATED_AT: &str = "1970-01-01T00:00:00Z";
+const ARTIFACT_LINK_MACHINE_RUN_ID: &str = "machine";
+const ARTIFACT_LINK_DERIVED_PRODUCER_ID: &str = "sase.artifact-link-derived";
+const ARTIFACT_LINK_ALIAS_PRODUCER_ID: &str = "sase.artifact-link-renames";
 
 /// One immutable artifact-link operation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,6 +181,35 @@ struct EdgeAccum {
 struct AliasResolver {
     direct: BTreeMap<String, String>,
     terminal: BTreeMap<String, String>,
+}
+
+/// Return the stable producer recorded on derived-fact link events.
+pub fn artifact_link_derived_producer_id() -> &'static str {
+    ARTIFACT_LINK_DERIVED_PRODUCER_ID
+}
+
+/// Return the stable producer recorded on artifact-rename alias events.
+pub fn artifact_link_alias_producer_id() -> &'static str {
+    ARTIFACT_LINK_ALIAS_PRODUCER_ID
+}
+
+/// Return the machine run marker used for stable background facts.
+pub fn artifact_link_machine_run_id() -> &'static str {
+    ARTIFACT_LINK_MACHINE_RUN_ID
+}
+
+/// Return the timestamp sentinel for replay-stable derived facts.
+pub fn artifact_link_stable_fact_created_at() -> &'static str {
+    ARTIFACT_LINK_STABLE_FACT_CREATED_AT
+}
+
+/// Return a deterministic 128-bit operation id for replayable producers.
+pub fn artifact_link_stable_operation_id(
+    parts: &[JsonValue],
+) -> Result<String, ArtifactLinkError> {
+    let canonical =
+        canonical_json_for_value(&JsonValue::Array(parts.to_vec()))?;
+    Ok(sha256_hex(canonical.as_bytes())[..32].to_string())
 }
 
 /// Validate and canonicalize one immutable artifact-link event.
@@ -616,11 +649,6 @@ fn canonicalize_event_edge(
 fn canonicalize_baseline_rows(
     rows: &[ArtifactLinkRowWire],
 ) -> Result<Vec<ArtifactLinkRowWire>, ArtifactLinkError> {
-    if rows.is_empty() {
-        return Err(validation(
-            "baseline-import rows must contain at least one row",
-        ));
-    }
     let mut by_edge =
         BTreeMap::<ArtifactLinkEventEdgeWire, ArtifactLinkRowWire>::new();
     for row in rows {
@@ -1002,7 +1030,7 @@ fn baseline_import_signature(
     }))
 }
 
-fn canonical_json_for_serializable<T: Serialize>(
+pub(super) fn canonical_json_for_serializable<T: Serialize>(
     value: &T,
 ) -> Result<String, ArtifactLinkError> {
     let value = serde_json::to_value(value).map_err(|error| {
@@ -1013,7 +1041,7 @@ fn canonical_json_for_serializable<T: Serialize>(
     canonical_json_for_value(&value)
 }
 
-fn canonical_json_for_value(
+pub(super) fn canonical_json_for_value(
     value: &JsonValue,
 ) -> Result<String, ArtifactLinkError> {
     let sorted = canonical_json_value(value);
@@ -1030,7 +1058,7 @@ fn canonical_json_for_value(
     })
 }
 
-fn canonical_json_value(value: &JsonValue) -> JsonValue {
+pub(super) fn canonical_json_value(value: &JsonValue) -> JsonValue {
     match value {
         JsonValue::Array(entries) => {
             JsonValue::Array(entries.iter().map(canonical_json_value).collect())
@@ -1048,7 +1076,7 @@ fn canonical_json_value(value: &JsonValue) -> JsonValue {
     }
 }
 
-fn ensure_integer_only_json(
+pub(super) fn ensure_integer_only_json(
     value: &JsonValue,
     path: &str,
 ) -> Result<(), ArtifactLinkError> {
@@ -1099,7 +1127,7 @@ fn normalize_operation_ids(
     Ok(seen.into_iter().collect())
 }
 
-fn validate_operation_id(
+pub(super) fn validate_operation_id(
     label: &str,
     value: &str,
 ) -> Result<String, ArtifactLinkError> {
@@ -1112,7 +1140,9 @@ fn validate_operation_id(
     Ok(value.to_string())
 }
 
-fn validate_sha256_digest(value: &str) -> Result<String, ArtifactLinkError> {
+pub(super) fn validate_sha256_digest(
+    value: &str,
+) -> Result<String, ArtifactLinkError> {
     let value = value.trim();
     if value.len() != 64 || !is_lowercase_hex(value) {
         return Err(validation(
@@ -1122,7 +1152,9 @@ fn validate_sha256_digest(value: &str) -> Result<String, ArtifactLinkError> {
     Ok(value.to_string())
 }
 
-fn validate_project_key(value: &str) -> Result<String, ArtifactLinkError> {
+pub(super) fn validate_project_key(
+    value: &str,
+) -> Result<String, ArtifactLinkError> {
     let value = validate_single_line("project_key", value)?;
     let canonical = value.bytes().all(|byte| {
         byte.is_ascii_lowercase()
@@ -1137,7 +1169,7 @@ fn validate_project_key(value: &str) -> Result<String, ArtifactLinkError> {
     Ok(value)
 }
 
-fn validate_single_line(
+pub(super) fn validate_single_line(
     label: &str,
     value: &str,
 ) -> Result<String, ArtifactLinkError> {
@@ -1190,11 +1222,11 @@ fn edge_display(edge: &ArtifactLinkEventEdgeWire) -> String {
     }
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(super) fn sha256_hex(bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(bytes))
 }
 
-fn validation(message: impl Into<String>) -> ArtifactLinkError {
+pub(super) fn validation(message: impl Into<String>) -> ArtifactLinkError {
     ArtifactLinkError::validation(message)
 }
 
@@ -1337,6 +1369,39 @@ mod tests {
         .unwrap_err()
         .message
         .contains("not canonical"));
+    }
+
+    #[test]
+    fn stable_background_producer_contract_is_replay_stable() {
+        assert_eq!(
+            artifact_link_derived_producer_id(),
+            "sase.artifact-link-derived"
+        );
+        assert_eq!(
+            artifact_link_alias_producer_id(),
+            "sase.artifact-link-renames"
+        );
+        assert_eq!(artifact_link_machine_run_id(), "machine");
+        assert_eq!(
+            artifact_link_stable_fact_created_at(),
+            "1970-01-01T00:00:00Z"
+        );
+        let parts = vec![
+            JsonValue::String("derived".to_string()),
+            serde_json::json!({"b": 2, "a": 1}),
+        ];
+        assert_eq!(
+            artifact_link_stable_operation_id(&parts).unwrap(),
+            artifact_link_stable_operation_id(&parts).unwrap()
+        );
+        assert_ne!(
+            artifact_link_stable_operation_id(&parts).unwrap(),
+            artifact_link_stable_operation_id(&[
+                JsonValue::String("derived".to_string()),
+                serde_json::json!({"a": 2, "b": 1}),
+            ])
+            .unwrap()
+        );
     }
 
     #[test]

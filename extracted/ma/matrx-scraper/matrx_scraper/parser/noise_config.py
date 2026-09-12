@@ -114,6 +114,46 @@ NOISE_ID: list[str] = [
 
 NOISE_DATA_CONTENT: list[str] = []
 
+# Navigation markers on `class` and `id` — a SEGMENT rule, not a literal list.
+#
+# NOISE_CLASS / NOISE_ID above match a class token or an id EXACTLY. Real pages
+# name their chrome `nav`, `navbar`, `site-nav`, `nav-primary`, `header-links`,
+# `mainNav`, `breadcrumbs`, `skip-links`, `main-menu`, … and an exact list can
+# never keep up. `NavMarkerNoiseRemover` instead splits every class token and
+# the id into segments on `-`, `_` and camelCase boundaries, lowercases them,
+# and treats the element as navigation chrome when:
+#   * a single-word item here equals ANY segment            (`nav` hits `site-nav`,
+#     `nav-primary`, `mainNav`; it does NOT hit `navigate-your-career`, whose
+#     segments are `navigate`/`your`/`career`), or
+#   * a hyphenated item here equals a CONTIGUOUS run of segments
+#     (`skip-link` hits `skip-link-wrapper`, `header-links` hits `header-links`).
+# Conservative by design: words that also name article content (`header`,
+# `content`, `list`, `bar`) are deliberately absent — only phrases that pin them
+# to chrome (`site-header`, `top-bar`) are listed.
+#
+# Guard (never over-strip): the rule NEVER removes an element that is `<main>`
+# or `<article>`, sits inside one, contains one, or holds more than half of the
+# body's text — a badly named wrapper around the page's content is still the
+# page. The guard applies to this heuristic only; exact NOISE_* matches above
+# keep their long-standing behaviour.
+NOISE_NAV_MARKER: list[str] = [
+    "nav",
+    "navbar",
+    "navigation",
+    "menu",
+    "menubar",
+    "topbar",
+    "top-bar",
+    "breadcrumb",
+    "breadcrumbs",
+    "skip-link",
+    "skip-links",
+    "skiplink",
+    "skiplinks",
+    "header-links",
+    "site-header",
+]
+
 NOISE_VISIBILITY: list[str] = [
     VisibilityItem.DISPLAY_NONE.value,
     VisibilityItem.VISIBILITY_HIDDEN.value,
@@ -169,6 +209,12 @@ class DataContentConfig(BaseRemoverConfig):
 
 
 @dataclass
+class NavMarkerConfig(BaseRemoverConfig):
+    def get_standard_items(self) -> list[str]:
+        return NOISE_NAV_MARKER
+
+
+@dataclass
 class VisibilityConfig(BaseRemoverConfig):
     add_items: list[VisibilityItem] = field(default_factory=list)
     remove_items: list[VisibilityItem] = field(default_factory=list)
@@ -196,4 +242,5 @@ class NoiseRemoverConfig:
     tag: TagConfig = field(default_factory=TagConfig)
     id_: IdConfig = field(default_factory=IdConfig)
     data_content: DataContentConfig = field(default_factory=DataContentConfig)
+    nav_marker: NavMarkerConfig = field(default_factory=NavMarkerConfig)
     visibility: VisibilityConfig = field(default_factory=VisibilityConfig)

@@ -89,6 +89,86 @@ def strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
+# ---------------------------------------------------------------------------
+# Classification by SQLSTATE / exception type — NEVER by words in the message.
+#
+# The 2026-09-11 incident: `sql query table=ai.provider fields=[…, sync_policy]`
+# failed on an unknown column and was reported to the agent as "your access level
+# doesn't permit… requires super_admin", because the classifier asked
+# `"policy" in message_text` and the COLUMN IS NAMED sync_policy. The agent spent
+# its turn chasing permissions it already had. Message text is prose that changes
+# with every Postgres release and every ORM banner; SQLSTATE is the contract.
+# ---------------------------------------------------------------------------
+
+SQLSTATE_INSUFFICIENT_PRIVILEGE = "42501"  # incl. RLS policy denial
+SQLSTATE_UNDEFINED_TABLE = "42P01"
+SQLSTATE_UNDEFINED_COLUMN = "42703"
+SQLSTATE_UNDEFINED_SCHEMA = "3F000"
+SQLSTATE_READ_ONLY_TRANSACTION = "25006"
+
+# Exception TYPE names that carry the same meaning without a SQLSTATE reaching us
+# (matrx-orm wrappers, asyncpg classes). Duck-typed by name so this module keeps
+# its zero-import contract.
+_PERMISSION_EXC_NAMES = frozenset(
+    {"PermissionDeniedError", "InsufficientPrivilegeError", "RLSViolationError"}
+)
+_READ_ONLY_EXC_NAMES = frozenset({"ReadOnlyTransactionError", "ReadOnlyModelError"})
+
+_KIND_BY_SQLSTATE: dict[str, str] = {
+    SQLSTATE_UNDEFINED_TABLE: "table",
+    SQLSTATE_UNDEFINED_COLUMN: "column",
+    SQLSTATE_UNDEFINED_SCHEMA: "schema",
+}
+
+
+def exception_chain(exc: BaseException | None) -> list[BaseException]:
+    """The exception and every ``__cause__`` / ``__context__`` beneath it."""
+    chain: list[BaseException] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        chain.append(cur)
+        cur = cur.__cause__ or cur.__context__
+    return chain
+
+
+def sqlstate_of(exc: BaseException | None) -> str | None:
+    """The Postgres SQLSTATE behind an exception, wrappers walked.
+
+    Sources, in order of trust: the driver's own ``sqlstate`` attribute, an ORM
+    exception's ``details['sqlstate']`` / ``['code']``, psycopg's ``pgcode``.
+    """
+    for item in exception_chain(exc):
+        state = getattr(item, "sqlstate", None) or getattr(item, "pgcode", None)
+        if isinstance(state, str) and state:
+            return state
+        details = getattr(item, "details", None)
+        if isinstance(details, dict):
+            state = details.get("sqlstate") or details.get("code")
+            if isinstance(state, str) and state:
+                return state
+    return None
+
+
+def _exc_type_names(exc: BaseException | None) -> set[str]:
+    return {type(item).__name__ for item in exception_chain(exc)}
+
+
+def is_permission_error(exc: BaseException | None) -> bool:
+    """True only for a genuine privilege / RLS denial (42501 or a typed wrapper)."""
+    if sqlstate_of(exc) == SQLSTATE_INSUFFICIENT_PRIVILEGE:
+        return True
+    return bool(_exc_type_names(exc) & _PERMISSION_EXC_NAMES)
+
+
+def is_read_only_error(exc: BaseException | None) -> bool:
+    """True for a read-only transaction / read-only model refusal."""
+    if sqlstate_of(exc) == SQLSTATE_READ_ONLY_TRANSACTION:
+        return True
+    return bool(_exc_type_names(exc) & _READ_ONLY_EXC_NAMES)
+
+
 def _parse_message_text(text: str) -> dict[str, str]:
     out: dict[str, str] = {}
     if m := _UNDEF_COLUMN_OF_RELATION_RE.search(text):
@@ -135,7 +215,7 @@ def parse_db_error(exc: Exception) -> DbErrorFacts:
         return DbErrorFacts(
             kind=kind if kind in ("table", "column", "schema") else None,
             message=message,
-            sqlstate=details.get("sqlstate"),
+            sqlstate=details.get("sqlstate") or sqlstate_of(exc),
             missing_schema=details.get("missing_schema") or None,
             missing_table=details.get("missing_table") or None,
             missing_column=details.get("missing_column") or None,
@@ -152,6 +232,9 @@ def parse_db_error(exc: Exception) -> DbErrorFacts:
         kind = "table"
     elif parsed.get("missing_schema"):
         kind = "schema"
+    if kind is None:
+        # No recognizable message shape — the SQLSTATE still classifies it.
+        kind = _KIND_BY_SQLSTATE.get(sqlstate_of(exc) or "")
     # Non-ORM errors can be arbitrarily long too — keep the head, which for
     # Postgres/PostgREST always carries the reason.
     if len(text) > 500:
@@ -159,6 +242,7 @@ def parse_db_error(exc: Exception) -> DbErrorFacts:
     return DbErrorFacts(
         kind=kind,
         message=text,
+        sqlstate=sqlstate_of(exc),
         missing_schema=parsed.get("missing_schema"),
         missing_table=parsed.get("missing_table"),
         missing_column=parsed.get("missing_column"),

@@ -1082,6 +1082,23 @@ class view_center_pick(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class view_flip(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        direction: typing.Literal["HORIZONTAL", "VERTICAL"] | None = "HORIZONTAL",
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Flip the camera view along the given direction
+
+        :param execution_context:
+        :param undo:
+        :param direction: Flip Direction, (optional)
+        :return: Result of the operator call.
+        """
+
 class view_lock_clear(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,

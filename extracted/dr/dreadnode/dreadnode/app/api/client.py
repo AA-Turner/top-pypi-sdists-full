@@ -3325,10 +3325,12 @@ class ApiClient:
         """Find a session's workspace and project by searching across all org workspaces.
 
         Returns the full API response payload (normally containing a
-        ``session`` dict with ``workspace`` and ``project_name`` keys) from the
-        first workspace where the session is found, or ``None`` if not found in
-        any workspace. Used by ``--resume`` to locate sessions that belong to a
-        different workspace than the current profile default.
+        ``session`` dict with ``workspace``, ``project_key`` and
+        ``project_name`` keys) from the first workspace where the session is
+        found, or ``None`` if not found in any workspace. Used by ``--resume``
+        to locate sessions that belong to a different workspace than the
+        current profile default — which scopes off ``project_key``, the
+        addressable slug, not the ``project_name`` display label.
 
         Raises :class:`AuthenticationError` on 401 so callers can surface
         the auth failure rather than silently returning "not found".
@@ -4270,6 +4272,211 @@ class ApiClient:
         response = self.request(
             "POST",
             f"/org/{org}/ws/{workspace}/airt/projects/{project}/reports/generate",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    # ------------------------------------------------------------------
+    # Workflows - authored graphs, runs, and approvals
+    # ------------------------------------------------------------------
+
+    def list_workflow_definitions(
+        self,
+        org: str,
+        workspace: str,
+        *,
+        capability: str | None = None,
+        name: str | None = None,
+        agent: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, t.Any]]:
+        """GET workspace workflow definitions."""
+        params: dict[str, t.Any] = {"limit": limit}
+        params.update(
+            {
+                key: value
+                for key, value in (
+                    ("capability", capability),
+                    ("name", name),
+                    ("agent", agent),
+                )
+                if value is not None
+            }
+        )
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/workflows/definitions",
+            params=params,
+        )
+        return t.cast("list[dict[str, t.Any]]", response.json())
+
+    def get_workflow_definition(
+        self, org: str, workspace: str, definition_id: str
+    ) -> dict[str, t.Any]:
+        """Get a workspace-visible definition with its full topology."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/workflows/definitions/{definition_id}",
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def create_workflow_run(
+        self,
+        org: str,
+        workspace: str,
+        *,
+        definition_id: str,
+        project_id: str,
+        input_data: dict[str, t.Any] | None = None,
+        host_kind: str = "runtime",
+        runtime_id: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Start a workflow run in a workspace project."""
+        if host_kind == "runtime" and runtime_id is None:
+            raise ValueError("runtime_id is required for runtime-hosted workflows")
+        if host_kind == "local" and runtime_id is not None:
+            raise ValueError("runtime_id is not allowed for local workflows")
+        payload: dict[str, t.Any] = {
+            "definition_id": definition_id,
+            "project_id": project_id,
+            "input": input_data or {},
+            "host_kind": host_kind,
+        }
+        if runtime_id is not None:
+            payload["runtime_id"] = runtime_id
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/runs",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_workflow_runs(
+        self,
+        org: str,
+        workspace: str,
+        *,
+        project_id: str | None = None,
+        runtime_id: str | None = None,
+        definition_id: str | None = None,
+        status: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, t.Any]]:
+        """List workflow runs in a workspace project."""
+        if project_id is None and runtime_id is None:
+            raise ValueError("project_id is required unless polling by runtime_id")
+        params: dict[str, t.Any] = {"limit": limit}
+        if project_id is not None:
+            params["project_id"] = project_id
+        if runtime_id is not None:
+            params["runtime_id"] = runtime_id
+        if definition_id is not None:
+            params["definition_id"] = definition_id
+        if status is not None:
+            params["status"] = status
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/workflows/runs",
+            params=params,
+        )
+        return t.cast("list[dict[str, t.Any]]", response.json())
+
+    def claim_workflow_run(
+        self,
+        org: str,
+        workspace: str,
+        run_id: str,
+        *,
+        execution_id: str,
+        runtime_id: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Atomically claim one pending workflow run for this host."""
+        payload: dict[str, t.Any] = {"execution_id": execution_id}
+        if runtime_id is not None:
+            payload["runtime_id"] = runtime_id
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/runs/{run_id}/claim",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def get_workflow_run(self, org: str, workspace: str, run_id: str) -> dict[str, t.Any]:
+        """Get a workflow run with nodes and pinned topology."""
+        response = self.request("GET", f"/org/{org}/ws/{workspace}/workflows/runs/{run_id}")
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def append_workflow_facts(
+        self,
+        org: str,
+        workspace: str,
+        run_id: str,
+        facts: list[dict[str, t.Any]],
+        *,
+        execution_id: str,
+    ) -> dict[str, t.Any]:
+        """Append host-sequenced facts to a workspace workflow run."""
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/runs/{run_id}/facts",
+            json_data={"execution_id": execution_id, "facts": facts},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def heartbeat_workflow_run(
+        self,
+        org: str,
+        workspace: str,
+        run_id: str,
+        *,
+        execution_id: str,
+    ) -> dict[str, t.Any]:
+        """Report workflow-run liveness."""
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/runs/{run_id}/heartbeat",
+            json_data={"execution_id": execution_id},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def cancel_workflow_run(
+        self, org: str, workspace: str, run_id: str, *, project_id: str
+    ) -> dict[str, t.Any]:
+        """Cancel a workflow run in one project."""
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/runs/{run_id}/cancel",
+            params={"project_id": project_id},
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def list_workflow_approvals(
+        self, org: str, workspace: str, *, project_id: str, limit: int = 100
+    ) -> list[dict[str, t.Any]]:
+        """List pending workflow approvals in a workspace project."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/workflows/approvals",
+            params={"project_id": project_id, "limit": limit},
+        )
+        return t.cast("list[dict[str, t.Any]]", response.json())
+
+    def decide_workflow_approval(
+        self,
+        org: str,
+        workspace: str,
+        approval_id: str,
+        *,
+        outcome: str,
+        note: str | None = None,
+    ) -> dict[str, t.Any]:
+        """Decide a workspace workflow approval."""
+        payload: dict[str, t.Any] = {"outcome": outcome}
+        if note is not None:
+            payload["note"] = note
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/workflows/approvals/{approval_id}/decision",
             json_data=payload,
         )
         return t.cast("dict[str, t.Any]", response.json())

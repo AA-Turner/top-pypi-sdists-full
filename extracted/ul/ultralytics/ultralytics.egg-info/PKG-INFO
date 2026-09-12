@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.147
+Version: 8.4.148
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>

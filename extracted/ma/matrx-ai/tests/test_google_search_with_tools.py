@@ -99,7 +99,25 @@ def test_gemini3_search_still_works_without_function_tools(monkeypatch):
     assert _has_google_search(out["config"].tools)
 
 
-def test_grounded_json_keeps_search_and_provider_native_schema(monkeypatch):
+def test_grounded_json_uses_one_call_text_envelope_without_disabling_search(monkeypatch):
+    """The Google grounded-JSON containment, pinned at the request boundary.
+
+    Search stays ON and it is still ONE call. What is withheld is ONLY Google's
+    own ``response_json_schema`` switch, which drops a span of the answer at the
+    first grounded citation segment on a streamed response (Google's bug —
+    discuss.ai.google.dev/t/176967). The schema rides in the system instruction
+    as a fenced-JSON contract instead; ``extract_json`` + kind validation enforce
+    it downstream.
+
+    HISTORY — DO NOT UNDO THIS ON A SMALL SAMPLE. This exact test was rewritten
+    on 2026-08-17 to pin the opposite behaviour (native schema + Search together)
+    on the strength of "12/12 grounded trials passed". At the measured ~9.4%
+    failure rate, twelve clean runs happen 31% of the time; the test could not
+    have seen the bug. Re-measured 2026-09-11, raw HTTP, N=96 per model:
+    native schema + Search 9/96 corrupt on gemini-3.7-flash AND gemini-3.8-flash;
+    this envelope 0/96 on both. A future "Google fixed it" needs N>=96 per model
+    against this branch's exact request shape.
+    """
     tr = GoogleTranslator()
     monkeypatch.setattr(tr, "build_provider_tools", lambda config, provider: [])
 
@@ -109,11 +127,12 @@ def test_grounded_json_keeps_search_and_provider_native_schema(monkeypatch):
     )
     cfg = out["config"]
 
-    assert _has_google_search(cfg.tools)
-    assert cfg.response_mime_type == "application/json"
-    assert cfg.response_json_schema is not None
-    assert cfg.response_json_schema["required"] == ["answer"]
-    assert cfg.system_instruction is None
+    assert _has_google_search(cfg.tools), "containment must never disable Search"
+    assert cfg.response_mime_type is None
+    assert cfg.response_json_schema is None, "Google's broken schema switch must be withheld when grounded"
+    assert "GROUNDED RESEARCH DIGEST" in cfg.system_instruction
+    assert "MATRX_JSON_BEGIN" in cfg.system_instruction
+    assert '"required":["answer"]' in cfg.system_instruction, "the exact schema still reaches the model"
 
 
 def test_json_without_search_keeps_provider_native_schema(monkeypatch):

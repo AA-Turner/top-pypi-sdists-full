@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-reportlab
-Version: 4.5.1.20260827
+Version: 5.0.0.20260911
 Summary: Typing stubs for reportlab
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`reportlab`](https://github.com/MrBitBucket/reportlab-mirror) package. It can be used by type checkers
 to check code that uses `reportlab`. This version of
 `types-reportlab` aims to provide accurate annotations for
-`reportlab==4.5.1`.
+`reportlab==5.0.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -37,4 +37,4 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`c10142fb9463b1dd0c581d3f08f4c01c5c08a09e`](https://github.com/python/typeshed/commit/c10142fb9463b1dd0c581d3f08f4c01c5c08a09e).
+[`bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e`](https://github.com/python/typeshed/commit/bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e).

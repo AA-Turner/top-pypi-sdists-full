@@ -13492,7 +13492,7 @@ class RetimingKeys(bpy_prop_collection[RetimingKey], bpy_struct):
         """
 
 class SceneCompositorEffects(bpy_prop_collection[SceneCompositorEffect], bpy_struct):
-    """Collection of scene compositor effects"""
+    """Collection of scene effects"""
 
     active: SceneCompositorEffect | None
     """ The active strip effect in the list (never None)"""
@@ -90932,6 +90932,9 @@ class RegionView3D(bpy_struct):
     use_clip_planes: bool
     """ (default False)"""
 
+    use_view_flip_x: bool
+    """ Flip view horizontally (default False)"""
+
     view_camera_offset: bpy_prop_array[float]
     """ View shift in camera view (array of 2 items, in [-inf, inf], default (0.0, 0.0))"""
 
@@ -104533,6 +104536,9 @@ class SpaceNodeOverlay(bpy_struct):
 
     show_reroute_auto_labels: bool
     """ Label reroute nodes based on the label of connected reroute nodes (default False)"""
+
+    show_text_info: bool
+    """ Display overlay text (default False)"""
 
     show_timing: bool
     """ Display each node's last execution time (default False)"""

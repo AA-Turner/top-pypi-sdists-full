@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any
 from matrx_ai.processing.audio.stt import STTRequest, STTResult, STTUsage, prepare_audio_file
 from matrx_ai.providers.keys import resolve_api_key
 from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.sdk_drift import route_undeclared_params
 
 if TYPE_CHECKING:
     from groq import AsyncGroq
@@ -53,11 +54,22 @@ class GroqSTT:
         )
         if request.timestamp_granularities and request.response_format == "verbose_json":
             params["timestamp_granularities"] = request.timestamp_granularities
+        # Every blind dict forward into an SDK method goes through the drift
+        # guard: a Groq SDK bump that drops a parameter would otherwise be a
+        # client-side TypeError on a paid call. A no-op when nothing drifted;
+        # otherwise the key rides extra_body (same wire bytes) and SCREAMS.
         if request.operation == "translation":
-            response = await _client().audio.translations.create(**params)
+            create = _client().audio.translations.create
         else:
-            response = await _client().audio.transcriptions.create(**params)
-        return self._parse_response(response, profile=profile, request=request, file_size_mb=file_size_mb)
+            create = _client().audio.transcriptions.create
+        response = await create(
+            **route_undeclared_params(
+                create, params, provider="groq", model=profile.provider_model_id
+            )
+        )
+        return self._parse_response(
+            response, profile=profile, request=request, file_size_mb=file_size_mb
+        )
 
     @staticmethod
     def _parse_response(

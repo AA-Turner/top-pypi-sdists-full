@@ -847,6 +847,33 @@ def _handle_connection_error(provider: str, message: str) -> RetryableError:
     )
 
 
+def _handle_incomplete_response(provider: str, message: str) -> RetryableError:
+    """The provider ANSWERED and the answer was cut off in transit.
+
+    🚨 THIS IS NOT A REJECTED REQUEST. The wire opened, bytes flowed, and the
+    connection died before the declared body arrived — a truncated chunked
+    response, a reset peer, an ``IncompleteRead``. The request was fine; the
+    transport was not, so the same request sent again normally succeeds.
+
+    It gets its own ``error_type`` rather than folding into ``connection_error``
+    because the two need different triage: a connection error means we never got
+    an answer, while this means we got half of one and may already have been
+    billed for all of it. It is also the transport half of the "empty
+    ``output_text`` on a structured-output call" family — a response that ends
+    early parses as a response with nothing in it.
+    """
+    return RetryableError(
+        error_type="incomplete_response",
+        message=message,
+        retry_after=2.0,
+        is_retryable=True,
+        user_message=(
+            f"The response from {provider} was cut off in transit before it finished. "
+            "Retrying..."
+        ),
+    )
+
+
 # -- Provider-specific client-side SDK errors (non-retryable) ---------------
 
 
@@ -910,6 +937,13 @@ def _fallback_classify(error_str: str, provider: str) -> RetryableError:
 
     if any(x in s for x in ("content_filter", "content_policy", "safety", "blocked")):
         return _handle_content_filter(provider, error_str)
+
+    # A response cut off in transit — checked BEFORE any numeric HTTP-code match.
+    # A transport exception's repr embeds numbers that are not statuses (aiohttp's
+    # `TransferEncodingError: 400`), and matching them as HTTP codes is exactly
+    # how a retryable blip became a non-retryable "rejected request" on 2026-08-26.
+    if any(marker in s for marker in _INCOMPLETE_RESPONSE_MARKERS):
+        return _handle_incomplete_response(provider, error_str)
 
     if _has_http_code(s, 401, 403) or any(
         x in s for x in ("invalid api key", "unauthorized", "forbidden")
@@ -1043,15 +1077,24 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
     from matrx_ai.config.message_config import MessageSanitizationError
 
     if isinstance(exception, MessageSanitizationError):
-        return RetryableError(
-            error_type="message_sanitization_error",
-            message=str(exception) or type(exception).__name__,
-            is_retryable=False,
-            details={"exception": type(exception).__qualname__},
-            user_message=(
+        message = str(exception) or type(exception).__name__
+        if "must end with a user/tool turn" in message:
+            user_message = (
+                "This request ends with an assistant response and has no new user or "
+                "tool turn to send. Add the next user instruction and run it again; "
+                "no AI provider request was attempted."
+            )
+        else:
+            user_message = (
                 "This agent has no non-empty message to send. Add the required "
                 "input and run it again; no AI provider request was attempted."
-            ),
+            )
+        return RetryableError(
+            error_type="message_sanitization_error",
+            message=message,
+            is_retryable=False,
+            details={"exception": type(exception).__qualname__},
+            user_message=user_message,
         )
 
     # Catalog routing fails before a provider request can start. It is a
@@ -1102,6 +1145,91 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
     return None
 
 
+# ---------------------------------------------------------------------------
+# aiohttp transport types — the HALF OF THE WIRE httpx does not cover
+# ---------------------------------------------------------------------------
+# `classify_common_error` existed to preserve the TYPED meaning of a transport
+# failure instead of guessing from a string — but it only ever knew httpx. The
+# Google GenAI SDK's async path runs on **aiohttp**, so every aiohttp transport
+# failure walked straight past the typed check and into `_fallback_classify`,
+# where it was classified by string. That is how, live on 2026-08-26, a
+# truncated Google response
+#
+#   ClientPayloadError("Response payload is not completed:
+#     <TransferEncodingError: 400, message='Not enough data to satisfy transfer
+#     length header.'>. ConnectionResetError(104, 'Connection reset by peer')")
+#
+# became "Google rejected the request" with `is_retryable=False`: the substring
+# "400" in aiohttp's own *TransferEncodingError repr* matched the HTTP-400
+# branch. aiohttp puts a protocol constant there — it is not an HTTP status,
+# and nothing in the request was wrong. One un-retried blip then failed a
+# scheduled backfill that had already classified 839 keywords, and the
+# scheduler repeat guard read that status and permanently disabled an
+# Arman-approved schedule. Seventeen days of the SEO corpus went unclassified
+# because a typed check knew only one of the two HTTP clients we run on.
+#
+# Resolved lazily and cached: aiohttp is an optional transitive dependency, and
+# its absence must never break classification.
+_AIOHTTP_CLASSES: tuple[tuple[type, ...], tuple[type, ...], tuple[type, ...]] | None = None
+
+
+def _aiohttp_transport_classes() -> tuple[tuple[type, ...], tuple[type, ...], tuple[type, ...]]:
+    """``(timeout, incomplete_response, connection)`` aiohttp exception classes.
+
+    Every tuple is empty when aiohttp is not installed, which makes each
+    ``isinstance`` below a cheap no-op rather than a branch that has to be
+    guarded. Names are resolved defensively: aiohttp has moved classes between
+    majors, and a missing name must skip that family, never raise.
+    """
+    global _AIOHTTP_CLASSES
+    if _AIOHTTP_CLASSES is not None:
+        return _AIOHTTP_CLASSES
+
+    empty: tuple[type, ...] = ()
+    try:
+        import aiohttp
+    except Exception:  # noqa: BLE001 — an optional dependency, never a hard error
+        _AIOHTTP_CLASSES = (empty, empty, empty)
+        return _AIOHTTP_CLASSES
+
+    def _pick(*names: str) -> tuple[type, ...]:
+        found: list[type] = []
+        for name in names:
+            cls = getattr(aiohttp, name, None)
+            if isinstance(cls, type) and issubclass(cls, BaseException):
+                found.append(cls)
+        return tuple(found)
+
+    timeouts = _pick("ServerTimeoutError", "ConnectionTimeoutError", "SocketTimeoutError")
+    # A payload that stopped arriving. The body was declared and under-delivered
+    # — the request itself was accepted and answered.
+    incomplete = _pick("ClientPayloadError", "ServerDisconnectedError")
+    # Never opened, or dropped before an answer began.
+    connection = _pick("ClientConnectionError", "ClientConnectorError", "ClientOSError")
+    _AIOHTTP_CLASSES = (timeouts, incomplete, connection)
+    return _AIOHTTP_CLASSES
+
+
+# String markers for a response that was CUT OFF in transit, used when no typed
+# class is available — a wrapper that stringified the cause, or an SDK that
+# re-raised it as a bare Exception. Checked BEFORE any numeric HTTP-code match,
+# because a transport exception's repr routinely embeds numbers that are not
+# HTTP statuses (aiohttp's `TransferEncodingError: 400` is the live example).
+_INCOMPLETE_RESPONSE_MARKERS: tuple[str, ...] = (
+    "payload is not completed",
+    "transferencodingerror",
+    "not enough data to satisfy transfer length",
+    "incompleteread",
+    "incomplete read",
+    "connection reset by peer",
+    "server disconnected",
+    "peer closed connection",
+    "response ended prematurely",
+    "connection closed before full response",
+    "chunked encoding error",
+)
+
+
 def classify_common_error(exception: Exception, provider: str) -> RetryableError | None:
     """Classify exceptions that mean the same thing for every provider.
 
@@ -1110,6 +1238,12 @@ def classify_common_error(exception: Exception, provider: str) -> RetryableError
     empty (notably ``httpx.ReadError``), so string-based fallback classification
     used to produce a retryable ``unknown_error`` with a blank message. Preserve
     the typed transport meaning and always provide a useful diagnostic.
+
+    🚨 BOTH HTTP CLIENTS, ALWAYS. We run on httpx *and* aiohttp (the Google
+    GenAI async path). A transport family known to only one of them is a
+    transport family that gets classified by string guessing — see
+    ``_aiohttp_transport_classes`` for what that cost. Add any new client's
+    transport types here, never downstream.
     """
     internal = classify_internal_error(exception, provider)
     if internal is not None:
@@ -1117,10 +1251,22 @@ def classify_common_error(exception: Exception, provider: str) -> RetryableError
 
     exception_name = f"{type(exception).__module__}.{type(exception).__qualname__}"
     message = str(exception).strip() or type(exception).__name__
+    aiohttp_timeouts, aiohttp_incomplete, aiohttp_connection = _aiohttp_transport_classes()
     result: RetryableError | None = None
-    if isinstance(exception, httpx.TimeoutException | TimeoutError):
+    if isinstance(exception, httpx.TimeoutException | TimeoutError) or (
+        aiohttp_timeouts and isinstance(exception, aiohttp_timeouts)
+    ):
         result = _handle_timeout(provider, message)
-    elif isinstance(exception, httpx.TransportError | ConnectionError):
+    elif aiohttp_incomplete and isinstance(exception, aiohttp_incomplete):
+        result = _handle_incomplete_response(provider, message)
+    elif isinstance(exception, httpx.RemoteProtocolError):
+        # httpx's own truncated-response type: the server ended the body early.
+        # Matched before the broader TransportError branch below, which would
+        # otherwise flatten it into a plain connection error.
+        result = _handle_incomplete_response(provider, message)
+    elif isinstance(exception, httpx.TransportError | ConnectionError) or (
+        aiohttp_connection and isinstance(exception, aiohttp_connection)
+    ):
         result = _handle_connection_error(provider, message)
 
     if result is not None:

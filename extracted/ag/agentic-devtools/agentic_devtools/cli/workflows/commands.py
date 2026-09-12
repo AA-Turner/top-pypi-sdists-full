@@ -26,6 +26,7 @@ from agentic_devtools.state import get_state_dir
 
 from ..copilot.session import get_default_copilot_model
 from .base import (
+    _safe_print,
     advance_workflow_step,
     clear_state_for_workflow_initiation,
     initiate_workflow,
@@ -459,20 +460,20 @@ def _ensure_scoped_bootstrap_and_clear(issue_key: str | None) -> str | None:
     if isinstance(issue_key, str):
         normalized_issue_key = issue_key.strip()
         if not normalized_issue_key:
-            print("ERROR: --issue-key cannot be empty or whitespace-only.", file=sys.stderr)
-            print("\nPlease pass a valid Jira issue key, for example:", file=sys.stderr)
-            print("  --issue-key PROJECT-1234", file=sys.stderr)
+            _safe_print("ERROR: --issue-key cannot be empty or whitespace-only.", file=sys.stderr)
+            _safe_print("\nPlease pass a valid Jira issue key, for example:", file=sys.stderr)
+            _safe_print("  --issue-key PROJECT-1234", file=sys.stderr)
             sys.exit(1)
         # Canonicalize GitHub issue keys: "#42" → "42" so is_safe_dir_segment accepts them
         # and get_state_dir() resolves to the correct per-issue scope instead of _unscoped.
         if normalized_issue_key.startswith("#"):
             bare = normalized_issue_key.removeprefix("#")
             if not bare or not bare.isdigit() or not bare.lstrip("0"):
-                print(
+                _safe_print(
                     f"ERROR: --issue-key {normalized_issue_key!r} is not a valid GitHub issue number.",
                     file=sys.stderr,
                 )
-                print(
+                _safe_print(
                     "\nGitHub issue keys must be a positive integer, e.g. '#42' or '42'.",
                     file=sys.stderr,
                 )
@@ -697,11 +698,11 @@ Examples:
     if _issue_key_norm.startswith("#"):
         _bare = _issue_key_norm.removeprefix("#")
         if not _bare or not (_bare.isascii() and _bare.isdigit()) or int(_bare) <= 0:
-            print(
+            _safe_print(
                 f"ERROR: --issue-key {_issue_key_norm!r} is not a valid GitHub issue number.",
                 file=sys.stderr,
             )
-            print(
+            _safe_print(
                 "\nGitHub issue keys must be a positive integer, e.g. '#42' or '42'.",
                 file=sys.stderr,
             )
@@ -805,30 +806,30 @@ Examples:
     # Cross-lookup: If we have one but not the other, look up the missing one
     if resolved_pr_id and not resolved_issue_key:
         # We have PR ID but no issue key -> look up from PR
-        print(f"Looking up Jira issue from PR #{resolved_pr_id}...")
+        _safe_print(f"Looking up Jira issue from PR #{resolved_pr_id}...")
         found_issue = find_jira_issue_from_pr(int(resolved_pr_id))
         if found_issue:  # pragma: no cover
             resolved_issue_key = found_issue
             set_value("jira.issue_key", resolved_issue_key)
-            print(f"✓ Found Jira issue {resolved_issue_key} from PR")
+            _safe_print(f"✓ Found Jira issue {resolved_issue_key} from PR")
         else:
-            print("ℹ️  No Jira issue key found in PR branch/title/description")
+            _safe_print("ℹ️  No Jira issue key found in PR branch/title/description")
 
     elif resolved_issue_key and not resolved_pr_id:
         # We have issue key but no PR ID -> look up from Jira/ADO
-        print(f"Searching for PR linked to Jira issue '{resolved_issue_key}'...")
+        _safe_print(f"Searching for PR linked to Jira issue '{resolved_issue_key}'...")
         found_pr = find_pr_from_jira_issue(resolved_issue_key, verbose=True)
         if found_pr:
             resolved_pr_id = str(found_pr)
             set_value("pull_request_id", resolved_pr_id)
-            print(f"✓ Found PR #{resolved_pr_id}")
+            _safe_print(f"✓ Found PR #{resolved_pr_id}")
         else:
-            print(f"ERROR: No active PR found for issue key '{resolved_issue_key}'")
-            print("\nSearched in:")
-            print("  - Jira issue comments and description")
-            print("  - Azure DevOps PR source branch, title, and description")
-            print("\nTo find a completed PR, use:")
-            print(f"  agdt-find-pr-by-issue --issue-key {resolved_issue_key} --status all")
+            _safe_print(f"ERROR: No active PR found for issue key '{resolved_issue_key}'")
+            _safe_print("\nSearched in:")
+            _safe_print("  - Jira issue comments and description")
+            _safe_print("  - Azure DevOps PR source branch, title, and description")
+            _safe_print("\nTo find a completed PR, use:")
+            _safe_print(f"  agdt-find-pr-by-issue --issue-key {resolved_issue_key} --status all")
             delete_pin_file()
             sys.exit(1)
 
@@ -852,10 +853,10 @@ Examples:
 
     # Validate we have a PR ID now
     if not resolved_pr_id:
-        print("ERROR: Either --pull-request-id or --issue-key must be provided.")
-        print("\nUsage:")
-        print("  agdt-initiate-pull-request-review-workflow --pull-request-id 12345")
-        print("  agdt-initiate-pull-request-review-workflow --issue-key PROJECT-1234")
+        _safe_print("ERROR: Either --pull-request-id or --issue-key must be provided.")
+        _safe_print("\nUsage:")
+        _safe_print("  agdt-initiate-pull-request-review-workflow --pull-request-id 12345")
+        _safe_print("  agdt-initiate-pull-request-review-workflow --issue-key PROJECT-1234")
         delete_pin_file()
         sys.exit(1)
 
@@ -866,21 +867,21 @@ Examples:
     try:
         source_branch = get_pull_request_source_branch(int(resolved_pr_id))
         if source_branch:
-            print(f"PR source branch: {source_branch}")
+            _safe_print(f"PR source branch: {source_branch}")
     except Exception as e:
-        print(f"Error: Could not fetch PR source branch: {e}", file=sys.stderr)
+        _safe_print(f"Error: Could not fetch PR source branch: {e}", file=sys.stderr)
 
     # For PR review, we MUST have the source branch to checkout the correct code
     if not source_branch:
-        print(
+        _safe_print(
             f"\nError: Unable to determine source branch for PR #{resolved_pr_id}.",
             file=sys.stderr,
         )
-        print("This is required to checkout the correct code for review.", file=sys.stderr)
-        print("\nPossible causes:", file=sys.stderr)
-        print("  - Azure CLI not authenticated (run 'az login')", file=sys.stderr)
-        print("  - Network issues or Azure DevOps API unavailable", file=sys.stderr)
-        print(f"  - PR #{resolved_pr_id} does not exist or is not accessible", file=sys.stderr)
+        _safe_print("This is required to checkout the correct code for review.", file=sys.stderr)
+        _safe_print("\nPossible causes:", file=sys.stderr)
+        _safe_print("  - Azure CLI not authenticated (run 'az login')", file=sys.stderr)
+        _safe_print("  - Network issues or Azure DevOps API unavailable", file=sys.stderr)
+        _safe_print(f"  - PR #{resolved_pr_id} does not exist or is not accessible", file=sys.stderr)
         delete_pin_file()
         sys.exit(1)
 
@@ -894,9 +895,9 @@ Examples:
     preflight_result = check_worktree_and_branch(worktree_identifier, source_branch=source_branch)
 
     if not preflight_result.passed:
-        print(f"\n⚠️  Not in the correct context for {worktree_identifier}")
+        _safe_print(f"\n⚠️  Not in the correct context for {worktree_identifier}")
         for reason in preflight_result.failure_reasons:
-            print(f"   - {reason}")
+            _safe_print(f"   - {reason}")
 
         # Build the command to re-run inside the worktree so the full setup
         # (fetch PR details, generate prompts, init workflow state) executes there.
@@ -933,7 +934,7 @@ Examples:
             starts_copilot_session=not use_langchain,
             headless=headless,
         ):
-            print(
+            _safe_print(
                 _format_auto_setup_success_message(
                     "pull-request-review",
                     worktree_identifier,
@@ -946,7 +947,7 @@ Examples:
             # Setup failed - exit with error
             sys.exit(1)  # pragma: no cover
 
-    print(f"\nInitiating pull request review for PR #{resolved_pr_id}...")
+    _safe_print(f"\nInitiating pull request review for PR #{resolved_pr_id}...")
 
     # Engine selection: route to LangChain review path if requested
     if use_langchain:
@@ -1844,6 +1845,8 @@ def advance_pull_request_review_workflow(step: str | None = None) -> None:
         "pr_url": context.get("pr_url", ""),
         "source_code_platform": context.get("source_code_platform", ""),
         "repo_review_focus_areas": context.get("repo_review_focus_areas", ""),
+        "review_artifact_dir_name": context.get("review_artifact_dir_name", ""),
+        "review_artifact_dir": context.get("review_artifact_dir", ""),
         # Progress variables (for delegate step) sourced from manifest + ledger.
         "completed_count": progress["completed_count"],
         "pending_count": progress["pending_count"],

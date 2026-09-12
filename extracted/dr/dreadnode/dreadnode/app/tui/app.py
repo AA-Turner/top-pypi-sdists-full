@@ -1067,6 +1067,9 @@ class _AppCommandActions:
     def set_show_thinking(self, value: bool) -> None:
         self._app._show_thinking = value
 
+    def set_output_mode(self, mode: str) -> None:
+        self._app.set_output_mode(mode)
+
     def model_variants(self) -> dict[str, str]:
         return self._app._model_variants
 
@@ -2663,7 +2666,6 @@ class DreadnodeTextualApp(App[None]):
         # 2. Clear composer if non-empty — arm the rewind gesture so a
         # second Esc inside the window opens the picker.
         if composer.value:
-            composer.clear_pastes()
             composer.value = ""
             self._rewind_arm_time = time.monotonic()
             return
@@ -3726,11 +3728,11 @@ class DreadnodeTextualApp(App[None]):
             return False
 
         target_workspace = session_data.get("workspace")
-        # The platform API returns ``project_name`` (the project key/slug),
-        # not ``project``.  This matches the field read by
-        # ``session_hydrator.hydrate_from_api`` and the normalization in
-        # ``_normalize_platform_session``.
-        target_project = session_data.get("project_name")
+        # ``project_name`` is the display name ("Default"); ``project_key``
+        # is the addressable slug ("default"). Scope switching needs the
+        # key — a display name fails ``valid_key`` in
+        # ``Profile.validate_scope`` and takes the runtime down on boot.
+        target_project = session_data.get("project_key")
         if not target_workspace:
             return False
 
@@ -3742,7 +3744,9 @@ class DreadnodeTextualApp(App[None]):
         # overrides via PrivateAttr) rather than mixing effective workspace
         # with default project.
         current_project = profile.project
-        needs_switch = target_workspace != current_workspace or target_project != current_project
+        needs_switch = target_workspace != current_workspace or (
+            bool(target_project) and target_project != current_project
+        )
         if not needs_switch:
             return False
 
@@ -3759,23 +3763,11 @@ class DreadnodeTextualApp(App[None]):
             severity="info",
         )
 
-        # Build the updated profile with the target workspace/project.
-        # Clear any PrivateAttr scope overrides (set by --workspace /
-        # DREADNODE_WORKSPACE / etc.) so that apply_auth_profile reads
-        # the *persisted* default_* fields we're about to set, not stale
-        # overrides carried over from model_copy.
-        from dreadnode.app.config import UNSET
-
-        updated_profile = profile.model_copy(
-            update={
-                "default_organization": org,
-                "default_workspace": target_workspace,
-                "default_project": target_project,
-            }
+        updated_profile = profile.with_scope(
+            organization=org,
+            workspace=target_workspace,
+            project=target_project,
         )
-        updated_profile._organization = UNSET
-        updated_profile._workspace = UNSET
-        updated_profile._project = UNSET
 
         # Apply the profile change — this restarts the runtime, refreshes
         # sessions, etc. The resumed session will then be findable in the
@@ -3971,6 +3963,16 @@ class DreadnodeTextualApp(App[None]):
         new_mode: t.Literal["compact", "expanded"] = (
             "expanded" if self.output_mode == "compact" else "compact"
         )
+        self.set_output_mode(new_mode)
+
+    def set_output_mode(self, mode: str) -> None:
+        """Set the conversation output mode to ``compact`` or ``expanded``.
+
+        ``expanded`` is the full agent transcript: tool results, compaction
+        summaries, and reasoning are all shown in full (matching the web UI).
+        Shared by ^O and the ``/transcript`` command.
+        """
+        new_mode: t.Literal["compact", "expanded"] = "expanded" if mode == "expanded" else "compact"
         self.output_mode = new_mode
         from dreadnode.app.tui.widgets.conversation import CompactionSummary, ThinkingBlock
         from dreadnode.app.tui.widgets.tool import ToolCall as ToolCallWidget
@@ -3990,7 +3992,8 @@ class DreadnodeTextualApp(App[None]):
                 tb.set_output_mode(new_mode)
         except Exception:
             logger.debug("Could not refresh output mode widgets")
-        self._flash(f"Output: {new_mode}", severity="info")
+        label = "full transcript" if new_mode == "expanded" else "compact view"
+        self._flash(f"Transcript: {label}", severity="info")
 
     @work(exclusive=True, group="tools_fetch")
     async def _open_tools_dialog(self) -> None:
@@ -4046,22 +4049,23 @@ class DreadnodeTextualApp(App[None]):
             except Exception:
                 project_key = None
 
-        # Check if anything actually changed
+        # Check if anything actually changed. Against the effective scope, not
+        # the saved one — with a CLI/env override in play they differ, and
+        # comparing the saved value refuses a switch back to the scope the
+        # profile was launched away from.
         if (
-            profile.default_organization == org_key
-            and profile.default_workspace == workspace_key
-            and profile.default_project == project_key
+            profile.organization == org_key
+            and profile.workspace == workspace_key
+            and profile.project == project_key
         ):
             self._flash("Already on this context", severity="info")
             return
 
         # Update profile
-        updated_profile = profile.model_copy(
-            update={
-                "default_organization": org_key,
-                "default_workspace": workspace_key,
-                "default_project": project_key,
-            }
+        updated_profile = profile.with_scope(
+            organization=org_key,
+            workspace=workspace_key,
+            project=project_key,
         )
 
         try:
@@ -4150,7 +4154,6 @@ class DreadnodeTextualApp(App[None]):
 
     def _set_composer_text(self, composer: ComposerInput, text: str) -> None:
         """Replace composer text and move cursor to end."""
-        composer.clear_pastes()
         composer.load_text(text)
         end = composer.document.end
         composer.move_cursor(end)
@@ -4672,16 +4675,18 @@ class DreadnodeTextualApp(App[None]):
             self.connection = "local"
         self.model_name = self.model
         self.background_status = self._sessions_manager.background_session_status()
-        try:
-            _name, profile = _active_profile()
-        except Exception:
-            logger.opt(exception=True).debug("Could not load profile for context update")
-            profile = None
-        if profile and profile.default_workspace:
-            if profile.default_project:
-                self.workspace_label = f"{profile.default_workspace}/{profile.default_project}"
+        # The app's live profile, not the config on disk: during ``--resume``
+        # the boot path registers the in-memory profile only after the
+        # session loads, so a disk read here reports the saved scope.
+        profile = self._current_profile
+        # Effective scope, not the persisted defaults — with ``--workspace``
+        # / ``DREADNODE_WORKSPACE`` in play the two differ, and a status bar
+        # naming a workspace the session isn't in is worse than none.
+        if profile and profile.workspace:
+            if profile.project:
+                self.workspace_label = f"{profile.workspace}/{profile.project}"
             else:
-                self.workspace_label = profile.default_workspace
+                self.workspace_label = profile.workspace
         else:
             self.workspace_label = ""
 

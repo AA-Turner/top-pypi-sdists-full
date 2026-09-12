@@ -16,6 +16,8 @@ Detection priority (same as TypeScript):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import json
 import re
 from dataclasses import dataclass, field
@@ -1093,11 +1095,23 @@ def root_kind_declaration(source: str) -> str | None:
     return slug or None
 
 
-def _embedded_kind_json_regions(source: str) -> list[tuple[int, int, str]]:
+def _embedded_kind_json_regions(
+    source: str, *, exclude_literal_contexts: bool = False
+) -> list[tuple[int, int, str]]:
     """Outermost complete objects directly declaring non-empty ``__kind``."""
     regions: list[tuple[int, int, str]] = []
+    excluded = _literal_context_ranges(source) if exclude_literal_contexts else []
+    excluded_index = 0
     start = 0
     while start < len(source):
+        while excluded_index < len(excluded) and excluded[excluded_index][1] <= start:
+            excluded_index += 1
+        if (
+            excluded_index < len(excluded)
+            and excluded[excluded_index][0] <= start < excluded[excluded_index][1]
+        ):
+            start += 1
+            continue
         if source[start] != "{":
             start += 1
             continue
@@ -1120,16 +1134,166 @@ def _embedded_kind_json_regions(source: str) -> list[tuple[int, int, str]]:
     return regions
 
 
+_XML_NAME_RE = re.compile(r"[A-Za-z_][\w.:-]*")
+
+
+def _read_xml_tag(source: str, start: int) -> tuple[int, str, bool, bool] | None:
+    if source[start : start + 1] != "<":
+        return None
+    cursor = start + 1
+    closing = source[cursor : cursor + 1] == "/"
+    cursor += int(closing)
+    name = _XML_NAME_RE.match(source, cursor)
+    if not name:
+        return None
+    tag_name = name.group()
+    cursor += len(tag_name)
+    while cursor < len(source):
+        while cursor < len(source) and source[cursor].isspace():
+            cursor += 1
+        if source[cursor : cursor + 1] == ">":
+            return cursor + 1, tag_name, closing, False
+        if closing:
+            return None
+        if source[cursor : cursor + 1] == "/":
+            cursor += 1
+            while cursor < len(source) and source[cursor].isspace():
+                cursor += 1
+            return (
+                (cursor + 1, tag_name, False, True) if source[cursor : cursor + 1] == ">" else None
+            )
+        attr = _XML_NAME_RE.match(source, cursor)
+        if not attr:
+            return None
+        cursor += len(attr.group())
+        while cursor < len(source) and source[cursor].isspace():
+            cursor += 1
+        if source[cursor : cursor + 1] != "=":
+            return None
+        cursor += 1
+        while cursor < len(source) and source[cursor].isspace():
+            cursor += 1
+        quote = source[cursor : cursor + 1]
+        if quote not in ('"', "'"):
+            return None
+        end = source.find(quote, cursor + 1)
+        if end == -1:
+            return None
+        cursor = end + 1
+    return None
+
+
+def _generic_xml_opening(source: str) -> tuple[int, str, bool, bool] | None:
+    tag = _read_xml_tag(source.lstrip(), 0)
+    if (
+        not tag
+        or tag[2]
+        or tag[1] in KNOWN_XML_TAG_NAMES
+        or tag[1].lower() in ALLOWED_RAW_HTML_TAGS
+    ):
+        return None
+    return tag
+
+
+def _unclosed_generic_xml_opening(source: str) -> bool:
+    prefix = re.match(r"^<([A-Za-z_][\w.:-]*)(?=\s|/|$)", source.lstrip())
+    if not prefix or prefix[1] in KNOWN_XML_TAG_NAMES or prefix[1].lower() in ALLOWED_RAW_HTML_TAGS:
+        return False
+    quote = None
+    for char in source.lstrip()[prefix.end() :]:
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == ">":
+            return False
+    return True
+
+
+_XML_FENCE_OPEN = re.compile(r"[ \t]*(`{3,}|~{3,})[^\n]*(?:\n|$)")
+
+
+def _xml_regions(source: str) -> Iterator[tuple[int, int, tuple[int, str, bool, bool] | None]]:
+    cursor = 0
+    while cursor < len(source):
+        if cursor == 0 or source[cursor - 1] == "\n":
+            marker = _XML_FENCE_OPEN.match(source, cursor)
+            if marker:
+                closing = re.compile(r"^[ \t]*" + re.escape(marker[1][0]) + "{" + str(len(marker[1])) + r",}[ \t]*(?:\n|$)", re.MULTILINE)
+                match = closing.search(source, marker.end())
+                end = len(source) if match is None else match.end()
+                yield cursor, end, None
+                cursor = end
+                continue
+        literal_end = None
+        for opening, closing in (("<!--", "-->"), ("<![CDATA[", "]]>")):
+            if source.startswith(opening, cursor):
+                end = source.find(closing, cursor + len(opening))
+                literal_end = len(source) if end == -1 else end + len(closing)
+                break
+        if literal_end is not None:
+            yield cursor, literal_end, None
+            cursor = literal_end
+            continue
+        if source[cursor] == "<":
+            tag = _read_xml_tag(source, cursor)
+            if tag:
+                yield cursor, tag[0], tag
+                cursor = tag[0]
+                continue
+        if source[cursor] == "`":
+            before = cursor - 1
+            while before >= 0 and source[before] == "\\":
+                before -= 1
+            run_end = cursor
+            while run_end < len(source) and source[run_end] == "`":
+                run_end += 1
+            if (cursor - 1 - before) % 2:
+                cursor = run_end
+                continue
+            ticks = run_end - cursor
+            close = run_end
+            while close < len(source):
+                if source[close] != "`":
+                    close += 1
+                    continue
+                close_end = close
+                while close_end < len(source) and source[close_end] == "`":
+                    close_end += 1
+                if close_end - close == ticks:
+                    break
+                close = close_end
+            end = len(source) if close == len(source) else close + ticks
+            yield cursor, end, None
+            cursor = end
+            continue
+        cursor += 1
+
+
+def _literal_context_ranges(source: str) -> list[tuple[int, int]]:
+    return [(start, end) for start, end, _tag in _xml_regions(source)]
+
+
 def _recover_embedded_kind_json_blocks(
     blocks: list[DetectedBlock],
 ) -> list[DetectedBlock]:
     """Losslessly promote embedded self-described objects to JSON blocks."""
     recovered: list[DetectedBlock] = []
     for block in blocks:
-        if block.type in _ROOT_KIND_BLOCK_TYPES:
+        if block.type in _ROOT_KIND_BLOCK_TYPES or (
+            block.language == "xml"
+            and block.metadata.get("genericXmlContainer")
+            and block.metadata.get("isComplete") is False
+        ):
+            # Incomplete generic XML owns its bytes through every later adapter;
+            # only complete containers can recover bare nested kinds.
             recovered.append(block)
             continue
-        regions = _embedded_kind_json_regions(block.content)
+        regions = _embedded_kind_json_regions(
+            block.content,
+            exclude_literal_contexts=bool(block.metadata.get("genericXmlContainer")),
+        )
         if not regions:
             recovered.append(block)
             continue
@@ -1249,90 +1413,86 @@ def detect_video(line: str) -> tuple[bool, str | None, str | None]:
 # components/mardown-display/chat-markdown/rehypeSafeRawHtml.ts.
 ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
     {
-        "img", "a", "br", "hr",
-        "span", "p", "strong", "b", "em", "i", "u", "s", "del", "ins",
-        "sup", "sub", "mark", "kbd", "abbr", "small", "code", "pre",
-        "ul", "ol", "li", "blockquote",
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption",
-        "col", "colgroup",
-        "div", "figure", "figcaption", "details", "summary", "dl", "dt", "dd",
+        "img",
+        "a",
+        "br",
+        "hr",
+        "span",
+        "p",
+        "strong",
+        "b",
+        "em",
+        "i",
+        "u",
+        "s",
+        "del",
+        "ins",
+        "sup",
+        "sub",
+        "mark",
+        "kbd",
+        "abbr",
+        "small",
+        "code",
+        "pre",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "table",
+        "thead",
+        "tbody",
+        "tfoot",
+        "tr",
+        "th",
+        "td",
+        "caption",
+        "col",
+        "colgroup",
+        "div",
+        "figure",
+        "figcaption",
+        "details",
+        "summary",
+        "dl",
+        "dt",
+        "dd",
     }
 )
 
-_STRICT_XML_TAG_RE = re.compile(
-    r"""<(/?)([A-Za-z][\w.-]*)(?:\s+(?:[\w.-]+\s*=\s*(?:"[^"]*"|'[^']*')\s*)*)?(/?)>"""
-)
 
-_XML_OPENING_RE = re.compile(
-    r"""^<([A-Za-z][\w.-]*)(?:\s+(?:[\w.-]+\s*=\s*(?:"[^"]*"|'[^']*')\s*)*)?(/?)>"""
-)
-
-
-def extract_unrecognized_xml_block(
-    start_index: int, lines: list[str]
-) -> ExtractionResult | None:
-    """Extract a COMPLETE, unrecognized XML element so it reuses the enhanced
-    XML renderer (a ```xml code block).
-
-    Runs after every recognized XML detector. Requires a line-leading, BALANCED
-    root element (or a self-closing one), which keeps inline angle-bracket prose
-    and mid-stream partial text on the markdown path. Curated raw HTML stays on
-    its sanitized HTML path.
-    """
-    first_line = normalize_line(lines[start_index])
-    first_trimmed = first_line.lstrip()
-    opening = _XML_OPENING_RE.match(first_trimmed)
+def extract_unrecognized_xml_block(start_index: int, lines: list[str]) -> ExtractionResult | None:
+    source = "\n".join(normalize_line(line) for line in lines[start_index:])
+    opening = _generic_xml_opening(source)
     if not opening:
         return None
-
-    root_tag = opening.group(1)
-    if root_tag in KNOWN_XML_TAG_NAMES or root_tag.lower() in ALLOWED_RAW_HTML_TAGS:
-        return None
-
-    root_start = len(first_line) - len(first_trimmed)
+    root_tag = opening[1]
+    root_start = len(source) - len(source.lstrip())
     depth = 0
-    saw_root = False
-
-    for line_index in range(start_index, len(lines)):
-        current_line = normalize_line(lines[line_index])
-        scan_from = root_start if line_index == start_index else 0
-
-        for tag_match in _STRICT_XML_TAG_RE.finditer(current_line, scan_from):
-            if tag_match.group(2) != root_tag:
-                continue
-
-            is_closing = tag_match.group(1) == "/"
-            is_self_closing = tag_match.group(3) == "/"
-            if is_closing:
-                depth -= 1
-            else:
-                saw_root = True
-                if not is_self_closing:
-                    depth += 1
-
-            if not saw_root or depth != 0:
-                continue
-
-            root_end = tag_match.end()
-            if line_index == start_index:
-                content_lines = [current_line[root_start:root_end]]
-            else:
-                content_lines = [
-                    first_line[root_start:],
-                    *[normalize_line(x) for x in lines[start_index + 1 : line_index]],
-                    current_line[:root_end],
-                ]
-            remainder = current_line[root_end:].strip()
+    for _start, end, tag in _xml_regions(source):
+        if not tag:
+            continue
+        _end, name, closing, self_closing = tag
+        if name != root_tag:
+            continue
+        depth += -1 if closing else (0 if self_closing else 1)
+        if depth == 0:
+            line_index = start_index + source.count("\n", 0, end)
+            line_end = source.find("\n", end)
+            remainder = source[end:len(source) if line_end == -1 else line_end].strip()
             if remainder:
                 lines.insert(line_index + 1, remainder)
-
             return ExtractionResult(
-                content="\n".join(content_lines).strip(),
+                content=source[root_start:end].strip(),
                 next_index=line_index + 1,
-                metadata={"isComplete": True},
+                metadata={"isComplete": True, "genericXmlContainer": True},
             )
-
     return None
 
 
@@ -1829,6 +1989,11 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
         #     renderer. Recognized XML detectors above retain first refusal.
         unrecognized_xml = extract_unrecognized_xml_block(i, lines)
         if unrecognized_xml is not None:
+            # The frontend fence extractor retains one structural separator
+            # when a generic XML container follows a whitespace-only boundary.
+            # Keep that byte here too; ordinary prose is flushed normally.
+            if current_text and not current_text.strip():
+                current_text += "\n"
             flush_text()
             blocks.append(
                 DetectedBlock(
@@ -1839,6 +2004,20 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
                 )
             )
             i = unrecognized_xml.next_index
+            continue
+
+        # An incomplete generic XML root retains ownership through final recovery.
+        if _generic_xml_opening(processed_line) or _unclosed_generic_xml_opening(processed_line):
+            flush_text()
+            blocks.append(
+                DetectedBlock(
+                    type="code",
+                    content="\n".join(normalize_line(x) for x in lines[i:]).strip(),
+                    language="xml",
+                    metadata={"isComplete": False, "genericXmlContainer": True},
+                )
+            )
+            i = len(lines)
             continue
 
         # 3d. Orphan closing tag (thinking family) — the continuation half of a

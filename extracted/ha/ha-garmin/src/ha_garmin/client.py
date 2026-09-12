@@ -424,7 +424,27 @@ def _to_offset_minutes(value: int | float | None) -> int | None:
 def _extract_sleep_timezone_offset_minutes(
     daily_sleep: dict[str, Any], summary_raw: dict[str, Any]
 ) -> int:
-    """Extract sleep timezone offset in minutes, defaulting to UTC."""
+    """Extract sleep timezone offset in minutes, defaulting to UTC.
+
+    Most reliable first: Garmin pairs every sleep timestamp with both a GMT
+    and a Local variant (LocalMs = GMTMs + offsetMs), so their delta *is*
+    the exact offset for that sleep session -- no guessing, and correct
+    across DST transitions. The explicit timezoneOffset keys and the
+    body-battery-event fallback below aren't reliably present in every
+    account's payload (home-assistant-garmin_connect#564); when they're
+    absent this used to silently default to 0, storing the local wall-clock
+    time mislabeled as UTC and letting Home Assistant's own UTC-to-local
+    display conversion double-shift it.
+    """
+    for local_key, gmt_key in [
+        ("sleepStartTimestampLocal", "sleepStartTimestampGMT"),
+        ("sleepEndTimestampLocal", "sleepEndTimestampGMT"),
+    ]:
+        local_ms = daily_sleep.get(local_key)
+        gmt_ms = daily_sleep.get(gmt_key)
+        if isinstance(local_ms, (int, float)) and isinstance(gmt_ms, (int, float)):
+            return round((local_ms - gmt_ms) / 60000)
+
     for key in [
         "timezoneOffset",
         "timeZoneOffset",
@@ -707,6 +727,11 @@ class GarminClient:
         self._profile_cache: UserProfile | None = None
         # (activity_id, fields, consecutive_empty_polls)
         self._ebike_fields_cache: tuple[int, dict[str, Any], int] | None = None
+        # Guards the cache above: without it, two overlapping callers (e.g. an
+        # overlapping coordinator refresh) can both race past the cache check,
+        # and a transient failure on one can overwrite the other's good result
+        # with an empty one (home-assistant-garmin_connect#527).
+        self._ebike_fields_lock = asyncio.Lock()
 
     def _get_url(self, url: str) -> str:
         """Resolve URL to correct connectapi domain."""
@@ -1139,31 +1164,38 @@ class GarminClient:
         (see _EBIKE_FIELDS_EMPTY_RETRY_LIMIT). An empty result is never
         cached indefinitely on the first miss, so a slow backend doesn't
         permanently poison the cache for that activity.
-        """
-        cached_empty_polls = 0
-        if (
-            self._ebike_fields_cache is not None
-            and self._ebike_fields_cache[0] == activity_id
-        ):
-            cached_fields = self._ebike_fields_cache[1]
-            cached_empty_polls = self._ebike_fields_cache[2]
-            if (
-                cached_fields
-                or cached_empty_polls >= self._EBIKE_FIELDS_EMPTY_RETRY_LIMIT
-            ):
-                return cached_fields
 
-        summary = await self._safe_call(self.get_activity, activity_id) or {}
-        # Fields have been observed at the top level; check summaryDTO too
-        source = {**(summary.get("summaryDTO") or {}), **summary}
-        fields = {
-            key: source[key]
-            for key in EBIKE_ACTIVITY_KEYS
-            if source.get(key) is not None
-        }
-        empty_polls = 0 if fields else cached_empty_polls + 1
-        self._ebike_fields_cache = (activity_id, fields, empty_polls)
-        return fields
+        Locked end-to-end: an overlapping caller (e.g. two coordinator
+        refreshes in flight at once) must see this call's finished result
+        before deciding whether to fetch again, or a transient failure on
+        the second call could overwrite the first's good result with an
+        empty one (#527).
+        """
+        async with self._ebike_fields_lock:
+            cached_empty_polls = 0
+            if (
+                self._ebike_fields_cache is not None
+                and self._ebike_fields_cache[0] == activity_id
+            ):
+                cached_fields = self._ebike_fields_cache[1]
+                cached_empty_polls = self._ebike_fields_cache[2]
+                if (
+                    cached_fields
+                    or cached_empty_polls >= self._EBIKE_FIELDS_EMPTY_RETRY_LIMIT
+                ):
+                    return cached_fields
+
+            summary = await self._safe_call(self.get_activity, activity_id) or {}
+            # Fields have been observed at the top level; check summaryDTO too
+            source = {**(summary.get("summaryDTO") or {}), **summary}
+            fields = {
+                key: source[key]
+                for key in EBIKE_ACTIVITY_KEYS
+                if source.get(key) is not None
+            }
+            empty_polls = 0 if fields else cached_empty_polls + 1
+            self._ebike_fields_cache = (activity_id, fields, empty_polls)
+            return fields
 
     async def get_activity_details(
         self, activity_id: int, max_chart_size: int = 100, max_poly_size: int = 4000
@@ -2309,6 +2341,7 @@ class GarminClient:
         optimal_bedtime = None
         wake_time = None
         optimal_wake_time = None
+        avg_sleep_respiration_value = None
 
         if sleep_data:
             try:
@@ -2323,6 +2356,12 @@ class GarminClient:
                 rem_sleep_seconds = daily_sleep.get("remSleepSeconds")
                 awake_sleep_seconds = daily_sleep.get("awakeSleepSeconds")
                 nap_time_seconds = daily_sleep.get("napTimeSeconds")
+                # Only meaningful average Garmin's API exposes for respiration
+                # (home-assistant-garmin_connect#568); the summary endpoint
+                # only has day-wide latest/lowest/highest, and a client-side
+                # average from those is unreliable since the read frequency
+                # backing them varies.
+                avg_sleep_respiration_value = daily_sleep.get("avgRespirationValue")
                 unmeasurable_sleep_seconds = daily_sleep.get("unmeasurableSleepSeconds")
                 sleep_need_data = daily_sleep.get("sleepNeed") or {}
                 next_sleep_need_data = daily_sleep.get("nextSleepNeed") or {}
@@ -2401,8 +2440,18 @@ class GarminClient:
             "optimalBedtime": optimal_bedtime,
             "wakeTime": wake_time,
             "optimalWakeTime": optimal_wake_time,
+            "avgSleepRespirationValue": avg_sleep_respiration_value,
         }
         return _add_computed_fields(data)
+
+    # How many recent activities to pull for `lastActivities`. Consumers (e.g.
+    # home-assistant-garmin_connect#567) derive a rolling-week count from this
+    # list; fetching only 10 meant that count silently pinned at 10 forever
+    # for anyone averaging 10+ activities a week, since the fetch itself, not
+    # the 7-day filter, was the actual ceiling. 25 is comfortably above what
+    # all but the most prolific multi-activity-per-day users would log in a
+    # week, while staying a single bounded list call.
+    _RECENT_ACTIVITIES_LIMIT = 25
 
     async def fetch_activity_data(
         self, target_date: date | None = None
@@ -2414,12 +2463,14 @@ class GarminClient:
                    plus get_activity for rides (e-bike fields, #527)
 
         target_date is kept for signature compatibility; activities are
-        fetched by recency (newest 10), not by date.
+        fetched by recency (newest _RECENT_ACTIVITIES_LIMIT), not by date.
         """
 
-        # The 10 most recent activities regardless of age (newest first), so
+        # The most recent activities regardless of age (newest first), so
         # lastActivity never goes blank after an inactive week (issue #519).
-        recent_activities = await self._safe_call(self.get_activities, 0, 10)
+        recent_activities = await self._safe_call(
+            self.get_activities, 0, self._RECENT_ACTIVITIES_LIMIT
+        )
         last_activity: dict[str, Any] = {}
         if recent_activities:
             last_activity = dict(recent_activities[0])
@@ -2660,11 +2711,11 @@ class GarminClient:
         }
 
     async def fetch_gear_data(self, timezone: str | None = None) -> dict[str, Any]:
-        """Fetch gear data: gear, defaults, stats, alarms, solar, devices.
+        """Fetch gear data: gear, defaults, stats, alarms, solar, devices, sensors.
 
         API calls: get_gear, get_gear_defaults, get_gear_stats×N,
                    get_devices, get_device_alarms, get_device_solar_data×N,
-                   get_device_last_used
+                   get_device_last_used, get_sensors
         """
         # Get user profile ID for gear API
         profile = await self._safe_call(self.get_user_profile)
@@ -2750,10 +2801,23 @@ class GarminClient:
             if not dtos:
                 continue
             readings = dtos[0].get("solarInputReadings") or []
+            # A single "latest" reading only reflects solar conditions at the
+            # moment of the last sync, which can be way off from the day as a
+            # whole -- e.g. syncing at night reads ~0% even on a sunny day
+            # (home-assistant-garmin_connect#508). Aggregate the full day's
+            # readings too, which cost nothing extra: they're already in the
+            # same response.
             latest = None
+            utilization_values: list[float] = []
+            total_gain_ms = 0
             for reading in readings:
-                if reading.get("solarUtilization") is not None:
+                utilization = reading.get("solarUtilization")
+                if utilization is not None:
                     latest = reading
+                    utilization_values.append(utilization)
+                gain_ms = reading.get("activityTimeGainMs")
+                if gain_ms is not None:
+                    total_gain_ms += gain_ms
             solar_intensity.append(
                 {
                     "deviceId": device_id,
@@ -2768,8 +2832,22 @@ class GarminClient:
                     "readingTimestampGmt": latest.get("readingTimestampGmt")
                     if latest
                     else None,
+                    "avgSolarUtilization": (
+                        round(sum(utilization_values) / len(utilization_values), 1)
+                        if utilization_values
+                        else None
+                    ),
+                    "totalActivityTimeGainMinutes": (
+                        round(total_gain_ms / 60000) if readings else None
+                    ),
                 }
             )
+
+        # Paired ANT+/BLE sensors (power meters, HR straps, etc.) and their
+        # battery status. Passed through untrimmed -- the field shape isn't
+        # well documented, so a whitelist here risks silently dropping
+        # fields a consumer actually wants.
+        sensors = await self._safe_call(self.get_sensors) or []
 
         return {
             "gear": gear,
@@ -2779,6 +2857,7 @@ class GarminClient:
             "solarIntensity": solar_intensity,
             "devices": trimmed_devices,
             "lastUsedDevice": last_used_device,
+            "sensors": sensors,
         }
 
     async def fetch_blood_pressure_data(

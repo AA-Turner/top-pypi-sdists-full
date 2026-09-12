@@ -1,5 +1,7 @@
 """Tests for get_pull_request_details function."""
 
+import io
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -51,6 +53,41 @@ class TestGetPullRequestDetails:
 
 class TestGetPullRequestDetailsExecution:
     """Tests for get_pull_request_details when not in dry-run mode."""
+
+    @pytest.mark.parametrize("encoding", ["cp1252", "utf-8"])
+    def test_unicode_metadata_output_preserves_saved_payload(self, tmp_path, monkeypatch, encoding):
+        """Console fallbacks must not alter the Unicode PR data saved for review."""
+        from agentic_devtools.cli.azure_devops import pull_request_details_commands as details_commands
+        from agentic_devtools.state import set_value
+
+        monkeypatch.setenv("AGENTIC_DEVTOOLS_STATE_DIR", str(tmp_path))
+        set_value("pull_request_id", "123")
+        set_value("dry_run", False)
+        output_dir = tmp_path / "review-漢"
+        pr_data = {
+            "pullRequestId": 123,
+            "title": "Review 漢",
+            "autoCompleteSetBy": {"displayName": "Reviewer 漢"},
+        }
+        with (
+            io.TextIOWrapper(io.BytesIO(), encoding=encoding) as stdout,
+            patch("sys.stdout", stdout),
+            patch.object(details_commands, "get_state_dir", return_value=output_dir),
+            patch.object(details_commands, "get_pat", return_value="test-pat"),
+            patch.object(details_commands, "get_auth_headers", return_value={}),
+            patch.object(details_commands, "fetch_pull_request_via_rest", return_value=pr_data),
+            patch.object(details_commands, "get_diff_entries", return_value=[]),
+        ):
+            get_pull_request_details()
+            stdout.flush()
+            output = stdout.buffer.getvalue().decode(encoding)
+
+        detail = "?" if encoding == "cp1252" else "漢"
+        assert f"Title: Review {detail}" in output
+        assert f"Auto-Complete: Set by Reviewer {detail}" in output
+        assert f"review-{detail}" in output
+        payload = json.loads((output_dir / "temp-get-pull-request-details-response.json").read_text(encoding="utf-8"))
+        assert payload["pullRequest"] == pr_data
 
     def test_exits_when_rest_returns_none(self, temp_state_dir, clear_state_before, capsys):
         """Should exit with error when the project-scoped REST PR fetch returns None.

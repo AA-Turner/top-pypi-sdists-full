@@ -15,6 +15,8 @@ Usage::
         ListInvoiceSummariesPaginator,
         ListInvoiceUnitsPaginator,
         ListProcurementPortalPreferencesPaginator,
+        ListProcurementPortalSuppliersPaginator,
+        ListProcurementPortalsPaginator,
     )
 
     session = Session()
@@ -23,6 +25,8 @@ Usage::
     list_invoice_summaries_paginator: ListInvoiceSummariesPaginator = client.get_paginator("list_invoice_summaries")
     list_invoice_units_paginator: ListInvoiceUnitsPaginator = client.get_paginator("list_invoice_units")
     list_procurement_portal_preferences_paginator: ListProcurementPortalPreferencesPaginator = client.get_paginator("list_procurement_portal_preferences")
+    list_procurement_portal_suppliers_paginator: ListProcurementPortalSuppliersPaginator = client.get_paginator("list_procurement_portal_suppliers")
+    list_procurement_portals_paginator: ListProcurementPortalsPaginator = client.get_paginator("list_procurement_portals")
     ```
 """
 
@@ -31,6 +35,8 @@ from .paginator import (
     ListInvoiceSummariesPaginator,
     ListInvoiceUnitsPaginator,
     ListProcurementPortalPreferencesPaginator,
+    ListProcurementPortalsPaginator,
+    ListProcurementPortalSuppliersPaginator,
 )
 
 Client = InvoicingClient
@@ -42,4 +48,6 @@ __all__ = (
     "ListInvoiceSummariesPaginator",
     "ListInvoiceUnitsPaginator",
     "ListProcurementPortalPreferencesPaginator",
+    "ListProcurementPortalSuppliersPaginator",
+    "ListProcurementPortalsPaginator",
 )

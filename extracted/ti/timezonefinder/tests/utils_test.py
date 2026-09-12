@@ -1,5 +1,7 @@
 import json
+import math
 from collections import Counter
+from pathlib import Path
 from typing import Callable
 
 import h3.api.numpy_int as h3
@@ -7,8 +9,18 @@ import numpy as np
 import pytest
 
 from scripts import reporting
-from scripts.configs import ZONE_ID_DTYPE, BinaryData, ShortcutIndexStats
-from scripts.utils import convert2ints, convert_polygon, write_json
+from scripts.configs import (
+    DATA_REPORT_FILE,
+    SOURCE_DATA_DIR,
+    BinaryData,
+    ShortcutIndexStats,
+)
+from scripts.utils import (
+    convert2ints,
+    convert_polygon,
+    source_coord2int,
+    write_json,
+)
 from tests.auxiliaries import (
     convert_inside_polygon_input,
     get_rnd_poly,
@@ -18,7 +30,13 @@ from tests.auxiliaries import (
 )
 from tests.locations import OUT_OF_RANGE_COORDINATES
 from timezonefinder import utils_clang, utils_numba, utils
-from timezonefinder.configs import DEFAULT_DATA_DIR
+from timezonefinder.configs import (
+    DEFAULT_DATA_DIR,
+    MAX_LAT_VAL,
+    MAX_LNG_VAL,
+    MIN_LAT_VAL,
+    MIN_LNG_VAL,
+)
 
 POINT_IN_POLYGON_TESTCASES = [
     # (polygon, list of test points, expected results)
@@ -155,7 +173,7 @@ def test_convert2coords():
     assert len(coord_lists) == 2
     x_coords, y_coords = coord_lists
     assert len(x_coords) == len(y_coords)
-    for lng, lat in zip(x_coords, y_coords):
+    for lng, lat in zip(x_coords, y_coords, strict=True):
         assert isinstance(lng, float)
         assert isinstance(lat, float)
         utils.validate_coordinates(lng, lat)
@@ -165,6 +183,28 @@ def test_convert2coords():
     latitudes = [utils.int2coord(y) for y in y_ints]
     coords_true = np.array((longitudes, latitudes))
     np.testing.assert_almost_equal(coords_converted, coords_true)
+
+
+def test_the_conversion_refuses_a_seventh_decimal():
+    """The guard that lets the packaged data be stored on the source's own grid.
+
+    Rounding a coordinate onto that grid is lossless only while the source stays on it,
+    and timezone-boundary-builder has published at most six decimals in every release so
+    far. An upstream that started publishing a seventh would have real information
+    rounded away, silently, and every downstream check would still pass because the file
+    would be internally consistent. So the converter stops instead.
+    """
+    assert source_coord2int(13.358) == 133580000
+    assert source_coord2int(-13.358) == -133580000
+    assert source_coord2int(0.1) == 1000000
+
+    with pytest.raises(ValueError, match="more than six decimal places"):
+        source_coord2int(13.3580001)
+
+    # ... and a value finer than a storage step, which is the case a check applied
+    # *after* the rounding cannot see: this one rounds onto the grid and would pass
+    with pytest.raises(ValueError, match="more than six decimal places"):
+        source_coord2int(13.35800004)
 
 
 def test_convert2ints():
@@ -181,6 +221,26 @@ def test_convert2ints():
     y_ints = [utils.coord2int(y) for y in latitudes]
     ints_true = np.array((x_ints, y_ints))
     np.testing.assert_almost_equal(ints_converted, ints_true)
+
+
+def test_convert2ints_from_source_rounds_onto_the_source_grid():
+    """The default conversion is for transient geometry; stored rings ask for the grid.
+
+    Both exist because both are needed: an H3 cell's boundary is computed here and has
+    as many decimals as a float carries, while a *stored* boundary coordinate has to sit
+    on the grid the packed payload counts residuals in. Converting the first the second
+    way raises - which is how this got the wrong way round once, and what
+    `scripts/hex_utils.py` would hit again.
+    """
+    coords = ([13.358, -0.5], [52.5186, 0.25])
+    assert convert2ints(coords, from_source=True) == [
+        [133580000, -5000000],
+        [525186000, 2500000],
+    ]
+    from timezonefinder.configs import SOURCE_COORD_STEP
+
+    for axis in convert2ints(coords, from_source=True):
+        assert all(v % SOURCE_COORD_STEP == 0 for v in axis)
 
 
 def test_clang_extension_loaded():
@@ -239,7 +299,7 @@ def test_inside_polygon(inside_poly_func: Callable, test_case: tuple):
     coords, query_points, expected_results = test_case
     coords_int = convert_polygon(coords)
     for i, ((lng, lat), expected_result) in enumerate(
-        zip(query_points, expected_results)
+        zip(query_points, expected_results, strict=True)
     ):
         utils.validate_coordinates(lng, lat)  # check the range of lng, lat
         x, y = convert_inside_polygon_input(lng, lat)
@@ -289,6 +349,47 @@ def test_convert_polygon_is_c_contiguous():
 def test_validate_coordinates_rejects_out_of_range(lng, lat):
     with pytest.raises(ValueError):
         utils.validate_coordinates(lng=lng, lat=lat)
+
+
+@pytest.mark.parametrize(
+    "name, minimum, maximum, coordinates_at",
+    [
+        (
+            "latitude",
+            MIN_LAT_VAL,
+            MAX_LAT_VAL,
+            lambda value: {"lng": 0.0, "lat": value},
+        ),
+        (
+            "longitude",
+            MIN_LNG_VAL,
+            MAX_LNG_VAL,
+            lambda value: {"lng": value, "lat": 0.0},
+        ),
+    ],
+)
+def test_the_rejection_message_states_the_bounds_the_validator_enforces(
+    name, minimum, maximum, coordinates_at
+):
+    """The bound that is checked and the bound that is reported are one statement.
+
+    They used to be two: the validator held its own literals and the message was built
+    from a second pair passed at the call site, compared against nothing. Either could
+    have moved without the other, and the resulting error would have named a range the
+    code does not enforce.
+    """
+    for accepted in (minimum, maximum):
+        utils.validate_coordinates(**coordinates_at(accepted))
+
+    for rejected in (
+        math.nextafter(minimum, -math.inf),
+        math.nextafter(maximum, math.inf),
+    ):
+        with pytest.raises(
+            ValueError,
+            match=rf"Invalid {name} .*: must be in range \[{minimum}, {maximum}\]",
+        ):
+            utils.validate_coordinates(**coordinates_at(rejected))
 
 
 @pytest.mark.parametrize(
@@ -364,25 +465,6 @@ def test_validate_coordinates_accepts_finite_values(lng, lat):
     assert isinstance(result[1], float)
 
 
-@pytest.mark.parametrize(
-    "entry_list, expected",
-    [
-        ([], 0),
-        ([1], 0),
-        ([2], 0),
-        ([1, 1], 0),
-        ([1, 2], 1),
-        ([1, 3], 1),
-        ([1, 3, 3], 1),
-        ([1, 3, 3, 0], 3),
-        ([1, 3, 3, 0, 0, 0, 0], 3),
-    ],
-)
-def test_get_last_change_idx(entry_list, expected):
-    array = np.array(entry_list, dtype=ZONE_ID_DTYPE)
-    assert utils.get_last_change_idx(array) == expected
-
-
 @pytest.mark.unit
 def test_write_json_output_is_pre_commit_clean(tmp_path):
     """Generated JSON must already be what pretty-format-json would produce.
@@ -423,16 +505,17 @@ def test_format_table_row_has_no_trailing_whitespace(cells, expected):
 
 
 @pytest.mark.unit
-def test_print_frequencies_labels_the_zero_bucket(capsys):
+def test_render_frequencies_labels_the_zero_bucket():
     """A zero bucket can mean something other than "zero of them".
 
     In the shortcut distribution it counts H3 cells needing no
     point-in-polygon test at all, which the bare "0" reported as cells holding
     no polygons - impossible for data whose ocean zones cover the globe.
     """
-    reporting.print_frequencies([0, 0, 2, 3], "Polygons to test", "none (unique zone)")
+    table = reporting.render_frequencies(
+        [0, 0, 2, 3], "Polygons to test", "none (unique zone)"
+    )
 
-    table = capsys.readouterr().out
     assert "- none (unique zone)" in table
     assert "\n   * - 0\n" not in table
     # only the zero row is relabelled
@@ -440,10 +523,8 @@ def test_print_frequencies_labels_the_zero_bucket(capsys):
 
 
 @pytest.mark.unit
-def test_print_frequencies_keeps_the_bare_zero_without_a_label(capsys):
-    reporting.print_frequencies([0, 2], "Polygons to test")
-
-    assert "   * - 0\n" in capsys.readouterr().out
+def test_render_frequencies_keeps_the_bare_zero_without_a_label():
+    assert "   * - 0\n" in reporting.render_frequencies([0, 2], "Polygons to test")
 
 
 @pytest.mark.unit
@@ -489,7 +570,88 @@ def test_shortcut_index_stats_classifies_each_entry_kind():
 
 
 @pytest.mark.unit
-def test_polygon_distribution_table_pairs_each_count_with_an_example(capsys):
+def test_shortcut_efficiency_metrics_read_the_counts_they_are_given():
+    """The four ratios, each against a denominator only this seam chooses.
+
+    They used to be computed inline beside the counts, so a wrong denominator
+    was invisible: every figure was derived from locals in the same scope, and
+    the report states them as percentages nobody recomputes.
+    """
+    counts = reporting.ShortcutEntryCounts(
+        total_entries=4,
+        zone_entries=1,
+        polygon_entries=2,
+        empty_entries=1,
+        polygon_id_count=6,
+        polygons_per_shortcut=[0, 2, 4, 0],
+        zones_per_shortcut=[1, 2, 3, 0],
+    )
+
+    metrics = reporting.shortcut_efficiency_metrics(counts, possible_cells=8)
+
+    # one of four cells answers outright, of eight cells the grid could hold
+    assert metrics["unique_entry_fraction"] == 0.25
+    assert metrics["unique_surface_fraction"] == 0.125
+    # the two cells spanning at most one zone, over every cell - including the
+    # empty one, which spans none
+    assert metrics["zone_distribution_efficiency"] == 0.5
+    # six polygon ids over the two entries listing polygons, never over all four
+    assert metrics["avg_polygons_per_entry"] == 3.0
+
+
+@pytest.mark.unit
+def test_shortcut_efficiency_metrics_answer_zero_on_an_empty_index():
+    counts = reporting.ShortcutEntryCounts(0, 0, 0, 0, 0, [], [])
+
+    metrics = reporting.shortcut_efficiency_metrics(counts, possible_cells=0)
+
+    # the keys as well as the values: every value on this path is 0.0, so a
+    # dropped or misnamed key is invisible to a comparison of values alone
+    assert metrics == {
+        "unique_entry_fraction": 0.0,
+        "unique_surface_fraction": 0.0,
+        "zone_distribution_efficiency": 0.0,
+        "avg_polygons_per_entry": 0.0,
+    }
+
+
+@pytest.mark.unit
+def test_shortcut_storage_metrics_price_each_entry_kind_by_what_it_stores():
+    """A direct-zone cell stores a key and a zone id; a polygon cell, ids."""
+    counts = reporting.ShortcutEntryCounts(
+        total_entries=3,
+        zone_entries=1,
+        polygon_entries=2,
+        empty_entries=0,
+        polygon_id_count=5,
+        polygons_per_shortcut=[0, 2, 3],
+        zones_per_shortcut=[1, 2, 2],
+    )
+
+    metrics = reporting.shortcut_storage_metrics(counts)
+
+    # the field widths are spelled out rather than imported: what is pinned here
+    # is which of them each entry kind is charged, so a changed width should
+    # fail this and be re-read rather than following the code silently
+    assert metrics["zone_storage_bytes"] == 1 * (8 + 1)
+    assert metrics["polygon_storage_bytes"] == 2 * 8 + 5 * 2
+    assert metrics["total_storage_bytes"] == 9 + 26
+    # naive storage gives every cell a key plus the average id payload
+    assert metrics["compression_ratio"] == pytest.approx((3 * (8 + 5 * 2 / 3)) / 35)
+
+
+@pytest.mark.unit
+def test_shortcut_storage_metrics_answer_a_ratio_of_one_on_an_empty_index():
+    metrics = reporting.shortcut_storage_metrics(
+        reporting.ShortcutEntryCounts(0, 0, 0, 0, 0, [], [])
+    )
+
+    assert metrics["total_storage_bytes"] == 0
+    assert metrics["compression_ratio"] == 1.0
+
+
+@pytest.mark.unit
+def test_polygon_distribution_table_pairs_each_count_with_an_example():
     """The polygon count labels a row and keys the example lookup.
 
     It used to be formatted into the label and parsed back out of it, so the
@@ -498,11 +660,9 @@ def test_polygon_distribution_table_pairs_each_count_with_an_example(capsys):
     # zone 0 has one polygon, zones 1 and 2 have two each
     polygons_per_timezone = Counter({0: 1, 1: 2, 2: 2})
 
-    reporting.print_polygon_distribution_table(
+    table = reporting.render_polygon_distribution_table(
         polygons_per_timezone, ["Europe/Berlin", "Etc/GMT", "Etc/GMT+1"]
     )
-
-    table = capsys.readouterr().out
 
     # whole rows, so label, count, percentage and example are pinned together
     # rather than merely all being present somewhere in the table
@@ -510,6 +670,65 @@ def test_polygon_distribution_table_pairs_each_count_with_an_example(capsys):
     assert "   * - 2 polygons\n     - 2\n     - 66.67%\n     - Etc/GMT\n" in table
     # zone 1 is the first zone with two polygons, so zone 2 never exemplifies it
     assert "Etc/GMT+1" not in table
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "render, args",
+    [
+        (reporting.render_rst_table, (["H"], [["v"]])),
+        (reporting.render_frequencies, ([0, 2], "Polygons to test")),
+        (reporting.render_polygon_statistics_table, ("Hole", 0, [])),
+        (reporting.render_polygon_distribution_table, (Counter({0: 1}), ["Etc/GMT"])),
+        (reporting.render_shortcut_statistics, ({0: 1, 1: np.array([0, 1])}, [7, 8])),
+    ],
+)
+def test_renderers_return_their_page_and_print_nothing(render, args, capsys):
+    """Report text is a return value, never something written to stdout.
+
+    Using stdout as the return channel is what forced every caller to redirect
+    it, and a redirected destination is bound where the redirection is set up -
+    which is why ``docs/data_report.rst`` was rewritten by parses that were
+    given another output directory entirely. A renderer that starts printing
+    again puts that back, so assert the absence of output rather than only the
+    presence of the return value.
+    """
+    rendered = render(*args)
+
+    assert rendered.endswith("\n")
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("data_dir", [SOURCE_DATA_DIR, DEFAULT_DATA_DIR])
+def test_report_path_for_keeps_the_committed_page_for_the_packaged_data(data_dir):
+    """``make reports`` and ``make parse`` must still write the committed page.
+
+    ``SOURCE_DATA_DIR`` is where the generators write and ``DEFAULT_DATA_DIR``
+    where the installed data package sits - the same directory under an
+    editable install, different ones otherwise, and both the packaged data.
+    """
+    assert reporting.report_path_for(Path(data_dir)) == DATA_REPORT_FILE
+
+
+@pytest.mark.unit
+def test_report_path_for_puts_another_parse_beside_its_own_binaries(tmp_path):
+    """The defect: the destination used to be fixed, so every parse of another
+    directory - ``make testparse``, or a user compiling custom data - rewrote
+    the checkout's committed report to describe their input, silently.
+    """
+    assert reporting.report_path_for(tmp_path) == tmp_path / DATA_REPORT_FILE.name
+
+
+@pytest.mark.integration
+def test_write_data_report_writes_only_the_path_it_was_given(tmp_path):
+    report_path = tmp_path / "data_report.rst"
+    before = DATA_REPORT_FILE.read_bytes()
+
+    reporting.write_data_report_from_binary(DEFAULT_DATA_DIR, report_path)
+
+    assert report_path.read_text(encoding="utf-8").startswith(".. _data_report:")
+    assert DATA_REPORT_FILE.read_bytes() == before
 
 
 # The two TypedDicts below describe dicts assembled by hand in scripts/reporting.py.
@@ -534,3 +753,36 @@ def test_load_binary_data_matches_its_typed_dict():
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+# The prefix comparison that replaced ``re.match(OCEAN_TIMEZONE_PREFIX, name)``. The
+# constant holds no regex metacharacters and ``re.match`` anchors at the start, so the
+# two are exactly equivalent - which is a claim about the *constant*, and therefore
+# worth pinning where a future prefix could quietly break it.
+OCEAN_NAME_CASES = [
+    ("Etc/GMT", True),
+    ("Etc/GMT+5", True),
+    ("Etc/GMT-14", True),
+    ("Europe/Berlin", False),
+    ("America/Etc/GMT", False),
+    ("", False),
+    ("Etc/GM", False),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name, expected", OCEAN_NAME_CASES)
+def test_is_ocean_timezone_matches_the_anchored_pattern(name: str, expected: bool):
+    import re
+
+    from timezonefinder.configs import OCEAN_TIMEZONE_PREFIX
+
+    assert utils.is_ocean_timezone(name) is expected
+    # the pattern this replaced, evaluated here rather than trusted
+    assert (re.match(OCEAN_TIMEZONE_PREFIX, name) is not None) is expected
+
+
+@pytest.mark.unit
+def test_is_ocean_timezone_still_rejects_a_non_string():
+    with pytest.raises(TypeError):
+        utils.is_ocean_timezone(None)  # type: ignore[arg-type]

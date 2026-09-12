@@ -63,24 +63,32 @@ def test_view_recovery_codes(
 
 
 def test_generate_recovery_codes(
-    auth_client, user_with_recovery_codes, user_password, settings, mailoutbox
+    auth_client,
+    user_with_recovery_codes,
+    user_password,
+    settings,
+    mailoutbox,
+    django_capture_on_commit_callbacks,
 ):
     settings.ACCOUNT_EMAIL_NOTIFICATIONS = True
     rc = Authenticator.objects.get(
         user=user_with_recovery_codes, type=Authenticator.Type.RECOVERY_CODES
     ).wrap()
+    previous_authenticator_pk = rc.instance.pk
     prev_code = rc.get_unused_codes()[0]
 
     resp = auth_client.get(reverse("mfa_generate_recovery_codes"))
     assert resp["location"].startswith(reverse("account_reauthenticate"))
     resp = auth_client.post(resp["location"], {"password": user_password})
     assert resp.status_code == HTTPStatus.FOUND
-    resp = auth_client.post(resp["location"])
+    with django_capture_on_commit_callbacks(execute=True):
+        resp = auth_client.post(resp["location"])
     assert resp["location"] == reverse("mfa_view_recovery_codes")
 
     rc = Authenticator.objects.get(
         user=user_with_recovery_codes, type=Authenticator.Type.RECOVERY_CODES
     ).wrap()
+    assert rc.instance.pk != previous_authenticator_pk
     assert not rc.validate_code(prev_code)
     assert len(mailoutbox) == 1
     assert "New Recovery Codes Generated" in mailoutbox[0].subject

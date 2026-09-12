@@ -4,8 +4,11 @@ import asyncio
 import os
 import signal
 import sys
+from typing import cast
 
 import rsloop
+
+EXAMPLE_TIMEOUT = 2.0
 
 
 class ReadPipeProtocol(asyncio.Protocol):
@@ -27,6 +30,7 @@ class WritePipeProtocol(asyncio.Protocol):
         self.payload = payload
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        transport = cast(asyncio.WriteTransport, transport)
         self.transport = transport
         transport.write(self.payload)
         transport.close()
@@ -41,9 +45,10 @@ class ProcessProtocol(asyncio.SubprocessProtocol):
         self.done = done
         self.stdout = bytearray()
         self.stderr = bytearray()
-        self.events: list[tuple[str, object]] = []
+        self.events: list[tuple[object, ...]] = []
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        transport = cast(asyncio.SubprocessTransport, transport)
         self.transport = transport
         self.events.append(("pid", transport.get_pid()))
 
@@ -81,10 +86,12 @@ async def demo_signal_handlers() -> None:
             done.set_result(label)
 
     loop.add_signal_handler(signal.SIGUSR1, on_usr1, "usr1")
-    await asyncio.sleep(0.05)
-    os.kill(os.getpid(), signal.SIGUSR1)
-    print("signal handler:", await asyncio.wait_for(done, 1.0))
-    print("signal removed:", loop.remove_signal_handler(signal.SIGUSR1))
+    try:
+        await asyncio.sleep(0.05)
+        os.kill(os.getpid(), signal.SIGUSR1)
+        print("signal handler:", await asyncio.wait_for(done, EXAMPLE_TIMEOUT))
+    finally:
+        print("signal removed:", loop.remove_signal_handler(signal.SIGUSR1))
 
 
 async def demo_pipes() -> None:
@@ -102,7 +109,10 @@ async def demo_pipes() -> None:
         wfile.write(b"pipe-read-demo")
         wfile.flush()
         wfile.close()
-        print("connect_read_pipe:", await asyncio.wait_for(read_done, 1.0))
+        print(
+            "connect_read_pipe:",
+            await asyncio.wait_for(read_done, EXAMPLE_TIMEOUT),
+        )
         transport.close()
 
     payload = b"pipe-write-demo"
@@ -116,8 +126,9 @@ async def demo_pipes() -> None:
             lambda: WritePipeProtocol(write_done, payload),
             wfile2,
         )
-        print("connect_write_pipe:", rfile2.read(len(payload)).decode())
-        await asyncio.wait_for(write_done, 1.0)
+        await asyncio.wait_for(write_done, EXAMPLE_TIMEOUT)
+        received = await asyncio.to_thread(rfile2.read, len(payload))
+        print("connect_write_pipe:", received.decode())
         transport.close()
 
 
@@ -127,9 +138,11 @@ async def demo_subprocesses() -> None:
         exec_program = sys.executable
         exec_args = (
             "-c",
-            "import sys; data = sys.stdin.buffer.read(); "
-            "sys.stdout.buffer.write(data.upper()); "
-            "sys.stderr.write('shell-stderr')",
+            (
+                "import sys; data = sys.stdin.buffer.read(); "
+                "sys.stdout.buffer.write(data.upper()); "
+                "sys.stderr.write('shell-stderr')"
+            ),
         )
         shell_cmd = "echo subprocess-shell-demo"
     else:
@@ -147,9 +160,13 @@ async def demo_subprocesses() -> None:
         stderr=asyncio.subprocess.PIPE,
     )
     stdin_transport = transport.get_pipe_transport(0)
+    stdin_transport = cast(asyncio.WriteTransport, stdin_transport)
     stdin_transport.write(b"subprocess-exec-demo")
     stdin_transport.close()
-    print("subprocess_exec:", await asyncio.wait_for(exec_done, 2.0))
+    print(
+        "subprocess_exec:",
+        await asyncio.wait_for(exec_done, EXAMPLE_TIMEOUT),
+    )
 
     shell_done: asyncio.Future[dict[str, object]] = loop.create_future()
     _, _ = await loop.subprocess_shell(
@@ -158,7 +175,10 @@ async def demo_subprocesses() -> None:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    print("subprocess_shell:", await asyncio.wait_for(shell_done, 2.0))
+    print(
+        "subprocess_shell:",
+        await asyncio.wait_for(shell_done, EXAMPLE_TIMEOUT),
+    )
 
 
 async def demo_high_level_subprocesses() -> None:
@@ -166,9 +186,11 @@ async def demo_high_level_subprocesses() -> None:
         exec_program = sys.executable
         exec_args = (
             "-c",
-            "import sys; data = sys.stdin.buffer.read(); "
-            "sys.stdout.buffer.write(data.upper()); "
-            "sys.stderr.write('merged-stderr')",
+            (
+                "import sys; data = sys.stdin.buffer.read(); "
+                "sys.stdout.buffer.write(data.upper()); "
+                "sys.stderr.write('merged-stderr')"
+            ),
         )
         shell_cmd = "echo create-subprocess-shell-demo"
     else:
@@ -183,6 +205,7 @@ async def demo_high_level_subprocesses() -> None:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
     )
+    assert proc.stdin is not None
     proc.stdin.write(b"create-subprocess-exec-demo")
     proc.stdin.write_eof()
     await proc.stdin.wait_closed()

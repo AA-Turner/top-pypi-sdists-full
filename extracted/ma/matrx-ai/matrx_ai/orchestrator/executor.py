@@ -26,6 +26,12 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
 )
+from matrx_ai.config.finish_reason import (
+    TRUNCATION_METADATA_KEY,
+    interrupted_tool_names,
+    truncation_marker,
+    truncation_notice,
+)
 from matrx_ai.context.app_context import get_app_context
 from matrx_ai.db import (
     ensure_conversation_exists,
@@ -42,6 +48,11 @@ from matrx_ai.orchestrator.execution_state import (
     set_execution_state,
 )
 from matrx_ai.orchestrator.loop_guard import LoopHealth, evaluate_loop_health
+from matrx_ai.orchestrator.mandate_carrier import (
+    MANDATE_BYPASS_METADATA_KEY,
+    MANDATE_KEY_METADATA_KEY,
+    note_mandate_carrier,
+)
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
 from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
 from matrx_ai.providers.errors import RetryableError, classify_provider_error
@@ -286,6 +297,26 @@ def _strip_ephemeral_for_storage(config: UnifiedConfig) -> None:
 # ============================================================================
 
 
+def _request_metadata(
+    ctx: Any,
+    metadata: dict[str, Any] | None,
+    mandate_key: str | None,
+    bypass: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """The request metadata, carrying who held this call — or that nobody did.
+
+    The caller's own metadata wins as before (the context's is preserved only
+    when the caller supplied none); the mandate identity and the bypass record
+    are stamped on top so the persisted ``cx_user_request`` says which it was.
+    """
+    resolved = dict(ctx.metadata) if metadata is None else dict(metadata)
+    if isinstance(mandate_key, str) and mandate_key.strip():
+        resolved[MANDATE_KEY_METADATA_KEY] = mandate_key.strip()
+    if bypass:
+        resolved[MANDATE_BYPASS_METADATA_KEY] = bypass
+    return resolved
+
+
 async def execute_ai_request(
     config: UnifiedConfig,
     max_iterations: int = 100,
@@ -294,8 +325,15 @@ async def execute_ai_request(
     *,
     conversation_id: str | None = None,
     store: bool | None = None,
+    mandate_key: str | None = None,
 ) -> CompletedRequest:
     """The single entry point for all AI execution.
+
+    ``mandate_key`` names the Mandate that HOLDS this call. It is the explicit
+    carrier the funnel never had (audit 2026-09-11: 14 of 17 call sites reached
+    a provider with no mandate identity at all). A call that arrives with no
+    carrier of any kind is a D20 bypass — recorded loudly, never refused. See
+    ``matrx_ai.orchestrator.mandate_carrier``.
 
     Reads everything it needs from AppContext (set by AuthMiddleware for API
     calls, or by create_test_app_context() for local scripts):
@@ -336,6 +374,20 @@ async def execute_ai_request(
     """
     ctx = get_app_context()
 
+    # 🚨 THE RUNTIME MANDATE-CARRIER GATE. Every AI call in the platform funnels
+    # through here, so this is the ONE place that can ask "who holds this call?"
+    # — the question no static guard has ever been able to answer about our own
+    # executor (the scanner's bypass vocabulary is provider SDK imports, and
+    # this path imports none). ROLLOUT.md:45-50 rules a call that reaches this
+    # funnel without first resolving a Mandate a BYPASS, and worklist row A10
+    # has named these call sites since 2026-08-18 with "Mandate guard cannot see
+    # this class" — this is that guard. No Holder → a red scream, a
+    # ``mandate_bypass`` stamp on the request metadata, and one
+    # ``ops.system_error`` row per code path. It NEVER raises: D20 says the
+    # intelligence already running outside a Mandate is a fix list, not a
+    # licence, and D23 says checks scream and report but never block.
+    bypass = note_mandate_carrier(config, metadata, mandate_key=mandate_key)
+
     request_id = ctx.request_id if ctx.request_id else str(uuid4())
 
     # ── Resolve the conversation + persistence intent ONCE, here, for EVERY
@@ -369,7 +421,7 @@ async def execute_ai_request(
         # the resume claim token. Preserve it unless the caller explicitly
         # supplies a metadata object; final cx_user_request persistence is
         # derived from AIMatrixRequest.metadata.
-        metadata=dict(ctx.metadata) if metadata is None else metadata,
+        metadata=_request_metadata(ctx, metadata, mandate_key, bypass),
     )
     from matrx_ai.providers import UnifiedAIClient
 
@@ -1591,6 +1643,51 @@ def _partial_response_from_emitter(exec_ctx: Any) -> UnifiedResponse:
             messages=[UnifiedMessage(role="assistant", content=[TextContent(text=text)])]
         )
     return UnifiedResponse(messages=[])
+
+
+def _announce_truncation(
+    api_response: UnifiedResponse,
+    notice: str,
+    truncation: dict[str, Any],
+) -> None:
+    """Put the honest sentence INTO the assistant turn, and mark the turn.
+
+    Two things a warning event cannot do: survive into the stored conversation
+    (so the person still sees why it stopped when they scroll back tomorrow),
+    and give the UI something to badge. The text lands as a normal text block
+    on the assistant message — ordinary content, no special renderer needed —
+    and ``metadata[TRUNCATION_METADATA_KEY]`` carries the structured facts.
+
+    Best-effort by contract: describing a failure must never become one.
+    """
+    try:
+        messages = api_response.messages
+        if isinstance(messages, UnifiedMessage):
+            messages = [messages]
+        assistant = None
+        for message in reversed(messages or []):
+            role = getattr(message, "role", None)
+            if (role.value if hasattr(role, "value") else role) == "assistant":
+                assistant = message
+                break
+        if assistant is None:
+            assistant = UnifiedMessage(role="assistant", content=[])
+            if isinstance(api_response.messages, list):
+                api_response.messages.append(assistant)
+            else:
+                api_response.messages = [assistant]
+        existing = [c for c in (assistant.content or []) if getattr(c, "type", None) == "text"]
+        separator = "\n\n" if existing and (existing[-1].text or "").strip() else ""
+        assistant.content = [*(assistant.content or []), TextContent(text=f"{separator}{notice}")]
+        assistant.metadata = {
+            **(assistant.metadata or {}),
+            TRUNCATION_METADATA_KEY: truncation,
+        }
+    except Exception as exc:  # noqa: BLE001 — see docstring
+        vcprint(
+            f"[execute_until_complete] truncation notice not attached to the turn: {exc}",
+            color="yellow",
+        )
 
 
 def _append_partial_response(
@@ -3917,6 +4014,35 @@ async def _execute_until_complete_inner(
                     model = current_request.config.model or "unknown model"
                     max_tokens = current_request.config.max_output_tokens
 
+                    # NOTHING FAILS SILENTLY. A warning event is a caveat the
+                    # UI may or may not show; the person in the conversation
+                    # gets a SENTENCE, in the stream, in the stored turn —
+                    # and when a tool call died with the turn it is named,
+                    # because "nothing was saved" is the part they need.
+                    # (Live 2026-09-11: a truncated workflow_author call was
+                    # dropped by the parser and the person saw only silence.)
+                    interrupted = interrupted_tool_names(
+                        api_response.raw_response, api_response.messages
+                    )
+                    truncation = truncation_marker(
+                        model=model,
+                        max_output_tokens=max_tokens,
+                        interrupted_tool_calls=interrupted,
+                    )
+                    notice = truncation_notice(
+                        model=model,
+                        max_output_tokens=max_tokens,
+                        interrupted_tool_calls=interrupted,
+                    )
+                    _announce_truncation(api_response, notice, truncation)
+                    try:
+                        await exec_ctx.emitter.send_chunk(f"\n\n{notice}")
+                    except Exception as _notice_err:  # noqa: BLE001
+                        vcprint(
+                            f"[execute_until_complete] truncation notice not streamed: {_notice_err}",
+                            color="yellow",
+                        )
+
                     await _capture_truncated_response(
                         exec_ctx=exec_ctx,
                         current_request=current_request,
@@ -3942,11 +4068,7 @@ async def _execute_until_complete_inner(
                                 f"Model '{model}' hit the output token limit and returned an incomplete response "
                                 f"(max_output_tokens={max_tokens})."
                             ),
-                            user_message=(
-                                "The response was cut off because the model reached its output token limit. "
-                                "The answer you received may be incomplete. Consider breaking your request "
-                                "into smaller parts."
-                            ),
+                            user_message=notice,
                             level="medium",
                             recoverable=True,
                             metadata={
@@ -3954,6 +4076,7 @@ async def _execute_until_complete_inner(
                                 "max_output_tokens": max_tokens,
                                 "finish_reason": str(api_response.finish_reason),
                                 "iteration": iteration,
+                                "interrupted_tool_calls": interrupted,
                             },
                         )
                     )
@@ -3971,8 +4094,18 @@ async def _execute_until_complete_inner(
                         metadata={
                             "status": "truncated",
                             "finish_reason": str(api_response.finish_reason),
-                            "error": f"Response truncated: model hit the output token limit (model={model}, max_output_tokens={max_tokens})",
+                            "error": (
+                                "Response truncated: model hit the output token limit "
+                                f"(model={model}, max_output_tokens={max_tokens})"
+                                + (
+                                    f"; the in-flight call to {', '.join(interrupted)} "
+                                    "was dropped and never ran"
+                                    if interrupted
+                                    else ""
+                                )
+                            ),
                             "error_type": "truncated_response",
+                            TRUNCATION_METADATA_KEY: truncation,
                         },
                         trigger_position=trigger_position,
                         pre_execution_message_count=pre_execution_message_count,

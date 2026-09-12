@@ -103,6 +103,9 @@ enum Dispatch {
 /// it. Add new entries here when porting a command; the matching
 /// `clap` `Subcommands` variant is what actually wires it up.
 const NATIVE_COMMANDS: &[(&str, &str)] = &[
+    ("auth", "login"),
+    ("auth", "logout"),
+    ("auth", "status"),
     ("config", "validate"),
     ("config", "simulate"),
     ("ci", "scopes"),
@@ -157,6 +160,16 @@ const NATIVE_COMMANDS: &[(&str, &str)] = &[
 /// Native commands the Rust binary handles without delegating to
 /// the Python shim.
 enum NativeCommand {
+    /// `mergify auth login [--api-url URL]` — run the device grant
+    /// and store the credential it mints.
+    AuthLogin(AuthOpts),
+    /// `mergify auth logout [--api-url URL]` — revoke the stored
+    /// credential and forget it.
+    AuthLogout(AuthOpts),
+    /// `mergify auth status [--api-url URL]` — report whether there
+    /// is a credential, whose it is, and whether the API still
+    /// accepts it.
+    AuthStatus(AuthOpts),
     ConfigValidate {
         config_file: Option<PathBuf>,
     },
@@ -322,6 +335,13 @@ enum StackMovePosition {
     After,
 }
 
+/// The whole surface of every `auth` subcommand: which deployment
+/// to talk to. There is deliberately no `--token` — `auth login`
+/// mints one, and the other two act on what it stored.
+struct AuthOpts {
+    api_url: Option<String>,
+}
+
 struct StackSquashOpts {
     src_prefixes: Vec<String>,
     target_prefix: String,
@@ -338,7 +358,7 @@ struct StackCheckoutOpts {
     /// `Some((remote, branch))` from `--trunk REMOTE/BRANCH`;
     /// `None` falls back to `trunk::get_trunk` at runtime.
     trunk: Option<(String, String)>,
-    /// GitHub token; resolved via `mergify_core::auth::resolve_token`
+    /// GitHub token; resolved via `mergify_core::auth::resolve_github_token`
     /// when None.
     token: Option<String>,
 }
@@ -505,6 +525,7 @@ struct CiScopesSendOpts {
     scopes_file: Option<PathBuf>,
     file_deprecated: Option<PathBuf>,
     all_scopes: bool,
+    head_sha: Option<String>,
 }
 
 struct CiJunitProcessOpts {
@@ -687,7 +708,7 @@ fn init_tracing(verbose: u8, debug: bool) {
     let directives = format!(
         "warn,mergify_cli={level},mergify_core={level},mergify_stack={level},\
          mergify_ci={level},mergify_queue={level},mergify_freeze={level},\
-         mergify_config={level},mergify_tui={level}"
+         mergify_config={level},mergify_tui={level},mergify_auth={level}"
     );
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(directives));
     let _ = tracing_subscriber::fmt()
@@ -900,6 +921,14 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             test_exit_code,
             files,
         })),
+        Subcommands::Auth(AuthArgs { api_url, command }) => {
+            let opts = AuthOpts { api_url };
+            Dispatch::Native(match command {
+                AuthSubcommand::Login => NativeCommand::AuthLogin(opts),
+                AuthSubcommand::Logout => NativeCommand::AuthLogout(opts),
+                AuthSubcommand::Status => NativeCommand::AuthStatus(opts),
+            })
+        }
         Subcommands::Config(ConfigArgs {
             config_file,
             command: ConfigSubcommand::Validate(_),
@@ -930,6 +959,7 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
                     scopes_file,
                     file_deprecated,
                     all,
+                    head_sha,
                 }),
         }) => Dispatch::Native(NativeCommand::CiScopesSend(CiScopesSendOpts {
             repository,
@@ -941,6 +971,7 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             scopes_file,
             file_deprecated,
             all_scopes: all,
+            head_sha,
         })),
         Subcommands::Ci(CiArgs {
             command: CiSubcommand::GitRefs(GitRefsCliArgs { format }),
@@ -1174,7 +1205,7 @@ async fn resolve_stack_context(
     trunk: Option<(String, String)>,
     branch_prefix: Option<String>,
 ) -> Result<StackContext, mergify_core::CliError> {
-    let token = mergify_core::auth::resolve_token(token)?;
+    let token = mergify_core::auth::resolve_github_token(token)?;
     let github_server = mergify_stack::stack_context::resolve_github_server(None)?;
     let client = mergify_stack::remote_changes::default_client(github_server, &token)?;
     let trunk = if let Some((remote, branch)) = trunk {
@@ -1522,6 +1553,42 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             | NativeCommand::InternalManPage => {
                 unreachable!("introspection commands are handled before the runtime starts")
             }
+            NativeCommand::AuthLogin(opts) => {
+                let store = mergify_core::CredentialStore::discover();
+                mergify_auth::login::run(
+                    mergify_auth::login::LoginOptions {
+                        api_url: opts.api_url.as_deref(),
+                        store: &store,
+                    },
+                    &mut output,
+                )
+                .await
+                .map(|()| mergify_core::ExitCode::Success)
+            }
+            NativeCommand::AuthLogout(opts) => {
+                let store = mergify_core::CredentialStore::discover();
+                mergify_auth::logout::run(
+                    mergify_auth::logout::LogoutOptions {
+                        api_url: opts.api_url.as_deref(),
+                        store: &store,
+                    },
+                    &mut output,
+                )
+                .await
+                .map(|()| mergify_core::ExitCode::Success)
+            }
+            NativeCommand::AuthStatus(opts) => {
+                let store = mergify_core::CredentialStore::discover();
+                mergify_auth::status::run(
+                    mergify_auth::status::StatusOptions {
+                        api_url: opts.api_url.as_deref(),
+                        store: &store,
+                    },
+                    &mut output,
+                )
+                .await
+                .map(|()| mergify_core::ExitCode::Success)
+            }
             NativeCommand::ConfigValidate { config_file } => {
                 mergify_config::validate::run(config_file.as_deref(), &mut output)
                     .await
@@ -1549,6 +1616,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     scopes_file: opts.scopes_file.as_deref(),
                     deprecated_file: opts.file_deprecated.as_deref(),
                     all_scopes: opts.all_scopes,
+                    head_sha: opts.head_sha.as_deref(),
                 },
                 &mut output,
             )
@@ -2084,7 +2152,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackCheckout(opts) => {
-                let token = mergify_core::auth::resolve_token(opts.token.as_deref())?;
+                let token = mergify_core::auth::resolve_github_token(opts.token.as_deref())?;
                 let github_server =
                     mergify_stack::stack_context::resolve_github_server(None)?;
                 let client = mergify_stack::remote_changes::default_client(
@@ -2187,7 +2255,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 }
             }
             NativeCommand::StackSync(opts) => {
-                let token = mergify_core::auth::resolve_token(opts.token.as_deref())?;
+                let token = mergify_core::auth::resolve_github_token(opts.token.as_deref())?;
                 let github_server = mergify_stack::stack_context::resolve_github_server(None)?;
                 let client =
                     mergify_stack::remote_changes::default_client(github_server, &token)?;
@@ -2627,17 +2695,17 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
             }
             NativeCommand::InternalStackRemoteChanges(opts) => {
                 // Search GitHub for PRs belonging to the stack and
-                // group them by Change-Id. The Python `stack/changes.py`
-                // consumer deserializes the JSON array back into the
-                // `RemoteChanges` dict it always built itself.
+                // group them by Change-Id, printed as a JSON array of
+                // `{change_id, pull}` records for whoever invoked this
+                // hidden command.
                 //
                 // Token comes from `--token` when supplied; otherwise
-                // `auth::resolve_token` reads `MERGIFY_TOKEN` /
-                // `GITHUB_TOKEN` / `gh auth token` so the Python
-                // caller can pass it via the subprocess env and keep
+                // `auth::resolve_github_token` reads `MERGIFY_TOKEN` /
+                // `GITHUB_TOKEN` / `gh auth token`, so a caller can
+                // pass it through the subprocess environment and keep
                 // it out of `ps`/process listings.
                 let token =
-                    mergify_core::auth::resolve_token(opts.token.as_deref())?;
+                    mergify_core::auth::resolve_github_token(opts.token.as_deref())?;
                 let client = mergify_stack::remote_changes::default_client(
                     opts.github_server,
                     &token,
@@ -2735,6 +2803,13 @@ impl From<ColorArg> for mergify_tui::ColorChoice {
 
 #[derive(Subcommand)]
 enum Subcommands {
+    /// Sign in to Mergify, and manage the stored credential.
+    ///
+    /// `mergify auth login` runs an OAuth device flow against the
+    /// Mergify API and stores the per-user token it mints, so the
+    /// commands that talk to Mergify need no token in your
+    /// environment.
+    Auth(AuthArgs),
     /// Validate and simulate your Mergify configuration.
     ///
     /// Check your `.mergify.yml` against the schema before pushing it,
@@ -3667,11 +3742,11 @@ struct InternalStackRemoteChangesArgs {
     #[arg(long = "github-server")]
     github_server: url::Url,
     /// Bearer token. Optional — when omitted the binary falls
-    /// back to `mergify_core::auth::resolve_token` (which reads
-    /// `MERGIFY_TOKEN` / `GITHUB_TOKEN` / `gh auth token`). The
-    /// Python caller should prefer setting `MERGIFY_TOKEN` in
-    /// the subprocess env over passing `--token` so the value
-    /// doesn't surface in `ps`/process listings.
+    /// back to `mergify_core::auth::resolve_github_token` (which reads
+    /// `MERGIFY_TOKEN` / `GITHUB_TOKEN` / `gh auth token`). Prefer
+    /// setting `MERGIFY_TOKEN` in the subprocess environment over
+    /// passing `--token`, so the value doesn't surface in
+    /// `ps`/process listings.
     #[arg(long)]
     token: Option<String>,
     /// Repository owner.
@@ -3910,6 +3985,17 @@ struct ScopesSendCliArgs {
     /// still sent alongside the flag.
     #[arg(long = "all")]
     all: bool,
+
+    /// Head SHA the scopes were computed for, as 40 hexadecimal
+    /// characters, so a result computed for an older head is not
+    /// taken for the current one. When omitted it is detected from
+    /// the CI environment: under GitHub Actions from the event
+    /// payload (``.pull_request.head.sha`` in ``GITHUB_EVENT_PATH``),
+    /// under Buildkite from ``BUILDKITE_COMMIT``. Pass the pull
+    /// request's head, not the revision the job checked out — on a
+    /// ``pull_request`` event those differ.
+    #[arg(long = "head-sha", value_parser = mergify_ci::detector::parse_head_sha)]
+    head_sha: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -4043,7 +4129,8 @@ struct TestsShowCliArgs {
     repository: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
+    /// key or a GitHub PAT: a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4103,7 +4190,8 @@ struct TestsQuarantineCliArgs {
     branch: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
+    /// key or a GitHub PAT: a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4134,7 +4222,8 @@ struct TestsUnquarantineCliArgs {
     repository: Option<String>,
 
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
-    /// then ``GITHUB_TOKEN`` env vars.
+    /// then ``GITHUB_TOKEN`` env vars. Needs an `admin` application
+    /// key or a GitHub PAT: a `ci` key is answered with 403.
     #[arg(long, short = 't')]
     token: Option<String>,
 
@@ -4345,6 +4434,40 @@ struct EventsCliArgs {
 }
 
 #[derive(clap::Args)]
+struct AuthArgs {
+    /// Mergify API URL. Falls back to ``MERGIFY_API_URL`` env var,
+    /// then to the default.
+    #[arg(long = "api-url", short = 'u', global = true)]
+    api_url: Option<String>,
+
+    #[command(subcommand)]
+    command: AuthSubcommand,
+}
+
+#[derive(Subcommand)]
+enum AuthSubcommand {
+    /// Sign in to Mergify and store the credential.
+    ///
+    /// Prints a URL and a code: open the one, enter the other, and
+    /// approve. The credential lands in your OS keychain, or in a
+    /// `0600` file when the machine has no keychain to offer.
+    Login,
+    /// Revoke the stored credential and forget it.
+    ///
+    /// Tells the Mergify API to revoke the token as well as deleting
+    /// the local copy, so a machine you are handing back stops being
+    /// signed in everywhere.
+    Logout,
+    /// Show whether this machine is signed in to Mergify.
+    ///
+    /// Names the account, where the credential is stored, and when it
+    /// runs out. Checks the credential against the API rather than
+    /// trusting the local copy, so one revoked from the dashboard is
+    /// reported as invalid.
+    Status,
+}
+
+#[derive(clap::Args)]
 struct FreezeArgs {
     /// Mergify or GitHub token. Falls back to ``MERGIFY_TOKEN`` and
     /// then ``GITHUB_TOKEN`` env vars.
@@ -4512,6 +4635,7 @@ mod tests {
         assert_eq!(
             groups,
             [
+                "auth",
                 "config",
                 "ci",
                 "tests",

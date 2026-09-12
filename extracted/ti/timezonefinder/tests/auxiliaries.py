@@ -11,23 +11,31 @@ import shutil
 import subprocess
 import sys
 import warnings
+from functools import lru_cache
 from math import asin, degrees, log10
 from typing import Any, Iterator
 
 import numpy as np
 import pytest
 
-from scripts.configs import DEBUG, read_data_version
+from scripts.bootstrap_data import require_bootstrapped_data
+from scripts.configs import (
+    DEBUG,
+    PROJECT_ROOT,
+    REDUCED_ZONE_MAPPING_FILE,
+    read_data_version,
+)
 from scripts.utils import validate_coord_array_shape
 from timezonefinder import utils
 from timezonefinder.configs import (
+    DEFAULT_DATA_DIR,
     MAX_LAT_VAL,
     MAX_LAT_VAL_INT,
     MAX_LNG_VAL,
     MAX_LNG_VAL_INT,
-    PACKAGE_DIR,
 )
 from timezonefinder.polygon_array import PolygonArray
+from timezonefinder.zone_names import read_zone_names
 from timezonefinder.utils_numba import convert2coords
 
 
@@ -35,7 +43,11 @@ from timezonefinder.utils_numba import convert2coords
 # PATH CONSTANTS
 #######################
 
-PROJECT_ROOT = PACKAGE_DIR.parent
+# imported rather than derived a second time: this was ``PACKAGE_DIR.parent``, which
+# anchors the *checkout* on where the ``timezonefinder`` package is installed. That
+# holds only for an editable install - from a wheel it resolves to ``site-packages``,
+# and every path below it (the workflow files, ``dist/``, the benchmark fixtures) then
+# points at somewhere that does not exist, for tests whose subject is the repository.
 DIST_DIR = PROJECT_ROOT / "dist"
 # this repository's root distribution; the data one is named by
 # scripts.configs.DATA_DISTRIBUTION_NAME, which also owns the path to it
@@ -70,14 +82,17 @@ PIP_STRATA = ("small", "medium", "large")
 
 # Bump whenever the *generation logic* changes in a way that makes previously
 # committed fixtures mean something different: the point sampler, the ``N_*``
-# counts, or the order in which the generators consume the shared seeded
-# ``rng``. The loader below refuses fixtures carrying a different version, so
-# a checkout with new generator code and stale ``.npy`` files fails loudly
-# instead of silently benchmarking a workload nobody described.
+# counts, the order in which the generators consume the shared seeded ``rng``,
+# or ``SHORTCUT_H3_RES`` - the unique/ambiguous strata are a classification by
+# the shortcut index, so changing its resolution re-labels points without
+# touching a line of generator code. The loader below refuses fixtures carrying
+# a different version, so a checkout with new generator code and stale ``.npy``
+# files fails loudly instead of silently benchmarking a workload nobody
+# described.
 # NOTE: this deliberately lives here rather than in the generator - the
 # generator imports from this module, so the loader could not validate a
 # constant owned by the generator without an import cycle.
-FIXTURE_VERSION = 2
+FIXTURE_VERSION = 3
 
 
 # Command constants.
@@ -98,6 +113,15 @@ BUILD_CMD = ["uv", "build", "-v", "--python", sys.executable, "-o", "dist/"]
 BUILD_SDIST_CMD = [*BUILD_CMD, "--sdist"]
 BUILD_WHEEL_CMD = [*BUILD_CMD, "--wheel"]
 
+
+# The suite's single choke point on the packaged dataset: this module is imported by
+# tests/conftest.py, so it is reached before any test is collected. Asking here is what
+# turns "FileNotFoundError: .../boundaries/xmin.npy" - raised two lines below, from
+# three frames down, on a checkout that simply has not run `make bootstrap` - into a
+# sentence naming the command. It also catches the stale case, which no reader can:
+# a complete dataset from a *different* timezonefinder-data release than this checkout
+# declares would load fine and silently test yesterday's data against today's code.
+require_bootstrapped_data()
 
 # for reading coordinates
 boundaries_dir = utils.get_boundaries_dir()
@@ -701,9 +725,141 @@ def group_pip_inputs_by_stratum(
     return grouped
 
 
+def group_packed_pip_inputs_by_stratum(
+    inputs: list[tuple[int, int, int]],
+    strata: list[str],
+    batch_size: int,
+) -> dict[str, list[tuple[int, int, int, int, int]]]:
+    """What the packed kernel is called with, per stratum.
+
+    ``(x, y, nr_coords, block_start, nr_blocks)`` - everything that varies per ring.
+    The arrays themselves do not: since polygon layout 3 the kernel takes the *whole*
+    collection and finds a ring by where its blocks begin, so they are wrapped once by
+    :func:`packed_buffers_by_backend` and shared by every call, exactly as a lookup
+    shares them.
+
+    Kept beside the triple form rather than replacing it: ``inside_polygon`` over a bare
+    coordinate array is still what build-time geometry code runs and what every other
+    kernel is checked against, so both are worth timing, under separate names.
+    """
+    grouped = group_pip_inputs_by_stratum(inputs, strata, batch_size)
+    by_stratum: dict[str, list[tuple[int, int, int, int, int]]] = {}
+    for stratum, bucket in grouped.items():
+        ids = [
+            poly_id
+            for (_, _, poly_id), label in zip(inputs, strata, strict=True)
+            if label == stratum
+        ]
+        rows = []
+        for (x, y, _coords), poly_id in zip(bucket, ids[: len(bucket)], strict=True):
+            start = boundaries.block_offsets[poly_id]
+            rows.append(
+                (
+                    x,
+                    y,
+                    int(boundaries.nr_vertices[poly_id]),
+                    start,
+                    boundaries.block_offsets[poly_id + 1] - start,
+                )
+            )
+        by_stratum[stratum] = rows
+    return by_stratum
+
+
+def packed_buffers_by_backend() -> dict[str, tuple]:
+    """The boundary collection's packed arrays, wrapped for each acceleration path.
+
+    Both, rather than whichever is bound: the two kernels are benchmarked side by side
+    and each needs its own handles - the C one cffi buffers, the interpreted one the
+    arrays themselves. A kernel handed the other path's buffers is a segfault rather
+    than a wrong answer, which is why they are built by the same factories the runtime
+    uses.
+
+    The second key is whichever name the ``utils_numba`` source goes by *here* - the
+    same functions are ``numba`` with the JIT installed and ``python`` without it, and
+    a fixture that always said ``numba`` would label an interpreted measurement as a
+    compiled one.
+    """
+    from scripts.assert_acceleration_path import interpreted_path_name
+    from timezonefinder import utils_clang, utils_numba
+
+    args = (
+        boundaries.coordinates.words,
+        boundaries.block_ranges,
+        boundaries.block_bases,
+        boundaries.block_widths,
+        boundaries.block_payload_offsets,
+    )
+    return {
+        "clang": utils_clang.packed_buffers_clang(*args),
+        interpreted_path_name(): utils_numba.packed_buffers_numba(*args),
+    }
+
+
+#######################
+# THE REDUCED DATASET
+#######################
+
+# ``update_data.sh --dataset=same-since-now`` compiles the reduced "timezones-now"
+# data, where every group of zones that keeps the same time from now on is one zone
+# under one representative name. Every expectation in tests/locations.py names a zone
+# of the *full* dataset, so against reduced data a third of them are wrong by
+# construction - and upstream's own lookup, vendored at REDUCED_ZONE_MAPPING_FILE, is
+# what converts them. Deriving that table by hand was refused; see the distribution
+# decisions under contributing/improvements/decisions/.
+
+
+@lru_cache(maxsize=1)
+def reduced_zone_representatives() -> dict[str, str]:
+    """Each full-dataset zone name, mapped to the reduced dataset's name for it.
+
+    Upstream publishes the inverse - representative to the zones merged into it - so
+    the direction an expectation needs is inverted here, once.
+    """
+    merged: dict[str, list[str]] = json.loads(
+        REDUCED_ZONE_MAPPING_FILE.read_text(encoding="utf-8")
+    )
+    return {
+        original: representative
+        for representative, originals in merged.items()
+        for original in originals
+    }
+
+
+@lru_cache(maxsize=1)
+def packaged_dataset_is_reduced() -> bool:
+    """Whether the data this checkout carries is the reduced ``timezones-now`` one.
+
+    Asked of the packaged zone names rather than of a flag, because nothing records
+    which variant ``update_data.sh`` was last run with - and a flag that says "reduced"
+    over full data would convert every expectation into a name the data does not hold.
+    The reduced dataset's names are exactly the representatives; the full dataset's 444
+    are not a subset of those 63. Read from timezone_names.txt so that asking costs a
+    text file rather than a finder.
+    """
+    packaged = set(read_zone_names(DEFAULT_DATA_DIR))
+    return packaged <= set(reduced_zone_representatives().values())
+
+
+def convert_to_reduced_timezone(timezone: str) -> str:
+    """The name the packaged dataset answers with, for an expectation naming ``timezone``.
+
+    The identity while the full dataset is packaged, which is the default and what CI
+    runs. A zone the mapping does not name is returned unchanged: upstream's table
+    omits one (``Etc/GMT+12``), and an expectation that then fails on the name it
+    always held is a better report than a ``KeyError`` inside the assertion.
+    """
+    if not packaged_dataset_is_reduced():
+        return timezone
+    return reduced_zone_representatives().get(timezone, timezone)
+
+
 def single_location_test(func, lat, lng, description, expected_orig):
+    expected = convert_to_reduced_timezone(expected_orig)
     result = func(lng=lng, lat=lat)
     func_name = func.__name__
-    assert result == expected_orig, (
-        f"{func_name}({lng}, {lat}) [{description}] should return {expected_orig}, got {result}"
+    merged_from = "" if expected == expected_orig else f" ({expected_orig} merged)"
+    assert result == expected, (
+        f"{func_name}({lng}, {lat}) [{description}] should return "
+        f"{expected}{merged_from}, got {result}"
     )

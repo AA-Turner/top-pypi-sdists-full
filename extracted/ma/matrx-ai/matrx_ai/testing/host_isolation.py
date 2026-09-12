@@ -51,6 +51,8 @@ a reason nobody can find.
 
 from __future__ import annotations
 
+import ast
+import sys
 from dataclasses import dataclass
 from typing import Any
 
@@ -81,6 +83,21 @@ class HostSeamBaseline:
     values: dict[tuple[str, str], Any]
 
 
+def _load_seam_module(module_path: str) -> Any:
+    """Load an absolute seam path through THE declared-module seam.
+
+    A seam holds PROCESS-GLOBAL state, so loading it twice is worse than not
+    loading it at all: the baseline would snapshot and restore one copy of the
+    globals while the rest of the process reads the other.
+    ``matrx_utils.module_loading.load_declared_module`` re-reads the module cache
+    after ``find_spec()`` (whose parent import may already have loaded the
+    child) and binds the child on its parent, exactly as ``import`` does.
+    """
+    from matrx_utils.module_loading import load_declared_module
+
+    return load_declared_module(module_path)
+
+
 def capture_baseline() -> HostSeamBaseline:
     """Snapshot the package's host-injection globals as they are right now.
 
@@ -89,13 +106,11 @@ def capture_baseline() -> HostSeamBaseline:
     mode this file exists to prevent — the isolation would still look installed
     while that global leaked freely.
     """
-    import importlib
-
     captured: dict[tuple[str, str], Any] = {}
     drift: list[str] = []
     for module_path, attrs in _SEAMS:
         try:
-            module = importlib.import_module(module_path)
+            module = _load_seam_module(module_path)
         except Exception as exc:
             drift.append(f"{module_path}: not importable ({type(exc).__name__}: {exc})")
             continue
@@ -123,13 +138,10 @@ def restore_baseline(baseline: HostSeamBaseline) -> None:
     are restored by CONTENT — other modules hold the dict object itself, so
     rebinding the name would leave stale readers pointed at the polluted dict.
     """
-    import importlib
-    import sys
-
     for (module_path, attr), value in baseline.values.items():
         module = sys.modules.get(module_path)
         if module is None:
-            module = importlib.import_module(module_path)
+            module = _load_seam_module(module_path)
         current = getattr(module, attr, None)
         if isinstance(value, dict) and isinstance(current, dict):
             if current != value:
@@ -138,3 +150,97 @@ def restore_baseline(baseline: HostSeamBaseline) -> None:
             continue
         if current is not value:
             setattr(module, attr, value)
+
+
+# ---------------------------------------------------------------------------
+# The OTHER direction of seam drift — a seam ADDED but never declared.
+# ---------------------------------------------------------------------------
+#
+# ``capture_baseline()`` is loud when a DECLARED seam disappears. It is silent
+# in the direction that actually reintroduces the bug: a new host-injection
+# seam wired into ``matrx_ai.configure`` and not added to ``_SEAMS``. Nothing
+# restores it, matrx-ai's tests quietly become order-dependent again, and the
+# next cross-suite run goes red for a reason nobody can find — which is exactly
+# how the original 13 fake failures were born. The file comment asked authors to
+# remember; this checks instead.
+#
+# Modules ``configure()`` reaches that hold NO process-global state, each with
+# the reason it needs no restore. A waiver is a claim about that module: if it
+# grows a module-level global, move it to ``_SEAMS`` instead of leaving it here.
+_NO_PROCESS_GLOBAL_STATE: dict[str, str] = {
+    "matrx_ai.client_host.validate": (
+        "pure validation of the seam COMBINATION — raises or returns, stores nothing"
+    ),
+    "matrx_ai.client_host.mandate_source": (
+        "defines the ServerMandateSource class; the INSTANCE is stored by "
+        "matrx_ai.mandates._MANDATE_RESOLVER, which is a declared seam"
+    ),
+    "matrx_ai.processing.vision": (
+        "pure re-encode functions plus a constant table; the encoder is "
+        "registered into matrx-files, whose own isolation owns that global"
+    ),
+}
+
+
+def _configure_source_modules(source: str) -> set[str]:
+    """Every ``matrx_ai.*`` module imported by ``configure()`` and its helpers.
+
+    Helpers count: ``_register_vision_encoder`` is called by ``configure`` and
+    does its own seam wiring, so a scan that stopped at the function body would
+    miss a whole class of seam.
+    """
+    tree = ast.parse(source)
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    entry = functions.get("configure")
+    if entry is None:
+        raise HostSeamDriftError(
+            "matrx_ai.configure() not found while scanning for undeclared host "
+            "seams — the isolation guard is measuring nothing. Fix the scanner "
+            "in matrx_ai/testing/host_isolation.py."
+        )
+
+    to_visit = [entry]
+    visited: set[str] = {"configure"}
+    modules: set[str] = set()
+    while to_visit:
+        node = to_visit.pop()
+        for child in ast.walk(node):
+            if isinstance(child, ast.ImportFrom) and (child.module or "").startswith("matrx_ai"):
+                modules.add(child.module or "")
+            elif isinstance(child, ast.Import):
+                for alias in child.names:
+                    if alias.name.startswith("matrx_ai"):
+                        modules.add(alias.name)
+            elif isinstance(child, ast.Call) and isinstance(child.func, ast.Name):
+                helper = functions.get(child.func.id)
+                if helper is not None and child.func.id not in visited:
+                    visited.add(child.func.id)
+                    to_visit.append(helper)
+    return modules
+
+
+def undeclared_seam_modules(source: str) -> list[str]:
+    """``matrx_ai`` modules ``configure()`` wires that nothing would restore.
+
+    A module counts as covered when it IS a declared seam, when a declared seam
+    lives beneath it (``configure`` imports ``matrx_ai.capabilities`` while the
+    registry global sits in ``matrx_ai.capabilities.registry``), or when it is
+    explicitly waived above as holding no process-global state.
+
+    Only ``matrx_ai.*`` is judged. ``configure()`` also registers into
+    ``matrx_graph`` and ``matrx_files``; those are other packages' globals and
+    belong to their own isolation, not to a baseline matrx-ai can restore.
+    """
+    declared = {module_path for module_path, _ in _SEAMS}
+    undeclared = []
+    for module in sorted(_configure_source_modules(source)):
+        if module in declared or module in _NO_PROCESS_GLOBAL_STATE:
+            continue
+        if any(seam.startswith(f"{module}.") for seam in declared):
+            continue
+        undeclared.append(module)
+    return undeclared

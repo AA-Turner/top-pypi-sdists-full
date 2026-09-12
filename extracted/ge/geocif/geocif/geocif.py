@@ -3327,36 +3327,52 @@ class Geocif:
 
         self.df_train["Yield Trend"] = np.nan
         self.df_test["Yield Trend"] = np.nan
+        _n_trend_ols = 0      # regions degraded to plain OLS (short series)
+        _n_trend_none = 0     # regions with <2 usable rows (truly unfittable)
 
         for region_name, group in self.df_train.groupby("Region"):
             # "past" mode: restrict to years strictly before the forecast
             # year so the trend used for predicting Y(forecast) is fit only
             # on data that would be available at deployment time (no leak
             # from LOOCV's future training years).
+            use_beast = True
             if self.use_yield_trend_as_feature == "past":
                 group = group[
                     group["Harvest Year"].astype(float) < float(self.forecast_season)
                 ]
-                if len(group) < 5:
-                    self.logger.warning(
-                        f"  Yield Trend [{region_name}]: only {len(group)} "
-                        f"past training rows for forecast_season="
-                        f"{self.forecast_season}; skipping (need >= 5 for OLS)"
-                    )
+                # Never skip a region. BEAST changepoint detection needs a
+                # reasonable series, but a short one still supports a plain
+                # OLS line, and that is strictly better than leaving the
+                # feature NaN for the whole region. Before this, the early
+                # forecast years of a `past`-mode run carried NO trend
+                # feature at all (verified: 0% selection in 2005-2006 at
+                # usa_admin1) while later years did -- an inconsistency
+                # across folds that is easy to mistake for a skill change.
+                if len(group) < 2:
+                    _n_trend_none += 1
                     continue
+                if len(group) < tseg_minlength:
+                    use_beast = False
+                    _n_trend_ols += 1
 
             # .astype(float) is required: Harvest Year may be a pandas
             # Categorical (used by tree models that treat it as a cat
             # feature), and ``slope * Categorical`` raises TypeError.
             years = group["Harvest Year"].astype(float).values
             yields = group[self.target].astype(float).values
-            intercept, slope, cp_used, n_used = trend.segment_aware_trend(
-                years, yields,
-                cp_threshold=cp_threshold,
-                tcp_minmax=tcp_minmax,
-                tseg_minlength=tseg_minlength,
-                mcmc_seed=mcmc_seed,
-            )
+            if use_beast:
+                intercept, slope, cp_used, n_used = trend.segment_aware_trend(
+                    years, yields,
+                    cp_threshold=cp_threshold,
+                    tcp_minmax=tcp_minmax,
+                    tseg_minlength=tseg_minlength,
+                    mcmc_seed=mcmc_seed,
+                )
+            else:
+                # Too few points for changepoint detection; a plain
+                # least-squares line is what the data supports.
+                slope, intercept = np.polyfit(years, yields, 1)
+                cp_used, n_used = 0, len(years)
             if np.isnan(intercept):
                 continue
 
@@ -3371,6 +3387,17 @@ class Geocif:
                 f"  Yield Trend [{region_name}]: "
                 f"slope={slope:.4f} t/ha/yr, n_used={n_used}, "
                 f"cp_used={cp_used}"
+            )
+
+        # One summary line per fold instead of a warning per region: the
+        # per-region form emitted 3,465 lines in a single usa_admin1 run,
+        # which buried everything else in the log.
+        if _n_trend_ols or _n_trend_none:
+            self.logger.info(
+                f"  Yield Trend [{self.forecast_season}]: "
+                f"{_n_trend_ols} region(s) used plain OLS (series shorter "
+                f"than tseg_minlength={tseg_minlength}), "
+                f"{_n_trend_none} region(s) had <2 usable rows and carry NaN"
             )
 
     def _compute_trend_all_feature(self):

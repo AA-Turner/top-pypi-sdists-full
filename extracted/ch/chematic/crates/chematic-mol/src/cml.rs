@@ -59,6 +59,12 @@ impl Default for CmlParseLimits {
 /// Error returned when parsing a CML document fails.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CmlError {
+    /// A strict parse did not contain a `<molecule>` element.
+    MissingMolecule,
+    /// A strict parse contained a molecule but no atom elements.
+    EmptyMolecule,
+    /// A strict parse found mismatched or unclosed XML elements.
+    MalformedXml(String),
     /// An atom referenced `elementType` that is not a known element symbol.
     UnknownElement(String),
     /// A `<bond>` element referenced an atom id that was not defined.
@@ -80,6 +86,9 @@ pub enum CmlError {
 impl std::fmt::Display for CmlError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            CmlError::MissingMolecule => write!(f, "CML: missing molecule element"),
+            CmlError::EmptyMolecule => write!(f, "CML: molecule contains no atom elements"),
+            CmlError::MalformedXml(s) => write!(f, "malformed CML XML: {s}"),
             CmlError::UnknownElement(s) => write!(f, "unknown element symbol: {s}"),
             CmlError::UnknownAtomRef(s) => write!(f, "unknown atom ref: {s}"),
             CmlError::InvalidAtomRefs2(s) => write!(f, "invalid atomRefs2: {s}"),
@@ -249,6 +258,115 @@ struct CmlAtomData {
 /// ```
 pub fn parse_cml(input: &str) -> Result<(Molecule, Vec<(f64, f64)>), CmlError> {
     parse_cml_with_limits(input, &CmlParseLimits::default())
+}
+
+/// Parse a structurally valid, non-empty CML molecule.
+///
+/// This is the strict counterpart to [`parse_cml`]. The default parser keeps
+/// its historical lenient behavior for compatibility (including an empty
+/// molecule when no `<molecule>`/`<atom>` elements are found). Strict callers
+/// opt into XML nesting checks and a non-empty molecule boundary.
+pub fn parse_cml_strict(input: &str) -> Result<(Molecule, Vec<(f64, f64)>), CmlError> {
+    parse_cml_strict_with_limits(input, &CmlParseLimits::default())
+}
+
+/// Parse CML with explicit limits and the strict structural boundary.
+pub fn parse_cml_strict_with_limits(
+    input: &str,
+    limits: &CmlParseLimits,
+) -> Result<(Molecule, Vec<(f64, f64)>), CmlError> {
+    validate_strict_cml_structure(input)?;
+    let normalized = split_cml_tags(input);
+    let parsed = parse_cml_with_limits(&normalized, limits)?;
+    if parsed.0.atom_count() == 0 {
+        return Err(CmlError::EmptyMolecule);
+    }
+    Ok(parsed)
+}
+
+/// Make the lightweight line-oriented reader usable with compact XML too.
+///
+/// The legacy parser intentionally only inspects one tag per input line. The
+/// strict entry point can normalize tag boundaries without changing the
+/// legacy parser's compatibility behavior. A quote-aware scan avoids splitting
+/// an attribute value that happens to contain `>`.
+fn split_cml_tags(input: &str) -> String {
+    let mut output = String::with_capacity(input.len() + input.len() / 8);
+    let mut in_tag = false;
+    let mut quote = None;
+    let mut cursor = 0usize;
+    while cursor < input.len() {
+        // Comments, CDATA, and processing instructions may contain `>` (and
+        // comments/CDATA may contain `<`) as ordinary content. Keep each
+        // construct intact so the line-oriented compatibility reader never
+        // interprets markup inside it as a molecule element. The strict
+        // validator has already checked that the terminator exists.
+        if !in_tag && input[cursor..].starts_with("<!--") {
+            let end = input[cursor + 4..]
+                .find("-->")
+                .map(|offset| cursor + 4 + offset + 3)
+                .unwrap_or(input.len());
+            if !output.is_empty() && !output.ends_with('\n') {
+                output.push('\n');
+            }
+            output.push_str(&input[cursor..end]);
+            output.push('\n');
+            cursor = end;
+            continue;
+        }
+        if !in_tag && input[cursor..].starts_with("<![CDATA[") {
+            let end = input[cursor + 9..]
+                .find("]]>")
+                .map(|offset| cursor + 9 + offset + 3)
+                .unwrap_or(input.len());
+            if !output.is_empty() && !output.ends_with('\n') {
+                output.push('\n');
+            }
+            output.push_str(&input[cursor..end]);
+            output.push('\n');
+            cursor = end;
+            continue;
+        }
+        if !in_tag && input[cursor..].starts_with("<?") {
+            let end = input[cursor + 2..]
+                .find("?>")
+                .map(|offset| cursor + 2 + offset + 2)
+                .unwrap_or(input.len());
+            if !output.is_empty() && !output.ends_with('\n') {
+                output.push('\n');
+            }
+            output.push_str(&input[cursor..end]);
+            output.push('\n');
+            cursor = end;
+            continue;
+        }
+
+        let character = input[cursor..]
+            .chars()
+            .next()
+            .expect("cursor is a valid non-empty UTF-8 boundary");
+        if character == '<' && !in_tag {
+            if !output.is_empty() && !output.ends_with('\n') {
+                output.push('\n');
+            }
+            in_tag = true;
+        }
+        output.push(character);
+        if in_tag {
+            if let Some(active_quote) = quote {
+                if character == active_quote {
+                    quote = None;
+                }
+            } else if character == '\'' || character == '"' {
+                quote = Some(character);
+            } else if character == '>' {
+                in_tag = false;
+                output.push('\n');
+            }
+        }
+        cursor += character.len_utf8();
+    }
+    output
 }
 
 /// Parse CML with explicit resource limits.
@@ -441,6 +559,127 @@ pub fn parse_cml_with_limits(
     Ok((builder.build(), coords))
 }
 
+fn validate_strict_cml_structure(input: &str) -> Result<(), CmlError> {
+    let mut stack: Vec<String> = Vec::new();
+    let mut saw_molecule = false;
+    let mut saw_atom = false;
+    let mut root_closed = false;
+    let mut cursor = 0usize;
+    while let Some(relative_start) = input[cursor..].find('<') {
+        let start = cursor + relative_start;
+        if input[start..].starts_with("<!--") {
+            let end = input[start + 4..]
+                .find("-->")
+                .map(|offset| start + 4 + offset + 3)
+                .ok_or_else(|| CmlError::MalformedXml("unterminated comment".to_string()))?;
+            cursor = end;
+            continue;
+        }
+        if input[start..].starts_with("<![CDATA[") {
+            let end = input[start + 9..]
+                .find("]]>")
+                .map(|offset| start + 9 + offset + 3)
+                .ok_or_else(|| CmlError::MalformedXml("unterminated CDATA section".to_string()))?;
+            cursor = end;
+            continue;
+        }
+        if input[start..].starts_with("<?") {
+            let end = input[start + 2..]
+                .find("?>")
+                .map(|offset| start + 2 + offset + 2)
+                .ok_or_else(|| {
+                    CmlError::MalformedXml("unterminated processing instruction".to_string())
+                })?;
+            cursor = end;
+            continue;
+        }
+        let relative_end = find_strict_tag_end(&input[start..]).ok_or_else(|| {
+            CmlError::MalformedXml("unterminated tag or quoted attribute".to_string())
+        })?;
+        let end = start + relative_end;
+        let raw = input[start + 1..end].trim();
+        cursor = end + 1;
+        if raw.is_empty() || raw.starts_with('!') || raw.starts_with('?') {
+            continue;
+        }
+        if let Some(name) = raw.strip_prefix('/') {
+            let name = tag_name(name);
+            let Some(open) = stack.pop() else {
+                return Err(CmlError::MalformedXml(format!(
+                    "unexpected closing tag </{name}>"
+                )));
+            };
+            if open != name {
+                return Err(CmlError::MalformedXml(format!(
+                    "closing tag </{name}> does not match <{open}>"
+                )));
+            }
+            if stack.is_empty() {
+                root_closed = true;
+            }
+            continue;
+        }
+        let self_closing = raw.ends_with('/');
+        let name = tag_name(raw);
+        if stack.is_empty() && root_closed {
+            return Err(CmlError::MalformedXml("multiple root elements".to_string()));
+        }
+        if name == "molecule" {
+            saw_molecule = true;
+        }
+        if name == "atom" {
+            saw_atom = true;
+        }
+        if !self_closing {
+            stack.push(name);
+        } else if stack.is_empty() {
+            root_closed = true;
+        }
+    }
+    if !stack.is_empty() {
+        return Err(CmlError::MalformedXml(format!(
+            "unclosed tag <{}>",
+            stack.last().expect("non-empty stack")
+        )));
+    }
+    if !saw_molecule {
+        return Err(CmlError::MissingMolecule);
+    }
+    if !saw_atom {
+        return Err(CmlError::EmptyMolecule);
+    }
+    Ok(())
+}
+
+/// Find the end of one XML-ish tag without treating a `>` inside a quoted
+/// attribute as the tag boundary.  The strict parser is intentionally a small
+/// structural gate rather than a general XML implementation, but its boundary
+/// scanner must agree with [`split_cml_tags`] on this basic lexical rule.
+fn find_strict_tag_end(input: &str) -> Option<usize> {
+    let mut quote = None;
+    for (offset, character) in input.char_indices().skip(1) {
+        if let Some(active_quote) = quote {
+            if character == active_quote {
+                quote = None;
+            }
+        } else if character == '\'' || character == '"' {
+            quote = Some(character);
+        } else if character == '>' {
+            return Some(offset);
+        }
+    }
+    None
+}
+
+fn tag_name(raw: &str) -> String {
+    raw.trim_start_matches('/')
+        .trim_end_matches('/')
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+}
+
 /// True if `line` starts the opening tag for the given element name
 /// (case-insensitive on the element name, as some writers vary case).
 fn is_element_tag(line: &str, name: &str) -> bool {
@@ -591,6 +830,100 @@ mod tests {
             matches!(result, Err(CmlError::UnknownElement(_))),
             "unknown element should return Err"
         );
+    }
+
+    #[test]
+    fn strict_cml_accepts_writer_output() {
+        let (mol, coords) = parse_cml_strict(ETHANOL_CML).unwrap();
+        assert_eq!(mol.atom_count(), 3);
+        assert_eq!(coords.len(), 3);
+    }
+
+    #[test]
+    fn strict_cml_accepts_compact_xml() {
+        let compact = "<molecule><atomArray><atom id=\"a1\" elementType=\"C\"/></atomArray><bondArray/></molecule>";
+        let (mol, coords) = parse_cml_strict(compact).unwrap();
+        assert_eq!(mol.atom_count(), 1);
+        assert_eq!(coords, vec![(0.0, 0.0)]);
+    }
+
+    #[test]
+    fn strict_cml_scanner_keeps_greater_than_inside_quoted_attribute() {
+        let compact = "<molecule><atomArray><atom id=\"a>1\" elementType=\"C\"/></atomArray><bondArray/></molecule>";
+        let (mol, coords) = parse_cml_strict(compact).unwrap();
+        assert_eq!(mol.atom_count(), 1);
+        assert_eq!(coords.len(), 1);
+    }
+
+    #[test]
+    fn strict_cml_scanner_rejects_unterminated_quoted_attribute() {
+        let malformed =
+            "<molecule><atomArray><atom id=\"a1 elementType=\"C\"/></atomArray></molecule>";
+        assert!(matches!(
+            parse_cml_strict(malformed),
+            Err(CmlError::MalformedXml(_))
+        ));
+    }
+
+    #[test]
+    fn strict_cml_does_not_parse_markup_inside_comment_or_cdata() {
+        let input = concat!(
+            "<?xml version=\"1.0\"?>",
+            "<molecule>",
+            "<!-- <atom id=\"fake\" elementType=\"N\"/> > -->",
+            "<atomArray><atom id=\"a1\" elementType=\"C\"/></atomArray>",
+            "<metadata><![CDATA[<atom id=\"also-fake\"/> >]]></metadata>",
+            "<bondArray/></molecule>"
+        );
+        let (mol, _) = parse_cml_strict(input).unwrap();
+        assert_eq!(mol.atom_count(), 1);
+    }
+
+    #[test]
+    fn strict_cml_rejects_unterminated_comment_and_cdata() {
+        assert!(matches!(
+            parse_cml_strict("<molecule><!-- <atom id=\"a1\"/>"),
+            Err(CmlError::MalformedXml(_))
+        ));
+        assert!(matches!(
+            parse_cml_strict("<molecule><![CDATA[unfinished"),
+            Err(CmlError::MalformedXml(_))
+        ));
+    }
+
+    #[test]
+    fn strict_cml_rejects_empty_and_unbalanced_documents() {
+        assert!(matches!(
+            parse_cml_strict("<cml/>"),
+            Err(CmlError::MissingMolecule)
+        ));
+        assert!(matches!(
+            parse_cml_strict("<molecule><atomArray>"),
+            Err(CmlError::MalformedXml(_))
+        ));
+        assert!(matches!(
+            parse_cml_strict("<molecule><atomArray/></molecule>"),
+            Err(CmlError::EmptyMolecule)
+        ));
+    }
+
+    #[test]
+    fn strict_cml_rejects_multiple_root_elements() {
+        let input = concat!(
+            "<molecule><atomArray><atom id=\"a1\" elementType=\"C\"/></atomArray></molecule>",
+            "<molecule><atomArray><atom id=\"a2\" elementType=\"N\"/></atomArray></molecule>"
+        );
+        assert!(matches!(
+            parse_cml_strict(input),
+            Err(CmlError::MalformedXml(message)) if message == "multiple root elements"
+        ));
+    }
+
+    #[test]
+    fn lenient_cml_boundary_remains_compatible() {
+        let (mol, coords) = parse_cml("<cml/>").unwrap();
+        assert_eq!(mol.atom_count(), 0);
+        assert!(coords.is_empty());
     }
 
     #[test]

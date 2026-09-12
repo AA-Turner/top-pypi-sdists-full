@@ -23,6 +23,7 @@ from typing import Any
 
 import pytest
 
+import matrx_ai.tools.registry as registry_module
 from matrx_ai._ext import configure_ext
 from matrx_ai.tools.registry import ToolRegistry
 
@@ -193,3 +194,35 @@ async def test_previous_snapshot_keeps_serving_until_the_swap() -> None:
     swapped = registry.get("lookup_order")
     assert swapped is not None
     assert swapped.description == "Look up an order by number and region."
+
+
+@pytest.mark.asyncio
+async def test_orm_tool_serialization_is_off_the_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A large persisted schema must not freeze LISTEN-driven registry refreshes."""
+
+    class _ToolRow:
+        def to_dict(self) -> dict[str, str]:
+            return {"name": "slow_schema"}
+
+    class _Manager:
+        async def filter_items(self, **_kwargs: object) -> list[_ToolRow]:
+            return [_ToolRow()]
+
+    entered_thread = asyncio.Event()
+    release_thread = asyncio.Event()
+
+    async def controlled_to_thread(
+        func: object, /, *args: object, **kwargs: object
+    ) -> object:
+        entered_thread.set()
+        await release_thread.wait()
+        return func(*args, **kwargs)  # type: ignore[operator]
+
+    monkeypatch.setattr(registry_module, "get_tool_def_manager", lambda: _Manager())
+    monkeypatch.setattr(registry_module.asyncio, "to_thread", controlled_to_thread)
+
+    fetch_task = asyncio.create_task(ToolRegistry._fetch_tools_async())
+    await asyncio.wait_for(entered_thread.wait(), timeout=1)
+    assert not fetch_task.done()
+    release_thread.set()
+    assert await fetch_task == [{"name": "slow_schema"}]

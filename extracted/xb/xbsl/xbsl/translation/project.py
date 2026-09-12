@@ -17,6 +17,7 @@ Without an output directory nothing is written - the walk still produces the ful
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -53,6 +54,30 @@ _FIXED_COMPONENTS = {
 _LANGUAGE_NAMES = {"en": "Английский", "ru": "Русский"}
 
 MESSAGES = {
+    "translate.problem.out-occupied": {
+        "ru": "{path}: каталог вывода занят чужими файлами – это не переведённый проект"
+              " (нет {marker}), и ничего не записано. Укажите пустой каталог в --out или"
+              " уберите из этого всё лишнее",
+        "en": "{path}: the output directory holds files of someone else - it is not a"
+              " translated project (no {marker}), and nothing was written. Name an empty"
+              " directory in --out, or clear this one",
+    },
+    "translate.problem.write-failed": {
+        "ru": "{path}: файл не записан – {error}. Чаще всего на этом месте лежит остаток"
+              " прошлого прогона (каталог вместо файла, файл только для чтения) или файл"
+              " занят другой программой",
+        "en": "{path}: the file was not written - {error}. Usually what stands there is a"
+              " leftover of an earlier run (a directory where a file goes, a read-only file)"
+              " or the file is held by another program",
+    },
+    "translate.problem.write-failed-more": {
+        "ru": "по той же причине не записано ещё файлов: {count}",
+        "en": "files not written for the same reason: {count} more",
+    },
+    "translate.problem.clean-failed": {
+        "ru": "{path}: остаток прошлого прогона не удалён – {error}",
+        "en": "{path}: a leftover of an earlier run was not removed - {error}",
+    },
     "translate.problem.shadow": {
         "ru": "{place}: запись словаря '{name}: {entry}' расходится с платформой – '{name}' у"
               " {owner} пишется '{platform}'; здесь взято платформенное написание, а приёмник"
@@ -89,6 +114,26 @@ class ProjectReport:
     #: Fatal-for-the-tree problems: a path collision, a swap without the target language.
     problems: list[str] = field(default_factory=list)
     written: int = 0
+    #: Whether the tree asked for was NOT written whole: the output directory was occupied,
+    #: or a file could not be written. The command's job is the tree, so this decides the
+    #: exit code on its own - a run that wrote nothing must not answer like a run that did.
+    write_failed: bool = False
+    #: Files and directories of an earlier run that `--clean` took out of the output tree.
+    #: A source file that was RENAMED or removed leaves its old copy standing there, and a
+    #: build takes the directory whole - so the orphan deploys along with everything else,
+    #: and a directory standing where a file now goes fails the write outright.
+    removed: int = 0
+    #: WHAT the clean judged to be a leftover, relative to the output directory - in the order
+    #: it was walked. Kept whether or not the removal happened, because that is the only way
+    #: to see the list BEFORE it is acted on: the first clean of a tree of a thousand files
+    #: was a blind step, and a count after the fact answers nothing about what went.
+    removals: list[str] = field(default_factory=list)
+    #: Whether the pass only SAID what it would do. Nothing is written, nothing is removed,
+    #: and `removed`/`written` stay at zero - `removals` and `planned` carry the answer.
+    dry_run: bool = False
+    #: How many files the tree would take - the size of what the pass built in memory. Equal
+    #: to `written` when everything went in, and the only count a dry run has.
+    planned: int = 0
     #: Where the tree was actually written - the PROJECT directory, which is not the `out`
     #: the caller named: a build demands `{repository}/{Vendor}/{Name}`, so an `out` that is
     #: a repository root gets those two directories under it (see `_destination`).
@@ -311,6 +356,8 @@ def translate_project(
     *,
     swap_localization: bool = True,
     layout: str = "project",
+    clean: bool = False,
+    dry_run: bool = False,
 ) -> ProjectReport:
     """Translate the tree under `root`; write it under `out` when one is given.
 
@@ -319,6 +366,14 @@ def translate_project(
     `{Vendor}/{Name}` the TRANSLATED descriptor names: that is the layout a build demands
     (and the one `project/path-matches-descriptor` checks), so only a tree written that way
     deploys without being moved by hand. `report.out_dir` says where the files actually went.
+
+    `clean` removes what THIS pass does not write - see `_clean_tree`; without it a repeat
+    into the same directory only overwrites, and the orphans of an earlier run stay.
+
+    `dry_run` takes the whole pass up to the writing and stops there: the tree is built, the
+    destination is judged, the leftovers are listed - and nothing is written or removed. That
+    is what makes a first `clean` reviewable: the answer to "what is about to go" arrives
+    before it goes, not as a count afterwards.
     """
     files = _iter_files(root, dictionary)
     resolver = Resolver(
@@ -375,7 +430,8 @@ def translate_project(
     }
 
     if out is not None:
-        _write_tree(_destination(out, outputs, layout), outputs, report)
+        _write_tree(_destination(out, outputs, layout), outputs, report,
+                    clean=clean, dry_run=dry_run)
     return report
 
 
@@ -659,20 +715,146 @@ def _destination(out: Path, outputs, layout: str) -> Path:
     return out / vendor / name
 
 
-def _write_tree(out: Path, outputs, report: ProjectReport) -> None:
+#: How many failed files are named before the count takes over - a directory that cannot
+#: be written to fails on every file of the tree.
+_WRITE_PROBLEMS_SHOWN = 5
+
+
+def _write_tree(out: Path, outputs, report: ProjectReport, clean: bool = False,
+                dry_run: bool = False) -> None:
+    """Write the translated tree, and never die on the way: a failure is a reported problem.
+
+    The pass costs minutes and its report is printed AFTERWARDS, so an exception raised here
+    took the whole report with it: the command answered with an exit code and an empty log,
+    which reads as a broken dictionary rather than as a directory that cannot be written to.
+    Every OS error is now named with its file and carried in `problems` - the run finishes,
+    the report is printed, and `write_failed` tells the caller the tree is not there.
+
+    A dry run goes through the same judgements and stops before touching the disk: the
+    destination is checked for occupancy (the write WOULD be refused, and that is worth
+    knowing beforehand), the leftovers are listed, and nothing is written or removed.
+    """
     report.out_dir = out
+    report.dry_run = dry_run
+    report.planned = len(outputs)
     if out.exists() and any(out.iterdir()):
         marker = any((out / name).exists() for name in (scaffold.PROJECT_FILE_EN, scaffold.PROJECT_FILE))
         if not marker:
-            report.problems.append(f"{out}: not empty and not a translated project; nothing written")
+            report.problems.append(i18n.t(
+                "translate.problem.out-occupied", path=out,
+                marker=f"{scaffold.PROJECT_FILE_EN}/{scaffold.PROJECT_FILE}",
+            ))
+            report.write_failed = True
             return
+    if clean:
+        _clean_tree(out, outputs, report, dry_run=dry_run)
+    if dry_run:
+        return
+    failures: list[tuple[Path, str]] = []
     for new_rel, (rel_str, translated, source) in sorted(outputs.items(), key=lambda kv: str(kv[0])):
         del rel_str
         target = out / new_rel
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if isinstance(translated, bytes):
-            target.write_bytes(translated)
-        else:
+        if isinstance(translated, str):
             bom = bool(source and source.had_bom)
-            target.write_bytes(translated.encode("utf-8-sig" if bom else "utf-8"))
+            translated = translated.encode("utf-8-sig" if bom else "utf-8")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(translated)
+        except OSError as exc:
+            failures.append((target, str(exc.strerror or exc)))
+            continue
         report.written += 1
+    # A directory that cannot be written to fails on every file of the tree, and twelve
+    # hundred identical lines bury the report that explains the rest of the pass.
+    for target, error in failures[:_WRITE_PROBLEMS_SHOWN]:
+        report.problems.append(i18n.t("translate.problem.write-failed", path=target, error=error))
+    if len(failures) > _WRITE_PROBLEMS_SHOWN:
+        report.problems.append(i18n.t(
+            "translate.problem.write-failed-more",
+            count=len(failures) - _WRITE_PROBLEMS_SHOWN,
+        ))
+    report.write_failed = report.write_failed or bool(failures)
+
+
+def _clean_tree(out: Path, outputs, report: ProjectReport, dry_run: bool = False) -> None:
+    """Take out of `out` everything this pass is not about to write.
+
+    Why a repeat into the same directory is not enough: the pass overwrites the files it
+    produces and touches nothing else, so a source file that was RENAMED leaves its old
+    translation standing - the build takes the directory whole and the orphan deploys with
+    it. Worse, the leftover can stand exactly where a file now goes: a directory in the place
+    of a file fails that write outright, and the message blames the file system.
+
+    Deliberately NOT a write into a temporary directory with a swap at the end. The swap
+    would have to delete the old tree anyway, it costs a second full copy of the project, and
+    it breaks on the very conditions the write errors come from - another volume, a directory
+    held open by a build or an editor. The occupancy guard above stays the safety net: this
+    runs only inside a directory that already IS a translated project, so `--clean` cannot
+    become "erase whatever you were pointed at".
+
+    Bottom-up, so a directory is judged after its contents: a directory that keeps nothing of
+    this pass is empty by the time it is reached. Files and directories are kept by DIFFERENT
+    sets, and that is the whole point of the pair: a leftover directory standing at the path
+    of a file this pass writes is exactly the trouble - judged by the file set it would look
+    like something to keep, and the write would go on failing with "permission denied". A
+    file standing where a directory now goes is removed the same way.
+
+    A removal that fails is a reported problem, not the end of the pass: the tree is still
+    written, and the report says which leftover stayed and why.
+
+    Every leftover is NAMED in `report.removals` whether or not it is removed, and `dry_run`
+    stops at the naming. A first clean of a translated tree of a thousand files was otherwise
+    a blind step - the only account of it was a count printed after the fact, which answers
+    nothing about what a build just lost.
+    """
+    if not out.exists():
+        return
+    files = {out / new_rel for new_rel in outputs}
+    directories: set[Path] = set()
+    for target in files:
+        parent = target.parent
+        while parent != out and parent not in directories:
+            directories.add(parent)
+            parent = parent.parent
+    failures: list[tuple[Path, str]] = []
+    for current, dirnames, filenames in os.walk(out, topdown=False):
+        here = Path(current)
+        for name in filenames:
+            path = here / name
+            if path not in files:
+                _leftover(path, out, report)
+                if not dry_run:
+                    _remove(path.unlink, path, report, failures)
+        for name in dirnames:
+            path = here / name
+            if path not in directories:
+                _leftover(path, out, report)
+                if not dry_run:
+                    # A directory is empty by now - its own leftovers went first, and a dry
+                    # run reaches here with the contents still in place. So it is named as a
+                    # directory that would go, and `rmdir` is the pass that actually does it.
+                    _remove(path.rmdir, path, report, failures)
+    for path, error in failures[:_WRITE_PROBLEMS_SHOWN]:
+        report.problems.append(i18n.t(
+            "translate.problem.clean-failed", path=path, error=error))
+    if len(failures) > _WRITE_PROBLEMS_SHOWN:
+        report.problems.append(i18n.t(
+            "translate.problem.write-failed-more",
+            count=len(failures) - _WRITE_PROBLEMS_SHOWN,
+        ))
+
+
+def _leftover(path: Path, out: Path, report: ProjectReport) -> None:
+    """One leftover, named - relative to the output directory, the way the report reads."""
+    report.removals.append(path.relative_to(out).as_posix())
+
+
+def _remove(how, path: Path, report: ProjectReport,
+            failures: list[tuple[Path, str]]) -> None:
+    """One removal, counted."""
+    try:
+        how()
+    except OSError as exc:
+        failures.append((path, str(exc.strerror or exc)))
+        return
+    report.removed += 1

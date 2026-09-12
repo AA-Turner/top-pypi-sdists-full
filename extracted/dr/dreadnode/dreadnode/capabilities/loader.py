@@ -510,6 +510,7 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
         hooks=parsed.get("hooks"),
         policies=parsed.get("policies"),
         skills=parsed.get("skills"),
+        workflows=parsed.get("workflows"),
         workers=parsed.get("workers"),
         mcp=parsed.get("mcp"),
         author=parsed.get("author"),
@@ -519,6 +520,7 @@ def _parse_capability_file(content: str, manifest_path: Path) -> CapabilityManif
         dependencies=parsed.get("dependencies"),
         checks=parsed.get("checks"),
         flags=parsed.get("flags"),
+        secrets=parsed.get("secrets"),
         **output_config,
     )
 
@@ -570,7 +572,9 @@ def _validate_contract(data: dict[str, t.Any], manifest_path: Path) -> None:
         )
 
     # CAP-VALID-006: export path arrays must contain only non-empty strings
-    for field in ("agents", "tools", "hooks", "skills"):
+    # `workflows` joins this list rather than the name-keyed `workers` map: one
+    # Workflow object per file, so the name lives in the source (PRD §19 D-08).
+    for field in ("agents", "tools", "hooks", "skills", "workflows"):
         value = data.get(field)
         if value is None:
             continue
@@ -584,6 +588,23 @@ def _validate_contract(data: dict[str, t.Any], manifest_path: Path) -> None:
                     f"Capability field '{field}' must contain only non-empty strings "
                     f"in {manifest_path} [CAP-VALID-006]"
                 )
+
+    # CAP-VALID-020: workflow paths must stay inside the capability directory and
+    # point at Python source. The topology is compiled from that source at build
+    # time, so a path escaping the capability would compile code we do not ship.
+    cap_dir = manifest_path.parent
+    for workflow_path in data.get("workflows") or []:
+        if not str(workflow_path).endswith(".py"):
+            raise ValueError(
+                f"Capability workflow '{workflow_path}' must be a .py file "
+                f"in {manifest_path} [CAP-VALID-020]"
+            )
+        resolved = (cap_dir / workflow_path).resolve()
+        if not resolved.is_relative_to(cap_dir.resolve()):
+            raise ValueError(
+                f"Capability workflow path '{workflow_path}' escapes capability directory "
+                f"in {manifest_path} [CAP-VALID-020]"
+            )
 
     # CAP-WRK-001: workers is a map keyed by worker name
     workers = data.get("workers")

@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from typing import Optional, Set
@@ -28,9 +28,10 @@ class TriggerDefsRetrieverCanaryNotificationConfig(BaseModel):
     """
     Notification wiring for retriever-execution (canary) triggers.  Reuses the alert channel vocabulary so triggers and alerts stay one mental model: a TRIGGER decides when work runs and what counts as passing; the notification channels decide who hears about it. Slack via config.webhook_url posts a plain-text summary (Slack incoming-webhook contract); webhook posts the full run payload; email is org-opt-in like alert emails.
     """ # noqa: E501
+    include_internal_diagnostics: Optional[StrictBool] = Field(default=False, description="Include the pipeline's raw per-stage error text in the notification body. OFF by default: those messages describe Mixpeek internals (shard counts, circuit-breaker state, internal latency ceilings) and are written for an operator, not for the account that receives this alert. Turn it on for an internal or ops canary, where the raw text is the whole point. When off, a failing stage is still named and the notification says the stage did not complete, so the alert stays actionable without quoting internals.")
     channels: Annotated[List[Dict[str, Any]], Field(min_length=1)] = Field(description="Notification channels, alert-channel shaped: {channel_type: 'slack'|'webhook'|'email', config: {...}}. slack: config.webhook_url; webhook: config.url.")
-    notify_on: Optional[Annotated[str, Field(strict=True)]] = Field(default='failure', description="'failure' (default) notifies only on acceptance breach or execution error; 'always' notifies every run")
-    __properties: ClassVar[List[str]] = ["channels", "notify_on"]
+    notify_on: Optional[Annotated[str, Field(strict=True)]] = Field(default='change', description="'change' (default) notifies only when the verdict FLIPS: once when a healthy check starts failing, once when it recovers. 'failure' notifies on every failing run. 'always' notifies on every run. The default is 'change' because a FLAPPING check defeats the consecutive-failure auto-disable: each success resets the counter, so a check alternating fail/pass never reaches the threshold and mails a human on every failure indefinitely. Measured 2026-09-11: one canary sent four alerts for a single continuous condition.")
+    __properties: ClassVar[List[str]] = ["include_internal_diagnostics", "channels", "notify_on"]
 
     @field_validator('notify_on')
     def notify_on_validate_regular_expression(cls, value):
@@ -38,8 +39,8 @@ class TriggerDefsRetrieverCanaryNotificationConfig(BaseModel):
         if value is None:
             return value
 
-        if not re.match(r"^(failure|always)$", value):
-            raise ValueError(r"must validate the regular expression /^(failure|always)$/")
+        if not re.match(r"^(change|failure|always)$", value):
+            raise ValueError(r"must validate the regular expression /^(change|failure|always)$/")
         return value
 
     model_config = ConfigDict(
@@ -93,8 +94,9 @@ class TriggerDefsRetrieverCanaryNotificationConfig(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
+            "include_internal_diagnostics": obj.get("include_internal_diagnostics") if obj.get("include_internal_diagnostics") is not None else False,
             "channels": obj.get("channels"),
-            "notify_on": obj.get("notify_on") if obj.get("notify_on") is not None else 'failure'
+            "notify_on": obj.get("notify_on") if obj.get("notify_on") is not None else 'change'
         })
         return _obj
 

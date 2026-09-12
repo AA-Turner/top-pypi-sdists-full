@@ -32,7 +32,14 @@ from dreadnode.app.client.runtime_client import (
 from dreadnode.app.client.transports import StreamingASGITransport
 from dreadnode.app.env import read_env_with_deprecation
 
-DEFAULT_START_TIMEOUT_S = 20.0
+DEFAULT_START_TIMEOUT_S = 60.0
+"""Budget for a spawned runtime to come up, covering liveness *and* readiness.
+
+A spawned ``dn serve`` answers nothing until its lifespan startup returns, and
+that now blocks on the litellm warm — up to ``_LITELLM_WARM_TIMEOUT_SEC`` (45s),
+and 5.45-17.6s in practice on a sandbox's cold overlay FS (ENG-8259). The old
+20s covered the import on a warm filesystem and nothing else.
+"""
 _INPROC_BIND_RETRIES = 3
 
 if t.TYPE_CHECKING:
@@ -105,12 +112,20 @@ class ManagedRuntimeClient(RuntimeClient):
     # ── Platform profile ──────────────────────────────────────────
 
     def set_platform_profile(self, profile: "Profile") -> None:
-        """Store the active platform profile for local server startup."""
+        """Store the active platform profile for local server startup.
+
+        Reads the *effective* scope (``organization`` / ``workspace`` /
+        ``project``), not the persisted ``default_*`` fields — CLI flags and
+        ``DREADNODE_*`` env vars land as ephemeral overrides, and the
+        runtime has to boot into the same scope the TUI validated and
+        talks to. Booting into the saved defaults instead sends session
+        reads and writes to a workspace the user never asked for.
+        """
         self._platform_server = profile.url
         self._platform_api_key = profile.api_key
-        self._platform_organization = profile.default_organization
-        self._platform_workspace = profile.default_workspace
-        self._platform_project = profile.default_project
+        self._platform_organization = profile.organization
+        self._platform_workspace = profile.workspace
+        self._platform_project = profile.project
 
     def clear_platform_profile(self) -> None:
         """Clear any stored platform profile for local-only runtime startup."""
@@ -343,8 +358,13 @@ class ManagedRuntimeClient(RuntimeClient):
         """Initialize the FastAPI app in-process, bind a loopback HTTP server
         for out-of-process workers, and connect in-proc callers via ASGI."""
         logger.info("Starting in-process runtime server")
+        from dreadnode.app.server.app import (
+            _start_litellm_warm,
+            get_state,
+            initialize_app,
+            server_lifecycle,
+        )
         from dreadnode.app.server.app import app as server_app
-        from dreadnode.app.server.app import get_state, initialize_app, server_lifecycle
 
         # Pre-bind the loopback socket BEFORE initialize_app/lifespan so the
         # auth middleware sees the token (it reads env at request time) and
@@ -360,6 +380,14 @@ class ManagedRuntimeClient(RuntimeClient):
         # whenever we ourselves required it (auth middleware enforces).
         if token is not None and self._auth_token is None:
             self._auth_token = token
+
+        # In flight before the expensive part, not after it. `server_lifecycle`
+        # waits for this future before anything marks ready, so starting it late
+        # would just move the same wait into startup; started here it overlaps
+        # `initialize_app` and the uvicorn bring-up instead (ENG-8259).
+        # `get_state()` is idempotent and `initialize_app` uses the same
+        # instance, so the future survives.
+        _start_litellm_warm(get_state())
 
         await asyncio.to_thread(
             initialize_app,

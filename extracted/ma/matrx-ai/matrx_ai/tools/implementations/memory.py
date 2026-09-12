@@ -164,11 +164,18 @@ async def memory_recall(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # isolated Coordinator because detached tasks deliberately inherit no
         # request lane or write owner.
 
-        async def _bump_access(mem_id: str, new_count: int) -> None:
+        # ToolContext exposes request identity through the ambient AppContext.
+        # Detached tasks deliberately do not retain that ContextVar, so capture
+        # the identity while the tool invocation is still inside its request.
+        memory_owner_id = ctx.user_id
+
+        async def _bump_access(
+            mem_id: str, new_count: int, *, user_id: str
+        ) -> None:
             try:
                 async with standalone_coordinator(
                     reason="agent_memory_access_count",
-                    user_id=getattr(ctx, "user_id", None),
+                    user_id=user_id,
                 ):
                     queue_agent_memory_update(
                         mem_id,
@@ -189,7 +196,11 @@ async def memory_recall(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         from matrx_utils import detached_task
         for item in limited:
             detached_task(
-                _bump_access(item.id, (item.access_count or 0) + 1),
+                _bump_access(
+                    item.id,
+                    (item.access_count or 0) + 1,
+                    user_id=memory_owner_id,
+                ),
                 name=f"memory_access_count:{item.id}",
             )
 

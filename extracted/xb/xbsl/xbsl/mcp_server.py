@@ -26,7 +26,7 @@ from typing import Any
 from xbsl import __version__
 from xbsl import (
     baseline as baseline_data, dataset, docs, environment, formedits, formhandlers,
-    formmodel, i18n, metamodel, report, scaffold, terms, uischema,
+    cijob, formmodel, i18n, metamodel, report, scaffold, uischema,
 )
 from xbsl.cli import _filter_requested, discover_with_context
 from xbsl.engine import RULES, active_rules, load, load_text, run, run_sources
@@ -211,6 +211,8 @@ def lint_paths(
     baseline: str | None = None,
     no_baseline: bool = False,
     root: str | None = None,
+    as_ci: bool = False,
+    as_ci_job: str | None = None,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -222,7 +224,20 @@ def lint_paths(
                   the way a project asks for its translation gaps or its typography;
     baseline    – a baseline file to apply; without it the project's own `.xbsllint-baseline`
                   is looked up above the checked files, exactly as the CLI does;
-    no_baseline – report the frozen findings too.
+    no_baseline – report the frozen findings too;
+    as_ci       – check with the rule set the project's CI job runs: the --select/--ignore/
+                  --enable flags and the baseline of the xbsl command in `.gitlab-ci.yml`
+                  (or a GitHub workflow) next to the project, ADDED to whatever this call
+                  asks for. This is what a preflight needs - a project turns rules on in its
+                  pipeline, and a run without them calls clean what the job fails on. The
+                  summary then carries `as_ci` {file, job, flags, jobs}; when there is no
+                  such file, or no xbsl command in it, the answer is {"error"} rather than a
+                  quieter verdict;
+    as_ci_job   – WHICH job of that file to take (implies `as_ci`). A pipeline runs the
+                  linter twice as soon as the project checks a second tree - the sources in
+                  one job, what `translate` wrote in another - and those judge different
+                  sets. Without a name the first command wins and `as_ci.jobs` names the
+                  others; a part of the name is enough when only one job fits.
     A path inside a project pulls the whole project in as context (the cross-file rules need
     it), the diagnostics are reported for the requested paths only.
     Returns {diagnostics: [...], summary: {...}}; when a baseline applied, the summary also
@@ -240,6 +255,19 @@ def lint_paths(
     base = _base(root)
     asked = [str(_under(base, p)) for p in paths]
     named = _under(base, baseline)
+    job = None
+    if as_ci or as_ci_job:
+        try:
+            job = cijob.find(asked, job=as_ci_job)
+        except cijob.CiLintError as exc:
+            return {"error": str(exc)}
+        select = list(select or []) + list(job.select)
+        ignore = list(ignore or []) + list(job.ignore)
+        enable = list(enable or []) + list(job.enable)
+        if named is None and not no_baseline:
+            adopted = job.baseline_file()
+            named = Path(adopted) if adopted else None
+            no_baseline = job.no_baseline
     files, requested = discover_with_context(asked)
     chosen = (_as_set(select), _as_set(ignore), _as_set(enable))
     diags = _filter_requested(
@@ -255,6 +283,17 @@ def lint_paths(
     payload["summary"].update(environment.provenance(active))
     payload["summary"].update(extra)
     payload["summary"]["root"] = str(base)
+    if job is not None:
+        payload["summary"]["as_ci"] = {
+            "file": str(job.path), "job": job.job, "flags": job.describe(),
+            # The jobs NOT taken: an agent comparing its verdict with a red pipeline has to
+            # know which of them it just reproduced.
+            "jobs": list(job.alternatives),
+            # Where the command actually stands, when an `include:` brought it in - and the
+            # includes nobody fetched, so a job that is missing from `jobs` has a reason.
+            "source": str(job.source) if job.source else None,
+            "unread_includes": list(job.unread),
+        }
     return payload
 
 
@@ -420,49 +459,22 @@ def _member_as_text(name: str) -> dict:
     how to ask again. `Type.Member` narrows, and a type that only INHERITS the member narrows
     to the ancestor that declares it - that is where the documentation is.
     """
-    hint, dot, tail = name.strip().rpartition(".")
-    member, owners = docs.member_places(tail if dot else name.strip())
-    if not owners:
+    found = docs.member_doc(name)
+    if not found:
         return {}
-    if dot and hint:
-        owners = _declaring_for(owners, hint) or owners
-    if len(owners) > 1:
+    owners = found.get("owners")
+    if owners:
         return {
-            "member": member,
-            "owners": [title for title, _ in owners],
-            "note": i18n.t("docs.member-of-many", member=member, count=len(owners),
-                           owner=min(owners, key=lambda place: len(place[0]))[0]),
+            "member": found["member"],
+            "owners": owners,
+            "note": i18n.t("docs.member-of-many", member=found["member"], count=len(owners),
+                           owner=min(owners, key=len)),
         }
-    page = docs.page(owners[0][1])
-    found = docs.member_block((page or {}).get("html") or "", member)
-    if page is None or found is None:  # pragma: no cover - the index is built from that page
-        return {}
-    page = dict(page)
+    page = dict(found["page"])
     page.pop("html", None)
-    page["member"], body = found
-    page["text"] = docs.plain_text(body)
+    page["member"] = found["member"]
+    page["text"] = docs.plain_text(found["block"])
     return page
-
-
-def _declaring_for(owners: list[tuple[str, str]], hint: str) -> list[tuple[str, str]]:
-    """The places of the type `hint` names, or of the ancestor that declares the member for it.
-
-    `Array.Size` names a type that only inherits the member: the page that documents it is the
-    ancestor's, and answering with the whole list of unrelated owners instead would bury it.
-    """
-    spellings = {form.lower() for form in (hint, terms.russian(hint, "types"),
-                                           terms.common_russian(hint)) if form}
-    direct = [place for place in owners if place[0].lower() in spellings]
-    if direct:
-        return direct
-    try:
-        bases = dataset.load_json("stdlib.json").get("bases") or {}
-    except dataset.DatasetError:  # pragma: no cover - no data, no inheritance to read
-        return []
-    ancestors = {name.lower() for spelling in (hint, terms.russian(hint, "types"),
-                                               terms.common_russian(hint)) if spelling
-                 for name in bases.get(spelling) or ()}
-    return [place for place in owners if place[0].lower() in ancestors]
 
 
 @mcp.tool()

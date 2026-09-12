@@ -213,7 +213,16 @@ def validate(
         db_by_name[dt.name] = dt
 
     def _is_owned(db: DbTool) -> bool:
-        return bool(set(db.executors) & owner_executors)
+        if set(db.executors) & owner_executors:
+            return True
+        # A native row with NO executor binding at all runs server-side by
+        # routing policy (``ToolRegistry.resolve_executor_binding`` → "server"),
+        # so its implementation can only live in this repo's @tool registry.
+        # Treat it as owned: otherwise a deleted / never-registered declaration
+        # for such a row is invisible to this gate and only surfaces when a
+        # request drops the tool at pre-flight (the 2026-09-12 ``memory``
+        # incident — 31 native rows were unbound and unwatched).
+        return not db.executors and db.source_kind == "native"
 
     report.db_count = sum(1 for d in db_by_name.values() if _is_owned(d))
     report.external_count = sum(1 for d in db_by_name.values() if not _is_owned(d))
@@ -340,7 +349,13 @@ def validate(
                 FindingKind.MISSING_IN_CODE,
                 Severity.ERROR,
                 name,
-                f"tool_def row bound to {list(db.executors)} has no @tool declaration in code.",
+                (
+                    f"tool_def row bound to {list(db.executors)} has no @tool declaration in code."
+                    if db.executors
+                    else "native tool_def row with NO executor binding (server-run by policy) "
+                    "has no @tool declaration in code — every request will drop it at "
+                    "pre-flight as unrunnable_tool_configuration."
+                ),
                 {"executors": list(db.executors), "source_kind": db.source_kind},
             )
         )

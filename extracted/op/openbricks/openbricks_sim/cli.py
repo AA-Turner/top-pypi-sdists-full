@@ -238,6 +238,37 @@ def _install_run_guard(robot, trace_path, max_sim_s):
     robot.runtime.add_tick(tick)
 
 
+def cmd_app(args):
+    """``openbricks sim`` / ``openbricks sim app``: launch the sim, the
+    native desktop application, with the shipped brick library."""
+    from openbricks_sim import bricks, native
+    bundles = [bricks.data_path(bricks.BUNDLE_NAME)] + list(args.bricks)
+    try:
+        binary = args.bin or native.ensure_binary(download=not args.no_download, progress=print)
+    except RuntimeError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        print("       the browser fallback is: openbricks sim workbench", file=sys.stderr)
+        return 1
+    return native.launch(binary, bundles, file=args.file)
+
+
+def cmd_workbench(args, serve=None):
+    """``openbricks sim workbench``: build the
+    Assembly Workbench page (shipped Technic bundle + any extra bundles
+    + an optional assembly file to open) and serve it locally."""
+    from openbricks_sim import workbench
+    extras = []
+    for path in args.bricks:
+        with open(path) as fh:
+            extras.append(json.load(fh))
+    doc = None
+    if args.file:
+        with open(args.file) as fh:
+            doc = json.load(fh)
+    page = workbench.render_page(extra_bundles=extras, doc=doc)
+    return (serve or workbench.serve)(page, port=args.port, open_browser=not args.no_browser)
+
+
 def _add_chassis_args(sub):
     """``--chassis`` / ``--x`` / ``--y`` / ``--yaw`` — the same on
     ``preview`` and ``run``. The pose flags default to None so a
@@ -276,7 +307,50 @@ def _build_parser():
         help="Print the openbricks package version and exit.",
     )
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
-    sub.required = True
+    sub.required = False        # bare ``openbricks sim`` launches the sim
+
+    p_app = sub.add_parser(
+        "app",
+        help="Launch the sim, the native desktop application (what bare "
+             "``openbricks sim`` does).",
+        description="Launches the sim: the Assembly Workbench as a native "
+                    "program with LEGO Technic bricks in exact LDraw "
+                    "geometry, your own STL parts, components, and the "
+                    "robot as the top component. The first run downloads "
+                    "the signed build for this platform into the cache "
+                    "(~/.cache/openbricks/sim); OPENBRICKS_SIM_BIN points "
+                    "at a build of your own.",
+    )
+    p_app.add_argument("file", nargs="?", default=None,
+                       help="A robot.assembly.json to open.")
+    p_app.add_argument("--bricks", action="append", default=[], metavar="FILE",
+                       help="An extra brick bundle from ``openbricks bricks "
+                            "convert`` to add to the library (repeatable).")
+    p_app.add_argument("--bin", default=None, metavar="PATH",
+                       help="Run this sim binary instead of the cached release build.")
+    p_app.add_argument("--no-download", action="store_true",
+                       help="Never download: fail if the build is not cached.")
+
+    p_wb = sub.add_parser(
+        "workbench",
+        help="Open the Assembly Workbench in your browser.",
+        description="Serves the Assembly Workbench on localhost and opens "
+                    "it: LEGO Technic bricks with exact LDraw geometry, "
+                    "STL imports, components, and the robot as the top "
+                    "component with mass, centre of mass and inertia "
+                    "computed at every level. Pass a robot.assembly.json "
+                    "to open it.",
+    )
+    p_wb.add_argument("file", nargs="?", default=None,
+                      help="A robot.assembly.json to open (otherwise the "
+                           "browser's last draft, else the example).")
+    p_wb.add_argument("--bricks", action="append", default=[], metavar="FILE",
+                      help="An extra brick bundle from ``openbricks bricks "
+                           "convert`` to add to the library (repeatable).")
+    p_wb.add_argument("--port", type=int, default=0,
+                      help="Port to serve on. Default: a free one.")
+    p_wb.add_argument("--no-browser", action="store_true",
+                      help="Print the URL instead of opening a browser.")
 
     p_preview = sub.add_parser(
         "preview",
@@ -353,11 +427,17 @@ def _build_parser():
 def main(argv=None):
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.command is None:
+        args = parser.parse_args(["app"] + list(argv if argv is not None else sys.argv[1:]))
+    if args.command == "app":
+        return cmd_app(args)
+    if args.command == "workbench":
+        return cmd_workbench(args)
     if args.command == "preview":
         return cmd_preview(args)
     if args.command == "run":
         return cmd_run(args)
-    parser.error("unknown command: %r" % args.command)
+    parser.error("unknown command: %r" % args.command)   # pragma: no cover - argparse rejects unknown commands
 
 
 if __name__ == "__main__":

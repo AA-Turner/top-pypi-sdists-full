@@ -9,6 +9,7 @@ import json
 import math
 import os
 import platform
+import random
 import socket
 import ssl
 import statistics
@@ -19,6 +20,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any, cast
 
 from compare_event_loops import (
     LOOP_CHOICES,
@@ -29,8 +31,8 @@ from compare_event_loops import (
     loop_factory_for,
     maybe_wait_closed,
     normalize_csv,
+    sampling_profiler_command,
 )
-from idle_statistics import latency_comparison
 
 SCENARIO_CHOICES = (
     "http_keepalive",
@@ -73,6 +75,60 @@ WEBSOCKET_RESPONSE = (
     "Connection: Upgrade\r\n"
     f"Sec-WebSocket-Accept: {WEBSOCKET_ACCEPT}\r\n\r\n"
 ).encode("ascii")
+
+
+def latency_comparison(
+    reference: list[float],
+    candidate: list[float],
+    *,
+    paired: bool = True,
+    threshold: float = 5.0,
+    samples: int = 10_000,
+    seed: int = 0,
+) -> dict[str, object]:
+    """Bootstrap whole process runs; negative change means lower latency."""
+    if not reference or not candidate or (paired and len(reference) != len(candidate)):
+        raise ValueError("nonempty matched runs are required for paired comparison")
+    if any(not math.isfinite(value) or value <= 0 for value in reference + candidate):
+        raise ValueError("latencies must be finite and positive")
+    if samples <= 0 or not math.isfinite(threshold) or threshold < 0:
+        raise ValueError("samples must be positive and threshold nonnegative")
+
+    old = [math.log(value) for value in reference]
+    new = [math.log(value) for value in candidate]
+    differences = [new_value - old_value for old_value, new_value in zip(old, new)]
+    rng = random.Random(seed)
+    estimate = statistics.mean(new) - statistics.mean(old)
+    bootstrap = sorted(
+        statistics.mean(rng.choices(differences, k=len(differences)))
+        if paired
+        else statistics.mean(rng.choices(new, k=len(new)))
+        - statistics.mean(rng.choices(old, k=len(old)))
+        for _ in range(samples)
+    )
+    low, high = (
+        100 * math.expm1(bootstrap[int(quantile * (samples - 1))])
+        for quantile in (0.025, 0.975)
+    )
+    enough = min(len(old), len(new)) >= 7
+    classification = "inconclusive"
+    if enough and high < -threshold:
+        classification = "improved"
+    elif enough and low > threshold:
+        classification = "regressed"
+    return {
+        "metric": "median_cycle_p95_ms",
+        "change_percent": 100 * math.expm1(estimate),
+        "ci95_percent": [low, high] if enough else None,
+        "classification": classification,
+        "threshold_percent": threshold,
+        "reference_runs": len(old),
+        "candidate_runs": len(new),
+        "paired": paired,
+        "bootstrap_samples": samples,
+        "seed": seed,
+        "reason": "fewer than 7 process runs" if not enough else "run-level bootstrap",
+    }
 
 
 @dataclass(frozen=True)
@@ -191,18 +247,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile-rsloop-dir",
         type=Path,
-        help="Run one unmeasured Tracy pass per rsloop scenario before measurements.",
-    )
-    parser.add_argument(
-        "--allow-profiler-build",
-        action="store_true",
-        help="Allow measured rsloop runs from a Tracy-enabled build.",
+        help="Write one Python 3.15 sampling-profiler flamegraph per rsloop scenario.",
     )
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--child-runs", type=int, default=1, help=argparse.SUPPRESS)
     parser.add_argument("--loop", choices=LOOP_CHOICES, help=argparse.SUPPRESS)
     parser.add_argument("--scenario", choices=SCENARIO_CHOICES, help=argparse.SUPPRESS)
-    parser.add_argument("--profile-label", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -242,7 +292,7 @@ def validate_args(args: argparse.Namespace) -> None:
             cpus = {int(cpu) for cpu in args.cpu_affinity.split(",")}
             if not cpus or min(cpus) < 0:
                 raise ValueError("CPU IDs must be nonnegative")
-            os.sched_setaffinity(0, cpus)
+            cast(Any, os).sched_setaffinity(0, cpus)
         except (ValueError, OSError) as exc:
             raise SystemExit(f"invalid --cpu-affinity: {exc}") from exc
     for attribute, option in (
@@ -574,12 +624,12 @@ async def run_library_websocket_messages(
     if library == "websockets":
         from websockets.asyncio.server import serve
 
-        async def echo(websocket: object) -> None:
+        async def websockets_echo(websocket: Any) -> None:
             async for message in websocket:
                 await websocket.send(message)
 
         server = await serve(
-            echo,
+            websockets_echo,
             "127.0.0.1",
             0,
             ssl=server_ssl,
@@ -595,7 +645,7 @@ async def run_library_websocket_messages(
     elif library == "aiohttp":
         from aiohttp import WSMsgType, web
 
-        async def echo(request: object) -> object:
+        async def aiohttp_echo(request: Any) -> Any:
             websocket = web.WebSocketResponse(compress=False)
             await websocket.prepare(request)
             async for message in websocket:
@@ -606,12 +656,13 @@ async def run_library_websocket_messages(
             return websocket
 
         app = web.Application()
-        app.router.add_get("/socket", echo)
+        app.router.add_get("/socket", aiohttp_echo)
         runner = web.AppRunner(app, access_log=None)
         await runner.setup()
         site = web.TCPSite(runner, "127.0.0.1", 0, ssl_context=server_ssl)
         await site.start()
-        sockets = site._server.sockets
+        assert site._server is not None
+        sockets = cast(Any, site._server).sockets
         host, port = sockets[0].getsockname()[:2]
 
         async def stop_server() -> None:
@@ -623,7 +674,7 @@ async def run_library_websocket_messages(
         from starlette.routing import WebSocketRoute
         from starlette.websockets import WebSocketDisconnect
 
-        async def echo(websocket: object) -> None:
+        async def starlette_echo(websocket: Any) -> None:
             await websocket.accept()
             try:
                 while True:
@@ -631,7 +682,7 @@ async def run_library_websocket_messages(
             except WebSocketDisconnect:
                 pass
 
-        app = Starlette(routes=[WebSocketRoute("/socket", echo)])
+        app = Starlette(routes=[WebSocketRoute("/socket", starlette_echo)])
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind(("127.0.0.1", 0))
@@ -668,10 +719,10 @@ async def run_library_websocket_messages(
 
     scheme = "wss" if use_tls else "ws"
     uri = f"{scheme}://{host}:{port}/socket"
-    connections: list[object] = []
+    connections: list[Any] = []
     latencies: list[float] = []
 
-    async def open_client() -> object:
+    async def open_client() -> Any:
         websocket = await connect(
             uri,
             ssl=client_ssl,
@@ -681,7 +732,7 @@ async def run_library_websocket_messages(
         connections.append(websocket)
         return websocket
 
-    async def client(client_id: int, websocket: object) -> int:
+    async def client(client_id: int, websocket: Any) -> int:
         transferred = 0
         for index in range(args.requests_per_connection):
             size = args.websocket_payload_sizes[
@@ -1027,51 +1078,24 @@ def child_main(args: argparse.Namespace) -> int:
     )
     ensure_idle_connection_capacity(connection_count)
 
-    if args.profile_label:
-        if args.loop != "rsloop":
-            raise RuntimeError("Tracy profiling is only supported for rsloop")
-        import rsloop
-
-        if not rsloop.profiler_compiled():
-            raise RuntimeError(
-                "Tracy profiling was requested, but rsloop was built without profiler "
-                "support; rebuild with `uv run --with maturin maturin develop "
-                "--release --features profiler`"
-            )
-    elif args.loop == "rsloop":
-        import rsloop
-
-        if rsloop.profiler_compiled() and not args.allow_profiler_build:
-            raise RuntimeError(
-                "refusing to measure a Tracy-enabled rsloop build; rebuild without "
-                "--features profiler or pass --allow-profiler-build explicitly"
-            )
-
     results: list[MatrixResult] = []
-    if args.profile_label:
-        print(f"[profile] Tracy session label: {args.profile_label}", flush=True)
     for _ in range(args.child_runs):
         environment = {
             "platform": platform.platform(),
             "python": sys.version,
             "cpu_count": os.cpu_count(),
-            "cpu_affinity": sorted(os.sched_getaffinity(0))
+            "cpu_affinity": sorted(cast(Any, os).sched_getaffinity(0))
             if hasattr(os, "sched_getaffinity")
             else None,
-            "load_average_start": os.getloadavg()
+            "load_average_start": cast(Any, os).getloadavg()
             if hasattr(os, "getloadavg")
             else None,
             "pid": os.getpid(),
         }
-        if args.profile_label:
-            with rsloop.profile():
-                awaitable = SCENARIO_RUNNERS[args.scenario](args.loop, args)
-                result = run_with_loop(args.loop, awaitable)
-        else:
-            awaitable = SCENARIO_RUNNERS[args.scenario](args.loop, args)
-            result = run_with_loop(args.loop, awaitable)
+        awaitable = SCENARIO_RUNNERS[args.scenario](args.loop, args)
+        result = run_with_loop(args.loop, awaitable)
         environment["load_average_end"] = (
-            os.getloadavg() if hasattr(os, "getloadavg") else None
+            cast(Any, os).getloadavg() if hasattr(os, "getloadavg") else None
         )
         results.append(
             MatrixResult(
@@ -1095,7 +1119,6 @@ def child_command(
     args: argparse.Namespace,
     loop_name: str,
     scenario: str,
-    profile_label: str | None = None,
     child_runs: int = 1,
 ) -> list[str]:
     cmd = [
@@ -1137,12 +1160,8 @@ def child_command(
         "--child-runs",
         str(child_runs),
     ]
-    if profile_label:
-        cmd.extend(("--profile-label", profile_label))
     if args.cpu_affinity:
         cmd.extend(("--cpu-affinity", args.cpu_affinity))
-    if args.allow_profiler_build:
-        cmd.append("--allow-profiler-build")
     return cmd
 
 
@@ -1150,14 +1169,20 @@ def run_child_batch(
     args: argparse.Namespace,
     loop_name: str,
     scenario: str,
-    profile_label: str | None = None,
+    profile_output: Path | None = None,
     child_runs: int = 1,
 ) -> list[MatrixResult]:
     env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (str(Path(__file__).resolve().parent), env.get("PYTHONPATH")))
+    )
     if loop_name == "rsloop":
         env["RSLOOP_USE_FAST_STREAMS"] = "1"
+    cmd = child_command(args, loop_name, scenario, child_runs)
+    if profile_output is not None:
+        cmd = sampling_profiler_command(cmd, profile_output)
     proc = subprocess.run(
-        child_command(args, loop_name, scenario, profile_label, child_runs),
+        cmd,
         cwd=ROOT,
         env=env,
         capture_output=True,
@@ -1184,7 +1209,11 @@ def run_child_batch(
     lines = [line for line in proc.stdout.splitlines() if line.strip()]
     if not lines:
         raise RuntimeError(f"{loop_name}/{scenario} produced no output")
-    payload = json.loads(lines[-1])
+    payload = next(
+        json.loads(line)
+        for line in reversed(lines)
+        if line.lstrip().startswith(("{", "["))
+    )
     if isinstance(payload, dict):
         payload = [payload]
     return [MatrixResult(**item) for item in payload]
@@ -1194,9 +1223,9 @@ def run_child(
     args: argparse.Namespace,
     loop_name: str,
     scenario: str,
-    profile_label: str | None = None,
+    profile_output: Path | None = None,
 ) -> MatrixResult:
-    return run_child_batch(args, loop_name, scenario, profile_label)[0]
+    return run_child_batch(args, loop_name, scenario, profile_output)[0]
 
 
 def percentile(values: list[float], fraction: float) -> float:
@@ -1293,22 +1322,8 @@ def parent_main(args: argparse.Namespace) -> int:
     if not available:
         raise SystemExit("no benchmarkable loops are available")
 
-    if args.profile_rsloop_dir:
-        if "rsloop" not in available:
-            raise SystemExit("--profile-rsloop-dir requires rsloop in --loops")
-        import rsloop
-
-        if not rsloop.profiler_compiled():
-            raise SystemExit(
-                "--profile-rsloop-dir requires a Tracy-enabled rsloop build. Run:\n"
-                "  uv run --with maturin maturin develop --release --features profiler"
-            )
-        if not args.allow_profiler_build:
-            raise SystemExit(
-                "this invocation profiles and then measures the same Tracy-enabled build; "
-                "pass --allow-profiler-build to acknowledge that its measured results are "
-                "not comparable to a normal release build"
-            )
+    if args.profile_rsloop_dir and "rsloop" not in available:
+        raise SystemExit("--profile-rsloop-dir requires rsloop in --loops")
 
     output: list[dict[str, object]] = []
     for scenario in scenarios:
@@ -1327,7 +1342,7 @@ def parent_main(args: argparse.Namespace) -> int:
                     args,
                     "rsloop",
                     scenario,
-                    str(args.profile_rsloop_dir / "rsloop-idle_connections"),
+                    args.profile_rsloop_dir / "rsloop-idle_connections.html",
                 )
             for block in range(args.repeat):
                 # AB/BA for two loops; rotate the first loop for larger sets.
@@ -1355,7 +1370,7 @@ def parent_main(args: argparse.Namespace) -> int:
                             for run in measured
                         ],
                     )
-                    interval = comparison["ci95_percent"]
+                    interval = cast(list[float] | None, comparison["ci95_percent"])
                     ci_text = (
                         f"95% CI [{interval[0]:+.1f}%, {interval[1]:+.1f}%]"
                         if interval
@@ -1392,8 +1407,9 @@ def parent_main(args: argparse.Namespace) -> int:
             print(f"Running {scenario} on {loop_name}...")
             if args.profile_rsloop_dir and loop_name == "rsloop":
                 args.profile_rsloop_dir.mkdir(parents=True, exist_ok=True)
-                label = str(args.profile_rsloop_dir / f"rsloop-{scenario}")
-                run_child(args, loop_name, scenario, label)
+                output_path = args.profile_rsloop_dir / f"rsloop-{scenario}.html"
+                print(f"  writing sampling profile to {output_path}")
+                run_child(args, loop_name, scenario, output_path)
             if args.measurement_mode == "warm":
                 batch = run_child_batch(
                     args,

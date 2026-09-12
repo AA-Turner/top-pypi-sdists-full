@@ -1,3 +1,8 @@
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier, BrokenBarrierError
+
+from django.core.cache import caches
+
 import pytest
 
 from allauth.core.internal import ratelimit
@@ -18,6 +23,63 @@ def test_rollback_consume(rf, enable_cache):
     usage1.rollback()
     assert consume()
     assert not consume()
+
+
+def test_concurrent_consume(rf, enable_cache, monkeypatch):
+    request = rf.post("/")
+    action = "foo"
+    key = "subject"
+    config = {action: "2/m/key"}
+    rate = ratelimit.parse_rates(config[action])[0]
+    cache_key = ratelimit.get_cache_key(request, action=action, rate=rate, key=key)
+
+    cache_backend_class = type(caches["default"])
+    original_get = cache_backend_class.get
+    workers = 5
+    read_barrier = Barrier(workers)
+
+    def synchronized_get(self, key, *args, **kwargs):
+        value = original_get(self, key, *args, **kwargs)
+        if key == cache_key:
+            try:
+                # We have locking in place, so this should time out.
+                read_barrier.wait(timeout=0.1)
+                assert False, "concurrent access to rate-limit history"
+            except BrokenBarrierError:
+                pass
+        return value
+
+    monkeypatch.setattr(cache_backend_class, "get", synchronized_get)
+    start_barrier = Barrier(workers)
+
+    def consume(_):
+        start_barrier.wait()
+        return ratelimit.consume(request, action=action, config=config, key=key)
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        usages = list(executor.map(consume, range(workers)))
+
+    assert sum(usage is not None for usage in usages) == 2
+
+
+def test_lock_contention_fails_closed(rf, enable_cache, monkeypatch):
+    request = rf.post("/")
+    config = {"foo": "2/m/key"}
+    cache_backend_class = type(caches["default"])
+    monkeypatch.setattr(ratelimit, "CACHE_LOCK_WAIT_TIMEOUT", 0)
+    monkeypatch.setattr(cache_backend_class, "add", lambda *args, **kwargs: False)
+
+    assert (
+        ratelimit.consume(request, action="foo", config=config, key="subject") is None
+    )
+    with pytest.raises(ratelimit.RateLimited):
+        ratelimit.consume(
+            request,
+            action="foo",
+            config=config,
+            key="subject",
+            raise_exception=True,
+        )
 
 
 def test_apply_rate():

@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.434.0", "uqff_calculator.VERSION = 0.434.0 (THE PROOF SET SHIP: the NS ladder consolidated - zero open theory rungs, four data fronts, three flags, the claim at honest strength)")
+assert_that(C.VERSION == "0.435.0", "uqff_calculator.VERSION = 0.435.0 (THE IN-MEDIUM SAMPLE SHIP: the pair cap's second branch meets wall-bounded turbulence and holds - and the statistic says plainly what it cannot decide)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15156,6 +15156,23 @@ assert_that('CAP HOLDS' in _b276g['verdict'] and abs(_b276g['worst_ratio'] - 0.0
             and 'OPEN' in _b276['power_limit'].upper() or 'stays the OPEN' in _b276['power_limit'],
             "B276 - FIRST CONTACT (PAPER_2271): the derived cap graded on REAL measured turbulence - JHTDB isotropic8192, the highest-Reynolds public DNS (Re_lambda ~ 1300), queried through the OFFICIAL REST service with the PUBLICLY SANCTIONED testing token at deterministic bit-reproducible points - and THE CAP HOLDS: sampled 1182-form ratios 0.028660 and 0.024624 with sub-batch max 0.084421, every one at least 10x under 17/20, verdict issued by the same tier-3 harness that would have said CAP IS DEAD just as plainly; the pipeline proves it computes real physics by reproducing the textbook positive-stretching skewness (0.778/0.754); and the power limit rides in the record - random sampling cannot reach the far tail, so the extreme-event scan remains THE kill test, OPEN, exactly as before; a sampled PASS is a real grade, not the final word")
 
+# ---- B277 2026-09-11: THE IN-MEDIUM SAMPLE - the pair cap's second branch meets wall-bounded turbulence ----
+_b277 = _b267.in_medium_sample_grade()
+_b277m = _b267.grade_cap_against_dns('jhtdb_grade/jhtdb_channel_grade_2026-09-10.csv', cap=197.0 / 200.0)
+_b277v = _b267.grade_cap_against_dns('jhtdb_grade/jhtdb_channel_grade_2026-09-10.csv')
+assert_that('CAP HOLDS' in _b277m['verdict'] and 'CAP HOLDS' in _b277v['verdict']
+            and abs(_b277m['worst_ratio'] - 0.073405) < 1e-9
+            and abs(_b277m['cap'] - 197.0 / 200.0) < 1e-15 and abs(_b277v['cap'] - 17.0 / 20.0) < 1e-15
+            and _b277v['cap_label'] == '17/20'
+            and _b277['global_ratios'] == (0.039143, 0.031072)
+            and _b277['margin_in_medium'] > 10.0 and _b277['margin_vacuum'] > 10.0
+            and 'IN_MEDIUM_HOLDS_SAMPLED_B277' in _b277['status']
+            and 'NOT_DISCRIMINATION' in _b277['discrimination']
+            and 'walls' in _b277['disclosures']
+            and 'B277' in _b275['awaiting_outside_data'][1] and 'OPEN' in _b275['awaiting_outside_data'][1]
+            and len(_b275['awaiting_outside_data']) == 4,
+            "B277 - THE IN-MEDIUM SAMPLE (PAPER_2272): the pair cap's SECOND branch meets real wall-bounded turbulence - JHTDB channel flow (Re_tau ~ 1000), the same official REST service, the same publicly sanctioned testing token, deterministic bit-reproducible points with the walls EXCLUDED and said so - and THE IN-MEDIUM BRANCH HOLDS: sampled 1182-form ratios 0.039143 and 0.031072 with sub-batch max 0.073405, thirteen times under 197/200 and eleven times under 17/20, verdict issued by the tier-3 harness now carrying the cap argument its B269 docstring promised (first real use); the honesty is the headline - at these margins the sampled statistic CANNOT DISCRIMINATE the two branches, both pass by an order of magnitude, so this is a CONSISTENCY PASS for the in-medium branch and NOT the pair-cap discrimination, which stays OPEN in the far tail with the kill test; the proof set's data front 2 says exactly that in ns_proof_set(), the paper, the registry, and here")
+
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----
 import os as _b268os, tempfile as _b268tmp, csv as _b268csv
 _b268d = _b267.draw_field(n=12, steps=3, ppm_path=_b268os.path.join(_b268tmp.gettempdir(), '_b268_field.ppm'))
@@ -15851,6 +15868,23 @@ if _shos.path.isdir('.git'):
 assert_that(_sg9_ok,
             "SHIP GUARD v9: TAG-CHAIN CONTINUITY - every version in UNIFIED_REGISTRY_VERSION.txt except the current prep must have a git tag (authorized gap: v0.413.0, THE USER MANUAL BAND - prepared, silent ship failure, content published inside v0.414.0); " + _sg9_msg)
 
+# ---- SHIP GUARD v10 (v0.435.0 prep, Daniel: "fix issues discovered above"): the unguarded neighbours ----
+# The staleness sweep found three things no guard watched: the README whitepapers badge (sat at 2292 while
+# whitepapers/ held 2,316 files), the README census sentence (still said 2,255 / 2,310 dispatch keys), and the
+# WHITEPAPER_INDEX title column copy-propagated from PAPER_2261 ("K4 Geological Landmark Family") into the
+# eleven rows 2262-2272 that followed it. Same rule as v3: a guard that checks one figure and not its
+# neighbours is a guard with a hole. All three are now measured live.
+import glob as _sg10glob
+_sg10_wp = len(_sg10glob.glob('whitepapers/*.md'))
+assert_that(('whitepapers-%d-' % _sg10_wp) in _rd,
+            "SHIP GUARD v10a: README whitepapers badge must carry the LIVE count of whitepapers/*.md (%d) - it sat at 2292 unguarded for many ships" % _sg10_wp)
+assert_that(('%s distinct wired papers / %s dispatch keys' % ('{:,}'.format(_live_dispatch - 55), '{:,}'.format(_live_dispatch))) in _rd,
+            "SHIP GUARD v10b: README census sentence ('one number, one source') must itself carry the live distinct/dispatch figures (%d / %d) - it said 2,255 / 2,310 while claiming to be the live source" % (_live_dispatch - 55, _live_dispatch))
+_sg10_rows = _stre.findall(r'^\| . \| (PAPER_\d+[A-Za-z]*) \| ([^|]+) \|', _wi, _stre.M)
+_sg10_bad = [n for n, t in _sg10_rows if int(_stre.sub(r'\D', '', n)[:4] or 0) >= 2262 and 'K4 Geological Landmark Family' in t]
+assert_that(not _sg10_bad and len(_sg10_rows) > 2000,
+            "SHIP GUARD v10c: WHITEPAPER_INDEX title column must not carry PAPER_2261's title on later papers (copy-propagation caught at v0.435.0 on 2262-2272: %s) - each landmark row names its own paper" % _sg10_bad)
+
 # ---- BAND-TRAIL CLOSURE (Daniel's still-missing-files catch, 2026-09-01): all 8 registry satellites carry the band rows ----
 _bt_sats = ['UNIFIED_REGISTRY_MERGED.csv', 'UNIFIED_REGISTRY_GAPS.csv', 'UNIFIED_REGISTRY_DUPLICATES.csv',
             'UNIFIED_REGISTRY_R1_QUEUE.csv', 'UNIFIED_REGISTRY_R2_MAPPING.csv', 'UNIFIED_REGISTRY_R3_LEDGER.csv',
@@ -16032,7 +16066,7 @@ assert_that('np.trapz(' not in _wa403 and '_TRAPEZOID' in _wa403
             "PORTABILITY GUARD 2 (v0.403.0 remanufacture lesson): numpy >= 2.0 REMOVED the trapz alias and the CI runners resolve newer numpy than the authoring sandbox's proxy-pinned wheel - the assembler now prefers np.trapezoid with a 1.x fallback, direct np.trapz calls are banned from the assembler source, and the overburden integral is re-verified here on the current interpreter's numpy; standing rule: local dependency versions are NOT the ship's dependency versions - removed-alias sweeps (trapz/in1d/alltrue/product/row_stack/NaN) are part of ship prep")
 import re as _re404
 _desc404 = _re404.search(r'description = "([^"]+)"', open('pyproject.toml', encoding='utf-8').read()).group(1)
-_dg404 = _re404.search(r'gate ([\d,]+)/0', _desc404)
+_dg404 = _re404.search(r'gate ([\d,]+)/0', _desc404, _re404.I)  # v0.435.0: case-insensitive - 'Gate 6,099/0' went red on a capital letter, which is not staleness
 assert_that(_dg404 is not None and int(_dg404.group(1).replace(',', '')) == _g3_gate,
             "SHIP GUARD v5 (Daniel's catch, v0.403.0 remanufacture): the PyPI LABEL - the pyproject description - must state the LIVE gate-assertion count, verified here on every run; the first product ship's label said 5,924 while the gate stood at 5,925 because the remanufacture pin bumped the count without re-syncing the one string PyPI displays - the label of the product is part of the product, and it can never silently go stale again")
 

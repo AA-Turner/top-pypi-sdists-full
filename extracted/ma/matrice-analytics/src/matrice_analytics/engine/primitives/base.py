@@ -327,6 +327,29 @@ class PipelineDetection(Detection):
     normalized and why a missing confidence channel is ``0.0``.
     """
 
+    identity: str | None = None
+    """This detection's resolved identity, or ``None`` when it has none.  MLAPP-262 (E1).
+
+    A **canonical** subject key from upstream -- FR's ``person_id``, LPR's *normalized* plate --
+    naming who or what this detection is, not what class it belongs to.  ``None`` is the honest
+    value and the common one: an unrecognized face, a plate the resolver could not read, or any
+    stream with no resolver at all.  Read by ``identity_match`` and by ``unique_count`` when it
+    counts ``by: identity``.
+
+    **The engine never populates this.** Nothing on the stage path can: resolving an identity
+    means a watchlist lookup, which is I/O and vector arithmetic the engine deliberately has
+    neither the dependencies nor the frame budget for.  It arrives already resolved on the
+    detection, from the field named by ``model.identity_field``.
+
+    🔴 **Canonical means exactly-comparable, and this is load-bearing for LPR.** Everything
+    downstream de-duplicates by exact match.  ``person_id`` is exact.  Plate text is not --
+    ``EY09VWS``, ``EY09VW5`` and ``EV09VWS`` are one plate -- so an unnormalized plate written
+    here **silently inflates** every distinct-subject count.  No error, just a larger number.
+
+    Pipeline-internal, like :attr:`entity` and :attr:`zone`: :meth:`to_wire` names every wire
+    field explicitly, so this one cannot reach a payload by having been added here.
+    """
+
     @model_validator(mode="after")
     def _entity_defaults_to_category(self) -> "PipelineDetection":
         """Fill ``entity`` from ``category`` rather than leaving it empty.

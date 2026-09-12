@@ -1294,7 +1294,7 @@ class duplicate_compositing_node_group(bpy.ops._BPyOpsSubModOp):
 
         :param execution_context:
         :param undo:
-        :param SCENE_OT_duplicate_compositor_effect_node_group: Duplicate Compositor Effect Node Group, Duplicate the active scene compositor effect node group and assign the new node group to the effect (optional, `bpy.ops.scene.duplicate_compositor_effect_node_group` keyword arguments)
+        :param SCENE_OT_duplicate_compositor_effect_node_group: Duplicate Scene Effect Node Group, Duplicate the active scene effect node group and assign the new node group to the effect (optional, `bpy.ops.scene.duplicate_compositor_effect_node_group` keyword arguments)
         :return: Result of the operator call.
         """
 

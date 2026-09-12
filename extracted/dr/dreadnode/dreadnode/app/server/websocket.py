@@ -150,9 +150,12 @@ class RuntimeSessionProtocol(t.Protocol):
         agent: str | None = None,
         reset: bool = False,
         generate_params_extra: dict[str, t.Any] | None = None,
+        metadata: dict[str, t.Any] | None = None,
     ) -> tuple[str, asyncio.Queue[dict[str, t.Any] | None]]: ...
 
-    async def cancel(self) -> bool: ...
+    async def cancel(self, *, drop_queued: bool = False) -> bool: ...
+
+    async def cancel_queued(self, turn_id: str, *, drop_queued: bool = False) -> bool: ...
 
     def resolve_human_response(self, response: HumanInputResponse) -> bool: ...
 
@@ -492,6 +495,7 @@ class RuntimeWebSocketTransport:
             agent=payload.agent,
             reset=payload.reset,
             generate_params_extra=payload.generate_params_extra,
+            metadata=payload.metadata,
         )
         # Platform sync is best-effort and runs off the event loop so the
         # websocket handler doesn't block on a network round-trip. The task
@@ -560,6 +564,16 @@ class RuntimeWebSocketTransport:
             )
             return
         if payload.turn_id is not None and payload.turn_id != session.active_turn_id:
+            if await session.cancel_queued(payload.turn_id, drop_queued=payload.drop_queued):
+                await self._send_command_ack(
+                    command_id=command.command_id,
+                    session_id=command.session_id,
+                    op=command.op,
+                    payload={"status": "cancelled"},
+                )
+                return
+        # The queued turn may have become active while acquiring the queue lock.
+        if payload.turn_id is not None and payload.turn_id != session.active_turn_id:
             await self._send_command_error(
                 detail=(
                     f"Active turn mismatch: requested {payload.turn_id}, "
@@ -572,7 +586,11 @@ class RuntimeWebSocketTransport:
             )
             return
 
-        was_busy = await session.cancel()
+        was_busy = (
+            await session.cancel(drop_queued=True)
+            if payload.drop_queued
+            else await session.cancel()
+        )
         await self._send_command_ack(
             command_id=command.command_id,
             session_id=command.session_id,

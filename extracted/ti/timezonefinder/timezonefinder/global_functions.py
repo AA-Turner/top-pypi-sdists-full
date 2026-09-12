@@ -33,15 +33,27 @@ Example:
 """
 
 import threading
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import numpy as np
+
 from timezonefinder.timezonefinder import TimezoneFinder
-from timezonefinder.configs import CoordPairs, CoordLists
+from timezonefinder.configs import CoordArrayLike, CoordPairs, CoordLists, OnInvalid
 
 __all__ = [
     "timezone_at",
+    "timezone_ids_at",
+    "timezone_names_at",
     "timezone_at_land",
+    "timezone_ids_at_land",
+    "timezone_names_at_land",
     "unique_timezone_at",
     "certain_timezone_at",
     "get_geometry",
+    "zoneinfo_at",
+    "utc_offset_at",
+    "localize",
 ]
 
 # Global singleton instance and lock for thread-safe initialization
@@ -98,6 +110,55 @@ def timezone_at(*, lng: float, lat: float) -> str | None:
     return _get_tf_instance().timezone_at(lng=lng, lat=lat)
 
 
+def timezone_ids_at(
+    *,
+    lngs: CoordArrayLike,
+    lats: CoordArrayLike,
+    on_invalid: OnInvalid = "raise",
+) -> np.ndarray:
+    """
+    Look up many coordinates at once using the global singleton, answering with ids.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_ids_at`, which documents the arguments,
+    the ``on_invalid`` policies and every error raised.
+
+    :return: one ``int16`` timezone id per input coordinate, or ``NO_ZONE_ID`` (``-1``)
+        where the scalar lookup would answer ``None``
+
+    Example:
+        >>> ids = timezone_ids_at(lngs=[13.358, 2.3522], lats=[52.5061, 48.8566])
+        >>> ids.dtype
+        dtype('int16')
+    """
+    return _get_tf_instance().timezone_ids_at(
+        lngs=lngs, lats=lats, on_invalid=on_invalid
+    )
+
+
+def timezone_names_at(
+    *,
+    lngs: CoordArrayLike,
+    lats: CoordArrayLike,
+    on_invalid: OnInvalid = "raise",
+) -> list[str | None]:
+    """
+    Look up many coordinates at once using the global singleton, answering with names.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_names_at`. Prefer
+    :func:`timezone_ids_at` whenever the names are not the end product.
+
+    :return: one timezone name per input coordinate, or ``None`` where no zone covers the
+        point or the coordinate was skipped
+
+    Example:
+        >>> timezone_names_at(lngs=[13.358, 2.3522], lats=[52.5061, 48.8566])
+        ['Europe/Berlin', 'Europe/Paris']
+    """
+    return _get_tf_instance().timezone_names_at(
+        lngs=lngs, lats=lats, on_invalid=on_invalid
+    )
+
+
 def timezone_at_land(*, lng: float, lat: float) -> str | None:
     """
     Look up the land timezone for a geographic coordinate using the global singleton.
@@ -115,6 +176,55 @@ def timezone_at_land(*, lng: float, lat: float) -> str | None:
         instances per thread to avoid singleton overhead.
     """
     return _get_tf_instance().timezone_at_land(lng=lng, lat=lat)
+
+
+def timezone_ids_at_land(
+    *,
+    lngs: CoordArrayLike,
+    lats: CoordArrayLike,
+    on_invalid: OnInvalid = "raise",
+) -> np.ndarray:
+    """
+    Look up many coordinates at once using the global singleton, answering with land ids.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_ids_at_land`, which documents the
+    arguments, the ``on_invalid`` policies and every error raised.
+
+    :return: one ``int16`` timezone id per input coordinate, or ``NO_ZONE_ID`` (``-1``)
+        where :func:`timezone_at_land` would answer ``None``
+
+    Example:
+        >>> ids = timezone_ids_at_land(lngs=[13.358, -30.0], lats=[52.5061, 0.0])
+        >>> ids[1]  # mid-Atlantic: an ocean zone, so no land answer
+        np.int16(-1)
+    """
+    return _get_tf_instance().timezone_ids_at_land(
+        lngs=lngs, lats=lats, on_invalid=on_invalid
+    )
+
+
+def timezone_names_at_land(
+    *,
+    lngs: CoordArrayLike,
+    lats: CoordArrayLike,
+    on_invalid: OnInvalid = "raise",
+) -> list[str | None]:
+    """
+    Look up many coordinates at once using the global singleton, answering with land names.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_names_at_land`. Prefer
+    :func:`timezone_ids_at_land` whenever the names are not the end product.
+
+    :return: one timezone name per input coordinate, or ``None`` where an ocean zone
+        matched, no zone covers the point, or the coordinate was skipped
+
+    Example:
+        >>> timezone_names_at_land(lngs=[13.358, -30.0], lats=[52.5061, 0.0])
+        ['Europe/Berlin', None]
+    """
+    return _get_tf_instance().timezone_names_at_land(
+        lngs=lngs, lats=lats, on_invalid=on_invalid
+    )
 
 
 def unique_timezone_at(*, lng: float, lat: float) -> str | None:
@@ -163,6 +273,61 @@ def certain_timezone_at(*, lng: float, lat: float) -> str | None:
         This is primarily useful with custom timezone data.
     """
     return _get_tf_instance().certain_timezone_at(lng=lng, lat=lat)
+
+
+def zoneinfo_at(*, lng: float, lat: float) -> ZoneInfo | None:
+    """
+    Look up the timezone for a coordinate as a ``zoneinfo.ZoneInfo``, using the global singleton.
+
+    Equivalent to :meth:`TimezoneFinder.zoneinfo_at`, which documents the arguments and
+    every error raised - including the ``tzdata`` a Windows machine needs installed
+    before any IANA name resolves.
+
+    :return: the zone covering the point, or None where :func:`timezone_at` answers None
+
+    Example:
+        >>> zoneinfo_at(lng=13.358, lat=52.5061)
+        zoneinfo.ZoneInfo(key='Europe/Berlin')
+    """
+    return _get_tf_instance().zoneinfo_at(lng=lng, lat=lat)
+
+
+def utc_offset_at(
+    *, lng: float, lat: float, when: datetime | None = None
+) -> timedelta | None:
+    """
+    Get the UTC offset in force at a coordinate, using the global singleton.
+
+    Equivalent to :meth:`TimezoneFinder.utc_offset_at`, which documents the arguments,
+    how a naive and an aware ``when`` differ, and every error raised - including the
+    ``tzdata`` a Windows machine needs installed.
+
+    :return: the offset as a ``timedelta``, or None where :func:`timezone_at` answers None
+
+    Example:
+        >>> from datetime import datetime
+        >>> utc_offset_at(lng=13.358, lat=52.5061, when=datetime(2026, 1, 1))
+        datetime.timedelta(seconds=3600)
+    """
+    return _get_tf_instance().utc_offset_at(lng=lng, lat=lat, when=when)
+
+
+def localize(dt: datetime, *, lng: float, lat: float) -> datetime | None:
+    """
+    Attach the timezone covering a coordinate to a naive datetime, using the global singleton.
+
+    Equivalent to :meth:`TimezoneFinder.localize`, which documents the arguments and
+    every error raised - including the ``tzdata`` a Windows machine needs installed.
+
+    :return: the same wall-clock time made aware, or None where :func:`timezone_at`
+        answers None
+
+    Example:
+        >>> from datetime import datetime
+        >>> localize(datetime(2026, 1, 1, 12), lng=13.358, lat=52.5061)
+        datetime.datetime(2026, 1, 1, 12, 0, tzinfo=zoneinfo.ZoneInfo(key='Europe/Berlin'))
+    """
+    return _get_tf_instance().localize(dt, lng=lng, lat=lat)
 
 
 def get_geometry(

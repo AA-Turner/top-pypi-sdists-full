@@ -24,6 +24,7 @@ from edgar.xbrl import standardization
 from edgar.xbrl.core import (
     PERIOD_END_LABEL,
     PERIOD_START_LABEL,
+    decimals_for_scaling,
     determine_dominant_scale,
     format_date,
     format_value,
@@ -614,7 +615,7 @@ class RenderedStatement:
             pd.DataFrame: DataFrame with statement data and optional unit/point-in-time columns
         """
         try:
-            from edgar.xbrl.core import get_unit_display_name
+            from edgar.xbrl.core import get_unit_display_name, row_metadata_value
             from edgar.xbrl.core import is_point_in_time as get_is_point_in_time
 
             # Create rows for the DataFrame
@@ -660,28 +661,14 @@ class RenderedStatement:
 
                 # Add unit column if requested
                 if include_unit:
-                    # Get units from row metadata
-                    units_dict = row.metadata.get('units', {})
-                    # Get the first non-None unit (all periods should have same unit for a given concept)
-                    unit_ref = None
-                    for period_key in self.header.period_keys:
-                        if period_key in units_dict and units_dict[period_key] is not None:
-                            unit_ref = units_dict[period_key]
-                            break
-                    # Convert to display name
+                    unit_ref = row_metadata_value(row.metadata.get('units'),
+                                                  self.header.period_keys)
                     df_row['unit'] = get_unit_display_name(unit_ref)
 
                 # Add point_in_time column if requested
                 if include_point_in_time:
-                    # Get period_types from row metadata
-                    period_types_dict = row.metadata.get('period_types', {})
-                    # Get the first non-None period_type (all periods should have same type structure)
-                    period_type = None
-                    for period_key in self.header.period_keys:
-                        if period_key in period_types_dict and period_types_dict[period_key] is not None:
-                            period_type = period_types_dict[period_key]
-                            break
-                    # Convert to boolean
+                    period_type = row_metadata_value(row.metadata.get('period_types'),
+                                                     self.header.period_keys)
                     df_row['point_in_time'] = get_is_point_in_time(period_type)
 
                 # Add cell values using date string column names where available
@@ -753,7 +740,7 @@ class RenderedStatement:
                 lines.append("")
 
         # Column header row — right-align numeric columns
-        header = [""] + self.header.columns
+        header = [""] + [_md_cell(column) for column in self.header.columns]
         lines.append("| " + " | ".join(header) + " |")
 
         separator = ["---"] + ["---:" for _ in self.header.columns]
@@ -773,13 +760,14 @@ class RenderedStatement:
                     continue
 
             indent = (NBSP * 2) * row.level
+            row_label = _md_cell(row.label)
 
             if row.is_abstract:
-                label = f"**{indent}{row.label}**"
+                label = f"**{indent}{row_label}**"
             elif row.is_dimension:
-                label = f"*{indent}{row.label}*"
+                label = f"*{indent}{row_label}*"
             else:
-                label = f"{indent}{row.label}"
+                label = f"{indent}{row_label}"
 
             cell_values = []
             for cell in row.cells:
@@ -787,9 +775,9 @@ class RenderedStatement:
                 if cell_value is None or cell_value == "":
                     cell_values.append("")
                 elif isinstance(cell_value, Text):
-                    cell_values.append(str(cell_value))
+                    cell_values.append(_md_cell(str(cell_value)))
                 else:
-                    cell_values.append(cell_value)
+                    cell_values.append(_md_cell(cell_value))
 
             row_data = [label] + cell_values
             lines.append("| " + " | ".join(row_data) + " |")
@@ -806,6 +794,17 @@ class RenderedStatement:
             lines.append(" · ".join(footer_parts))
 
         return "\n".join(lines)
+
+
+def _md_cell(text: Any) -> str:
+    """Make a value safe to place inside a GitHub-Flavored Markdown table cell.
+
+    A filed XBRL label may contain a literal pipe ("... conversion of debt |
+    shares"), which a Markdown parser would read as another column delimiter.
+    Escape it, and fold any embedded newline, which would end the row.
+    """
+    cell = "" if text is None else str(text)
+    return cell.replace("|", r"\|").replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
 
 
 def _format_comparison(pct_change: float, comparison_type: str) -> str:
@@ -1408,12 +1407,14 @@ def _format_value_for_display_as_string(
         if any(keyword in label for keyword in ('ratio', 'percentage', 'per cent')):
             is_monetary = False
 
-    # Get decimals with a default value to avoid conditional logic later
+    # Get decimals with a default value to avoid conditional logic later.
+    # A statement stores the filed accuracy, which may be the sentinel 'INF'
+    # (GH #1229); scaling needs a number, and an exact value implies no scale.
     fact_decimals = 0
     if period_key:
         decimals_dict = item.get('decimals', {})
         if decimals_dict:
-            fact_decimals = decimals_dict.get(period_key, 0) or 0
+            fact_decimals = decimals_for_scaling(decimals_dict.get(period_key))
 
     # Apply presentation logic for display (Issue #463)
     value = apply_presentation_sign(
@@ -1694,10 +1695,17 @@ def render_statement(
     for item in statement_data:
         concept = item.get('concept', '')
         if concept in share_concepts:
-            # Check decimals attribute to determine proper scaling
+            # Check decimals attribute to determine proper scaling.
+            # A share count filed with decimals='INF' is exact, which is the
+            # same "do not scale" signal as 0 (GH #1229) -- reading the
+            # sentinel as "unknown" here scaled AEON's 38,818,536 dilutive
+            # securities down to 39.
             for period_key, _ in periods_to_display:
-                decimals = item.get('decimals', {}).get(period_key)
-                if isinstance(decimals, int) and decimals <= 0:
+                item_decimals = item.get('decimals', {})
+                if period_key not in item_decimals:
+                    continue
+                decimals = decimals_for_scaling(item_decimals[period_key])
+                if decimals <= 0:
                     # Use the decimals attribute to determine the scale
                     # For shares, decimals is typically negative
                     # -3 means thousands, -6 means millions, etc.

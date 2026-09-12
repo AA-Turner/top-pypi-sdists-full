@@ -45,6 +45,11 @@ MCP_RPC_RESPONSE_MAX_BYTES = 4 * 1024 * 1024
 MCP_SSE_EVENT_MAX_BYTES = 1024 * 1024
 MCP_SSE_MAX_EVENTS = 1_000
 
+MCP_SAME_ORIGIN_REDIRECT_STATUSES = frozenset({307, 308})
+"""Safe temporary/permanent redirects that preserve an MCP POST body."""
+
+MCP_MAX_SAME_ORIGIN_REDIRECTS = 3
+
 
 @dataclass(frozen=True)
 class MCPRuntime:
@@ -446,15 +451,17 @@ class ExternalMCPClient:
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             if is_ucp:
-                data, _ = await self._post_rpc(client, server_url, payload, headers)
+                data, _, _ = await self._post_rpc(client, server_url, payload, headers)
                 return data
-            session_id, protocol_version = await self._handshake(client, server_url, headers)
+            session_id, protocol_version, canonical_url = await self._handshake(
+                client, server_url, headers
+            )
             call_headers = dict(headers)
             call_headers["MCP-Protocol-Version"] = protocol_version
             if session_id:
                 call_headers["Mcp-Session-Id"] = session_id
 
-            data, _ = await self._post_rpc(client, server_url, payload, call_headers)
+            data, _, _ = await self._post_rpc(client, canonical_url, payload, call_headers)
 
         if "error" in data:
             err = data["error"]
@@ -509,7 +516,7 @@ class ExternalMCPClient:
 
     async def _handshake(
         self, client: httpx.AsyncClient, server_url: str, headers: dict[str, str]
-    ) -> tuple[str | None, str]:
+    ) -> tuple[str | None, str, str]:
         """Run ``initialize`` + ``notifications/initialized``.
 
         Returns ``(session_id, negotiated_protocol_version)``. The session id
@@ -522,7 +529,9 @@ class ExternalMCPClient:
                 "clientInfo": {"name": "matrx-ai", "version": "1.0"},
             },
         )
-        data, response_headers = await self._post_rpc(client, server_url, init_payload, headers)
+        data, response_headers, canonical_url = await self._post_rpc(
+            client, server_url, init_payload, headers
+        )
         if "error" in data:
             err = data["error"]
             raise RuntimeError(
@@ -544,7 +553,7 @@ class ExternalMCPClient:
         try:
             async with client.stream(
                 "POST",
-                server_url,
+                canonical_url,
                 json={"jsonrpc": "2.0", "method": "notifications/initialized"},
                 headers=ack_headers,
             ) as ack:
@@ -558,7 +567,7 @@ class ExternalMCPClient:
                 exc,
             )
 
-        return session_id, protocol_version
+        return session_id, protocol_version, canonical_url
 
     async def _post_rpc(
         self,
@@ -566,7 +575,7 @@ class ExternalMCPClient:
         server_url: str,
         payload: dict[str, Any],
         headers: dict[str, str],
-    ) -> tuple[dict[str, Any], httpx.Headers]:
+    ) -> tuple[dict[str, Any], httpx.Headers, str]:
         """Read one request-correlated RPC response within fixed bounds.
 
         Streamable HTTP servers may keep ``text/event-stream`` responses open
@@ -577,22 +586,46 @@ class ExternalMCPClient:
         if isinstance(expected_id, bool) or not isinstance(expected_id, (int, str)):
             raise ValueError("MCP JSON-RPC request must carry a string or integer id")
 
+        request_url = server_url
+        original_url = httpx.URL(server_url)
+        # One RPC includes every redirect hop.  A redirecting endpoint must
+        # not turn this into ``max_hops * timeout`` worth of held work.
         async with asyncio.timeout(self._timeout):
-            async with client.stream(
-                "POST", server_url, json=payload, headers=headers
-            ) as response:
-                response.raise_for_status()
-                content_type = response.headers.get("content-type", "")
-                if "text/event-stream" in content_type:
-                    parsed = await self._parse_sse_rpc(response, expected_id=expected_id)
-                else:
-                    body = await self._read_bounded_body(response)
-                    parsed = json.loads(body)
-                    if not isinstance(parsed, dict) or not self._matches_rpc_id(
-                        parsed, expected_id
-                    ):
-                        raise RuntimeError("MCP server returned a mismatched JSON-RPC response")
-                return parsed, response.headers
+            for redirect_count in range(MCP_MAX_SAME_ORIGIN_REDIRECTS + 1):
+                async with client.stream(
+                    "POST", request_url, json=payload, headers=headers
+                ) as response:
+                    if response.status_code in MCP_SAME_ORIGIN_REDIRECT_STATUSES:
+                        location = response.headers.get("location")
+                        if not location:
+                            raise RuntimeError("MCP server redirected without a Location header")
+                        redirected_url = response.url.join(location)
+                        if (
+                            redirected_url.scheme != original_url.scheme
+                            or redirected_url.host != original_url.host
+                            or redirected_url.port != original_url.port
+                        ):
+                            raise RuntimeError(
+                                "MCP server redirected to a different origin; refusing to forward credentials"
+                            )
+                        if redirect_count == MCP_MAX_SAME_ORIGIN_REDIRECTS:
+                            raise RuntimeError("MCP server exceeded same-origin redirect limit")
+                        request_url = str(redirected_url)
+                        continue
+                    response.raise_for_status()
+                    content_type = response.headers.get("content-type", "")
+                    if "text/event-stream" in content_type:
+                        parsed = await self._parse_sse_rpc(response, expected_id=expected_id)
+                    else:
+                        body = await self._read_bounded_body(response)
+                        parsed = json.loads(body)
+                        if not isinstance(parsed, dict) or not self._matches_rpc_id(
+                            parsed, expected_id
+                        ):
+                            raise RuntimeError("MCP server returned a mismatched JSON-RPC response")
+                    return parsed, response.headers, request_url
+
+        raise AssertionError("redirect loop must return or raise")  # pragma: no cover
 
     @staticmethod
     async def _read_bounded_body(response: httpx.Response) -> bytes:

@@ -296,14 +296,27 @@ autodoc_member_order = "bysource"
 autodoc_typehints = "description"
 autodoc_type_aliases = {
     "AutosarBusSpecifics": "cantools.database.can.formats.arxml.AutosarBusSpecifics",
+    "ByteOrder": "cantools.typechecking.ByteOrder",
+    "Choices": "cantools.typechecking.Choices",
+    "Comments": "cantools.typechecking.Comments",
+    "SignalValueType": "cantools.typechecking.SignalValueType",
+    "type_sort_signals": "cantools.database.utils.type_sort_signals",
+    "DbcAttributeType": "cantools.database.can.formats.dbc.dbc_attribute.DbcAttributeType",
+    "DbcAttributeDefinitionType": "cantools.database.can.formats.dbc.dbc_attribute_definition.DbcAttributeDefinitionType",
+    "DbcRelationAttributes": "cantools.database.can.formats.dbc.dbc_loader.DbcRelationAttributes",
 }
 
 # disable specific warnings
 nitpick_ignore = [
     ("py:class", "TypeAliasForwardRef"),
+    ("py:class", "ByteOrder"),
     ("py:class", "Choices"),
-    ("py:class", "AttributeType"),
-    ("py:class", "AttributeDefinitionType"),
-    ("py:class", "cantools.database.can.attribute_definition.AttributeValueTypeVar"),
+    ("py:class", "Comments"),
+    ("py:class", "SignalValueType"),
+    ("py:class", "cantools.typechecking.SignalValueType"),
+    ("py:class", "type_sort_signals"),
+    ("py:class", "DbcAttributeType"),
+    ("py:class", "DbcAttributeDefinitionType"),
+    ("py:class", "cantools.database.can.formats.dbc.dbc_attribute_definition.DbcAttributeValueTypeVar"),
     ("py:class", "DbcRelationAttributes"),
 ]

@@ -389,6 +389,19 @@ class ModelSpec(ManifestModel):
         le=1.0,
         description="Global confidence floor; a detect stage may override it.",
     )
+    identity_field: str | None = Field(
+        default=None,
+        description=(
+            "Name of the incoming detection field that already carries a resolved, canonical "
+            "identity -- e.g. 'person_id' for face recognition, or a NORMALIZED plate for LPR. "
+            "Populates PipelineDetection.identity, which identity_match reads and unique_count "
+            "can count by. None means this stream resolves no identities, which is the default "
+            "and the common case. The engine never computes this value: resolving an identity "
+            "is a watchlist lookup, and the stage path has neither the I/O nor the frame budget "
+            "for one. The field must be canonical -- everything downstream de-duplicates by "
+            "exact match, so raw plate text inflates distinct-subject counts silently."
+        ),
+    )
 
     @field_validator("entity_mapping", mode="before")
     @classmethod
@@ -773,7 +786,19 @@ class UniqueCountConfig(PrimitiveConfig):
     REQUIRES: ClassVar[tuple[str, ...]] = ("track",)
 
     kind: Literal["unique_count"] = "unique_count"
-    by: Literal["track_id"] = "track_id"
+    by: Literal["track_id", "identity"] = Field(
+        default="track_id",
+        description=(
+            "The de-duplication key. 'track_id' counts distinct tracked objects and is the "
+            "default. 'identity' counts distinct SUBJECTS by PipelineDetection.identity "
+            "(MLAPP-262, E2) -- distinct people rather than distinct tracks, so one person who "
+            "leaves and returns counts once, and one person the tracker split across two ids "
+            "also counts once. Requires model.identity_field; a detection with no identity is "
+            "excluded from the distinct count and tallied separately, never folded into a "
+            "single anonymous subject. The identity must be canonical: de-duplication is by "
+            "exact match, so raw plate text would inflate the count silently."
+        ),
+    )
     categories: list[str] = Field(min_length=1, description="Entity names to de-duplicate.")
 
     def frame_output_names(self) -> frozenset[str]:
@@ -1715,8 +1740,155 @@ class SegmentationAreaConfig(PrimitiveConfig):
     )
 
 
+class FaceRecognitionProfile(ManifestModel):
+    """The face half of ``identity_match.profile`` — how a face resolver decides *who*.
+
+    **Read by the identity resolver, not by a stage.** Every field here configures the recogniser
+    that runs upstream of (or beside) the pipeline; none of it is arithmetic a primitive could do,
+    for the reasons in :class:`IdentityMatchConfig`'s docstring. The stage carries the block so the
+    values live with the app that needs them instead of as dataclass defaults in the legacy tree,
+    where changing one is a code change and a release.
+
+    **Every field defaults to ``None``, meaning "use the resolver's own default".** Declaring the
+    block therefore changes nothing; only writing a value does. The names match
+    ``FaceRecognitionEmbeddingConfig`` **1:1** on purpose, so the existing legacy reader
+    (``face_recognition.py`` ``_apply_recognition_profile``) can consume this block unchanged
+    rather than through a translation table that would be one more thing to keep in step.
+
+    **``kind`` is required, and that is deliberate.** Only the face profile exists today, but LPR
+    shares this stage and its eight equivalents (``ocr_confidence_threshold``, ``min_plate_len``,
+    ``stable_frames_required`` and the rest) have zero name overlap with these. When the plate
+    profile lands, ``profile`` becomes a discriminated union — and a union cannot resolve a tag
+    that was left to a default. Requiring ``kind`` now costs one line per manifest and makes that
+    change free; defaulting it would make every face manifest written in the meantime fail to load
+    the day the second profile appears.
+
+    ⚠ The **tracker** settings are deliberately absent. ``tracker_buffer`` and
+    ``tracker_max_time_lost`` are on ``FaceRecognitionEmbeddingConfig`` too, but the manifest
+    already expresses them as ``track.track_buffer`` / ``track.max_time_lost``. Two ways to set one
+    number is how two dashboards come to disagree.
+    """
+
+    kind: Literal["face"] = Field(
+        description=(
+            "Which resolver this profile configures. Required rather than defaulted so that "
+            "adding the plate profile later is not a breaking change -- see the class docstring."
+        ),
+    )
+    similarity_threshold: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "How alike two embeddings must be to be called the same person. The single value that "
+            "most distinguishes one FR app from another: 0.52 on a door, 0.42 on surveillance, "
+            "0.45 on the base app. None uses the resolver's default. Raising it trades misses for "
+            "false matches; on an access-control camera that trade is not symmetric."
+        ),
+    )
+    min_face_w: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Minimum face width in pixels to be ELIGIBLE FOR RECOGNITION -- not a detection "
+            "filter. A smaller face is still detected, tracked and counted; it is only never sent "
+            "for matching (face_recognition.py, 'eligible_for_recognition')."
+        ),
+    )
+    min_face_h: int | None = Field(
+        default=None,
+        ge=1,
+        description="Minimum face height in pixels for recognition eligibility. See min_face_w.",
+    )
+    probation_frames: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Frames a newly seen track is held before its identity is treated as settled. Higher "
+            "is steadier and slower to name someone; lower names them sooner and changes its mind "
+            "more often."
+        ),
+    )
+    unknown_patience: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Consecutive unrecognised observations before a track's held identity is released. "
+            "This is the bounded release an access-control app relies on -- see sticky_id."
+        ),
+    )
+    switch_patience: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Consecutive observations of a RIVAL identity before the track switches to it. "
+            "Guards against a single bad frame renaming someone mid-track."
+        ),
+    )
+    fallback_margin: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Slack below similarity_threshold at which a history-prototype match is still "
+            "accepted. ⚠ Legacy defaults this to 0 and says why: ANY positive value lets a "
+            "sub-threshold match re-latch the track's stable identity and reset the unknown "
+            "streak, so unknown_patience can be refreshed indefinitely and a wrong identity is "
+            "never released. Raise it only with a deliberate reason."
+        ),
+    )
+    sticky_id: bool | None = Field(
+        default=None,
+        description=(
+            "Once a track has been recognised as the same person sticky_min_votes times, hold "
+            "that identity for the rest of the track. Legacy defaults this OFF because it changes "
+            "identity semantics: an access-control app in particular should keep the bounded "
+            "unknown_patience release rather than latching."
+        ),
+    )
+    sticky_min_votes: int | None = Field(
+        default=None,
+        ge=2,
+        description=(
+            "Confident observations of one identity before sticky_id makes it permanent. The "
+            "floor is 2 by schema, encoding what the legacy comment already says in words: "
+            "'Never set this to 1 -- locking on the first confident match is what makes sticky "
+            "add false matches instead of removing them.' Legacy clamps to 1 and relies on the "
+            "comment; here the schema refuses it."
+        ),
+    )
+    high_confidence_thresh: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Instant score a rival identity must reach to displace the stable one outright. "
+            "Legacy treats 0.0 as unset, preserving a historical 'similarity_threshold + 0.02' "
+            "bar; None here means the same thing."
+        ),
+    )
+    activity_cooldown_sec: float | None = Field(
+        default=None,
+        ge=0.0,
+        description=(
+            "Seconds before the same person is logged to the staff activity feed again. 45s at a "
+            "door, 10s on surveillance -- a door sees the same person linger, and one arrival "
+            "should be one row."
+        ),
+    )
+    single_face_mode: bool | None = Field(
+        default=None,
+        description=(
+            "Match only the largest face in frame rather than every face above threshold. Legacy "
+            "defaults this OFF for access control on purpose: tailgating means several people are "
+            "legitimately in frame at once, and recognising only the dominant face silently drops "
+            "the others."
+        ),
+    )
+
+
 class IdentityMatchConfig(PrimitiveConfig):
-    """``identity_match`` — watchlist match (plates, faces).
+    """``identity_match`` — count subjects by an identity resolved **upstream**.
 
     Not implemented. No primitive registers under ``identity_match``, so a manifest that used
     it validated cleanly and then failed at pipeline build with a bare registry ``KeyError``.
@@ -1724,15 +1896,99 @@ class IdentityMatchConfig(PrimitiveConfig):
     :meth:`AppManifest.unimplemented_primitives` reports it and the loader logs it — the
     manifest still validates on purpose (``08`` §2), so an author can write the config ahead
     of the runtime.
+
+    **MLAPP-262 (W5): this stage does NOT do the matching, and cannot.** A primitive runs on the
+    stage path, which is free of I/O and has no ``numpy``; the real matcher needs Redis, an HTTP
+    client for the gallery, and 512-dimension vector arithmetic, and its slow path's default
+    timeout is 200 ms against a 40 ms frame budget at 25 fps. An enrollment gallery also fits no
+    ``Lifetime`` the ``StateStore`` offers — it grows on enrollment, is invalidated out of band
+    and is shared across streams. So the stage **reads** an identity that arrived on the
+    detection (``model.identity_field``) and counts by it. Where the resolver itself lives is a
+    separate, open decision; nothing here depends on its answer.
+
+    **The field names are domain-neutral on purpose, and that is binding.** This one class serves
+    faces *and* plates: LPR registers the same three-case-type structure nine lines below FR's in
+    ``post_processor.py``, and LPR is the cleaner fit because its watchlist is already downstream.
+    An FR-shaped field list is a review defect, not an option. For the same reason the twelve
+    recognition-profile fields (``similarity_threshold``, ``probation_frames`` and the rest) are
+    **not flattened onto this class**: LPR's eight equivalents do the same jobs with zero shared
+    names, and twenty optional fields on one class means every app carries a dozen it must ignore
+    with nothing in the schema saying which.
+
+    **MLAPP-265: they live in** ``profile``, **the discriminated block this docstring asked for.**
+    :class:`FaceRecognitionProfile` carries the face settings behind ``kind: face``; the plate
+    equivalents become a sibling member when LPR needs them, and neither app sees the other's
+    fields. The block is optional and every field inside it defaults to ``None``, so adding it
+    changed no existing manifest and no app's behaviour. The settings themselves are read by the
+    resolver, not by this stage — which does not move, and cannot.
+
+    🔴 **Precondition: the identity handed to this stage is already CANONICAL.** This stage
+    de-duplicates by exact match. FR's ``person_id`` is exact, so that is correct for faces. A
+    plate is **not**: ``EY09VWS``, ``EY09VW5`` and ``EV09VWS`` are one plate, normalised upstream
+    by ``_normalize_plate``. Handing this stage raw plate text therefore **silently inflates**
+    every distinct-subject count — no error, just a bigger number. Normalise before the stage.
     """
 
     PRIMITIVE: ClassVar[str] = "identity_match"
-    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset({"match_count", "matched_ids"})
+    #: ``matched_ids`` was here and is deliberately gone. ``PrimitiveOutput.values`` is a
+    #: ``Mapping[str, Scalar]`` and ``Scalar`` is ``float | int | str``, so a *list* of
+    #: identities was never emittable: a manifest sourcing it would have passed validation and
+    #: published nothing. Counts belong in ``values``; the identities themselves travel on the
+    #: track record, where a per-track attribute is the sanctioned home.
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset({"match_count", "unmatched_count"})
     IMPLEMENTED: ClassVar[bool] = False
 
     kind: Literal["identity_match"] = "identity_match"
-    watchlist_source: str = Field(description="Where the watchlist comes from, e.g. 'deployment'.")
-    match_field: str = Field(description="The detection field compared against the watchlist.")
+    subject: str | None = Field(
+        default=None,
+        description=(
+            "What one identity denotes, for metric naming only -- e.g. 'person', 'vehicle'. "
+            "Domain-neutral by design: this stage serves faces and plates alike. None means the "
+            "engine names counts after the detection entity."
+        ),
+    )
+    on_missing_identity: Literal["ignore", "count_unmatched"] = Field(
+        default="count_unmatched",
+        description=(
+            "A detection whose identity field is absent or empty. 'count_unmatched' adds it to "
+            "unmatched_count; 'ignore' drops it from both counts. The default counts it, because "
+            "a face or plate the resolver could not identify is a real observation -- silently "
+            "dropping it makes a failing resolver look like an empty scene."
+        ),
+    )
+    unknown_label: str | None = Field(
+        default=None,
+        description=(
+            "Label carried on a subject with no identity, for downstream display. None leaves "
+            "the field unset rather than inventing a string, so a consumer can tell 'not "
+            "identified' from a subject genuinely labelled 'Unknown'."
+        ),
+    )
+    profile: FaceRecognitionProfile | None = Field(
+        default=None,
+        description=(
+            "Settings for the resolver that produces the identity this stage reads. Optional: "
+            "omitting it leaves every value at the resolver's own default, which is what every "
+            "app does today. Discriminated by 'kind' so the plate profile can be added as a "
+            "sibling without touching what is written here."
+        ),
+    )
+    watchlist_source: str | None = Field(
+        default=None,
+        description=(
+            "DEPRECATED (MLAPP-262). Implied that this stage performs the match, which it cannot "
+            "-- see the class docstring. Optional and unread; slated for removal in the cutover "
+            "PR, once the manifests that still declare it have been updated. Was required."
+        ),
+    )
+    match_field: str | None = Field(
+        default=None,
+        description=(
+            "DEPRECATED (MLAPP-262). Superseded by model.identity_field, which names the "
+            "detection field the identity arrives on. Optional and unread; slated for removal "
+            "in the cutover PR. Was required."
+        ),
+    )
 
 
 # --- custom ----------------------------------------------------------------

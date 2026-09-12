@@ -12,39 +12,18 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+from geocif.viz._style import style_ctx as _style_ctx
 from geocif.utils import friendly_stage_label, greedy_dedup_by_mutual_corr  # noqa: F401 — re-exported for callers
 
 
-# scienceplots registers the "science" matplotlib style we use for the
-# publication-quality diagnostic plots (forest_yield_ci, mape_bar_chart,
-# mape_box_by_region, mape_choropleth, etc.). It's broken on matplotlib
-# 3.11+ because matplotlib removed the `matplotlib.style.core` submodule
-# that scienceplots imports from. Until upstream catches up, fail soft:
-# log once at import time, then fall back to matplotlib's default style
-# inside ``_science_style_context`` so the diagnostic plots still
-# produce — just with default fonts/colours instead of the "science"
-# theme.
-try:
-    import scienceplots  # noqa: F401
-    _HAS_SCIENCE_STYLE = True
-except (ImportError, AttributeError) as _exc:
-    _HAS_SCIENCE_STYLE = False
-    logger.warning(
-        f"scienceplots unavailable ({type(_exc).__name__}: {_exc}); "
-        f"diagnostic plots will use matplotlib default style"
-    )
-
-
 def _science_style_context():
-    """Return a matplotlib style context manager that uses the
-    'science' + 'no-latex' theme when scienceplots is available, else
-    matplotlib's default style. Use in place of
-    ``plt.style.context(['science', 'no-latex'])`` so the diagnostic
-    plot functions stay agnostic to whether scienceplots loaded.
+    """The shared scienceplots-or-default context (viz/_style.style_ctx).
+
+    Kept under its old name — every diagnostic renderer already calls it —
+    but the probe-once-and-warn logic now lives in one place instead of
+    three.
     """
-    if _HAS_SCIENCE_STYLE:
-        return plt.style.context(["science", "no-latex"])
-    return plt.style.context("default")
+    return _style_ctx()
 
 
 # ---------------------------------------------------------------------------
@@ -1547,8 +1526,12 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
         vmax=df[col].quantile(0.95) if df[col].dropna().shape[0] > 1 else df[col].max(),
         cmap=pal.scientific.sequential.Bamako_20_r,
         series="sequential",
-        annotate_regions=True,
-        annotate_values=True,
+        # Forward the caller's flag — hardcoding True here silently discarded
+        # annotate_regions=False. Values follow names (off means off);
+        # plot.py's effective_annotate_regions heuristic still suppresses
+        # labels at county scale when annotation is on.
+        annotate_regions=annotate_regions,
+        annotate_values=annotate_regions,
         value_fmt="{:.1f}",
         loc_legend="lower left",
     )
@@ -1610,8 +1593,10 @@ def metric_choropleth(dg, df, countries, annotate_regions, dir_out, fname,
         vmax=vmax,
         cmap=cmap,
         series="sequential",
-        annotate_regions=True,
-        annotate_values=True,
+        # Same forwarding fix as mape_choropleth: honour the caller's flag
+        # instead of hardcoding annotation on (values follow names).
+        annotate_regions=annotate_regions,
+        annotate_values=annotate_regions,
         value_fmt=value_fmt,
         loc_legend="lower left",
     )
@@ -1694,17 +1679,28 @@ def cid_vs_yield_scatters(
     months. ``season_stages`` (if given) caps the picker as a sanity
     guard against any over-long chain sneaking in.
 
-    Output layout (idempotent — skips if any PNG already exists for this
-    country/crop, so it's safe to call from every model run):
+    Output layout (figure rendering is idempotent — skipped if any PNG
+    already exists for this country/crop, so it's safe to call from every
+    model run; the Pearson statistics CSVs are ALWAYS recomputed — see
+    below):
         {dir_out}/{country}/{crop}/{cid}.png   (+ matching .csv per geocif
                                                  plot-CSV pairing rule)
 
-    Returns the count of CIDs plotted (0 if skipped).
+    Returns the count of CIDs plotted (0 if figure rendering was skipped).
     """
     out_dir = Path(dir_out) / country.lower() / crop.lower()
-    if out_dir.is_dir() and any(out_dir.glob("*.png")):
-        logger.info(f"  cid_vs_yield_scatters: skipping {out_dir} — already populated")
-        return 0
+    # Only the SLOW part (figure rendering + the per-CID CSVs paired with
+    # those figures) is cached on disk. pearson_summary.csv /
+    # pearson_corr_matrix.csv feed model selection (utils.auto_select_cids,
+    # the top_n_ models), so they must track the CURRENT data/config —
+    # recompute and rewrite them on every call (cheap pandas ops) even when
+    # old PNGs sit in out_dir, otherwise they silently go stale.
+    skip_figures = out_dir.is_dir() and any(out_dir.glob("*.png"))
+    if skip_figures:
+        logger.info(
+            f"  cid_vs_yield_scatters: figures already in {out_dir} — "
+            f"skipping renders, refreshing Pearson CSVs"
+        )
     if target_col not in df.columns:
         logger.warning(f"  cid_vs_yield_scatters: target column {target_col!r} missing — skipping")
         return 0
@@ -1789,6 +1785,12 @@ def cid_vs_yield_scatters(
         if np.isfinite(r_p):
             pearson_rows.append((cid, len(sub), r_p))
             cid_series[cid] = sub[col].reset_index(drop=True)
+
+        # Everything below re-renders the cached artifacts (figures + their
+        # paired per-CID CSVs) — skip when PNGs already exist. The Pearson
+        # stats above still accumulated so the summary CSVs stay fresh.
+        if skip_figures:
+            continue
 
         colors = [year_to_color.get(int(y), (0.5, 0.5, 0.5, 0.7))
                   for y in sub[year_col]]
@@ -1948,61 +1950,64 @@ def cid_vs_yield_scatters(
         n_pruned = int((~pearson_df["kept"]).sum())
         top = pearson_df[pearson_df["kept"]].head(10)
 
-        with _science_style_context():
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        # The summary FIGURE is a cached artifact like the scatters; the
+        # CSVs above are model-selection inputs and were already rewritten.
+        if not skip_figures:
+            with _science_style_context():
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
 
-            # Left: stacked histogram, survivors blue + pruned grey.
-            survivors_r = pearson_df.loc[pearson_df["kept"], "pearson_r"]
-            pruned_r = pearson_df.loc[~pearson_df["kept"], "pearson_r"]
-            bins = np.linspace(
-                float(pearson_df["pearson_r"].min()),
-                float(pearson_df["pearson_r"].max()),
-                21,
-            )
-            ax1.hist([survivors_r, pruned_r], bins=bins, stacked=True,
-                     color=["#4c72b0", "#bdbdbd"],
-                     label=[f"kept ({len(survivors_r)})", f"pruned ({n_pruned})"],
-                     edgecolor="white", alpha=0.9)
-            ax1.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
-            ax1.set_xlabel("Pearson r (CID vs Yield)", fontsize=10)
-            ax1.set_ylabel("Number of CIDs", fontsize=10)
-            ax1.set_title(f"Distribution across {n_total} CIDs", fontsize=10)
-            ax1.legend(loc="upper left", fontsize=8, frameon=True)
-            ax1.grid(True, linestyle=":", alpha=0.4)
+                # Left: stacked histogram, survivors blue + pruned grey.
+                survivors_r = pearson_df.loc[pearson_df["kept"], "pearson_r"]
+                pruned_r = pearson_df.loc[~pearson_df["kept"], "pearson_r"]
+                bins = np.linspace(
+                    float(pearson_df["pearson_r"].min()),
+                    float(pearson_df["pearson_r"].max()),
+                    21,
+                )
+                ax1.hist([survivors_r, pruned_r], bins=bins, stacked=True,
+                         color=["#4c72b0", "#bdbdbd"],
+                         label=[f"kept ({len(survivors_r)})", f"pruned ({n_pruned})"],
+                         edgecolor="white", alpha=0.9)
+                ax1.axvline(0, color="black", linewidth=0.8, linestyle="--", alpha=0.5)
+                ax1.set_xlabel("Pearson r (CID vs Yield)", fontsize=10)
+                ax1.set_ylabel("Number of CIDs", fontsize=10)
+                ax1.set_title(f"Distribution across {n_total} CIDs", fontsize=10)
+                ax1.legend(loc="upper left", fontsize=8, frameon=True)
+                ax1.grid(True, linestyle=":", alpha=0.4)
 
-            # Right: top 10 survivors (post-dedup), largest |r| at top.
-            order = top.iloc[::-1]
-            bar_colors = ["#c44e52" if v < 0 else "#55a868" for v in order["pearson_r"]]
-            ax2.barh(range(len(order)), order["pearson_r"],
-                     color=bar_colors, edgecolor="white")
-            ax2.set_yticks(range(len(order)))
-            ax2.set_yticklabels(order["cid"], fontsize=9)
-            ax2.axvline(0, color="black", linewidth=0.8, alpha=0.5)
-            ax2.set_xlabel("Pearson r", fontsize=10)
-            ax2.set_title(
-                f"Top {len(order)} surviving CIDs by |Pearson r|",
-                fontsize=10,
-            )
-            ax2.grid(True, axis="x", linestyle=":", alpha=0.4)
-            for i, v in enumerate(order["pearson_r"]):
-                ax2.text(v + (0.01 if v >= 0 else -0.01), i,
-                         f"{v:+.2f}", va="center",
-                         ha="left" if v >= 0 else "right", fontsize=8)
+                # Right: top 10 survivors (post-dedup), largest |r| at top.
+                order = top.iloc[::-1]
+                bar_colors = ["#c44e52" if v < 0 else "#55a868" for v in order["pearson_r"]]
+                ax2.barh(range(len(order)), order["pearson_r"],
+                         color=bar_colors, edgecolor="white")
+                ax2.set_yticks(range(len(order)))
+                ax2.set_yticklabels(order["cid"], fontsize=9)
+                ax2.axvline(0, color="black", linewidth=0.8, alpha=0.5)
+                ax2.set_xlabel("Pearson r", fontsize=10)
+                ax2.set_title(
+                    f"Top {len(order)} surviving CIDs by |Pearson r|",
+                    fontsize=10,
+                )
+                ax2.grid(True, axis="x", linestyle=":", alpha=0.4)
+                for i, v in enumerate(order["pearson_r"]):
+                    ax2.text(v + (0.01 if v >= 0 else -0.01), i,
+                             f"{v:+.2f}", va="center",
+                             ha="left" if v >= 0 else "right", fontsize=8)
 
-            fig.suptitle(
-                f"{country.title().replace('_', ' ')} "
-                f"{crop.title().replace('_', ' ')}  —  "
-                f"CID-vs-Yield Pearson r summary  "
-                f"({n_pruned} of {n_total} CIDs pruned at |ρ|>{_PEARSON_DEDUP_THRESHOLD})",
-                fontsize=11, fontweight="bold",
-            )
-            plt.tight_layout()
-            fig.savefig(out_dir / "pearson_summary.png", dpi=200, bbox_inches="tight")
-            plt.close(fig)
+                fig.suptitle(
+                    f"{country.title().replace('_', ' ')} "
+                    f"{crop.title().replace('_', ' ')}  —  "
+                    f"CID-vs-Yield Pearson r summary  "
+                    f"({n_pruned} of {n_total} CIDs pruned at |ρ|>{_PEARSON_DEDUP_THRESHOLD})",
+                    fontsize=11, fontweight="bold",
+                )
+                plt.tight_layout()
+                fig.savefig(out_dir / "pearson_summary.png", dpi=200, bbox_inches="tight")
+                plt.close(fig)
         logger.info(
             f"  cid_vs_yield_scatters: wrote Pearson r summary "
             f"({n_total} CIDs, {n_pruned} pruned at |ρ|>{_PEARSON_DEDUP_THRESHOLD}, "
-            f"{len(kept)} kept) → {out_dir / 'pearson_summary.png'}"
+            f"{len(kept)} kept) → {csv_dir / 'pearson_summary.csv'}"
         )
 
     logger.info(

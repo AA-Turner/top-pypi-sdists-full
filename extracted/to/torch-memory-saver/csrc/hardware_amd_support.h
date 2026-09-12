@@ -1,6 +1,7 @@
 #pragma once
 #include "macro.h"
 #include "utils.h"
+#include "cpu_backup.h"
 #include <vector>
 #include <string>
 #include <sstream>
@@ -8,7 +9,7 @@
 #include <unordered_map>
 #include <mutex>
 
-#if defined(USE_ROCM)
+#if TMS_ROCM_LEGACY_CHUNKED
 
 // Forward declaration
 enum class AllocationState;
@@ -26,9 +27,10 @@ namespace ROCmHIPImplementation {
     cudaError_t rocm_malloc(
         void **ptr, 
         CUdevice device, 
-        size_t size, 
+        size_t raw_size,
         const std::string& tag, 
         bool enable_cpu_backup,
+        CpuBackupKind cpu_backup_kind,
         std::unordered_map<void*, AllocationMetadata>& allocation_metadata,
         std::mutex& allocator_metadata_mutex
     );
@@ -55,4 +57,4 @@ namespace ROCmHIPImplementation {
     );
 }
 
-#endif // USE_ROCM
+#endif // TMS_ROCM_LEGACY_CHUNKED

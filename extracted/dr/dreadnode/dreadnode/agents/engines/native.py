@@ -22,5 +22,7 @@ class NativeEngine(AgentEngine):
     dispatches_internally = True
 
     async def run_loop(self, ctx: EngineContext) -> "t.AsyncIterator[AgentEvent]":
-        async for event in ctx.agent._native_run_loop(ctx.trajectory):
+        async for event in ctx.agent._native_run_loop(
+            ctx.trajectory, message_metadata=ctx.message_metadata
+        ):
             yield event

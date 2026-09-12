@@ -4,8 +4,8 @@ from .core.common.autoload import autoload
 from .core.common.env import env
 from .core.common.settings import settings
 
-__version__ = "0.4.8"
-__commit__ = "c390d67b532497d6cb335318ffd55853d5187177"
+__version__ = "0.4.9"
+__commit__ = "090f40e086a32afefd0202c93d1a68eefd95c2f4"
 __sentry_dsn__ = "https://9711de13cd02b285ca4378c01de8dc30@o4508714045276160.ingest.us.sentry.io/4510461121462272"
 __all__ = ["autoload", "settings", "env"]
 

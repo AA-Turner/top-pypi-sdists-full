@@ -23,6 +23,13 @@ The replay is conservative — only ops with the InterfaceError signature
 (the gather-in-transaction bug fixed in this PR) are eligible by default.
 Other failure modes likely indicate semantic bugs that need investigation
 before blindly retrying.
+
+Two classifiers decide a row's fate in the auto loop:
+:data:`RECOVERABLE_RETRY_ERRORS` says WHICH rows are worth a sweep, and
+:data:`PERMANENT_FAILURE_SIGNATURES` overrides it — a recoverable marker
+wrapped around a deterministic refusal (trigger RAISE, constraint, schema
+drift, deleted actor) is quarantined on sight, never attempted, and captured
+exactly once as ``persistence_replay_quarantined``.
 """
 
 from __future__ import annotations
@@ -105,6 +112,117 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     DIRECT_WRITE_PRESERVED_MARKER,
     "commit hard-deadline",
 )
+
+# Error-CLASS signatures that are PERMANENT — the database REFUSED the write on
+# its merits, so re-sending the identical row can never succeed. These override
+# every recoverable marker above: a spilled or preserved op is only self-healing
+# when what killed it was the ENVIRONMENT (outage, timeout, pool, ordering).
+# When the wrapped failure is one of these, the marker is a lie about that row
+# and the replay must quarantine it on sight — attempting it burns five sweeps,
+# lands five identical ``persistence_replay_failed`` system_error rows, and
+# teaches nobody anything (live evidence 2026-09-12: eight ``chat.message``
+# spills whose ``created_by`` named a user that does not exist; the
+# ``_stamp_org_default`` trigger raised P0001 on every one of the 40 attempts).
+#
+# Matched as substrings of ``error_text`` (``describe_db_exception`` renders
+# both the asyncpg class name and ``[SQLSTATE xxxxx]``), and of the live
+# exception a replay attempt raises — ONE classifier for both moments.
+PERMANENT_FAILURE_SIGNATURES: tuple[str, ...] = (
+    # A trigger / RAISE EXCEPTION rejected the row (ensure_personal_organization,
+    # component guards, doctrine checks). The refusal is deterministic.
+    "RaiseError",
+    "[SQLSTATE P0001]",
+    # Declarative constraint refusals — the row itself is wrong.
+    "CheckViolationError",
+    "[SQLSTATE 23514]",
+    "NotNullViolationError",
+    "[SQLSTATE 23502]",
+    "UniqueViolationError",
+    "[SQLSTATE 23505]",
+    # Schema drift — the payload names something the schema no longer has.
+    "UndefinedColumnError",
+    "[SQLSTATE 42703]",
+    "UndefinedTableError",
+    "[SQLSTATE 42P01]",
+    "UndefinedFunctionError",
+    "[SQLSTATE 42883]",
+    "DatatypeMismatchError",
+    "[SQLSTATE 42804]",
+    # Value refusals — a poisoned payload.
+    "InvalidTextRepresentationError",
+    "[SQLSTATE 22P02]",
+    "StringDataRightTruncationError",
+    "[SQLSTATE 22001]",
+    # The capture lane already proved the acting user is gone
+    # (``drain_spilled_ops`` stamps this when the actor FK cannot be satisfied).
+    # Every org-scoped target derives its org from that actor, so the write can
+    # never land.
+    "capture_actor_missing=",
+    # Sibling refusals the 2026-09-12 review censused in db/migrations: the same
+    # trigger families RAISE with an explicit ERRCODE other than P0001, and
+    # asyncpg maps each to its own class — none of them contains "RaiseError".
+    #   * P0002 no_data_found — ``message_not_found`` guards
+    #     (0046_context_visibility, 0151_cx_message_set_content_tool_graph_guard)
+    #   * 28000 — ``no_session`` guards (same files)
+    #   * 42501 insufficient_privilege — ownership guards (0031, 0126, 0177, 0198, 0222)
+    "NoDataFoundError",
+    "[SQLSTATE P0002]",
+    "InvalidAuthorizationSpecificationError",
+    "[SQLSTATE 28000]",
+    "InsufficientPrivilegeError",
+    "[SQLSTATE 42501]",
+    # 0178_enforce_agent_tool_references RAISEs with ERRCODE foreign_key_violation
+    # for a BUSINESS-RULE refusal (an agent naming a tool id that does not exist).
+    # It wears the recoverable FK class as a disguise, but no sibling request
+    # will ever create that tool row, so it is permanent by its message.
+    "references missing tool ids",
+    "is referenced by an agent definition",
+)
+
+
+# A foreign-key violation is the ONE class that is recoverable or permanent
+# depending on WHICH parent is missing. A parent row another request is still
+# committing (a conversation, a user_request) arrives within seconds — that is
+# the race RECOVERABLE_RETRY_ERRORS exists for. A missing *actor* never arrives:
+# ``auth.users`` rows are created by sign-up, not by a sibling request, so an FK
+# to it that fails today fails forever. ``describe_db_exception`` renders the
+# constraint name and Postgres's own detail (``Key (created_by)=(…) is not
+# present in table "users"``); either is enough to tell the two apart.
+ACTOR_FK_SIGNATURES: tuple[str, ...] = (
+    'is not present in table "users"',
+    "_created_by_fkey",
+    "_user_id_fkey",
+    "_owner_id_fkey",
+    "_updated_by_fkey",
+)
+
+
+def is_actor_fk_violation_text(error_text: str | None) -> bool:
+    """True for a foreign-key refusal whose missing parent is a user (never a race)."""
+    if not error_text or "ForeignKeyViolationError" not in error_text:
+        return False
+    return any(sig in error_text for sig in ACTOR_FK_SIGNATURES)
+
+
+def is_permanent_failure_text(error_text: str | None) -> bool:
+    """True when ``error_text`` carries a signature the DB refuses deterministically."""
+    if not error_text:
+        return False
+    if any(sig in error_text for sig in PERMANENT_FAILURE_SIGNATURES):
+        return True
+    return is_actor_fk_violation_text(error_text)
+
+
+def is_permanent_failure_exception(exc: BaseException) -> bool:
+    """True when a live replay attempt died of a deterministic refusal."""
+    from matrx_orm.exceptions import describe_db_exception
+
+    try:
+        text = describe_db_exception(exc).as_text()
+    except Exception:  # noqa: BLE001 — classification must never raise
+        text = f"{type(exc).__name__}: {exc}"
+    return is_permanent_failure_text(text)
+
 
 # Auto-replay loop cadence. A minute is plenty: the only thing it waits on is a
 # parent row from a sibling request landing, which happens in seconds. A short
@@ -446,7 +564,9 @@ async def _mark_recovered(ids: Sequence[str], recovery_op_id: str) -> None:
     )
 
 
-async def _record_failed_attempt(rows: Sequence[Any], *, max_attempts: int | None) -> int:
+async def _record_failed_attempt(
+    rows: Sequence[Any], *, max_attempts: int | None, permanent: bool = False
+) -> int:
     """Account for a failed replay of ``rows``: increment each row's
     ``retry_count``, and quarantine (jump ``retry_count`` to the cap) any row
     that has now exhausted its attempt budget or aged past the FK-race window.
@@ -459,6 +579,11 @@ async def _record_failed_attempt(rows: Sequence[Any], *, max_attempts: int | Non
     row was never written, so it stays honestly unrecovered, but both the
     auto-replay loop and the lifecycle watchdog bound their attention by
     ``retry_count < AUTO_REPLAY_MAX_ATTEMPTS``.
+
+    ``permanent=True`` says the failure was a deterministic refusal
+    (:data:`PERMANENT_FAILURE_SIGNATURES`): every row is quarantined on this
+    very call, whatever its age or attempt count — waiting cannot change the
+    answer.
     """
     if not rows:
         return 0
@@ -472,7 +597,7 @@ async def _record_failed_attempt(rows: Sequence[Any], *, max_attempts: int | Non
         failed_at = r["failed_at"]
         age = (now - failed_at).total_seconds() if failed_at else 0.0
         if max_attempts is not None and (
-            retry_count + 1 >= max_attempts or age > FK_RACE_MAX_AGE_SECONDS
+            permanent or retry_count + 1 >= max_attempts or age > FK_RACE_MAX_AGE_SECONDS
         ):
             giveup_ids.append(r["id"])
         else:
@@ -495,15 +620,21 @@ async def _capture_replay_failure(
     request_id: str,
     rows: Sequence[Any],
     phase: str,
+    kind: str = "persistence_replay_failed",
 ) -> None:
-    """Capture a replay failure at the boundary that intentionally absorbs it."""
+    """Capture a replay failure at the boundary that intentionally absorbs it.
+
+    ``kind`` is ``persistence_replay_quarantined`` when the sweep gave the rows
+    up as permanent — exactly one such row per request group, ever, instead of
+    one ``persistence_replay_failed`` per attempt.
+    """
     try:
         from matrx_connect.streaming.error_capture import capture_error
 
         first = rows[0] if rows else {}
         await capture_error(
             exc,
-            kind="persistence_replay_failed",
+            kind=kind,
             route="matrx_ai.persistence.replay.replay_pending",
             error_type=type(exc).__name__,
             request_id=None if request_id == "_orphan" else request_id,
@@ -589,6 +720,45 @@ async def replay_pending(
     # Phase 2: per-request replay. Each request gets its own transaction so
     # one bad request can't poison the others.
     for request_id, group_rows in by_request.items():
+        # PERMANENT AT CAPTURE: the failure text already names a deterministic
+        # refusal, so an attempt is pointless. Quarantine the group now (auto
+        # mode only — a human's explicit retry still runs) and say so ONCE.
+        if (
+            not dry_run
+            and max_attempts is not None
+            and any(is_permanent_failure_text(r.get("error_text")) for r in group_rows)
+        ):
+            report.still_failed_count += len(group_rows)
+            reason = RuntimeError(
+                "Replay refused: the captured failure is a deterministic database "
+                "refusal, not an outage — re-sending the same row cannot succeed. "
+                "Quarantined for a human (admin /persistence)."
+            )
+            report.by_request[request_id] = "quarantined (permanent at capture)"
+            vcprint(
+                f"[Replay] QUARANTINED {len(group_rows)} op(s) for request {request_id} "
+                f"without attempting: permanent refusal already recorded in error_text",
+                color="yellow",
+            )
+            await _capture_replay_failure(
+                reason,
+                request_id=request_id,
+                rows=group_rows,
+                phase="classify",
+                kind="persistence_replay_quarantined",
+            )
+            try:
+                report.quarantined_count += await _record_failed_attempt(
+                    group_rows, max_attempts=max_attempts, permanent=True
+                )
+            except Exception as bump_exc:  # noqa: BLE001 — accounting must never crash the sweep
+                vcprint(
+                    f"[Replay] failed to quarantine request {request_id}: "
+                    f"{type(bump_exc).__name__}: {bump_exc}",
+                    color="red",
+                )
+            continue
+
         try:
             group_rows = await _upgrade_legacy_chat_payloads(group_rows)
             ops = [_row_to_op(r) for r in group_rows]
@@ -641,15 +811,25 @@ async def replay_pending(
                 f"[Replay] FAILED for request {request_id}: {type(exc).__name__}: {exc}",
                 color="red",
             )
+            # A deterministic refusal (trigger RAISE, constraint, schema drift)
+            # is quarantined on THIS attempt in auto mode: no second sweep, no
+            # second system_error row. Everything else burns its attempt budget.
+            permanent = max_attempts is not None and is_permanent_failure_exception(exc)
             await _capture_replay_failure(
-                exc, request_id=request_id, rows=group_rows, phase="execute"
+                exc,
+                request_id=request_id,
+                rows=group_rows,
+                phase="execute",
+                kind="persistence_replay_quarantined" if permanent else "persistence_replay_failed",
             )
             # Record the failed attempt so a permanent orphan stops being
             # retried forever (and the watchdog stops alerting on it). No-op
             # accounting for dry runs.
             if not dry_run:
                 try:
-                    gave_up = await _record_failed_attempt(group_rows, max_attempts=max_attempts)
+                    gave_up = await _record_failed_attempt(
+                        group_rows, max_attempts=max_attempts, permanent=permanent
+                    )
                     report.quarantined_count += gave_up
                     if gave_up:
                         report.by_request[request_id] = (

@@ -14,6 +14,13 @@
 //! through [`Client::get`], [`Client::post`], or
 //! [`Client::post_no_response`] (for endpoints that return an empty
 //! body on success).
+//!
+//! [`Client::post_form`] is the odd one out: it exists for
+//! endpoints whose *error* body is part of the protocol rather
+//! than a diagnostic — the OAuth device grant answers `400
+//! {"error": "authorization_pending"}` on every poll before its
+//! owner approves, and a client that treated that as a failure
+//! could never complete the flow.
 
 use std::time::Duration;
 
@@ -67,6 +74,20 @@ pub enum DeleteOutcome {
     NotFound,
 }
 
+/// Outcome of a request whose non-2xx bodies are part of the
+/// endpoint's protocol — see [`Client::post_form`].
+///
+/// Only *terminal* rejections reach [`Self::Error`]: 5xx and
+/// rate-limit responses never do, however many retries they have
+/// used, and a body that does not deserialize as `E` — nor as an
+/// empty `E`, for a type whose every field is optional — is a plain
+/// [`CliError`] rather than a protocol answer.
+#[derive(Debug, Eq, PartialEq)]
+pub enum ApiOutcome<T, E> {
+    Ok(T),
+    Error { status: u16, body: E },
+}
+
 /// One page of a cursor-paginated Mergify list endpoint.
 ///
 /// `next_cursor` is the opaque cursor of the following page,
@@ -78,6 +99,19 @@ pub enum DeleteOutcome {
 pub struct Page<T> {
     pub body: T,
     pub next_cursor: Option<String>,
+}
+
+/// What the retry driver does with a **terminal** non-2xx response —
+/// one it has already decided not to retry.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum OnTerminalError {
+    /// Render it into a [`CliError`]. The default.
+    Fail,
+    /// 404 short-circuits to `Ok(None)`; everything else fails.
+    NotFoundIsNone,
+    /// Hand the response back unread so the caller can decode a
+    /// protocol-defined error body.
+    ReturnResponse,
 }
 
 /// Caller hook to remap a terminal non-2xx HTTP status to a domain
@@ -225,6 +259,30 @@ impl Client {
         Ok(Page { body, next_cursor })
     }
 
+    /// GET `path`, decoding the JSON body as `T` on success and as
+    /// `E` on a terminal rejection — the [`ApiOutcome`] counterpart
+    /// of [`Self::post_form`], for a caller that has to branch on
+    /// *which* rejection it got.
+    ///
+    /// `auth status` is the first caller: a refused credential (403)
+    /// and a deployment too old to serve the route (404) are
+    /// different sentences to the user, and both are different from
+    /// a network failure. Reporting any of the three as another
+    /// would be a lie.
+    pub async fn get_outcome<T: DeserializeOwned, E: DeserializeOwned>(
+        &self,
+        path: &str,
+    ) -> Result<ApiOutcome<T, E>, CliError> {
+        let url = self.join(path)?;
+        let resp = self
+            // `OnTerminalError::ReturnResponse` never returns `None`;
+            // `Option::expect` documents that invariant.
+            .execute_with_retry(self.inner.get(url), OnTerminalError::ReturnResponse, None)
+            .await?
+            .expect("execute_with_retry returned None despite OnTerminalError::ReturnResponse");
+        self.decode_outcome(resp).await
+    }
+
     /// POST `body` as JSON to `path` and deserialize the JSON
     /// response as `T`.
     pub async fn post<B: Serialize + ?Sized, T: DeserializeOwned>(
@@ -256,11 +314,15 @@ impl Client {
     ) -> Result<T, CliError> {
         let url = self.join(path)?;
         let resp = self
-            // `tolerate_not_found = false` means the driver never
-            // returns `None`; `Option::expect` documents that invariant.
-            .execute_with_retry(self.inner.post(url).json(body), false, Some(&classify))
+            // `OnTerminalError::Fail` means the driver never returns
+            // `None`; `Option::expect` documents that invariant.
+            .execute_with_retry(
+                self.inner.post(url).json(body),
+                OnTerminalError::Fail,
+                Some(&classify),
+            )
             .await?
-            .expect("execute_with_retry returned None despite tolerate_not_found=false");
+            .expect("execute_with_retry returned None despite OnTerminalError::Fail");
         self.decode_json(resp).await
     }
 
@@ -275,6 +337,88 @@ impl Client {
     ) -> Result<(), CliError> {
         let url = self.join(path)?;
         self.execute_request(self.inner.post(url).json(body))
+            .await
+            .map(drop)
+    }
+
+    /// POST `form` as `application/x-www-form-urlencoded`, decoding
+    /// the JSON body as `T` on success and as `E` on a terminal
+    /// rejection.
+    ///
+    /// For endpoints whose error body is part of the protocol rather
+    /// than a diagnostic. The OAuth device grant is the first caller:
+    /// it answers `400 {"error": "authorization_pending"}` on every
+    /// poll until its owner approves, so a client that could only see
+    /// "the request failed" could never complete the flow.
+    ///
+    /// Retries are unchanged — 5xx and rate limits are retried before
+    /// anything is handed back — and a rejection whose body does not
+    /// deserialize as `E` is a plain [`CliError`], so a proxy's HTML
+    /// 502 page stays as diagnosable as it is on every other verb.
+    pub async fn post_form<T: DeserializeOwned, E: DeserializeOwned>(
+        &self,
+        path: &str,
+        form: &[(&str, &str)],
+    ) -> Result<ApiOutcome<T, E>, CliError> {
+        let url = self.join(path)?;
+        let resp = self
+            // `OnTerminalError::ReturnResponse` never returns `None`;
+            // `Option::expect` documents that invariant.
+            .execute_with_retry(
+                self.inner.post(url).form(form),
+                OnTerminalError::ReturnResponse,
+                None,
+            )
+            .await?
+            .expect("execute_with_retry returned None despite OnTerminalError::ReturnResponse");
+        self.decode_outcome(resp).await
+    }
+
+    /// Split a response handed back by
+    /// [`OnTerminalError::ReturnResponse`] into the two halves of an
+    /// [`ApiOutcome`]. A rejection whose body does not deserialize as
+    /// `E` is not the protocol speaking, so it stays a [`CliError`]
+    /// carrying the same message every other verb would have printed.
+    async fn decode_outcome<T: DeserializeOwned, E: DeserializeOwned>(
+        &self,
+        resp: reqwest::Response,
+    ) -> Result<ApiOutcome<T, E>, CliError> {
+        let status = resp.status();
+        if status.is_success() {
+            return Ok(ApiOutcome::Ok(self.decode_json(resp).await?));
+        }
+        let rejection = error_response(status, resp).await;
+        // A rejection body that is not the protocol's error type is
+        // still the protocol speaking when the caller's type can
+        // represent an *empty* one. Any gateway in front of a
+        // self-hosted install answers 401 or 404 with its own HTML
+        // page or no body at all, and there the status is the whole
+        // answer — dropping it would send a caller that maps 404 to
+        // "this deployment is too old" a bare transport error
+        // instead. When `E` has a required field the body is
+        // genuinely unusable, and this stays the `CliError` every
+        // other verb would have printed.
+        let body = serde_json::from_slice::<E>(&rejection.body)
+            .or_else(|_| serde_json::from_str::<E>("{}"));
+        match body {
+            Ok(body) => Ok(ApiOutcome::Error {
+                status: status.as_u16(),
+                body,
+            }),
+            Err(_) => Err(self.api_error(rejection.message)),
+        }
+    }
+
+    /// POST `form` as `application/x-www-form-urlencoded` and discard
+    /// the response body. The form counterpart of
+    /// [`Self::post_no_response`].
+    pub async fn post_form_no_response(
+        &self,
+        path: &str,
+        form: &[(&str, &str)],
+    ) -> Result<(), CliError> {
+        let url = self.join(path)?;
+        self.execute_request(self.inner.post(url).form(form))
             .await
             .map(drop)
     }
@@ -294,7 +438,7 @@ impl Client {
     /// as taking no body should be sent none, not a JSON `null`.
     pub async fn post_empty_if_exists(&self, path: &str) -> Result<(), CliError> {
         let url = self.join(path)?;
-        self.execute_with_retry(self.inner.post(url), true, None)
+        self.execute_with_retry(self.inner.post(url), OnTerminalError::NotFoundIsNone, None)
             .await
             .map(drop)
     }
@@ -309,6 +453,29 @@ impl Client {
         let url = self.join(path)?;
         let resp = self.execute_request(self.inner.put(url).json(body)).await?;
         self.decode_json(resp).await
+    }
+
+    /// PUT `body` as JSON to `path`, discard the response body, and
+    /// report whether the endpoint exists: `Ok(false)` on 404.
+    ///
+    /// For probing a route a Mergify deployment older than the CLI
+    /// does not serve yet, so the caller can fall back to one it does
+    /// — `ci scopes-send` is the first caller. 404 is terminal (never
+    /// retried), so the probe costs exactly one request.
+    ///
+    /// Distinct from [`Self::put`], which treats 404 as a failure like
+    /// any other 4xx, and from [`Self::post_no_response`], which does
+    /// the same for POST.
+    pub async fn put_no_response_if_exists<B: Serialize + ?Sized>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<bool, CliError> {
+        let url = self.join(path)?;
+        Ok(self
+            .execute_request_optional(self.inner.put(url).json(body))
+            .await?
+            .is_some())
     }
 
     /// PATCH `body` as JSON to `path` and deserialize the JSON
@@ -339,30 +506,62 @@ impl Client {
         self.execute_status(self.inner.delete(url)).await
     }
 
+    /// Resolve `path` against `base_url`.
+    ///
+    /// Every call site writes `path` with a leading `/`, but it is
+    /// meant as a *relative* reference: GitHub Enterprise's API base
+    /// carries an `/api/v3` prefix, and RFC 3986 resolves a reference
+    /// starting with `/` by replacing the base's whole path instead of
+    /// extending it. Resolved literally, `https://ghe/api/v3` + `/user`
+    /// is `https://ghe/user` — the web UI, which redirects to the login
+    /// page and surfaces as a JSON decode error against a `/login?…`
+    /// URL. So the leading `/` comes off and the base gets a trailing
+    /// one, which makes the join append.
+    ///
+    /// The resolution stays inside `Url::join` rather than
+    /// concatenating strings onto `base_url`'s path: `path` may carry
+    /// an embedded `?query` (`…/merge-queue/status?branch=main`), and
+    /// `set_path` percent-encodes the `?` into a literal path byte.
     fn join(&self, path: &str) -> Result<Url, CliError> {
         // `Url::join` accepts absolute URLs and protocol-relative
         // paths (`//host/...`), which would let a caller-supplied
         // `path` swap out `base_url`'s authority and leak the bearer
-        // token to an arbitrary host. Reject both up front.
-        if path.starts_with("//") || Url::parse(path).is_ok() {
+        // token to an arbitrary host.
+        //
+        // Both forms are checked before AND after the leading `/` comes
+        // off, because each strips past the other: `//evil.example/foo`
+        // is only protocol-relative while the slash is there, and
+        // `/https://evil.example/foo` is only an absolute URL once it is
+        // gone.
+        let relative = path.strip_prefix('/').unwrap_or(path);
+        if points_at_another_host(path) || points_at_another_host(relative) {
             return Err(self.api_error(format!(
                 "invalid path {path:?}: absolute URLs are not allowed"
             )));
         }
-        self.base_url
-            .join(path)
+
+        let mut base = self.base_url.clone();
+        if !base.path().ends_with('/') {
+            // `push("")` appends an empty segment — a trailing slash —
+            // without re-encoding the segments already there, which
+            // `set_path` on a percent-encoded path would risk.
+            base.path_segments_mut()
+                .map_err(|()| {
+                    self.api_error(format!(
+                        "invalid base URL {}: cannot be a base",
+                        self.base_url
+                    ))
+                })?
+                .push("");
+        }
+        base.join(relative)
             .map_err(|e| self.api_error(format!("invalid path {path:?}: {e}")))
     }
 
     /// Single retry/auth/error driver behind every public verb.
     ///
-    /// `tolerate_not_found` lets callers opt into "404 is a
-    /// caller-branch, not an error" semantics:
-    ///
-    /// - `false` (default for `get` / `post` / `put`): 404 surfaces
-    ///   as a [`CliError`] like any other 4xx.
-    /// - `true` (for `get_if_exists` / `delete_if_exists`): 404
-    ///   short-circuits to `Ok(None)`. The HTTP body is dropped.
+    /// `terminal` says what happens to a non-2xx the driver has
+    /// decided not to retry — see [`OnTerminalError`].
     ///
     /// Success (2xx) always returns `Ok(Some(response))` — the
     /// caller decides whether to decode the body, drop it, or
@@ -375,7 +574,7 @@ impl Client {
     async fn execute_with_retry(
         &self,
         builder: reqwest::RequestBuilder,
-        tolerate_not_found: bool,
+        terminal: OnTerminalError,
         classify_error: Option<ErrorClassifier<'_>>,
     ) -> Result<Option<reqwest::Response>, CliError> {
         let mut backoff = self.retry.initial_backoff;
@@ -404,21 +603,52 @@ impl Client {
                     if status.is_success() {
                         return Ok(Some(resp));
                     }
-                    if tolerate_not_found && status == StatusCode::NOT_FOUND {
+                    if terminal == OnTerminalError::NotFoundIsNone
+                        && status == StatusCode::NOT_FOUND
+                    {
                         return Ok(None);
                     }
-                    // Inspect rate-limit headers before `error_message`
-                    // consumes the body. GitHub signals secondary/abuse
-                    // limits with 429, or 403 carrying `Retry-After` /
-                    // an exhausted `X-RateLimit-Remaining`. A bare 403
-                    // (auth / permission denied) must NOT be retried.
+                    // Inspect rate-limit headers before the body is
+                    // read. GitHub signals secondary/abuse limits with
+                    // 429, or 403 carrying `Retry-After` / an exhausted
+                    // `X-RateLimit-Remaining`. A bare 403 (auth /
+                    // permission denied) must NOT be retried.
                     let rate_limit = rate_limit_wait(&resp);
                     let rate_limited = status == StatusCode::TOO_MANY_REQUESTS
                         || (status == StatusCode::FORBIDDEN && rate_limit.is_some());
-                    last_message = error_message(status, resp).await;
-                    if (status.is_server_error() || rate_limited)
-                        && attempt + 1 < self.retry.max_attempts
+                    let retryable = (status.is_server_error() || rate_limited)
+                        && attempt + 1 < self.retry.max_attempts;
+                    // Terminal, and the caller wants the body: hand the
+                    // response over unread. Reading it here to render a
+                    // message would consume the very bytes the caller
+                    // needs, so this has to come before `error_message`
+                    // and after the retry decision.
+                    //
+                    // Never for a 5xx, even one that has run out of
+                    // retries. A server error is the server failing,
+                    // not the protocol speaking, and its body can
+                    // still parse as the protocol's error type —
+                    // `{"detail": …}` deserializes into anything whose
+                    // fields are optional. Letting it through would
+                    // trade "HTTP 500 …\nurl: …" for whatever the
+                    // caller's error type made of it.
+                    //
+                    // Never for a rate limit either, for the same
+                    // reason and with a sharper edge: an exhausted
+                    // 403-with-`Retry-After` is a gateway throttling
+                    // this client, and a caller that reads a 403 as
+                    // "the credential was refused" would tell the user
+                    // their credential is revoked — `auth status`
+                    // does exactly that.
+                    if !retryable
+                        && !status.is_server_error()
+                        && !rate_limited
+                        && terminal == OnTerminalError::ReturnResponse
                     {
+                        return Ok(Some(resp));
+                    }
+                    last_message = error_message(status, resp).await;
+                    if retryable {
                         // A rate-limit response dictates the wait, capped
                         // so the CLI never blocks on a far-off reset;
                         // everything else uses exponential backoff. A
@@ -475,12 +705,12 @@ impl Client {
         &self,
         builder: reqwest::RequestBuilder,
     ) -> Result<reqwest::Response, CliError> {
-        // `tolerate_not_found = false` means the driver never
-        // returns `None`; `Option::expect` documents that invariant.
+        // `OnTerminalError::Fail` means the driver never returns
+        // `None`; `Option::expect` documents that invariant.
         Ok(self
-            .execute_with_retry(builder, false, None)
+            .execute_with_retry(builder, OnTerminalError::Fail, None)
             .await?
-            .expect("execute_with_retry returned None despite tolerate_not_found=false"))
+            .expect("execute_with_retry returned None despite OnTerminalError::Fail"))
     }
 
     /// Send a request where 404 is a routine caller branch
@@ -489,7 +719,8 @@ impl Client {
         &self,
         builder: reqwest::RequestBuilder,
     ) -> Result<Option<reqwest::Response>, CliError> {
-        self.execute_with_retry(builder, true, None).await
+        self.execute_with_retry(builder, OnTerminalError::NotFoundIsNone, None)
+            .await
     }
 
     /// Send a request that cares only about the HTTP status.
@@ -499,7 +730,10 @@ impl Client {
         &self,
         builder: reqwest::RequestBuilder,
     ) -> Result<DeleteOutcome, CliError> {
-        match self.execute_with_retry(builder, true, None).await? {
+        match self
+            .execute_with_retry(builder, OnTerminalError::NotFoundIsNone, None)
+            .await?
+        {
             Some(_) => Ok(DeleteOutcome::Deleted),
             None => Ok(DeleteOutcome::NotFound),
         }
@@ -551,6 +785,13 @@ impl Client {
             None => base,
         }
     }
+}
+
+/// Whether `reference` would resolve to a host of its own rather than
+/// against a base URL — an absolute URL (`https://evil.example/foo`)
+/// or a protocol-relative reference (`//evil.example/foo`).
+fn points_at_another_host(reference: &str) -> bool {
+    reference.starts_with("//") || Url::parse(reference).is_ok()
 }
 
 fn is_transient(e: &reqwest::Error) -> bool {
@@ -620,7 +861,19 @@ fn rate_limit_wait(resp: &reqwest::Response) -> Option<Duration> {
     None
 }
 
-async fn error_message(status: StatusCode, mut resp: reqwest::Response) -> String {
+/// A rejection's rendered message plus the (capped) bytes it was
+/// rendered from, so [`Client::post_form`] can try the body as a
+/// protocol answer without reading the response twice.
+struct ErrorResponse {
+    message: String,
+    body: Vec<u8>,
+}
+
+async fn error_message(status: StatusCode, resp: reqwest::Response) -> String {
+    error_response(status, resp).await.message
+}
+
+async fn error_response(status: StatusCode, mut resp: reqwest::Response) -> ErrorResponse {
     // Capture the URL before the body stream consumes `resp` — a
     // failing endpoint (e.g. a mis-resolved --api-url) is surfaced on
     // a trailing `url:` line, matching Python's `check_for_status`.
@@ -666,7 +919,10 @@ async fn error_message(status: StatusCode, mut resp: reqwest::Response) -> Strin
         None if text.is_empty() => format!("HTTP {status}"),
         None => format!("HTTP {status}: {text}"),
     };
-    format!("{head}\nurl: {url}")
+    ErrorResponse {
+        message: format!("{head}\nurl: {url}"),
+        body,
+    }
 }
 
 #[cfg(test)]
@@ -683,6 +939,7 @@ mod tests {
     use wiremock::Respond;
     use wiremock::ResponseTemplate;
     use wiremock::matchers::body_json;
+    use wiremock::matchers::body_string;
     use wiremock::matchers::header;
     use wiremock::matchers::method;
     use wiremock::matchers::path;
@@ -705,6 +962,256 @@ mod tests {
             },
         )
         .unwrap()
+    }
+
+    /// A client with no server behind it, for the URL-shaping tests:
+    /// `join` never leaves the process, so a base URL is all they need.
+    fn client_based_at(base: &str) -> Client {
+        Client::new(Url::parse(base).unwrap(), "test-token", ApiFlavor::GitHub).unwrap()
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct OAuthError {
+        error: String,
+    }
+
+    /// An error type whose every field is optional, the shape the
+    /// Mergify API's own `{"detail": …}` rejections have.
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Detail {
+        #[serde(default)]
+        detail: Option<String>,
+    }
+
+    #[tokio::test]
+    async fn get_outcome_hands_back_the_status_of_a_terminal_rejection() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/user"))
+            .respond_with(
+                ResponseTemplate::new(403)
+                    .set_body_json(serde_json::json!({"detail": "not allowed"})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let outcome: ApiOutcome<Foo, serde_json::Value> =
+            client.get_outcome("/v1/user").await.unwrap();
+        match outcome {
+            ApiOutcome::Error { status, .. } => assert_eq!(status, 403),
+            ApiOutcome::Ok(body) => panic!("expected a rejection, got {body:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn get_outcome_decodes_a_successful_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/user"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Foo { bar: 3 }))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let outcome: ApiOutcome<Foo, serde_json::Value> =
+            client.get_outcome("/v1/user").await.unwrap();
+        assert_eq!(outcome, ApiOutcome::Ok(Foo { bar: 3 }));
+    }
+
+    #[tokio::test]
+    async fn post_form_sends_urlencoded_and_decodes_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .and(header("Content-Type", "application/x-www-form-urlencoded"))
+            .and(body_string("grant_type=device&device_code=abc%2Fdef"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Foo { bar: 7 }))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let outcome: ApiOutcome<Foo, OAuthError> = client
+            .post_form(
+                "/oauth/token",
+                &[("grant_type", "device"), ("device_code", "abc/def")],
+            )
+            .await
+            .unwrap();
+        assert_eq!(outcome, ApiOutcome::Ok(Foo { bar: 7 }));
+    }
+
+    // The reason this verb exists: a 400 carrying the protocol's own
+    // error code is an answer, not a failure.
+    #[tokio::test]
+    async fn post_form_returns_a_terminal_rejection_as_a_protocol_answer() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .respond_with(
+                ResponseTemplate::new(400)
+                    .set_body_json(serde_json::json!({"error": "authorization_pending"})),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let outcome: ApiOutcome<Foo, OAuthError> =
+            client.post_form("/oauth/token", &[]).await.unwrap();
+        assert_eq!(
+            outcome,
+            ApiOutcome::Error {
+                status: 400,
+                body: OAuthError {
+                    error: "authorization_pending".to_string(),
+                },
+            },
+        );
+    }
+
+    // A rejection that is not the protocol speaking — a proxy's error
+    // page, a misrouted request — must stay as diagnosable as it is on
+    // every other verb.
+    #[tokio::test]
+    async fn post_form_falls_back_to_a_cli_error_when_the_body_is_not_the_protocol() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("<html>go away</html>"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .post_form::<Foo, OAuthError>("/oauth/token", &[])
+            .await
+            .unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("400"), "got {message:?}");
+        assert!(message.contains("go away"), "got {message:?}");
+    }
+
+    // An exhausted rate limit is not the protocol speaking either.
+    // The sharp case is a 403 carrying `Retry-After`: handed back as
+    // a protocol answer, `auth status` reads it as a revoked
+    // credential and sends the user to mint another one.
+    #[tokio::test]
+    async fn post_form_keeps_the_diagnostic_for_an_exhausted_rate_limit() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .respond_with(
+                ResponseTemplate::new(403)
+                    .append_header("retry-after", "0")
+                    .set_body_json(serde_json::json!({"error": "slow down"})),
+            )
+            .expect(3)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .post_form::<Foo, OAuthError>("/oauth/token", &[])
+            .await
+            .unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("403"), "got {message:?}");
+        assert!(message.contains("url:"), "got {message:?}");
+    }
+
+    // A gateway's own 401/404 carries no JSON at all, and the status
+    // is the entire answer. It has to survive, or every caller that
+    // branches on one gets a transport error instead.
+    #[tokio::test]
+    async fn get_outcome_keeps_the_status_of_a_rejection_with_no_usable_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/v1/user"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("<html>nope</html>"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let outcome: ApiOutcome<Foo, Detail> = client.get_outcome("/v1/user").await.unwrap();
+        assert_eq!(
+            outcome,
+            ApiOutcome::Error {
+                status: 404,
+                body: Detail { detail: None },
+            },
+        );
+    }
+
+    // Handing the response body to the caller must not cost the retry
+    // policy: a 500 is still retried, and only the last one is handed
+    // back.
+    #[tokio::test]
+    async fn post_form_still_retries_server_errors() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("boom"))
+            .expect(3)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .post_form::<Foo, OAuthError>("/oauth/token", &[])
+            .await
+            .unwrap_err();
+        assert!(err.to_string().contains("500"), "got {err}");
+    }
+
+    // A 5xx that has run out of retries is the server failing, not
+    // the protocol speaking — and its body can parse as the
+    // protocol's error type anyway, since every field there is
+    // optional.
+    #[tokio::test]
+    async fn post_form_keeps_the_full_diagnostic_for_an_exhausted_server_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/token"))
+            .respond_with(
+                ResponseTemplate::new(500)
+                    .set_body_json(serde_json::json!({"error": "upstream down"})),
+            )
+            .expect(3)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .post_form::<Foo, OAuthError>("/oauth/token", &[])
+            .await
+            .unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("500"), "got {message:?}");
+        assert!(message.contains("url:"), "got {message:?}");
+    }
+
+    #[tokio::test]
+    async fn post_form_no_response_accepts_an_empty_body() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/oauth/revoke"))
+            .and(body_string("token=mut_secret"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        client
+            .post_form_no_response("/oauth/revoke", &[("token", "mut_secret")])
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -858,6 +1365,62 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, CliError::MergifyApi(_)));
         assert!(err.to_string().contains("404"));
+    }
+
+    #[tokio::test]
+    async fn put_no_response_if_exists_reports_whether_the_route_answered() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/present"))
+            .and(body_json(serde_json::json!({"bar": 1})))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("PUT"))
+            .and(path("/absent"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("no such route"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        assert!(
+            client
+                .put_no_response_if_exists("/present", &Foo { bar: 1 })
+                .await
+                .unwrap()
+        );
+        // 404 is the caller's branch, and terminal — one request, no
+        // backoff, so the probe stays cheap.
+        assert!(
+            !client
+                .put_no_response_if_exists("/absent", &Foo { bar: 1 })
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn put_no_response_if_exists_propagates_other_4xx() {
+        // Only 404 is an answer about the route. A 403 is a real
+        // failure, and swallowing it as `false` would silently downgrade
+        // an auth problem into a fallback.
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/forbidden"))
+            .respond_with(ResponseTemplate::new(403).set_body_string("denied"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let err = client
+            .put_no_response_if_exists("/forbidden", &Foo { bar: 1 })
+            .await
+            .unwrap_err();
+        assert!(matches!(err, CliError::MergifyApi(_)));
+        assert!(err.to_string().contains("403"));
     }
 
     #[tokio::test]
@@ -1124,6 +1687,110 @@ mod tests {
         let client = fast_client(&server, ApiFlavor::GitHub);
         let err = client.get::<Foo>("//evil.example/foo").await.unwrap_err();
         assert!(err.to_string().contains("absolute URLs are not allowed"));
+    }
+
+    /// The leading-slash strip that lets a GHE base survive must not
+    /// run before the authority guard: `//evil.example/foo` becomes
+    /// the innocuous-looking `/evil.example/foo` once the slash is
+    /// gone, so a guard placed after the strip would stop seeing the
+    /// thing it was written to catch.
+    #[test]
+    fn join_rejects_protocol_relative_path_before_stripping_its_slash() {
+        let client = client_based_at("https://ghe.example.com/api/v3");
+        let err = client.join("//evil.example/foo").unwrap_err();
+        assert!(err.to_string().contains("absolute URLs are not allowed"));
+    }
+
+    /// The mirror case: stripping the leading slash can *expose* an
+    /// absolute URL the pre-strip guard cannot see, since
+    /// `/https://evil.example/foo` parses as no URL at all while
+    /// `https://evil.example/foo` swaps the authority outright.
+    #[test]
+    fn join_rejects_an_absolute_url_hidden_behind_a_leading_slash() {
+        let client = client_based_at("https://ghe.example.com/api/v3");
+        let err = client.join("/https://evil.example/foo").unwrap_err();
+        assert!(
+            err.to_string().contains("absolute URLs are not allowed"),
+            "got {err}"
+        );
+    }
+
+    /// GitHub Enterprise Server serves its API under `/api/v3`, and
+    /// every call site passes an absolute path. Resolved by RFC 3986
+    /// that path replaces the base's, so requests landed on the web UI
+    /// and got redirected to the login page (mergify-cli#1818).
+    #[test]
+    fn join_keeps_the_ghe_api_v3_prefix() {
+        let client = client_based_at("https://ghe.example.com/api/v3");
+        assert_eq!(
+            client.join("/user").unwrap().as_str(),
+            "https://ghe.example.com/api/v3/user"
+        );
+        assert_eq!(
+            client.join("/repos/owner/repo/pulls/42").unwrap().as_str(),
+            "https://ghe.example.com/api/v3/repos/owner/repo/pulls/42"
+        );
+    }
+
+    /// The same thing end to end: a request built from a GHE-shaped
+    /// base has to arrive under `/api/v3`, not at the root.
+    #[tokio::test]
+    async fn get_against_a_ghe_base_requests_the_api_v3_path() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v3/user"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Foo { bar: 1 }))
+            .mount(&server)
+            .await;
+
+        let client = Client::new(
+            Url::parse(&format!("{}/api/v3", server.uri())).unwrap(),
+            "test-token",
+            ApiFlavor::GitHub,
+        )
+        .unwrap();
+        assert_eq!(client.get::<Foo>("/user").await.unwrap(), Foo { bar: 1 });
+    }
+
+    /// A base already carrying its trailing slash resolves the same
+    /// way — the normalisation must not double it.
+    #[test]
+    fn join_does_not_double_a_trailing_slash_on_the_base() {
+        let client = client_based_at("https://ghe.example.com/api/v3/");
+        assert_eq!(
+            client.join("/user").unwrap().as_str(),
+            "https://ghe.example.com/api/v3/user"
+        );
+    }
+
+    /// github.com's base has no path prefix, so the same handling has
+    /// to leave those URLs exactly where they were.
+    #[test]
+    fn join_leaves_dotcom_paths_at_the_root() {
+        let client = client_based_at("https://api.github.com");
+        assert_eq!(
+            client.join("/user").unwrap().as_str(),
+            "https://api.github.com/user"
+        );
+        assert_eq!(
+            client.join("/search/issues").unwrap().as_str(),
+            "https://api.github.com/search/issues"
+        );
+    }
+
+    /// Some call sites hand `join` a path with its query already
+    /// attached (`mergify-queue`'s merge-queue status). `Url::join`
+    /// parses that query as a query; building the URL by concatenating
+    /// onto the base's path instead would percent-encode the `?` into
+    /// a literal path byte and 404.
+    #[test]
+    fn join_keeps_an_embedded_query_a_query() {
+        let client = client_based_at("https://ghe.example.com/api/v3");
+        let url = client
+            .join("/v1/repos/owner/repo/merge-queue/status?branch=main")
+            .unwrap();
+        assert_eq!(url.path(), "/api/v3/v1/repos/owner/repo/merge-queue/status");
+        assert_eq!(url.query(), Some("branch=main"));
     }
 
     #[test]

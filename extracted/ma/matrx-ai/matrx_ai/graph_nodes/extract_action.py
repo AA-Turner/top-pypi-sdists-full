@@ -16,15 +16,21 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.mandates import (
+    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    step_metadata,
+)
+
 
 class ExtractInput(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    # REQUIRED, like ai.llm.chat. This field used to default to "gpt-4o-mini",
-    # a name that is not in the live model catalog: an author (or the
-    # Masterwork Conductor, which reads this schema as the truth) copied the
-    # default, the provider call produced zero tokens, and the node reported
-    # "no output text" instead of the real cause (2026-09-10). A schema default
+    # REQUIRED, like ai.llm.chat. This field used to default to "gpt-4o-mini":
+    # an author (or the Masterwork Conductor, which reads this schema as the
+    # truth) copied the default, the provider call produced zero tokens, and
+    # the node reported "no output text" instead of the real cause
+    # (2026-09-10; the model row exists but is not primary, and the call still
+    # failed — the executor's own error is what must surface). A schema default
     # that names a model is a lie with a shelf life — the picker is the source.
     model: str = Field(
         min_length=1,
@@ -134,6 +140,8 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
         config,
         max_iterations=1,
         max_retries_per_iteration=2,
+        metadata=step_metadata(None, spec_type="ai.extract"),
+        mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
 
     # Cost convention: this is a PAID call — every failure carries the billed

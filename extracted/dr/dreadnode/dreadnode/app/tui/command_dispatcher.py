@@ -121,6 +121,8 @@ class CommandActions(t.Protocol):
 
     def set_show_thinking(self, value: bool) -> None: ...
 
+    def set_output_mode(self, mode: str) -> None: ...
+
     def model_variants(self) -> dict[str, str]: ...
 
     def set_skill_names(self, skill_names: set[tuple[str, str]]) -> None: ...
@@ -259,6 +261,7 @@ _UNAUTHENTICATED_COMMANDS: frozenset[str] = frozenset(
         "console",
         "report-bug",
         "thinking",
+        "transcript",
         "version",
         "update",
         "spans",
@@ -438,6 +441,10 @@ class CommandDispatcher:
             self.handle_thinking_command(args)
             return
 
+        if cmd == "transcript":
+            self.handle_transcript_command(args)
+            return
+
         if cmd == "skills":
             self._actions.open_skills_dialog()
             return
@@ -458,6 +465,19 @@ class CommandDispatcher:
     # ------------------------------------------------------------------
     # Thinking / effort control
     # ------------------------------------------------------------------
+
+    def handle_transcript_command(self, args: list[str]) -> None:
+        """Handle ``/transcript`` - switch the conversation between the full
+        agent transcript (expanded reasoning + tool output, matching the web UI)
+        and the compact view. A bare ``/transcript`` shows the full transcript.
+        """
+        arg = args[0].lower() if args else "full"
+        if arg in ("full", "expanded", "on", "all"):
+            self._actions.set_output_mode("expanded")
+        elif arg in ("compact", "off", "short", "truncated"):
+            self._actions.set_output_mode("compact")
+        else:
+            self._actions.flash("Usage: /transcript [full|compact]", severity="warning")
 
     def handle_thinking_command(self, args: list[str]) -> None:
         """Handle ``/thinking`` for effort level control."""
@@ -713,16 +733,14 @@ class CommandDispatcher:
             self._actions.flash(f"Workspace not found: {workspace_key}", severity="error")
             return
 
-        if profile.default_workspace == workspace_key:
+        if profile.workspace == workspace_key:
             self._actions.flash(f"Already on workspace: {workspace_key}", severity="info")
             return
 
         default_project = await asyncio.to_thread(api.get_default_project_key, org, workspace_key)
-        updated_profile = profile.model_copy(
-            update={
-                "default_workspace": workspace_key,
-                "default_project": default_project,
-            }
+        updated_profile = profile.with_scope(
+            workspace=workspace_key,
+            project=default_project,
         )
 
         try:

@@ -71,16 +71,18 @@ def test_create_and_wait_chains_create_into_wait(
     service, _ = _service_polling([RUNNING, COMPLETED])
     created = []
 
-    def fake_create(query, *, output_schema=None):
-        created.append((query, output_schema))
+    def fake_create(query, *, output_schema=None, effort=None):
+        created.append((query, output_schema, effort))
         return _run(PENDING, "run_new")
 
     service.create = fake_create  # type: ignore[method-assign]
     monkeypatch.setattr("seltz.services.agent_service.time.sleep", lambda s: None)
 
-    run = service.create_and_wait("q", output_schema={"type": "json_object"})
+    run = service.create_and_wait(
+        "q", output_schema={"type": "json_object"}, effort="high"
+    )
     assert run.status == COMPLETED
-    assert created == [("q", {"type": "json_object"})]
+    assert created == [("q", {"type": "json_object"}, "high")]
 
 
 async def test_async_wait_polls_until_terminal(

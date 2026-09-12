@@ -1,18 +1,38 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from pathlib import Path
 
 import httpx
 import respx
 import pytest
 
-from landingai_ade import LandingAIADE
+from landingai_ade import LandingAIADE, UnprocessableEntityError
 from landingai_ade.types.v2 import Job, JobStatus, V2ParseResponse
 from landingai_ade.lib.v2_errors import V2SyncTimeoutError
 
 APIKEY = "My Apikey"
+
+
+def multipart_field(body: bytes, name: str) -> Optional[str]:
+    """The value of a top-level multipart form field, or None when absent.
+
+    Substring checks on the raw body cannot tell the top-level `password` field from
+    the copy inside the JSON-encoded `options` field, and the two must agree.
+    """
+    marker = f'name="{name}"'.encode()
+    start = body.find(marker)
+    if start == -1:
+        return None
+    value_start = body.find(b"\r\n\r\n", start)
+    if value_start == -1:
+        return None
+    value_start += 4
+    value_end = body.find(b"\r\n--", value_start)
+    return body[value_start : value_end if value_end != -1 else len(body)].decode()
+
+
 PARSE_BODY: Dict[str, Any] = {
     "markdown": "# Hello",
     "structure": {"type": "document", "children": []},
@@ -192,15 +212,16 @@ def test_parse_sync_omits_explicit_none_fields_from_multipart_body() -> None:
 
 @respx.mock
 def test_parse_sync_folds_password_into_options() -> None:
-    # The current gateway reads the document password from `options.password`;
-    # the kwarg must land there (and stay as a top-level field for older
-    # gateways).
+    # The gateway reads the document password from `options.password`; the kwarg lands
+    # there and ONLY there. A second top-level copy (which the 2026-07-13 spec had, and
+    # no snapshot since) would double the secret's exposure and could disagree with the
+    # copy in `options` -- see `_build_parse_body`. ade-typescript asserts the same.
     client = LandingAIADE(apikey=APIKEY, environment="production")
     route = respx.post("https://api.ade.landing.ai/v2/parse").mock(return_value=httpx.Response(200, json=PARSE_BODY))
     client.v2.parse(document=b"pdf", password="hunter2")
     sent = route.calls.last.request.content
     assert b'{"password": "hunter2"}' in sent
-    assert b'name="password"' in sent
+    assert multipart_field(sent, "password") is None
 
 
 @respx.mock
@@ -216,16 +237,124 @@ def test_parse_sync_merges_password_into_existing_options() -> None:
     assert b'"pages": [1]' in sent
     assert b'"password": "pw"' in sent
 
-    # A pre-serialized JSON string for `options` is tolerated at runtime (though
-    # the signature advertises a Mapping); the password must merge into it too.
-    client.v2.parse(document=b"pdf", options='{"pages": [2]}', password="pw")  # type: ignore[arg-type]
+    # `options` also accepts a pre-serialized JSON string; the password must merge
+    # into it too.
+    client.v2.parse(document=b"pdf", options='{"pages": [2]}', password="pw")
     sent = route.calls.last.request.content
     assert b'"pages": [2]' in sent
     assert b'"password": "pw"' in sent
 
-    client.v2.parse(document=b"pdf", options={"password": "explicit"}, password="pw")
+    # ...and the string branch loses the tie the same way the dict branch does. This
+    # is the branch that diverged in ade-typescript, where the kwarg was spread in
+    # after the parsed string and won. The input is deliberately COMPACT while the
+    # assertion expects `json.dumps` spacing, so this cannot pass on a verbatim
+    # pass-through -- it only passes if the string was really parsed and re-serialized.
+    client.v2.parse(document=b"pdf", options='{"password":"explicit"}', password="kwarg-only")
     sent = route.calls.last.request.content
     assert b'"password": "explicit"' in sent
+    assert b"kwarg-only" not in sent
+
+    # An explicit `options["password"]` wins over the kwarg, and the kwarg value must
+    # not survive anywhere on the wire.
+    client.v2.parse(document=b"pdf", options={"password": "explicit"}, password="kwarg-only")
+    sent = route.calls.last.request.content
+    assert b'"password": "explicit"' in sent
+    assert b"kwarg-only" not in sent
+    assert multipart_field(sent, "password") is None
+
+    # An explicit `options["password"] = None` means "no password": the kwarg does not
+    # slip through behind it.
+    client.v2.parse(document=b"pdf", options={"password": None}, password="kwarg-only")
+    sent = route.calls.last.request.content
+    assert b"kwarg-only" not in sent
+    assert multipart_field(sent, "password") is None
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    ("bad", "match"),
+    [
+        # `dict()` accepts any pair-sequence, in string form and in list form alike, so
+        # before `_coerce_options` BOTH of these silently became an options dict whose
+        # password then beat the caller's own `password` argument.
+        ('[["password", "sneaky"]]', "must decode to an object"),
+        ([["password", "sneaky"]], "Unsupported options type"),
+        ("[]", "must decode to an object"),
+        ("5", "must decode to an object"),
+        ('"str"', "must decode to an object"),
+        (5, "Unsupported options type"),
+        ([("a", 1)], "Unsupported options type"),
+    ],
+)
+def test_parse_sync_rejects_options_that_is_not_a_json_object(bad: object, match: str) -> None:
+    # `options` is a JSON object per the contract; decoding a non-object is a caller
+    # mistake, so name the field rather than guess at it. No route is registered on
+    # purpose -- a regression that sends the request surfaces as a respx routing error
+    # instead of quietly passing.
+    client = LandingAIADE(apikey=APIKEY, environment="production")
+    with pytest.raises(TypeError, match=match):
+        client.v2.parse(document=b"pdf", options=bad, password="kwarg-only")  # type: ignore[arg-type]
+
+
+@respx.mock
+def test_parse_sync_malformed_options_json_raises_json_decode_error() -> None:
+    # Malformed JSON still surfaces as the error `json.loads` raises, matching
+    # `coerce_schema_to_dict`. Note this is a ValueError while the non-object rejections
+    # above are TypeErrors -- neither is a subclass of the other, so a caller guarding
+    # this needs both.
+    client = LandingAIADE(apikey=APIKEY, environment="production")
+    with pytest.raises(json.JSONDecodeError):
+        client.v2.parse(document=b"pdf", options="garbage", password="kwarg-only")
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_async_parse_gives_options_password_precedence() -> None:
+    # The async resources share `_build_parse_body`, but nothing pinned that -- the
+    # precedence rule has to hold on all four call sites, not just the sync two.
+    from landingai_ade import AsyncLandingAIADE
+
+    client = AsyncLandingAIADE(apikey=APIKEY, environment="production")
+    route = respx.post("https://api.ade.landing.ai/v2/parse").mock(return_value=httpx.Response(200, json=PARSE_BODY))
+    await client.v2.parse(document=b"pdf", options={"password": "explicit"}, password="kwarg-only")
+    sent = route.calls.last.request.content
+    assert b'"password": "explicit"' in sent
+    assert b"kwarg-only" not in sent
+    assert multipart_field(sent, "password") is None
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["password_unsupported_content_type", "encrypted_pdf_wrong_password", "encrypted_pdf_password_required"],
+)
+@respx.mock
+def test_parse_sync_surfaces_encrypted_pdf_error_code(code: str) -> None:
+    # `options.password` is a genuinely supported option (an earlier snapshot
+    # documented it as unimplemented, so ANY value 422'd). The three documented
+    # password failures each come back as a 422 whose `ErrorResponse` body carries
+    # a stable snake_case `code`; the SDK must surface both, not flatten the body.
+    # Live coverage can only assert the status (see tests/contract/test_v2_smoke.py),
+    # so the code itself is pinned here against a controlled response.
+    client = LandingAIADE(apikey=APIKEY, environment="production")
+    body: Dict[str, Any] = {"code": code, "message": "the document could not be decrypted"}
+    respx.post("https://api.ade.landing.ai/v2/parse").mock(return_value=httpx.Response(422, json=body))
+    # `UnprocessableEntityError` pins the 422 (its `status_code` is `Literal[422]`).
+    with pytest.raises(UnprocessableEntityError) as excinfo:
+        client.v2.parse(document=b"pdf", password="hunter2")
+    assert excinfo.value.response.json() == body
+
+
+@respx.mock
+def test_parse_job_create_surfaces_encrypted_pdf_error_code() -> None:
+    # `/v2/parse/jobs` carries the same `options.password` contract, including the
+    # omitted-password case for a locked PDF, so the documented code must surface
+    # identically on the async route.
+    client = LandingAIADE(apikey=APIKEY, environment="production")
+    body: Dict[str, Any] = {"code": "encrypted_pdf_password_required", "message": "password required"}
+    respx.post("https://api.ade.landing.ai/v2/parse/jobs").mock(return_value=httpx.Response(422, json=body))
+    with pytest.raises(UnprocessableEntityError) as excinfo:
+        client.v2.parse_jobs.create(document=b"pdf")
+    assert excinfo.value.response.json() == body
 
 
 def test_parse_job_create_omits_explicit_none_extra_fields(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -524,7 +653,26 @@ def test_parse_job_create_folds_password_into_options() -> None:
     client.v2.parse_jobs.create(document=b"pdf", password="hunter2")
     sent = route.calls.last.request.content
     assert b'{"password": "hunter2"}' in sent
-    assert b'name="password"' in sent
+    assert multipart_field(sent, "password") is None  # `options` only, like the sync route
+
+
+@respx.mock
+def test_parse_job_create_gives_options_password_precedence() -> None:
+    # The precedence rule is part of the contract, not an accident of the sync route:
+    # `password` is shorthand for `options["password"]`, so the explicit field wins
+    # here too. ade-typescript's `buildParseForm` breaks the tie the same way -- it
+    # used to let the kwarg win, so the same call decrypted with a different password
+    # depending on the SDK, and the losing one only ever surfaced as a 422
+    # `encrypted_pdf_wrong_password` naming no cause.
+    client = LandingAIADE(apikey=APIKEY)
+    route = respx.post("https://api.ade.landing.ai/v2/parse/jobs").mock(
+        return_value=httpx.Response(202, json={"job_id": "p2", "status": "pending"})
+    )
+    client.v2.parse_jobs.create(document=b"pdf", options={"password": "explicit"}, password="kwarg-only")
+    sent = route.calls.last.request.content
+    assert b'"password": "explicit"' in sent
+    assert b"kwarg-only" not in sent
+    assert multipart_field(sent, "password") is None
 
 
 @respx.mock

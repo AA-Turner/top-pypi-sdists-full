@@ -361,6 +361,103 @@ _HttpxClientT = TypeVar("_HttpxClientT", bound=Union[httpx.Client, httpx.AsyncCl
 _DefaultStreamT = TypeVar("_DefaultStreamT", bound=Union[Stream[Any], AsyncStream[Any]])
 
 
+# Field names whose VALUE must never reach a log. Compared lowercased, and also
+# looked for inside JSON-encoded string fields (see `_redact_json_text`).
+_SENSITIVE_KEYS = frozenset({"password"})
+_REDACTED = "<redacted>"
+
+
+def _is_sensitive_key(key: object) -> bool:
+    return isinstance(key, str) and key.lower() in _SENSITIVE_KEYS
+
+
+def _parse_json_container(text: str) -> dict[object, object] | list[object] | None:
+    """`text` parsed as a JSON object/array, or None when it is not one.
+
+    A JSON-encoded string field has to be PARSED, not pattern-matched, before deciding
+    it holds no secret: `{"pass\\u0077ord": "hunter2"}` carries no literal "password"
+    but decodes to exactly that key.
+    """
+    if not text.lstrip().startswith(("{", "[")):
+        return None
+    try:
+        parsed: object = json.loads(text)
+    except ValueError:
+        return None
+    if isinstance(parsed, (dict, list)):
+        return cast("dict[object, object] | list[object]", parsed)
+    return None
+
+
+def _needs_redaction(value: object) -> bool:
+    """Cheap pre-check for `_redact_for_logging`: does `value` hold binary data or a
+    secret at any depth? Lets the common payload be logged as-is, with no copy."""
+    if isinstance(value, (bytes, bytearray)):
+        return True
+    if isinstance(value, str):
+        parsed = _parse_json_container(value)
+        return parsed is not None and _needs_redaction(parsed)
+    if isinstance(value, (tuple, list)):
+        return any(_needs_redaction(item) for item in cast("tuple[object, ...] | list[object]", value))
+    if isinstance(value, dict):
+        return any(
+            _is_sensitive_key(key) or _needs_redaction(item)
+            for key, item in cast("dict[object, object]", value).items()
+        )
+    return False
+
+
+def _redact_json_text(text: str) -> str:
+    """Redact secrets nested inside a JSON-encoded STRING field.
+
+    Needed because `/v2/parse` sends `options` as a JSON string and the document
+    password rides inside it, so redacting mapping keys alone would still write the
+    secret to the log verbatim. Only well-formed JSON objects/arrays are rewritten,
+    and only when they actually carry something to redact, so a clean payload keeps
+    its original text. A non-JSON string is returned untouched rather than mangled:
+    the fields this client serializes as JSON are its own, so a secret in free text
+    is a caller putting it there, not this SDK's body construction.
+    """
+    parsed = _parse_json_container(text)
+    if parsed is None or not _needs_redaction(parsed):
+        return text
+    return json.dumps(_redact(parsed))
+
+
+def _redact(value: object) -> object:
+    """Recursive worker for `_redact_for_logging`; assumes redaction is needed."""
+    if isinstance(value, (bytes, bytearray)):
+        return f"<{len(value)} bytes>"
+    if isinstance(value, str):
+        return _redact_json_text(value)
+    if isinstance(value, tuple):
+        return tuple(_redact(item) for item in cast("tuple[object, ...]", value))
+    if isinstance(value, list):
+        return [_redact(item) for item in cast("list[object]", value)]
+    if isinstance(value, dict):
+        return {
+            key: _REDACTED if _is_sensitive_key(key) else _redact(item)
+            for key, item in cast("dict[object, object]", value).items()
+        }
+    return value
+
+
+def _redact_for_logging(value: object) -> object:
+    """Make a request payload safe to write to a debug log.
+
+    Two jobs. Raw binary payloads (e.g. uploaded file contents) become a short
+    placeholder so logs don't dump megabytes of unreadable bytes. Secrets — the
+    `/v2/parse` document `password`, both as its own form field and inside the
+    JSON-encoded `options` field — become `<redacted>`.
+
+    Returns `value` unchanged when there is nothing to redact, so the common case
+    allocates nothing new.
+    """
+    if not _needs_redaction(value):
+        return value
+    return _redact(value)
+
+
 class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
     _client: _HttpxClientT
     _version: str
@@ -484,15 +581,17 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         if log.isEnabledFor(logging.DEBUG):
             log.debug(
                 "Request options: %s",
-                model_dump(
-                    options,
-                    exclude_unset=True,
-                    # Pydantic v1 can't dump every type we support in content, so we exclude it for now.
-                    exclude={
-                        "content",
-                    }
-                    if PYDANTIC_V1
-                    else {},
+                _redact_for_logging(
+                    model_dump(
+                        options,
+                        exclude_unset=True,
+                        # Pydantic v1 can't dump every type we support in content, so we exclude it for now.
+                        exclude={
+                            "content",
+                        }
+                        if PYDANTIC_V1
+                        else {},
+                    )
                 ),
             )
         kwargs: dict[str, Any] = {}

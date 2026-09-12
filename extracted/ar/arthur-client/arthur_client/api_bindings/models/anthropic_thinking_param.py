@@ -28,7 +28,8 @@ class AnthropicThinkingParam(BaseModel):
     """ # noqa: E501
     type: Optional[StrictStr] = None
     budget_tokens: Optional[StrictInt] = None
-    __properties: ClassVar[List[str]] = ["type", "budget_tokens"]
+    display: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["type", "budget_tokens", "display"]
 
     @field_validator('type')
     def type_validate_enum(cls, value):
@@ -36,8 +37,18 @@ class AnthropicThinkingParam(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['enabled', 'adaptive']):
-            raise ValueError("must be one of enum values ('enabled', 'adaptive')")
+        if value not in set(['enabled', 'adaptive', 'disabled']):
+            raise ValueError("must be one of enum values ('enabled', 'adaptive', 'disabled')")
+        return value
+
+    @field_validator('display')
+    def display_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['summarized', 'omitted']):
+            raise ValueError("must be one of enum values ('summarized', 'omitted')")
         return value
 
     model_config = ConfigDict(
@@ -92,7 +103,8 @@ class AnthropicThinkingParam(BaseModel):
 
         _obj = cls.model_validate({
             "type": obj.get("type"),
-            "budget_tokens": obj.get("budget_tokens")
+            "budget_tokens": obj.get("budget_tokens"),
+            "display": obj.get("display")
         })
         return _obj
 

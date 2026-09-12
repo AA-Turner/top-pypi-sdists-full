@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gcsfs
-Version: 2026.8.0
+Version: 2026.8.1
 Summary: Convenient Filesystem interface over GCS
 Project-URL: Homepage, https://github.com/fsspec/gcsfs
 Project-URL: Documentation, https://gcsfs.readthedocs.io

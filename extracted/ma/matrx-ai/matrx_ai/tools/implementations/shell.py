@@ -10,8 +10,10 @@ from typing import Any
 from matrx_ai.tools._call_logger import write_tool_call_log
 from matrx_ai.tools._sandbox_proxy import (
     SandboxProxyError,
-    exec_command as _proxy_exec,
     get_active_sandbox,
+)
+from matrx_ai.tools._sandbox_proxy import (
+    exec_command as _proxy_exec,
 )
 from matrx_ai.tools._sandbox_runtime import sandbox_mode_active, scoped_base_for
 from matrx_ai.tools.arg_models.shell_args import ShellExecuteArgs, ShellPythonArgs
@@ -190,14 +192,14 @@ def _build_exit_error_message(
     """Compose the failure message returned to the LLM.
 
     Principle: the model is an expert reader of raw terminal output. Hand
-    it the full stderr (and stdout when stderr is empty) verbatim, plus a
-    recovery hint when the failure pattern is one we recognize. Never
-    truncate — the previous ``stderr_str[:500]`` line was hiding the
-    ``hint:`` lines git emits AFTER the headline error.
+    it the bounded stderr (and stdout when stderr is empty), plus a recovery
+    hint when the failure pattern is one we recognize. The command itself is
+    deliberately absent: it is already durable call input, can be arbitrarily
+    large or secret-bearing, and embedding it here would bypass the shell
+    result's producer size cap.
     """
     parts = [
         f"Command exited with code {exit_code}.",
-        f"\nCommand:\n{command}",
     ]
     if stderr.strip():
         parts.append(f"\nstderr:\n{stderr}")
@@ -289,9 +291,10 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     parsed = ShellExecuteArgs(**args)
 
     if _is_blocked(parsed.command):
-        # Surface the FULL command and explain what tripped the block, so the
-        # agent (an expert reader) can adjust without guessing. Never truncate
-        # the command — the agent needs to see exactly what we rejected.
+        # This refusal happens before any executable backend is selected, so
+        # there is no durable sandbox transcript to point at.  Do not echo the
+        # command: it is caller-controlled, may contain secrets, and an
+        # unbounded copy here would bypass this branch's producer size cap.
         return ToolResult(
             success=False,
             error=ToolError(
@@ -299,7 +302,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 message=(
                     "Command refused by matrx-ai's multi-tenant safety guard "
                     "(running on the central aidream backend, not in a sandbox).\n"
-                    f"\nFull command:\n{parsed.command}\n\n"
+                    "\nThe refused command is not repeated in this tool result.\n\n"
                     "Refused programs (token-matched): mkfs, fdisk, shutdown, "
                     "reboot, poweroff. Refused phrases (anchored): "
                     "'rm -rf /', 'rm -rf /*', 'rm -rf /home', 'rm -rf ~', "
@@ -316,6 +319,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             completed_at=time.time(),
             tool_name="shell_execute",
             call_id=ctx.call_id,
+            output_self_capped=True,
         )
 
     # No sandbox + a durable VFS backend → run the command in the durable code_files
@@ -353,6 +357,13 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             stderr_text = str(result.get("stderr", ""))
             stdout_truncated = len(stdout_text) > MAX_OUTPUT_SIZE
             stderr_truncated = len(stderr_text) > MAX_OUTPUT_SIZE
+            # The transcript holds the complete process output.  The tool result
+            # must only use the bounded copies below: a failed command otherwise
+            # duplicated an unbounded stderr in ToolError.message after its
+            # structured output had already been capped, bypassing the producer
+            # size contract and firing the universal result gate.
+            stdout_for_response = stdout_text[-MAX_OUTPUT_SIZE:] if stdout_truncated else stdout_text
+            stderr_for_response = stderr_text[-MAX_OUTPUT_SIZE:] if stderr_truncated else stderr_text
             duration_ms = int((time.time() - started_at) * 1000)
 
             # Persist the FULL call (untruncated stdout/stderr + metadata)
@@ -383,8 +394,8 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 # KindModel result (KIND_TOOL_LEDGER): shared shell_execution
                 # shape — carried on failure too (a nonzero exit is a result).
                 output=ShellExecution(
-                    stdout=stdout_text[-MAX_OUTPUT_SIZE:] if stdout_truncated else stdout_text,
-                    stderr=stderr_text[-MAX_OUTPUT_SIZE:] if stderr_truncated else stderr_text,
+                    stdout=stdout_for_response,
+                    stderr=stderr_for_response,
                     stdout_truncated=stdout_truncated,
                     stderr_truncated=stderr_truncated,
                     exit_code=exit_code,
@@ -396,8 +407,8 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     message=_build_exit_error_message(
                         command=parsed.command,
                         exit_code=exit_code,
-                        stdout=stdout_text,
-                        stderr=stderr_text,
+                        stdout=stdout_for_response,
+                        stderr=stderr_for_response,
                     ),
                 )
                 if exit_code != 0
@@ -406,6 +417,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 completed_at=time.time(),
                 tool_name="shell_execute",
                 call_id=ctx.call_id,
+                output_self_capped=True,
             )
         except SandboxProxyError as exc:
             return ToolResult(
@@ -517,6 +529,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             completed_at=time.time(),
             tool_name="shell_execute",
             call_id=ctx.call_id,
+            output_self_capped=True,
         )
 
     except Exception as exc:

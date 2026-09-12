@@ -70,6 +70,9 @@ __all__ = (
     "AttemptEcsTaskDetailsTypeDef",
     "AttemptTaskContainerDetailsTypeDef",
     "CancelJobRequestTypeDef",
+    "CancelJobsErrorDetailTypeDef",
+    "CancelJobsRequestTypeDef",
+    "CancelJobsResponseTypeDef",
     "CapacityLimitTypeDef",
     "CapacityReservationRequestTypeDef",
     "ComputeEnvironmentDetailTypeDef",
@@ -314,7 +317,13 @@ __all__ = (
     "TaskContainerPropertiesTypeDef",
     "TaskPropertiesOverrideTypeDef",
     "TerminateJobRequestTypeDef",
+    "TerminateJobsErrorDetailTypeDef",
+    "TerminateJobsRequestTypeDef",
+    "TerminateJobsResponseTypeDef",
     "TerminateServiceJobRequestTypeDef",
+    "TerminateServiceJobsErrorDetailTypeDef",
+    "TerminateServiceJobsRequestTypeDef",
+    "TerminateServiceJobsResponseTypeDef",
     "TmpfsOutputTypeDef",
     "TmpfsTypeDef",
     "UlimitTypeDef",
@@ -360,6 +369,22 @@ class NetworkInterfaceTypeDef(TypedDict):
 class CancelJobRequestTypeDef(TypedDict):
     jobId: str
     reason: str
+
+class CancelJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+class CancelJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+    reason: str
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
 
 class CapacityLimitTypeDef(TypedDict):
     maxCapacity: NotRequired[int]
@@ -449,13 +474,6 @@ class UlimitTypeDef(TypedDict):
 class ContainerSummaryTypeDef(TypedDict):
     exitCode: NotRequired[int]
     reason: NotRequired[str]
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 class CreateConsumableResourceRequestTypeDef(TypedDict):
     consumableResourceName: str
@@ -805,8 +823,26 @@ class TerminateJobRequestTypeDef(TypedDict):
     jobId: str
     reason: str
 
+class TerminateJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+class TerminateJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
+    reason: str
+
 class TerminateServiceJobRequestTypeDef(TypedDict):
     jobId: str
+    reason: str
+
+class TerminateServiceJobsErrorDetailTypeDef(TypedDict):
+    job: str
+    code: str
+    message: str
+
+class TerminateServiceJobsRequestTypeDef(TypedDict):
+    jobs: Sequence[str]
     reason: str
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -838,56 +874,10 @@ class AttemptTaskContainerDetailsTypeDef(TypedDict):
     logStreamName: NotRequired[str]
     networkInterfaces: NotRequired[list[NetworkInterfaceTypeDef]]
 
-class CreateServiceEnvironmentRequestTypeDef(TypedDict):
-    serviceEnvironmentName: str
-    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
-    capacityLimits: Sequence[CapacityLimitTypeDef]
-    state: NotRequired[ServiceEnvironmentStateType]
-    tags: NotRequired[Mapping[str, str]]
-
-class ServiceEnvironmentDetailTypeDef(TypedDict):
-    serviceEnvironmentName: str
-    serviceEnvironmentArn: str
-    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
-    capacityLimits: list[CapacityLimitTypeDef]
-    state: NotRequired[ServiceEnvironmentStateType]
-    status: NotRequired[ServiceEnvironmentStatusType]
-    tags: NotRequired[dict[str, str]]
-
-class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
-    serviceEnvironment: str
-    state: NotRequired[ServiceEnvironmentStateType]
-    capacityLimits: NotRequired[Sequence[CapacityLimitTypeDef]]
-
-class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
-    consumableResourceList: NotRequired[list[ConsumableResourceRequirementTypeDef]]
-
-class ConsumableResourcePropertiesTypeDef(TypedDict):
-    consumableResourceList: NotRequired[Sequence[ConsumableResourceRequirementTypeDef]]
-
-class ContainerOverridesTypeDef(TypedDict):
-    vcpus: NotRequired[int]
-    memory: NotRequired[int]
-    command: NotRequired[Sequence[str]]
-    instanceType: NotRequired[str]
-    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
-    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
-
-class TaskContainerOverridesTypeDef(TypedDict):
-    command: NotRequired[Sequence[str]]
-    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
-    name: NotRequired[str]
-    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
-
-class LogConfigurationOutputTypeDef(TypedDict):
-    logDriver: LogDriverType
-    options: NotRequired[dict[str, str]]
-    secretOptions: NotRequired[list[SecretTypeDef]]
-
-class LogConfigurationTypeDef(TypedDict):
-    logDriver: LogDriverType
-    options: NotRequired[Mapping[str, str]]
-    secretOptions: NotRequired[Sequence[SecretTypeDef]]
+class CancelJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[CancelJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateComputeEnvironmentResponseTypeDef(TypedDict):
     computeEnvironmentName: str
@@ -929,11 +919,6 @@ class DescribeConsumableResourceResponseTypeDef(TypedDict):
     createdAt: int
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ListConsumableResourcesResponseTypeDef(TypedDict):
-    consumableResources: list[ConsumableResourceSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
@@ -988,6 +973,62 @@ class UpdateServiceJobResponseTypeDef(TypedDict):
     jobName: str
     jobId: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: Sequence[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+class ServiceEnvironmentDetailTypeDef(TypedDict):
+    serviceEnvironmentName: str
+    serviceEnvironmentArn: str
+    serviceEnvironmentType: Literal["SAGEMAKER_TRAINING"]
+    capacityLimits: list[CapacityLimitTypeDef]
+    state: NotRequired[ServiceEnvironmentStateType]
+    status: NotRequired[ServiceEnvironmentStatusType]
+    tags: NotRequired[dict[str, str]]
+
+class UpdateServiceEnvironmentRequestTypeDef(TypedDict):
+    serviceEnvironment: str
+    state: NotRequired[ServiceEnvironmentStateType]
+    capacityLimits: NotRequired[Sequence[CapacityLimitTypeDef]]
+
+class ConsumableResourcePropertiesOutputTypeDef(TypedDict):
+    consumableResourceList: NotRequired[list[ConsumableResourceRequirementTypeDef]]
+
+class ConsumableResourcePropertiesTypeDef(TypedDict):
+    consumableResourceList: NotRequired[Sequence[ConsumableResourceRequirementTypeDef]]
+
+class ListConsumableResourcesResponseTypeDef(TypedDict):
+    consumableResources: list[ConsumableResourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ContainerOverridesTypeDef(TypedDict):
+    vcpus: NotRequired[int]
+    memory: NotRequired[int]
+    command: NotRequired[Sequence[str]]
+    instanceType: NotRequired[str]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+
+class TaskContainerOverridesTypeDef(TypedDict):
+    command: NotRequired[Sequence[str]]
+    environment: NotRequired[Sequence[KeyValuePairTypeDef]]
+    name: NotRequired[str]
+    resourceRequirements: NotRequired[Sequence[ResourceRequirementTypeDef]]
+
+class LogConfigurationOutputTypeDef(TypedDict):
+    logDriver: LogDriverType
+    options: NotRequired[dict[str, str]]
+    secretOptions: NotRequired[list[SecretTypeDef]]
+
+class LogConfigurationTypeDef(TypedDict):
+    logDriver: LogDriverType
+    options: NotRequired[Mapping[str, str]]
+    secretOptions: NotRequired[Sequence[SecretTypeDef]]
 
 class CreateJobQueueRequestTypeDef(TypedDict):
     jobQueueName: str
@@ -1230,6 +1271,8 @@ class JobSummaryTypeDef(TypedDict):
     arrayProperties: NotRequired[ArrayPropertiesSummaryTypeDef]
     nodeProperties: NotRequired[NodePropertiesSummaryTypeDef]
     jobDefinition: NotRequired[str]
+    isCancelled: NotRequired[bool]
+    isTerminated: NotRequired[bool]
 
 class ListConsumableResourcesRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[Sequence[KeyValuesPairTypeDef]]
@@ -1339,6 +1382,16 @@ class ServiceJobRetryStrategyOutputTypeDef(TypedDict):
 class ServiceJobRetryStrategyTypeDef(TypedDict):
     attempts: int
     evaluateOnExit: NotRequired[Sequence[ServiceJobEvaluateOnExitTypeDef]]
+
+class TerminateJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[TerminateJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TerminateServiceJobsResponseTypeDef(TypedDict):
+    successful: list[str]
+    errors: list[TerminateServiceJobsErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class AttemptEcsTaskDetailsTypeDef(TypedDict):
     containerInstanceArn: NotRequired[str]
@@ -1486,6 +1539,7 @@ class ServiceJobSummaryTypeDef(TypedDict):
     statusReason: NotRequired[str]
     startedAt: NotRequired[int]
     stoppedAt: NotRequired[int]
+    isTerminated: NotRequired[bool]
 
 class ServiceJobPreemptionSummaryTypeDef(TypedDict):
     preemptedAttemptCount: NotRequired[int]

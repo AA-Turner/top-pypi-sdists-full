@@ -73,17 +73,17 @@ from .generic import (
     is_null_or_none,
 )
 
-MAX_DECLARED_STREAM_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
-MAX_ARRAY_BASED_STREAM_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
+MAX_DECLARED_STREAM_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
+MAX_ARRAY_BASED_STREAM_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
 
-JBIG2_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
-LZW_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
-RUN_LENGTH_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
-ZLIB_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
-ZLIB_MAX_RECOVERY_INPUT_LENGTH = 5_000_000  # DEPRECATED: Use pypdf.Confiugration.
-FLATE_MAX_COLUMNS = 250_000  # DEPRECATED: Use pypdf.Confiugration.
-FLATE_MAX_ROW_LENGTH = 4_000_000  # DEPRECATED: Use pypdf.Confiugration.
-FLATE_MAX_BUFFER_SIZE = 75_000_000  # DEPRECATED: Use pypdf.Confiugration.
+JBIG2_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
+LZW_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
+RUN_LENGTH_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
+ZLIB_MAX_OUTPUT_LENGTH = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
+ZLIB_MAX_RECOVERY_INPUT_LENGTH = 5_000_000  # DEPRECATED: Use pypdf.Configuration.
+FLATE_MAX_COLUMNS = 250_000  # DEPRECATED: Use pypdf.Configuration.
+FLATE_MAX_ROW_LENGTH = 4_000_000  # DEPRECATED: Use pypdf.Configuration.
+FLATE_MAX_BUFFER_SIZE = 75_000_000  # DEPRECATED: Use pypdf.Configuration.
 
 # Reuse cached 1-byte values in the fallback loop to avoid per-byte allocations.
 _SINGLE_BYTES = tuple(bytes((i,)) for i in range(256))
@@ -144,32 +144,33 @@ def decompress(data: bytes) -> bytes:
 
         # If still failing, then try with increased window size.
         decompressor = zlib.decompressobj(zlib.MAX_WBITS | 32)
-        result_str = b""
+        result = bytearray()
         configuration = get_configuration()
         remaining_limit = configuration.zlib_maximum_output_length
         data_length = len(data)
         known_errors = set()
         for index in range(data_length):
+            if index >= configuration.zlib_maximum_recovery_input_length:
+                raise LimitReachedError(
+                    f"Recovery limit reached while decompressing. {data_length - index} bytes remaining."
+                )
+
             chunk = _SINGLE_BYTES[data[index]]
             try:
                 decompressed = decompressor.decompress(chunk, max_length=remaining_limit)
-                result_str += decompressed
+                result += decompressed
                 remaining_limit -= len(decompressed)
                 if remaining_limit <= 0:
                     raise LimitReachedError(
                         f"Limit reached while decompressing. {data_length - index} bytes remaining."
                     )
             except zlib.error as error:
-                if index > configuration.zlib_maximum_recovery_input_length:
-                    raise LimitReachedError(
-                        f"Recovery limit reached while decompressing. {data_length - index} bytes remaining."
-                    )
                 error_str = str(error)
                 if error_str in known_errors:
                     continue
                 logger_warning(error_str, source=__name__)
                 known_errors.add(error_str)
-        return result_str
+        return bytes(result)
 
 
 class FlateDecode:
@@ -737,7 +738,7 @@ class CCITTFaxDecode:
         return tiff_header + data
 
 
-JBIG2DEC_BINARY = shutil.which("jbig2dec")  # DEPRECATED: Use pypdf.Confiugration.
+JBIG2DEC_BINARY = shutil.which("jbig2dec")  # DEPRECATED: Use pypdf.Configuration.
 
 
 class JBIG2Decode:

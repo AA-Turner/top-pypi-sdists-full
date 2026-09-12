@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-silk
-Version: 5.5.2
+Version: 5.6.0
 Summary: Silky smooth profiling for the Django Framework
 Home-page: https://github.com/jazzband/django-silk
 Author: Michael Ford
@@ -9,10 +9,9 @@ License: MIT License
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -27,7 +26,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Django>=4.2
+Requires-Dist: Django>=5.2
 Requires-Dist: sqlparse
 Requires-Dist: gprof2dot>=2017.09.19
 Provides-Extra: formatting
@@ -68,6 +67,7 @@ Silk is a live profiling and inspection tool for the Django framework. Silk inte
   * [Request/Response bodies](#requestresponse-bodies)
   * [Meta-Profiling](#meta-profiling)
   * [Recording a fraction of requests](#recording-a-fraction-of-requests)
+  * [Ignoring specific paths](#ignoring-specific-paths)
   * [Limiting request/response data](#limiting-requestresponse-data)
   * [Clearing logged data](#clearing-logged-data)
 * [Contributing](#contributing)
@@ -77,7 +77,7 @@ Silk is a live profiling and inspection tool for the Django framework. Silk inte
 
 Silk has been tested with:
 
-* Django: 4.2, 5.1, 5.2, 6.0
+* Django: 5.2, 6.0, 6.1
 * Python: 3.10, 3.11, 3.12, 3.13, 3.14, 3.15
 
 ## Installation
@@ -234,8 +234,7 @@ When enabled, a graph visualisation generated using [gprof2dot](https://github.c
 A custom storage class can be used for the saved generated binary `.prof` files:
 
 ```python
-# For Django >= 4.2 and Django-Silk >= 5.1.0:
-# See https://docs.djangoproject.com/en/5.0/ref/settings/#std-setting-STORAGES
+# See https://docs.djangoproject.com/en/stable/ref/settings/#std-setting-STORAGES
 STORAGES = {
     'SILKY_STORAGE': {
         'BACKEND': 'path.to.StorageClass',
@@ -243,7 +242,7 @@ STORAGES = {
     # ...
 }
 
-# For Django < 4.2 or Django-Silk < 5.1.0
+# Alternatively, if STORAGES has no 'SILKY_STORAGE' entry:
 SILKY_STORAGE_CLASS = 'path.to.StorageClass'
 ```
 
@@ -542,6 +541,20 @@ You can also use a `lambda`.
 # log only session has recording enabled.
 SILKY_INTERCEPT_FUNC = lambda request: 'record_requests' in request.session
 ```
+
+### Ignoring specific paths
+
+To stop silk recording particular paths entirely, list them in `SILKY_IGNORE_PATHS`:
+
+```python
+SILKY_IGNORE_PATHS = ['/healthz', '/readyz']
+```
+
+Entries are matched exactly against `request.path_info`, which is the request path
+*without* any `SCRIPT_NAME` prefix your front-end web server may add.  So if silk is
+mounted under `/some-prefix/`, write `/healthz` rather than `/some-prefix/healthz`.
+
+Silk's own views are always ignored and do not need to be listed here.
 
 ### Limiting request/response data
 

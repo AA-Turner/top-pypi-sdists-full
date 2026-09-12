@@ -26,7 +26,7 @@
 //! - `delete_agent_artifact_index_row(index_path: str, artifact_dir: str) -> dict`
 //! - `delete_agent_artifact_index_row_bounded(index_path: str, artifact_dir: str, busy_timeout_ms: int) -> dict`
 //! - `terminalize_stale_active_agent_artifact_index_rows(index_path: str, projects_root: str, stale_after_seconds: int, max_rows: int | None = None, options: dict | None = None) -> dict`
-//! - `replace_agent_artifact_index_dismissed_agents(index_path: str, identities: list[dict]) -> dict`
+//! - `replace_agent_artifact_index_dismissed_agents(index_path: str, identities: list[dict], force: bool = False) -> dict`
 //! - `read_agent_artifact_index_meta(index_path: str, key: str) -> str | None`
 //! - `write_agent_artifact_index_meta(index_path: str, key: str, value: str) -> None`
 //! - `agent_artifact_index_status(index_path: str) -> dict`
@@ -65,11 +65,15 @@
 //! - `plan_status_transition(request: dict) -> dict`
 //! - `canonical_pull_request_url(url: str) -> dict | None`
 //! - `plan_external_pr_import(request: dict) -> dict`
+//! - `repository_resolution_wire_schema_version() -> int`
+//! - `canonical_repository_identity(value: str) -> dict | None`
+//! - `resolve_repository_reference(request: dict) -> dict`
 //! - `parse_git_name_status_z(stdout: str) -> list[dict]`
 //! - `parse_git_branch_name(stdout: str) -> str | None`
 //! - `derive_git_workspace_name(remote_url: str | None, root_path: str | None) -> str | None`
 //! - `parse_git_conflicted_files(stdout: str) -> list[str]`
 //! - `parse_git_local_changes(stdout: str) -> str | None`
+//! - `decide_sidecar_publication_after_push(returncode: int, stdout: str, stderr: str, attempt: int) -> dict`
 //! - `vcs_log_wire_schema_version() -> int`
 //! - `parse_git_log(stdout: str) -> list[dict]`
 //! - `classify_commit_presence(commits: list[dict], ahead_ids: list[str], behind_ids: list[str]) -> list[dict]`
@@ -208,6 +212,8 @@
 //! - `fleet_count_focus_and_fleet(request: dict) -> dict`
 //! - `fleet_validate_catalog_query(request: dict) -> dict`
 //! - `fleet_validate_catalog_cursor(cursor: str) -> str`
+//! - `fleet_catalog_snapshot_id(scope: str, summaries: list[dict]) -> str`
+//! - `fleet_accumulate_catalog_page(request: dict) -> dict`
 //! - `fleet_validate_snapshot_freshness(freshness: dict) -> dict`
 //! - `fleet_normalize_federation_response(request: dict) -> dict`
 //! - `fleet_count_focus_and_fleet_from_federation(request: dict) -> dict`
@@ -272,6 +278,7 @@
 //! - `provider_usage_mark_refresh_due(sase_home: str, request: dict, now: float) -> dict`
 //! - `provider_usage_record_refresh_attempt(sase_home: str, request: dict, now: float) -> dict`
 //! - `provider_usage_validate_observation(observation: dict, now: float) -> dict`
+//! - `provider_usage_normalize_grok_billing(request: dict) -> dict`
 //! - `provider_usage_project_snapshot(observations: list[dict], now: float, cadence_seconds: float = 300, warn_percent: float = 75, critical_percent: float = 90) -> dict`
 //! - `provider_usage_validate_indicator_config(indicator: dict | None = None) -> dict`
 //! - `provider_usage_project_indicator(request: dict) -> dict`
@@ -298,9 +305,33 @@
 //! - `validate_axe_config(request: dict) -> list[dict]`
 //! - `chop_overrun_wire_schema_version() -> int`
 //! - `classify_chop_overrun(request: dict) -> dict`
+//! - `gate_followup_wire_schema_version() -> int`
+//! - `gate_followup_attempt_id(gate_id: str, fingerprint: str) -> str`
+//! - `decide_gate_followup(request: dict) -> dict`
 //! - `axe_status_wire_schema_version() -> int`
 //! - `classify_axe_status(request: dict) -> dict`
 //! - `sase_content_layout(home_root: str, project_root: str | None = None, chezmoi_root: str | None = None, project: str | None = None) -> dict`
+//! - `continuation_wire_schema_version() -> int`
+//! - `continuation_validate_node(record: dict) -> dict`
+//! - `continuation_validate_graph(records: list[dict]) -> dict`
+//! - `continuation_validate_agent_delta(delta: dict) -> dict`
+//! - `continuation_validate_intent(intent: dict) -> dict`
+//! - `continuation_validate_monitor_result(result: dict) -> dict`
+//! - `continuation_validate_diagnostic_manifest(manifest: dict) -> dict`
+//! - `continuation_validate_delivery_record(record: dict) -> dict`
+//! - `continuation_plan_replay(request: dict) -> dict`
+//! - `continuation_select_evidence(request: dict) -> dict`
+//! - `continuation_resolve_policy(request: dict) -> dict`
+//! - `continuation_plan_budget(request: dict) -> dict`
+//! - `continuation_validate_conditional_completion(intent: dict) -> dict`
+//! - `continuation_seal_conditional_completion(request: dict) -> dict`
+//! - `continuation_preview_conditional_completion(intent: dict) -> dict`
+//! - `continuation_bind_conditional_completion(request: dict) -> dict`
+//! - `continuation_rollback_conditional_completion_binding(request: dict) -> dict`
+//! - `continuation_evaluate_conditional_completion(request: dict) -> dict`
+//! - `continuation_consume_conditional_completion(request: dict) -> dict`
+//! - `continuation_invalidate_conditional_completion(request: dict) -> dict`
+//! - `continuation_render_conditional_completion_message(request: dict) -> dict`
 //! - `resolve_layout_candidates(policy: str, exists: list[bool]) -> dict`
 //! - `skill_reference_name(skill_name: str, project: str | None = None) -> str`
 //! - `skill_placement_issue(source: str, in_skill_source: bool, declares_skill: bool, migrate_to: str | None = None) -> dict | None`
@@ -389,6 +420,7 @@
 //! - `directive_contract() -> list[dict]`
 //! - `collect_queue_fields(occurrences: list[dict]) -> dict`
 //! - `format_queue_directive(fields: dict) -> str | None`
+//! - `parse_queue_capacity(raw: str) -> int`
 //! - `queue_directive_flag_key() -> str`
 //! - `runner_capacity_policy_schema_version() -> int`
 //! - `runner_capacity_snapshot(request: dict) -> dict`
@@ -396,6 +428,7 @@
 //! - `directive_completion_context(text: str, line: int, character: int) -> dict | None`
 //! - `directive_completion_candidates(context: dict, inventories: dict | None = None) -> dict`
 //! - `bead_add_link(beads_dir: str, issue_id: str, target_ref: str, relation: str, description: str, origin: str = "manual", direction: str = "out", uses: int = 1, now: str | None = None, operation_id: str | None = None) -> dict`
+//! - `bead_set_link_projection(beads_dir: str, issue_id: str, target_ref: str, relation: str, direction: str, present: bool, operation_id: str, description: str | None = None, origin: str | None = None, uses: int = 1, now: str | None = None) -> dict`
 //! - `bead_remove_link(beads_dir: str, issue_id: str, target_ref: str, relation: str | None = None, direction: str = "out", now: str | None = None, operation_id: str | None = None) -> dict`
 //! - `bead_append_note(beads_dir: str, issue_id: str, entry: str, author: str | None = None, now: str | None = None) -> dict` (`issue["notes"]` is a list of note records)
 //! - `bead_note_edit(beads_dir: str, issue_id: str, note_id: str, text: str, author: str | None = None, now: str | None = None) -> dict`
@@ -634,6 +667,7 @@ use sase_core::agent_launch::{
     prepare_agent_launch as core_prepare_agent_launch,
     prepare_proc_script as core_prepare_proc_script,
     proc_script_argv as core_proc_script_argv,
+    prompt_has_identity_directive as core_prompt_has_identity_directive,
     reconcile_admission_journal as core_reconcile_admission_journal,
     resolve_proc_execution_cwd as core_resolve_proc_execution_cwd,
     sanitize_safe_inputs as core_sanitize_safe_inputs,
@@ -690,7 +724,8 @@ use sase_core::agent_scan::{
     query_related_agent_artifact_dirs as core_query_related_agent_artifact_dirs,
     read_agent_artifact_index_meta as core_read_agent_artifact_index_meta,
     rebuild_agent_artifact_index as core_rebuild_agent_artifact_index,
-    replace_agent_artifact_index_dismissed_agents as core_replace_agent_artifact_index_dismissed_agents,
+    reconcile_agent_artifact_index_dismissed_family_members as core_reconcile_agent_artifact_index_dismissed_family_members,
+    replace_agent_artifact_index_dismissed_agents_with_force as core_replace_agent_artifact_index_dismissed_agents_with_force,
     resolve_agent_artifact_path as core_resolve_agent_artifact_path,
     resolve_agent_artifact_timestamp_path as core_resolve_agent_artifact_timestamp_path,
     scan_agent_artifact_dirs as core_scan_agent_artifact_dirs,
@@ -736,15 +771,31 @@ use sase_core::artifact_file::{
     ARTIFACT_FILE_QUERY_WIRE_SCHEMA_VERSION,
 };
 use sase_core::artifact_link::{
+    artifact_link_alias_producer_id as core_artifact_link_alias_producer_id,
+    artifact_link_cutover_attestation as core_artifact_link_cutover_attestation,
+    artifact_link_cutover_baseline_event as core_artifact_link_cutover_baseline_event,
+    artifact_link_cutover_import_identity as core_artifact_link_cutover_import_identity,
+    artifact_link_cutover_marker as core_artifact_link_cutover_marker,
+    artifact_link_cutover_marker_canonical_json as core_artifact_link_cutover_marker_canonical_json,
+    artifact_link_cutover_progress as core_artifact_link_cutover_progress,
+    artifact_link_cutover_read_state as core_artifact_link_cutover_read_state,
+    artifact_link_derived_producer_id as core_artifact_link_derived_producer_id,
     artifact_link_event_canonical_json as core_artifact_link_event_canonical_json,
     artifact_link_event_digest as core_artifact_link_event_digest,
+    artifact_link_event_owner_requirements as core_artifact_link_event_owner_requirements,
     artifact_link_event_path_for_digest as core_artifact_link_event_path_for_digest,
     artifact_link_event_validate_bytes as core_artifact_link_event_validate_bytes,
     artifact_link_event_validate_path as core_artifact_link_event_validate_path,
+    artifact_link_machine_run_id as core_artifact_link_machine_run_id,
+    artifact_link_outbox_classify_line as core_artifact_link_outbox_classify_line,
+    artifact_link_outbox_legacy_conversion as core_artifact_link_outbox_legacy_conversion,
     artifact_link_publication_due as core_artifact_link_publication_due,
     artifact_link_publication_mark_attempt as core_artifact_link_publication_mark_attempt,
+    artifact_link_publication_receipt as core_artifact_link_publication_receipt,
     artifact_link_publication_record_key as core_artifact_link_publication_record_key,
     artifact_link_publication_register_pending as core_artifact_link_publication_register_pending,
+    artifact_link_stable_fact_created_at as core_artifact_link_stable_fact_created_at,
+    artifact_link_stable_operation_id as core_artifact_link_stable_operation_id,
     artifact_md_path as core_artifact_md_path,
     artifact_row_index_keys as core_artifact_row_index_keys,
     artifact_row_ref_lookup_keys as core_artifact_row_ref_lookup_keys,
@@ -755,6 +806,7 @@ use sase_core::artifact_link::{
     companion_md_path as core_companion_md_path,
     lookup_artifact_relation as core_lookup_artifact_relation,
     merge_artifact_link_indexes as core_merge_artifact_link_indexes,
+    parse_artifact_link_cutover_marker as core_parse_artifact_link_cutover_marker,
     parse_artifact_link_frontmatter_inlet as core_parse_artifact_link_frontmatter_inlet,
     parse_artifact_link_ref_parts as core_parse_artifact_link_ref_parts,
     parse_links_block as core_parse_links_block,
@@ -768,13 +820,21 @@ use sase_core::artifact_link::{
     upsert_artifact_link_row as core_upsert_artifact_link_row,
     upsert_links_block as core_upsert_links_block,
     validate_artifact_link_row as core_validate_artifact_link_row,
-    ArtifactLinkAliasWire, ArtifactLinkError, ArtifactLinkEventWire,
-    ArtifactLinkIndexWire, ArtifactLinkOriginWire,
-    ArtifactLinkPublicationAttemptWire, ArtifactLinkPublicationObservationWire,
-    ArtifactLinkPublicationRecordWire, ArtifactLinkRowWire,
-    ArtifactMdPathRequestWire, ArtifactRowIdentityWire,
+    ArtifactLinkAliasWire, ArtifactLinkCutoverBaselineEventRequestWire,
+    ArtifactLinkCutoverBaselineEventWire, ArtifactLinkCutoverEventStoreWire,
+    ArtifactLinkCutoverImportIdentityWire,
+    ArtifactLinkCutoverImportRequestWire, ArtifactLinkCutoverMarkerWire,
+    ArtifactLinkCutoverProgressRequestWire, ArtifactLinkCutoverReadRootWire,
+    ArtifactLinkCutoverRoleWire, ArtifactLinkCutoverStateWire,
+    ArtifactLinkError, ArtifactLinkEventWire, ArtifactLinkIndexWire,
+    ArtifactLinkOriginWire, ArtifactLinkOwnerRequirementWire,
+    ArtifactLinkPublicationAttemptWire, ArtifactLinkPublicationEvidenceWire,
+    ArtifactLinkPublicationObservationWire, ArtifactLinkPublicationRecordWire,
+    ArtifactLinkRowWire, ArtifactMdPathRequestWire, ArtifactRowIdentityWire,
     ArtifactRowRefQueryWire, BeadLinkDirectionWire, ManagedTableTableWire,
+    ARTIFACT_LINK_CUTOVER_WIRE_SCHEMA_VERSION,
     ARTIFACT_LINK_EVENT_WIRE_SCHEMA_VERSION,
+    ARTIFACT_LINK_PUBLICATION_OWNERSHIP_WIRE_SCHEMA_VERSION,
     ARTIFACT_LINK_PUBLICATION_STATE_WIRE_SCHEMA_VERSION,
     ARTIFACT_LINK_ROW_SCHEMA_VERSION,
     ARTIFACT_ROW_RESOLUTION_WIRE_SCHEMA_VERSION,
@@ -921,6 +981,7 @@ use sase_core::bead::{
     resolution_migration_sql as core_bead_resolution_migration_sql,
     resolve_issue_id as core_bead_resolve_issue_id,
     search_issues as core_bead_search_issues,
+    set_bead_link_projection as core_bead_set_link_projection,
     show_issue as core_bead_show_issue,
     show_issue_detail_with_options as core_bead_show_issue_detail,
     size_check_relax_migration_sql as core_bead_size_check_relax_migration_sql,
@@ -968,6 +1029,41 @@ use sase_core::content_layout::{
     skill_placement_issue as core_skill_placement_issue,
     skill_reference_name as core_skill_reference_name,
     LayoutCollisionPolicyWire,
+};
+use sase_core::continuation::{
+    bind_conditional_completion as core_bind_conditional_completion,
+    consume_conditional_completion_request as core_consume_conditional_completion,
+    evaluate_conditional_completion as core_evaluate_conditional_completion,
+    invalidate_conditional_completion_request as core_invalidate_conditional_completion,
+    plan_continuation_budget as core_plan_continuation_budget,
+    plan_continuation_replay as core_plan_continuation_replay,
+    preview_conditional_completion as core_preview_conditional_completion,
+    render_conditional_completion_message_request as core_render_conditional_completion_message,
+    resolve_continuation_policy as core_resolve_continuation_policy,
+    rollback_conditional_completion_binding as core_rollback_conditional_completion_binding,
+    seal_conditional_completion as core_seal_conditional_completion,
+    select_continuation_evidence as core_select_continuation_evidence,
+    validate_agent_delta as core_validate_agent_delta,
+    validate_conditional_completion_intent as core_validate_conditional_completion_intent,
+    validate_continuation_delivery_record as core_validate_continuation_delivery_record,
+    validate_continuation_graph as core_validate_continuation_graph,
+    validate_continuation_intent as core_validate_continuation_intent,
+    validate_continuation_node_value as core_validate_continuation_node_value,
+    validate_diagnostic_manifest as core_validate_diagnostic_manifest,
+    validate_launch_requester_continuation as core_validate_launch_requester_continuation,
+    validate_monitor_result as core_validate_monitor_result, AgentDeltaWire,
+    ConditionalCompletionBindRequestWire,
+    ConditionalCompletionConsumeRequestWire,
+    ConditionalCompletionEvaluateRequestWire, ConditionalCompletionIntentWire,
+    ConditionalCompletionMessageRequestWire,
+    ConditionalCompletionPrepareRequestWire,
+    ConditionalCompletionRollbackRequestWire, ContinuationBudgetRequestWire,
+    ContinuationDeliveryRecordWire, ContinuationError,
+    ContinuationEvidenceSelectionRequestWire, ContinuationIntentWire,
+    ContinuationNodeWire, ContinuationPolicyResolutionRequestWire,
+    ContinuationReplayPlanRequestWire, DiagnosticManifestWire,
+    LaunchRequesterContinuationWire, MonitorResultWire,
+    CONTINUATION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::effort::resolve_effective_effort as core_resolve_effective_effort;
 use sase_core::effort_override::{
@@ -1019,7 +1115,8 @@ use sase_core::fleet_attention::{
 use sase_core::fleet_contract::{
     self as core_fleet_contract, AgentInstanceLocatorWire,
     CacheFreshnessRequestWire, CapabilitySetWire, ConnectionPlanWire,
-    CursorReplayRequestWire, FleetCatalogQueryWire,
+    CursorReplayRequestWire, FleetCatalogAccumulationRequestWire,
+    FleetCatalogQueryWire, FleetCatalogScopeWire,
     FleetContractError as FleetContractDomainError,
     FleetFederationNormalizeRequestWire, FleetLaunchDecisionRequestWire,
     FleetLaunchIntentWire, FleetLaunchRequestWire,
@@ -1039,6 +1136,12 @@ use sase_core::fleet_follow_promotion::{
 use sase_core::fleet_mutation::{
     self as core_fleet_mutation, FleetMutationIntentWire,
     FleetMutationRequestWire,
+};
+use sase_core::gate_followup::{
+    decide_gate_followup as core_decide_gate_followup,
+    gate_followup_attempt_id as core_gate_followup_attempt_id,
+    gate_followup_decision_request_from_json_value, GateFollowupError,
+    GATE_FOLLOWUP_WIRE_SCHEMA_VERSION,
 };
 use sase_core::git_query::{
     derive_git_workspace_name as core_derive_git_workspace_name,
@@ -1226,6 +1329,7 @@ use sase_core::provider_usage::{
     format_remaining_text as core_format_remaining_text,
     load_provider_usage_store as core_load_provider_usage_store,
     mark_provider_usage_refresh_due as core_mark_provider_usage_refresh_due,
+    normalize_grok_billing as core_normalize_grok_billing,
     prepare_provider_usage_account_context as core_prepare_provider_usage_account_context,
     project_usage_indicator as core_project_usage_indicator,
     project_usage_snapshot as core_project_usage_snapshot,
@@ -1240,9 +1344,9 @@ use sase_core::provider_usage::{
     validate_usage_indicator_config as core_validate_usage_indicator_config,
     validate_usage_observation as core_validate_usage_observation,
     ProviderUsageError as ProviderUsageDomainError,
-    ProviderUsageObservationWire, ProviderUsageRefreshAdmitRequestWire,
-    ProviderUsageRefreshAttemptWire, ProviderUsageRefreshDueRequestWire,
-    ProviderUsageRefreshMarkDueRequestWire,
+    ProviderUsageNormalizeGrokBillingRequestWire, ProviderUsageObservationWire,
+    ProviderUsageRefreshAdmitRequestWire, ProviderUsageRefreshAttemptWire,
+    ProviderUsageRefreshDueRequestWire, ProviderUsageRefreshMarkDueRequestWire,
     ProviderUsageRefreshReservationRequestWire,
     ProviderUsageStoreError as ProviderUsageStoreDomainError,
     UsageApplicabilityWire, UsageIndicatorProjectionRequestWire,
@@ -1271,6 +1375,12 @@ use sase_core::referenced_by::{
     upsert_referenced_by_block as core_upsert_referenced_by_block,
     ReferencedByTableWire, REFERENCED_BY_BLOCK_WIRE_SCHEMA_VERSION,
 };
+use sase_core::repository_resolution::{
+    canonical_repository_identity as core_canonical_repository_identity,
+    repository_resolution_wire_schema_version as core_repository_resolution_wire_schema_version,
+    resolve_repository_reference as core_resolve_repository_reference,
+    RepositoryResolutionRequestWire,
+};
 use sase_core::runner_limit_override::{
     clear_runner_limit_override as core_clear_runner_limit_override,
     get_runner_limit_override as core_get_runner_limit_override,
@@ -1279,6 +1389,10 @@ use sase_core::runner_limit_override::{
     RunnerLimitOverrideError as RunnerLimitOverrideDomainError,
 };
 use sase_core::scan_directive_owned_fences as core_scan_directive_owned_fences;
+use sase_core::sidecar_publication::{
+    decide_sidecar_publication_after_push as core_decide_sidecar_publication_after_push,
+    SidecarPublicationDecisionWire,
+};
 use sase_core::snippet_session::{
     apply_session_event as core_apply_snippet_session_event,
     SnippetSessionEvent, SnippetSessionState,
@@ -1333,6 +1447,7 @@ use sase_core::CODE_VALUE_WIRE_SCHEMA_VERSION;
 use sase_core::{
     collect_queue_fields as core_collect_queue_fields,
     format_queue_directive as core_format_queue_directive,
+    parse_queue_capacity as core_parse_queue_capacity,
     queue_directive_flag_key as core_queue_directive_flag_key, QueueFieldsWire,
     QueueOccurrenceWire,
 };
@@ -3232,11 +3347,15 @@ fn py_prune_hidden_terminal_agent_artifact_index_rows<'py>(
 
 /// Replace dismissed identities in the persistent artifact index.
 #[pyfunction]
-#[pyo3(name = "replace_agent_artifact_index_dismissed_agents")]
+#[pyo3(
+    name = "replace_agent_artifact_index_dismissed_agents",
+    signature = (index_path, identities, force = false)
+)]
 fn py_replace_agent_artifact_index_dismissed_agents<'py>(
     py: Python<'py>,
     index_path: &str,
     identities: &Bound<'_, PyList>,
+    force: bool,
 ) -> PyResult<PyObject> {
     let mut wire_identities: Vec<AgentCleanupIdentityWire> =
         Vec::with_capacity(identities.len());
@@ -3253,9 +3372,35 @@ fn py_replace_agent_artifact_index_dismissed_agents<'py>(
     let index = PathBuf::from(index_path);
     let update = py
         .allow_threads(|| {
-            core_replace_agent_artifact_index_dismissed_agents(
+            core_replace_agent_artifact_index_dismissed_agents_with_force(
                 &index,
                 &wire_identities,
+                force,
+            )
+        })
+        .map_err(PyRuntimeError::new_err)?;
+    let value = serde_json::to_value(&update).map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Back-fill dismissed identities for visible dead members of dismissed families.
+#[pyfunction]
+#[pyo3(
+    name = "reconcile_agent_artifact_index_dismissed_family_members",
+    signature = (index_path, dry_run = false)
+)]
+fn py_reconcile_agent_artifact_index_dismissed_family_members<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    dry_run: bool,
+) -> PyResult<PyObject> {
+    let index = PathBuf::from(index_path);
+    let update = py
+        .allow_threads(|| {
+            core_reconcile_agent_artifact_index_dismissed_family_members(
+                &index, dry_run,
             )
         })
         .map_err(PyRuntimeError::new_err)?;
@@ -4247,6 +4392,44 @@ fn py_plan_external_pr_import<'py>(
     json_value_to_py(py, &value)
 }
 
+/// Return the repository-resolution wire schema version.
+#[pyfunction]
+#[pyo3(name = "repository_resolution_wire_schema_version")]
+fn py_repository_resolution_wire_schema_version() -> u32 {
+    core_repository_resolution_wire_schema_version()
+}
+
+/// Canonicalize a supported repository identity, if one is present.
+#[pyfunction]
+#[pyo3(name = "canonical_repository_identity")]
+fn py_canonical_repository_identity<'py>(
+    py: Python<'py>,
+    value: &str,
+) -> PyResult<Option<PyObject>> {
+    let Some(identity) = core_canonical_repository_identity(value) else {
+        return Ok(None);
+    };
+    serialize_to_py(py, &identity).map(Some)
+}
+
+/// Resolve a requested repository reference against configured candidates.
+#[pyfunction]
+#[pyo3(name = "resolve_repository_reference")]
+fn py_resolve_repository_reference<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    let req: RepositoryResolutionRequestWire = serde_json::from_value(value)
+        .map_err(|e| {
+            PyValueError::new_err(format!(
+                "request is not a valid RepositoryResolutionRequestWire dict: {e}"
+            ))
+        })?;
+    let decision = core_resolve_repository_reference(&req);
+    serialize_to_py(py, &decision)
+}
+
 // --- Phase 5C Git query parser bindings -----------------------------------
 
 /// Parse the NUL-delimited output of `git diff --name-status -z` into a
@@ -4338,6 +4521,40 @@ fn py_parse_git_local_changes(py: Python<'_>, stdout: &str) -> PyObject {
         Some(text) => text.into_py(py),
         None => py.None(),
     }
+}
+
+/// Decide the next launch-time sidecar publication action after one push.
+#[pyfunction]
+#[pyo3(name = "decide_sidecar_publication_after_push")]
+fn py_decide_sidecar_publication_after_push<'py>(
+    py: Python<'py>,
+    returncode: i32,
+    stdout: &str,
+    stderr: &str,
+    attempt: u32,
+) -> PyResult<Bound<'py, PyDict>> {
+    if attempt == 0 {
+        return Err(PyValueError::new_err("attempt must be at least 1"));
+    }
+    let decision = core_decide_sidecar_publication_after_push(
+        returncode, stdout, stderr, attempt,
+    );
+    sidecar_publication_decision_to_py(py, &decision)
+}
+
+fn sidecar_publication_decision_to_py<'py>(
+    py: Python<'py>,
+    decision: &SidecarPublicationDecisionWire,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("schema_version", decision.schema_version)?;
+    dict.set_item("action", &decision.action)?;
+    dict.set_item("classification", &decision.classification)?;
+    dict.set_item("reason", &decision.reason)?;
+    dict.set_item("attempt", decision.attempt)?;
+    dict.set_item("max_attempts", decision.max_attempts)?;
+    dict.set_item("retryable", decision.retryable)?;
+    Ok(dict)
 }
 
 // --- vcs_log parser + aggregator bindings --------------------------------
@@ -6057,6 +6274,26 @@ fn artifact_link_publication_attempt_from_pydict(
     })
 }
 
+fn artifact_link_owner_requirements_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkOwnerRequirementWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "requirements is not a valid ArtifactLinkOwnerRequirementWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_publication_evidence_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkPublicationEvidenceWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "evidence is not a valid ArtifactLinkPublicationEvidenceWire dict: {error}"
+        ))
+    })
+}
+
 fn artifact_link_event_from_pydict(
     dict: &Bound<'_, PyDict>,
 ) -> PyResult<ArtifactLinkEventWire> {
@@ -6105,6 +6342,123 @@ fn artifact_link_aliases_from_py_list(
     Ok(aliases)
 }
 
+fn artifact_link_cutover_marker_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverMarkerWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "marker is not a valid ArtifactLinkCutoverMarkerWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_import_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverImportRequestWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ArtifactLinkCutoverImportRequestWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_baseline_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverBaselineEventRequestWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ArtifactLinkCutoverBaselineEventRequestWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_event_store_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverEventStoreWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "event_store is not a valid ArtifactLinkCutoverEventStoreWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_import_identity_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverImportIdentityWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "import is not a valid ArtifactLinkCutoverImportIdentityWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_roles_from_py_list(
+    list: &Bound<'_, PyList>,
+) -> PyResult<Vec<ArtifactLinkCutoverRoleWire>> {
+    let mut roles = Vec::with_capacity(list.len());
+    for (index, item) in list.iter().enumerate() {
+        let dict = item.downcast::<PyDict>().map_err(|_| {
+            PyValueError::new_err(format!("roles[{index}] must be a dict"))
+        })?;
+        roles.push(serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(
+            |error| {
+                PyValueError::new_err(format!(
+                    "roles[{index}] is not a valid ArtifactLinkCutoverRoleWire dict: {error}"
+                ))
+            },
+        )?);
+    }
+    Ok(roles)
+}
+
+fn artifact_link_cutover_baseline_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverBaselineEventWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "baseline_event is not a valid ArtifactLinkCutoverBaselineEventWire dict: {error}"
+        ))
+    })
+}
+
+fn artifact_link_cutover_state_from_str(
+    value: &str,
+) -> PyResult<ArtifactLinkCutoverStateWire> {
+    match value.trim() {
+        "fenced" => Ok(ArtifactLinkCutoverStateWire::Fenced),
+        "imported" => Ok(ArtifactLinkCutoverStateWire::Imported),
+        _ => Err(PyValueError::new_err(
+            "artifact-link cutover state must be `fenced` or `imported`",
+        )),
+    }
+}
+
+fn artifact_link_cutover_read_roots_from_py_list(
+    list: &Bound<'_, PyList>,
+) -> PyResult<Vec<ArtifactLinkCutoverReadRootWire>> {
+    let mut roots = Vec::with_capacity(list.len());
+    for (index, item) in list.iter().enumerate() {
+        roots.push(serde_json::from_value(py_to_json_value(&item)?).map_err(
+            |error| {
+                PyValueError::new_err(format!(
+                    "roots[{index}] is not a valid ArtifactLinkCutoverReadRootWire dict: {error}"
+                ))
+            },
+        )?);
+    }
+    Ok(roots)
+}
+
+fn artifact_link_cutover_progress_request_from_pydict(
+    dict: &Bound<'_, PyDict>,
+) -> PyResult<ArtifactLinkCutoverProgressRequestWire> {
+    serde_json::from_value(py_to_json_value(dict.as_any())?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ArtifactLinkCutoverProgressRequestWire dict: {error}"
+        ))
+    })
+}
+
 /// Return the v2 artifact-link row schema version.
 #[pyfunction]
 #[pyo3(name = "artifact_link_row_schema_version")]
@@ -6119,6 +6473,243 @@ fn py_artifact_link_event_schema_version() -> u64 {
     ARTIFACT_LINK_EVENT_WIRE_SCHEMA_VERSION
 }
 
+/// Return the artifact-link cutover marker wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_wire_schema_version")]
+fn py_artifact_link_cutover_wire_schema_version() -> u64 {
+    ARTIFACT_LINK_CUTOVER_WIRE_SCHEMA_VERSION
+}
+
+/// Strictly parse and validate one artifact-link cutover marker JSON string.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_marker_parse")]
+fn py_artifact_link_cutover_marker_parse(
+    py: Python<'_>,
+    payload: &str,
+) -> PyResult<PyObject> {
+    let marker = core_parse_artifact_link_cutover_marker(payload)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(marker).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return canonical marker JSON for one validated artifact-link cutover marker.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_marker_canonical_json")]
+fn py_artifact_link_cutover_marker_canonical_json(
+    marker: &Bound<'_, PyDict>,
+) -> PyResult<String> {
+    let marker = artifact_link_cutover_marker_from_pydict(marker)?;
+    core_artifact_link_cutover_marker_canonical_json(&marker)
+        .map_err(artifact_link_error_to_pyerr)
+}
+
+/// Build a validated artifact-link cutover marker.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_marker_build")]
+fn py_artifact_link_cutover_marker_build(
+    py: Python<'_>,
+    state: &str,
+    project_key: &str,
+    event_store: &Bound<'_, PyDict>,
+    import_identity: &Bound<'_, PyDict>,
+    roles: &Bound<'_, PyList>,
+    baseline_event: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let state = artifact_link_cutover_state_from_str(state)?;
+    let event_store =
+        artifact_link_cutover_event_store_from_pydict(event_store)?;
+    let import_identity =
+        artifact_link_cutover_import_identity_from_pydict(import_identity)?;
+    let roles = artifact_link_cutover_roles_from_py_list(roles)?;
+    let baseline_event =
+        artifact_link_cutover_baseline_from_pydict(baseline_event)?;
+    let marker = core_artifact_link_cutover_marker(
+        state,
+        project_key,
+        &event_store,
+        &import_identity,
+        &roles,
+        &baseline_event,
+    )
+    .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(marker).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the deterministic identity for one legacy-index import request.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_import_identity")]
+fn py_artifact_link_cutover_import_identity(
+    py: Python<'_>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request = artifact_link_cutover_import_request_from_pydict(request)?;
+    let identity = core_artifact_link_cutover_import_identity(&request)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(identity).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Build the deterministic baseline-import event for one cutover identity.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_baseline_event")]
+fn py_artifact_link_cutover_baseline_event(
+    py: Python<'_>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request = artifact_link_cutover_baseline_request_from_pydict(request)?;
+    let event = core_artifact_link_cutover_baseline_event(&request)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(event).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the operator attestation token for one cutover marker.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_attestation")]
+fn py_artifact_link_cutover_attestation(
+    marker: &Bound<'_, PyDict>,
+) -> PyResult<String> {
+    let marker = artifact_link_cutover_marker_from_pydict(marker)?;
+    core_artifact_link_cutover_attestation(&marker)
+        .map_err(artifact_link_error_to_pyerr)
+}
+
+/// Return reader-facing cutover state for root marker observations.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_read_state")]
+fn py_artifact_link_cutover_read_state(
+    py: Python<'_>,
+    roots: &Bound<'_, PyList>,
+) -> PyResult<PyObject> {
+    let roots = artifact_link_cutover_read_roots_from_py_list(roots)?;
+    let state = core_artifact_link_cutover_read_state(&roots)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(state).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return resumable cutover progress from expected marker and root observations.
+#[pyfunction]
+#[pyo3(name = "artifact_link_cutover_progress")]
+fn py_artifact_link_cutover_progress(
+    py: Python<'_>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request = artifact_link_cutover_progress_request_from_pydict(request)?;
+    let progress = core_artifact_link_cutover_progress(&request)
+        .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(progress).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Classify one physical artifact-link outbox JSONL line.
+#[pyfunction]
+#[pyo3(name = "artifact_link_outbox_classify_line")]
+fn py_artifact_link_outbox_classify_line(
+    py: Python<'_>,
+    line: &str,
+    project_key: &str,
+) -> PyResult<PyObject> {
+    let classification =
+        core_artifact_link_outbox_classify_line(line, project_key);
+    let value = serde_json::to_value(classification).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Convert or retire one legacy row-only outbox entry.
+#[pyfunction]
+#[pyo3(name = "artifact_link_outbox_legacy_conversion")]
+fn py_artifact_link_outbox_legacy_conversion(
+    py: Python<'_>,
+    entry: &Bound<'_, PyDict>,
+    project_key: &str,
+    baseline_rows: &Bound<'_, PyList>,
+) -> PyResult<PyObject> {
+    let entry_value = py_to_json_value(entry.as_any())?;
+    let mut rows: Vec<ArtifactLinkRowWire> =
+        Vec::with_capacity(baseline_rows.len());
+    for (index, item) in baseline_rows.iter().enumerate() {
+        rows.push(
+            serde_json::from_value::<ArtifactLinkRowWire>(py_to_json_value(&item)?)
+                .map_err(|error| {
+                    PyValueError::new_err(format!(
+                        "baseline_rows[{index}] is not a valid ArtifactLinkRowWire dict: {error}"
+                    ))
+                })?,
+        );
+    }
+    let conversion = core_artifact_link_outbox_legacy_conversion(
+        &entry_value,
+        project_key,
+        &rows,
+    )
+    .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(conversion).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the stable producer recorded on derived-fact link events.
+#[pyfunction]
+#[pyo3(name = "artifact_link_derived_producer_id")]
+fn py_artifact_link_derived_producer_id() -> &'static str {
+    core_artifact_link_derived_producer_id()
+}
+
+/// Return the stable producer recorded on artifact-rename alias events.
+#[pyfunction]
+#[pyo3(name = "artifact_link_alias_producer_id")]
+fn py_artifact_link_alias_producer_id() -> &'static str {
+    core_artifact_link_alias_producer_id()
+}
+
+/// Return the machine run marker used for stable background facts.
+#[pyfunction]
+#[pyo3(name = "artifact_link_machine_run_id")]
+fn py_artifact_link_machine_run_id() -> &'static str {
+    core_artifact_link_machine_run_id()
+}
+
+/// Return the timestamp sentinel for replay-stable derived facts.
+#[pyfunction]
+#[pyo3(name = "artifact_link_stable_fact_created_at")]
+fn py_artifact_link_stable_fact_created_at() -> &'static str {
+    core_artifact_link_stable_fact_created_at()
+}
+
+/// Return a deterministic 128-bit operation id for replayable producers.
+#[pyfunction]
+#[pyo3(name = "artifact_link_stable_operation_id")]
+fn py_artifact_link_stable_operation_id(
+    parts: &Bound<'_, PyAny>,
+) -> PyResult<String> {
+    let value = py_to_json_value(parts)?;
+    let JsonValue::Array(parts) = value else {
+        return Err(PyValueError::new_err(
+            "artifact_link_stable_operation_id expects a JSON-shaped list",
+        ));
+    };
+    core_artifact_link_stable_operation_id(&parts)
+        .map_err(artifact_link_error_to_pyerr)
+}
+
 /// Return the artifact-row ref-resolution wire schema version.
 #[pyfunction]
 #[pyo3(name = "artifact_row_resolution_wire_schema_version")]
@@ -6131,6 +6722,53 @@ fn py_artifact_row_resolution_wire_schema_version() -> u64 {
 #[pyo3(name = "artifact_link_publication_state_wire_schema_version")]
 fn py_artifact_link_publication_state_wire_schema_version() -> u64 {
     u64::from(ARTIFACT_LINK_PUBLICATION_STATE_WIRE_SCHEMA_VERSION)
+}
+
+/// Return the artifact-link publication ownership wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_ownership_wire_schema_version")]
+fn py_artifact_link_publication_ownership_wire_schema_version() -> u64 {
+    ARTIFACT_LINK_PUBLICATION_OWNERSHIP_WIRE_SCHEMA_VERSION
+}
+
+/// Partition one link event's refs into publication owner requirements.
+#[pyfunction]
+#[pyo3(name = "artifact_link_event_owner_requirements")]
+fn py_artifact_link_event_owner_requirements<'py>(
+    py: Python<'py>,
+    event: &Bound<'py, PyDict>,
+    document_kinds: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let event = artifact_link_event_from_pydict(event)?;
+    let document_kinds =
+        strings_from_py_list(document_kinds, "document_kinds")?;
+    let requirements =
+        core_artifact_link_event_owner_requirements(&event, &document_kinds)
+            .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(requirements).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Decide whether one link event has a durable publication receipt.
+#[pyfunction]
+#[pyo3(name = "artifact_link_publication_receipt")]
+fn py_artifact_link_publication_receipt<'py>(
+    py: Python<'py>,
+    requirements: &Bound<'py, PyDict>,
+    evidence: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let requirements =
+        artifact_link_owner_requirements_from_pydict(requirements)?;
+    let evidence = artifact_link_publication_evidence_from_pydict(evidence)?;
+    let receipt =
+        core_artifact_link_publication_receipt(&requirements, &evidence)
+            .map_err(artifact_link_error_to_pyerr)?;
+    let value = serde_json::to_value(receipt).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
 }
 
 /// Return the stable state key for one artifact-link publication root.
@@ -8343,6 +8981,61 @@ fn py_bead_add_link<'py>(
                 description,
                 origin,
                 direction,
+                uses,
+                now,
+                operation_id,
+            )
+        }),
+    )
+}
+
+#[pyfunction]
+#[pyo3(name = "bead_set_link_projection")]
+#[pyo3(signature = (beads_dir, issue_id, target_ref, relation, direction, present, operation_id, description=None, origin=None, uses=1, now=None))]
+#[allow(clippy::too_many_arguments)]
+fn py_bead_set_link_projection<'py>(
+    py: Python<'py>,
+    beads_dir: &str,
+    issue_id: &str,
+    target_ref: &str,
+    relation: &str,
+    direction: &str,
+    present: bool,
+    operation_id: String,
+    description: Option<String>,
+    origin: Option<&str>,
+    uses: u64,
+    now: Option<String>,
+) -> PyResult<PyObject> {
+    let origin = match origin {
+        Some(origin) => Some(
+            ArtifactLinkOriginWire::from_name(origin).ok_or_else(|| {
+                PyValueError::new_err(format!(
+                    "unknown artifact link origin `{origin}`"
+                ))
+            })?,
+        ),
+        None => None,
+    };
+    let direction =
+        BeadLinkDirectionWire::from_name(direction).ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "unknown bead link direction `{direction}`"
+            ))
+        })?;
+    let beads_dir = PathBuf::from(beads_dir);
+    bead_result_to_py(
+        py,
+        py.allow_threads(|| {
+            core_bead_set_link_projection(
+                &beads_dir,
+                issue_id,
+                target_ref,
+                relation,
+                direction,
+                present,
+                description,
+                origin,
                 uses,
                 now,
                 operation_id,
@@ -11116,6 +11809,47 @@ fn py_classify_chop_overrun<'py>(
     json_value_to_py(py, &value)
 }
 
+fn gate_followup_error_to_pyerr(error: GateFollowupError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+/// Return the supported gate-follow-up wire schema version.
+#[pyfunction]
+#[pyo3(name = "gate_followup_wire_schema_version")]
+fn py_gate_followup_wire_schema_version() -> u32 {
+    GATE_FOLLOWUP_WIRE_SCHEMA_VERSION
+}
+
+/// Return the stable attempt identity for one gate and request fingerprint.
+#[pyfunction]
+#[pyo3(name = "gate_followup_attempt_id")]
+fn py_gate_followup_attempt_id(gate_id: &str, fingerprint: &str) -> String {
+    core_gate_followup_attempt_id(gate_id, fingerprint)
+}
+
+/// Classify one gate's follow-up disposition without host I/O.
+#[pyfunction]
+#[pyo3(name = "decide_gate_followup")]
+fn py_decide_gate_followup<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    let request = gate_followup_decision_request_from_json_value(&value)
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "request is not a valid GateFollowupDecisionRequestWire dict: {error}"
+            ))
+        })?;
+    let verdict = py
+        .allow_threads(|| core_decide_gate_followup(&request))
+        .map_err(gate_followup_error_to_pyerr)?;
+    let value = serde_json::to_value(verdict).map_err(|error| {
+        PyValueError::new_err(format!("internal serialize error: {error}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
 // --- Portable AXE runtime status -----------------------------------------
 
 fn axe_status_error_to_pyerr(error: AxeStatusError) -> PyErr {
@@ -12516,6 +13250,19 @@ fn py_provider_usage_record_refresh_attempt<'py>(
 }
 
 #[pyfunction]
+#[pyo3(name = "provider_usage_normalize_grok_billing")]
+fn py_provider_usage_normalize_grok_billing<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ProviderUsageNormalizeGrokBillingRequestWire =
+        provider_priority_dict_from_py(request.as_any(), "request")?;
+    let observation = core_normalize_grok_billing(request)
+        .map_err(provider_usage_error_to_pyerr)?;
+    serialize_to_py(py, &observation)
+}
+
+#[pyfunction]
 #[pyo3(name = "provider_usage_validate_observation")]
 fn py_provider_usage_validate_observation<'py>(
     py: Python<'py>,
@@ -13024,6 +13771,45 @@ fn py_fleet_validate_catalog_query<'py>(
 fn py_fleet_validate_catalog_cursor(cursor: &str) -> PyResult<String> {
     core_fleet_contract::validate_fleet_catalog_cursor(cursor)
         .map_err(fleet_contract_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_catalog_snapshot_id")]
+fn py_fleet_catalog_snapshot_id<'py>(
+    scope: &str,
+    summaries: &Bound<'py, PyList>,
+) -> PyResult<String> {
+    let scope: FleetCatalogScopeWire = serde_json::from_value(
+        JsonValue::String(scope.to_string()),
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "fleet catalog scope is not valid: {error}"
+        ))
+    })?;
+    let summaries: Vec<ResolvedAgentSummaryWire> = serde_json::from_value(
+        py_to_json_value(summaries.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "fleet catalog summaries are not valid: {error}"
+        ))
+    })?;
+    core_fleet_contract::fleet_catalog_snapshot_id(scope, &summaries)
+        .map_err(fleet_contract_error_to_pyerr)
+}
+
+#[pyfunction]
+#[pyo3(name = "fleet_accumulate_catalog_page")]
+fn py_fleet_accumulate_catalog_page<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: FleetCatalogAccumulationRequestWire =
+        fleet_wire_from_pydict(request, "fleet catalog accumulation request")?;
+    let result = core_fleet_contract::accumulate_fleet_catalog_page(&request)
+        .map_err(fleet_contract_error_to_pyerr)?;
+    fleet_wire_to_py(py, &result)
 }
 
 #[pyfunction]
@@ -13611,6 +14397,414 @@ fn py_select_epic_land_model<'py>(
     )
 }
 
+// --- Monitor continuation contracts --------------------------------------
+
+/// Return the continuation contract wire schema version.
+#[pyfunction]
+#[pyo3(name = "continuation_wire_schema_version")]
+fn py_continuation_wire_schema_version() -> u32 {
+    CONTINUATION_WIRE_SCHEMA_VERSION
+}
+
+/// Validate one continuation node and return its normalized wire shape.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_node")]
+fn py_continuation_validate_node<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(record.as_any())?;
+    continuation_result_to_py(
+        py,
+        core_validate_continuation_node_value(value),
+        "node validation",
+    )
+}
+
+/// Validate a continuation node collection and summarize its edges.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_graph")]
+fn py_continuation_validate_graph<'py>(
+    py: Python<'py>,
+    records: &Bound<'py, PyList>,
+) -> PyResult<PyObject> {
+    let records: Vec<ContinuationNodeWire> =
+        continuation_wire_from_pyany(records.as_any(), "records")?;
+    continuation_result_to_py(
+        py,
+        core_validate_continuation_graph(records),
+        "graph validation",
+    )
+}
+
+/// Validate one agent-delta record.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_agent_delta")]
+fn py_continuation_validate_agent_delta<'py>(
+    py: Python<'py>,
+    delta: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let delta: AgentDeltaWire =
+        continuation_wire_from_pydict(delta, "agent delta")?;
+    continuation_result_to_py(
+        py,
+        core_validate_agent_delta(delta),
+        "agent-delta validation",
+    )
+}
+
+/// Validate one continuation intent record.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_intent")]
+fn py_continuation_validate_intent<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: ContinuationIntentWire =
+        continuation_wire_from_pydict(intent, "continuation intent")?;
+    continuation_result_to_py(
+        py,
+        core_validate_continuation_intent(intent),
+        "intent validation",
+    )
+}
+
+/// Validate one monitor-result record.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_monitor_result")]
+fn py_continuation_validate_monitor_result<'py>(
+    py: Python<'py>,
+    result: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let result: MonitorResultWire =
+        continuation_wire_from_pydict(result, "monitor result")?;
+    continuation_result_to_py(
+        py,
+        core_validate_monitor_result(result),
+        "monitor-result validation",
+    )
+}
+
+/// Validate one diagnostic-manifest record.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_diagnostic_manifest")]
+fn py_continuation_validate_diagnostic_manifest<'py>(
+    py: Python<'py>,
+    manifest: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let manifest: DiagnosticManifestWire =
+        continuation_wire_from_pydict(manifest, "diagnostic manifest")?;
+    continuation_result_to_py(
+        py,
+        core_validate_diagnostic_manifest(manifest),
+        "diagnostic-manifest validation",
+    )
+}
+
+/// Validate one mutable delivery record.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_delivery_record")]
+fn py_continuation_validate_delivery_record<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let record: ContinuationDeliveryRecordWire =
+        continuation_wire_from_pydict(record, "delivery record")?;
+    continuation_result_to_py(
+        py,
+        core_validate_continuation_delivery_record(record),
+        "delivery-record validation",
+    )
+}
+
+/// Validate one LaunchApproval requester-continuation contract.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_launch_requester_continuation")]
+fn py_continuation_validate_launch_requester_continuation<'py>(
+    py: Python<'py>,
+    record: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let record: LaunchRequesterContinuationWire =
+        continuation_wire_from_pydict(record, "launch requester continuation")?;
+    continuation_result_to_py(
+        py,
+        core_validate_launch_requester_continuation(record),
+        "launch requester continuation validation",
+    )
+}
+
+/// Build a deterministic parent-first replay manifest.
+#[pyfunction]
+#[pyo3(name = "continuation_plan_replay")]
+fn py_continuation_plan_replay<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationReplayPlanRequestWire =
+        continuation_wire_from_pydict(request, "replay request")?;
+    continuation_result_to_py(
+        py,
+        core_plan_continuation_replay(request),
+        "replay planning",
+    )
+}
+
+/// Select the monitor-result evidence projected into continuation context.
+#[pyfunction]
+#[pyo3(name = "continuation_select_evidence")]
+fn py_continuation_select_evidence<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationEvidenceSelectionRequestWire =
+        continuation_wire_from_pydict(request, "evidence request")?;
+    continuation_result_to_py(
+        py,
+        core_select_continuation_evidence(request),
+        "evidence selection",
+    )
+}
+
+/// Resolve the next-action branch for a terminal monitor outcome.
+#[pyfunction]
+#[pyo3(name = "continuation_resolve_policy")]
+fn py_continuation_resolve_policy<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationPolicyResolutionRequestWire =
+        continuation_wire_from_pydict(request, "policy request")?;
+    continuation_result_to_py(
+        py,
+        core_resolve_continuation_policy(request),
+        "policy resolution",
+    )
+}
+
+/// Decide whether an expanded continuation fits the provider budget.
+#[pyfunction]
+#[pyo3(name = "continuation_plan_budget")]
+fn py_continuation_plan_budget<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationBudgetRequestWire =
+        continuation_wire_from_pydict(request, "budget request")?;
+    continuation_result_to_py(
+        py,
+        core_plan_continuation_budget(request),
+        "budget planning",
+    )
+}
+
+/// Validate one host-sealed conditional completion intent.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_conditional_completion")]
+fn py_continuation_validate_conditional_completion<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: ConditionalCompletionIntentWire =
+        continuation_wire_from_pydict(intent, "conditional completion intent")?;
+    continuation_result_to_py(
+        py,
+        core_validate_conditional_completion_intent(intent),
+        "conditional completion validation",
+    )
+}
+
+/// Seal a conditional completion intent from host observations.
+#[pyfunction]
+#[pyo3(name = "continuation_seal_conditional_completion")]
+fn py_continuation_seal_conditional_completion<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionPrepareRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion prepare",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_seal_conditional_completion(request),
+        "conditional completion seal",
+    )
+}
+
+/// Render a host-completion preview for a sealed intent.
+#[pyfunction]
+#[pyo3(name = "continuation_preview_conditional_completion")]
+fn py_continuation_preview_conditional_completion<'py>(
+    py: Python<'py>,
+    intent: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let intent: ConditionalCompletionIntentWire =
+        continuation_wire_from_pydict(intent, "conditional completion intent")?;
+    continuation_result_to_py(
+        py,
+        core_preview_conditional_completion(intent),
+        "conditional completion preview",
+    )
+}
+
+/// Bind a prepared intent to one monitor request (single-use).
+#[pyfunction]
+#[pyo3(name = "continuation_bind_conditional_completion")]
+fn py_continuation_bind_conditional_completion<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionBindRequestWire =
+        continuation_wire_from_pydict(request, "conditional completion bind")?;
+    continuation_result_to_py(
+        py,
+        core_bind_conditional_completion(request),
+        "conditional completion bind",
+    )
+}
+
+/// Roll back a failed monitor-start binding so the intent is reusable.
+#[pyfunction]
+#[pyo3(name = "continuation_rollback_conditional_completion_binding")]
+fn py_continuation_rollback_conditional_completion_binding<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionRollbackRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion rollback",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_rollback_conditional_completion_binding(request),
+        "conditional completion rollback",
+    )
+}
+
+/// Evaluate whether a bound intent is eligible for no-model host completion.
+#[pyfunction]
+#[pyo3(name = "continuation_evaluate_conditional_completion")]
+fn py_continuation_evaluate_conditional_completion<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionEvaluateRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion evaluate",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_evaluate_conditional_completion(request),
+        "conditional completion evaluate",
+    )
+}
+
+/// Mark a bound intent consumed after successful host completion.
+#[pyfunction]
+#[pyo3(name = "continuation_consume_conditional_completion")]
+fn py_continuation_consume_conditional_completion<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionConsumeRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion consume",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_consume_conditional_completion(request),
+        "conditional completion consume",
+    )
+}
+
+/// Invalidate a bound intent that cannot complete and must recover.
+#[pyfunction]
+#[pyo3(name = "continuation_invalidate_conditional_completion")]
+fn py_continuation_invalidate_conditional_completion<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionConsumeRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion invalidate",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_invalidate_conditional_completion(request),
+        "conditional completion invalidate",
+    )
+}
+
+/// Render a prepared success message with documented host-fact substitutions.
+#[pyfunction]
+#[pyo3(name = "continuation_render_conditional_completion_message")]
+fn py_continuation_render_conditional_completion_message<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ConditionalCompletionMessageRequestWire =
+        continuation_wire_from_pydict(
+            request,
+            "conditional completion message",
+        )?;
+    continuation_result_to_py(
+        py,
+        core_render_conditional_completion_message(request),
+        "conditional completion message",
+    )
+}
+
+fn continuation_error_to_pyerr(error: ContinuationError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn continuation_wire_from_pydict<T>(
+    dict: &Bound<'_, PyDict>,
+    what: &str,
+) -> PyResult<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    continuation_wire_from_pyany(dict.as_any(), what)
+}
+
+fn continuation_wire_from_pyany<T>(
+    value: &Bound<'_, PyAny>,
+    what: &str,
+) -> PyResult<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_value(py_to_json_value(value)?).map_err(|error| {
+        PyValueError::new_err(format!(
+            "{what} is not a valid continuation wire value: {error}"
+        ))
+    })
+}
+
+fn continuation_result_to_py<'py, T>(
+    py: Python<'py>,
+    result: Result<T, ContinuationError>,
+    operation: &str,
+) -> PyResult<PyObject>
+where
+    T: serde::Serialize,
+{
+    let value =
+        serde_json::to_value(result.map_err(continuation_error_to_pyerr)?)
+            .map_err(|error| {
+                PyValueError::new_err(format!(
+                "internal continuation {operation} serialize error: {error}"
+            ))
+            })?;
+    json_value_to_py(py, &value)
+}
+
 // --- Canonical project/home content layout -------------------------------
 
 /// Return the shared canonical/legacy SASE content layout and xprompt order.
@@ -14067,6 +15261,12 @@ fn py_agent_unit_dispatch_prompt(
 }
 
 #[pyfunction]
+#[pyo3(name = "prompt_has_identity_directive")]
+fn py_prompt_has_identity_directive(prompt: &str) -> bool {
+    core_prompt_has_identity_directive(prompt)
+}
+
+#[pyfunction]
 #[pyo3(name = "collect_queue_fields")]
 fn py_collect_queue_fields<'py>(
     py: Python<'py>,
@@ -14095,6 +15295,13 @@ fn py_format_queue_directive(
             PyValueError::new_err(format!("invalid queue fields: {err}"))
         })?;
     Ok(core_format_queue_directive(&fields))
+}
+
+#[pyfunction]
+#[pyo3(name = "parse_queue_capacity")]
+fn py_parse_queue_capacity(raw: &str) -> PyResult<u32> {
+    core_parse_queue_capacity(raw)
+        .map_err(|error| PyValueError::new_err(error.message))
 }
 
 #[pyfunction]
@@ -14839,6 +16046,8 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
 
         let catalog_query = json!({
             "schema_version": 1,
+            "scope": "presentation",
+            "snapshot_id": null,
             "cursor": null,
             "limit": 50,
             "project_ids": [],
@@ -14858,9 +16067,27 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
             .unwrap()["limit"],
             json!(50)
         );
+        let summary_for_snapshot: ResolvedAgentSummaryWire =
+            serde_json::from_value(summary_value.clone()).unwrap();
+        let snapshot_id = core_fleet_contract::fleet_catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            &[summary_for_snapshot],
+        )
+        .unwrap();
+        let summaries_list =
+            json_value_to_py(py, &json!([summary_value.clone()]))
+                .unwrap()
+                .into_bound(py);
+        let summaries_list = summaries_list.downcast::<PyList>().unwrap();
         assert_eq!(
-            py_fleet_validate_catalog_cursor("off:50").unwrap(),
-            "off:50"
+            py_fleet_catalog_snapshot_id("presentation", summaries_list)
+                .unwrap(),
+            snapshot_id
+        );
+        let catalog_cursor = format!("catcur_v1:p:{snapshot_id}:50");
+        assert_eq!(
+            py_fleet_validate_catalog_cursor(&catalog_cursor).unwrap(),
+            catalog_cursor
         );
 
         let freshness = json!({
@@ -14898,6 +16125,49 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
             "attention": 0,
             "occupied_runner_slots": 3
         });
+        let accumulation_req = json!({
+            "schema_version": 1,
+            "current": null,
+            "request_generation": 1,
+            "requested_scope": "presentation",
+            "requested_snapshot_id": null,
+            "requested_cursor": null,
+            "incoming": {
+                "schema_version": 1,
+                "cursor": {
+                    "schema_version": 1,
+                    "store_generation": "gen-apollo",
+                    "sequence": 12
+                },
+                "counts": authoritative_counts.clone(),
+                "count_revision": 3,
+                "freshness": freshness.clone(),
+                "page": {
+                    "schema_version": 1,
+                    "scope": "presentation",
+                    "snapshot_id": snapshot_id.clone(),
+                    "rows": [summary_value.clone()],
+                    "limit": 50,
+                    "total_matching_rows": 1,
+                    "next_cursor": null,
+                    "has_more": false,
+                    "state": "finished"
+                }
+            }
+        });
+        let accumulation_req = json_value_to_py(py, &accumulation_req)
+            .unwrap()
+            .into_bound(py);
+        let accumulation_req = accumulation_req.downcast::<PyDict>().unwrap();
+        let accumulation =
+            py_fleet_accumulate_catalog_page(py, accumulation_req).unwrap();
+        let accumulation = py_to_json_value(accumulation.bind(py)).unwrap();
+        assert_eq!(accumulation["action"], json!("replaced"));
+        assert_eq!(accumulation["state"]["rows"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            accumulation["state"]["snapshot_id"],
+            json!(snapshot_id.clone())
+        );
         let federation_response = json!({
             "schema_version": 1,
             "operation": "catalog",
@@ -14918,15 +16188,20 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
                         "store_generation": "gen-apollo",
                         "sequence": 12
                     },
+                    "catalog_scope": "presentation",
+                    "catalog_snapshot_id": snapshot_id.clone(),
                     "counts": authoritative_counts,
                     "freshness": freshness,
                     "page": {
                         "schema_version": 1,
+                        "scope": "presentation",
+                        "snapshot_id": snapshot_id.clone(),
                         "rows": [summary_value.clone()],
                         "limit": 50,
                         "total_matching_rows": 3,
-                        "next_cursor": "off:50",
-                        "has_more": true
+                        "next_cursor": format!("catcur_v1:p:{snapshot_id}:50"),
+                        "has_more": true,
+                        "state": "ready"
                     }
                 },
                 "error": null
@@ -14945,7 +16220,7 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
         assert_eq!(normalized["hosts"][0]["alias"], json!("apollo"));
         assert_eq!(
             normalized["hosts"][0]["catalog"]["next_cursor"],
-            json!("off:50")
+            json!(format!("catcur_v1:p:{snapshot_id}:50"))
         );
         assert_eq!(
             normalized["hosts"][0]["authoritative_counts"]["running"],
@@ -15107,6 +16382,14 @@ fn gateway_and_bootstrap_bindings_are_registered() {
             .is_callable());
         assert!(module
             .getattr("fleet_validate_catalog_cursor")
+            .unwrap()
+            .is_callable());
+        assert!(module
+            .getattr("fleet_catalog_snapshot_id")
+            .unwrap()
+            .is_callable());
+        assert!(module
+            .getattr("fleet_accumulate_catalog_page")
             .unwrap()
             .is_callable());
         assert!(module
@@ -15788,6 +17071,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_replace_agent_artifact_index_dismissed_agents,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_reconcile_agent_artifact_index_dismissed_family_members,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_read_agent_artifact_index_meta, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_agent_artifact_index_meta, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_artifact_index_status, m)?)?;
@@ -15872,11 +17159,21 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_plan_status_transition, m)?)?;
     m.add_function(wrap_pyfunction!(py_canonical_pull_request_url, m)?)?;
     m.add_function(wrap_pyfunction!(py_plan_external_pr_import, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_repository_resolution_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_canonical_repository_identity, m)?)?;
+    m.add_function(wrap_pyfunction!(py_resolve_repository_reference, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_name_status_z, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_branch_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_derive_git_workspace_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_conflicted_files, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_local_changes, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_decide_sidecar_publication_after_push,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_vcs_log_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_log, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_commit_presence, m)?)?;
@@ -16072,6 +17369,49 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_marker_parse,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_marker_canonical_json,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_marker_build,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_import_identity,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_cutover_baseline_event,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_cutover_attestation, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_cutover_read_state, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_cutover_progress, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_outbox_classify_line,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_outbox_legacy_conversion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_derived_producer_id, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_alias_producer_id, m)?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_machine_run_id, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_stable_fact_created_at,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_stable_operation_id, m)?)?;
+    m.add_function(wrap_pyfunction!(
         py_artifact_row_resolution_wire_schema_version,
         m
     )?)?;
@@ -16079,6 +17419,15 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_artifact_link_publication_state_wire_schema_version,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_publication_ownership_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_link_event_owner_requirements,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_link_publication_receipt, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_artifact_link_publication_record_key,
         m
@@ -16256,6 +17605,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_bead_remove, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_remove_many, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_add_link, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bead_set_link_projection, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_remove_link, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_dep_add, m)?)?;
     m.add_function(wrap_pyfunction!(py_bead_dep_remove, m)?)?;
@@ -16331,6 +17681,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_directive_completion_candidates, m)?)?;
     m.add_function(wrap_pyfunction!(py_collect_queue_fields, m)?)?;
     m.add_function(wrap_pyfunction!(py_format_queue_directive, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parse_queue_capacity, m)?)?;
     m.add_function(wrap_pyfunction!(py_queue_directive_flag_key, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_runner_capacity_policy_schema_version,
@@ -16339,6 +17690,9 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_runner_capacity_snapshot, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_overrun_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_chop_overrun, m)?)?;
+    m.add_function(wrap_pyfunction!(py_gate_followup_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_gate_followup_attempt_id, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_gate_followup, m)?)?;
     m.add_function(wrap_pyfunction!(py_axe_status_wire_schema_version, m)?)?;
     m.add_function(wrap_pyfunction!(py_classify_axe_status, m)?)?;
     m.add_function(wrap_pyfunction!(py_chop_engine_schema_version, m)?)?;
@@ -16457,6 +17811,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
+        py_provider_usage_normalize_grok_billing,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
         py_provider_usage_validate_observation,
         m
     )?)?;
@@ -16526,6 +17884,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_fleet_count_focus_and_fleet, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_validate_catalog_query, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_validate_catalog_cursor, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_catalog_snapshot_id, m)?)?;
+    m.add_function(wrap_pyfunction!(py_fleet_accumulate_catalog_page, m)?)?;
     m.add_function(wrap_pyfunction!(py_fleet_validate_snapshot_freshness, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_fleet_normalize_federation_response,
@@ -16584,6 +17944,67 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_resolve_effective_effort, m)?)?;
     m.add_function(wrap_pyfunction!(py_size_model_route, m)?)?;
     m.add_function(wrap_pyfunction!(py_select_epic_land_model, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_validate_node, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_validate_graph, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_validate_agent_delta, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_validate_intent, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_validate_monitor_result,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_validate_diagnostic_manifest,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_validate_delivery_record,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_validate_launch_requester_continuation,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_plan_replay, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_select_evidence, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_resolve_policy, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_plan_budget, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_validate_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_seal_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_preview_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_bind_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_rollback_conditional_completion_binding,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_evaluate_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_consume_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_invalidate_conditional_completion,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        py_continuation_render_conditional_completion_message,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_sase_content_layout, m)?)?;
     m.add_function(wrap_pyfunction!(py_skill_reference_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_memory_reference_name, m)?)?;
@@ -16609,6 +18030,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_admission_unit_results, m)?)?;
     m.add_function(wrap_pyfunction!(py_dispatch_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(py_agent_unit_dispatch_prompt, m)?)?;
+    m.add_function(wrap_pyfunction!(py_prompt_has_identity_directive, m)?)?;
     m.add_function(wrap_pyfunction!(py_wait_target_key, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_condition_eval_wire_schema_version,
@@ -19864,6 +21286,215 @@ COMMITS:
     }
 
     #[test]
+    fn continuation_contract_bindings_round_trip_json_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            for name in [
+                "continuation_wire_schema_version",
+                "continuation_validate_node",
+                "continuation_validate_graph",
+                "continuation_validate_agent_delta",
+                "continuation_validate_intent",
+                "continuation_validate_monitor_result",
+                "continuation_validate_diagnostic_manifest",
+                "continuation_validate_delivery_record",
+                "continuation_plan_replay",
+                "continuation_select_evidence",
+                "continuation_resolve_policy",
+                "continuation_plan_budget",
+                "continuation_validate_conditional_completion",
+                "continuation_seal_conditional_completion",
+                "continuation_preview_conditional_completion",
+                "continuation_bind_conditional_completion",
+                "continuation_rollback_conditional_completion_binding",
+                "continuation_evaluate_conditional_completion",
+                "continuation_consume_conditional_completion",
+                "continuation_invalidate_conditional_completion",
+                "continuation_render_conditional_completion_message",
+            ] {
+                assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+            assert_eq!(py_continuation_wire_schema_version(), 1);
+
+            let fixture: JsonValue = serde_json::from_str(include_str!(
+                "../../sase_core/tests/fixtures/continuation/serial_replay.json"
+            ))
+            .unwrap();
+            let replay_request_obj =
+                json_value_to_py(py, &fixture["request"]).unwrap();
+            let replay_request =
+                replay_request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let manifest =
+                py_continuation_plan_replay(py, replay_request).unwrap();
+            let manifest = py_to_json_value(manifest.bind(py)).unwrap();
+            assert_eq!(
+                manifest["ordered_node_ids"],
+                fixture["expected_order"].clone()
+            );
+            assert_eq!(
+                manifest["rendered_component_sizes"]["total_utf8_bytes"],
+                fixture["expected_rendered_bytes"].clone()
+            );
+
+            let records_obj =
+                json_value_to_py(py, &fixture["request"]["records"]).unwrap();
+            let records = records_obj.bind(py).downcast::<PyList>().unwrap();
+            let graph = py_continuation_validate_graph(py, records).unwrap();
+            let graph = py_to_json_value(graph.bind(py)).unwrap();
+            assert_eq!(graph["node_count"], json!(3));
+            assert_eq!(graph["edge_count"], json!(2));
+
+            let node_obj =
+                json_value_to_py(py, &fixture["request"]["records"][0])
+                    .unwrap();
+            let node = node_obj.bind(py).downcast::<PyDict>().unwrap();
+            let validated_node =
+                py_continuation_validate_node(py, node).unwrap();
+            let validated_node =
+                py_to_json_value(validated_node.bind(py)).unwrap();
+            assert_eq!(validated_node["node_id"], json!("previous-result-1"));
+
+            let bad_node_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "node_id": "bad-node",
+                    "kind": "not_real",
+                    "owner": {
+                        "project": "sase",
+                        "run_id": "run-1",
+                        "agent_name": "agent-1"
+                    },
+                    "content_ref": "file:explicit:bad-node",
+                    "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                }),
+            )
+            .unwrap();
+            let bad_node = bad_node_obj.bind(py).downcast::<PyDict>().unwrap();
+            let bad_node_error =
+                py_continuation_validate_node(py, bad_node).unwrap_err();
+            assert!(bad_node_error.is_instance_of::<PyValueError>(py));
+
+            let failed_result = json!({
+                "schema_version": 1,
+                "result_id": "result-1",
+                "monitor_id": "monitor-1",
+                "starter_execution_id": "run-1",
+                "outcome": "failed",
+                "exit_code": 1,
+                "command": ["just", "check"],
+                "cwd": "/repo",
+                "started_at": "2026-09-11T10:00:00Z",
+                "ended_at": "2026-09-11T10:01:00Z",
+                "elapsed_ms": 60000,
+                "workspace_identity": "workspace-19",
+                "diagnostic_manifest_ref": "file:explicit:manifest",
+                "retained_log": {
+                    "log_ref": "file:explicit:log",
+                    "local_locator": "monitor://monitor-1/log",
+                    "total_observed_bytes": 128,
+                    "retained_ranges": [{"start": 0, "end": 128}],
+                    "complete": true,
+                    "drain_confirmed": true
+                }
+            });
+            let diagnostic_manifest = json!({
+                "schema_version": 1,
+                "producer": "run-silent",
+                "stages": [{
+                    "stage_id": "mypy",
+                    "name": "Type checking",
+                    "status": "failed",
+                    "exit_code": 1,
+                    "diagnostic_refs": ["file:explicit:mypy"],
+                    "counts": {"errors": 2},
+                    "retained_ranges": [],
+                    "capture_errors": []
+                }],
+                "complete": true,
+                "manifest_ref": "file:explicit:manifest"
+            });
+            let evidence_request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "result": failed_result,
+                    "policy": "auto",
+                    "historical_result": false,
+                    "diagnostic_manifest": diagnostic_manifest,
+                    "limits": {
+                        "selected_diagnostics_bytes": 8192,
+                        "fallback_tail_bytes": 4096,
+                        "total_raw_excerpt_bytes": 12288,
+                        "raw_tail_lines": 200
+                    }
+                }),
+            )
+            .unwrap();
+            let evidence_request =
+                evidence_request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let evidence =
+                py_continuation_select_evidence(py, evidence_request).unwrap();
+            let evidence = py_to_json_value(evidence.bind(py)).unwrap();
+            assert_eq!(evidence["context_kind"], json!("failed_diagnostics"));
+            assert_eq!(evidence["include_raw_excerpt"], json!(false));
+            assert_eq!(evidence["diagnostic_stage_ids"], json!(["mypy"]));
+
+            let policy_request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "outcome": "completed",
+                    "profile": "verify",
+                    "prepared_completion_ref": "file:explicit:completion"
+                }),
+            )
+            .unwrap();
+            let policy_request =
+                policy_request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let policy =
+                py_continuation_resolve_policy(py, policy_request).unwrap();
+            let policy = py_to_json_value(policy.bind(py)).unwrap();
+            assert_eq!(policy["action"], json!("complete"));
+            assert_eq!(
+                policy["completion_ref"],
+                json!("file:explicit:completion")
+            );
+
+            let budget_request_obj = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "rendered_prompt_bytes": 12000,
+                    "essential_bytes": 6000,
+                    "provider_budget": {
+                        "context_limit_bytes": 10000,
+                        "transport_limit_bytes": 9000,
+                        "instruction_reserve_bytes": 1000
+                    },
+                    "reduction_candidates": [
+                        {"kind": "checkpoint", "bytes": 5000, "checkpoint_ref": "file:explicit:checkpoint"},
+                        {"kind": "identity_deduplication", "bytes": 2000}
+                    ]
+                }),
+            )
+            .unwrap();
+            let budget_request =
+                budget_request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let budget =
+                py_continuation_plan_budget(py, budget_request).unwrap();
+            let budget = py_to_json_value(budget.bind(py)).unwrap();
+            assert_eq!(budget["kind"], json!("compact"));
+            assert_eq!(
+                budget["reductions"][0]["kind"],
+                json!("identity_deduplication")
+            );
+        });
+    }
+
+    #[test]
     fn runner_limit_override_bindings_round_trip_and_replace() {
         pyo3::prepare_freethreaded_python();
         let temp = tempfile::tempdir().unwrap();
@@ -20675,6 +22306,81 @@ COMMITS:
                 let request =
                     request_obj.bind(py).downcast::<PyDict>().unwrap();
                 let error = py_classify_chop_overrun(py, request).unwrap_err();
+                assert!(error.is_instance_of::<PyValueError>(py));
+                assert!(error.to_string().contains(expected), "{}", error);
+            }
+        });
+    }
+
+    fn incident_gate_followup_request_json() -> JsonValue {
+        json!({
+            "schema_version": GATE_FOLLOWUP_WIRE_SCHEMA_VERSION,
+            "mode": "diagnose",
+            "gate_id": "c117f874-83de-4840-8405-58a8dc1efd66",
+            "gate_kind": "plan",
+            "gate_state": "answered",
+            "already_settled": true,
+            "request_fingerprint": "sha256:plan-approve-commit",
+            "followup_requested": true,
+            "creator_live": false,
+            "auto_suppressed": false,
+        })
+    }
+
+    #[test]
+    fn gate_followup_binding_round_trips_incident_disposition() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            assert_eq!(
+                py_gate_followup_wire_schema_version(),
+                GATE_FOLLOWUP_WIRE_SCHEMA_VERSION
+            );
+            let request_obj =
+                json_value_to_py(py, &incident_gate_followup_request_json())
+                    .unwrap();
+            let request = request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let result = py_decide_gate_followup(py, request).unwrap();
+            let value = py_to_json_value(result.bind(py)).unwrap();
+            assert_eq!(value["disposition"], json!("interrupted"));
+            assert_eq!(value["recovery"], json!("resume"));
+            assert_eq!(value["needs_attention"], json!(true));
+            assert_eq!(value["launch_allowed"], json!(false));
+            assert_eq!(value["resume_eligible"], json!(true));
+            let attempt_id = py_gate_followup_attempt_id(
+                "c117f874-83de-4840-8405-58a8dc1efd66",
+                "sha256:plan-approve-commit",
+            );
+            assert_eq!(attempt_id.len(), 64);
+        });
+    }
+
+    #[test]
+    fn gate_followup_binding_maps_schema_and_structural_errors_to_value_error()
+    {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let mut schema = incident_gate_followup_request_json();
+            schema["schema_version"] =
+                json!(GATE_FOLLOWUP_WIRE_SCHEMA_VERSION + 1);
+
+            let mut structural = incident_gate_followup_request_json();
+            structural["mode"] = json!("replay");
+
+            let mut unknown = incident_gate_followup_request_json();
+            unknown
+                .as_object_mut()
+                .unwrap()
+                .insert("surprise".to_string(), json!(true));
+
+            for (value, expected) in [
+                (schema, "schema_version_mismatch"),
+                (structural, "invalid_mode"),
+                (unknown, "unknown field `surprise`"),
+            ] {
+                let request_obj = json_value_to_py(py, &value).unwrap();
+                let request =
+                    request_obj.bind(py).downcast::<PyDict>().unwrap();
+                let error = py_decide_gate_followup(py, request).unwrap_err();
                 assert!(error.is_instance_of::<PyValueError>(py));
                 assert!(error.to_string().contains(expected), "{}", error);
             }
@@ -21972,6 +23678,22 @@ MENTORS:
             for name in [
                 "artifact_link_row_schema_version",
                 "artifact_link_event_schema_version",
+                "artifact_link_cutover_wire_schema_version",
+                "artifact_link_cutover_marker_parse",
+                "artifact_link_cutover_marker_canonical_json",
+                "artifact_link_cutover_marker_build",
+                "artifact_link_cutover_import_identity",
+                "artifact_link_cutover_baseline_event",
+                "artifact_link_cutover_attestation",
+                "artifact_link_cutover_read_state",
+                "artifact_link_cutover_progress",
+                "artifact_link_outbox_classify_line",
+                "artifact_link_outbox_legacy_conversion",
+                "artifact_link_derived_producer_id",
+                "artifact_link_alias_producer_id",
+                "artifact_link_machine_run_id",
+                "artifact_link_stable_fact_created_at",
+                "artifact_link_stable_operation_id",
                 "artifact_link_event_canonicalize",
                 "artifact_link_event_canonical_json",
                 "artifact_link_event_digest",
@@ -21982,6 +23704,9 @@ MENTORS:
                 "artifact_link_events_reduce",
                 "artifact_row_resolution_wire_schema_version",
                 "artifact_link_publication_state_wire_schema_version",
+                "artifact_link_publication_ownership_wire_schema_version",
+                "artifact_link_event_owner_requirements",
+                "artifact_link_publication_receipt",
                 "artifact_link_publication_record_key",
                 "artifact_link_publication_register_pending",
                 "artifact_link_publication_due",
@@ -22010,9 +23735,181 @@ MENTORS:
             }
             assert_eq!(py_artifact_link_row_schema_version(), 2);
             assert_eq!(py_artifact_link_event_schema_version(), 1);
+            assert_eq!(py_artifact_link_cutover_wire_schema_version(), 1);
+            assert_eq!(
+                py_artifact_link_derived_producer_id(),
+                "sase.artifact-link-derived"
+            );
+            assert_eq!(
+                py_artifact_link_alias_producer_id(),
+                "sase.artifact-link-renames"
+            );
+            assert_eq!(py_artifact_link_machine_run_id(), "machine");
+            assert_eq!(
+                py_artifact_link_stable_fact_created_at(),
+                "1970-01-01T00:00:00Z"
+            );
+            let stable_parts =
+                json_value_to_py(py, &json!(["derived", {"b": 2, "a": 1}]))
+                    .unwrap();
+            let stable_id =
+                py_artifact_link_stable_operation_id(stable_parts.bind(py))
+                    .unwrap();
+            assert_eq!(stable_id.len(), 32);
+            let cutover_request_value = json!({
+                "project_key": "gh_acme__widget",
+                "roles": [{
+                    "role": "plans",
+                    "kind": "plan",
+                    "head": "abc123",
+                    "links_tree": "sha256:abc123",
+                    "remote_url": "<none>",
+                    "commit_time": "2026-09-10T00:00:00Z"
+                }],
+                "rows": [{
+                    "schema_version": 2,
+                    "source_ref": "agent:reader",
+                    "relation": "read",
+                    "target_ref": "plan:202609/old.md",
+                    "description": "read the artifact",
+                    "origin": "read",
+                    "created_by": "agent:reader",
+                    "created_at": "2026-09-09T12:00:00Z",
+                    "uses": 1
+                }]
+            });
+            let cutover_request_object =
+                json_value_to_py(py, &cutover_request_value).unwrap();
+            let cutover_request = cutover_request_object
+                .bind(py)
+                .downcast::<PyDict>()
+                .unwrap();
+            let import_identity =
+                py_artifact_link_cutover_import_identity(py, cutover_request)
+                    .unwrap();
+            let import_identity_value =
+                py_to_json_value(import_identity.bind(py)).unwrap();
+            assert!(import_identity_value["import_id"]
+                .as_str()
+                .unwrap()
+                .starts_with("legacy-v2-links-"));
+            let baseline_request_value = json!({
+                "project_key": "gh_acme__widget",
+                "import": import_identity_value,
+                "rows": cutover_request_value["rows"]
+            });
+            let baseline_request_object =
+                json_value_to_py(py, &baseline_request_value).unwrap();
+            let baseline_event = py_artifact_link_cutover_baseline_event(
+                py,
+                baseline_request_object
+                    .bind(py)
+                    .downcast::<PyDict>()
+                    .unwrap(),
+            )
+            .unwrap();
+            let baseline_event_value =
+                py_to_json_value(baseline_event.bind(py)).unwrap();
+            let baseline_event_object =
+                json_value_to_py(py, &baseline_event_value).unwrap();
+            let baseline_digest = py_artifact_link_event_digest(
+                baseline_event_object.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let baseline_path =
+                py_artifact_link_event_path_for_digest(&baseline_digest)
+                    .unwrap();
+            let event_store_value = json!({
+                "schema_version": 1,
+                "minimum_event_schema_version": 1
+            });
+            let event_store_object =
+                json_value_to_py(py, &event_store_value).unwrap();
+            let marker_roles_value = json!([{
+                "role": "plans",
+                "kind": "plan",
+                "head": "abc123",
+                "links_tree": "sha256:abc123",
+                "remote_url": "<none>"
+            }]);
+            let marker_roles_object =
+                json_value_to_py(py, &marker_roles_value).unwrap();
+            let baseline_identity_value = json!({
+                "digest": baseline_digest,
+                "path": baseline_path
+            });
+            let baseline_identity_object =
+                json_value_to_py(py, &baseline_identity_value).unwrap();
+            let marker = py_artifact_link_cutover_marker_build(
+                py,
+                "fenced",
+                "gh_acme__widget",
+                event_store_object.bind(py).downcast::<PyDict>().unwrap(),
+                import_identity.bind(py).downcast::<PyDict>().unwrap(),
+                marker_roles_object.bind(py).downcast::<PyList>().unwrap(),
+                baseline_identity_object
+                    .bind(py)
+                    .downcast::<PyDict>()
+                    .unwrap(),
+            )
+            .unwrap();
+            let marker_dict = marker.bind(py).downcast::<PyDict>().unwrap();
+            let marker_json =
+                py_artifact_link_cutover_marker_canonical_json(marker_dict)
+                    .unwrap();
+            let parsed =
+                py_artifact_link_cutover_marker_parse(py, &marker_json)
+                    .unwrap();
+            assert_eq!(
+                py_to_json_value(parsed.bind(py)).unwrap(),
+                py_to_json_value(marker.bind(py)).unwrap()
+            );
+            let attestation =
+                py_artifact_link_cutover_attestation(marker_dict).unwrap();
+            assert!(attestation.starts_with("fleet-capable-"));
+            let read_state_object = json_value_to_py(
+                py,
+                &json!([{"role": "plans", "marker": py_to_json_value(marker.bind(py)).unwrap()}]),
+            )
+            .unwrap();
+            let read_state = py_artifact_link_cutover_read_state(
+                py,
+                read_state_object.bind(py).downcast::<PyList>().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                py_to_json_value(read_state.bind(py)).unwrap()["state"],
+                json!("fenced")
+            );
+            let progress_object = json_value_to_py(
+                py,
+                &json!({
+                    "expected": py_to_json_value(marker.bind(py)).unwrap(),
+                    "roots": [{
+                        "role": "plans",
+                        "marker": py_to_json_value(marker.bind(py)).unwrap(),
+                        "marker_committed": true,
+                        "baseline_durable": false
+                    }]
+                }),
+            )
+            .unwrap();
+            let progress = py_artifact_link_cutover_progress(
+                py,
+                progress_object.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                py_to_json_value(progress.bind(py)).unwrap()["phase"],
+                json!("publish_baseline")
+            );
             assert_eq!(py_artifact_row_resolution_wire_schema_version(), 1);
             assert_eq!(
                 py_artifact_link_publication_state_wire_schema_version(),
+                1
+            );
+            assert_eq!(
+                py_artifact_link_publication_ownership_wire_schema_version(),
                 1
             );
             let publication_key = py_artifact_link_publication_record_key(
@@ -22125,6 +24022,83 @@ MENTORS:
             let canonical_from_bytes =
                 py_to_json_value(canonical_from_bytes.bind(py)).unwrap();
             assert_eq!(canonical_from_bytes["digest"], json!(digest));
+            let document_kinds_object =
+                json_value_to_py(py, &json!(["plan"])).unwrap();
+            let document_kinds =
+                document_kinds_object.bind(py).downcast::<PyList>().unwrap();
+            let requirements = py_artifact_link_event_owner_requirements(
+                py,
+                event,
+                document_kinds,
+            )
+            .unwrap();
+            let requirements_bound = requirements.bind(py);
+            let requirements_value =
+                py_to_json_value(requirements_bound).unwrap();
+            assert_eq!(
+                requirements_value["document_refs"][0]["reference"],
+                json!("plan:202609/old.md")
+            );
+            let pending_evidence_object = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "operation_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "resolved_roots": {},
+                    "forced_roots": [],
+                    "durable_roots": [],
+                    "bead_owner": false,
+                    "bead_receipt": false,
+                    "local_receipt": false
+                }),
+            )
+            .unwrap();
+            let pending_evidence = pending_evidence_object
+                .bind(py)
+                .downcast::<PyDict>()
+                .unwrap();
+            let requirements_dict =
+                requirements_bound.downcast::<PyDict>().unwrap();
+            let pending_receipt = py_artifact_link_publication_receipt(
+                py,
+                requirements_dict,
+                pending_evidence,
+            )
+            .unwrap();
+            let pending_receipt =
+                py_to_json_value(pending_receipt.bind(py)).unwrap();
+            assert_eq!(pending_receipt["acknowledged"], json!(false));
+            assert!(pending_receipt["pending_reasons"][0]
+                .as_str()
+                .unwrap()
+                .contains("plan:202609/old.md"));
+            let acknowledged_evidence_object = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "operation_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "resolved_roots": {"plan": "/tmp/plans"},
+                    "forced_roots": [],
+                    "durable_roots": ["/tmp/plans"],
+                    "bead_owner": false,
+                    "bead_receipt": false,
+                    "local_receipt": false
+                }),
+            )
+            .unwrap();
+            let acknowledged_evidence = acknowledged_evidence_object
+                .bind(py)
+                .downcast::<PyDict>()
+                .unwrap();
+            let acknowledged_receipt = py_artifact_link_publication_receipt(
+                py,
+                requirements_dict,
+                acknowledged_evidence,
+            )
+            .unwrap();
+            let acknowledged_receipt =
+                py_to_json_value(acknowledged_receipt.bind(py)).unwrap();
+            assert_eq!(acknowledged_receipt["acknowledged"], json!(true));
 
             let put_value = json!({
                 "schema_version": 1,
@@ -23856,6 +25830,45 @@ MENTORS:
                     "text": "éévalue",
                     "omitted_lines": 1,
                     "omitted_chars": 6
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn sidecar_publication_binding_returns_plain_dict() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            module
+                .add_function(
+                    wrap_pyfunction!(
+                        py_decide_sidecar_publication_after_push,
+                        &module
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+            let value = module
+                .getattr("decide_sidecar_publication_after_push")
+                .unwrap()
+                .call1((
+                    1_i32,
+                    "",
+                    "! [rejected] main -> main (fetch first)",
+                    1_u32,
+                ))
+                .unwrap();
+            assert_eq!(
+                py_to_json_value(&value).unwrap(),
+                json!({
+                    "schema_version": 1,
+                    "action": "integrate_and_retry",
+                    "classification": "rejected_fetch_first",
+                    "reason": "git push was rejected by remote divergence; integrate upstream and retry",
+                    "attempt": 1,
+                    "max_attempts": 3,
+                    "retryable": true
                 })
             );
         });
@@ -26197,13 +28210,13 @@ MENTORS:
             let collected =
                 py_collect_queue_fields(py, occurrences.bind(py)).unwrap();
             let collected = py_to_json_value(collected.bind(py)).unwrap();
-            assert_eq!(collected["fields"]["runners"], json!(5));
+            assert_eq!(collected["fields"]["capacity"], json!(5));
             assert_eq!(collected["fields"]["weight"], json!(0.25));
             assert!(collected["errors"].as_array().unwrap().is_empty());
             let formatted = py_format_queue_directive(
                 json_value_to_py(
                     py,
-                    &json!({"runners": 5, "priority": 20, "weight": 2.0}),
+                    &json!({"capacity": 5, "priority": 20, "weight": 2.0}),
                 )
                 .unwrap()
                 .bind(py),
@@ -26211,9 +28224,12 @@ MENTORS:
             .unwrap();
             assert_eq!(
                 formatted.as_deref(),
-                Some("%queue(runners=5, priority=20, weight=2)")
+                Some("%queue(capacity=5, priority=20, weight=2)")
             );
-            assert_eq!(py_runner_capacity_policy_schema_version(), 1);
+            assert_eq!(py_parse_queue_capacity("0").unwrap(), 0);
+            assert_eq!(py_parse_queue_capacity("3").unwrap(), 3);
+            assert!(py_parse_queue_capacity("true").is_err());
+            assert_eq!(py_runner_capacity_policy_schema_version(), 3);
             let capacity_request = json_value_to_py(
                 py,
                 &json!({
@@ -26241,10 +28257,62 @@ MENTORS:
                 py_runner_capacity_snapshot(py, capacity_request.bind(py))
                     .unwrap();
             let capacity = py_to_json_value(capacity.bind(py)).unwrap();
+            assert_eq!(capacity["schema_version"], json!(3));
             assert_eq!(capacity["occupied_capacity"], json!(0.75));
             assert_eq!(
                 capacity["first_eligible_artifact_dir"],
                 json!("/tmp/waiting")
+            );
+            let capacity_request_with_candidate = json_value_to_py(
+                py,
+                &json!({
+                    "effective_limit": 1.0,
+                    "records": [
+                        {
+                            "artifact_dir": "/tmp/root",
+                            "project_name": "proj",
+                            "timestamp": "root",
+                            "agent_family": "fam",
+                            "run_started_at": "2026-09-10T00:00:00Z",
+                            "queue_weight": 2.0
+                        }
+                    ],
+                    "candidate": {
+                        "artifact_dir": "/tmp/successor",
+                        "project_name": "proj",
+                        "timestamp": "successor",
+                        "parent_timestamp": "root",
+                        "agent_family": "fam",
+                        "slot_requested_at": "2026-09-10T00:00:01Z"
+                    }
+                }),
+            )
+            .unwrap();
+            let capacity = py_runner_capacity_snapshot(
+                py,
+                capacity_request_with_candidate.bind(py),
+            )
+            .unwrap();
+            let capacity = py_to_json_value(capacity.bind(py)).unwrap();
+            assert_eq!(
+                capacity["candidate_decision"]["decision"],
+                json!("reuse_existing_claim")
+            );
+            assert_eq!(
+                capacity["candidate_decision"]["effective_weight"],
+                json!(2.0)
+            );
+            assert_eq!(
+                capacity["candidate_decision"]["owner_key"],
+                json!("proj:fam")
+            );
+            assert_eq!(
+                capacity["candidate_decision"]["lineage_key"],
+                json!("fam")
+            );
+            assert_eq!(
+                capacity["candidate_decision"]["explicit_weight_compatibility"],
+                json!("inherited-active-claim")
             );
 
             let wait = contract
@@ -26521,6 +28589,81 @@ MENTORS:
             )
             .unwrap_err();
             assert!(error.is_instance_of::<PyValueError>(py));
+        });
+    }
+
+    #[test]
+    fn provider_usage_normalize_grok_billing_round_trips_and_rejects_nonfinite()
+    {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let now = 1_800_000_000.0;
+            let request = json!({
+                "schema_version": 1,
+                "payload": {
+                    "subscription_tier": "SuperGrok Heavy",
+                    "config": {
+                        "currentPeriod": {
+                            "type": "USAGE_PERIOD_TYPE_WEEKLY",
+                            "start": "2027-01-15T00:00:00Z",
+                            "end": "2027-01-22T00:00:00Z",
+                        },
+                        "isUnifiedBillingUser": true,
+                    }
+                },
+                "provider": "grok",
+                "context_id": "probe",
+                "account_generation": 1,
+                "request_started_at": now,
+                "now": now,
+            });
+            let request_obj = json_value_to_py(py, &request).unwrap();
+            let request_dict =
+                request_obj.bind(py).downcast::<PyDict>().unwrap();
+            let observation =
+                py_provider_usage_normalize_grok_billing(py, request_dict)
+                    .unwrap();
+            let value = py_to_json_value(observation.bind(py)).unwrap();
+            assert_eq!(value["outcome"], json!("ok"));
+            assert_eq!(value["plan"], json!("SuperGrok Heavy"));
+            assert_eq!(value["windows"][0]["used_percent"], json!(0.0));
+            assert_eq!(value["windows"][0]["key"], json!("included_weekly"));
+
+            for percent in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+                let invalid = json!({
+                    "schema_version": 1,
+                    "payload": {
+                        "config": {
+                            "creditUsagePercent": 0.0,
+                            "isUnifiedBillingUser": true,
+                            "monthlyLimit": {"val": 1000},
+                            "used": {"val": 0},
+                        }
+                    },
+                    "provider": "grok",
+                    "context_id": "probe",
+                    "account_generation": 1,
+                    "request_started_at": now,
+                    "now": now,
+                });
+                let invalid_obj = json_value_to_py(py, &invalid).unwrap();
+                let invalid_dict =
+                    invalid_obj.bind(py).downcast::<PyDict>().unwrap();
+                let payload =
+                    invalid_dict.get_item("payload").unwrap().unwrap();
+                let payload_dict = payload.downcast::<PyDict>().unwrap();
+                let config = payload_dict.get_item("config").unwrap().unwrap();
+                let config_dict = config.downcast::<PyDict>().unwrap();
+                config_dict.set_item("creditUsagePercent", percent).unwrap();
+                let error =
+                    py_provider_usage_normalize_grok_billing(py, invalid_dict)
+                        .unwrap_err();
+                assert!(error.is_instance_of::<PyValueError>(py));
+                assert!(error
+                    .to_string()
+                    .to_lowercase()
+                    .contains("non-finite"));
+            }
         });
     }
 

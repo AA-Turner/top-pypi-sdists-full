@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nextcloud-mcp-server
-Version: 0.185.3
+Version: 0.186.0
 Summary: Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data
 Keywords: nextcloud,mcp,model-context-protocol,llm,ai,claude,webdav,caldav,carddav
 Author: Chris Coutinho
@@ -165,6 +165,7 @@ For Kubernetes, see [cbcoutinho/helm-charts](https://github.com/cbcoutinho/helm-
 | **Mail** | 13 | Accounts, mailboxes, messages, attachments, send; flags (read/unread, star), tags, move, delete |
 | **Collectives** | 16 | Full CRUD on collectives, pages, and tags |
 | **Talk (spreed)** | 6 | List conversations, read/post messages, mark as read, list participants |
+| **Shopping List** | 12 | Lists and items — add a whole recipe's ingredients in one call, tick items off, clear checked |
 | **Semantic Search** | 2+ | Vector search for Notes, Files, News items, Deck cards, and Mail messages (experimental, opt-in, requires infrastructure) |
 
 Want to see another Nextcloud app supported? [Open an issue](https://github.com/cbcoutinho/nextcloud-mcp-server/issues) or contribute a pull request!

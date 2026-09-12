@@ -63,6 +63,32 @@ def test_a_run_agent_step_carrying_a_mandate_is_REFUSED_with_the_migration_hint(
     assert "Run Mandate" in message
 
 
+@pytest.mark.parametrize(
+    "exposed_inputs",
+    [
+        {"topic": "", "audience": "high school", "material": '{"__kind":"structured_document"}'},
+        {
+            "count": "15",
+            "difficulty_mix": "balanced",
+            "material": '{"__kind":"structured_document"}',
+        },
+        {"mcq_count": "8", "fill_in_blank_count": "5", "free_response_count": "2"},
+        {
+            "tone": "conversational",
+            "target_section_count": "5",
+            "target_duration_seconds_per_section": "120",
+        },
+    ],
+)
+def test_agent_produce_preserves_authored_variable_ports(exposed_inputs: dict[str, str]):
+    """Breaking this makes every Study Pack producer fail before the agent runs."""
+    parsed = AgentProduceInput.model_validate(
+        {"mandate_key": "education.study_pack", **exposed_inputs}
+    )
+
+    assert parsed.model_extra == exposed_inputs
+
+
 def test_an_EMPTY_mandate_key_on_a_run_agent_step_is_dropped_not_fatal():
     """Live node ``n-vapf8MnirU``: the studio form wrote ``mandate_key: null``
     beside a pinned agent_id back when Run Agent declared the field. A null

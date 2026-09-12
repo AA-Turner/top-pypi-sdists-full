@@ -629,6 +629,23 @@ def convert_tracking_to_detection_format(tracking_results: Dict) -> List[Dict]:
     ...
 
 # From format_utils
+def face_landmarks(detection: Dict[str, Any], default: Any = None) -> Any:
+    """
+    The detection's 5-point landmarks under whichever name its producer used.
+    
+        Prefers ``landmarks`` so a record carrying both is unchanged. Read through this rather than
+        ``detection.get("landmarks")`` anywhere the producer might be either codebase.
+    """
+    ...
+
+# From format_utils
+def has_face_landmarks(detection: Dict[str, Any]) -> bool:
+    """
+    Whether this detection carries landmarks under any known name.
+    """
+    ...
+
+# From format_utils
 def match_results_structure(results: Any) -> Any:
     """
     Match the results structure to the expected structure based on actual output formats.

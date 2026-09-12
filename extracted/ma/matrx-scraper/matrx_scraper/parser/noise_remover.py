@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import copy
+import re
 
 import bs4
 
 from .noise_config import (
     NoiseRemoverConfig,
     BaseRemoverConfig,
+    NavMarkerConfig,
     VisibilityConfig,
     VisibilityItem,
 )
@@ -27,6 +29,9 @@ class BaseNoiseRemover:
         if self.config.remove_items:
             result.difference_update(self.config.remove_items)
         return list(result)
+
+    def prepare(self, soup: bs4.BeautifulSoup) -> None:
+        """Called once per `remove_noise` pass before any element is checked."""
 
     def check_element(self, element: bs4.Tag, soup=None) -> tuple[bool, str | None]:
         raise NotImplementedError
@@ -84,6 +89,75 @@ class DataContentNoiseRemover(BaseNoiseRemover):
         return False, None
 
 
+_CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+_SEGMENT_SPLIT = re.compile(r"[-_\s]+")
+_MAIN_CONTENT_TAGS = ("main", "article")
+
+
+def _segments(token: str) -> list[str]:
+    """`site-nav` → [site, nav]; `mainNav` → [main, nav]; `skip_links` → [skip, links]."""
+    return [s for s in _SEGMENT_SPLIT.split(_CAMEL_BOUNDARY.sub("-", token).lower()) if s]
+
+
+class NavMarkerNoiseRemover(BaseNoiseRemover):
+    """Segment-rule matcher for navigation chrome on `class` / `id`.
+
+    Rule and rationale: `NOISE_NAV_MARKER` in noise_config.py. Guarded so the
+    page's main content is never removed by the heuristic.
+    """
+
+    def __init__(self, config: NavMarkerConfig):
+        super().__init__(config)
+        self._words = {item for item in self.items if "-" not in item}
+        self._phrases = [tuple(_segments(item)) for item in self.items if "-" in item]
+        self._body_text_len = 0
+
+    def prepare(self, soup: bs4.BeautifulSoup) -> None:
+        body = soup.body if soup is not None else None
+        self._body_text_len = len((body or soup).get_text(" ", strip=True)) if soup is not None else 0
+
+    def _marker_for(self, token: str) -> str | None:
+        segs = _segments(token)
+        for seg in segs:
+            if seg in self._words:
+                return seg
+        for phrase in self._phrases:
+            n = len(phrase)
+            for i in range(len(segs) - n + 1):
+                if tuple(segs[i : i + n]) == phrase:
+                    return "-".join(phrase)
+        return None
+
+    def _is_main_content(self, element: bs4.Tag) -> bool:
+        if element.name in _MAIN_CONTENT_TAGS:
+            return True
+        if element.find_parent(_MAIN_CONTENT_TAGS) is not None:
+            return True
+        if element.find(_MAIN_CONTENT_TAGS) is not None:
+            return True
+        if self._body_text_len:
+            own = len(element.get_text(" ", strip=True))
+            if own * 2 > self._body_text_len:
+                return True
+        return False
+
+    def check_element(self, element, soup=None):
+        if not element or not element.attrs:
+            return False, None
+        candidates: list[str] = []
+        if element.has_attr("id"):
+            candidates.append(str(element["id"]))
+        if element.has_attr("class"):
+            candidates.extend(element["class"])
+        for token in candidates:
+            marker = self._marker_for(token)
+            if marker is not None:
+                if self._is_main_content(element):
+                    return False, None
+                return True, f"{marker} (in {token!r})"
+        return False, None
+
+
 class VisibilityNoiseRemover(BaseNoiseRemover):
     def __init__(self, config: VisibilityConfig):
         self.config = config
@@ -129,12 +203,15 @@ class NoiseRemover:
             JunkTagNoiseRemover(cfg.tag),
             IdNoiseRemover(cfg.id_),
             DataContentNoiseRemover(cfg.data_content),
+            NavMarkerNoiseRemover(cfg.nav_marker),
             VisibilityNoiseRemover(cfg.visibility),
         ]
 
     def remove_noise(self, soup: bs4.BeautifulSoup, remove: bool = False) -> bs4.BeautifulSoup:
         original = copy.deepcopy(soup)
         processed = copy.deepcopy(soup)
+        for remover in self.removers:
+            remover.prepare(original)
 
         elements_to_remove = []
         for element in processed.find_all():

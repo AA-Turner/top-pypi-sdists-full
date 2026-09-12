@@ -1,0 +1,147 @@
+[envs.hatch-uv]
+dependencies = [
+  "uv >= 0.11.31",
+]
+
+[envs.default]
+installer = "uv"
+
+[envs.dev]
+dependencies = [
+  "coverage[toml] >= 6.5",
+  "mypy",
+  "pyrefly >= 1.3.0",
+  "pytest",
+  "pytest-cov",
+  "pytest-xdist[psutil]",
+  "typing-extensions",
+]
+
+[envs.dev.scripts]
+pip = '"$HATCH_UV" pip {args}'
+qa = ["typing", "test"]
+click-version = "python -c \"from importlib.metadata import version; print('Click version:', version('click'))\""
+test = [
+  "click-version",
+  "pytest {args:-vv}",
+]
+test-cov = [
+  "click-version",
+  "coverage run --parallel-mode -m pytest {args:-vv}",
+]
+typing-mypy = [
+  "mypy --strict src/cloup",
+  "mypy tests examples",
+]
+typing-pyrefly = [
+  "pyrefly check --preset strict src/cloup",
+  "pyrefly check tests examples",
+]
+typing = [
+  "click-version",
+  "typing-pyrefly",
+  "typing-mypy",
+]
+upgrade-click = '"$HATCH_UV" pip install --upgrade-package click -r pyproject.toml'
+
+[envs.test]
+template = "dev"
+matrix-name-format = "{variable}_{value}"
+
+# Matrix 1: test against supported versions of Python, without pinning Click.
+# Fresh environments resolve the latest compatible version of Click; existing
+# environments can be updated with `task test-envs:upgrade-click`.
+[[envs.test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+# Matrix 2: test against past versions of click that are still supported, only on the
+# latest version of Python, to limit the number of test envs.
+[[envs.test.matrix]]
+python = ["3.14"]
+click = ["8.5"]
+
+[envs.test.overrides]
+matrix.click.dependencies = [
+    "click == {matrix:click}.*"
+]
+matrix.click.scripts = [
+  { key = "upgrade-click", value = '"$HATCH_UV" pip install --upgrade-package click -r pyproject.toml "click == {matrix:click}.*"' },
+]
+
+[envs.coverage]
+skip-install = true
+dependencies = [
+  "coverage[toml] >= 6.5",
+]
+
+[envs.coverage.scripts]
+report = [
+  "- coverage combine",
+  "coverage report -m",
+  "coverage {args:html}",
+]
+
+# Code quality and style (ruff)
+[envs.code]
+locked = true
+skip-install = true
+dependencies = [
+  "ruff",
+]
+
+[envs.code.scripts]
+lint = "ruff check {args}"
+format = "ruff format {args}"
+check = [
+    "format --check",
+    "lint",
+]
+fix = [
+    "lint --fix",
+    "format",
+    "check",
+]
+
+[envs.docs]
+locked = true
+python = "3.10"
+dependencies = [
+  "furo",
+  "sphinx",
+  "sphinx-autoapi",
+  "sphinx-autobuild",
+  "sphinx-copybutton",
+  "sphinx-design",
+  "sphinx-issues",
+  "sphinx-version-warning",
+]
+
+[envs.docs.env-vars]
+PYTHONPATH = "{root}/src"  # work around Hatch bug: https://github.com/pypa/hatch/issues/2372
+
+[envs.docs.scripts]
+build = [
+  "python scripts/remove.py docs/_build",
+  "sphinx-build -E -W --keep-going -b html docs docs/_build/html {args}",
+]
+serve = """
+sphinx-autobuild --watch src/cloup --watch docs/_static/styles \
+--ignore 'docs/autoapi/**' \
+--open-browser \
+-b html docs docs/_build/html {args}
+"""
+
+[envs.package]
+locked = true
+skip-install = true
+dependencies = [
+  "build",
+  "twine",
+]
+
+[envs.package.scripts]
+build = [
+  "python scripts/remove.py build dist .eggs",
+  "python -m build",
+  "twine check dist/*",
+]

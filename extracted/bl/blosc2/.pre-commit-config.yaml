@@ -16,11 +16,14 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.1
+    rev: v0.16.6
     hooks:
       - id: ruff-check
         args: ["--fix", "--show-fixes"]
       - id: ruff-format
+        # Ruff 0.16+ can claim Markdown code blocks; blacken-docs owns those
+        # blocks here, so keep Ruff on Python sources and notebooks.
+        types_or: [python, pyi, jupyter]
         exclude: ^bench/
 
   - repo: https://github.com/adamchainz/blacken-docs

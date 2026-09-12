@@ -960,6 +960,7 @@ class WindowAggregation(_message.Message):
         "fold_initial_value",
         "approx_top_k_arg_counters",
         "cached_values_only",
+        "offline_continuous_buffer_duration",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -985,6 +986,7 @@ class WindowAggregation(_message.Message):
     FOLD_INITIAL_VALUE_FIELD_NUMBER: _ClassVar[int]
     APPROX_TOP_K_ARG_COUNTERS_FIELD_NUMBER: _ClassVar[int]
     CACHED_VALUES_ONLY_FIELD_NUMBER: _ClassVar[int]
+    OFFLINE_CONTINUOUS_BUFFER_DURATION_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -1009,6 +1011,7 @@ class WindowAggregation(_message.Message):
     fold_initial_value: _expression_pb2.LogicalExprNode
     approx_top_k_arg_counters: int
     cached_values_only: bool
+    offline_continuous_buffer_duration: _duration_pb2.Duration
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1035,6 +1038,7 @@ class WindowAggregation(_message.Message):
         fold_initial_value: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         approx_top_k_arg_counters: _Optional[int] = ...,
         cached_values_only: bool = ...,
+        offline_continuous_buffer_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
     ) -> None: ...
 
 class BackfillTagSet(_message.Message):

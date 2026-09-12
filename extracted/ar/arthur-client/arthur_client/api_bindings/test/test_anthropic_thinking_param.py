@@ -36,7 +36,8 @@ class TestAnthropicThinkingParam(unittest.TestCase):
         if include_optional:
             return AnthropicThinkingParam(
                 type = 'enabled',
-                budget_tokens = 56
+                budget_tokens = 56,
+                display = 'summarized'
             )
         else:
             return AnthropicThinkingParam(

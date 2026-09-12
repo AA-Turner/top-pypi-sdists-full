@@ -3,6 +3,7 @@
 mod bql;
 mod bsrch;
 mod bulkdata;
+mod channel;
 mod fieldinfo;
 mod generic;
 mod histdata;
@@ -21,6 +22,8 @@ mod value_utils;
 pub use bql::BqlState;
 pub use bsrch::BsrchState;
 pub use bulkdata::BulkDataState;
+pub(crate) use channel::SubscriptionTerminator;
+pub use channel::{subscription_channel, SubscriptionReceiver, SubscriptionSender};
 pub use fieldinfo::FieldInfoState;
 pub use generic::GenericState;
 pub use histdata::HistDataState;
@@ -30,6 +33,7 @@ pub use intradaybar_stream::IntradayBarStreamState;
 pub use intradaytick::IntradayTickState;
 pub use intradaytick_stream::IntradayTickStreamState;
 pub use refdata::{LongMode, OutputFormat, RefDataState};
+pub(crate) use subscription::{subscription_forwarder_channel, SubscriptionForwarder};
 pub use subscription::{MessageOutcome, SubscriptionMetrics, SubscriptionState};
 pub use update::{
     FieldIndex, FieldKind, FieldLayout, FieldMeta, SubscriptionUpdate, TopicId, UpdateField,

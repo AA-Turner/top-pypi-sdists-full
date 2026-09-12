@@ -6775,6 +6775,42 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """
         ...
 
+    @overload
+    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts expiring on any of the given dates. Time of day is ignored
+        
+        :param expiries: The expiration dates
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def expiring_after(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts expiring after the given date, excluding it. Time of day is ignored
+        
+        :param date: The date the expirations must be after
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def expiring_before(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Applies filter selecting the contracts expiring before the given date, excluding it. Time of day is ignored
+        
+        :param date: The date the expirations must be before
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def farthest_expiration(self) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
+        """
+        Returns the contracts of the farthest expiration
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
     def front_month(self) -> QuantConnect_Securities_ContractSecurityFilterUniverse_T:
         """
         Returns front month contract
@@ -7680,6 +7716,18 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
     OptionChainTests.ChainExposesEveryUniverseFilter checks that every universe filter is declared here
     """
 
+    def atm(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts at the money. Alias for at_the_money"""
+        ...
+
+    def at_the_money(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """
+        Selects the contracts with strikes within the given distance of the underlying price, in units of it, zero only a strike
+        equal to the price; null, the default, the strikes on either side of the price, each within the percentage of it
+        given by OptionFilterUniverse.default_at_the_money_strike_distance
+        """
+        ...
+
     def back_month(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts of the second nearest expiration"""
         ...
@@ -7734,6 +7782,23 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
         """Selects the contracts expiring in the given range of days relative to the current date"""
         ...
 
+    @overload
+    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts expiring on any of the given dates, ignoring the time of day"""
+        ...
+
+    def expiring_after(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts expiring after the given date, excluding it"""
+        ...
+
+    def expiring_before(self, date: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts expiring before the given date, excluding it"""
+        ...
+
+    def farthest_expiration(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts of the farthest expiration"""
+        ...
+
     def front_month(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts of the nearest expiration"""
         ...
@@ -7750,12 +7815,20 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
         """Selects the contracts with implied volatility in the given range"""
         ...
 
+    def in_the_money(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the in the money contracts: calls below and puts above the underlying price"""
+        ...
+
     def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects an OTM call, an ATM call, an ATM put and an OTM put with the same expiry and equal strike distance closest to the criteria given"""
         ...
 
     def iron_condor(self, min_days_till_expiry: int = 30, near_strike_spread: float = 5, far_strike_spread: float = 10) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects a far OTM call, a near OTM call, a near OTM put and a far OTM put with the same expiry closest to the criteria given"""
+        ...
+
+    def itm(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the in the money contracts. Alias for in_the_money"""
         ...
 
     def iv(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7780,6 +7853,14 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
 
     def open_interest(self, min: int, max: int) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts with open interest in the given range"""
+        ...
+
+    def otm(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the out of the money contracts. Alias for out_of_the_money"""
+        ...
+
+    def out_of_the_money(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the out of the money contracts: calls above and puts below the underlying price"""
         ...
 
     def protective_collar(self, min_days_till_expiry: int = 30, call_strike_from_atm: float = 5, put_strike_from_atm: float = -5) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7826,8 +7907,22 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
         """Selects an OTM call and an OTM put with the same expiry closest to the criteria given"""
         ...
 
+    @overload
     def strikes(self, min_strike: int, max_strike: int) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the contracts with strikes in the given range relative to the underlying price, in number of strikes"""
+        ...
+
+    @overload
+    def strikes(self, strikes: typing.List[float]) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts with any of the given strike prices"""
+        ...
+
+    def strikes_above(self, price: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts with strikes above the given price, excluding it"""
+        ...
+
+    def strikes_below(self, price: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts with strikes below the given price, excluding it"""
         ...
 
     def t(self, min: float, max: float) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
@@ -7848,6 +7943,10 @@ class IOptionContractFilters(typing.Generic[QuantConnect_Securities_IOptionContr
 
     def weeklys_only(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
         """Selects the non standard weekly contracts"""
+        ...
+
+    def zero_dte(self) -> QuantConnect_Securities_IOptionContractFilters_TSelf:
+        """Selects the contracts expiring today"""
         ...
 
 
@@ -7937,6 +8036,31 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         
         :param reference_date: The date to be adjusted
         :returns: The adjusted date.
+        """
+        ...
+
+    def atm(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts at the money. Alias for at_the_money
+        
+        :param max_strike_distance: The largest distance between a strike and the underlying price for its contracts to be at
+        the money, in units of the underlying price. Zero selects only a strike equal to the price. Null, the default, selects the
+        strikes on either side of the price, the highest at or below it and the lowest at or above it, each only when it is within
+        the percentage of the price given by OptionFilterUniverse.default_at_the_money_strike_distance
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def at_the_money(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts at the money: the ones with strikes within the given distance of the underlying price,
+        or by default the ones at the strikes on either side of it. Selects nothing when the underlying price is unknown
+        
+        :param max_strike_distance: The largest distance between a strike and the underlying price for its contracts to be at
+        the money, in units of the underlying price. Zero selects only a strike equal to the price. Null, the default, selects the
+        strikes on either side of the price, the highest at or below it and the lowest at or above it, each only when it is within
+        the percentage of the price given by OptionFilterUniverse.default_at_the_money_strike_distance
+        :returns: Universe with filter applied.
         """
         ...
 
@@ -8092,6 +8216,15 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
+    def in_the_money(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the in the money contracts: calls with strikes below the underlying price
+        and puts with strikes above it. Selects nothing when the underlying price is unknown
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
     def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
         """
         Sets universe of an OTM call, an ATM call, an ATM put, and an OTM put with the same expiry and equal strike price distance, with closest match to the criteria given
@@ -8122,6 +8255,14 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         This Class is protected.
         
         :returns: True if standard.
+        """
+        ...
+
+    def itm(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the in the money contracts. Alias for in_the_money
+        
+        :returns: Universe with filter applied.
         """
         ...
 
@@ -8184,6 +8325,23 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         
         :param min: The minimum open interest value
         :param max: The maximum open interest value
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def otm(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the out of the money contracts. Alias for out_of_the_money
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def out_of_the_money(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the out of the money contracts: calls with strikes above the underlying price
+        and puts with strikes below it. Selects nothing when the underlying price is unknown
+        
         :returns: Universe with filter applied.
         """
         ...
@@ -8302,12 +8460,41 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
+    @overload
     def strikes(self, min_strike: int, max_strike: int) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
         """
         Applies filter selecting options contracts based on a range of strikes in relative terms
         
         :param min_strike: The minimum strike relative to the underlying price, for example, -1 would filter out contracts further than 1 strike below market price
         :param max_strike: The maximum strike relative to the underlying price, for example, +1 would filter out contracts further than 1 strike above market price
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    @overload
+    def strikes(self, strikes: typing.List[float]) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts with any of the given strike prices
+        
+        :param strikes: The strike prices
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def strikes_above(self, price: float) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts with strikes above the given price, excluding it
+        
+        :param price: The price the strikes must be above
+        :returns: Universe with filter applied.
+        """
+        ...
+
+    def strikes_below(self, price: float) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts with strikes below the given price, excluding it
+        
+        :param price: The price the strikes must be below
         :returns: Universe with filter applied.
         """
         ...
@@ -8354,9 +8541,23 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         """
         ...
 
+    def zero_dte(self) -> QuantConnect_Securities_BaseOptionFilterUniverse_TUniverse:
+        """
+        Applies filter selecting the contracts expiring today
+        
+        :returns: Universe with filter applied.
+        """
+        ...
+
 
 class OptionFilterUniverse(QuantConnect.Securities.BaseOptionFilterUniverse[QuantConnect_Securities_OptionFilterUniverse, QuantConnect.Data.UniverseSelection.OptionUniverse]):
     """Represents options symbols universe used in filtering."""
+
+    default_at_the_money_strike_distance: float
+    """
+    How far from the underlying price, as a percentage of it, a strike on either side can be and still count as at the money
+    by default in BaseOptionFilterUniverse{TUniverse, TData}.AtTheMoney. 0.02, 2%, unless changed
+    """
 
     @property
     def exchange_hours(self) -> QuantConnect.Securities.SecurityExchangeHours:

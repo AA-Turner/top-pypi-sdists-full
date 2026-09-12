@@ -292,6 +292,35 @@ class TestAdvancePullRequestReviewWorkflow:
         workflow = state.get_workflow_state()
         assert workflow["step"] == "pr-synthesis"
 
+    def test_advance_preserves_artifact_context_in_rendered_prompt(
+        self, temp_state_dir, temp_prompts_dir, temp_output_dir, clear_state_before, capsys
+    ):
+        """Manual advancement forwards the canonical artifact path to the next prompt."""
+        state.set_workflow_state(
+            name="pull-request-review",
+            status="in-progress",
+            step="initiate",
+            context={
+                "pull_request_id": "123",
+                "review_artifact_dir_name": "e8f8350144db",
+                "review_artifact_dir": "pull-request-review/e8f8350144db",
+            },
+        )
+
+        with patch(_PROGRESS, return_value=_progress(all_complete=False, completed=0, pending=5, total=5)):
+            workflow_dir = temp_prompts_dir / "pull-request-review"
+            workflow_dir.mkdir()
+            template_file = workflow_dir / "default-pr-synthesis-prompt.md"
+            template_file.write_text(
+                "Artifacts: <state_dir>/{{review_artifact_dir}}/",
+                encoding="utf-8",
+            )
+
+            commands.advance_pull_request_review_workflow()
+
+        captured = capsys.readouterr()
+        assert "<state_dir>/pull-request-review/e8f8350144db/" in captured.out
+
     def test_advance_to_decision_with_in_progress_file_status(
         self, temp_state_dir, temp_prompts_dir, temp_output_dir, clear_state_before, capsys
     ):

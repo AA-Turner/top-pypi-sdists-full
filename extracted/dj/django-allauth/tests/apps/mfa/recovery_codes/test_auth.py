@@ -35,3 +35,11 @@ def test_migrated_codes(db, user):
     assert rc.get_unused_codes() == ["def"]
     rc.validate_code("def")
     assert rc.instance.data["migrated_codes"] == []
+
+
+def test_validate_code_on_stale_instance(user):
+    rc = RecoveryCodes.activate(user)
+    code = rc.generate_codes()[0]
+    stale_rc = Authenticator.objects.get(pk=rc.instance.pk).wrap()
+    assert rc.validate_code(code)
+    assert not stale_rc.validate_code(code)

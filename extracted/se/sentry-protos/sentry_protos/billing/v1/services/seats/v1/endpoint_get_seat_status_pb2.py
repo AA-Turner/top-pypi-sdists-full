@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.common.v1 import seat_object_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_seat__object__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/seats/v1/endpoint_get_seat_status.proto\x12*sentry_protos.billing.v1.services.seats.v1\x1a\x34sentry_protos/billing/v1/common/v1/seat_object.proto\"m\n&GetSeatStatusForExternalProductRequest\x12\x43\n\x0bseat_object\x18\x01 \x01(\x0b\x32..sentry_protos.billing.v1.common.v1.SeatObject\"\x80\x01\n\'GetSeatStatusForExternalProductResponse\x12U\n\x06status\x18\x01 \x01(\x0e\x32\x45.sentry_protos.billing.v1.services.seats.v1.ExternalProductSeatStatus*\xc3\x01\n\x19\x45xternalProductSeatStatus\x12,\n(EXTERNAL_PRODUCT_SEAT_STATUS_UNSPECIFIED\x10\x00\x12$\n EXTERNAL_PRODUCT_SEAT_STATUS_DNE\x10\x01\x12\'\n#EXTERNAL_PRODUCT_SEAT_STATUS_ACTIVE\x10\x02\x12)\n%EXTERNAL_PRODUCT_SEAT_STATUS_DISABLED\x10\x03\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/seats/v1/endpoint_get_seat_status.proto\x12*sentry_protos.billing.v1.services.seats.v1\x1a\x34sentry_protos/billing/v1/common/v1/seat_object.proto\"m\n&GetSeatStatusForExternalProductRequest\x12\x43\n\x0bseat_object\x18\x01 \x01(\x0b\x32..sentry_protos.billing.v1.common.v1.SeatObject\"\x80\x01\n\'GetSeatStatusForExternalProductResponse\x12U\n\x06status\x18\x01 \x01(\x0e\x32\x45.sentry_protos.billing.v1.services.seats.v1.ExternalProductSeatStatus*\xed\x01\n\x19\x45xternalProductSeatStatus\x12,\n(EXTERNAL_PRODUCT_SEAT_STATUS_UNSPECIFIED\x10\x00\x12$\n EXTERNAL_PRODUCT_SEAT_STATUS_DNE\x10\x01\x12\'\n#EXTERNAL_PRODUCT_SEAT_STATUS_ACTIVE\x10\x02\x12)\n%EXTERNAL_PRODUCT_SEAT_STATUS_DISABLED\x10\x03\x12(\n$EXTERNAL_PRODUCT_SEAT_STATUS_INVALID\x10\x04\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,7 +33,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.se
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_EXTERNALPRODUCTSEATSTATUS']._serialized_start=418
-  _globals['_EXTERNALPRODUCTSEATSTATUS']._serialized_end=613
+  _globals['_EXTERNALPRODUCTSEATSTATUS']._serialized_end=655
   _globals['_GETSEATSTATUSFOREXTERNALPRODUCTREQUEST']._serialized_start=175
   _globals['_GETSEATSTATUSFOREXTERNALPRODUCTREQUEST']._serialized_end=284
   _globals['_GETSEATSTATUSFOREXTERNALPRODUCTRESPONSE']._serialized_start=287

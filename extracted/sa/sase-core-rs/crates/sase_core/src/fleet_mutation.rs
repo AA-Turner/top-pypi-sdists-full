@@ -625,6 +625,7 @@ fn target_sort_key(target: &FleetBulkTargetWire) -> (String, String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fleet_contract::FleetFamilyRoleWire;
     use crate::fleet_contract::{
         ConnectionHealthWire, ContentMetadataWire, FleetStatusBucketWire,
         HumanDisplayLabelsWire, ObservationFreshnessWire, OriginLocatorWire,
@@ -732,6 +733,8 @@ mod tests {
             logical_key: logical_key_unchecked(&intent.target.logical),
             exact_key: Some("exact-1".to_string()),
             row_kind: FleetRowKindWire::AgentShell,
+            family_role: FleetFamilyRoleWire::Root,
+            parent_timestamp: None,
             labels: HumanDisplayLabelsWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
                 project_label: "project-1".to_string(),
@@ -770,6 +773,10 @@ mod tests {
                 supports_range: false,
                 supports_growth: false,
             },
+            queue_weight: None,
+            queue_weight_explicit: false,
+            queue_weight_invalid: false,
+            queue_weight_error: None,
             current_instance: true,
             dismissable: false,
             needs_attention: false,

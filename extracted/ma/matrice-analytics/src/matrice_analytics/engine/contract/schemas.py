@@ -379,7 +379,7 @@ def is_stream_time(text: object) -> bool:
 # ---------------------------------------------------------------------------
 
 
-class Category(str, Enum):
+class Category(str, Enum):  # noqa: UP042  # StrEnum changes str(); not equivalent
     """Analytics category for a metric or an incident.
 
     ``VOLUME`` / ``SAFETY`` / ``QUALITY`` only (vocabulary Section 1).
@@ -395,23 +395,23 @@ class Category(str, Enum):
     QUALITY = "QUALITY"
 
 
-class AggType(str, Enum):
+class AggType(str, Enum):  # noqa: UP042  # StrEnum changes str(); not equivalent
     """How the backend collapses a metric across a rollup window.
 
     ``sum`` / ``mean`` / ``min`` / ``max`` / ``last``, matching the backend
-    vocabulary at ``entities/raw_business_metrics_clickhouse.go:31-38``.
+    vocabulary.
 
     Notably absent:
 
     * ``avg`` -- the backend spells it ``mean``.  py_analytics' current
       dispatch knows only ``avg`` and **falls back to ``sum``** for anything
-      else (``analytics/base_processor.py:353-365``), so every manifest
+      else, so every manifest
       declaring ``mean`` publishes a *sum* of per-frame values today.  A
       60-second window at 25 fps can emit a "compliance percentage" of
-      150,000.  That is defect PY-1, a live production bug, and it is the
+      150,000.  That is a live production bug, and it is the
       reason an unknown ``agg_type`` must raise rather than fall back.
     * ``median`` -- accepted by the backend but it silently returns the mean
-      (BE-1, acknowledged in a code comment).  Declaring it would publish a
+      (acknowledged in a code comment).  Declaring it would publish a
       value that does not mean what it says.
     """
 
@@ -422,12 +422,12 @@ class AggType(str, Enum):
     last = "last"
 
 
-class Severity(str, Enum):
+class Severity(str, Enum):  # noqa: UP042  # StrEnum changes str(); not equivalent
     """Incident severity, lowercase on the wire.
 
-    Vocabulary Section 2.  ``significant`` is deliberately *not* a member:
-    py_analytics uses it internally and it must never reach the wire
-    (FROZEN-7).  The backend has no such level, does not validate severity,
+    ``significant`` is deliberately *not* a member:
+    py_analytics uses it internally and it must never reach the wire.
+    The backend has no such level, does not validate severity,
     and would store the literal string -- which then sorts and scores as an
     unknown value.  Use :func:`parse_severity`, which maps it to ``high``.
     """
@@ -469,7 +469,7 @@ only ever carries the canonical five.
 """
 
 
-class IncidentStatus(str, Enum):
+class IncidentStatus(str, Enum):  # noqa: UP042  # StrEnum changes str(); not equivalent
     """Incident status -- **derived by the backend, never sent**.
 
     ``resolved`` if ``end_time`` parses, else ``active``
@@ -771,9 +771,9 @@ class MetricEntry(_WireModel):
         default=GLOBAL_ZONE,
         validation_alias=AliasChoices("zone", "zone_id"),
         description=(
-            "Zone id. Emitted as 'zone', only ever 'zone' (PY-8). The Go DTO "
-            "accepts both 'zone' and 'zone_id' with 'zone' winning "
-            "(dtos/tracker_dtos.go:40-41); 'zone_id' is accepted on input for "
+            "Zone id. Emitted as 'zone', only ever 'zone'. The Go DTO "
+            "accepts both 'zone' and 'zone_id' with 'zone' winning; "
+            "'zone_id' is accepted on input for "
             "legacy callers but is never emitted."
         ),
     )
@@ -807,7 +807,7 @@ class TrackingCount(_WireModel):
     """``{"category": "person", "count": 3}`` -- one entry in a count list.
 
     ``category`` here is the **ML class name** (``person``, ``vehicle``, ...),
-    not an analytics :class:`Category`.  Vocabulary Section 13: it is a free
+    not an analytics :class:`Category`.  It is a free
     string with no enum.
     """
 
@@ -816,30 +816,29 @@ class TrackingCount(_WireModel):
 
 
 class TrackingStats(_WireModel):
-    """The per-zone value of ``results-agg.tracking_stats`` (contract 2.2).
+    """The per-zone value of ``results-agg.tracking_stats``.
 
-    All four count lists are always present -- **FROZEN-5**.
+    All four count lists are always present.
     ``current_new_counts`` and ``total_counts`` are ignored on the main
-    ingestion path (``tracker_clickhouse_service.go:626-687`` reads only
-    ``current_counts`` and ``total_current_counts``) but the instant-metric
+    ingestion path, which reads only
+    ``current_counts`` and ``total_current_counts``, but the instant-metric
     path and ``dataField`` resolution depend on them.  Do not "optimise" them
     away; declaring them with list defaults guarantees they serialise even
     when empty.
 
     **``current_counts`` means one thing here and another on the frame
-    surface, and that is deliberate (BE-16).**  ``raw_analytics`` is a *delta
+    surface, and that is deliberate.**  ``raw_analytics`` is a *delta
     plus level* schema: ``count`` is "how many arrived since the previous
     reading", ``totalCount`` is "how many were there at the reading", and the
     five-minute rollup is ``argMin(totalCount, t) + sum(count) -
-    argMin(count, t)``
-    (``10_aggregated_analytics_totals_schema.sql:7``).  On **this** class --
-    S1, one row per 60-second window -- ``current_counts`` is therefore the
+    argMin(count, t)``.  On **this** class --
+    one row per 60-second window -- ``current_counts`` is therefore the
     window's **arrival delta**; a level there makes the rollup add up
     occupancy readings and publish several times the true footfall.  On
     :class:`FrameTrackingStats` it is the frame's level, because a frame has
     no interval to take a delta over and be-analytics reads it as
     ``total_count`` / ``category_total_count``, i.e. "how many objects right
-    now" (``tracker_clickhouse_service.go:1097-1120``).
+    now".
     :class:`~matrice_analytics.engine.runtime.window.ZoneCounters` builds both
     from the same four quantities.
     """
@@ -854,18 +853,19 @@ class TrackingStats(_WireModel):
     current_counts: list[TrackingCount] = Field(
         default_factory=list,
         description=(
-            "Feeds raw_analytics.count -- the primary series. On S1 (results-agg) "
+            "Feeds raw_analytics.count -- the primary series. On results-agg "
             "this is the WINDOW'S ARRIVAL DELTA: unique objects first seen during "
-            "the window, because the backend's rollup sums this column (BE-16). On "
-            "S3 (FrameTrackingStats) it is the frame's level, which is what the "
+            "the window, because the backend's rollup sums this column. On "
+            "FrameTrackingStats it is the frame's level, which is what the "
             "instant-metric 'total_count' dataField reads. See the class docstring."
         ),
     )
     current_new_counts: list[TrackingCount] = Field(
         default_factory=list,
         description=(
-            "New unique objects first seen in this window. FROZEN-5: ignored on "
-            "the main path, read by the instant-metric formula path. On S1 this is "
+            "New unique objects first seen in this window. Ignored on "
+            "the main path, read by the instant-metric formula path. On results-agg "
+            "this is "
             "the same quantity as current_counts under a second name -- a window "
             "IS its reporting interval, so 'new in this window' and 'the interval's "
             "arrival delta' are one number."
@@ -874,10 +874,10 @@ class TrackingStats(_WireModel):
     total_counts: list[TrackingCount] = Field(
         default_factory=list,
         description=(
-            "Cumulative unique since process start. FROZEN-4: 'since last "
-            "restart' -- the backend's totalCount rollup formula assumes the "
+            "Cumulative unique since process start -- 'since last "
+            "restart'. The backend's totalCount rollup formula assumes the "
             "producer's counters reset on restart, so making this durable is a "
-            "coordinated change, not a local one (D6). FROZEN-5: ignored on the "
+            "coordinated change, not a local one. Ignored on the "
             "main path."
         ),
     )
@@ -887,8 +887,8 @@ class TrackingStats(_WireModel):
             "Occupancy carry: previous window's last-frame current + this "
             "window's new arrivals. Feeds raw_analytics.totalCount, the reading "
             "the rollup takes argMin() of -- which is why it has to INCLUDE this "
-            "window's arrivals: the formula subtracts them back out again. PY-4: "
-            "this is NOT a copy of current_counts -- the base-class version that "
+            "window's arrivals: the formula subtracts them back out again. "
+            "This is NOT a copy of current_counts -- the base-class version that "
             "set them equal produces wrong rollups."
         ),
     )
@@ -917,12 +917,12 @@ class TrackingStats(_WireModel):
 
 
 class AggregationResult(_WireModel):
-    """S1 -- the ``results-agg`` message (contract Section 2).
+    """The ``results-agg`` message.
 
     Emitted once per 60-second window per camera via
     ``XADD results-agg {"data": <json>}``.
 
-    Field order matches the worked example in contract Section 2.4 so that a
+    Field order matches the published worked example so that a
     serialised payload is byte-comparable with the spec.
     """
 
@@ -944,9 +944,8 @@ class AggregationResult(_WireModel):
         validation_alias=AliasChoices("location_id", "locationId"),
         serialization_alias="locationId",
         description=(
-            "FROZEN-1. Emitted as camelCase 'locationId' in an otherwise "
-            "snake_case payload (dtos/tracker_dtos.go:75, "
-            "mappers/kafka_analytics_results_agg.go:17). Renaming it to "
+            "Emitted as camelCase 'locationId' in an otherwise "
+            "snake_case payload. Renaming it to "
             "'location_id' breaks ingestion SILENTLY -- the field arrives empty "
             "and every row gets _idLocation = ''."
         ),
@@ -965,19 +964,18 @@ class AggregationResult(_WireModel):
         description=(
             "RFC3339 Z. ALWAYS set. Without it the backend falls back to 'the "
             "first zone's timestamp', where 'first' is Go map iteration order -- "
-            "nondeterministic (BE-5)."
+            "nondeterministic."
         ),
     )
     rtp_number: WireStr = Field(default="", description="Media anchor.")
     tracking_stats: dict[str, TrackingStats] = Field(
         default_factory=dict,
         description=(
-            "FROZEN-2. Keyed by ZONE ID, never flat. The parser treats every "
-            "top-level key as a zone id "
-            "(mappers/kafka_analytics_results_agg.go:67). The flat form -- which "
+            "Keyed by ZONE ID, never flat. The parser treats every "
+            "top-level key as a zone id. The flat form -- which "
             "the backend's own contract doc incorrectly shows -- creates zones "
             "named 'current_counts' and fails to unmarshal the entire message. "
-            "Single-bucket apps use the literal key 'global' (PY-6)."
+            "Single-bucket apps use the literal key 'global'."
         ),
     )
     metrics: list[MetricEntry] = Field(default_factory=list)
@@ -1065,7 +1063,7 @@ class AggregationResult(_WireModel):
 
 
 class Incident(_WireModel):
-    """One entry in ``incident_res.incidents[]`` (contract Section 3.2)."""
+    """One entry in ``incident_res.incidents[]``."""
 
     incident_id: WireStr = Field(
         description=(
@@ -1078,7 +1076,7 @@ class Incident(_WireModel):
     )
     severity_level: SeverityField = Field(
         description=(
-            "Lowercase. FROZEN-7: the internal 'significant' maps to 'high' and "
+            "Lowercase. The internal 'significant' maps to 'high' and "
             "must never reach the wire -- the backend has no such level, does "
             "not validate severity, and would store the literal string."
         ),
@@ -1100,9 +1098,7 @@ class Incident(_WireModel):
         validation_alias=AliasChoices("image_url", "imageUrl"),
         serialization_alias="imageUrl",
         description=(
-            "FROZEN-3. camelCase, unlike every sibling field in the same struct "
-            "(be-analytics/internal/dtos/incident_dtos.go:23). Renaming it loses "
-            "the image."
+            "camelCase, unlike every sibling field in the same struct. Renaming it loses the image."
         ),
     )
 
@@ -1133,12 +1129,13 @@ class Incident(_WireModel):
 
 
 class IncidentMessage(_WireModel):
-    """S2 -- the ``incident_res`` message (contract Section 3).
+    """The ``incident_res`` message.
 
     ``XADD incident_res {"data": <json>}``, emitted on a severity
     **transition**, never per frame.
 
-    The field naming deliberately differs from S1: ``application_id`` rather
+    The field naming deliberately differs from ``results-agg``:
+    ``application_id`` rather
     than ``app_id``, ``location_name`` rather than ``location``.  Both are
     frozen -- they match a different Go DTO (``CameraEventIncoming``).
     """
@@ -1147,26 +1144,25 @@ class IncidentMessage(_WireModel):
     camera_name: WireStr = Field(
         default="",
         description=(
-            "FROZEN-8: blanked when it equals camera_id "
-            "(utils/incident_res_format.py:203). Deliberate -- it prevents the "
+            "Blanked when it equals camera_id. Deliberate -- it prevents the "
             "UI showing a raw ObjectID as a camera name."
         ),
     )
     app_deployment_id: WireStr
     application_id: WireStr = Field(
-        description="Note: 'application_id', NOT 'app_id' as in S1.",
+        description="Note: 'application_id', NOT 'app_id' as in results-agg.",
     )
     application_name: WireStr = ""
     location_name: WireStr = Field(
         default="",
-        description="Note: 'location_name', NOT 'location' as in S1.",
+        description="Note: 'location_name', NOT 'location' as in results-agg.",
     )
     frame_id: WireStr = Field(default="", description="Legacy Redis frame key.")
     rtp_number: WireStr = Field(default="", description="Preferred media anchor.")
     stream_time: WireStr = Field(
         default="",
         description=(
-            "Media format 'YYYY-MM-DD-HH:mm:ss.ffffff UTC' (contract Section 3.3), NOT RFC3339. Do not 'fix' it."
+            "Media format 'YYYY-MM-DD-HH:mm:ss.ffffff UTC', NOT RFC3339. Do not 'fix' it."
         ),
     )
     category: IncidentCategoryField = Field(

@@ -2306,15 +2306,15 @@ class PivotFilterType(IntEnum):
     YEAR_TO_DATE = 64,
     YESTERDAY = 65,
 class PivotGroupByType(IntEnum):
-    DAYS = 4,
-    HOURS = 3,
-    MINUTES = 2,
-    MONTHS = 5,
-    NUMBERS = 0,
-    QUARTERS = 6,
-    RANGE_OF_VALUES = 0,
-    SECONDS = 1,
-    YEARS = 7,
+    DAYS = 16,
+    HOURS = 8,
+    MINUTES = 4,
+    MONTHS = 32,
+    NUMBERS = 1,
+    QUARTERS = 96,
+    RANGE_OF_VALUES = 1,
+    SECONDS = 2,
+    YEARS = 128,
 class PivotItemPosition(IntEnum):
     CUSTOM = 2,
     NEXT = 1,
@@ -3493,8 +3493,10 @@ from com.aspose.cells import PivotGlobalizationSettings
 from com.aspose.cells import PivotPageFields
 from com.aspose.cells import PivotTableCalculateOption
 from com.aspose.cells import PivotTableRefreshOption
+from com.aspose.cells import PivotViewToJsonOptions
 from com.aspose.cells import PowerQueryFormulaParameterCollection
 from com.aspose.cells import PptxSaveOptions
+from com.aspose.cells import Range
 from com.aspose.cells import RenderingFont
 from com.aspose.cells import RenderingWatermark
 from com.aspose.cells import ReplaceOptions

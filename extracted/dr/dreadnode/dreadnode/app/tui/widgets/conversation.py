@@ -23,6 +23,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.css.query import NoMatches
+from textual.events import MouseScrollDown, MouseScrollUp
 from textual.message import Message as TextualMessage
 from textual.widget import Widget
 from textual.widgets import Markdown, Static
@@ -36,8 +37,12 @@ from dreadnode.app.tui.theme import (
     FG_SUBTLE,
     WARNING,
 )
+from dreadnode.app.tui.widgets.selection import COPY_CHROME, SelectableStatic
 from dreadnode.app.tui.widgets.tool import ThemedMarkdown, ToolCall
 from dreadnode.generators.message import Message
+
+if t.TYPE_CHECKING:
+    from textual.timer import Timer
 
 # =============================================================================
 # Metadata conventions
@@ -285,7 +290,21 @@ def _render_message(message: Message) -> list[t.Any]:
 
     if message.role == "user":
         text = Text()
+        actor = message.metadata.get("actor")
+        if isinstance(actor, dict) and actor.get("source") == "slack":
+            author = next(
+                (
+                    actor[key]
+                    for key in ("slack_email", "display_name", "slack_user_id")
+                    if isinstance(actor.get(key), str) and actor[key].strip()
+                ),
+                None,
+            )
+            if author:
+                text.append(f"via Slack · {author}\n", style=FG)
+
         text.append("› ", style=f"bold {ACCENT}")
+        text.stylize(COPY_CHROME, 0, len(text))
         text.append(content, style=FG)
         return [text]
 
@@ -381,6 +400,37 @@ class ConversationView(VerticalScroll):
             self.widget = widget
             super().__init__()
 
+    # --- scroll pacing ---------------------------------------------------------
+    # Textual scrolls ``scroll_sensitivity_y`` (2.0) rows per wheel event. That is
+    # a per-*notch* figure, in line with Qt (3), Windows (3) and less (1) — and it
+    # is correct for a terminal that reports notches. Terminals that negotiate
+    # SGR-Pixels (Ghostty, Kitty, WezTerm) do not: a macOS trackpad has no notches,
+    # so they forward the OS's pixel-precise, already-accelerated stream. One
+    # measured flick is 2,282 events in 995 ms against iTerm2's 14.
+    #
+    # Multiplied per event with no bound, displacement per frame becomes
+    # ``(event rate / 60) * 2.0`` — 2 rows on iTerm2 and 74 on Ghostty, with jumps
+    # to 600 rows (fifteen viewports) and 464 ms stalls. No constant fixes that,
+    # because the input rate varies 100x by terminal: halving it barely moves
+    # Ghostty (backlog-limited) and halves a legitimate iTerm2 flick.
+    #
+    # So events accumulate as *distance* and a frame-paced pump releases it
+    # bounded. Measured against recorded hardware gestures: Ghostty max jump
+    # 728 -> 30 rows, iTerm2 unchanged at 26 rows travelled with steadier cadence.
+    #: Scales Textual's ``scroll_sensitivity_y`` for the transcript only, leaving
+    #: every other scrollable widget on the app-wide default. Halved because 2.0
+    #: rows per wheel event reads as coarse next to Claude Code; a flick travels
+    #: proportionally less, which is the intended trade.
+    SCROLL_SENSITIVITY_SCALE: t.ClassVar[float] = 0.5
+    SCROLL_ROWS_PER_FRAME_FRACTION: t.ClassVar[float] = 0.75
+    SCROLL_MAX_BACKLOG_VIEWPORTS: t.ClassVar[float] = 25.0
+    #: Matches the 60fps paint rate. Pumping faster only moves the scroll model
+    #: between paints, so it changes nothing anyone can see.
+    SCROLL_PUMP_HZ: t.ClassVar[float] = 60.0
+    #: Frames of no pending distance before the pump stands down, so an idle
+    #: transcript costs nothing but a sparse gesture is not chopped up.
+    SCROLL_IDLE_FRAMES_BEFORE_PAUSE: t.ClassVar[int] = 45
+
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
         self._prev_following = True
@@ -392,6 +442,13 @@ class ConversationView(VerticalScroll):
         # via ``scroll_end`` while following, so a per-turn delta tells us
         # how thrashy streaming + tool mounts are at current DOM size.
         self._perf_vsize_changes = 0
+        # Undelivered wheel distance, in rows. Positive scrolls down.
+        self._scroll_pending = 0.0
+        self._scroll_pump: Timer | None = None
+        self._scroll_idle_frames = 0
+        # True only while our own pump is applying a step, so any other scroll
+        # can be told apart from ours.
+        self._scroll_releasing = False
 
     def perf_snapshot_and_reset(self) -> tuple[int, int]:
         """Return (entry_widget_count, virtual_size_changes_since_last_call).
@@ -426,6 +483,82 @@ class ConversationView(VerticalScroll):
         # Count virtual_size growth for the (currently dormant) streaming perf
         # telemetry. Pinning itself is handled by the anchor above.
         self.watch(self, "virtual_size", self._on_virtual_size_changed, init=False)
+        # Frame-paced scroll release. Created paused so an idle transcript costs
+        # no periodic wakeup — it runs only while there is distance to deliver.
+        self._scroll_pump = self.set_interval(
+            1 / self.SCROLL_PUMP_HZ, self._release_scroll, pause=True
+        )
+
+    # --- scroll pacing ---------------------------------------------------------
+
+    def _queue_scroll(self, rows: float) -> None:
+        """Bank wheel distance instead of applying it immediately.
+
+        Capped so a hard flick on a pixel-precise terminal cannot commit the
+        viewport to seconds of travel after the gesture has ended.
+        """
+        cap = max(1, self.size.height) * self.SCROLL_MAX_BACKLOG_VIEWPORTS
+        self._scroll_pending = max(-cap, min(cap, self._scroll_pending + rows))
+        self._scroll_idle_frames = 0
+        if self._scroll_pump is not None:
+            self._scroll_pump.resume()
+
+    def _release_scroll(self) -> None:
+        """Deliver at most a fraction of a viewport, once per frame."""
+        if not self._scroll_pending:
+            # Coast briefly before standing down. Pausing on the first empty
+            # frame makes sparse input (a notch terminal sends ~20 events/sec)
+            # pause and resume between events, which shows up as jitter — it
+            # cost CV 0.80 against 0.34 for a pump left running.
+            self._scroll_idle_frames += 1
+            if self._scroll_idle_frames >= self.SCROLL_IDLE_FRAMES_BEFORE_PAUSE:
+                if self._scroll_pump is not None:
+                    self._scroll_pump.pause()
+            return
+        self._scroll_idle_frames = 0
+        limit = max(1.0, self.size.height * self.SCROLL_ROWS_PER_FRAME_FRACTION)
+        step = max(-limit, min(limit, self._scroll_pending))
+        self._scroll_pending -= step
+        if abs(self._scroll_pending) < 0.01:
+            self._scroll_pending = 0.0
+        # scroll_to (not ``scroll_y =``) so the anchor sees this as a real scroll
+        # and releases; a raw assignment is reverted to the bottom within ~250ms.
+        # ``immediate=True`` matters: without it scroll_to defers _scroll_to via
+        # call_after_refresh, which runs after the guard below has been cleared —
+        # so the pump's own scroll looked external and cleared its own backlog.
+        self._scroll_releasing = True
+        try:
+            self.scroll_to(y=self.scroll_y + step, animate=False, immediate=True)
+        finally:
+            self._scroll_releasing = False
+
+    def _scroll_to(self, *args: t.Any, **kwargs: t.Any) -> bool:
+        """Drop queued wheel distance when anything else moves the viewport.
+
+        Every scroll route funnels here — ``scroll_to``, and ``scroll_end`` /
+        ``scroll_home`` which bypass it. Without this, flicking and then hitting
+        ``G`` (or the unread pill) lands at the bottom and is then dragged back
+        off it as the remaining backlog drains. The explicit action wins.
+        """
+        if not self._scroll_releasing and self._scroll_pending:
+            self._scroll_pending = 0.0
+        return super()._scroll_to(*args, **kwargs)
+
+    def _on_mouse_scroll_down(self, event: MouseScrollDown) -> None:
+        if event.ctrl or event.shift or not self.allow_vertical_scroll:
+            super()._on_mouse_scroll_down(event)
+            return
+        event.stop()
+        event.prevent_default()
+        self._queue_scroll(self.app.scroll_sensitivity_y * self.SCROLL_SENSITIVITY_SCALE)
+
+    def _on_mouse_scroll_up(self, event: MouseScrollUp) -> None:
+        if event.ctrl or event.shift or not self.allow_vertical_scroll:
+            super()._on_mouse_scroll_up(event)
+            return
+        event.stop()
+        event.prevent_default()
+        self._queue_scroll(-self.app.scroll_sensitivity_y * self.SCROLL_SENSITIVITY_SCALE)
 
     def _on_virtual_size_changed(self, _new_size: t.Any) -> None:
         """Toggle the anchor with overflow, and count growth for perf telemetry.
@@ -531,7 +664,7 @@ class ConversationView(VerticalScroll):
                 if isinstance(item, (Markdown, ToolCall, ThinkingBlock, CompactionSummary)):
                     widgets.append(item)
                 else:
-                    widgets.append(Static(item, classes=f"entry {css_class}"))
+                    widgets.append(SelectableStatic(item, classes=f"entry {css_class}"))
         try:
             draft = self.query_one("#draft")
             self.mount_all(widgets, before=draft)
@@ -554,7 +687,7 @@ class ConversationView(VerticalScroll):
             if isinstance(item, (Markdown, ToolCall, ThinkingBlock, CompactionSummary)):
                 widgets.append(item)
             else:
-                widgets.append(Static(item, classes=f"entry {css_class}"))
+                widgets.append(SelectableStatic(item, classes=f"entry {css_class}"))
         was_at_bottom = self.is_following
         try:
             draft = self.query_one("#draft")
@@ -587,7 +720,7 @@ class ConversationView(VerticalScroll):
 
     def write(self, renderable: t.Any) -> None:
         """Write a renderable to the stream."""
-        widget = Static(renderable, classes="entry")
+        widget = SelectableStatic(renderable, classes="entry")
         was_at_bottom = self.is_following
         try:
             self.mount(widget, before=self.query_one("#draft"))
@@ -640,6 +773,12 @@ class ConversationView(VerticalScroll):
         CSS class, causing them to survive session switches and ``/new`` —
         most visibly as grey reasoning traces leaking from the prior session.
         """
+        # Banked wheel distance belongs to the transcript being torn down; a
+        # session switch or /new mid-flick would otherwise deliver it against
+        # whatever loads next.
+        self._scroll_pending = 0.0
+        if self._scroll_pump is not None:
+            self._scroll_pump.pause()
         for child in list(self.children):
             if child.id == "draft":
                 continue

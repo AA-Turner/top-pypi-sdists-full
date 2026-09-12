@@ -108,3 +108,18 @@ def test_account_enumeration_timing_attack(user, db, rf, settings, login_methods
                 rf.get("/"), email=user.email, username="not-known", password="secret"
             )
             set_password_mock.assert_called_once()
+
+
+def test_account_enumeration_timing_attack_email_credentials(user, db, rf, settings):
+    settings.ACCOUNT_LOGIN_METHODS = {
+        app_settings.LoginMethod.USERNAME,
+        app_settings.LoginMethod.EMAIL,
+    }
+    with patch("django.contrib.auth.models.User.set_password") as password_mock:
+        with patch("django.contrib.auth.models.User.check_password", new=password_mock):
+            backend = AuthenticationBackend()
+            backend.authenticate(rf.get("/"), email="not@known.org", password="secret")
+            password_mock.assert_called_once()
+            password_mock.reset_mock()
+            backend.authenticate(rf.get("/"), email=user.email, password="secret")
+            password_mock.assert_called_once()

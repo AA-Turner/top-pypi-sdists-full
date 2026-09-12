@@ -10,7 +10,7 @@ from .composition_plan_chunks_item import CompositionPlanChunksItem
 
 class CompositionPlan(UncheckedBaseModel):
     """
-    Composition plan for the `music_v2` model. Using this field with any other model will result in an error.
+    Composition plan for the `music_v2` and `music_v2_5` models. Using this field with any other model will result in an error.
     """
 
     chunks: typing.List[CompositionPlanChunksItem] = pydantic.Field()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 1.4.11
+Version: 1.4.12
 Summary: Independent client for Bloomberg-connected data workflows
 Author: xbbg contributors
 Maintainer: xbbg contributors
@@ -33,7 +33,7 @@ Requires-Dist: pyarrow>=22.0.0; extra == "pyarrow"
 Provides-Extra: pandas
 Requires-Dist: pandas<4,>=2.2.2; extra == "pandas"
 Provides-Extra: polars
-Requires-Dist: polars>=0.20; extra == "polars"
+Requires-Dist: polars[timezone]>=0.20.4; extra == "polars"
 Provides-Extra: duckdb
 Requires-Dist: duckdb>=1.5.0; extra == "duckdb"
 Provides-Extra: test
@@ -42,7 +42,7 @@ Requires-Dist: pytest-cov>=5.0; extra == "test"
 Requires-Dist: pytest-asyncio>=0.24; extra == "test"
 Requires-Dist: pyarrow>=22.0.0; extra == "test"
 Requires-Dist: pandas<4,>=2.2.2; extra == "test"
-Requires-Dist: polars>=0.20; extra == "test"
+Requires-Dist: polars[timezone]>=0.20.4; extra == "test"
 Requires-Dist: duckdb>=1.5.0; extra == "test"
 Dynamic: license-file
 
@@ -56,13 +56,10 @@ Dynamic: license-file
 </p>
 
 [![CI](https://github.com/xbbg-org/xbbg/actions/workflows/ci-rust.yml/badge.svg)](https://github.com/xbbg-org/xbbg/actions/workflows/ci-rust.yml)
-[![PyPI version](https://img.shields.io/pypi/v/xbbg.svg)](https://pypi.org/project/xbbg/)
-[![Conda version](https://anaconda.org/conda-forge/xbbg/badges/version.svg)](https://anaconda.org/conda-forge/xbbg)
-[![npm version](https://img.shields.io/npm/v/%40xbbg%2Fcore.svg)](https://www.npmjs.com/package/@xbbg/core)
-[![Python versions](https://img.shields.io/pypi/pyversions/xbbg.svg)](https://pypi.org/project/xbbg/)
-[![PyPI downloads](https://pepy.tech/badge/xbbg)](https://pepy.tech/project/xbbg)
-[![npm downloads](https://img.shields.io/npm/dm/%40xbbg%2Fcore.svg)](https://www.npmjs.com/package/@xbbg/core)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/P34uMwgCjC)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/P34uMwgCjC)<br>
+**Python** [![PyPI version](https://img.shields.io/pypi/v/xbbg.svg)](https://pypi.org/project/xbbg/) [![conda-forge version](https://img.shields.io/conda/vn/conda-forge/xbbg.svg)](https://anaconda.org/conda-forge/xbbg) [![Python versions](https://img.shields.io/pypi/pyversions/xbbg.svg)](https://pypi.org/project/xbbg/) [![PyPI downloads per month](https://static.pepy.tech/badge/xbbg/month)](https://pepy.tech/projects/xbbg) [![PyPI downloads total](https://static.pepy.tech/badge/xbbg)](https://pepy.tech/projects/xbbg)<br>
+**JavaScript** [![npm version](https://img.shields.io/npm/v/%40xbbg%2Fcore.svg)](https://www.npmjs.com/package/@xbbg/core) [![Node.js versions](https://img.shields.io/node/v/%40xbbg%2Fcore.svg)](https://www.npmjs.com/package/@xbbg/core) [![npm downloads per month](https://img.shields.io/npm/dm/%40xbbg%2Fcore.svg)](https://www.npmjs.com/package/@xbbg/core)<br>
+**Rust** [![crates.io version](https://img.shields.io/crates/v/xbbg_core.svg)](https://crates.io/crates/xbbg_core) [![MSRV](https://img.shields.io/crates/msrv/xbbg_core.svg)](https://crates.io/crates/xbbg_core) [![crates.io downloads](https://img.shields.io/crates/d/xbbg_core.svg)](https://crates.io/crates/xbbg_core)
 
 **Links:** [Documentation](https://xbbg.org/) · [Quickstart](#quickstart) · [Configuration](#configuration-and-engines) · [Examples notebook](py-xbbg/examples/xbbg_jupyter_examples.ipynb) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)
 
@@ -71,7 +68,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==1.4.11 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.11))
+Latest release: xbbg==1.4.12 (release: [notes](https://github.com/xbbg-org/xbbg/releases/tag/v1.4.12))
 <!-- xbbg:latest-release-end -->
 
 > This `main` branch is the Rust-powered v1 release. For the legacy pure-Python line, use [`release/0.x`](https://github.com/xbbg-org/xbbg/tree/release/0.x).
@@ -128,7 +125,7 @@ The short version: if all you need is a tiny one-off `bdp()` wrapper, several pa
 | Rust request/parsing engine with Arrow-shaped output | yes | no | no | no | no |
 | Output backends beyond pandas | Narwhals, native, PyArrow, pandas, Polars, DuckDB | application-owned | pandas-first | pandas-first | Polars-first |
 | Typed errors, diagnostics, field cache, testing helpers | yes | application-owned | limited | limited | limited |
-| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.3.0 + narwhals 2.22.1, no `blpapi` = 16.933 MiB | blpapi 3.26.5.1 = 14.401 MiB | pdblp 0.1.8 + pandas 3.0.3 + numpy 2.4.6 + blpapi 3.26.5.1 = 129.344 MiB / blp 0.0.4 + pandas 3.0.3 + numpy 2.4.6 + blpapi 3.26.5.1 = 129.530 MiB | bbg-fetch 2.0.2 + pandas 3.0.3 + numpy 2.4.6 + blpapi 3.26.5.1 = 129.360 MiB | polars-bloomberg 0.6.0 + polars 1.41.2 + blpapi 3.26.5.1 = 197.296 MiB |
+| Usable install footprint (Windows x64, Python 3.14) | xbbg 1.4.11 + narwhals 2.26.0, no `blpapi` = 17.892 MiB | blpapi 3.26.8.1 = 14.702 MiB | pdblp 0.1.8 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.816 MiB / blp 0.0.4 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 131.002 MiB | bbg-fetch 3.2.0 + pandas 3.0.5 + numpy 2.5.3 + blpapi 3.26.8.1 = 130.863 MiB | polars-bloomberg 0.6.0 + polars 1.44.2 + blpapi 3.26.8.1 = 191.118 MiB |
 
 ## Installation
 
@@ -357,7 +354,13 @@ The engine uses separate worker pools for request/response calls and subscriptio
 - subscription sessions are isolated from request workers, so live streams do not share a single blocking session with batch requests
 - field validation, field-type caching, SDK logging, retry policy, keep-alive, slow-consumer thresholds, TLS, SOCKS5, and failover servers are configuration options rather than per-call ad hoc code
 
+`runtime_worker_threads` defaults to **2** (minimum **1**) and controls the engine's shared Tokio runtime, not the total process thread count. `subscription_pool_size` is the pre-warm count (default **1**, minimum **0**); `max_subscription_sessions` caps concurrent subscription sessions (default **32**, minimum **1**, and at least `subscription_pool_size`). Native subscription admission waits for capacity instead of allocating unbounded sessions. Node uses the corresponding `runtimeWorkerThreads`, `subscriptionPoolSize`, and `maxSubscriptionSessions` fields.
+
 Use `Engine(...)` when an application needs a scoped engine with its own connection settings instead of mutating global configuration.
+
+Engine shutdown closes subscription admission and signals both idle and checked-out sessions, waking pending operations so termination and errors can reach callers. Close subscriptions explicitly before releasing their engine; do not rely on interpreter teardown for application cleanup.
+
+Field-cache snapshots are published atomically. On Windows this uses `FileRenameInfoEx` with POSIX rename semantics, requiring Windows 10 1607+ and a supporting filesystem. Existing readers can finish with the old snapshot while new opens see the complete replacement. Unsupported filesystems report persistence errors and retain the prior snapshot; there is no unsafe replacement fallback.
 
 ## Common API surface
 
@@ -431,6 +434,11 @@ as_duckdb = blp.bdh("SPX Index", "PX_LAST", "2024-01-01", "2024-12-31", backend=
 
 Output shape is controlled with `format=`, including `long`, `long_typed`, `long_metadata`, and `semi_long`.
 
+- Native `ArrowTable`, `ArrowRecordBatch`, and `ArrowColumn` slices can retain their source allocations. Use `.compact()` when retaining a small result should release that backing storage: it returns an independent copy of the logical values with right-sized buffers, preserving schema, nulls, and physical batch/chunk boundaries. Native zero-column tables retain their row count.
+- Polars conversion preserves Arrow chunks rather than implicitly rechunking. The supported floor is **Polars >=0.20.4**; older supported versions use PyArrow when available or schema-aware per-batch materialization, while capsule-capable versions consume the native Arrow stream. Install `xbbg[polars]` to include the timezone data required on Windows.
+- `backend="polars_lazy"` returns a Polars `LazyFrame`; `backend="narwhals_lazy"` returns a genuine Narwhals lazy frame backed by Polars and requires Polars. Bloomberg retrieval and Arrow-to-Polars conversion have already happened: only subsequent local dataframe operations are deferred, with no Bloomberg query pushdown.
+- DuckDB results use isolated per-relation connections to one shared process-local in-memory database, not a new database per conversion. A retained relation keeps its connection and registered Arrow input alive; releasing one relation does not invalidate another. The shared database anchor is closed at process exit. If this backend was initialized before a fork, xbbg refuses inherited backend use or explicit close in the child; use multiprocessing `spawn` or fork before initializing the DuckDB backend.
+
 ## Async usage
 
 Use async helpers directly in async applications:
@@ -453,7 +461,7 @@ In Jupyter, VS Code Interactive, and marimo, one-shot sync calls such as `blp.bd
 
 ## Subscriptions: raw, tick mode, and all fields
 
-Use `asubscribe()` when you need dynamic add/remove, explicit unsubscribe, raw Arrow batches, or subscription health diagnostics. Use `stream()` when you only want the simple async-iterator wrapper.
+Use `asubscribe()` when you need dynamic add/remove, explicit unsubscribe, raw Arrow batches, or subscription health diagnostics. Use `astream()` for the simple async iterator, or `stream()` for synchronous iteration.
 
 ```python
 from xbbg import asubscribe
@@ -486,16 +494,23 @@ await raw_sub.unsubscribe()
 
 Key behaviors:
 
-- `output` accepts exactly `record_batch`, `backend`, `dict`, or `tick` (case-insensitive); omitting it keeps whatever `raw` and `tick_mode` select
+- `output` accepts exactly `record_batch`, `backend`, `dict`, or `tick` (case-insensitive); an explicit selector overrides both `raw` and `tick_mode`
 - `raw=True` or `output="record_batch"` yields raw xbbg `ArrowRecordBatch` values for max-performance consumers
 - `tick_mode=True`, `output="dict"`, or `output="tick"` returns native dict ticks and implies raw subscription mode
 - `output="backend"` returns the configured backend output, the same as default iteration without `raw=True`
-- `all_fields=True` exposes all top-level scalar Bloomberg subscription fields
+- `all_fields=True` exposes all top-level scalar Bloomberg subscription fields; unrequested arrays/complex fields are omitted, while explicitly requested unsupported shapes fail rather than being truncated
 - filtered mode keeps requested fields plus `MKTDATA_EVENT_TYPE` and `MKTDATA_EVENT_SUBTYPE`
 - `conflate=True` requests Bloomberg-conflated quote updates on `//blp/mktdata`; trades are still delivered as received
 - `sub.add(...)`, `sub.remove(...)`, `sub.status`, `sub.events`, `sub.failed_tickers`, and `sub.stats` expose runtime control and diagnostics
+- use `async with` on an acquired subscription or `try`/`finally` with `await sub.unsubscribe()` for deterministic cleanup; `unsubscribe(drain=True)` returns a list in the same dict/raw/backend representation as iteration (an empty drain is `[]`). An unread stream failure is raised after cleanup, never hidden by a successful partial drain.
 
-In Node, pass `{ allFields: true }` to `stream()` / `subscribe()` helpers for the same top-level field expansion. JS subscriptions use a native zero-copy Arrow path for supported schemas and fail fast with column-level diagnostics when a schema cannot use that path.
+Subscription rows are **deltas, not complete images**. In dict ticks, a missing key means unchanged; a present `None` means an explicit Bloomberg clear. Arrow batches retain nullable data columns and append non-null binary `__xbbg_present`: bit `i` (least-significant bit first) marks whether schema column `i + 2` is present, after `timestamp` and `topic`. A set bit plus a null cell is a clear; an unset bit is unchanged. Use each batch's current schema because all-fields layouts can grow or promote types. Schema metadata key `xbbg.subscription_presence` documents the encoding and mapping.
+
+Native queues fail closed on any continuity gap: Bloomberg `DATALOSS`, a full `drop_newest` buffer, or overflow/timeout of the bounded `block` forwarder. Already committed queue data is followed by one `BlpSubscriptionDataLossError`, then EOF; no post-gap deltas are delivered. Its `topic` and `detail` identify the gap (`topic="*"` denotes unattributed/session-wide loss). **Resubscribe for a fresh image** before applying further deltas. Terminal session errors also wake pending reads, including handles whose topics were all removed. Ordinary connection-down notifications remain nonterminal, and a single rejected topic does not terminate healthy siblings.
+
+Python `stream()` producers share one managed background event-loop thread, not a thread per stream. Each sync bridge has a bounded queue (`stream_capacity`, default **256**, minimum **1**) and asynchronously waits for consumer space; native overflow policy remains separate. Active sync producers are admitted per global/scoped engine up to `max_subscription_sessions`; excess producers raise `RuntimeError` rather than creating more tasks. Callbacks run on the consuming thread. Close the generator explicitly when stopping early: close cancels and waits for producer cleanup, and a cleanup timeout is reported while the producer remains tracked against its admission limit. In async applications use `astream()` directly and close it explicitly when retaining the generator after an early exit.
+
+In Node, pass `{ allFields: true }` to `stream()` / `subscribe()` helpers for the same top-level field expansion. Default iteration yields scalar `Tick` objects; `sub.arrow()` constructs Arrow JS tables without IPC for supported schemas. Exposed mutable buffers are JS-owned snapshots: exclusive bounded allocations can be transferred, while shared/sliced/oversized storage is copied or canonicalized first. This is not a universal zero-copy Rust/JS boundary. Choose scalar or Arrow reads once per subscription; see the [Node lifecycle and benchmark contracts](js-xbbg/README.md).
 
 ## MCP server
 
@@ -583,6 +598,8 @@ Publishing is handled through GitHub Actions and PyPI Trusted Publishing.
 - JavaScript/Node bindings: [js-xbbg/README.md](js-xbbg/README.md)
 - LangChain/LangGraph tools: [js-xbbg-langgraph/README.md](js-xbbg-langgraph/README.md)
 - PyPI: [pypi.org/project/xbbg](https://pypi.org/project/xbbg/)
+- npm: [npmjs.com/package/@xbbg/core](https://www.npmjs.com/package/@xbbg/core)
+- crates.io: [crates.io/crates/xbbg_core](https://crates.io/crates/xbbg_core)
 - Source: [github.com/xbbg-org/xbbg](https://github.com/xbbg-org/xbbg)
 - Issues: [GitHub Issues](https://github.com/xbbg-org/xbbg/issues)
 - Discord: [Join the community](https://discord.gg/P34uMwgCjC)

@@ -662,10 +662,136 @@ class WidgetUpdateRecordArgs(ToolArgs):
 IMPORT_FAILURES: list[str] = []
 
 
+# Every target is literal here so static safety scans can prove the generated
+# registry reaches only the modules the declaration names. The loaders are lazy
+# and per-tool, and a missing table entry or a missing function is isolated to
+# that one tool (recorded in IMPORT_FAILURES, screamed at boot, asserted empty
+# by tests/test_generated_tool_declarations.py). NOTE the isolation stops
+# there: a module that fails at import time takes this whole file down with it
+# (the implementations package re-exports eagerly), which boot captures as
+# startup_wiring_failed and the drift gate reports as a declaration import
+# failure — loud, never silent, but not per-tool.
+_MODULE_LOADERS = {
+    "matrx_ai.tools.implementations.agent_call": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.agent_call"
+    ),
+    "matrx_ai.tools.implementations.browser_discovery": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.browser_discovery"
+    ),
+    "matrx_ai.tools.implementations.cloud_files": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.cloud_files"
+    ),
+    "matrx_ai.tools.implementations.code": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.code"
+    ),
+    "matrx_ai.tools.implementations.code_ingest": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.code_ingest"
+    ),
+    "matrx_ai.tools.implementations.ctx": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.ctx"
+    ),
+    "matrx_ai.tools.implementations.ctx_write": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.ctx_write"
+    ),
+    "matrx_ai.tools.implementations.database": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.database"
+    ),
+    "matrx_ai.tools.implementations.datasets_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.datasets_tools"
+    ),
+    "matrx_ai.tools.implementations.debug_traces_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.debug_traces_tools"
+    ),
+    "matrx_ai.tools.implementations.desktop_discovery": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.desktop_discovery"
+    ),
+    "matrx_ai.tools.implementations.dictionary": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.dictionary"
+    ),
+    "matrx_ai.tools.implementations.feedback_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.feedback_tools"
+    ),
+    "matrx_ai.tools.implementations.filesystem": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.filesystem"
+    ),
+    "matrx_ai.tools.implementations.kind_authoring": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.kind_authoring"
+    ),
+    "matrx_ai.tools.implementations.kind_component": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.kind_component"
+    ),
+    "matrx_ai.tools.implementations.kind_instance": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.kind_instance"
+    ),
+    "matrx_ai.tools.implementations.math": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.math"
+    ),
+    "matrx_ai.tools.implementations.memory": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.memory"
+    ),
+    "matrx_ai.tools.implementations.news": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.news"
+    ),
+    "matrx_ai.tools.implementations.notes": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.notes"
+    ),
+    "matrx_ai.tools.implementations.picklists_tools": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.picklists_tools"
+    ),
+    "matrx_ai.tools.implementations.rag": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.rag"
+    ),
+    "matrx_ai.tools.implementations.random_wheel": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.random_wheel"
+    ),
+    "matrx_ai.tools.implementations.seo": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.seo"
+    ),
+    "matrx_ai.tools.implementations.shell": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.shell"
+    ),
+    "matrx_ai.tools.implementations.skill": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.skill"
+    ),
+    "matrx_ai.tools.implementations.tasks": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.tasks"
+    ),
+    "matrx_ai.tools.implementations.text": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.text"
+    ),
+    "matrx_ai.tools.implementations.tool_component": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.tool_component"
+    ),
+    "matrx_ai.tools.implementations.travel": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.travel"
+    ),
+    "matrx_ai.tools.implementations.vsc": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.vsc"
+    ),
+    "matrx_ai.tools.implementations.web": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.web"
+    ),
+    "matrx_ai.tools.implementations.widgets": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.widgets"
+    ),
+}
+
+
 def _reg(name, source_kind, executor, args, module, func):
+    loader = _MODULE_LOADERS.get(module)
+    if loader is None:
+        # A declaration that names a module with no literal loader entry is a
+        # DEFECT IN THIS FILE, not an optional dependency: the tool silently
+        # never registers and is dropped at request pre-flight. Recorded in
+        # IMPORT_FAILURES so the boot drift gate screams; a test asserts zero.
+        IMPORT_FAILURES.append(
+            f"{name}: {module}.{func}: DeclarationDefect(no _MODULE_LOADERS entry "
+            f"for {module!r}; add the literal loader)"
+        )
+        return
     try:
-        fn = getattr(importlib.import_module(module), func)
-    except Exception as exc:  # noqa: BLE001 - reported by the validator
+        fn = getattr(loader(), func)
+    except Exception as exc:  # noqa: BLE001 - surfaced by the boot drift gate
         IMPORT_FAILURES.append(f"{name}: {module}.{func}: {exc!r}")
         return
     tool(name=name, source_kind=source_kind, executor=executor, args=args)(fn)

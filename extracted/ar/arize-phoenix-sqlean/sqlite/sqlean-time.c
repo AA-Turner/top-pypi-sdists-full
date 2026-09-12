@@ -126,6 +126,7 @@ Duration dur_abs(Duration d) {
 // SQLite extension for working with time.
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +144,16 @@ static void result_blob(sqlite3_context* context, Time t) {
     sqlite3_result_blob(context, buf, sizeof(buf), SQLITE_TRANSIENT);
 }
 
+// has_null reports whether any of the arguments is NULL.
+static bool has_null(int argc, sqlite3_value** argv) {
+    for (int i = 0; i < argc; i++) {
+        if (sqlite3_value_type(argv[i]) == SQLITE_NULL) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // time_now()
 static void fn_now(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 0);
@@ -153,6 +164,10 @@ static void fn_now(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_date(year, month, day[, hour, min, sec[, nsec[, offset_sec]]])
 static void fn_date(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 3 || argc == 6 || argc == 7 || argc == 8);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     for (int i = 0; i < argc; i++) {
         if (sqlite3_value_type(argv[i]) != SQLITE_INTEGER) {
             sqlite3_result_error(context, "all parameters should be integers", -1);
@@ -197,6 +212,10 @@ static void fn_date(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_get_yearday(t)
 static void fn_extract(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -213,6 +232,10 @@ static void fn_extract(sqlite3_context* context, int argc, sqlite3_value** argv)
 // time_get_isoyear(t)
 static void fn_get_isoyear(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -230,6 +253,10 @@ static void fn_get_isoyear(sqlite3_context* context, int argc, sqlite3_value** a
 // time_get_isoweek(t)
 static void fn_get_isoweek(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -357,6 +384,10 @@ static void get_field(sqlite3_context* context, Time t, const char* field) {
 // time_get(t, field)
 static void fn_get(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
 
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
@@ -381,6 +412,10 @@ static void fn_get(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // Postgres-compatible.
 static void date_part(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
 
     if (sqlite3_value_type(argv[0]) != SQLITE_TEXT) {
         sqlite3_result_error(context, "1st parameter: should be a field name", -1);
@@ -404,6 +439,10 @@ static void date_part(sqlite3_context* context, int argc, sqlite3_value** argv) 
 // time_unix(sec[, nsec])
 static void fn_unix(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1 || argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     for (int i = 0; i < argc; i++) {
         if (sqlite3_value_type(argv[i]) != SQLITE_INTEGER) {
             sqlite3_result_error(context, "all parameters should be integers", -1);
@@ -426,6 +465,10 @@ static void fn_unix(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_nano(nsec)
 static void fn_unix_n(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_INTEGER) {
         sqlite3_result_error(context, "parameter should be an integer", -1);
         return;
@@ -442,6 +485,10 @@ static void fn_unix_n(sqlite3_context* context, int argc, sqlite3_value** argv) 
 // time_to_nano(t)
 static void fn_convert(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -461,6 +508,10 @@ static void fn_convert(sqlite3_context* context, int argc, sqlite3_value** argv)
 // time_equal(t, u)
 static void fn_compare(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
         return;
@@ -488,6 +539,10 @@ static void fn_compare(sqlite3_context* context, int argc, sqlite3_value** argv)
 // time_add(t, d)
 static void fn_add(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
         return;
@@ -511,6 +566,10 @@ static void fn_add(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_sub(t, u)
 static void fn_sub(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
         return;
@@ -538,6 +597,10 @@ static void fn_sub(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_since(t)
 static void fn_since(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -555,6 +618,10 @@ static void fn_since(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_until(t)
 static void fn_until(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "parameter should be a time blob", -1);
         return;
@@ -572,6 +639,10 @@ static void fn_until(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_add_date(t, years[, months[, days]])
 static void fn_add_date(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2 || argc == 3 || argc == 4);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
         return;
@@ -708,6 +779,10 @@ static void trunc_field(sqlite3_context* context, Time t, const char* field) {
 // time_trunc(t, d)
 static void fn_trunc(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
 
     // first parameter is a time blob
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
@@ -744,6 +819,10 @@ static void fn_trunc(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // Postgres-compatible.
 static void date_trunc(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
 
     // first parameter is a field name
     if (sqlite3_value_type(argv[0]) != SQLITE_TEXT) {
@@ -769,6 +848,10 @@ static void date_trunc(sqlite3_context* context, int argc, sqlite3_value** argv)
 // time_round(t, d)
 static void fn_round(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
 
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
@@ -796,6 +879,10 @@ static void fn_round(sqlite3_context* context, int argc, sqlite3_value** argv) {
 // time_fmt_time(t[, offset_sec])
 static void fn_format(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1 || argc == 2);
+    if (has_null(argc, argv)) {
+        sqlite3_result_null(context);
+        return;
+    }
     if (sqlite3_value_type(argv[0]) != SQLITE_BLOB) {
         sqlite3_result_error(context, "1st parameter: should be a time blob", -1);
         return;
@@ -825,7 +912,7 @@ static void fn_format(sqlite3_context* context, int argc, sqlite3_value** argv) 
 // time_parse(v)
 static void fn_parse(sqlite3_context* context, int argc, sqlite3_value** argv) {
     assert(argc == 1);
-    if (sqlite3_value_type(argv[0]) == SQLITE_NULL) {
+    if (has_null(argc, argv)) {
         sqlite3_result_null(context);
         return;
     }

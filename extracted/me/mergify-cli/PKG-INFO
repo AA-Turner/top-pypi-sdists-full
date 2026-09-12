@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.8.31.1
+Version: 2026.9.10.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -92,6 +92,15 @@ resolves credentials and target repository in this order, so an authenticated
 | **Repository** | `--repository` / `-r` | `GITHUB_REPOSITORY` | `git remote` (`origin`) |
 | **API URL** | `--api-url` / `-u` | `MERGIFY_API_URL` | `https://api.mergify.com` |
 
+Mergify application keys come in two classes, and a few commands will not
+accept the narrower one. A `ci` key is scoped to what a CI job does — trace
+upload, `ci scopes-send`, quarantine evaluation and the quarantine list.
+Reading test health (`mergify tests show`) and changing the quarantine
+(`mergify tests quarantines add` / `remove`) need an `admin` key or a GitHub
+PAT, and answer a `ci` key with `403 Forbidden`. Note that `GITHUB_TOKEN`
+inside GitHub Actions is the ephemeral installation token, not a PAT, and
+does not reach the Mergify API.
+
 See the [authentication guide](https://docs.mergify.com/cli/usage) for details.
 
 ## Quick start
@@ -122,6 +131,8 @@ for any command's flags.
 Every command group maps to a section of the
 [CLI reference](https://docs.mergify.com/cli/).
 
+- **`mergify auth`** — Sign in to Mergify and manage the stored
+  credential (`login`, `logout`, `status`).
 - **`mergify stack`** — Create and maintain stacked pull requests.
   [Docs](https://docs.mergify.com/stacks/)
 - **`mergify queue`** — Inspect and control the merge queue.
@@ -193,7 +204,7 @@ Commands return stable exit codes so scripts and runbooks can branch on them:
 | `5` | GitHub API request failed. |
 | `6` | Mergify API request failed. |
 | `7` | CLI invariant violated (e.g. run outside a valid context). |
-| `8` | Configuration missing, unparseable, or failing validation. |
+| `8` | Configuration or credentials missing, unparseable, or failing validation (including "not logged in"). |
 
 ## AI Agent Skills
 

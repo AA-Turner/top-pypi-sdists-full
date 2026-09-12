@@ -54,7 +54,19 @@ class TestJsonBlockDetection:
 
     def test_validate_complete_quiz(self):
         import json
-        quiz = {"quiz_title": "Test", "multiple_choice": [{"id": 1, "question": "Q?", "options": ["A"], "correctAnswer": 0, "explanation": "E"}]}
+
+        quiz = {
+            "quiz_title": "Test",
+            "multiple_choice": [
+                {
+                    "id": 1,
+                    "question": "Q?",
+                    "options": ["A"],
+                    "correctAnswer": 0,
+                    "explanation": "E",
+                }
+            ],
+        }
         result = validate_json_block(json.dumps(quiz), "quiz")
         assert result["is_complete"] is True
         assert result["should_show"] is True
@@ -158,7 +170,19 @@ class TestSplitContentIntoBlocks:
 
     def test_json_quiz_detection(self):
         import json
-        quiz = {"quiz_title": "Test", "multiple_choice": [{"id": 1, "question": "Q?", "options": ["A", "B"], "correctAnswer": 0, "explanation": "E"}]}
+
+        quiz = {
+            "quiz_title": "Test",
+            "multiple_choice": [
+                {
+                    "id": 1,
+                    "question": "Q?",
+                    "options": ["A", "B"],
+                    "correctAnswer": 0,
+                    "explanation": "E",
+                }
+            ],
+        }
         md = f"Text\n```json\n{json.dumps(quiz)}\n```\nMore"
         blocks = split_content_into_blocks(md)
         types = [b.type for b in blocks]
@@ -191,3 +215,142 @@ More text here."""
         md = "```tasks\n## Section\n- [x] Task 1\n- [ ] Task 2\n```"
         blocks = split_content_into_blocks(md)
         assert any(b.type == "tasks" for b in blocks)
+
+
+@pytest.mark.parametrize(
+    "literal",
+    [
+        '```json\n{"__kind":"flashcard_set","cards":[]}\n```',
+        '`{"__kind":"flashcard_set","cards":[]}`',
+        '<!-- {"__kind":"flashcard_set","cards":[]} -->',
+        '<![CDATA[{"__kind":"flashcard_set","cards":[]}]]>',
+    ],
+)
+def test_generic_xml_literal_context_keeps_kind_json_literal(literal: str):
+    source = f"<custom>\n{literal}\n</custom>"
+    blocks = split_content_into_blocks(source)
+    assert len(blocks) == 1
+    assert blocks[0].type == "code"
+    assert blocks[0].language == "xml"
+    assert blocks[0].content == source
+    assert blocks[0].metadata["genericXmlContainer"] is True
+
+
+def test_generic_xml_boundary_preserves_frontend_separator_before_embedded_kind():
+    payload = '{"__kind":"flashcard_set","cards":[]}'
+    source = (
+        "```json\n{}\n```\n\n```python\npass\n```\n\n"
+        f"<custom>\nbefore\n{payload}\nafter\n</custom>\n\nInline {payload} after"
+    )
+
+    blocks = split_content_into_blocks(source)
+
+    assert [block.type for block in blocks] == [
+        "code",
+        "code",
+        "code",
+        "code",
+        "code",
+        "text",
+        "code",
+        "text",
+    ]
+    assert blocks[5].content == "\n\n\nInline "
+    assert blocks[6].content == payload
+
+
+def test_incomplete_generic_xml_owns_directive_like_json():
+    source = '<x>\n{"__kind":"directive_v","value":"kept?"}'
+    blocks = split_content_into_blocks(source)
+    assert len(blocks) == 1
+    assert blocks[0].type == "code"
+    assert blocks[0].language == "xml"
+    assert blocks[0].content == source
+    assert blocks[0].metadata == {"isComplete": False, "genericXmlContainer": True}
+
+
+def test_top_level_json_fence_still_recovers_kind():
+    source = '```json\n{"__kind":"flashcard_set","cards":[]}\n```'
+    blocks = split_content_into_blocks(source)
+    assert len(blocks) == 1
+    assert blocks[0].type == "code"
+    assert blocks[0].language == "json"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "~~~\n</x>\n~~~",
+        "`</x>`",
+        "<!-- </x> -->",
+        "<![CDATA[</x>]]>",
+    ],
+)
+def test_generic_xml_literal_tags_do_not_close_root(body: str):
+    source = f"<x>\n{body}\n</x>"
+    blocks = split_content_into_blocks(source)
+    assert len(blocks) == 1
+    assert blocks[0].type == "code"
+    assert blocks[0].language == "xml"
+    assert blocks[0].content == source
+
+
+def test_prefix_then_incomplete_generic_xml_owns_directive():
+    source = 'prefix\n<x>\n{"__kind":"directive_v","value":"kept?"}'
+    blocks = split_content_into_blocks(source)
+    assert [block.type for block in blocks] == ["text", "code"]
+    assert blocks[1].language == "xml"
+    assert blocks[1].metadata["isComplete"] is False
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '<custom value=\'{"__kind":"flashcard_set","cards":[]}\'>hello</custom>',
+        '<x>\n~~~json\n{"__kind":"flashcard_set","cards":[]}\n</x>\n~~~\n</x>',
+        '<x>\n`` example ` {"__kind":"flashcard_set","cards":[]} ``\n</x>',
+        '<x>\n<!--\n```json\n{"__kind":"flashcard_set","cards":[]}\n-->\n</x>',
+        '<x>\n<![CDATA[{"__kind":"flashcard_set","cards":[]}]]>\n</x>',
+        '<x>\n{"__kind":"directive_v","value":"incomplete"}',
+    ],
+)
+def test_generic_xml_has_no_transient_kind_promotion(source: str):
+    from matrx_ai.processing.blocks.stream_processor import StreamBlockProcessor
+
+    static = split_content_into_blocks(source)
+    assert len(static) == 1 and static[0].content == source
+    assert static[0].language == "xml"
+    for chunk_size in (1, 7, 19):
+        processor = StreamBlockProcessor()
+        events = []
+        for offset in range(0, len(source), chunk_size):
+            events.extend(processor.process_token(source[offset : offset + chunk_size]))
+        events.extend(processor.finalize())
+        assert all(
+            not (event.metadata or {}).get("__ir", {}).get("root", {}).get("kind")
+            for event in events
+        )
+        latest = {event.block_id: event for event in events}
+        assert any(event.content == source for event in latest.values())
+
+
+def test_complete_generic_xml_recovers_only_the_bare_kind_outside_literals():
+    literal = '{"__kind":"flashcard_set","cards":[]}'
+    bare = '{"__kind":"quiz_set","questions":[]}'
+    source = f"<x value='{literal}'>\n<!--\n```json\n-->\n{bare}\n</x>"
+    blocks = split_content_into_blocks(source)
+    assert [block.content for block in blocks if block.language == "json"] == [bare]
+
+
+def test_partial_xml_attribute_cannot_promote_a_kind_before_tag_completion():
+    source = "<custom value='" + '{"__kind":"flashcard_set","cards":[]}'
+    blocks = split_content_into_blocks(source)
+    assert len(blocks) == 1 and blocks[0].language == "xml"
+    assert blocks[0].content == source
+    assert blocks[0].metadata["isComplete"] is False
+
+
+def test_many_adjacent_xml_containers_preserve_every_root():
+    blocks = split_content_into_blocks("<x/>" * 5000)
+    assert len(blocks) == 5000
+    assert all(block.content == "<x/>" and block.language == "xml" for block in blocks)

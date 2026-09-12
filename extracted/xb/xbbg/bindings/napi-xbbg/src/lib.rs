@@ -14,11 +14,13 @@ use std::time::Duration;
 use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
 use arrow_zero_copy::NativeArrowBatch;
-use napi::bindgen_prelude::{Buffer, Error, Status};
+use napi::bindgen_prelude::{create_custom_tokio_runtime, Buffer, Error, Status};
 use napi_derive::napi;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{watch, Mutex};
+use tokio::time::Instant;
 use xbbg_async::engine::state::{
-    FieldKind, SubscriptionArrowBatcher, SubscriptionUpdate, UpdateValue,
+    FieldKind, FieldLayout, SubscriptionArrowBatcher, SubscriptionReceiver, SubscriptionSender,
+    SubscriptionUpdate, UpdateValue,
 };
 use xbbg_async::engine::{
     Engine, EngineConfig, OverflowPolicy, RequestParams, ServerAddr, SharedSubscriptionStatus,
@@ -27,15 +29,42 @@ use xbbg_async::engine::{
 use xbbg_async::{BlpAsyncError, ValidationMode};
 use xbbg_core::{AuthConfig, BlpError};
 
-const DEFAULT_SUBSCRIPTION_BATCH_ITEMS: usize = 256;
-
 type StreamBatchResult = std::result::Result<SubscriptionUpdate, BlpError>;
-type StreamReceiver = tokio::sync::mpsc::Receiver<StreamBatchResult>;
-type SharedStreamReceiver = Arc<Mutex<Option<StreamReceiver>>>;
-type SharedPendingStreamItems = Arc<Mutex<VecDeque<StreamBatchResult>>>;
+type SharedStreamReceiver = Arc<Mutex<Option<SubscriptionReceiver>>>;
+type SharedPendingStreamItems = Arc<StdMutex<VecDeque<StreamBatchResult>>>;
+const MAX_SUBSCRIPTION_BATCH_CAPACITY_HINT: usize = 4096;
+
+fn subscription_batch_capacity_hint(limit: usize) -> usize {
+    limit.clamp(1, MAX_SUBSCRIPTION_BATCH_CAPACITY_HINT)
+}
+
+fn subscription_layouts_match(current: &Arc<FieldLayout>, next: &Arc<FieldLayout>) -> bool {
+    Arc::ptr_eq(current, next)
+        || (current.version == next.version
+            && current.fields.len() == next.fields.len()
+            && current
+                .fields
+                .iter()
+                .zip(next.fields.iter())
+                .all(|(current_field, next_field)| {
+                    current_field.index == next_field.index
+                        && current_field.kind == next_field.kind
+                        && current_field.name == next_field.name
+                }))
+}
+
+#[napi_derive::module_init]
+fn init_async_runtime() {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("create NAPI async bridge runtime");
+    create_custom_tokio_runtime(runtime);
+}
 
 struct SubscriptionStreamHandle {
-    tx: tokio::sync::mpsc::Sender<StreamBatchResult>,
+    tx: SubscriptionSender,
     claim: Option<xbbg_async::engine::SessionClaim>,
     fields: Vec<String>,
     all_fields: bool,
@@ -109,6 +138,8 @@ pub struct EngineConfigInput {
     pub zfp_remote: Option<String>,
     pub request_pool_size: Option<u32>,
     pub subscription_pool_size: Option<u32>,
+    pub runtime_worker_threads: Option<u32>,
+    pub max_subscription_sessions: Option<u32>,
     pub shard_requests: Option<bool>,
     pub shard_threshold: Option<u32>,
     pub shard_chunk_size: Option<u32>,
@@ -434,6 +465,30 @@ impl TryFrom<EngineConfigInput> for EngineConfig {
         if let Some(size) = input.subscription_pool_size {
             config.subscription_pool_size = size as usize;
         }
+        if let Some(size) = input.runtime_worker_threads {
+            if size == 0 {
+                return Err(Error::new(
+                    Status::InvalidArg,
+                    "runtimeWorkerThreads must be greater than zero",
+                ));
+            }
+            config.runtime_worker_threads = size as usize;
+        }
+        if let Some(size) = input.max_subscription_sessions {
+            if size == 0 {
+                return Err(Error::new(
+                    Status::InvalidArg,
+                    "maxSubscriptionSessions must be greater than zero",
+                ));
+            }
+            config.max_subscription_sessions = size as usize;
+        }
+        if config.max_subscription_sessions < config.subscription_pool_size {
+            return Err(Error::new(
+                Status::InvalidArg,
+                "maxSubscriptionSessions must be greater than or equal to subscriptionPoolSize",
+            ));
+        }
         if let Some(enabled) = input.shard_requests {
             config.shard_requests = enabled;
         }
@@ -447,6 +502,12 @@ impl TryFrom<EngineConfigInput> for EngineConfig {
             config.shard_max_concurrent = size as usize;
         }
         if let Some(size) = input.subscription_flush_threshold {
+            if size == 0 {
+                return Err(Error::new(
+                    Status::InvalidArg,
+                    "subscriptionFlushThreshold must be greater than zero",
+                ));
+            }
             config.subscription_flush_threshold = size as usize;
         }
         if let Some(size) = input.max_event_queue_size {
@@ -634,6 +695,21 @@ fn to_native_row(update: SubscriptionUpdate) -> NativeSubscriptionRow {
 
     for field in update.values.iter() {
         field_indices.push(u32::from(field.index));
+        let effective_kind = update
+            .layout
+            .fields
+            .get(usize::from(field.index))
+            .map_or(FieldKind::Unknown, |meta| meta.kind);
+        if matches!(effective_kind, FieldKind::Unknown | FieldKind::Str)
+            && !matches!(field.value, UpdateValue::Null)
+        {
+            bool_values.push(None);
+            i32_values.push(None);
+            f64_values.push(None);
+            string_values.push(field.value.as_string_lossy());
+            i64_values.push(None);
+            continue;
+        }
         match &field.value {
             UpdateValue::Null => {
                 bool_values.push(None);
@@ -698,15 +774,17 @@ fn to_native_row(update: SubscriptionUpdate) -> NativeSubscriptionRow {
 
 fn to_native_update_batch(
     updates: Vec<SubscriptionUpdate>,
-    last_layout_sent: &mut Option<u32>,
+    last_layout_sent: &mut Option<Arc<FieldLayout>>,
 ) -> Option<NativeSubscriptionUpdateBatch> {
     let mut iter = updates.into_iter();
     let first = iter.next()?;
-    let version = first.layout.version;
-    let layout = if *last_layout_sent == Some(version) {
+    let layout = if last_layout_sent
+        .as_ref()
+        .is_some_and(|current| subscription_layouts_match(current, &first.layout))
+    {
         None
     } else {
-        *last_layout_sent = Some(version);
+        *last_layout_sent = Some(first.layout.clone());
         Some(to_native_layout(&first))
     };
     let mut rows = Vec::with_capacity(iter.size_hint().0 + 1);
@@ -719,40 +797,194 @@ fn to_native_update_batch(
     })
 }
 
-fn subscription_limit(value: Option<u32>, label: &str) -> napi::Result<usize> {
+fn subscription_limit(
+    value: Option<u32>,
+    label: &str,
+    default_limit: usize,
+) -> napi::Result<usize> {
     match value {
         Some(0) => Err(Error::new(
             Status::InvalidArg,
             format!("{label} must be greater than zero"),
         )),
         Some(value) => Ok(value as usize),
-        None => Ok(DEFAULT_SUBSCRIPTION_BATCH_ITEMS),
+        None => Ok(default_limit),
+    }
+}
+
+async fn wait_for_subscription_close(close_rx: &mut watch::Receiver<bool>) {
+    if *close_rx.borrow() {
+        return;
+    }
+    while close_rx.changed().await.is_ok() {
+        if *close_rx.borrow() {
+            return;
+        }
     }
 }
 
 async fn receive_stream_item(
-    rx: &mut StreamReceiver,
-    close_notify: &Notify,
-    max_wait_ms: Option<u32>,
+    rx: &mut SubscriptionReceiver,
+    close_rx: &mut watch::Receiver<bool>,
+    deadline: Option<Instant>,
 ) -> Option<StreamBatchResult> {
+    if *close_rx.borrow() {
+        return None;
+    }
+    if deadline.is_some_and(|deadline| deadline <= Instant::now()) {
+        return rx.try_recv().ok();
+    }
+
     let receive = async {
         tokio::select! {
+            biased;
+            _ = wait_for_subscription_close(close_rx) => None,
             item = rx.recv() => item,
-            _ = close_notify.notified() => None,
         }
     };
-    match max_wait_ms {
-        Some(wait_ms) => tokio::time::timeout(Duration::from_millis(u64::from(wait_ms)), receive)
+    match deadline {
+        Some(deadline) => tokio::time::timeout_at(deadline, receive)
             .await
             .unwrap_or(None),
         None => receive.await,
     }
 }
 
+struct PendingUpdateBatch<'a> {
+    pending: &'a StdMutex<VecDeque<StreamBatchResult>>,
+    updates: Vec<SubscriptionUpdate>,
+    committed: bool,
+}
+
+impl<'a> PendingUpdateBatch<'a> {
+    fn new(pending: &'a StdMutex<VecDeque<StreamBatchResult>>, capacity: usize) -> Self {
+        Self {
+            pending,
+            updates: Vec::with_capacity(capacity),
+            committed: false,
+        }
+    }
+
+    fn commit(mut self) -> Vec<SubscriptionUpdate> {
+        self.committed = true;
+        std::mem::take(&mut self.updates)
+    }
+}
+
+impl Drop for PendingUpdateBatch<'_> {
+    fn drop(&mut self) {
+        if self.committed || self.updates.is_empty() {
+            return;
+        }
+        let mut pending = self
+            .pending
+            .lock()
+            .expect("subscription pending queue poisoned");
+        for update in self.updates.drain(..).rev() {
+            pending.push_front(Ok(update));
+        }
+    }
+}
+
+async fn receive_subscription_updates(
+    rx: &mut SubscriptionReceiver,
+    pending: &StdMutex<VecDeque<StreamBatchResult>>,
+    close_rx: &mut watch::Receiver<bool>,
+    limit: usize,
+    max_wait_ms: Option<u32>,
+) -> Result<Option<Vec<SubscriptionUpdate>>, Box<BlpError>> {
+    if *close_rx.borrow() {
+        return Ok(None);
+    }
+    let deadline =
+        max_wait_ms.map(|wait_ms| Instant::now() + Duration::from_millis(u64::from(wait_ms)));
+    let mut layout = None;
+    let mut batch = PendingUpdateBatch::new(pending, subscription_batch_capacity_hint(limit));
+    loop {
+        let queued = pending
+            .lock()
+            .expect("subscription pending queue poisoned")
+            .pop_front();
+        let item = match queued {
+            Some(item) => Some(item),
+            None if batch.updates.is_empty() || deadline.is_some() => {
+                receive_stream_item(rx, close_rx, deadline).await
+            }
+            None => rx.try_recv().ok(),
+        };
+
+        match item {
+            Some(Ok(update)) => {
+                if layout
+                    .as_ref()
+                    .is_some_and(|current| !subscription_layouts_match(current, &update.layout))
+                {
+                    pending
+                        .lock()
+                        .expect("subscription pending queue poisoned")
+                        .push_front(Ok(update));
+                    break;
+                }
+                layout.get_or_insert_with(|| update.layout.clone());
+                batch.updates.push(update);
+                if batch.updates.len() == limit {
+                    break;
+                }
+            }
+            Some(Err(error)) if batch.updates.is_empty() => return Err(Box::new(error)),
+            Some(Err(error)) => {
+                pending
+                    .lock()
+                    .expect("subscription pending queue poisoned")
+                    .push_front(Err(error));
+                break;
+            }
+            None => break,
+        }
+    }
+
+    if batch.updates.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(batch.commit()))
+    }
+}
+
+async fn drain_forwarder_into_pending(
+    claim: &xbbg_async::engine::SessionClaim,
+    rx: &mut SubscriptionReceiver,
+    pending: &StdMutex<VecDeque<StreamBatchResult>>,
+) -> Result<(), Box<BlpAsyncError>> {
+    let barrier = claim.drain_forwarder();
+    tokio::pin!(barrier);
+    let barrier_result = loop {
+        tokio::select! {
+            biased;
+            item = rx.recv() => {
+                match item {
+                    Some(item) => pending
+                        .lock()
+                        .expect("subscription pending queue poisoned")
+                        .push_back(item),
+                    None => break barrier.await,
+                }
+            }
+            result = &mut barrier => break result,
+        }
+    };
+    while let Ok(item) = rx.try_recv() {
+        pending
+            .lock()
+            .expect("subscription pending queue poisoned")
+            .push_back(item);
+    }
+    barrier_result.map_err(Box::new)
+}
+
 /// Stable machine-readable error code embedded in every native error message
 /// as a `[XBBG:<CODE>] ` prefix. The js-xbbg wrapper parses this prefix to
 /// construct typed error classes; the human-readable message follows it.
-/// Codes: SESSION, REQUEST, VALIDATION, TIMEOUT, CANCELLED, INTERNAL.
+/// Codes: SESSION, REQUEST, LIMIT, DATALOSS, VALIDATION, TIMEOUT, CANCELLED, INTERNAL.
 fn coded(status: Status, code: &str, msg: impl AsRef<str>) -> Error {
     Error::new(status, format!("[XBBG:{code}] {}", msg.as_ref()))
 }
@@ -827,6 +1059,11 @@ fn blp_error_to_napi(e: BlpError) -> Error {
             };
             coded(Status::GenericFailure, "REQUEST", msg)
         }
+        BlpError::SubscriptionDataLoss { topic, detail } => coded(
+            Status::GenericFailure,
+            "DATALOSS",
+            format!("Subscription data loss [topic={topic}]: {detail}"),
+        ),
         BlpError::SubscriptionFailure { cid, label } => {
             let mut msg = "Subscription failed".to_string();
             if let Some(c) = cid {
@@ -1003,6 +1240,7 @@ struct SchemaJsonCache {
 pub struct JsEngine {
     engine: Arc<Engine>,
     schema_json_cache: Arc<StdMutex<SchemaJsonCache>>,
+    subscription_batch_items: usize,
 }
 
 #[napi]
@@ -1156,8 +1394,10 @@ impl JsEngine {
     }
 
     #[napi]
-    pub fn clear_field_cache(&self) {
-        self.engine.clear_field_cache();
+    pub fn clear_field_cache(&self) -> napi::Result<()> {
+        self.engine
+            .clear_field_cache()
+            .map_err(|error| coded(Status::GenericFailure, "INTERNAL", error))
     }
 
     #[napi]
@@ -1271,8 +1511,10 @@ impl JsEngine {
     }
 
     #[napi]
-    pub fn invalidate_schema(&self, service: String) {
-        self.engine.invalidate_schema(&service);
+    pub fn invalidate_schema(&self, service: String) -> napi::Result<()> {
+        self.engine
+            .invalidate_schema(&service)
+            .map_err(|error| coded(Status::GenericFailure, "INTERNAL", error))?;
         let mut cache = self
             .schema_json_cache
             .lock()
@@ -1281,15 +1523,19 @@ impl JsEngine {
         cache
             .operations
             .retain(|(cached_service, _), _| cached_service != &service);
+        Ok(())
     }
 
     #[napi]
-    pub fn clear_schema_cache(&self) {
-        self.engine.clear_schema_cache();
+    pub fn clear_schema_cache(&self) -> napi::Result<()> {
+        self.engine
+            .clear_schema_cache()
+            .map_err(|error| coded(Status::GenericFailure, "INTERNAL", error))?;
         *self
             .schema_json_cache
             .lock()
             .expect("schema JSON cache poisoned") = SchemaJsonCache::default();
+        Ok(())
     }
 
     #[napi]
@@ -1345,7 +1591,7 @@ impl JsEngine {
             .await
             .map_err(blp_async_error_to_napi)?;
 
-        JsSubscription::from_stream(stream, tickers, fields, None)
+        JsSubscription::from_stream(stream, tickers, fields, self.subscription_batch_items)
     }
 
     #[napi]
@@ -1376,6 +1622,15 @@ impl JsEngine {
                 "streamCapacity must be greater than zero",
             ));
         }
+        if flush_threshold == Some(0) {
+            return Err(Error::new(
+                Status::InvalidArg,
+                "flushThreshold must be greater than zero",
+            ));
+        }
+        let consumer_batch_items = flush_threshold
+            .map(|value| value as usize)
+            .unwrap_or(self.subscription_batch_items);
 
         let stream = self
             .engine
@@ -1392,7 +1647,7 @@ impl JsEngine {
             .await
             .map_err(blp_async_error_to_napi)?;
 
-        JsSubscription::from_stream(stream, tickers, fields, stream_capacity.map(|v| v as usize))
+        JsSubscription::from_stream(stream, tickers, fields, consumer_batch_items)
     }
 
     #[napi]
@@ -1778,14 +2033,17 @@ impl JsEngine {
     }
 
     fn start_engine(config: EngineConfig) -> napi::Result<Self> {
+        let subscription_batch_items = config.subscription_flush_threshold;
         let engine = Engine::start(config).map_err(blp_async_error_to_napi)?;
         Ok(Self {
             engine: Arc::new(engine),
             schema_json_cache: Arc::new(StdMutex::new(SchemaJsonCache::default())),
+            subscription_batch_items,
         })
     }
 
     async fn start_engine_async(config: EngineConfig) -> napi::Result<Self> {
+        let subscription_batch_items = config.subscription_flush_threshold;
         let engine =
             napi::tokio::task::spawn_blocking(move || Engine::start(config).map_err(Box::new))
                 .await
@@ -1800,6 +2058,7 @@ impl JsEngine {
         Ok(Self {
             engine: Arc::new(engine),
             schema_json_cache: Arc::new(StdMutex::new(SchemaJsonCache::default())),
+            subscription_batch_items,
         })
     }
 }
@@ -1807,14 +2066,16 @@ impl JsEngine {
 #[napi]
 pub struct JsSubscription {
     rx: SharedStreamReceiver,
-    rx_available: Arc<Notify>,
-    close_notify: Arc<Notify>,
+    close_signal: watch::Sender<bool>,
     closed: Arc<AtomicBool>,
     mutation: Arc<Mutex<()>>,
     stream: Arc<Mutex<Option<SubscriptionStreamHandle>>>,
+    stream_sender: SubscriptionSender,
     pending: SharedPendingStreamItems,
-    scalar_layout_version: Arc<Mutex<Option<u32>>>,
-    arrow_batcher: Arc<Mutex<SubscriptionArrowBatcher>>,
+    scalar_layout: Arc<StdMutex<Option<Arc<FieldLayout>>>>,
+    arrow_batcher: Arc<StdMutex<(usize, SubscriptionArrowBatcher)>>,
+    arrow_ready: Arc<StdMutex<VecDeque<RecordBatch>>>,
+    batch_items: usize,
     fields_snapshot: Arc<Vec<String>>,
     status: SharedSubscriptionStatus,
 }
@@ -1825,12 +2086,13 @@ impl JsSubscription {
         stream: xbbg_async::engine::SubscriptionStream,
         _tickers: Vec<String>,
         fields: Vec<String>,
-        _stream_capacity: Option<usize>,
+        batch_items: usize,
     ) -> napi::Result<Self> {
         let (rx, tx, claim, status, ft, op_policy, service, options, all_fields) =
             stream.into_parts().map_err(blp_error_to_napi)?;
         let fields_snapshot = Arc::new(fields.clone());
         let status_snapshot = status.clone();
+        let stream_sender = tx.clone();
         let handle = SubscriptionStreamHandle {
             tx,
             claim: Some(claim),
@@ -1842,16 +2104,24 @@ impl JsSubscription {
             overflow_policy: op_policy,
             status,
         };
+        let (close_signal, _) = watch::channel(false);
         Ok(Self {
             rx: Arc::new(Mutex::new(Some(rx))),
-            rx_available: Arc::new(Notify::new()),
-            close_notify: Arc::new(Notify::new()),
+            close_signal,
             closed: Arc::new(AtomicBool::new(false)),
             mutation: Arc::new(Mutex::new(())),
             stream: Arc::new(Mutex::new(Some(handle))),
-            pending: Arc::new(Mutex::new(VecDeque::new())),
-            scalar_layout_version: Arc::new(Mutex::new(None)),
-            arrow_batcher: Arc::new(Mutex::new(SubscriptionArrowBatcher::new())),
+            stream_sender,
+            pending: Arc::new(StdMutex::new(VecDeque::new())),
+            scalar_layout: Arc::new(StdMutex::new(None)),
+            arrow_batcher: Arc::new(StdMutex::new((
+                batch_items,
+                SubscriptionArrowBatcher::with_capacity(subscription_batch_capacity_hint(
+                    batch_items,
+                )),
+            ))),
+            arrow_ready: Arc::new(StdMutex::new(VecDeque::new())),
+            batch_items,
             fields_snapshot,
             status: status_snapshot,
         })
@@ -1866,66 +2136,34 @@ impl JsSubscription {
         if self.closed.load(Ordering::Acquire) {
             return Ok(None);
         }
-        let limit = subscription_limit(max_items, "maxItems")?;
-        let mut rx = {
-            let mut guard = self.rx.lock().await;
-            guard
-                .take()
-                .ok_or_else(|| Error::new(Status::GenericFailure, "subscription receiver busy"))?
+        let limit = subscription_limit(max_items, "maxItems", self.batch_items)?;
+        let mut close_rx = self.close_signal.subscribe();
+        let mut rx_guard = self.rx.lock().await;
+        let Some(rx) = rx_guard.as_mut() else {
+            return Ok(None);
         };
+        let updates = receive_subscription_updates(
+            rx,
+            self.pending.as_ref(),
+            &mut close_rx,
+            limit,
+            max_wait_ms,
+        )
+        .await
+        .map_err(|error| blp_error_to_napi(*error))?;
 
-        let first = match self.pending.lock().await.pop_front() {
-            Some(item) => Some(item),
-            None => receive_stream_item(&mut rx, &self.close_notify, max_wait_ms).await,
+        let Some(updates) = updates else {
+            return Ok(None);
         };
-
-        let mut updates = Vec::with_capacity(limit);
-        let layout_version = match first {
-            Some(Ok(update)) => {
-                let version = update.layout.version;
-                updates.push(update);
-                version
-            }
-            Some(Err(e)) => {
-                let mut guard = self.rx.lock().await;
-                if guard.is_none() {
-                    *guard = Some(rx);
-                    self.rx_available.notify_waiters();
-                }
-                return Err(blp_error_to_napi(e));
-            }
-            None => {
-                let mut guard = self.rx.lock().await;
-                if guard.is_none() {
-                    *guard = Some(rx);
-                    self.rx_available.notify_waiters();
-                }
-                return Ok(None);
-            }
+        let batch = {
+            let mut last_layout = self
+                .scalar_layout
+                .lock()
+                .expect("subscription scalar layout poisoned");
+            to_native_update_batch(updates, &mut last_layout)
         };
-
-        while updates.len() < limit {
-            match rx.try_recv() {
-                Ok(Ok(update)) if update.layout.version == layout_version => updates.push(update),
-                Ok(item) => {
-                    self.pending.lock().await.push_front(item);
-                    break;
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty)
-                | Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => break,
-            }
-        }
-
-        {
-            let mut guard = self.rx.lock().await;
-            if guard.is_none() {
-                *guard = Some(rx);
-                self.rx_available.notify_waiters();
-            }
-        }
-
-        let mut last_layout = self.scalar_layout_version.lock().await;
-        Ok(to_native_update_batch(updates, &mut last_layout))
+        drop(rx_guard);
+        Ok(batch)
     }
 
     #[napi]
@@ -1937,80 +2175,73 @@ impl JsSubscription {
         if self.closed.load(Ordering::Acquire) {
             return Ok(None);
         }
-        let limit = subscription_limit(max_rows, "maxRows")?;
-        let mut rx = {
-            let mut guard = self.rx.lock().await;
-            guard
-                .take()
-                .ok_or_else(|| Error::new(Status::GenericFailure, "subscription receiver busy"))?
-        };
-
-        let first = match self.pending.lock().await.pop_front() {
-            Some(item) => Some(item),
-            None => receive_stream_item(&mut rx, &self.close_notify, max_wait_ms).await,
-        };
-
-        let mut batcher = self.arrow_batcher.lock().await;
-        let mut output = match first {
-            Some(Ok(update)) => {
-                if let Some(batch) = batcher.append(&update) {
-                    Some(batch)
-                } else if batcher.rows() >= limit {
-                    batcher.flush()
-                } else {
-                    None
-                }
-            }
-            Some(Err(e)) => {
-                let mut guard = self.rx.lock().await;
-                if guard.is_none() {
-                    *guard = Some(rx);
-                    self.rx_available.notify_waiters();
-                }
-                return Err(blp_error_to_napi(e));
-            }
-            None => {
-                let mut guard = self.rx.lock().await;
-                if guard.is_none() {
-                    *guard = Some(rx);
-                    self.rx_available.notify_waiters();
-                }
-                return Ok(None);
-            }
-        };
-
-        while output.is_none() && batcher.rows() < limit {
-            match rx.try_recv() {
-                Ok(Ok(update)) => {
-                    if let Some(batch) = batcher.append(&update) {
-                        output = Some(batch);
-                    }
-                }
-                Ok(item) => {
-                    self.pending.lock().await.push_front(item);
-                    break;
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty)
-                | Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => break,
-            }
-        }
-        if output.is_none() {
-            output = batcher.flush();
-        }
-        drop(batcher);
-
+        let limit = subscription_limit(max_rows, "maxRows", self.batch_items)?;
+        if let Some(batch) = self
+            .arrow_ready
+            .lock()
+            .expect("subscription Arrow output queue poisoned")
+            .pop_front()
         {
-            let mut guard = self.rx.lock().await;
-            if guard.is_none() {
-                *guard = Some(rx);
-                self.rx_available.notify_waiters();
-            }
+            return Ok(Some(to_native_record_batch(batch)?));
         }
+        let mut close_rx = self.close_signal.subscribe();
+        let mut rx_guard = self.rx.lock().await;
+        let Some(rx) = rx_guard.as_mut() else {
+            return Ok(None);
+        };
+        let updates = receive_subscription_updates(
+            rx,
+            self.pending.as_ref(),
+            &mut close_rx,
+            limit,
+            max_wait_ms,
+        )
+        .await
+        .map_err(|error| blp_error_to_napi(*error))?;
 
-        match output {
-            Some(batch) => Ok(Some(to_native_record_batch(batch)?)),
-            None => Ok(None),
-        }
+        let Some(updates) = updates else {
+            return Ok(None);
+        };
+        let produced = {
+            let mut batcher_state = self
+                .arrow_batcher
+                .lock()
+                .expect("subscription Arrow batcher poisoned");
+            let mut produced = Vec::new();
+            if batcher_state.0 != limit {
+                if let Some(batch) = batcher_state.1.flush() {
+                    produced.push(batch);
+                }
+                *batcher_state = (
+                    limit,
+                    SubscriptionArrowBatcher::with_capacity(subscription_batch_capacity_hint(
+                        limit,
+                    )),
+                );
+            }
+            let batcher = &mut batcher_state.1;
+            for update in updates {
+                if let Some(batch) = batcher.append(&update) {
+                    produced.push(batch);
+                }
+            }
+            if let Some(batch) = batcher.flush() {
+                produced.push(batch);
+            }
+            produced
+        };
+        let batch = {
+            let mut ready = self
+                .arrow_ready
+                .lock()
+                .expect("subscription Arrow output queue poisoned");
+            ready.extend(produced);
+            ready
+                .pop_front()
+                .expect("a non-empty update set must produce an Arrow batch")
+        };
+        drop(rx_guard);
+        Ok(Some(to_native_record_batch(batch)?))
     }
 
     #[napi]
@@ -2035,6 +2266,13 @@ impl JsSubscription {
             let handle = guard
                 .as_ref()
                 .ok_or_else(|| Error::new(Status::GenericFailure, "subscription closed"))?;
+            if handle.tx.is_closed() {
+                return Err(coded(
+                    Status::GenericFailure,
+                    "INTERNAL",
+                    "subscription stream is closed",
+                ));
+            }
 
             let new_topics: Vec<String> = {
                 let snapshot = handle.status.load();
@@ -2071,29 +2309,20 @@ impl JsSubscription {
             )
         };
 
-        let (new_keys, new_metrics) = command
+        command
             .add_topics(
                 service,
-                new_topics.clone(),
+                new_topics,
                 fields,
                 all_fields,
                 options,
                 flush_threshold,
                 overflow_policy,
                 tx,
-                status.clone(),
+                status,
             )
             .await
             .map_err(blp_async_error_to_napi)?;
-
-        if self.stream.lock().await.is_some() {
-            status.update(|state| state.add_active(&new_topics, &new_keys, new_metrics.clone()));
-        } else if !new_keys.is_empty() {
-            command
-                .unsubscribe(new_keys)
-                .await
-                .map_err(blp_async_error_to_napi)?;
-        }
         Ok(())
     }
 
@@ -2119,12 +2348,15 @@ impl JsSubscription {
 
         let (keys_to_remove, topics_to_remove) = {
             let snapshot = status.load();
+            let mut seen_keys = std::collections::HashSet::new();
             let mut keys_to_remove = Vec::new();
             let mut topics_to_remove = Vec::new();
-            for ticker in &tickers {
-                if let Some(&key) = snapshot.topic_to_key().get(ticker) {
-                    keys_to_remove.push(key);
-                    topics_to_remove.push(ticker.clone());
+            for ticker in tickers {
+                if let Some(&key) = snapshot.topic_to_key().get(&ticker) {
+                    if seen_keys.insert(key) {
+                        keys_to_remove.push(key);
+                        topics_to_remove.push(ticker);
+                    }
                 }
             }
             (keys_to_remove, topics_to_remove)
@@ -2141,7 +2373,7 @@ impl JsSubscription {
         if self.stream.lock().await.is_some() {
             status.update(|state| {
                 for ticker in &topics_to_remove {
-                    state.remove_topic(ticker);
+                    state.drop_topic(ticker);
                 }
             });
         }
@@ -2161,7 +2393,9 @@ impl JsSubscription {
 
     #[napi(getter)]
     pub fn is_active(&self) -> bool {
-        !self.closed.load(Ordering::Acquire) && self.status.load().has_active_topics()
+        !self.closed.load(Ordering::Acquire)
+            && !self.stream_sender.is_closed()
+            && self.status.load().has_active_topics()
     }
 
     #[napi(getter)]
@@ -2198,94 +2432,42 @@ impl JsSubscription {
         &self,
         drain: Option<bool>,
     ) -> napi::Result<Option<Vec<NativeSubscriptionUpdateBatch>>> {
-        let _mutation = self.mutation.lock().await;
-        self.closed.store(true, Ordering::Release);
         let drain = drain.unwrap_or(false);
-        let handle = {
-            let mut guard = self.stream.lock().await;
-            guard.take()
-        };
-
-        self.close_notify.notify_waiters();
-
-        let mut unsubscribe_result = Ok(());
-        let had_handle = handle.is_some();
-        if let Some(mut handle) = handle {
-            let status = handle.status.clone();
-            let keys = status.load().keys().to_vec();
-            let claim = handle.claim.take();
-            drop(handle);
-
-            let clear_active = || {
-                status.update(|state| state.clear_active());
-            };
-
-            if let Some(claim) = claim {
-                if !keys.is_empty() {
-                    match claim
-                        .unsubscribe(keys)
-                        .await
-                        .map_err(blp_async_error_to_napi)
-                    {
-                        Ok(()) => clear_active(),
-                        Err(err) => unsubscribe_result = Err(err),
-                    }
-                } else {
-                    clear_active();
-                }
-            } else {
-                clear_active();
-            }
-        }
-
-        let rx = loop {
-            let notified = self.rx_available.notified();
-            if let Some(rx) = {
-                let mut guard = self.rx.lock().await;
-                guard.take()
-            } {
-                break Some(rx);
-            }
-            if !had_handle {
-                break None;
-            }
-            notified.await;
-        };
-
-        let mut drained_updates = Vec::new();
-        if drain {
-            {
-                let mut pending = self.pending.lock().await;
-                while let Some(item) = pending.pop_front() {
-                    if let Ok(update) = item {
-                        drained_updates.push(update);
-                    }
-                }
-            }
-            if let Some(mut rx) = rx {
-                while let Ok(item) = rx.try_recv() {
-                    if let Ok(update) = item {
-                        drained_updates.push(update);
-                    }
-                }
-            }
-        }
-
-        unsubscribe_result?;
+        let (_mutation, close_result) = self.close_for_unsubscribe(drain).await;
+        let mut rx_guard = self.rx.lock().await;
+        let rx = rx_guard.take();
+        drop(rx_guard);
+        let drained_updates = Self::take_drained_updates(self.pending.as_ref(), rx, drain);
+        self.arrow_ready
+            .lock()
+            .expect("subscription Arrow output queue poisoned")
+            .clear();
+        let drained_updates = drained_updates.map_err(|error| blp_error_to_napi(*error))?;
+        close_result?;
 
         let mut remaining = Vec::new();
         if !drained_updates.is_empty() {
-            let mut last_layout = self.scalar_layout_version.lock().await;
-            let mut current = Vec::new();
-            let mut current_version = None;
+            let mut last_layout = self
+                .scalar_layout
+                .lock()
+                .expect("subscription scalar layout poisoned");
+            let mut current =
+                Vec::with_capacity(subscription_batch_capacity_hint(self.batch_items));
+            let mut current_layout: Option<Arc<FieldLayout>> = None;
             for update in drained_updates {
-                if current_version.is_some_and(|version| version != update.layout.version) {
+                if !current.is_empty()
+                    && (current.len() == self.batch_items
+                        || current_layout.as_ref().is_some_and(|layout| {
+                            !subscription_layouts_match(layout, &update.layout)
+                        }))
+                {
                     if let Some(batch) = to_native_update_batch(current, &mut last_layout) {
                         remaining.push(batch);
                     }
-                    current = Vec::new();
+                    current =
+                        Vec::with_capacity(subscription_batch_capacity_hint(self.batch_items));
                 }
-                current_version = Some(update.layout.version);
+                current_layout = Some(update.layout.clone());
                 current.push(update);
             }
             if let Some(batch) = to_native_update_batch(current, &mut last_layout) {
@@ -2305,79 +2487,55 @@ impl JsSubscription {
         &self,
         drain: Option<bool>,
     ) -> napi::Result<Option<Vec<NativeArrowBatch>>> {
-        let _mutation = self.mutation.lock().await;
-        self.closed.store(true, Ordering::Release);
         let drain = drain.unwrap_or(false);
-        let handle = {
-            let mut guard = self.stream.lock().await;
-            guard.take()
-        };
+        let (_mutation, close_result) = self.close_for_unsubscribe(drain).await;
+        let mut rx_guard = self.rx.lock().await;
+        let rx = rx_guard.take();
+        drop(rx_guard);
+        let drained_updates = Self::take_drained_updates(self.pending.as_ref(), rx, drain);
 
-        self.close_notify.notify_waiters();
-
-        let mut unsubscribe_result = Ok(());
-        let had_handle = handle.is_some();
-        if let Some(mut handle) = handle {
-            let status = handle.status.clone();
-            let keys = status.load().keys().to_vec();
-            let claim = handle.claim.take();
-            drop(handle);
-
-            let clear_active = || {
-                status.update(|state| state.clear_active());
-            };
-
-            if let Some(claim) = claim {
-                if !keys.is_empty() {
-                    match claim
-                        .unsubscribe(keys)
-                        .await
-                        .map_err(blp_async_error_to_napi)
-                    {
-                        Ok(()) => clear_active(),
-                        Err(err) => unsubscribe_result = Err(err),
-                    }
-                } else {
-                    clear_active();
-                }
+        let queued_batches: Vec<RecordBatch> = {
+            let mut ready = self
+                .arrow_ready
+                .lock()
+                .expect("subscription Arrow output queue poisoned");
+            if drain {
+                ready.drain(..).collect()
             } else {
-                clear_active();
+                ready.clear();
+                Vec::new()
             }
-        }
-
-        let rx = loop {
-            let notified = self.rx_available.notified();
-            if let Some(rx) = {
-                let mut guard = self.rx.lock().await;
-                guard.take()
-            } {
-                break Some(rx);
-            }
-            if !had_handle {
-                break None;
-            }
-            notified.await;
         };
-
-        let mut remaining = Vec::new();
-        if drain {
-            let mut batcher = self.arrow_batcher.lock().await;
-            {
-                let mut pending = self.pending.lock().await;
-                while let Some(item) = pending.pop_front() {
-                    if let Ok(update) = item {
-                        if let Some(batch) = batcher.append(&update) {
-                            remaining.push(to_native_record_batch(batch)?);
-                        }
-                    }
+        let drained_updates = drained_updates.map_err(|error| blp_error_to_napi(*error))?;
+        close_result?;
+        let mut remaining = queued_batches
+            .into_iter()
+            .map(to_native_record_batch)
+            .collect::<napi::Result<Vec<_>>>()?;
+        if !drained_updates.is_empty() {
+            let mut batcher_state = self
+                .arrow_batcher
+                .lock()
+                .expect("subscription Arrow batcher poisoned");
+            if batcher_state.0 != self.batch_items {
+                if let Some(batch) = batcher_state.1.flush() {
+                    remaining.push(to_native_record_batch(batch)?);
                 }
+                *batcher_state = (
+                    self.batch_items,
+                    SubscriptionArrowBatcher::with_capacity(subscription_batch_capacity_hint(
+                        self.batch_items,
+                    )),
+                );
             }
-            if let Some(mut rx) = rx {
-                while let Ok(item) = rx.try_recv() {
-                    if let Ok(update) = item {
-                        if let Some(batch) = batcher.append(&update) {
-                            remaining.push(to_native_record_batch(batch)?);
-                        }
+            let batcher = &mut batcher_state.1;
+            for update in drained_updates {
+                if let Some(batch) = batcher.append(&update) {
+                    remaining.push(to_native_record_batch(batch)?);
+                }
+                if batcher.rows() == self.batch_items {
+                    if let Some(batch) = batcher.flush() {
+                        remaining.push(to_native_record_batch(batch)?);
                     }
                 }
             }
@@ -2385,8 +2543,6 @@ impl JsSubscription {
                 remaining.push(to_native_record_batch(batch)?);
             }
         }
-
-        unsubscribe_result?;
 
         if remaining.is_empty() {
             Ok(None)
@@ -2396,10 +2552,118 @@ impl JsSubscription {
     }
 }
 
+impl JsSubscription {
+    async fn close_for_unsubscribe(
+        &self,
+        drain: bool,
+    ) -> (tokio::sync::OwnedMutexGuard<()>, napi::Result<()>) {
+        self.closed.store(true, Ordering::Release);
+        self.close_signal.send_replace(true);
+        let mutation = self.mutation.clone().lock_owned().await;
+        let mut stream_guard = self.stream.lock().await;
+        let mut close_result = if let Some(handle) = stream_guard.as_ref() {
+            if let Some(claim) = handle.claim.as_ref() {
+                let keys = handle.status.load().keys().to_vec();
+                if keys.is_empty() {
+                    Ok(())
+                } else {
+                    claim
+                        .unsubscribe(keys)
+                        .await
+                        .map_err(blp_async_error_to_napi)
+                }
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
+        };
+
+        if close_result.is_ok() {
+            if let Some(handle) = stream_guard.as_mut() {
+                handle.status.update(|state| state.clear_active());
+            }
+        }
+        if drain {
+            if let Some(claim) = stream_guard
+                .as_ref()
+                .and_then(|handle| handle.claim.as_ref())
+            {
+                let mut rx_guard = self.rx.lock().await;
+                let forwarding_result = match rx_guard.as_mut() {
+                    Some(rx) => {
+                        let result = drain_forwarder_into_pending(claim, rx, self.pending.as_ref())
+                            .await
+                            .map_err(|error| blp_async_error_to_napi(*error));
+                        rx.close();
+                        result
+                    }
+                    None => claim
+                        .drain_forwarder()
+                        .await
+                        .map_err(blp_async_error_to_napi),
+                };
+                if close_result.is_ok() {
+                    close_result = forwarding_result;
+                }
+            }
+        }
+
+        // Reaching here means every started await completed. On success the
+        // claim is spent; on error dropping it quarantines the dead worker and
+        // releases its session permit. Cancellation retains the shared handle
+        // and receiver so a later close can resume cleanup.
+        stream_guard.take();
+        drop(stream_guard);
+        (mutation, close_result)
+    }
+
+    fn take_drained_updates(
+        pending: &StdMutex<VecDeque<StreamBatchResult>>,
+        rx: Option<SubscriptionReceiver>,
+        drain: bool,
+    ) -> Result<Vec<SubscriptionUpdate>, Box<BlpError>> {
+        let mut updates = Vec::new();
+        let mut terminal_error = None;
+        let mut pending = pending.lock().expect("subscription pending queue poisoned");
+        if drain {
+            while let Some(item) = pending.pop_front() {
+                match item {
+                    Ok(update) => updates.push(update),
+                    Err(error) => {
+                        terminal_error.get_or_insert(error);
+                    }
+                }
+            }
+        } else {
+            pending.clear();
+        }
+        drop(pending);
+
+        if drain {
+            if let Some(mut rx) = rx {
+                while let Ok(item) = rx.try_recv() {
+                    match item {
+                        Ok(update) => updates.push(update),
+                        Err(error) => {
+                            terminal_error.get_or_insert(error);
+                        }
+                    }
+                }
+            }
+        }
+        match terminal_error {
+            Some(error) => Err(Box::new(error)),
+            None => Ok(updates),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use xbbg_async::engine::ExtractorType;
+    use xbbg_async::engine::state::{subscription_channel, FieldLayout, FieldMeta, UpdateField};
+    use xbbg_async::services::ExtractorType;
 
     fn minimal_input() -> EngineConfigInput {
         EngineConfigInput {
@@ -2409,6 +2673,8 @@ mod tests {
             zfp_remote: None,
             request_pool_size: None,
             subscription_pool_size: None,
+            runtime_worker_threads: None,
+            max_subscription_sessions: None,
             shard_requests: None,
             shard_threshold: None,
             shard_chunk_size: None,
@@ -2449,6 +2715,100 @@ mod tests {
             key: key.to_string(),
             value: value.to_string(),
         }
+    }
+
+    fn subscription_update(layout_version: u32, timestamp_us: i64) -> SubscriptionUpdate {
+        subscription_update_with_layout(
+            Arc::new(FieldLayout::new(layout_version, Vec::new())),
+            timestamp_us,
+        )
+    }
+
+    fn subscription_update_with_layout(
+        layout: Arc<FieldLayout>,
+        timestamp_us: i64,
+    ) -> SubscriptionUpdate {
+        SubscriptionUpdate {
+            timestamp_us,
+            topic_id: 1,
+            topic: Arc::from("IBM US Equity"),
+            layout,
+            values: Default::default(),
+        }
+    }
+
+    #[test]
+    fn promoted_string_layout_serializes_every_concrete_scalar_into_the_string_slot() {
+        let layout = Arc::new(FieldLayout::new(
+            7,
+            vec![
+                FieldMeta::new("BOOL", 0, FieldKind::Str),
+                FieldMeta::new("I32", 1, FieldKind::Str),
+                FieldMeta::new("I64", 2, FieldKind::Str),
+                FieldMeta::new("F64", 3, FieldKind::Str),
+                FieldMeta::new("DATE", 4, FieldKind::Str),
+            ],
+        ));
+        let update = SubscriptionUpdate {
+            timestamp_us: 1,
+            topic_id: 1,
+            topic: Arc::from("IBM US Equity"),
+            layout,
+            values: [
+                UpdateField {
+                    index: 0,
+                    value: UpdateValue::Bool(true),
+                },
+                UpdateField {
+                    index: 1,
+                    value: UpdateValue::I32(42),
+                },
+                UpdateField {
+                    index: 2,
+                    value: UpdateValue::I64(4_000_000_000),
+                },
+                UpdateField {
+                    index: 3,
+                    value: UpdateValue::F64(1.25),
+                },
+                UpdateField {
+                    index: 4,
+                    value: UpdateValue::Date32(20_000),
+                },
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let row = to_native_row(update);
+
+        assert_eq!(
+            row.string_values,
+            vec![
+                Some("true".to_string()),
+                Some("42".to_string()),
+                Some("4000000000".to_string()),
+                Some("1.25".to_string()),
+                Some("20000".to_string()),
+            ]
+        );
+        assert_eq!(row.bool_values, vec![None; 5]);
+        assert_eq!(row.i32_values, vec![None; 5]);
+        assert_eq!(row.i64_values, vec![None; 5]);
+        assert_eq!(row.f64_values, vec![None; 5]);
+    }
+
+    #[test]
+    fn subscription_data_loss_uses_the_structured_native_error_code() {
+        let error = blp_error_to_napi(BlpError::SubscriptionDataLoss {
+            topic: "IBM US Equity".to_string(),
+            detail: "stream queue reached capacity".to_string(),
+        });
+
+        assert_eq!(
+            error.reason,
+            "[XBBG:DATALOSS] Subscription data loss [topic=IBM US Equity]: stream queue reached capacity"
+        );
     }
 
     #[test]
@@ -2567,6 +2927,26 @@ mod tests {
     }
 
     #[test]
+    fn engine_config_input_rejects_invalid_resource_limits() {
+        let err = EngineConfig::try_from(EngineConfigInput {
+            runtime_worker_threads: Some(0),
+            ..minimal_input()
+        })
+        .err()
+        .expect("zero runtime worker count should fail");
+        assert!(err.to_string().contains("runtimeWorkerThreads"));
+
+        let err = EngineConfig::try_from(EngineConfigInput {
+            subscription_pool_size: Some(4),
+            max_subscription_sessions: Some(3),
+            ..minimal_input()
+        })
+        .err()
+        .expect("subscription prewarm above session cap should fail");
+        assert!(err.to_string().contains("maxSubscriptionSessions"));
+    }
+
+    #[test]
     fn engine_config_input_defaults_leave_auth_unset() {
         let config =
             EngineConfig::try_from(minimal_input()).expect("default config should convert");
@@ -2577,6 +2957,8 @@ mod tests {
         assert_eq!(servers[0].host, "localhost");
         assert_eq!(servers[0].port, 8194);
         assert!(servers[0].proxy.is_none());
+        assert_eq!(config.runtime_worker_threads, 2);
+        assert_eq!(config.max_subscription_sessions, 32);
     }
 
     #[test]
@@ -2592,6 +2974,17 @@ mod tests {
             err.to_string().contains("subscriptionStreamCapacity"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn engine_config_input_rejects_zero_subscription_flush_threshold() {
+        let err = EngineConfig::try_from(EngineConfigInput {
+            subscription_flush_threshold: Some(0),
+            ..minimal_input()
+        })
+        .err()
+        .expect("zero subscription flush threshold should fail");
+        assert!(err.to_string().contains("subscriptionFlushThreshold"));
     }
 
     #[test]
@@ -2790,5 +3183,272 @@ mod tests {
         };
 
         assert!(err.to_string().contains("auth.appName is required"));
+    }
+
+    #[test]
+    fn default_subscription_reads_one_update() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (tx, mut rx) = subscription_channel(4);
+            tx.send(Ok(subscription_update(1, 10)))
+                .await
+                .expect("first");
+            tx.send(Ok(subscription_update(1, 20)))
+                .await
+                .expect("second");
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+
+            let updates = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1, None)
+                .await
+                .expect("read")
+                .expect("updates");
+
+            assert_eq!(updates.len(), 1);
+            assert_eq!(updates[0].timestamp_us, 10);
+            assert_eq!(
+                rx.try_recv()
+                    .expect("second remains")
+                    .expect("update")
+                    .timestamp_us,
+                20
+            );
+        });
+    }
+
+    #[test]
+    fn bounded_subscription_read_flushes_sparse_partial_batch() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (tx, mut rx) = subscription_channel(4);
+            tx.send(Ok(subscription_update(1, 10)))
+                .await
+                .expect("update");
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+
+            let updates =
+                receive_subscription_updates(&mut rx, &pending, &mut close_rx, 4, Some(5))
+                    .await
+                    .expect("read")
+                    .expect("partial batch");
+
+            assert_eq!(updates.len(), 1);
+            assert_eq!(updates[0].timestamp_us, 10);
+        });
+    }
+
+    #[test]
+    fn layout_change_is_deferred_without_losing_update() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (tx, mut rx) = subscription_channel(4);
+            tx.send(Ok(subscription_update(1, 10)))
+                .await
+                .expect("first");
+            tx.send(Ok(subscription_update(2, 20)))
+                .await
+                .expect("second");
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+
+            let first = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, None)
+                .await
+                .expect("first read")
+                .expect("first batch");
+            let second = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, Some(0))
+                .await
+                .expect("second read")
+                .expect("second batch");
+
+            assert_eq!(first[0].layout.version, 1);
+            assert_eq!(second[0].layout.version, 2);
+        });
+    }
+
+    #[test]
+    fn same_version_schema_change_is_split_and_republished() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let first_layout = Arc::new(FieldLayout::new(
+                1,
+                vec![FieldMeta::new("PX_LAST", 0, FieldKind::F64)],
+            ));
+            let second_layout = Arc::new(FieldLayout::new(
+                1,
+                vec![FieldMeta::new("BID", 0, FieldKind::F64)],
+            ));
+            let (tx, mut rx) = subscription_channel(4);
+            tx.send(Ok(subscription_update_with_layout(first_layout, 10)))
+                .await
+                .expect("first");
+            tx.send(Ok(subscription_update_with_layout(second_layout, 20)))
+                .await
+                .expect("second");
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+
+            let first = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, None)
+                .await
+                .expect("first read")
+                .expect("first batch");
+            let second = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, Some(0))
+                .await
+                .expect("second read")
+                .expect("second batch");
+            let mut last_layout = None;
+            let first = to_native_update_batch(first, &mut last_layout).expect("first output");
+            let second = to_native_update_batch(second, &mut last_layout).expect("second output");
+
+            assert_eq!(first.updates[0].timestamp_us, 10);
+            assert!(first.layout.is_some());
+            assert_eq!(second.updates[0].timestamp_us, 20);
+            assert!(second.layout.is_some());
+        });
+    }
+
+    #[test]
+    fn cancelled_partial_read_restores_consumed_updates() {
+        use std::future::Future;
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (tx, mut rx) = subscription_channel(1);
+            tx.send(Ok(subscription_update(1, 10)))
+                .await
+                .expect("first update");
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+            let mut reader = Box::pin(receive_subscription_updates(
+                &mut rx,
+                &pending,
+                &mut close_rx,
+                2,
+                Some(60_000),
+            ));
+            // Stop deterministically while the partial batch awaits its second
+            // update, rather than racing abort against a completed read.
+            std::future::poll_fn(|cx| {
+                assert!(reader.as_mut().poll(cx).is_pending());
+                std::task::Poll::Ready(())
+            })
+            .await;
+            drop(reader);
+
+            tx.send(Ok(subscription_update(1, 20)))
+                .await
+                .expect("second update");
+            let restored =
+                receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, Some(0))
+                    .await
+                    .expect("resumed read")
+                    .expect("restored batch");
+            assert_eq!(
+                restored
+                    .iter()
+                    .map(|update| update.timestamp_us)
+                    .collect::<Vec<_>>(),
+                [10, 20],
+            );
+        });
+    }
+
+    #[test]
+    fn close_before_read_is_observed_without_a_lost_wakeup() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (_tx, mut rx) = subscription_channel(1);
+            let pending = StdMutex::new(VecDeque::new());
+            let (close_tx, initial_rx) = watch::channel(false);
+            drop(initial_rx);
+            close_tx.send_replace(true);
+            let mut close_rx = close_tx.subscribe();
+
+            let updates = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1, None)
+                .await
+                .expect("read");
+            assert!(updates.is_none());
+        });
+    }
+
+    #[test]
+    fn full_queue_terminal_error_is_delivered_after_buffered_data_and_before_end() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (tx, mut rx) = subscription_channel(1);
+            tx.send(Ok(subscription_update(1, 10)))
+                .await
+                .expect("update");
+            tx.fail(BlpError::SubscriptionDataLoss {
+                topic: "IBM US Equity".to_string(),
+                detail: "stream queue reached capacity".to_string(),
+            });
+            let pending = StdMutex::new(VecDeque::new());
+            let (_close_tx, mut close_rx) = watch::channel(false);
+
+            let updates = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 2, None)
+                .await
+                .expect("buffered update")
+                .expect("batch");
+            assert_eq!(updates[0].timestamp_us, 10);
+
+            let error = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1, None)
+                .await
+                .expect_err("terminal data-loss error");
+            assert!(matches!(
+                *error,
+                BlpError::SubscriptionDataLoss {
+                    ref topic,
+                    ref detail,
+                } if topic == "IBM US Equity" && detail == "stream queue reached capacity"
+            ));
+
+            let end = receive_subscription_updates(&mut rx, &pending, &mut close_rx, 1, None)
+                .await
+                .expect("end");
+            assert!(end.is_none());
+        });
+    }
+
+    #[test]
+    fn errors_only_drain_returns_the_terminal_failure() {
+        let (tx, rx) = subscription_channel(1);
+        tx.fail(BlpError::SubscriptionDataLoss {
+            topic: "ES1 Index".to_string(),
+            detail: "Bloomberg reported DATALOSS".to_string(),
+        });
+        let pending = StdMutex::new(VecDeque::new());
+
+        let error = JsSubscription::take_drained_updates(&pending, Some(rx), true)
+            .expect_err("errors-only drain must fail");
+
+        assert!(matches!(
+            *error,
+            BlpError::SubscriptionDataLoss {
+                ref topic,
+                ref detail,
+            } if topic == "ES1 Index" && detail == "Bloomberg reported DATALOSS"
+        ));
     }
 }

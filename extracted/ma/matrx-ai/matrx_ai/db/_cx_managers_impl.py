@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -8,8 +9,10 @@ from uuid import uuid4
 
 from matrx_utils import vcprint
 
+from matrx_ai.config.message_config import UnifiedMessage
 from matrx_ai.config.unified_config import UnifiedConfig
 from matrx_ai.db._registry import get_base, get_model
+from matrx_ai.reports.cost_analysis import ConversationCostSummary, UserRequestCostRollup
 
 CxAgentMemoryBase = get_base("AgentMemoryBase")
 CxObservationalMemoryBase = get_base("ObservationalMemoryBase")
@@ -36,9 +39,6 @@ CxObservationalMemory = get_model("ObservationalMemory")
 CxObservationalMemoryEvent = get_model("ObservationalMemoryEvent")
 CxConversation = get_model("Conversation")
 CxPendingInjection = get_model("PendingInjection")
-from matrx_ai.reports.cost_analysis import ConversationCostSummary, UserRequestCostRollup
-
-from .conversation_rebuild import rebuild_conversation_messages
 
 
 CONVERSATION_INTEGRITY_ERROR_KIND = "conversation_integrity_incomplete_request"
@@ -880,6 +880,8 @@ class CxManagers:
         return await self.user_request.exists(**filters)
 
     async def get_unified_config(self, flat_data: dict[str, Any]) -> UnifiedConfig:
+        from .conversation_rebuild import rebuild_conversation_messages
+
         conversation = flat_data["conversation"]
         messages = flat_data["messages"]
         tool_calls = flat_data["tool_calls"]
@@ -902,6 +904,8 @@ class CxManagers:
         return unified_config
 
     async def get_conversation_unified_config(self, conversation_id: str) -> UnifiedConfig:
+        from .conversation_rebuild import rebuild_conversation_messages
+
         conversation_data = await self.get_conversation_data(conversation_id)
 
         # vcprint(conversation_data, "[CX MANAGERS] Conversation Data", color="cyan")
@@ -928,6 +932,40 @@ class CxManagers:
         config_dict["messages"] = messages_rebuilt
 
         return UnifiedConfig.from_dict(config_dict)
+
+    async def get_rebuilt_conversation_messages(
+        self, conversation_id: str
+    ) -> list[UnifiedMessage]:
+        """Return the canonical model-visible message projection for a hot continuation.
+
+        This is deliberately the same ``rebuild_conversation_messages`` funnel
+        used by full ``UnifiedConfig`` reconstruction.  Cache-hit continuations
+        need only durable turn order, not conversation metadata, request
+        integrity reporting, or a second full config parse.  Keep this as the
+        one narrow public read rather than duplicating rebuild logic in callers.
+        """
+        # The rebuild facade resolves host-injected ORM models lazily.
+        from .conversation_rebuild import rebuild_conversation_messages
+
+        # These independent conversation-scoped reads each use the normal ORM
+        # query seam.  Run them together: on the hot continuation path serial
+        # remote round trips would make a correct history fence unusable for
+        # voice latency, while their results still feed the one rebuild funnel.
+        messages, tool_calls, media = await asyncio.gather(
+            self.message.load_messages_by_conversation_id(conversation_id),
+            self.tool_call.filter_items(conversation_id=conversation_id),
+            self.media.filter_items(conversation_id=conversation_id),
+        )
+
+        # A cached empty conversation is legitimate, but a cache entry must
+        # not make a deleted/missing row look like one. Preserve the resolver's
+        # existing not-found contract only in the otherwise ambiguous case.
+        if not messages:
+            conversation = await self.conversation.load_conversation_by_id(conversation_id)
+            if conversation is None:
+                raise LookupError(f"Conversation not found: {conversation_id}")
+
+        return await rebuild_conversation_messages(messages, tool_calls, media)
 
     async def get_full_conversation(self, conversation_id: str) -> dict[str, Any]:
         conversation_data = await self.get_conversation_data(conversation_id)

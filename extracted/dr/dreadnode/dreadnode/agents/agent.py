@@ -838,7 +838,10 @@ class Agent(Executor[AgentEvent, Trajectory]):
                 raise
 
     async def _stream(
-        self, trajectory: Trajectory | None = None
+        self,
+        trajectory: Trajectory | None = None,
+        *,
+        message_metadata: dict[str, t.Any] | None = None,
     ) -> t.AsyncGenerator[AgentEvent, None]:
         """Drive the loop through the resolved :class:`AgentEngine`.
 
@@ -855,6 +858,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
             goal=self._current_input,
             dispatch=self._dispatch,
             permission=self._permission_bridge,
+            message_metadata=message_metadata,
         )
         async for event in engine.run_loop(ctx):
             yield event
@@ -864,7 +868,10 @@ class Agent(Executor[AgentEvent, Trajectory]):
         return resolve_engine(self.engine)
 
     async def _native_run_loop(
-        self, trajectory: Trajectory | None = None
+        self,
+        trajectory: Trajectory | None = None,
+        *,
+        message_metadata: dict[str, t.Any] | None = None,
     ) -> t.AsyncGenerator[AgentEvent, None]:
         """
         Core agent execution loop with inline tracing.
@@ -882,7 +889,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
             Message(
                 "user",
                 str(self._current_input),
-                metadata={"agent": self.name, "model": self.model_name},
+                metadata={**(message_metadata or {}), "agent": self.name, "model": self.model_name},
             ),
         ]
         messages = inject_system_content(messages, self.instructions)
@@ -1316,12 +1323,14 @@ class Agent(Executor[AgentEvent, Trajectory]):
         *,
         reset: bool = True,
         trajectory: Trajectory | None = None,
+        message_metadata: dict[str, t.Any] | None = None,
     ) -> t.AsyncIterator[t.AsyncGenerator[AgentEvent, None]]:
         """
         Stream agent execution.
 
         Args:
             goal: Input message for the agent.
+            message_metadata: Informational metadata attached to this turn's user message.
             reset: If True, start new conversation. If False, continue existing.
                    Ignored when *trajectory* is provided.
             trajectory: External trajectory to operate on.  When provided the
@@ -1369,7 +1378,9 @@ class Agent(Executor[AgentEvent, Trajectory]):
             with ctx as parent_span:
 
                 async def _events() -> t.AsyncGenerator[AgentEvent, None]:
-                    async for event in self._stream(active_trajectory):
+                    async for event in self._stream(
+                        active_trajectory, message_metadata=message_metadata
+                    ):
                         # Emit agent-level events to parent span
                         if parent_span and isinstance(
                             event, (AgentStart, AgentEnd, AgentStalled, AgentError)

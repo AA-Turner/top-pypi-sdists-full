@@ -1015,6 +1015,11 @@ class ToProtoConverter:
                         if mat.continuous_buffer_duration_seconds is not None
                         else None
                     ),
+                    offline_continuous_buffer_duration=(
+                        seconds_int_to_proto_duration(mat.offline_continuous_buffer_duration_seconds)
+                        if mat.offline_continuous_buffer_duration_seconds is not None
+                        else None
+                    ),
                     backfill_resolver=mat.backfill_resolver,
                     continuous_resolver=mat.continuous_resolver,
                     backfill_start_time=(
@@ -1166,6 +1171,11 @@ class ToProtoConverter:
                                 continuous_buffer_duration=(
                                     seconds_int_to_proto_duration(wmp.continuous_buffer_duration_seconds)
                                     if wmp.continuous_buffer_duration_seconds is not None
+                                    else None
+                                ),
+                                offline_continuous_buffer_duration=(
+                                    seconds_int_to_proto_duration(wmp.offline_continuous_buffer_duration_seconds)
+                                    if wmp.offline_continuous_buffer_duration_seconds is not None
                                     else None
                                 ),
                                 continuous_resolver=wmp.continuous_resolver,

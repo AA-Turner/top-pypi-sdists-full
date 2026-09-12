@@ -25,6 +25,7 @@ import argparse
 import base64
 import os
 import re
+import sys
 import threading
 from functools import lru_cache
 from pathlib import Path
@@ -38,9 +39,9 @@ except ImportError:  # pragma: no cover - the extra is not installed
     LanguageServer = None
 
 from xbsl import (
-    __version__, baseline, bindingcomplete, dataset, docs, engine, environment, formedits,
-    formhandlers, formmodel, formsearch, i18n, indexer, metamodel, scaffold, templates,
-    terms, uischema,
+    __version__, baseline, bindingcomplete, cijob, dataset, docs, engine, environment,
+    formedits, formhandlers, formmodel, formsearch, i18n, indexer, metamodel, scaffold,
+    templates, terms, uischema,
 )
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.templates import Template, TemplateError
@@ -255,6 +256,11 @@ class _State:
         # The index has a lock of its own: a navigation request builds it right away when
         # the background pass has not got there yet, and must not wait for the project lint.
         self.index_lock = threading.Lock()
+        # What `--as-ci` came to: the answer of the xbsl/ciStatus request. None when the
+        # server was not asked for the parity at all. The editor has no other way to learn
+        # it - the adoption happens once, at startup, and a line in the output channel is
+        # not something anyone reads while judging a finding.
+        self.ci: Optional[dict] = None
 
 
 STATE = _State()
@@ -595,17 +601,22 @@ def _make_server() -> "LanguageServer":
     # --- navigation --------------------------------------------------------------------
 
     def nav_query(uri: str, position: lsp.Position) -> Optional[dict]:
+        return nav_query_at(uri, position.line, position.character)
+
+    def nav_query_at(uri: str, line: int, character: int) -> Optional[dict]:
+        """The navigation core's question, from plain coordinates: the custom requests of the
+        documentation carry the line and the character as numbers, not as an lsp.Position."""
         path = uri_to_path(uri)
         if path is None:
             return None
         doc = server.workspace.get_text_document(uri)
         lines = doc.source.split("\n")
-        if position.line >= len(lines):
+        if line >= len(lines):
             return None
         return {
             "language_id": language_of(path),
-            "line_text": lines[position.line].rstrip("\r"),
-            "character": position.character,
+            "line_text": lines[line].rstrip("\r"),
+            "character": character,
             "file_stem": path.stem,
             "file_path": rel_posix(path),
         }
@@ -1022,20 +1033,28 @@ def _make_server() -> "LanguageServer":
         # read about it. {"pageId": null} when no page exists. The client turns pageId into a
         # trusted command link (a server MarkupContent link is untrusted and would not be
         # clickable).
-        def answer(pid: str, name: str) -> dict:
+        def answer(pid: str, name: str, anchor: str = "") -> dict:
             try:
                 text = docs.summary(pid)
             except Exception:  # noqa: BLE001 - a missing summary must not lose the link
                 text = ""
-            return {"pageId": pid, "symbol": name, "summary": text}
+            return {"pageId": pid, "symbol": name, "summary": text, "anchor": anchor}
 
         try:
             uri = _param(params, "uri")
             pos = _param(params, "position")
             if uri and pos is not None:
-                name, _query = docs_symbol_at(
+                name, member, _query = docs_symbol_at(
                     uri, int(_param(pos, "line", 0) or 0), int(_param(pos, "character", 0) or 0)
                 )
+                # The member's own block before the page of its type: `Response.StatusCode`
+                # used to be described by the opening sentence of HttpResponse, which says
+                # what the TYPE is - the member's signature and meaning were a page away.
+                found = docs.member_doc(member) if member else {}
+                if found and not found.get("owners"):
+                    return {"pageId": found["page"]["id"], "symbol": found["member"],
+                            "summary": docs.summarize(found["block"], 300),
+                            "anchor": found["anchor"]}
                 if name:
                     pid = docs.for_symbol(name)
                     if pid:
@@ -1078,25 +1097,27 @@ def _make_server() -> "LanguageServer":
 
     # --- documentation (the extension's help panel is a thin client of these methods) -----
 
-    def docs_symbol_at(uri: str, line: int, character: int) -> tuple[Optional[str], str]:
-        """(name for exact resolution, query for candidates) at the cursor position.
+    def docs_symbol_at(uri: str, line: int, character: int) -> tuple[Optional[str], str, str]:
+        """(name for exact resolution, MEMBER name, query for candidates) at the cursor position.
 
-        The name is the local variable's type or the word under the cursor. The query is
+        The name is the local variable's type or the word under the cursor. The member is the
+        word as a member of a type - qualified with the receiver's type when there is one
+        (`Ответ.КодСтатуса` -> "ОтветHttp.КодСтатуса"), bare otherwise - and it is what
+        `docs.member_doc` resolves to the block of documentation the member owns. The query is
         extended with the receiver before the dot (`Задание.Настроить` -> "Задание Настроить")
-        so that method-section candidates are ranked by the right type rather than by a
-        random guide topic.
+        so that candidates are ranked by the right type rather than by a random guide topic.
         """
         path = uri_to_path(uri)
         if path is None:
-            return None, ""
+            return None, "", ""
         doc = server.workspace.get_text_document(uri)
         lines = doc.source.split("\n")
         if line >= len(lines):
-            return None, ""
+            return None, "", ""
         line_text = lines[line].rstrip("\r")
         word = _word_at(line_text, character)
         if not word:
-            return None, ""
+            return None, "", ""
         n = len(line_text)
         start = max(0, min(character, n))
         while start > 0 and (line_text[start - 1].isalnum() or line_text[start - 1] == "_"):
@@ -1109,6 +1130,14 @@ def _make_server() -> "LanguageServer":
                 query = f"{receiver} {word}"
             else:
                 receiver = ""
+        if _project_declares(uri, line, character):
+            # A name the PROJECT declares is not described by a platform member of the same
+            # spelling. The main hover already answers such a position with the project's own
+            # card - a method, an object, a component - and the documentation block was then
+            # put UNDER it, so a module's own `Write` came with the platform's `Write`
+            # explained beneath. Candidates by the query are still offered: the word may
+            # genuinely have a page, it is simply not the answer to "what is this name here".
+            return None, "", query
         offset = sum(len(lines[k]) + 1 for k in range(line)) + character
         try:
             src = engine.load_text(path.name, doc.source)
@@ -1122,21 +1151,41 @@ def _make_server() -> "LanguageServer":
             ):
                 # A declared variable with an uninferred type, or a name of the paired yaml
                 # (a form data attribute, a component): the word must not be documented as
-                # a same-named stdlib type - candidates by the query are still offered.
-                return None, query
+                # a same-named stdlib type or member - candidates by the query are still offered.
+                return None, "", query
             if var_type is None and receiver:
-                # A MEMBER after a dot has no page of its own - a method is a section of its
-                # type's page. So the page is resolved through the receiver (a variable's type
-                # or a type used statically); documenting the bare member name would land on
-                # whatever page happens to carry that qualifier (`Add` -> a topic about
-                # breakpoints), which is worse than no page at all.
+                # A MEMBER after a dot: the block that documents it lives on the page of the
+                # type that DECLARES it, and the receiver (a variable's type or a type used
+                # statically) says which type to start from. Without the qualifier a member
+                # several types declare could not be told apart, and the bare page would land
+                # on whatever carries that qualifier (`Add` -> a topic about breakpoints).
                 recv_type = local_vars.get(receiver) or (
                     receiver if receiver in static_roots else None
                 )
-                return (recv_type, query) if recv_type else (None, query)
+                member = f"{recv_type}.{word}" if recv_type else word
+                return recv_type, member, query
         except Exception:  # noqa: BLE001 - parsing must not break the request
             var_type = None
-        return (var_type or word), query
+        # A word with a known type documents that type; a bare word may still be a member of
+        # one (a method name written without a receiver, a name inside a comment).
+        return (var_type or word), ("" if var_type else word), query
+
+    def _project_declares(uri: str, line: int, character: int) -> bool:
+        """Whether the project's own index answers for this position.
+
+        The gate is the navigation core itself rather than a second list of what counts as a
+        project name: whatever the main hover answers with - an object, a method of the module,
+        a component of the form, a tabular section, a value of an enumeration - is by
+        definition the project's answer, and the two cannot drift apart.
+        """
+        question = nav_query_at(uri, line, character)
+        lookup = ensure_lookup()
+        if question is None or lookup is None:
+            return False
+        try:
+            return bool(resolve_hover(lookup, **question))
+        except Exception:  # noqa: BLE001 - the documentation request must never fail
+            return False
 
     @server.feature("xbsl/templatesReload")
     def _templates_reload(_params: object = None) -> dict:
@@ -1144,6 +1193,17 @@ def _make_server() -> "LanguageServer":
         # the edited template (a restart of the server would lose the built index with it).
         load_templates()
         return {"ok": True, "count": len(STATE.templates)}
+
+    @server.feature("xbsl/ciStatus")
+    def _ci_status(_params: object = None) -> dict:
+        """Which rule set this server judges by - the job's, or the settings' own.
+
+        Asked by the editor for its status bar. The settings say what was REQUESTED; only
+        the server knows what came of it, because a pipeline file that is not there leaves
+        it judging by the settings while the reader goes on believing the panel and the
+        merge request agree.
+        """
+        return STATE.ci or {"enabled": False, "adopted": False}
 
     @server.feature("xbsl/docsAvailable")
     def _docs_available(_params: object = None) -> dict:
@@ -1170,22 +1230,63 @@ def _make_server() -> "LanguageServer":
             return {}
         return {"id": a["id"], "mime": a["mime"], "base64": base64.b64encode(a["bytes"]).decode("ascii")}
 
+    def _owner_hits(member: str) -> list[dict]:
+        """The types that declare the member, as docs hits - what the panel offers to choose between.
+
+        The snippet is the member's own block on that page, so the choice is made by what the
+        member DOES there rather than by what the type's opening sentence says.
+        """
+        hits = []
+        for _title, pid in docs.member_places(member)[1]:
+            rec = docs.page(pid)
+            if not rec:  # pragma: no cover - the place came from a page of its own
+                continue
+            block = docs.member_block(rec.get("html") or "", member)
+            hits.append({
+                "id": rec["id"], "title": rec["title"], "qualified": rec["qualified"],
+                "kind": rec["kind"], "availability": rec["availability"], "url": rec["url"],
+                "snippet": docs.plain_text(block[1])[:200] if block else "",
+            })
+        return hits
+
     @server.feature("xbsl/docsForSymbol")
     def _docs_for_symbol(params: object) -> dict:
         uri = _param(params, "uri")
         pos = _param(params, "position")
         if not uri or pos is None:
             return {}
-        name, query = docs_symbol_at(
+        name, member, query = docs_symbol_at(
             uri, int(_param(pos, "line", 0) or 0), int(_param(pos, "character", 0) or 0)
         )
-        if not name:
-            return {}
-        pid = docs.for_symbol(name)
-        if pid:
-            return {"name": name, "page": docs.page(pid), "candidates": []}
-        # No confident page (a method section, an unknown type) - return candidates to choose from.
-        return {"name": name, "page": None, "candidates": docs.search(query, limit=8)}
+        if not name and not member:
+            # A name of the project's own, or a local variable: no page documents IT, but the
+            # word may still have one, and answering with nothing made the panel say "no
+            # symbol under the cursor" over a method the reader is looking straight at.
+            if not query:
+                return {}
+            return {"name": query, "page": None, "member": "", "anchor": "",
+                    "candidates": docs.search(query, limit=8)}
+        # A MEMBER first: it is documented inside the page of the type that declares it, and
+        # that block is the answer to the question asked - the type's page alone was the
+        # nearest thing the panel could show, and a bare member fell through to full-text
+        # candidates, where the word ranks by accident.
+        found = docs.member_doc(member) if member else {}
+        if found and not found.get("owners"):
+            return {"name": found["member"], "page": found["page"], "candidates": [],
+                    "member": found["member"], "anchor": found["anchor"]}
+        if name:
+            pid = docs.for_symbol(name)
+            if pid:
+                return {"name": name, "page": docs.page(pid), "candidates": [],
+                        "member": "", "anchor": ""}
+        if found:
+            # Several types declare it: the pages of those types are the candidates, and a
+            # full-text search over the same word would have buried them among mentions.
+            return {"name": found["member"], "page": None, "member": found["member"],
+                    "anchor": "", "candidates": _owner_hits(found["member"])}
+        # No confident page (an unknown type, a project name) - candidates to choose from.
+        return {"name": name or member, "page": None, "member": "", "anchor": "",
+                "candidates": docs.search(query, limit=8)}
 
     @server.feature("xbsl/docsByName")
     def _docs_by_name(params: object) -> dict:
@@ -1806,6 +1907,67 @@ def _make_server() -> "LanguageServer":
     return server
 
 
+def _adopt_ci(args: argparse.Namespace) -> None:
+    """Judge by the rule set of the project's CI job - the editor's half of `--as-ci`.
+
+    The panel used to judge by the defaults while the CLI and the MCP server could already
+    take the job's set, so the same tree got two verdicts and only one of them was the one
+    that gates the merge. The set is read from the SAME place they read it - the `xbsl`
+    command of the pipeline file - rather than from a copy of it in the settings: a copy is
+    a second list to keep in step, which is the failure this whole feature exists to end.
+
+    Unlike the CLI this does NOT refuse when there is no pipeline file. A refusal costs the
+    CLI one run and the server the whole editing session, so the reason is written to stderr
+    (the client shows the server's stderr in its output channel) and the settings' own rule
+    set stands.
+
+    That fallback is exactly why the outcome is also STORED: a line in the output channel is
+    not something anyone reads while judging a finding, so the editor that asked for the
+    job's set had no way of knowing it was judging by the settings instead. What is kept here
+    is what `xbsl/ciStatus` answers - and the sentences are the engine's own, so the status
+    bar says word for word what the channel does.
+    """
+    where = [args.project_root] if args.project_root else ["."]
+    STATE.ci = {"enabled": True, "adopted": False}
+    try:
+        job = cijob.find(where, args.as_ci or None, args.as_ci_job)
+    except cijob.CiLintError as exc:
+        print(str(exc), file=sys.stderr)
+        STATE.ci["error"] = str(exc)
+        return
+    # Merged, not replaced, exactly as in the CLI: the settings' own rules stay on top of
+    # the job's set, so a rule being tried out in the editor is not lost to the pipeline.
+    STATE.select = (STATE.select or set()) | set(job.select) or None
+    STATE.ignore = (STATE.ignore or set()) | set(job.ignore) or None
+    STATE.enable = (STATE.enable or set()) | set(job.enable) or None
+    if not args.baseline:
+        # `--no-baseline` in the job means the job trusts nothing frozen - the editor must
+        # not mute findings the pipeline will report.
+        STATE.baseline_arg = None if job.no_baseline else job.baseline_file()
+    print(job.describe(), file=sys.stderr)
+    if not args.as_ci_job and job.hint():
+        print(job.hint(), file=sys.stderr)
+    if job.note():
+        print(job.note(), file=sys.stderr)
+    STATE.ci = {
+        "enabled": True,
+        "adopted": True,
+        "file": str(job.path),
+        # The include the command actually stands in, when one brought it - what to open.
+        "source": str(job.source) if job.source else None,
+        "job": job.job,
+        "baseline": job.baseline_file(),
+        "no_baseline": job.no_baseline,
+        "jobs": list(job.alternatives),
+        "unread_includes": list(job.unread),
+        # The ready-made lines, in the server's own language: the client shows them as they
+        # are instead of assembling a second wording of the same facts.
+        "line": job.describe(),
+        "hint": "" if args.as_ci_job else job.hint(),
+        "note": job.note(),
+    }
+
+
 def main() -> None:
     if LanguageServer is None:
         raise SystemExit(
@@ -1816,6 +1978,8 @@ def main() -> None:
     parser.add_argument("--select", help=i18n.t("cli.help.lsp.select"))
     parser.add_argument("--ignore", help=i18n.t("cli.help.lsp.ignore"))
     parser.add_argument("--enable", help=i18n.t("cli.help.lsp.enable"))
+    parser.add_argument("--as-ci", nargs="?", const="", help=i18n.t("cli.help.lsp.as-ci"))
+    parser.add_argument("--as-ci-job", help=i18n.t("cli.help.lsp.as-ci-job"))
     parser.add_argument("--baseline", help=i18n.t("cli.help.lsp.baseline"))
     parser.add_argument("--templates", help=i18n.t("cli.help.lsp.templates"))
     parser.add_argument("--data-dir", help=i18n.t("cli.help.lsp.data-dir"))
@@ -1830,6 +1994,8 @@ def main() -> None:
     STATE.select = _rule_set(args.select)
     STATE.ignore = _rule_set(args.ignore)
     STATE.enable = _rule_set(args.enable)
+    if args.as_ci is not None or args.as_ci_job:
+        _adopt_ci(args)
     _make_server().start_io()
 
 

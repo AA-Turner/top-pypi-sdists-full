@@ -185,7 +185,12 @@ def test_partition_merges_rules_one_machine_can_cover_together() -> None:
         _quadraui_capable_for,
     )
     assert unroutable == []
-    assert partitions == [SmokePartition(capabilities=("gtk", "windows"))]
+    assert partitions == [
+        SmokePartition(
+            capabilities=("gtk", "windows"),
+            files=("quadraui/src/gtk/a.rs", "quadraui/src/win/b.rs"),
+        )
+    ]
 
 
 def test_partition_splits_when_no_machine_covers_the_union() -> None:
@@ -213,7 +218,9 @@ def test_partition_macos_only_diff_is_a_single_partition() -> None:
         ["quadraui/src/macos/c.rs"], _QUADRAUI_RULES, _quadraui_capable_for,
     )
     assert unroutable == []
-    assert partitions == [SmokePartition(capabilities=("macos",))]
+    assert partitions == [
+        SmokePartition(capabilities=("macos",), files=("quadraui/src/macos/c.rs",))
+    ]
 
 
 def test_partition_reports_unroutable_when_no_machine_has_the_capability() -> None:
@@ -250,6 +257,69 @@ def test_partition_ignores_unmatched_rules() -> None:
     )
     assert partitions == []
     assert unroutable == []
+
+
+def test_partition_accumulates_files_from_every_rule_sharing_one_requires_set() -> None:
+    """#3298 fix-round-1: `seen` used to key on `frozenset(rule.requires)`
+    and keep only the FIRST matching rule for a given set — so a second rule
+    declaring the identical capability set (a broad rule plus a narrower
+    override for a subdirectory of the same platform, the exact shape the
+    issue wants for vimcode/quadraui) never contributed its OWN files to the
+    partition. Both rules' matched files must appear."""
+    rules = [
+        SmokeRule(files=["a/"], requires=["gtk"]),
+        SmokeRule(files=["b/"], requires=["gtk"], command="test-b-only"),
+    ]
+    touched = ["a/x.rs", "b/y.rs"]
+    partitions, unroutable = partition_capability_requirements(
+        touched, rules, lambda caps: True,
+    )
+    assert unroutable == []
+    assert partitions == [
+        SmokePartition(capabilities=("gtk",), files=("a/x.rs", "b/y.rs")),
+    ]
+
+
+def test_partition_lets_a_shadowed_rules_command_win_for_its_own_partition() -> None:
+    """End-to-end version of the above: with the files correctly accumulated,
+    `resolve_rule_command` scoped to the partition's own files must resolve
+    the SECOND rule's `command` — before the fix this came back `None`
+    because `b/y.rs` never made it into `partition.files` at all."""
+    rules = [
+        SmokeRule(files=["a/"], requires=["gtk"]),
+        SmokeRule(files=["b/"], requires=["gtk"], command="test-b-only"),
+    ]
+    touched = ["a/x.rs", "b/y.rs"]
+    partitions, unroutable = partition_capability_requirements(
+        touched, rules, lambda caps: True,
+    )
+    assert unroutable == []
+    assert len(partitions) == 1
+    resolved = resolve_rule_command(list(partitions[0].files), rules)
+    assert resolved is not None
+    assert resolved.command == "test-b-only"
+
+
+def test_partition_unroutable_reports_files_from_every_rule_sharing_the_set() -> None:
+    """The unroutable-diagnosis path shares the same `seen` accumulation —
+    a second rule sharing an unroutable capability set must still contribute
+    its own DECLARED file pattern to `rule_files`, not just the first rule's
+    (matching pre-fix single-rule behaviour: `rule_files` is the rule's own
+    `files` patterns, not the matched touched paths — see
+    `SmokePartition.files` for that)."""
+    rules = [
+        SmokeRule(files=["src/cuda/kernels/"], requires=["cuda"]),
+        SmokeRule(files=["src/cuda/tests/"], requires=["cuda"]),
+    ]
+    touched = ["src/cuda/kernels/a.cu", "src/cuda/tests/b.cu"]
+    partitions, unroutable = partition_capability_requirements(
+        touched, rules, _quadraui_capable_for,
+    )
+    assert partitions == []
+    assert len(unroutable) == 1
+    bad = unroutable[0]
+    assert bad.capabilities == ("cuda",)
+    assert bad.rule_files == ("src/cuda/kernels/", "src/cuda/tests/")
 
 
 # ── Rule command override (#3056) ───────────────────────────────────────────
@@ -1160,6 +1230,104 @@ def test_dispatch_smoke_skipped_for_failed_or_review(
         review, Board(), gtk_and_server_config,
         http_client=_FakeClient({"id": "x"}), diff_lookup=diff,
     ) is None
+
+
+# ── #3305: zero-commit gate — port of review.py's #1534 gate one pipeline
+# stage earlier, so a `status="done"` work-like row whose branch was never
+# pushed cannot spin the Test stage forever. ────────────────────────────────
+
+
+def test_dispatch_smoke_blocks_definite_zero_commit_branch(
+    gtk_and_server_config: Config, monkeypatch, coord_db,
+) -> None:
+    """A confirmed `ahead == 0` must refuse to dispatch a Test leg — there is
+    no branch to check out — and record a terminal, self-explaining verdict
+    on the row instead of leaving it to spin every tick (claude-coordinator
+    #3230's 111-failed-leg incident)."""
+    from coord.state import record_dispatched_assignment
+    from coord.smoke import TEST_STATE_BLOCKED
+
+    monkeypatch.setattr(
+        "coord.github_ops.branch_commits_ahead_for_assignment", lambda a, c: 0
+    )
+    completed = _completed()
+    record_dispatched_assignment(assignment=completed, repo_github="acme/api")
+    board = Board(completed=[completed])
+
+    result = dispatch_smoke(
+        completed, board, gtk_and_server_config,
+        http_client=_FakeClient({"id": "x"}),
+        diff_lookup=lambda repo, branch: ["src/gtk/window.c"],
+    )
+
+    assert result is None
+    assert completed.test_state == TEST_STATE_BLOCKED
+    reason = completed.test_reason or ""
+    assert completed.branch in reason
+    assert "#3305" in reason
+    assert "coord diagnose" in reason
+
+    row = coord_db.execute(
+        "SELECT test_state, test_reason FROM assignments WHERE assignment_id=?",
+        (completed.assignment_id,),
+    ).fetchone()
+    assert row["test_state"] == TEST_STATE_BLOCKED
+    assert completed.branch in row["test_reason"]
+
+
+def test_dispatch_smoke_dispatches_when_commit_count_unconfirmable(
+    gtk_and_server_config: Config, monkeypatch,
+) -> None:
+    """Fail OPEN: `ahead is None` (a `gh api compare` failure, or a repo
+    missing from config) must dispatch exactly as if the gate didn't exist —
+    a network blip must never strand a real Test run (mirrors review.py's
+    #1534 fail-open polarity)."""
+    monkeypatch.setattr(
+        "coord.github_ops.branch_commits_ahead_for_assignment", lambda a, c: None
+    )
+    result = dispatch_smoke(
+        _completed(), Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "x"}),
+        diff_lookup=lambda repo, branch: ["src/gtk/window.c"],
+    )
+    assert result is not None
+    assert result.type == "smoke"
+
+
+def test_dispatch_smoke_unaffected_when_branch_has_commits(
+    gtk_and_server_config: Config, monkeypatch,
+) -> None:
+    """The ordinary, well-behaved case — a branch with real commits ahead of
+    base — must dispatch exactly as before the gate existed."""
+    monkeypatch.setattr(
+        "coord.github_ops.branch_commits_ahead_for_assignment", lambda a, c: 4
+    )
+    result = dispatch_smoke(
+        _completed(), Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "x"}),
+        diff_lookup=lambda repo, branch: ["src/gtk/window.c"],
+    )
+    assert result is not None
+    assert result.type == "smoke"
+
+
+def test_dispatch_smoke_zero_commit_gate_scopes_to_every_work_like_type(
+    gtk_and_server_config: Config, monkeypatch,
+) -> None:
+    """#3305 explicitly scopes the gate to ALL of `WORK_LIKE_TYPES`, not just
+    `epic-decompose` — any killed-mid-session worker of any work-like type
+    reproduces the same unpushed-branch shape."""
+    monkeypatch.setattr(
+        "coord.github_ops.branch_commits_ahead_for_assignment", lambda a, c: 0
+    )
+    decompose = replace(_completed(), type="epic-decompose", assignment_id="ed1")
+    result = dispatch_smoke(
+        decompose, Board(), gtk_and_server_config,
+        http_client=_FakeClient({"id": "x"}),
+        diff_lookup=lambda repo, branch: ["src/gtk/window.c"],
+    )
+    assert result is None
+    assert decompose.test_state == "blocked"
 
 
 def test_dispatch_smoke_dispatches_for_mock_author_type(
@@ -2100,6 +2268,196 @@ def test_dispatch_smoke_fans_out_one_leg_per_partition(repo: Repo) -> None:
     assert "[[smoke-fanout:" in reason
     assert "dell64-leg" in reason and "macmini-leg" in reason
     assert "gtk+windows" in reason and "macos" in reason
+
+
+# ── #3298: per-partition command resolution ─────────────────────────────────
+
+
+def test_dispatch_smoke_fanout_uses_identical_command_when_no_rule_overrides(
+    repo: Repo,
+) -> None:
+    """#3298 no-op case: when no `capability_rules` entry declares its own
+    `command`, every partition resolves to the SAME repo-wide command it
+    always produced pre-#3298, byte for byte — this must not move for a repo
+    that hasn't opted in."""
+    from coord.smoke import _dispatch_smoke_legs
+
+    cfg = Config(
+        repos=[repo],
+        machines=[
+            _machine("dell64", "dell64.tail", caps=["gtk", "windows"], path="/d/api"),
+            _machine("macmini", "macmini.tail", caps=["macos"], path="/m/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(files=["quadraui/src/gtk/"], requires=["gtk"]),
+                SmokeRule(files=["quadraui/src/win/"], requires=["windows"]),
+                SmokeRule(files=["quadraui/src/macos/"], requires=["macos"]),
+            ],
+        ),
+    )
+    completed = _completed()
+    diff = [
+        "quadraui/src/gtk/a.rs",
+        "quadraui/src/win/b.rs",
+        "quadraui/src/macos/c.rs",
+    ]
+    board = Board()
+    client = _MultiHostClient(assign={
+        "dell64.tail": {"id": "dell64-leg"},
+        "macmini.tail": {"id": "macmini-leg"},
+    })
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client, diff_lookup=lambda r, b: diff,
+    )
+
+    assert len(legs) == 2
+    # `repo`'s fixture declares `test_command="make test"` and nothing else —
+    # both the 2-partition (gtk+windows) leg and the macos leg must run the
+    # identical repo-wide command.
+    for leg in legs:
+        assert "make test" in leg.briefing
+
+
+def test_dispatch_smoke_fanout_scopes_rule_command_to_its_own_partition(
+    repo: Repo,
+) -> None:
+    """#3298 acceptance: a `SmokeRule.command` declared on the rule that
+    creates ONE partition wins for only that partition's leg; the sibling
+    partition still gets the repo's `test_command`, not the override."""
+    from coord.smoke import _dispatch_smoke_legs
+
+    cfg = Config(
+        repos=[repo],
+        machines=[
+            _machine("dell64", "dell64.tail", caps=["gtk", "windows"], path="/d/api"),
+            _machine("macmini", "macmini.tail", caps=["macos"], path="/m/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(files=["quadraui/src/gtk/"], requires=["gtk"]),
+                SmokeRule(files=["quadraui/src/win/"], requires=["windows"]),
+                SmokeRule(
+                    files=["quadraui/src/macos/"], requires=["macos"],
+                    command="pytest quadraui/tests/macos_suite",
+                ),
+            ],
+        ),
+    )
+    completed = _completed()
+    diff = [
+        "quadraui/src/gtk/a.rs",
+        "quadraui/src/win/b.rs",
+        "quadraui/src/macos/c.rs",
+    ]
+    board = Board()
+    client = _MultiHostClient(assign={
+        "dell64.tail": {"id": "dell64-leg"},
+        "macmini.tail": {"id": "macmini-leg"},
+    })
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client, diff_lookup=lambda r, b: diff,
+    )
+
+    assert len(legs) == 2
+    by_machine = {a.machine_name: a for a in legs}
+    assert "pytest quadraui/tests/macos_suite" in by_machine["macmini"].briefing
+    # The rule-command must not leak into the sibling gtk+windows leg — it
+    # still runs the repo-wide command.
+    assert "pytest quadraui/tests/macos_suite" not in by_machine["dell64"].briefing
+    assert "make test" in by_machine["dell64"].briefing
+
+
+def test_partition_command_does_not_leak_into_a_sibling_partition() -> None:
+    """#3298: a `command` on the rule that creates ONE partition must not
+    resolve for a DIFFERENT partition, even though `resolve_rule_command`
+    scans every declared rule — scoping the touched files to just the ones
+    that put each partition on the board is what keeps it out."""
+    rules = [
+        SmokeRule(files=["quadraui/src/gtk/"], requires=["gtk"]),
+        SmokeRule(files=["quadraui/src/win/"], requires=["windows"]),
+        SmokeRule(
+            files=["quadraui/src/macos/"], requires=["macos"],
+            command="pytest macos_suite",
+        ),
+    ]
+    touched = [
+        "quadraui/src/gtk/a.rs",
+        "quadraui/src/win/b.rs",
+        "quadraui/src/macos/c.rs",
+    ]
+    partitions, unroutable = partition_capability_requirements(
+        touched, rules, _quadraui_capable_for,
+    )
+    assert unroutable == []
+    by_caps = {frozenset(p.capabilities): p for p in partitions}
+    gtk_windows = by_caps[frozenset({"gtk", "windows"})]
+    macos = by_caps[frozenset({"macos"})]
+
+    # The macos rule's command must not leak into the gtk+windows partition —
+    # none of ITS OWN files (scoped by `partition_capability_requirements`)
+    # match that rule.
+    assert resolve_rule_command(list(gtk_windows.files), rules) is None
+
+    resolved_macos = resolve_rule_command(list(macos.files), rules)
+    assert resolved_macos is not None
+    assert resolved_macos.command == "pytest macos_suite"
+
+
+def test_dispatch_smoke_fanout_reports_unconfigured_command_naming_the_partition() -> None:
+    """#3298: a partition whose OWN files resolve to no smoke command at all
+    (no matching rule `command`, and the repo declares no
+    `ci_command`/`test_command`/`smoke_tests.default_command` either) is
+    reported naming THAT capability set — never silently attributed to the
+    whole fan-out — while a sibling partition that DOES resolve a command
+    still dispatches."""
+    from coord.smoke import TEST_STATE_BLOCKED, _dispatch_smoke_legs
+
+    bare_repo = Repo(
+        name="api", github="acme/api", depends_on=[], default_branch="main",
+    )
+    cfg = Config(
+        repos=[bare_repo],
+        machines=[
+            _machine("dell64", "dell64.tail", caps=["gtk", "windows"], path="/d/api"),
+            _machine("macmini", "macmini.tail", caps=["macos"], path="/m/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(
+                    files=["quadraui/src/gtk/"], requires=["gtk"],
+                    command="cargo test --features gtk",
+                ),
+                SmokeRule(files=["quadraui/src/win/"], requires=["windows"]),
+                SmokeRule(files=["quadraui/src/macos/"], requires=["macos"]),
+            ],
+        ),
+    )
+    completed = _completed(repo="api")
+    diff = [
+        "quadraui/src/gtk/a.rs",
+        "quadraui/src/win/b.rs",
+        "quadraui/src/macos/c.rs",
+    ]
+    board = Board()
+    client = _MultiHostClient(assign={"dell64.tail": {"id": "dell64-leg"}})
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client, diff_lookup=lambda r, b: diff,
+    )
+
+    # gtk+windows resolves via the gtk rule's own command and dispatches.
+    assert len(legs) == 1
+    assert legs[0].machine_name == "dell64"
+
+    # macos has no command anywhere and is reported BLOCKED, naming macos —
+    # not gtk/windows, which dispatched fine.
+    assert completed.test_state == TEST_STATE_BLOCKED
+    reason = completed.test_reason or ""
+    assert "[macos]" in reason
+    assert "#3298" in reason
 
 
 def test_dispatch_smoke_unroutable_partition_fails_loudly_at_dispatch(
@@ -3227,6 +3585,72 @@ def test_finalize_smoke_fanout_fails_when_any_leg_fails(coord_db) -> None:
     reason = load_assignment_test_reason("w-fanout") or ""
     assert "[windows] failed" in reason
     assert "2 Win32 unit tests regressed" in reason
+
+
+def test_finalize_smoke_fanout_names_each_failed_legs_own_command(coord_db) -> None:
+    """#3298: once command resolution is scoped per partition, two failing
+    legs can have run DIFFERENT commands — the aggregate report must name
+    which command EACH failing leg ran, or a red macOS leg and a red Windows
+    leg read as identical failures."""
+    from coord.smoke import _encode_fanout_manifest  # noqa: PLC0415
+    from coord.state import record_test_verdict  # noqa: PLC0415
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="failed", reason="2 regressions")
+    _seed_leg(leg_id="leg-b", state="failed", reason="3 regressions")
+    manifest = _encode_fanout_manifest([
+        ("leg-a", ("gtk", "windows"), "cargo xwin test"),
+        ("leg-b", ("macos",), "pytest quadraui/tests/macos_suite"),
+    ])
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            f"{manifest}\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk+windows]; [macos]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    from coord.state import load_assignment_test_reason  # noqa: PLC0415
+
+    reason = load_assignment_test_reason("w-fanout") or ""
+    assert "ran `cargo xwin test`" in reason
+    assert "ran `pytest quadraui/tests/macos_suite`" in reason
+    assert "2 regressions" in reason and "3 regressions" in reason
+
+
+def test_finalize_smoke_fanout_folds_pre_3298_two_field_manifest(coord_db) -> None:
+    """Backward compat: a manifest written before #3298 (no third
+    `=<command_b64>` field) must still fold — `command` reads back as
+    unknown (`None`) rather than raising or misparsing the entry."""
+    from coord.state import record_test_verdict  # noqa: PLC0415
+
+    _seed_fanout_parent()
+    _seed_leg(leg_id="leg-a", state="passed", reason="ok")
+    _seed_leg(leg_id="leg-b", state="failed", reason="2 Win32 unit tests regressed")
+    record_test_verdict(
+        assignment_id="w-fanout", test_state="running",
+        test_reason=(
+            "[[smoke-fanout:leg-a=gtk,leg-b=windows]]\n"
+            "Test stage running across 2 capability-partition leg(s) (#3182): "
+            "[gtk]; [windows]."
+        ),
+    )
+
+    finalize_smoke_fanout("w-fanout")
+
+    from coord.state import (  # noqa: PLC0415
+        load_assignment_test_reason,
+        load_assignment_test_state,
+    )
+
+    assert load_assignment_test_state("w-fanout") == "failed"
+    reason = load_assignment_test_reason("w-fanout") or ""
+    assert "[windows] failed" in reason
+    assert "2 Win32 unit tests regressed" in reason
+    assert "ran `" not in reason  # no command known — never fabricated
 
 
 def test_finalize_smoke_fanout_passes_when_every_leg_passes(coord_db) -> None:

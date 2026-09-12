@@ -41,6 +41,7 @@ class QueuedTurnRequest:
     agent: str | None
     reset: bool
     generate_params_extra: dict[str, t.Any] | None = None
+    metadata: dict[str, t.Any] | None = None
     stream: TurnEventStream = field(default_factory=TurnEventStream)
     turn_id: str = field(default_factory=lambda: f"turn_{uuid4().hex}")
     queued_at_monotonic: float = field(default_factory=time.perf_counter)
@@ -53,6 +54,7 @@ class TurnExecutionContext:
     request: QueuedTurnRequest
     status: str = "accepted"
     started_at_monotonic: float | None = None
+    dropped_queued: int = 0
     agent_name: str | None = None
     model: str | None = None
 
@@ -156,6 +158,30 @@ class SessionTurnCoordinator:
         context.finish(status)
         if self._active_turn is context:
             self._active_turn = None
+
+    async def discard_queued(self) -> list[TurnExecutionContext]:
+        """Remove only turns queued at stop time; later messages can still run."""
+        async with self._queue_lock:
+            dropped = list(self._queue)
+            self._queue.clear()
+            if self._active_turn is not None:
+                self._active_turn.dropped_queued = len(dropped)
+            return dropped
+
+    async def discard_queued_turn(
+        self, turn_id: str, *, drop_queued: bool = False
+    ) -> list[TurnExecutionContext]:
+        """Remove an admitted turn only while it is still queued."""
+        async with self._queue_lock:
+            for context in self._queue:
+                if context.turn_id == turn_id:
+                    if drop_queued:
+                        dropped = list(self._queue)
+                        self._queue.clear()
+                        return dropped
+                    self._queue.remove(context)
+                    return [context]
+            return []
 
     async def cancel_active(self) -> bool:
         if self._processing_task is None or self._processing_task.done():

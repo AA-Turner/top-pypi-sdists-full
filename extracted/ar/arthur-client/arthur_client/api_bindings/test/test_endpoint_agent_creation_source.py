@@ -35,25 +35,38 @@ class TestEndpointAgentCreationSource(unittest.TestCase):
         model = EndpointAgentCreationSource()
         if include_optional:
             return EndpointAgentCreationSource(
-                type = 'ENDPOINT',
-                mdm = 'jamf_pro',
-                software_key = '',
-                device_key = '',
-                device_name = '',
-                device_group = '',
-                assigned_user = '',
-                os_version = '',
-                process_cmdline = '',
-                parent_process = '',
-                install_path = '',
-                version = '',
-                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                classification = ''
+                vendor = '',
+                address = arthur_client.api_bindings.models.source_address.SourceAddress(
+                    instance = '', 
+                    scope = '', 
+                    resource_kind = '', 
+                    resource_id = '', 
+                    query = '', ),
+                observations = arthur_client.api_bindings.models.agent_observations.AgentObservations(
+                    install_path = '', 
+                    version = '', 
+                    host_name = '', 
+                    host_group = '', 
+                    os_version = '', 
+                    assigned_user = '', 
+                    permissions = [
+                        ''
+                        ], 
+                    service_names = [
+                        ''
+                        ], 
+                    classification = '', ),
+                type = 'ENDPOINT'
             )
         else:
             return EndpointAgentCreationSource(
-                software_key = '',
-                device_key = '',
+                vendor = '',
+                address = arthur_client.api_bindings.models.source_address.SourceAddress(
+                    instance = '', 
+                    scope = '', 
+                    resource_kind = '', 
+                    resource_id = '', 
+                    query = '', ),
         )
         """
 

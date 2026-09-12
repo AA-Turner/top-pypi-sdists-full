@@ -66,6 +66,11 @@ class MCPAnalyticsData:
     # signature of a stateless server whose mint middleware never attached. Warned
     # a single time per server so the log isn't flooded on every request.
     warned_no_stateless_session: bool = False
+    # True when the last tools/list showed a real application tool using the
+    # feedback tool's name. Calls to that name then dispatch normally instead of
+    # being intercepted (fail-open), and the tool keeps its normal analytics
+    # schema injection. Refreshed at every listing pass.
+    feedback_tool_shadowed: bool = False
     last_activity: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     identified_sessions: IdentityCache = field(default_factory=IdentityCache)
     tool_categories: Dict[str, str] = field(default_factory=dict)
@@ -84,6 +89,8 @@ class MCPAnalyticsData:
     initialized_sessions: "OrderedDict[str, None]" = field(default_factory=OrderedDict)
     server_name: Optional[str] = None
     server_version: Optional[str] = None
+    # A strong wrapper reference would retain the low-level WeakKeyDictionary key.
+    standalone_fastmcp: Optional["weakref.ReferenceType[Any]"] = None
     session_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
     def mark_session_initialized(self, session_id: str) -> None:

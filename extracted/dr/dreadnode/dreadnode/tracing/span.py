@@ -58,6 +58,8 @@ from dreadnode.tracing.constants import (
     SPAN_ATTRIBUTE_TAGS_,
     SPAN_ATTRIBUTE_TYPE,
     SPAN_ATTRIBUTE_VERSION,
+    SPAN_ATTRIBUTE_WORKFLOW_RUN_ID,
+    SPAN_ATTRIBUTE_WORKFLOW_UNIT,
     SpanType,
 )
 from dreadnode.version import VERSION
@@ -78,6 +80,13 @@ current_task_span: ContextVar[TaskSpan[t.Any] | None] = ContextVar(
     default=None,
 )
 current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
+# The workflow run and step a session is executing for, when it is executing for
+# one at all. Bound alongside the session id so every span an agent emits can be
+# traced back to the step that opened it.
+current_workflow_run_id: ContextVar[str | None] = ContextVar(
+    "current_workflow_run_id", default=None
+)
+current_workflow_unit: ContextVar[str | None] = ContextVar("current_workflow_unit", default=None)
 
 # The capability (name, version) an agent is running under, if any. Set when an
 # agent is created from a capability so runtime tools (e.g. report_item) can
@@ -95,6 +104,27 @@ def bind_session_id(session_id: str) -> t.Iterator[None]:
         yield
     finally:
         current_session_id.reset(token)
+
+
+@contextlib.contextmanager
+def bind_workflow(run_id: str | None, unit: str | None) -> t.Iterator[None]:
+    """Bind workflow attribution to all spans created in the current context.
+
+    A no-op when either value is absent, which is the common case — most sessions
+    are not part of a workflow, and binding empty attributes onto every span in
+    the product would be noise.
+    """
+    if not run_id or not unit:
+        yield
+        return
+
+    run_token = current_workflow_run_id.set(run_id)
+    unit_token = current_workflow_unit.set(unit)
+    try:
+        yield
+    finally:
+        current_workflow_unit.reset(unit_token)
+        current_workflow_run_id.reset(run_token)
 
 
 @contextlib.contextmanager
@@ -148,6 +178,10 @@ class Span(ReadableSpan):
         }
         if (session_id := current_session_id.get()) is not None:
             self._pre_attributes.setdefault(SPAN_ATTRIBUTE_SESSION_ID, session_id)
+        if (workflow_run_id := current_workflow_run_id.get()) is not None:
+            self._pre_attributes.setdefault(SPAN_ATTRIBUTE_WORKFLOW_RUN_ID, workflow_run_id)
+        if (workflow_unit := current_workflow_unit.get()) is not None:
+            self._pre_attributes.setdefault(SPAN_ATTRIBUTE_WORKFLOW_UNIT, workflow_unit)
         self._tracer = tracer
 
         self._schema: JsonSchemaProperties = JsonSchemaProperties({})

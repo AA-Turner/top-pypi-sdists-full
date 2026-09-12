@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: samsungtvws
-Version: 3.0.5
+Version: 3.0.6
 Summary: Samsung Smart TV WS API wrapper
 Author: Xchwarze
 License-Expression: LGPL-3.0
@@ -8,7 +8,7 @@ Project-URL: Source code, https://github.com/xchwarze/samsung-tv-ws-api
 Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: websocket-client>=0.57.0
@@ -29,7 +29,7 @@ Requires-Dist: mypy>=1.13; extra == "dev"
 Requires-Dist: pre-commit>=3.5; extra == "dev"
 Requires-Dist: pytest>=8.3.3; extra == "dev"
 Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
-Requires-Dist: aioresponses>=0.7.7; extra == "dev"
+Requires-Dist: aiointercept>=0.1.9; extra == "dev"
 Dynamic: license-file
 
 <p align="center">
@@ -73,7 +73,7 @@ Some advanced topics are covered in dedicated documents:
 
 ## Installation
 
-Requires **Python >= 3.9**.
+Requires **Python >= 3.10**.
 
 ### Install from PyPI (recommended)
 

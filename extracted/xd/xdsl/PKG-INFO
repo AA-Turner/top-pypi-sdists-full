@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.70.0
+Version: 0.71.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License: Apache License v2.0 with LLVM Exceptions
@@ -24,7 +24,7 @@ Requires-Dist: ordered-set==4.1
 Requires-Dist: typing-extensions<5,>=4.7
 Provides-Extra: dev
 Requires-Dist: coverage<8; extra == "dev"
-Requires-Dist: filecheck==1.0.3; extra == "dev"
+Requires-Dist: filecheck==1.0.6; extra == "dev"
 Requires-Dist: lit<19; extra == "dev"
 Requires-Dist: marimo<0.24,>=0.23; extra == "dev"
 Requires-Dist: prek~=0.4.0; extra == "dev"
@@ -32,7 +32,7 @@ Requires-Dist: pyright==1.1.411; extra == "dev"
 Requires-Dist: pytest<9.2; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff==0.16.3; extra == "dev"
+Requires-Dist: ruff==0.16.6; extra == "dev"
 Requires-Dist: sympy==1.14; extra == "dev"
 Requires-Dist: textual-dev==1.8; extra == "dev"
 Requires-Dist: toml<0.11; extra == "dev"
@@ -42,6 +42,7 @@ Requires-Dist: textual<9,>=8; extra == "gui"
 Provides-Extra: heir
 Requires-Dist: heir-py==2026.8.1; extra == "heir"
 Provides-Extra: llvm
+Requires-Dist: cffi>=2; extra == "llvm"
 Requires-Dist: llvmlite~=0.47.0; extra == "llvm"
 Dynamic: license-file
 

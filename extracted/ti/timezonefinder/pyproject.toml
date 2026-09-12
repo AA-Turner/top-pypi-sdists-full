@@ -1,6 +1,6 @@
 [project]
 name = "timezonefinder"
-version = "8.3.0"
+version = "9.0.0"
 description = "python package for finding the timezone of any point on earth (coordinates) offline"
 authors = [{name = "jannikmi", email = "github@michelfe.it"}]
 # Replace with license="MIT" with setuptools>=71
@@ -36,7 +36,7 @@ dependencies = [
     # satisfying it while a format change becomes a resolver error instead of a
     # failure at the first lookup. tests/test_data_version.py holds the two numbers
     # to the constant.
-    "timezonefinder-data>=1.2026.3,<2",
+    "timezonefinder-data>=3.2026.3.post1,<4",
 ]
 
 [project.urls]
@@ -53,6 +53,8 @@ docs = [
     "sphinx-rtd-theme>=3,<4",
 ]
 test=[
+    # Tests import converter modules; these remain conversion-only dependencies.
+    { include-group = "data" },
     "tox",
     "pytest",
     "hypothesis>=6",
@@ -65,7 +67,8 @@ test=[
     # statistically sound benchmark measurement (calibration, warmup, outlier
     # detection); see benchmarks/. Never combine with pytest-run-parallel's
     # `--parallel-threads` in the same run - concurrent execution makes
-    # timings meaningless (see CONTRIBUTING.md)
+    # timings meaningless (see
+    # contributing/development/benchmarking-and-performance-validation.md)
     "pytest-benchmark>=5,<6",
     # parsing the CI workflow definitions in tests/test_benchmark_workflows.py
     "PyYAML>=6",
@@ -79,20 +82,39 @@ dev = [
     "mypy",
     "rstcheck",
     "isort",
-    "ruff",
+    # see .pre-commit-config.yaml: held with the hook rev so the two agree
+    "ruff<0.16",
     "cibuildwheel",
 ]
 # data generation / parsing helpers
 data = [
     "pydantic>=2.11.7",
+    "shapely>=2.1,<3",
 ]
-# Numba requires NumPy 2.3.x or lower; pin here to avoid incompatible NumPy 2.4 installs
 numba = [
-  "numpy<2.4",
   "numba>=0.60,<1",
 ]
 pytz = [
     "pytz>=2022.7.1"
+]
+# the alternative package docs/alternatives.rst weighs this one against,
+# measured head-to-head by benchmarks/test_comparison.py. Deliberately its own
+# group rather than part of `test`: the configuration CI tracks is
+# `uv sync --group test` (.github/workflows/benchmark.yml), and nothing in that
+# environment may change what `timezonefinder` imports at run time - that is
+# what makes a timing taken there a timing of a plain `pip install
+# timezonefinder`. The rule is about the import surface, not the package list:
+# `test` also pulls in `data` for the converter modules the tests import, and
+# those are never reached from a query, so they cost install time and not a
+# measurement. `numba` is the group that would change the backend, which is why
+# it is kept separate as well. `make benchmarks` and `tox -e benchmarks` ask for
+# this group explicitly; everything else runs without it, and the comparison
+# benchmarks skip.
+# It is a Rust extension shipping abi3 wheels for CPython 3.10+ on the platforms
+# this project builds for; on one it does not cover, `make install` needs a Rust
+# toolchain or `--no-group compare`, and nothing but the comparison is lost.
+compare = [
+    "tzfpy>=1,<2",
 ]
 # prototyping, performance analytics
 proto = [
@@ -106,9 +128,7 @@ proto = [
 
 # Package extras
 [project.optional-dependencies]
-# Numba requires NumPy 2.3.x or lower; pin here to avoid incompatible NumPy 2.4 installs
 numba = [
-  "numpy<2.4",
   "numba>=0.60,<1",
 ]
 pytz = [
@@ -138,8 +158,6 @@ packages = [
     "timezonefinder.flatbuf",
     "timezonefinder.flatbuf.generated",
     "timezonefinder.flatbuf.generated.polygons",
-    "timezonefinder.flatbuf.generated.shortcuts_uint8",
-    "timezonefinder.flatbuf.generated.shortcuts_uint16",
     "timezonefinder.flatbuf.io",
     "timezonefinder.flatbuf.schemas",
 ]
@@ -152,9 +170,36 @@ packages = [
 [tool.setuptools.package-data]
 timezonefinder = ["**/*.fbs", "**/*.c", "**/*.h", ]
 
+# `**/*.c` above is meant for inside_poly_extension/, the hand-written extension
+# sources. It also matches `inside_polygon_ext.c`, which is not a source at all: cffi
+# generates it next to the package whenever the extension is compiled in place, and
+# regenerates it during every wheel build. Without this exclusion a build performed in
+# a tree where someone had compiled once ships that stale wrapper - which
+# tests/test_package_contents.py already asserts must not happen, and which until now
+# held only because a fresh checkout has no such file.
+[tool.setuptools.exclude-package-data]
+timezonefinder = ["inside_polygon_ext.c"]
+
 [tool.ruff]
 target-version = "py311"
 src = ["timezonefinder", "tests", "build.py"]
+
+[tool.ruff.lint]
+# `lint.exclude` rather than the top-level `exclude`, and stated here rather than on
+# the pre-commit hook: `prototypes/` is exploratory code that is deliberately not held
+# to the lint rules, but `ruff format` still formats it, which a top-level exclude
+# would stop. Stating it once is what keeps a bare `uv run ruff check` from disagreeing
+# with the hook.
+#
+# ATTENTION: the glob is required. A bare `"prototypes"` is accepted here and excludes
+# nothing - it fails silently, leaving the directory linted - where the top-level
+# `exclude` does honour a bare directory name. `tests/test_lint_configuration.py`
+# asserts the exclusion actually excludes, because a no-op one is invisible until the
+# next pass wonders why the rules it enabled are firing in exploratory code.
+exclude = ["prototypes/*"]
+# ruff's default set is E4, E7, E9, F; those four are repeated here because naming any
+# `select` replaces the default rather than adding to it.
+select = ["E4", "E7", "E9", "F", "B", "RUF013"]
 
 [tool.ruff.lint.isort]
 known-local-folder = ["timezonefinder"]
@@ -171,6 +216,20 @@ markers = [
     "benchmark: mark a pytest-benchmark test (select the whole suite via `-m benchmark`); also accepts pytest-benchmark's own group/min_rounds/etc. kwargs",
     "benchmark_core: mark a benchmark as part of the small, CI-tracked core subset (see .github/workflows/benchmark.yml) - pick for signal, not coverage",
 ]
+
+[tool.rstcheck]
+# Read by the pre-commit hook and by a bare `rstcheck` run alike, so the two agree.
+# docs/ is Sphinx-built and rstcheck only recognises the directives Sphinx owns when sphinx
+# is installed, which the hook pulls in. Three directives still need naming here:
+#   autoclass/autofunction - autodoc is not part of that shim
+#   include - rstcheck resolves it against the working directory rather than against the
+#     including file, and abandons the whole file with an AttributeError when it misses.
+#     Both include targets (docs/badges.rst, CHANGELOG.rst) are linted directly, so skipping
+#     the directive covers the same content without the false negative.
+ignore_directives = ["autoclass", "autofunction", "include"]
+# INFO findings are Sphinx facts, not defects: hyperlink targets referenced from another page,
+# and headings that legitimately repeat across pages.
+report_level = "warning"
 
 [tool.mypy]
 python_version = "3.11"

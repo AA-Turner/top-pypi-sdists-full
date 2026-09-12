@@ -4,6 +4,7 @@ import abc
 import datetime
 import typing
 
+import Common.Util
 import QuantConnect
 import QuantConnect.Brokerages
 import QuantConnect.Data.Market
@@ -142,6 +143,23 @@ class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.A
         """
         Boolean flag indicating the result hander thread is busy.
         False means it has completely finished and ready to dispose.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """Read only view of the brokerage data, see add_brokerage_data. Shared with the algorithm"""
+        ...
+
+    def add_brokerage_data(self, key: str, value: str) -> None:
+        """
+        Adds or updates a brokerage data entry. Key value pairs the brokerage, data queue handler or any other component
+        wants to share with the user, through the results, and the algorithm, for example account information.
+        Sensitive data, like credentials, should never be added
+        
+        :param key: The brokerage data key
+        :param value: The brokerage data value
         """
         ...
 
@@ -587,6 +605,11 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @property
+    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """Read only view of the brokerage data, see add_brokerage_data. Shared with the algorithm"""
+        ...
+
+    @property
     def messaging_handler(self) -> QuantConnect.Interfaces.IMessagingHandler:
         """
         The handler responsible for communicating messages to listeners
@@ -771,6 +794,17 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    def add_brokerage_data(self, key: str, value: str) -> None:
+        """
+        Adds or updates a brokerage data entry. Key value pairs the brokerage, data queue handler or any other component
+        wants to share with the user, through the results, and the algorithm, for example account information.
+        Sensitive data, like credentials, should never be added
+        
+        :param key: The brokerage data key
+        :param value: The brokerage data value
+        """
+        ...
+
     def add_to_log_store(self, message: str) -> None:
         """
         Save an algorithm message to the log store. Uses a different timestamped method of adding messaging to interweve debug and logging messages.
@@ -795,6 +829,18 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         Handles updates to the algorithm's tags
         
         :param tags: The new tags
+        """
+        ...
+
+    def create_algorithm_configuration(self, backtest_node_packet: QuantConnect.Packets.BacktestNodePacket = None) -> QuantConnect.AlgorithmConfiguration:
+        """
+        Creates the algorithm configuration to include in the results, taking a snapshot of the current brokerage data
+        
+        
+        This Class is protected.
+        
+        :param backtest_node_packet: The associated backtest node packet if any
+        :returns: A new AlgorithmConfiguration instance.
         """
         ...
 

@@ -22,7 +22,6 @@ use super::{PyServer, ServerCore, ServerCreateParams, ServerListener, ServerStat
 use crate::async_event::AsyncEvent;
 
 pub fn create_server(py: Python<'_>, params: ServerCreateParams) -> PyResult<Py<PyServer>> {
-    crate::profile_scope!("stream.create_server");
     let ServerCreateParams {
         loop_core,
         loop_obj,
@@ -72,7 +71,7 @@ pub fn unix_server_listener(listener: StdUnixListener) -> ServerListener {
     ServerListener::Unix(listener)
 }
 #[cfg(unix)]
-pub fn remove_unix_socket_if_present(path: &str) -> io::Result<()> {
+pub fn remove_unix_socket_if_present(path: impl AsRef<std::path::Path>) -> io::Result<()> {
     match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(()),

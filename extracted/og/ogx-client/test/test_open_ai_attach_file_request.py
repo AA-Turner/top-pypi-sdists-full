@@ -42,6 +42,7 @@ class TestOpenAIAttachFileRequest(unittest.TestCase):
         if include_optional:
             return OpenAIAttachFileRequest(
                 file_id = '',
+                options = { },
                 attributes = {
                     'key' : null
                     },

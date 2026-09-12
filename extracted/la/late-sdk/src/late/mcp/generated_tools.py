@@ -1625,7 +1625,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
             ad_account_id: Meta ad account id (act_<n>). (required)
-            fields: Comma-separated Graph field override (supports nested {} projections).
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page
             after: Cursor from paging.after of the previous page."""
         client = _get_client()
@@ -3486,6 +3486,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get live campaign details",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_ad_campaign_details(
+        campaign_id: str, account_id: str, fields: str | None = None
+    ) -> str:
+        """Get live campaign details
+
+        Args:
+            campaign_id: Meta campaign id (platformCampaignId). (required)
+            account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers."""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_ad_campaign_details(
+                campaign_id=campaign_id, account_id=account_id, fields=fields
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Update a campaign",
             readOnlyHint=False,
             destructiveHint=True,
@@ -3921,7 +3947,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             ad_set_id: Meta ad set id (platformAdSetId). (required)
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            fields: Comma-separated Graph field override (supports nested {} projections)."""
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently."""
         client = _get_client()
         try:
             response = client.ad_campaigns.get_ad_set_details(
@@ -4168,18 +4194,15 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def ad_campaigns_get_ad(ad_id: str, refresh_promotion: bool = False) -> str:
+    def ad_campaigns_get_ad(ad_id: str) -> str:
         """Get ad details
 
            Args:
-               refresh_promotion: Meta only. Read current promotion metadata from Meta and include promotionStatus. Omit for stored creative settings with no promotion-specific Graph call.
                ad_id: Zernio `_id` (hex), Meta `platformAdId` (numeric), or one of the creative's effective story/media IDs. See description for details.
         (required)"""
         client = _get_client()
         try:
-            response = client.ad_campaigns.get_ad(
-                refresh_promotion=refresh_promotion, ad_id=ad_id
-            )
+            response = client.ad_campaigns.get_ad(ad_id=ad_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -4197,6 +4220,7 @@ def register_generated_tools(mcp, _get_client):
         headlines: list[dict[str, Any]] | None = None,
         descriptions: list[dict[str, Any]] | None = None,
         final_urls: list[str] | None = None,
+        asset_group: dict[str, Any] | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -4207,9 +4231,10 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 ad_id: (required)
-                headlines: Google RSA only. Replaces the complete headline list. No padding or truncation on update.
-                descriptions: Google RSA only. Replaces the complete description list. No padding or truncation on update.
-                final_urls: Google RSA only. Replaces final URLs. Omitted lists stay unchanged.
+                headlines: Google Search and Display only. Replaces the complete headline list. Search takes 3-15, Display 1-5 and rejects pinnedField; the count is checked once the ad's channel is known. No padding or truncation on update.
+                descriptions: Google Search and Display only. Replaces the complete description list. Search takes 2-4, Display 1-5 and rejects pinnedField. No padding or truncation on update.
+                final_urls: Google Search and Display only. Replaces final URLs. Omitted lists stay unchanged. For Performance Max use assetGroup.finalUrl.
+                asset_group: Google Performance Max only. Replaces whole asset roles on the ad's asset group. Returns 422 on any other platform or channel.
                 status
                 budget
                 targeting: Meta + TikTok (demographics/interests), Google (keyword and device
@@ -4228,10 +4253,9 @@ def register_generated_tools(mcp, _get_client):
           GET /v1/ads/creatives and ignores every other field. Meta creatives are
           immutable, so any change creates a new creative and repoints the ad; the old
           creative is retained on the ad account for historical reporting.
-          `promotion` and `creativeFeatures` are Meta-only. Omitted settings are
-          preserved from the live creative, including full rebuilds. Send
-          `promotion: null` to remove the explicit offer from the replacement.
-          A supplied creativeFeatures map overrides individual existing keys.
+          `creativeFeatures` is Meta-only. Omitted settings are preserved from the
+          live creative, including full rebuilds. A supplied creativeFeatures map
+          overrides individual existing keys.
         - **TikTok**: patch-style. Pass any subset; `headline` is ignored (TikTok creatives
           have no headline slot). `body` becomes the in-feed `ad_text`; `linkUrl` becomes
           `landing_page_url`; `videoUrl` triggers a fresh upload. `description`, `videoId`
@@ -4249,6 +4273,7 @@ def register_generated_tools(mcp, _get_client):
                 headlines=headlines,
                 descriptions=descriptions,
                 final_urls=final_urls,
+                asset_group=asset_group,
                 status=status,
                 budget=budget,
                 targeting=targeting,
@@ -4993,14 +5018,14 @@ def register_generated_tools(mcp, _get_client):
                 billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
                 buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED.
-                promotion
-                creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an enhancement; an explicit offer uses promotion.
+                promotion: Not supported. Meta validates creative_sourcing_spec.promotion_metadata_spec on the create call and then discards it, so a Promotion set through the Marketing API never reaches the creative. Any object is rejected with 400 invalid_field_value. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Verified on 2026-09-11 across Graph v19.0 to v25.0 and every write path.
+                creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
-                status: Google Performance Max accepts PAUSED only and always creates a paused campaign. Meta, TikTok, and LinkedIn: publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
-                campaign_status: Meta only. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
+                status: Google Performance Max accepts PAUSED only and always creates a paused campaign. Google Search and Display, Meta, TikTok, and LinkedIn: publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused so you can review before they spend. On Meta the pause is held on the campaign this call creates, leaving the ad set and ad switched on, so a single PUT /v1/ads/campaigns/{campaignId}/status with `active` brings the whole thing live. It is held at every level instead when the pause cannot rely on the campaign: `existingCampaignId` (that campaign may be running and is never touched) or `campaignStatus: ACTIVE`. Google Search and Display follow the same rule, and because Google keeps an independent switch at campaign, ad group and ad level, a PAUSED create leaves the campaign it creates PAUSED at Google. On TikTok the whole campaign > ad group > ad hierarchy stays paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
+                campaign_status: Meta and Google. Overrides `status` for the campaign level alone, so you can create a live campaign whose ad set and ad stay paused, or the reverse. Omitted, it follows `status`.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
           - `adset` (default): ABO (Ad-set Budget Optimization). The budget is set on the
             ad set. This is the back-compatible behaviour; omit this field to keep it.
@@ -5621,7 +5646,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
             ad_account_id: Meta ad account id (act_<n>). (required)
-            fields: Comma-separated Graph field override (supports nested {} projections).
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page
             after: Cursor from paging.after of the previous page."""
         client = _get_client()
@@ -5675,8 +5700,8 @@ def register_generated_tools(mcp, _get_client):
             image_hash: Existing library image hash (POST /v1/ads/images or GET /v1/ads/images).
             carousel_cards
             url_tags: Appended to every outbound URL (e.g. utm_source=fb).
-            promotion
-            creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an enhancement; an explicit offer uses promotion.
+            promotion: Not supported. Meta validates creative_sourcing_spec.promotion_metadata_spec on the create call and then discards it, so a Promotion set through the Marketing API never reaches the creative. Any object is rejected with 400 invalid_field_value. Send null or omit the field, and set the Promotion on the ad in Ads Manager. Verified on 2026-09-11 across Graph v19.0 to v25.0 and every write path.
+            creative_features: Meta only. Applied to each new creative, including standalone and attach shapes. With creatives[], these are defaults; an item replaces the whole feature map, including an empty map. auto_promotion_tag is an Advantage+ enhancement, not the Ads Manager Promotion setting.
             multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there."""
         client = _get_client()
         try:
@@ -5716,7 +5741,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             creative_id: Platform creative id (required)
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
-            fields: Comma-separated Graph field override (supports nested {} projections)."""
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently."""
         client = _get_client()
         try:
             response = client.ad_creatives.get_ad_creative(
@@ -5828,7 +5853,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
             ad_account_id: Meta ad account id (act_<n>). (required)
-            fields: Comma-separated Graph field override (supports nested {} projections).
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page
             after: Cursor from paging.after of the previous page."""
         client = _get_client()
@@ -5900,7 +5925,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token. (required)
             ad_account_id: Meta ad account id (act_<n>). (required)
-            fields: Comma-separated Graph field override (supports nested {} projections).
+            fields: Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page
             after: Cursor from paging.after of the previous page."""
         client = _get_client()
@@ -6592,7 +6617,7 @@ def register_generated_tools(mcp, _get_client):
             since: Earliest delivery date (YYYY-MM-DD).
             until: Latest delivery date (YYYY-MM-DD).
             search_type: Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them).
-            fields: Meta only. Raw Graph projection override, e.g. add spend,impressions,demographic_distribution for political ads.
+            fields: Meta only. Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page. LinkedIn accepts at most 25.
             after: paging.after of the previous page."""
         client = _get_client()
@@ -6666,7 +6691,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             account_id: Account ID (a connected account on the target ad platform). (required)
             q: Search query. For geo, the locality name only (no region/country suffix). (required)
-            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics. Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
+            dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities, `income` resolves income-tier options, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
             geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
             limit: Maximum results to return."""
@@ -10772,8 +10797,8 @@ def register_generated_tools(mcp, _get_client):
         OAuth and callback:
           oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
           internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
-          missing_google_permissions, platform_requires_destination, reconnect_account_mismatch,
-          invalid_request
+          missing_google_permissions, missing_tiktok_permissions, platform_requires_destination,
+          reconnect_account_mismatch, invalid_request
 
         Access and limits:
           profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
@@ -10813,6 +10838,10 @@ def register_generated_tools(mcp, _get_client):
         2. On the tiktok and twitter ads flows `platform` carries the ads platform id
         (`tiktokads`, `xads`), not the value used in the request path. The googleads and shopify
         flows report `googleads` and `shopify`.
+
+        3. `missing_tiktok_permissions` means the TikTok authorization left out a permission the
+        already-connected account needs, so nothing was changed and it keeps working as before.
+        It is user-fixable: connect again and accept every permission on TikTok's screen.
                 headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
                 login_method: Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
 
@@ -11866,6 +11895,50 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.connect.complete_telegram_connect(code=code)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Read a Facebook Page's webhook subscription",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_page_webhook_subscription(account_id: str) -> str:
+        """Read a Facebook Page's webhook subscription
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.get_page_webhook_subscription(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Re-subscribe a Facebook Page to Zernio's webhooks",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_resync_page_webhook_subscription(account_id: str) -> str:
+        """Re-subscribe a Facebook Page to Zernio's webhooks
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.resync_page_webhook_subscription(
+                account_id=account_id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -14728,7 +14801,7 @@ def register_generated_tools(mcp, _get_client):
         """List lead forms
 
         Args:
-            account_id: Connected Facebook, Meta ads business-login or LinkedIn ads account ID. (required)
+            account_id: Connected Meta ads, Facebook or LinkedIn ads account ID. A Meta ads connection resolves its Page through the Facebook account linked to the same profile. (required)
             ad_account_id: LinkedIn only: the LinkedIn ad account id (used to resolve the owning organization). Required for LinkedIn.
             limit
             cursor"""
@@ -14815,16 +14888,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def lead_gen_get_lead_form(form_id: str, account_id: str) -> str:
+    def lead_gen_get_lead_form(
+        form_id: str, account_id: str, fields: str | None = None
+    ) -> str:
         """Get a lead form
 
         Args:
             form_id: Numeric form id (Meta leadgen_form id or LinkedIn leadForm id). (required)
-            account_id: Connected facebook or linkedin ads account id (selects the platform). (required)"""
+            account_id: Connected Meta ads, facebook or linkedin ads account id (selects the platform). A Meta ads connection resolves its Page through the Facebook account linked to the same profile. (required)
+            fields: Meta only. A Graph field selection passed through verbatim to GET /{form-id}, replacing the default projection, so fields Meta adds later are reachable without an API change. Field names, commas and {} expansion only; anything else (Graph field modifiers such as .limit(), or characters that could open another query parameter) is a 400. Ownership of the form is verified before the selection runs, so this cannot reach any Page but the one accountId manages. Unknown field names are rejected by Meta as a 400."""
         client = _get_client()
         try:
             response = client.lead_gen.get_lead_form(
-                form_id=form_id, account_id=account_id
+                form_id=form_id, account_id=account_id, fields=fields
             )
             return _format_response(response)
         except Exception as e:
@@ -14843,7 +14919,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             form_id: Numeric form id (Meta leadgen_form id or LinkedIn leadForm id). (required)
-            account_id: Connected facebook or linkedin ads account id (selects the platform). (required)"""
+            account_id: Connected Meta ads, facebook or linkedin ads account id (selects the platform). A Meta ads connection resolves its Page through the Facebook account linked to the same profile. (required)"""
         client = _get_client()
         try:
             response = client.lead_gen.archive_lead_form(
@@ -17379,7 +17455,7 @@ def register_generated_tools(mcp, _get_client):
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. An ISO 8601 value with a `Z` or offset (`2026-01-15T10:00:00Z`, `2026-01-15T11:00:00+01:00`) is taken as-is; a value without one (`2026-01-15T10:00:00` or `2026-01-15 10:00`) is read as local time in `timezone`. A value already in the past is published synchronously in the same request. Ignored when `publishNow` is true.
                 publish_now: Publish to every platform synchronously in this request instead of scheduling; the response then carries each platform result and `platformPostUrl`, with HTTP 207 when some platforms failed. Takes precedence over `scheduledFor`; ignored when `isDraft` is true.
                 is_draft: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
-                dry_run: TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`.
+                dry_run: TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`. Accounts connected through the TikTok for Business app do not go through these limits at all and also always report `canPublish: true`, so on those accounts a dry run confirms the request is well-formed rather than gating it.
                 timezone: IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset. Has no effect on values that already carry one. An unknown name returns 400 when `scheduledFor` is set.
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
                 hashtags: Stored for reference only. Hashtags are NOT automatically appended to the caption when publishing. Include hashtags directly in the content field (platforms like Instagram only support hashtags as caption text). For YouTube keywords, use the tags field instead.

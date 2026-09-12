@@ -26,6 +26,38 @@ from ...state import (
     set_workflow_state,
 )
 
+_ASCII_STATUS_REPLACEMENTS = {
+    "✅": "[OK]",
+    "✓": "[OK]",
+    "⚠️": "[WARN]",
+    "⚠": "[WARN]",
+    "ℹ️": "[INFO]",
+    "ℹ": "[INFO]",
+    "❌": "[ERROR]",
+    "📝": "[NOTE]",
+    "📋": "[LIST]",
+    "⏳": "[...]",
+    "🔄": "[~]",
+    "❓": "[?]",
+    "⏰": "[TIMEOUT]",
+    "•": "-",
+    "—": "-",
+    "→": "->",
+}
+
+
+def _safe_print(message: object = "", *, file: Any | None = None, **kwargs: Any) -> None:
+    """Print a message and retry with deterministic ASCII on encoding errors."""
+    output = sys.stdout if file is None else file
+    try:
+        print(message, file=output, **kwargs)
+    except UnicodeEncodeError:
+        safe_message = str(message)
+        for symbol, replacement in _ASCII_STATUS_REPLACEMENTS.items():
+            safe_message = safe_message.replace(symbol, replacement)
+        safe_message = safe_message.encode("ascii", errors="replace").decode("ascii")
+        print(safe_message, file=output, **kwargs)
+
 
 def clear_state_for_workflow_initiation(*, preserve_run_id: bool = False) -> None:
     """
@@ -60,7 +92,7 @@ def clear_state_for_workflow_initiation(*, preserve_run_id: bool = False) -> Non
             changed = True
     if changed:
         save_state(state)
-    print("✓ Reset workflow tracking state")
+    _safe_print("✓ Reset workflow tracking state")
 
 
 def validate_required_state(required_keys: list[str]) -> dict[str, Any]:

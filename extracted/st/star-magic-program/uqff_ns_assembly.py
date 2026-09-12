@@ -452,8 +452,12 @@ FALSIFIER_DATA_SOURCES = (
     'literature, Kleckner & Irvine laboratory trefoil vortices')
 
 
-def grade_cap_against_dns(csv_path: str = None, nu: float = None) -> Dict:
+def grade_cap_against_dns(csv_path: str = None, nu: float = None,
+                          cap: float = None) -> Dict:
     """TIER 3: grade the 17/20 cap against OUTSIDE DNS/laboratory data.
+    `cap` (B277): grade against another branch of the pair cap (e.g. the
+    in-medium 197/200 from enstrophy_cap_pair()); default = 17/20. The
+    B269 docstring promised this argument; B277 is its first real use.
     Input CSV columns (user-computed from DNS fields, definitions from
     PAPER_1182 S300): 't' plus EITHER 'stretching_ratio'
     (V_stretch/(|omega|*E), graded against the 17/20 cap) OR 'enstrophy'
@@ -470,18 +474,19 @@ def grade_cap_against_dns(csv_path: str = None, nu: float = None) -> Dict:
     rows = list(_csv.DictReader(open(csv_path, encoding='utf-8')))
     if not rows:
         return {'status': 'REFUSED_EMPTY', 'path': csv_path}
-    cap = 17.0 / 20.0
+    cap_label = '17/20' if cap is None else ('%.6g' % float(cap))
+    cap = 17.0 / 20.0 if cap is None else float(cap)
     out = {'status': 'GRADED', 'path': csv_path, 'n_rows': len(rows),
-           'cap': cap}
+           'cap': cap, 'cap_label': cap_label}
     if 'stretching_ratio' in rows[0]:
         ratios = [float(r['stretching_ratio']) for r in rows]
         worst = max(ratios)
         out.update({'mode': 'stretching_ratio', 'worst_ratio': worst,
                     'verdict': ('CAP HOLDS on this dataset (worst ratio '
-                                '%.4f <= 17/20)' % worst) if worst <= cap
+                                '%.4f <= %s)' % (worst, cap_label)) if worst <= cap
                                else ('THE CAP IS DEAD ON THIS DATASET - '
-                                     'ratio %.4f EXCEEDS 17/20; reported '
-                                     'plainly, not softened' % worst)})
+                                     'ratio %.4f EXCEEDS %s; reported '
+                                     'plainly, not softened' % (worst, cap_label))})
     elif 'enstrophy' in rows[0]:
         if nu is None:
             return {'status': 'REFUSED_NO_NU', 'path': csv_path,
@@ -948,7 +953,7 @@ def ns_proof_set() -> Dict:
         'theory_open_rungs': 0,
         'awaiting_outside_data': [
             'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85); extreme-event/trefoil scan still THE kill test, OPEN',
-            'lab-vs-astro stretching -> pair cap 17/20 vs 197/200',
+            'lab-vs-astro stretching -> pair cap 17/20 vs 197/200: IN-MEDIUM BRANCH SAMPLED CONSISTENCY PASS (B277, JHTDB channel Re_tau ~ 1000, ratios <= 0.0734 under BOTH caps); DISCRIMINATION between the branches still OPEN (far tail)',
             'THz bench dip -> profile FWHM 0.235 + 910-vs-896 discriminator',
             'DNS spectra -> no dynamics above k_c (Theorem A mode count)',
         ],
@@ -1001,4 +1006,60 @@ def first_real_data_grade() -> Dict:
                         'test - a sampled PASS is a real grade, not the '
                         'final word'),
         'status': 'CAP_HOLDS_SAMPLED_B276 (extreme-event scan OPEN)',
+    }
+
+
+# ---- B277 (PAPER_2272): THE IN-MEDIUM SAMPLE ------------------------------
+JHTDB_CHANNEL_GRADE_CSV = 'jhtdb_grade/jhtdb_channel_grade_2026-09-10.csv'
+
+
+def in_medium_sample_grade() -> Dict:
+    """B277: the pair cap's IN-MEDIUM branch graded on REAL wall-bounded
+    DNS data - JHTDB channel (Re_tau ~ 1000), t = 1.0, fd4lag4 gradients,
+    official REST service, publicly sanctioned testing token, 2 x 1,000
+    deterministic-LCG points (seeds 28/29; y in [-0.9, 0.9] - the walls
+    are EXCLUDED and this is disclosed). Sampled 1182-form ratios
+    0.039143 / 0.031072, sub-batch max 0.073405 - under the in-medium
+    cap 197/200 (13x margin) AND under the vacuum cap 17/20 (11x margin).
+    THE IN-MEDIUM BRANCH HOLDS. HONESTY (Rule 7): at these margins the
+    sampled statistic CANNOT DISCRIMINATE the two pair-cap branches -
+    both pass by an order of magnitude - so this is a CONSISTENCY PASS
+    for the in-medium branch, NOT the pair-cap discrimination; that
+    discrimination lives in the far tail, alongside the extreme-event
+    kill test, and stays OPEN. Pipeline sanity: positive-stretching
+    fraction 0.736/0.764. Provenance: jhtdb_grade/README_PROVENANCE.md
+    (2026-09-10 addendum)."""
+    from uqff_paths import resolve
+    try:
+        path = str(resolve(JHTDB_CHANNEL_GRADE_CSV))
+    except Exception:
+        path = JHTDB_CHANNEL_GRADE_CSV
+    pair = enstrophy_cap_pair()
+    g_med = grade_cap_against_dns(path, cap=pair['in_medium_cap'])
+    g_vac = grade_cap_against_dns(path)
+    worst = g_med.get('worst_ratio')
+    return {
+        'dataset': 'JHTDB channel t=1.0 (Re_tau ~ 1000, wall-bounded shear turbulence)',
+        'access': ('official REST, public testing token, 2 x 1000 pts '
+                   '(< 4096 sanctioned); y in [-0.9, 0.9] - walls excluded'),
+        'global_ratios': (0.039143, 0.031072),
+        'sub_batch_max': 0.073405,
+        'in_medium_cap': pair['in_medium_cap'],
+        'vacuum_cap': pair['vacuum_cap'],
+        'margin_in_medium': (pair['in_medium_cap'] / worst) if worst else None,
+        'margin_vacuum': (pair['vacuum_cap'] / worst) if worst else None,
+        'harness_verdict_in_medium': g_med.get('verdict', g_med.get('refusal', 'UNGRADED')),
+        'harness_verdict_vacuum': g_vac.get('verdict', g_vac.get('refusal', 'UNGRADED')),
+        'frac_positive_stretching': (0.736, 0.764),
+        'discrimination': ('CONSISTENCY_PASS_NOT_DISCRIMINATION: both branches '
+                           '(197/200 and 17/20) pass by more than 10x - the '
+                           'sampled statistic cannot pick between them; the '
+                           'pair-cap discrimination lives in the far tail with '
+                           'the extreme-event kill test - OPEN'),
+        'disclosures': ('walls (|y| > 0.9) unsampled; random pointwise sampling '
+                        'has no far-tail power; this grade means the in-medium '
+                        'branch is CONSISTENT with the data, not that the pair '
+                        'prediction is CONFIRMED'),
+        'status': ('IN_MEDIUM_HOLDS_SAMPLED_B277 (pair-cap discrimination OPEN; '
+                   'extreme-event scan OPEN)'),
     }

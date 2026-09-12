@@ -34,8 +34,8 @@ class Moment(NoSSRComponent, MemoizationLeaf):
         *children,
         interval: Var[int] | int | None = None,
         format: Var[str] | str | None = None,
-        trim: Var[bool] | bool | None = None,
-        parse: Var[str] | str | None = None,
+        trim: Var[bool | str] | bool | str | None = None,
+        parse: Var[list[str] | str] | list[str] | str | None = None,
         add: MomentDelta | Var[MomentDelta] | None = None,
         subtract: MomentDelta | Var[MomentDelta] | None = None,
         from_now: Var[bool] | bool | None = None,
@@ -97,8 +97,8 @@ class Moment(NoSSRComponent, MemoizationLeaf):
             *children: The children of the component.
             interval: How often the date update (how often time update / 0 to disable).
             format: Formats the date according to the given format string.
-            trim: When formatting duration time, the largest-magnitude tokens are automatically trimmed when they have no value.
-            parse:  Use the parse attribute to tell moment how to parse the given date when non-standard.
+            trim: When formatting duration time, the largest-magnitude tokens are automatically trimmed when they have no value. Also accepts a trim template: "large", "small", "both", "all", "final", "left" or "right".
+            parse:  Use the parse attribute to tell moment how to parse the given date when non-standard. Accepts a single format string or a list of formats to try.
             add: Add a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
             subtract: Subtract a delta to the base date (keys are "years", "quarters", "months", "weeks", "days", "hours", "minutes", "seconds")
             from_now: Displays the date as the time from now, e.g. "5 minutes ago".
@@ -116,7 +116,7 @@ class Moment(NoSSRComponent, MemoizationLeaf):
             unix: Tells Moment to parse the given date value as a unix timestamp.
             local: Outputs the result in local time.
             tz: Display the date in the given timezone.
-            locale: The locale to use when rendering.
+            locale: The locale for this component. Defaults to English independently of other Moment components.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -139,7 +139,7 @@ class Moment(NoSSRComponent, MemoizationLeaf):
             on_scroll_end: Fired when scrolling ends on the element.
             on_mount: Fired when the component is mounted to the page.
             on_unmount: Fired when the component is removed from the page. Only called during navigation, not on page refresh.
-            on_change: Fires when the date changes.
+            on_change: Fires when the component mounts and when the date changes, including when interval is 0. React Strict Mode can invoke the mount event twice in development.
             **props: The props of the component.
 
         Returns:

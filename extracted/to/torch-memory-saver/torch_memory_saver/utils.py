@@ -2,11 +2,31 @@ import ctypes
 import logging
 import os
 from contextlib import contextmanager
+from functools import lru_cache
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 _SUPPORTED_CUDA_MAJORS = (13, 12)
+
+
+def _is_rocm_torch() -> bool:
+    try:
+        import torch
+    except ImportError:
+        return False
+
+    return bool(getattr(torch.version, "hip", None))
+
+
+@lru_cache(maxsize=1)
+def is_xpu() -> bool:
+    try:
+        import torch
+    except ImportError:
+        return False
+
+    return hasattr(torch, "xpu") and torch.xpu.is_available()
 
 
 def _detect_cuda_major() -> int:
@@ -37,8 +57,8 @@ def _detect_cuda_major() -> int:
         try:
             ctypes.CDLL(f"libcudart.so.{major}")
             return major
-        except OSError:
-            continue
+        except OSError as e:
+            logger.warning("probe for libcudart.so.%s failed: %s", major, e)
 
     raise RuntimeError(
         f"torch_memory_saver: could not detect CUDA runtime. Tried torch.version.cuda "
@@ -48,24 +68,38 @@ def _detect_cuda_major() -> int:
 
 def get_binary_path_from_package(stem: str):
     """Return the path to the .so for `stem`, picking the variant built against
-    the detected CUDA major.
+    the detected GPU runtime.
 
-    The wheel ships multiple suffixed builds (e.g. `<stem>_cu12.abi3.so`,
-    `<stem>_cu13.abi3.so`); this resolves to whichever matches the runtime CUDA.
+    CUDA wheels ship multiple suffixed builds (e.g. `<stem>_cu12.abi3.so`,
+    `<stem>_cu13.abi3.so`). ROCm builds ship an unsuffixed binary
+    (e.g. `<stem>.abi3.so`).
 
     Raises:
-        RuntimeError: if no CUDA runtime can be detected, or if zero or
+        RuntimeError: if no GPU runtime can be detected, or if zero or
             multiple .so files match the expected pattern.
     """
-    major = _detect_cuda_major()
     dir_package = Path(__file__).parent
-    pattern = f"{stem}_cu{major}.*.so"
-    candidates = [p for d in (dir_package, dir_package.parent) for p in d.glob(pattern)]
+
+    if _is_rocm_torch():
+        pattern = f"{stem}.*.so"
+        runtime_desc = "ROCm/HIP torch"
+    elif is_xpu():
+        pattern = f"{stem}.*.so"
+        runtime_desc = "Intel XPU torch"
+    else:
+        major = _detect_cuda_major()
+        pattern = f"{stem}_cu{major}.*.so"
+        runtime_desc = f"CUDA major={major}"
+
+    candidates = list(dir_package.glob(pattern))
+    if not candidates:
+        candidates = list(dir_package.parent.glob(pattern))
+
     if len(candidates) != 1:
         raise RuntimeError(
             f"torch_memory_saver: expected exactly one .so matching {pattern!r} "
-            f"(detected CUDA major={major}), found {len(candidates)}: {candidates}. "
-            f"This usually means the installed wheel does not match your CUDA runtime."
+            f"(detected {runtime_desc}), found {len(candidates)}: {candidates}. "
+            f"This usually means the installed wheel does not match your GPU runtime."
         )
     return candidates[0]
 
@@ -73,12 +107,15 @@ def get_binary_path_from_package(stem: str):
 # private utils, not to be used by end users
 @contextmanager
 def change_env(key: str, value: str):
-    old_value = os.environ.get(key, "")
+    old_value = os.environ.get(key)
     os.environ[key] = value
     logger.debug(f"change_env set key={key} value={value}")
     try:
         yield
     finally:
         assert os.environ[key] == value
-        os.environ[key] = old_value
+        if old_value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = old_value
         logger.debug(f"change_env restore key={key} value={old_value}")

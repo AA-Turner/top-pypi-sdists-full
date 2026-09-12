@@ -1,7 +1,14 @@
 import re
 from pathlib import Path
 
-from scripts.build_offline_skill_prompt import MANDATORY_REFERENCES, SKILLS_ROOT, build
+from scripts.build_offline_skill_prompt import (
+    MANDATORY_REFERENCES,
+    PUBLIC_SKILLS_ROOT,
+    SKILL_ORDER,
+    SKILLS_ROOT,
+    _rewrite_public_links_for_offline_bundle,  # pyright: ignore[reportPrivateUsage]
+    build,
+)
 
 REPO_ROOT = Path(__file__).parent.parent
 CHECKED_IN_BUNDLE = SKILLS_ROOT / 'logfire-setup-offline.md'
@@ -55,6 +62,7 @@ def test_full_build_has_no_dead_reference_links() -> None:
     full = build(include_references=True)
     headings = _appendix_headings(full)
     assert headings, 'full build produced no Reference Files appendix at all'
+    assert '[credential handoff instructions](#if-the-calling-skill-needs-a-write-token-not-just-a-cli-session)' in full
 
     for link_path in REFERENCE_LINK.findall(full):
         # Normalize `./references/x.md` and `../logfire-instrumentation/references/x.md`
@@ -73,6 +81,32 @@ def test_full_build_has_no_dead_reference_links() -> None:
             continue
         resolved = normalized.removeprefix('../')
         assert resolved in headings, f'{link_path!r} -> {resolved!r} not in appendix (have: {sorted(headings)})'
+
+
+def test_build_rewrites_public_links_only_for_inlined_skills() -> None:
+    compact = build(include_references=False)
+
+    for skill in SKILL_ORDER:
+        assert f'{PUBLIC_SKILLS_ROOT}/{skill}/' not in compact
+    for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+        assert f'](#skill-{skill})' in compact
+    assert f'{PUBLIC_SKILLS_ROOT}/logfire-query/SKILL.md' in compact
+    assert f'{PUBLIC_SKILLS_ROOT}/logfire-ui/SKILL.md' in compact
+
+
+def test_auth_link_rewrite_preserves_the_complete_fragment() -> None:
+    source = f'[Auth]({PUBLIC_SKILLS_ROOT}/logfire-instrumentation/references/auth.md#write_token.v1)'
+
+    assert _rewrite_public_links_for_offline_bundle(source) == '[Auth](#write_token.v1)'
+
+
+def test_inlined_skill_links_resolve_in_generated_and_checked_in_bundles() -> None:
+    """Every synthetic skill fragment has the heading that creates its anchor."""
+    checked_in = CHECKED_IN_BUNDLE.read_text(encoding='utf-8')
+    for bundle in (build(include_references=False), checked_in):
+        for skill in ('logfire-instrumentation', 'logfire-infrastructure', 'logfire-evals'):
+            assert f'](#skill-{skill})' in bundle
+            assert f'# Skill: {skill}\n' in bundle
 
 
 def test_checked_in_bundle_matches_a_fresh_build() -> None:
@@ -94,13 +128,15 @@ def test_checked_in_bundle_matches_a_fresh_build() -> None:
 
 def test_compact_bundle_stays_under_a_token_budget() -> None:
     """A regression guard, not a design target -- content should grow because something
-    genuinely needed adding, not because nobody noticed it creeping. ~15k tokens (chars/4)
+    genuinely needed adding, not because nobody noticed it creeping. ~16.5k tokens (chars/4)
     leaves real headroom over the bundle's current size without being loose enough to miss
-    a real regression (e.g. `--no-references` quietly stopping omitting anything).
+    a real regression (e.g. `--no-references` quietly stopping omitting anything). The
+    hardened, isolation-pinned CLI forms in auth guidance (~400 chars each) and the
+    repository-credential safety checks pushed the compact build over the old 15k budget.
     """
     compact = build(include_references=False)
     estimated_tokens = len(compact) // 4
-    assert estimated_tokens < 15_000, (
+    assert estimated_tokens < 16_500, (
         f'compact bundle is ~{estimated_tokens} estimated tokens -- '
         f'either this is intentional growth (raise this budget) or `--no-references` '
         f'stopped omitting the deep-dive reference files it is meant to skip'

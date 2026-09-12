@@ -11,6 +11,7 @@ import typing as t
 
 import cyclopts
 
+from dreadnode.app.api.client import NotFoundError
 from dreadnode.app.cli.args import PlatformScopeArgs
 from dreadnode.app.cli.shared import (
     _FLAG_STATE,
@@ -137,7 +138,33 @@ def _print_environment_detail(payload: dict[str, t.Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@cli.command()
+def _create_env_with_hint(
+    api: t.Any, org: str, workspace: str, body: dict[str, t.Any], task_ref: str
+) -> dict[str, t.Any]:
+    """Create the environment, adding a resolution hint to a task-not-found 404.
+
+    A bare name resolves to a task in the caller's org or any public task; a task
+    owned by another org resolves only when it is public or owned by the caller
+    (server-side visibility rule). We do not retry client-side - a public task
+    already resolves by bare name, and a private cross-org task 404s the same way
+    whether or not it is qualified. Only a task-not-found 404 gets the hint; any
+    other 404 (e.g. a bad ``--project-id``) keeps the server's own detail message.
+    """
+    try:
+        return api.create_environment(org, workspace, body)
+    except NotFoundError as exc:
+        # provision() can 404 on the project lookup (bad --project-id) before it
+        # ever resolves the task, so only rewrite genuine task-not-found errors.
+        if "task not found" not in str(exc).lower():
+            raise
+        raise NotFoundError(
+            f"Task '{task_ref}' not found. A bare name resolves to a task in your org or "
+            f"any public task; a task owned by another org must be public or owned by you. "
+            f"Check the name and version, or qualify it as <org>/<name>."
+        ) from exc
+
+
+@cli.command(alias="provision")
 def create(
     task_ref: str,
     *,
@@ -207,14 +234,19 @@ def create(
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
     platform: PlatformScopeArgs = PlatformScopeArgs(),
 ) -> None:
-    """Provision a task environment.
+    """Provision a task environment. (Alias: ``dreadnode env provision``.)
 
     ``task_ref`` follows the canonical ``[org/]name[@version]`` format:
 
-    - ``my-task``              — latest visible version
-    - ``my-task@1.0.0``        — exact version
-    - ``acme/my-task``         — cross-org (must be public or owned by you)
-    - ``acme/my-task@1.0.0``   — cross-org exact version
+    - ``my-task``              : latest version visible to you
+    - ``my-task@1.0.0``        : exact version
+    - ``acme/my-task``         : cross-org (must be public or owned by you)
+    - ``acme/my-task@1.0.0``   : cross-org exact version
+
+    A bare name resolves to a task in your org or any public task, so bundled
+    public targets (e.g. ``ml-extraction-fraud-tabular``, ``finops-mesh``) work by
+    bare name. A task owned by another org resolves only when it is public or
+    owned by you; otherwise qualify it as ``<org>/<name>``.
 
     Use ``--input name=value`` repeatedly to bind template variables (values
     are JSON-decoded when possible, falling back to plain strings).
@@ -245,7 +277,7 @@ def create(
     if env_models is not None:
         body["model_overrides"] = env_models
 
-    payload = api.create_environment(profile.org_key, profile.workspace_key, body)
+    payload = _create_env_with_hint(api, profile.org_key, profile.workspace_key, body, task_ref)
     env_id = str(payload.get("id", ""))
 
     if wait and env_id:

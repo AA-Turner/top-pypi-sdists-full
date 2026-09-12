@@ -1,16 +1,15 @@
-//! Live smoke tests against the real Mergify API. Port of
-//! `func-tests/test_live_smoke.py` + `func-tests/conftest.py`.
+//! Live smoke tests against the real Mergify API.
 //!
 //! Each test fires when the real API's URL, auth, or wire format
 //! diverges from what the CLI expects. API-hitting tests skip
 //! (early-return with a `SKIP:` line) unless their token
-//! (`LIVE_TEST_MERGIFY_TOKEN_CI` or `_ADMIN`) is set in the env;
-//! locally-evaluated tests run unconditionally. Driven by
-//! `.github/workflows/func-tests-live.yaml` on every PR.
+//! (`LIVE_TEST_MERGIFY_TOKEN_CI` or `LIVE_TEST_MERGIFY_TOKEN_ADMIN`)
+//! is set in the env. Locally-evaluated tests run unconditionally.
+//! Driven by `.github/workflows/func-tests-live.yaml` on every PR.
 //!
-//! Implementation deliberately mirrors the Python version 1:1 —
-//! same scrubbed env list, same assertion messages, same fixture
-//! shape — so the port can't drift the contract by accident.
+//! Tests are grouped by the credential they need, under a banner
+//! per group — a test's banner is the index of which secret it
+//! consumes, so keep a test under the one matching its helper.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -23,13 +22,13 @@ const API_URL: &str = "https://api.mergify.com";
 const REPOSITORY: &str = "mergify-clients-testing/mergify-cli-repo";
 const PULL_REQUEST: &str = "1";
 
-/// CLI invocation timeout. Mirrors Python `subprocess.run(timeout=30)`.
+/// CLI invocation timeout.
 const CLI_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Env vars the CLI auto-detects from the surrounding CI runner.
 /// Scrub them so a developer running tests inside GitHub Actions
 /// or Buildkite doesn't get different behavior than a clean
-/// laptop run. Mirrors `conftest.py::_CI_ENV_VARS`.
+/// laptop run.
 const CI_ENV_VARS: &[&str] = &[
     "CI",
     "GITHUB_ACTIONS",
@@ -63,7 +62,7 @@ struct CliResult {
 impl CliResult {
     /// Combined stream for grep-style assertions where the message
     /// could land on either stdout or stderr depending on the
-    /// command. Matches Python `result.stdout + result.stderr`.
+    /// command.
     fn combined(&self) -> String {
         format!("{}{}", self.stdout, self.stderr)
     }
@@ -84,10 +83,9 @@ fn mergify_binary() -> &'static Path {
 
 /// Run `mergify <args>` with a scrubbed env and a fresh tmp cwd.
 ///
-/// Mirrors Python `conftest.py::cli` exactly: closes stdin so an
-/// accidental interactive prompt fails fast instead of blocking;
-/// caps wall-clock at [`CLI_TIMEOUT`] so a pathological hang
-/// doesn't drag the CI matrix down with it.
+/// Closes stdin so an accidental interactive prompt fails fast
+/// instead of blocking. Caps wall-clock at [`CLI_TIMEOUT`] so a
+/// pathological hang doesn't drag the CI matrix down with it.
 ///
 /// **Concurrency.** Cargo's stock test harness runs every
 /// `#[test]` in this binary in a single process across a thread
@@ -187,10 +185,10 @@ fn wait_timeout(
     }
 }
 
-/// Look up `LIVE_TEST_MERGIFY_TOKEN_CI`. Mirrors Python
-/// `live_token` fixture — empty / unset = skip the test (early
-/// return with `SKIP:` printed to stderr so the cargo test log
-/// shows what was skipped).
+/// Look up `LIVE_TEST_MERGIFY_TOKEN_CI`, the key scoped to what a
+/// CI job does. Empty / unset = skip the test (early return with
+/// `SKIP:` printed to stderr so the cargo test log shows what was
+/// skipped).
 fn live_token() -> Option<String> {
     let token = std::env::var("LIVE_TEST_MERGIFY_TOKEN_CI")
         .unwrap_or_default()
@@ -199,16 +197,42 @@ fn live_token() -> Option<String> {
     (!token.is_empty()).then_some(token)
 }
 
-/// Token for queue-admin endpoints (pause/unpause, freeze CRUD,
-/// queue status/show). Separated from [`live_token`] because the
-/// CI-scoped token is rejected with 403 by the queue-management
-/// family — keeping the CI token narrow is intentional.
+/// Token for endpoints the CI-scoped key cannot reach: the
+/// queue-management family (pause/unpause, freeze CRUD, queue
+/// status/show) and CI-Insights test reads. Separated from
+/// [`live_token`] because the CI-scoped token is answered with 403
+/// by both — the narrow CI key is the intended design, so a 403
+/// here is a test on the wrong token, never a key to widen.
+///
+/// Covers `search/tests` only. `tests/{test_id}` is narrowed the
+/// same way but no live test reaches it: the one `tests show` case
+/// queries a name that cannot match, which returns before the
+/// details fetch. A rename or wire-format drift on that route
+/// still ships green.
 fn live_admin_token() -> Option<String> {
     let token = std::env::var("LIVE_TEST_MERGIFY_TOKEN_ADMIN")
         .unwrap_or_default()
         .trim()
         .to_string();
     (!token.is_empty()).then_some(token)
+}
+
+/// 8 random hex-ish chars, so concurrent or repeated runs never
+/// fight over the same row on the shared canary repository.
+/// `tempfile`'s name generation is already a dependency and draws
+/// from `getrandom`, so it saves pulling in a uuid crate for this.
+fn unique_suffix() -> String {
+    let dir = tempfile::tempdir().expect("tempdir for entropy");
+    let name = dir
+        .path()
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("00000000")
+        .to_string();
+    // tempdir names are like ".tmpXXXXXX" — take a tail slice so
+    // the literal prefix is not included.
+    let tail: String = name.chars().rev().take(8).collect();
+    tail.chars().rev().collect::<String>()
 }
 
 /// Helper for "early-return on missing token". Cargo's stock
@@ -503,25 +527,8 @@ fn freeze_create_update_delete_roundtrip() {
     let token = skip_if_unset!(live_admin_token());
 
     // Unique reason so concurrent or repeated runs don't fight
-    // over the same row. The Python suite uses
-    // `uuid.uuid4().hex[:8]`; reproduce that entropy with
-    // `tempfile`'s name-generation (32 hex chars from
-    // `getrandom`), truncated to 8.
-    let suffix = {
-        let dir = tempfile::tempdir().expect("tempdir for entropy");
-        let name = dir
-            .path()
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or("00000000")
-            .to_string();
-        // tempdir names are like ".tmpXXXXXX" or "tmpXXXXXX" with
-        // ~6+ random chars after the prefix. Take a tail slice so
-        // we don't include the literal prefix.
-        let tail: String = name.chars().rev().take(8).collect();
-        tail.chars().rev().collect::<String>()
-    };
-    let reason = format!("func-tests-live-smoke-{suffix}");
+    // over the same row.
+    let reason = format!("func-tests-live-smoke-{}", unique_suffix());
 
     let create = cli(&[
         "freeze",
@@ -599,6 +606,184 @@ fn freeze_create_update_delete_roundtrip() {
         update.context()
     );
     // Guard runs here.
+}
+
+// ---------------------------------------------------------------
+// CI-Insights tests family (admin token).
+// ---------------------------------------------------------------
+
+#[test]
+fn tests_show_no_match() {
+    // `GET /v1/ci/{owner}/repositories/{repo}/search/tests`
+    // round-trip. Queries a guaranteed-nonexistent name so the
+    // test is independent of whatever live test data the canary
+    // repository currently holds. A green run proves auth, URL
+    // routing, and JSON deserialization for the search endpoint
+    // — the empty-match path returns exit 0 with a
+    // `{"tests": []}` payload on stdout.
+    let token = skip_if_unset!(live_admin_token());
+
+    let result = cli(&[
+        "tests",
+        "show",
+        "--api-url",
+        API_URL,
+        "--token",
+        &token,
+        "--repository",
+        REPOSITORY,
+        "--json",
+        "__mergify_cli_smoke_no_such_test__",
+    ]);
+    assert_eq!(
+        result.returncode,
+        0,
+        "tests show failed{}",
+        result.context()
+    );
+    let payload: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
+        panic!(
+            "tests show --json emitted non-JSON output\nerror: {e}\nstdout:\n{}",
+            result.stdout
+        )
+    });
+    assert_eq!(
+        payload,
+        serde_json::json!({"tests": []}),
+        "expected empty `tests` list for nonexistent test name, got:\n{}",
+        result.stdout
+    );
+}
+
+/// RAII cleanup for `tests_quarantine_add_remove_roundtrip` —
+/// runs `quarantines remove` from `Drop` so a failed assertion
+/// mid-test still leaves the canary repository clean. Same
+/// warn-don't-panic posture as [`DeleteFreezeOnDrop`]: panicking
+/// in `Drop` during an unwind aborts the process and buries the
+/// real assertion message.
+struct RemoveQuarantineOnDrop<'a> {
+    token: &'a str,
+    test_name: &'a str,
+}
+impl Drop for RemoveQuarantineOnDrop<'_> {
+    fn drop(&mut self) {
+        let remove = cli(&[
+            "tests",
+            "quarantines",
+            "remove",
+            "--api-url",
+            API_URL,
+            "--token",
+            self.token,
+            "--repository",
+            REPOSITORY,
+            self.test_name,
+        ]);
+        // Two outcomes leave the repository clean: exit 0, when
+        // the body failed before its own remove, and the happy
+        // path's exit 6 — `MergifyApiError` — carrying
+        // `not_found`'s `'<name>' is not quarantined`, because the
+        // body already removed the row.
+        //
+        // Both halves are load-bearing. Exit 6 alone is every
+        // Mergify API error, a 403 on a narrowed scope included;
+        // the message alone would swallow any failure whose text
+        // happens to contain that phrase. Anything else is a
+        // cleanup that did not happen, and the row is still there.
+        let already_gone = remove.returncode
+            == i32::from(mergify_core::ExitCode::MergifyApiError.as_u8())
+            && remove.combined().contains("is not quarantined");
+        if remove.returncode != 0 && !already_gone {
+            eprintln!("WARNING: quarantine cleanup failed{}", remove.context());
+        }
+    }
+}
+
+#[test]
+fn tests_quarantine_add_remove_roundtrip() {
+    // `POST` + `DELETE` round-trip on
+    // `/v1/ci/{owner}/repositories/{repo}/quarantines`.
+    //
+    // MRGFY-9001 dropped `ci_application_key` from both of these
+    // alongside `search/tests`, and nothing here noticed, because
+    // the quarantine mutations had no live coverage at all — the
+    // wiremock tests in `tests_quarantine.rs` cannot see a scope
+    // change, since a mock server never authenticates. This is
+    // that canary: it fires on an auth, URL or wire-format change
+    // to either endpoint.
+    //
+    // Quarantines a name no real suite reports, so the entry can
+    // never suppress a genuine failure on the canary repository
+    // even if cleanup is skipped entirely.
+    let token = skip_if_unset!(live_admin_token());
+
+    let test_name = format!("__mergify_cli_smoke_quarantine_{}__", unique_suffix());
+    let reason = "func-tests-live-smoke";
+
+    let add = cli(&[
+        "tests",
+        "quarantines",
+        "add",
+        "--api-url",
+        API_URL,
+        "--token",
+        &token,
+        "--repository",
+        REPOSITORY,
+        "--reason",
+        reason,
+        "--json",
+        &test_name,
+    ]);
+    assert_eq!(add.returncode, 0, "quarantines add failed{}", add.context());
+
+    // Registered before the payload is parsed: an unparseable
+    // body still means the row was created server-side.
+    let _cleanup = RemoveQuarantineOnDrop {
+        token: &token,
+        test_name: &test_name,
+    };
+
+    let added: Value = serde_json::from_str(&add.stdout).unwrap_or_else(|e| {
+        panic!(
+            "quarantines add --json emitted non-JSON output\nerror: {e}\nstdout:\n{}",
+            add.stdout
+        )
+    });
+    assert_eq!(
+        added["test_name"],
+        serde_json::json!(test_name),
+        "add echoed a different test name\nstdout:\n{}",
+        add.stdout
+    );
+    assert!(
+        added["id"].as_str().is_some_and(|id| !id.is_empty()),
+        "add emitted no quarantine id\nstdout:\n{}",
+        add.stdout
+    );
+
+    // Remove by name, which is the path that resolves the id via
+    // the list endpoint — so one run covers both the `ci`-allowed
+    // read and the admin-only delete.
+    let remove = cli(&[
+        "tests",
+        "quarantines",
+        "remove",
+        "--api-url",
+        API_URL,
+        "--token",
+        &token,
+        "--repository",
+        REPOSITORY,
+        "--json",
+        &test_name,
+    ]);
+    assert_eq!(
+        remove.returncode,
+        0,
+        "quarantines remove failed{}",
+        remove.context()
+    );
 }
 
 // ---------------------------------------------------------------
@@ -686,8 +871,57 @@ fn ci_scopes_select_all_when_no_base() {
 // ---------------------------------------------------------------
 
 #[test]
+fn scopes_send_commit() {
+    // `PUT /v1/repos/{owner}/{repo}/commits/{sha}/scopes`, the route
+    // `scopes-send` takes whenever it can name the head.
+    //
+    // Worth its own live case precisely because the command falls back
+    // to the pull-request route on a 404: a misspelled path or an
+    // endpoint that never shipped would degrade silently and no
+    // offline test would notice. The SHA is arbitrary — the endpoint
+    // stores a report for a revision no open pull request heads, which
+    // it documents as a normal outcome — so this asserts auth and URL
+    // routing without depending on the canary repository's history.
+    let token = skip_if_unset!(live_token());
+
+    let result = cli(&[
+        "ci",
+        "scopes-send",
+        "--api-url",
+        API_URL,
+        "--token",
+        &token,
+        "--repository",
+        REPOSITORY,
+        "--pull-request",
+        PULL_REQUEST,
+        "--head-sha",
+        "f00d5c0be5f00d5c0be5f00d5c0be5f00d5c0be5",
+        "--scope",
+        "func-tests-live-smoke",
+    ]);
+    assert_eq!(
+        result.returncode,
+        0,
+        "scopes-send --head-sha failed{}",
+        result.context()
+    );
+    // Exit 0 is also what a 404-and-fall-back produces, so the status
+    // alone would pass against the very absence this case exists to
+    // catch. The fallback narrates itself; require that it stayed quiet.
+    assert!(
+        !result
+            .stderr
+            .contains("commit scopes endpoint answered 404"),
+        "scopes-send fell back to the pull request route{}",
+        result.context()
+    );
+}
+
+#[test]
 fn scopes_send() {
-    // `POST /v1/repos/{owner}/{repo}/pulls/{n}/scopes`.
+    // `POST /v1/repos/{owner}/{repo}/pulls/{n}/scopes` — the fallback
+    // route, taken when no head SHA can be named.
     let token = skip_if_unset!(live_token());
 
     let result = cli(&[
@@ -709,49 +943,6 @@ fn scopes_send() {
         0,
         "scopes-send failed{}",
         result.context()
-    );
-}
-
-#[test]
-fn tests_show_no_match() {
-    // `GET /v1/ci/{owner}/repositories/{repo}/search/tests`
-    // round-trip. Queries a guaranteed-nonexistent name so the
-    // test is independent of whatever live test data the canary
-    // repository currently holds. A green run proves auth, URL
-    // routing, and JSON deserialization for the search endpoint
-    // — the empty-match path returns exit 0 with a
-    // `{"tests": []}` payload on stdout.
-    let token = skip_if_unset!(live_token());
-
-    let result = cli(&[
-        "tests",
-        "show",
-        "--api-url",
-        API_URL,
-        "--token",
-        &token,
-        "--repository",
-        REPOSITORY,
-        "--json",
-        "__mergify_cli_smoke_no_such_test__",
-    ]);
-    assert_eq!(
-        result.returncode,
-        0,
-        "tests show failed{}",
-        result.context()
-    );
-    let payload: Value = serde_json::from_str(&result.stdout).unwrap_or_else(|e| {
-        panic!(
-            "tests show --json emitted non-JSON output\nerror: {e}\nstdout:\n{}",
-            result.stdout
-        )
-    });
-    assert_eq!(
-        payload,
-        serde_json::json!({"tests": []}),
-        "expected empty `tests` list for nonexistent test name, got:\n{}",
-        result.stdout
     );
 }
 

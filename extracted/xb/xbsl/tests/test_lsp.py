@@ -1,5 +1,7 @@
 """LSP server helpers: the word under the cursor, parameter parsing, the hover cards."""
 
+import argparse
+
 import pytest
 
 from xbsl import lsp
@@ -359,3 +361,177 @@ def test_project_sources_match_what_the_cli_collects(tmp_path):
 
     assert "ТоварыТаблица.xbql" in got
     assert got == {p.name for p in discover([str(tmp_path)])}
+
+
+# --- the rule set of the CI job, in the editor ---------------------------------------------------
+
+
+def _ci_args(**kwargs) -> argparse.Namespace:
+    base = {"project_root": None, "as_ci": "", "as_ci_job": None, "baseline": None}
+    return argparse.Namespace(**{**base, **kwargs})
+
+
+def _restore_state():
+    """The server state is a module singleton - a test must give it back as it found it."""
+    saved = (lsp.STATE.select, lsp.STATE.ignore, lsp.STATE.enable, lsp.STATE.baseline_arg,
+             lsp.STATE.ci)
+
+    def undo():
+        (lsp.STATE.select, lsp.STATE.ignore,
+         lsp.STATE.enable, lsp.STATE.baseline_arg, lsp.STATE.ci) = saved
+    return undo
+
+
+def test_the_editor_judges_by_the_rule_set_of_the_ci_job(tmp_path, monkeypatch, capsys):
+    """The panel used to judge by the defaults while the merge request was gated by the job."""
+    (tmp_path / ".gitlab-ci.yml").write_text(
+        "xbsl-lint:\n  script:\n"
+        "    - xbsl src --enable code/unused-method --baseline .xbsllint-baseline\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = lsp.STATE.enable = None
+        lsp.STATE.baseline_arg = None
+        lsp._adopt_ci(_ci_args())
+
+        assert lsp.STATE.enable == {"code/unused-method"}
+        assert lsp.STATE.baseline_arg == str(tmp_path / ".xbsllint-baseline")
+        assert "xbsl-lint" in capsys.readouterr().err  # the server says what it took
+    finally:
+        undo()
+
+
+def test_the_settings_own_rules_stay_on_top_of_the_job(tmp_path, monkeypatch):
+    """A rule being tried out in the editor is not lost to the pipeline's set."""
+    (tmp_path / ".gitlab-ci.yml").write_text(
+        "lint:\n  script:\n    - xbsl src --enable code/unused-method\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = None
+        lsp.STATE.enable = {"typography/yo-in-text"}
+        lsp.STATE.baseline_arg = None
+        lsp._adopt_ci(_ci_args())
+
+        assert lsp.STATE.enable == {"typography/yo-in-text", "code/unused-method"}
+    finally:
+        undo()
+
+
+def test_the_named_job_is_the_one_the_editor_takes(tmp_path, monkeypatch):
+    """A pipeline that checks a second tree runs the linter twice, by two different sets."""
+    (tmp_path / ".gitlab-ci.yml").write_text(
+        "xbsl-lint:\n  script:\n    - xbsl src --baseline .xbsllint-baseline\n"
+        "English to S3:\n  script:\n"
+        "    - xbsl build/en --no-baseline --ignore code/undefined-name\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = lsp.STATE.enable = None
+        lsp.STATE.baseline_arg = None
+        lsp._adopt_ci(_ci_args(as_ci=None, as_ci_job="english"))
+
+        assert lsp.STATE.ignore == {"code/undefined-name"}
+        # the job trusts nothing frozen - the editor must not mute what the pipeline reports
+        assert lsp.STATE.baseline_arg is None
+    finally:
+        undo()
+
+
+def test_a_project_without_a_pipeline_keeps_editing_alive(tmp_path, monkeypatch, capsys):
+    """The CLI refuses and loses one run; a refusal here would lose the whole session."""
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = None
+        lsp.STATE.enable = {"typography/yo-in-text"}
+        lsp.STATE.baseline_arg = "own-baseline"
+        lsp._adopt_ci(_ci_args())
+
+        assert lsp.STATE.enable == {"typography/yo-in-text"}  # the settings' set stands
+        assert lsp.STATE.baseline_arg == "own-baseline"
+        assert ".gitlab-ci.yml" in capsys.readouterr().err  # ...and the reason is said out loud
+    finally:
+        undo()
+
+
+def test_the_server_answers_which_job_it_judges_by(tmp_path, monkeypatch, capsys):
+    """The editor's only trace of the adoption was a line in the output channel.
+
+    Nobody reads that channel while judging a finding, so the request exists: the status bar
+    asks the server what came of `--as-ci` and says it where the verdict is looked at.
+    """
+    (tmp_path / ".gitlab-ci.yml").write_text("include: ci/lint.yml\n", encoding="utf-8")
+    (tmp_path / "ci").mkdir()
+    (tmp_path / "ci" / "lint.yml").write_text(
+        "xbsl-lint:\n  script:\n    - xbsl src --enable code/unused-method\n"
+        "English to S3:\n  script:\n    - xbsl build/en --no-baseline\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = lsp.STATE.enable = None
+        lsp.STATE.baseline_arg = None
+        lsp._adopt_ci(_ci_args())
+        capsys.readouterr()
+
+        answer = _server_on(tmp_path)["xbsl/ciStatus"](None)
+
+        assert answer["enabled"] and answer["adopted"]
+        assert answer["job"] == "xbsl-lint"
+        assert answer["file"] == str(tmp_path / ".gitlab-ci.yml")
+        assert answer["source"] == str(tmp_path / "ci" / "lint.yml")  # what to open
+        assert answer["jobs"] == ["English to S3"]
+        assert "xbsl-lint" in answer["line"] and "--as-ci-job" in answer["hint"]
+    finally:
+        undo()
+
+
+def test_the_server_says_when_the_job_set_was_not_taken(tmp_path, monkeypatch, capsys):
+    """The silent half of the fallback: the panel judges by the settings, and says so."""
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = lsp.STATE.enable = None
+        lsp.STATE.baseline_arg = None
+        lsp._adopt_ci(_ci_args())
+        capsys.readouterr()
+
+        answer = _server_on(tmp_path)["xbsl/ciStatus"](None)
+
+        assert answer["enabled"] and not answer["adopted"]
+        assert ".gitlab-ci.yml" in answer["error"]  # the reason, in the server's own words
+    finally:
+        undo()
+
+
+def test_a_server_never_asked_for_the_parity_answers_that_it_is_off(tmp_path):
+    """Nothing was requested, nothing is shown - the indicator stays out of the way."""
+    undo = _restore_state()
+    try:
+        lsp.STATE.ci = None
+
+        answer = _server_on(tmp_path)["xbsl/ciStatus"](None)
+
+        assert answer == {"enabled": False, "adopted": False}
+    finally:
+        undo()
+
+
+def test_an_explicit_baseline_outranks_the_job(tmp_path, monkeypatch):
+    """The editor's own baseline file is the one the exclusion action just wrote."""
+    (tmp_path / ".gitlab-ci.yml").write_text(
+        "lint:\n  script:\n    - xbsl src --baseline ci-baseline\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    undo = _restore_state()
+    try:
+        lsp.STATE.select = lsp.STATE.ignore = lsp.STATE.enable = None
+        lsp.STATE.baseline_arg = "mine"
+        lsp._adopt_ci(_ci_args(baseline="mine"))
+
+        assert lsp.STATE.baseline_arg == "mine"
+    finally:
+        undo()

@@ -6,11 +6,14 @@ Test script to verify that the resource management improvements work correctly.
 import gc
 import sys
 import weakref
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 from timezonefinder import TimezoneFinder, TimezoneFinderL
+from timezonefinder import timezonefinder as timezonefinder_module
+from timezonefinder.block_payload import PAYLOAD_WORD_DTYPE
 from timezonefinder.coord_accessors import FileCoordAccessor
 from timezonefinder.flatbuf.io.polygons import get_coordinate_path
 from timezonefinder.utils import close_resource, get_boundaries_dir
@@ -101,34 +104,52 @@ class TestNumpyViewOutlivesAccessor:
         finally:
             accessor.cleanup()
 
-    def test_returned_array_rows_are_contiguous(self):
-        """Coordinates are stored one axis at a time, so each row is a dense block.
+    def test_returned_payload_is_contiguous(self):
+        """A ring's payload is a dense run of words inside the collection's buffer.
 
-        Both acceleration backends depend on it: the C extension rejects a strided row
-        outright, and the Numba kernel's eager signature is C-ordered. A view whose rows
-        went back to being strided would reintroduce a per-call copy silently.
+        Both acceleration backends depend on it: the C extension rejects a strided
+        buffer outright, and the Numba kernel's eager signature is C-ordered. A view
+        that went back to being strided would reintroduce a per-call copy silently.
         """
         accessor = self._accessor()
         try:
-            coords = accessor[0]
-            assert coords.dtype == np.int32
-            assert coords.flags["C_CONTIGUOUS"]
-            assert coords[0].flags["C_CONTIGUOUS"]
-            assert coords[1].flags["C_CONTIGUOUS"]
+            payload = accessor[0]
+            assert payload.dtype == PAYLOAD_WORD_DTYPE
+            assert payload.flags["C_CONTIGUOUS"]
+            assert accessor.words.flags["C_CONTIGUOUS"]
         finally:
-            del coords
+            del payload
             accessor.cleanup()
 
     def test_cleanup_with_live_view_does_not_raise(self):
         """Explicit cleanup() must not propagate the BufferError from mmap.close()."""
         accessor = self._accessor()
-        coords = accessor[0]  # keeps a view onto the mmap alive
+        payload = accessor[0]  # keeps a view onto the mmap alive
 
         accessor.cleanup()  # used to raise BufferError
 
         # the view is still valid: suppressing the error kept the mapping alive
-        assert coords.shape[0] == 2
-        assert coords.size > 0
+        assert payload.ndim == 1
+        assert payload.size > 0
+
+    def test_cleanup_closes_the_mapping_when_no_caller_holds_a_view(self):
+        """The ordinary case must unmap deterministically, not defer to collection.
+
+        The accessor holds a whole-file word view of its own (``words``), which is an
+        export of the mmap exactly as a payload view is. Dropped after the close is
+        attempted, it makes ``mmap.close()`` refuse on *every* cleanup - a BufferError
+        ``close_resource`` swallows, leaving the mapping open until the accessor is
+        collected. Nothing else fails when that happens, which is why it is asserted
+        here: the close is only allowed to be refused when a caller's view is alive.
+        """
+        accessor = self._accessor()
+        coord_buf = accessor.coord_buf
+
+        accessor.cleanup()
+
+        assert coord_buf.closed, (
+            "cleanup() left the mapping open with no caller view alive"
+        )
 
     def test_cleanup_releases_mapping_once_the_view_is_dropped(self):
         """A refused close must only defer the unmapping, not pin it to the accessor.
@@ -200,10 +221,10 @@ class TestNumpyViewOutlivesAccessor:
 def test_shortcut_arrays_do_not_pin_the_file_buffer(hybrid_shortcuts):
     """The opposite contract to ``TestNumpyViewOutlivesAccessor`` above.
 
-    Polygon coordinates are deliberately views onto the memory map. Shortcut poly id
-    arrays must *not* be views onto the shortcut file's ``bytes``: the reader used to
-    hand out ``np.frombuffer`` views, so ~47 KB of live poly ids pinned the whole
-    ~1.5 MB binary for the lifetime of every finder instance.
+    Polygon coordinates are deliberately views onto the memory map. A cell's candidate
+    polygon ids must *not* be views onto the shortcut file's ``bytes``: an earlier reader
+    handed those out, so a few tens of KB of live ids pinned the whole binary for the
+    lifetime of every finder instance.
     """
 
     def owner_of(arr: np.ndarray) -> object:
@@ -218,12 +239,212 @@ def test_shortcut_arrays_do_not_pin_the_file_buffer(hybrid_shortcuts):
     assert len(owners) == 1, f"expected one shared buffer, got {len(owners)}"
     (owner,) = owners.values()
     # what the owner *is* does not matter - its size does. The whole file would satisfy
-    # every other assertion here, and is what this used to hand out.
+    # every other assertion here, and is what this used to hand out. It is *smaller* than
+    # the slices referencing it because identical candidate lists are stored once, so
+    # several cells point into one range.
     retained = owner.nbytes if isinstance(owner, np.ndarray) else len(owner)
-    assert retained == sum(arr.nbytes for arr in arrays), (
+    assert retained <= sum(arr.nbytes for arr in arrays), (
         f"the {retained} B buffer behind the poly ids retains more than the "
         f"{sum(arr.nbytes for arr in arrays)} B referencing it"
     )
     assert not any(arr.flags["WRITEABLE"] for arr in arrays), (
-        "shared backing array must not be writeable through its slices"
+        "shared backing array must not be writeable through its slices - cells with "
+        "identical candidate lists share one range of it"
     )
+
+
+@pytest.mark.unit
+class TestFinderReleasesItsMappings:
+    """``cleanup()`` and ``__exit__`` must actually release the coordinate files.
+
+    They used to release nothing at all: ``cleanup()`` handed each polygon array to
+    ``close_resource``, which calls ``close()`` -- a method neither array has ever had.
+    The resulting ``AttributeError`` was suppressed as an expected close failure, so
+    both mapped files stayed open until the finder was garbage collected.
+    """
+
+    def test_finder_cleanup_closes_the_mapping(self):
+        """Both mapped coordinate files are closed by the time cleanup() returns.
+
+        This also pins ``PolygonArray.cleanup``'s ordering, which nothing else does:
+        the wrapped kernel buffers in ``packed`` export the accessor's ``words``, so
+        releasing the accessor before dropping them puts a live export at the close,
+        ``mmap.close()`` refuses, and both assertions below fail.
+        """
+        finder = TimezoneFinder(in_memory=False)
+        finder.timezone_at(lng=13.4, lat=52.5)
+        # held before cleanup(), which deletes the attributes naming them
+        mappings = [finder.boundaries.coordinates, finder.holes.coordinates]
+        buffers = [(a.coord_buf, a.coord_file) for a in mappings]
+        del mappings
+
+        finder.cleanup()
+
+        for coord_buf, coord_file in buffers:
+            assert coord_buf.closed, "coordinate mapping left open"
+            assert coord_file.closed, "coordinate file left open"
+
+    def test_context_manager_releases_on_exit(self):
+        """The seam whose whole purpose is deterministic release."""
+        finder = TimezoneFinder(in_memory=False)
+        with finder as entered_finder:
+            assert entered_finder is finder
+            finder.timezone_at(lng=13.4, lat=52.5)
+            coord_buf = finder.boundaries.coordinates.coord_buf
+
+        assert coord_buf.closed
+
+    def test_context_manager_releases_on_exception_without_suppressing_it(self):
+        """A failed operation still releases its mapping and keeps its exception."""
+        finder = TimezoneFinder(in_memory=False)
+        coord_buf = finder.boundaries.coordinates.coord_buf
+
+        with pytest.raises(RuntimeError, match="lookup failed"):
+            with finder:
+                raise RuntimeError("lookup failed")
+
+        assert coord_buf.closed
+
+    def test_lightweight_finder_supports_the_shared_context_contract(self):
+        """The base-class lifecycle is uniform even when there is nothing to unmap."""
+        finder = TimezoneFinderL()
+
+        with finder as entered_finder:
+            assert entered_finder is finder
+            assert finder.timezone_at(lng=13.4, lat=52.5) == "Europe/Berlin"
+
+        assert not hasattr(finder, "boundaries")
+
+    @pytest.mark.parametrize("in_memory", [False, True])
+    def test_cleanup_is_idempotent_and_leaves_no_unraisable(self, in_memory):
+        """``__del__`` calls cleanup() again after an explicit one, in both modes."""
+        finder = TimezoneFinder(in_memory=in_memory)
+        finder.timezone_at(lng=13.4, lat=52.5)
+
+        # Installed before the *first* cleanup(), not after it. The accessor's __del__
+        # fires inside that call - dropping `coordinates` releases the last reference -
+        # so a cleanup() that is not idempotent reports its AttributeError there, and a
+        # hook installed later never sees it.
+        unraisable = []
+        original_hook = sys.unraisablehook
+        sys.unraisablehook = unraisable.append
+        try:
+            finder.cleanup()
+            finder.cleanup()
+            del finder
+            gc.collect()
+        finally:
+            sys.unraisablehook = original_hook
+        assert not unraisable, (
+            f"exception escaped teardown: {unraisable[0].exc_value!r}"
+        )
+
+    def test_lightweight_finder_without_polygons_cleans_up(self):
+        """``TimezoneFinderL`` loads no polygon data, so it has neither array."""
+        finder = TimezoneFinderL()
+        finder.timezone_at(lng=13.4, lat=52.5)
+        finder.cleanup()  # must not raise
+        assert not hasattr(finder, "boundaries")
+
+    def test_finder_is_unusable_after_cleanup(self):
+        """The documented contract, now enforced through the public class.
+
+        Pinned because it is the side this change trades away: the old no-op left a
+        cleaned-up finder fully able to answer.
+        """
+        finder = TimezoneFinder(in_memory=False)
+        assert finder.get_geometry(tz_name="Europe/Berlin")
+        finder.cleanup()
+
+        # a lookup answered by the h3 index alone reads no geometry, so ask for the
+        # geometry itself rather than pinning which coordinates happen to reach it
+        with pytest.raises(AttributeError):
+            finder.get_geometry(tz_name="Europe/Berlin")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("in_memory", [False, True])
+def test_loaded_dataset_arrays_are_read_only(in_memory):
+    """Publicly reachable dataset state must not be mutable by accident.
+
+    These arrays feed later lookups directly. An assignment used to succeed and silently
+    changed their answers; the coordinate arrays were already read-only because their
+    backing bytes are immutable, so include them to pin one contract across both storage
+    modes.
+    """
+    with TimezoneFinder(in_memory=in_memory) as finder:
+        arrays = {
+            "zone_ids": finder.zone_ids,
+            **{
+                f"shortcuts.{name}": getattr(finder.shortcuts, name)
+                for name in ("table", "starts", "ends", "last_change", "payload")
+            },
+            **{
+                f"boundaries.{name}": getattr(finder.boundaries, name)
+                for name in ("xmin", "xmax", "ymin", "ymax")
+            },
+            **{
+                f"holes.{name}": getattr(finder.holes, name)
+                for name in ("xmin", "xmax", "ymin", "ymax", "poly_ref")
+            },
+            "boundary coordinates": finder.boundaries.coords_of(0),
+            "hole coordinates": finder.holes.coords_of(0),
+        }
+        if not in_memory:
+            arrays.update(
+                {
+                    "boundary payload offsets": (
+                        finder.boundaries.coordinates.word_offsets
+                    ),
+                    "boundary payload lengths": (
+                        finder.boundaries.coordinates.word_lengths
+                    ),
+                    "hole payload offsets": finder.holes.coordinates.word_offsets,
+                    "hole payload lengths": finder.holes.coordinates.word_lengths,
+                }
+            )
+
+        # Materialise the lazy names gather too: it is runtime dataset state, while the
+        # array returned by a public batch lookup remains a fresh, writeable result.
+        finder.zone_names.names_of(np.zeros(128, dtype=np.int32))
+        assert finder.zone_names._gather_lookup is not None
+        arrays["zone-name gather"] = finder.zone_names._gather_lookup
+
+        # the zone start positions are read by the first caller that needs them
+        list(finder._iter_boundary_ids_of_zone(0))
+        assert finder._zone_positions is not None
+        arrays["zone positions"] = finder._zone_positions
+
+        for name, array in arrays.items():
+            assert not array.flags.writeable, name
+            with pytest.raises(ValueError, match="read-only"):
+                array.flat[0] = array.flat[0]
+
+
+@pytest.mark.unit
+def test_zone_positions_are_read_once_and_not_at_construction(monkeypatch):
+    """The zone start positions are dataset state, read on first use and then kept.
+
+    Both halves matter and neither is visible in an answer. Reading them in
+    ``__init__`` would charge every construction for an array only
+    ``certain_timezone_at`` and ``get_geometry`` address, which the ``timezone_at``
+    majority never calls; re-reading them per call - which is what the lazy comment
+    used to mean - paid a file open, a header parse and a mapping for 890 immutable
+    bytes on every one of those calls.
+    """
+    reads = []
+    original = timezonefinder_module.read_per_polygon_vector
+
+    def counting_read(file_path):
+        reads.append(Path(file_path).name)
+        return original(file_path)
+
+    monkeypatch.setattr(timezonefinder_module, "read_per_polygon_vector", counting_read)
+
+    with TimezoneFinder() as finder:
+        assert "zone_positions.npy" not in reads, (
+            "construction must not read an array most instances never use"
+        )
+        for _ in range(3):
+            assert list(finder._iter_boundary_ids_of_zone(0))
+        assert reads.count("zone_positions.npy") == 1

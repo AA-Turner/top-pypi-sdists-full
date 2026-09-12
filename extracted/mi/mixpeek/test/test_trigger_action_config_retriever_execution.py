@@ -51,10 +51,11 @@ class TestTriggerActionConfigRetrieverExecution(unittest.TestCase):
                     judge_field = '', 
                     min_pass_ratio = 0.0, ),
                 notification_config = mixpeek.models.retriever_canary_notification_config.RetrieverCanaryNotificationConfig(
+                    include_internal_diagnostics = True, 
                     channels = [
                         { }
                         ], 
-                    notify_on = 'failure', )
+                    notify_on = 'change', )
             )
         else:
             return TriggerActionConfigRetrieverExecution(

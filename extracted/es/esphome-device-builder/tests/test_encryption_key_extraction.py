@@ -23,8 +23,10 @@ from esphome_device_builder.helpers.device_yaml import (
     get_ota_encryption_key,
     get_resolved_api_encryption_key,
     get_resolved_encryption_key,
+    get_resolved_ota_encryption_key,
     has_top_level_block,
     load_device_yaml,
+    ota_encryption_block_unresolved,
 )
 from esphome_device_builder.helpers.device_yaml._parsing import (
     resolved_ota_has_encryption,
@@ -112,6 +114,21 @@ def test_get_resolved_encryption_key_falls_back_to_ota() -> None:
     assert get_resolved_encryption_key(config) == "ota=="
     unresolved_api = {"api": {"encryption": {"key": "${missing}"}}, **config}
     assert get_resolved_encryption_key(unresolved_api) == "ota=="
+
+
+def test_ota_encryption_block_unresolved() -> None:
+    substituted = {"ota": [{"platform": "esphome", "encryption": "${enc}"}]}
+    assert ota_encryption_block_unresolved(substituted) is True
+    assert ota_encryption_block_unresolved({"ota": [{"platform": "esphome"}]}) is False
+    assert ota_encryption_block_unresolved({"ota": [{"encryption": {"key": "k"}}]}) is False
+    assert ota_encryption_block_unresolved(None) is False
+
+
+def test_get_resolved_ota_encryption_key_ignores_the_api_key() -> None:
+    config = {"api": {"encryption": {"key": "api=="}}, "ota": [{"platform": "esphome"}]}
+    assert get_resolved_ota_encryption_key(config) == ""
+    config["ota"][0]["encryption"] = {"key": "ota=="}
+    assert get_resolved_ota_encryption_key(config) == "ota=="
 
 
 def test_get_resolved_encryption_key_expands_ota_substitution() -> None:

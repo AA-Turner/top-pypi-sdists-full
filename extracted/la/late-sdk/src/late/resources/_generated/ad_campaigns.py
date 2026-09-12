@@ -349,6 +349,16 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/bidding", params=params
         )
 
+    def get_ad_campaign_details(
+        self, campaign_id: str, account_id: str, *, fields: str | None = None
+    ) -> dict[str, Any]:
+        """Get live campaign details"""
+        params = self._build_params(
+            account_id=account_id,
+            fields=fields,
+        )
+        return self._client._get(f"/v1/ads/campaigns/{campaign_id}", params=params)
+
     def update_ad_campaign(
         self,
         campaign_id: str,
@@ -695,14 +705,9 @@ class AdCampaignsResource:
         )
         return self._client._get("/v1/ads/timeline", params=params)
 
-    def get_ad(
-        self, ad_id: str, *, refresh_promotion: bool | None = False
-    ) -> dict[str, Any]:
+    def get_ad(self, ad_id: str) -> dict[str, Any]:
         """Get ad details"""
-        params = self._build_params(
-            refresh_promotion=refresh_promotion,
-        )
-        return self._client._get(f"/v1/ads/{ad_id}", params=params)
+        return self._client._get(f"/v1/ads/{ad_id}")
 
     def update_ad(
         self,
@@ -711,6 +716,7 @@ class AdCampaignsResource:
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
+        asset_group: Any | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -722,6 +728,7 @@ class AdCampaignsResource:
             headlines=headlines,
             descriptions=descriptions,
             final_urls=final_urls,
+            asset_group=asset_group,
             status=status,
             budget=budget,
             targeting=targeting,
@@ -1460,6 +1467,18 @@ class AdCampaignsResource:
             f"/v1/ads/campaigns/{campaign_id}/bidding", params=params
         )
 
+    async def aget_ad_campaign_details(
+        self, campaign_id: str, account_id: str, *, fields: str | None = None
+    ) -> dict[str, Any]:
+        """Get live campaign details (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            fields=fields,
+        )
+        return await self._client._aget(
+            f"/v1/ads/campaigns/{campaign_id}", params=params
+        )
+
     async def aupdate_ad_campaign(
         self,
         campaign_id: str,
@@ -1812,14 +1831,9 @@ class AdCampaignsResource:
         )
         return await self._client._aget("/v1/ads/timeline", params=params)
 
-    async def aget_ad(
-        self, ad_id: str, *, refresh_promotion: bool | None = False
-    ) -> dict[str, Any]:
+    async def aget_ad(self, ad_id: str) -> dict[str, Any]:
         """Get ad details (async)"""
-        params = self._build_params(
-            refresh_promotion=refresh_promotion,
-        )
-        return await self._client._aget(f"/v1/ads/{ad_id}", params=params)
+        return await self._client._aget(f"/v1/ads/{ad_id}")
 
     async def aupdate_ad(
         self,
@@ -1828,6 +1842,7 @@ class AdCampaignsResource:
         headlines: list[Any] | None = None,
         descriptions: list[Any] | None = None,
         final_urls: list[str] | None = None,
+        asset_group: Any | None = None,
         status: str | None = None,
         budget: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -1839,6 +1854,7 @@ class AdCampaignsResource:
             headlines=headlines,
             descriptions=descriptions,
             final_urls=final_urls,
+            asset_group=asset_group,
             status=status,
             budget=budget,
             targeting=targeting,

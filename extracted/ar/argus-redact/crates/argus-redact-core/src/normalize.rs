@@ -80,8 +80,239 @@ fn is_invisible(c: char) -> bool {
     if c < '\u{00ad}' {
         return false; // ASCII fast-path: no ignorable below U+00AD
     }
-    in_sorted_char_ranges(c, DEFAULT_IGNORABLE)
+    in_sorted_char_ranges(c, DEFAULT_IGNORABLE) || in_sorted_char_ranges(c, NON_DI_CF)
 }
+
+/// Format (`Cf`) characters that are NOT Default_Ignorable but are still
+/// invisible/zero-width enough to splice inside a token (Arabic number signs
+/// U+0600-0605/06DD, interlinear annotation U+FFF9-FFFB, Kaithi/Egyptian format
+/// controls, …). Stripped like DEFAULT_IGNORABLE so they cannot split a PII run.
+/// 25 code points / 9 ranges, UCD 14.0.0, sorted.
+const NON_DI_CF: &[(char, char)] = &[
+    ('\u{600}', '\u{605}'),
+    ('\u{6dd}', '\u{6dd}'),
+    ('\u{70f}', '\u{70f}'),
+    ('\u{890}', '\u{891}'),
+    ('\u{8e2}', '\u{8e2}'),
+    ('\u{fff9}', '\u{fffb}'),
+    ('\u{110bd}', '\u{110bd}'),
+    ('\u{110cd}', '\u{110cd}'),
+    ('\u{13430}', '\u{13438}'),
+];
+
+/// Combining marks the `canonical_combining_class(c) != 0` test misses: nonspacing
+/// marks with ccc==0 (`Mn`, e.g. Thai U+0E31, Malayalam U+0D00) and all enclosing
+/// marks (`Me`, e.g. U+20DD). Folded away like the ccc!=0 marks so a spliced mark
+/// cannot split a digit run. Same lossy-internal / lossless-restore stance as
+/// `is_droppable_mark`.
+/// 813 code points / 205 ranges, UCD 14.0.0, sorted.
+const DROPPABLE_MARK_EXTRA: &[(char, char)] = &[
+    ('\u{488}', '\u{489}'),
+    ('\u{7a6}', '\u{7b0}'),
+    ('\u{900}', '\u{902}'),
+    ('\u{93a}', '\u{93a}'),
+    ('\u{941}', '\u{948}'),
+    ('\u{955}', '\u{957}'),
+    ('\u{962}', '\u{963}'),
+    ('\u{981}', '\u{981}'),
+    ('\u{9c1}', '\u{9c4}'),
+    ('\u{9e2}', '\u{9e3}'),
+    ('\u{a01}', '\u{a02}'),
+    ('\u{a41}', '\u{a42}'),
+    ('\u{a47}', '\u{a48}'),
+    ('\u{a4b}', '\u{a4c}'),
+    ('\u{a51}', '\u{a51}'),
+    ('\u{a70}', '\u{a71}'),
+    ('\u{a75}', '\u{a75}'),
+    ('\u{a81}', '\u{a82}'),
+    ('\u{ac1}', '\u{ac5}'),
+    ('\u{ac7}', '\u{ac8}'),
+    ('\u{ae2}', '\u{ae3}'),
+    ('\u{afa}', '\u{aff}'),
+    ('\u{b01}', '\u{b01}'),
+    ('\u{b3f}', '\u{b3f}'),
+    ('\u{b41}', '\u{b44}'),
+    ('\u{b55}', '\u{b56}'),
+    ('\u{b62}', '\u{b63}'),
+    ('\u{b82}', '\u{b82}'),
+    ('\u{bc0}', '\u{bc0}'),
+    ('\u{c00}', '\u{c00}'),
+    ('\u{c04}', '\u{c04}'),
+    ('\u{c3e}', '\u{c40}'),
+    ('\u{c46}', '\u{c48}'),
+    ('\u{c4a}', '\u{c4c}'),
+    ('\u{c62}', '\u{c63}'),
+    ('\u{c81}', '\u{c81}'),
+    ('\u{cbf}', '\u{cbf}'),
+    ('\u{cc6}', '\u{cc6}'),
+    ('\u{ccc}', '\u{ccc}'),
+    ('\u{ce2}', '\u{ce3}'),
+    ('\u{d00}', '\u{d01}'),
+    ('\u{d41}', '\u{d44}'),
+    ('\u{d62}', '\u{d63}'),
+    ('\u{d81}', '\u{d81}'),
+    ('\u{dd2}', '\u{dd4}'),
+    ('\u{dd6}', '\u{dd6}'),
+    ('\u{e31}', '\u{e31}'),
+    ('\u{e34}', '\u{e37}'),
+    ('\u{e47}', '\u{e47}'),
+    ('\u{e4c}', '\u{e4e}'),
+    ('\u{eb1}', '\u{eb1}'),
+    ('\u{eb4}', '\u{eb7}'),
+    ('\u{ebb}', '\u{ebc}'),
+    ('\u{ecc}', '\u{ecd}'),
+    ('\u{f73}', '\u{f73}'),
+    ('\u{f75}', '\u{f79}'),
+    ('\u{f7e}', '\u{f7e}'),
+    ('\u{f81}', '\u{f81}'),
+    ('\u{f8d}', '\u{f97}'),
+    ('\u{f99}', '\u{fbc}'),
+    ('\u{102d}', '\u{1030}'),
+    ('\u{1032}', '\u{1036}'),
+    ('\u{103d}', '\u{103e}'),
+    ('\u{1058}', '\u{1059}'),
+    ('\u{105e}', '\u{1060}'),
+    ('\u{1071}', '\u{1074}'),
+    ('\u{1082}', '\u{1082}'),
+    ('\u{1085}', '\u{1086}'),
+    ('\u{109d}', '\u{109d}'),
+    ('\u{1712}', '\u{1713}'),
+    ('\u{1732}', '\u{1733}'),
+    ('\u{1752}', '\u{1753}'),
+    ('\u{1772}', '\u{1773}'),
+    ('\u{17b7}', '\u{17bd}'),
+    ('\u{17c6}', '\u{17c6}'),
+    ('\u{17c9}', '\u{17d1}'),
+    ('\u{17d3}', '\u{17d3}'),
+    ('\u{1885}', '\u{1886}'),
+    ('\u{1920}', '\u{1922}'),
+    ('\u{1927}', '\u{1928}'),
+    ('\u{1932}', '\u{1932}'),
+    ('\u{1a1b}', '\u{1a1b}'),
+    ('\u{1a56}', '\u{1a56}'),
+    ('\u{1a58}', '\u{1a5e}'),
+    ('\u{1a62}', '\u{1a62}'),
+    ('\u{1a65}', '\u{1a6c}'),
+    ('\u{1a73}', '\u{1a74}'),
+    ('\u{1abe}', '\u{1abe}'),
+    ('\u{1b00}', '\u{1b03}'),
+    ('\u{1b36}', '\u{1b3a}'),
+    ('\u{1b3c}', '\u{1b3c}'),
+    ('\u{1b42}', '\u{1b42}'),
+    ('\u{1b80}', '\u{1b81}'),
+    ('\u{1ba2}', '\u{1ba5}'),
+    ('\u{1ba8}', '\u{1ba9}'),
+    ('\u{1bac}', '\u{1bad}'),
+    ('\u{1be8}', '\u{1be9}'),
+    ('\u{1bed}', '\u{1bed}'),
+    ('\u{1bef}', '\u{1bf1}'),
+    ('\u{1c2c}', '\u{1c33}'),
+    ('\u{1c36}', '\u{1c36}'),
+    ('\u{20dd}', '\u{20e0}'),
+    ('\u{20e2}', '\u{20e4}'),
+    ('\u{a670}', '\u{a672}'),
+    ('\u{a802}', '\u{a802}'),
+    ('\u{a80b}', '\u{a80b}'),
+    ('\u{a825}', '\u{a826}'),
+    ('\u{a8c5}', '\u{a8c5}'),
+    ('\u{a8ff}', '\u{a8ff}'),
+    ('\u{a926}', '\u{a92a}'),
+    ('\u{a947}', '\u{a951}'),
+    ('\u{a980}', '\u{a982}'),
+    ('\u{a9b6}', '\u{a9b9}'),
+    ('\u{a9bc}', '\u{a9bd}'),
+    ('\u{a9e5}', '\u{a9e5}'),
+    ('\u{aa29}', '\u{aa2e}'),
+    ('\u{aa31}', '\u{aa32}'),
+    ('\u{aa35}', '\u{aa36}'),
+    ('\u{aa43}', '\u{aa43}'),
+    ('\u{aa4c}', '\u{aa4c}'),
+    ('\u{aa7c}', '\u{aa7c}'),
+    ('\u{aaec}', '\u{aaed}'),
+    ('\u{abe5}', '\u{abe5}'),
+    ('\u{abe8}', '\u{abe8}'),
+    ('\u{10a01}', '\u{10a03}'),
+    ('\u{10a05}', '\u{10a06}'),
+    ('\u{10a0c}', '\u{10a0c}'),
+    ('\u{10a0e}', '\u{10a0e}'),
+    ('\u{11001}', '\u{11001}'),
+    ('\u{11038}', '\u{11045}'),
+    ('\u{11073}', '\u{11074}'),
+    ('\u{11080}', '\u{11081}'),
+    ('\u{110b3}', '\u{110b6}'),
+    ('\u{110c2}', '\u{110c2}'),
+    ('\u{11127}', '\u{1112b}'),
+    ('\u{1112d}', '\u{11132}'),
+    ('\u{11180}', '\u{11181}'),
+    ('\u{111b6}', '\u{111be}'),
+    ('\u{111c9}', '\u{111c9}'),
+    ('\u{111cb}', '\u{111cc}'),
+    ('\u{111cf}', '\u{111cf}'),
+    ('\u{1122f}', '\u{11231}'),
+    ('\u{11234}', '\u{11234}'),
+    ('\u{11237}', '\u{11237}'),
+    ('\u{1123e}', '\u{1123e}'),
+    ('\u{112df}', '\u{112df}'),
+    ('\u{112e3}', '\u{112e8}'),
+    ('\u{11300}', '\u{11301}'),
+    ('\u{11340}', '\u{11340}'),
+    ('\u{11438}', '\u{1143f}'),
+    ('\u{11443}', '\u{11444}'),
+    ('\u{114b3}', '\u{114b8}'),
+    ('\u{114ba}', '\u{114ba}'),
+    ('\u{114bf}', '\u{114c0}'),
+    ('\u{115b2}', '\u{115b5}'),
+    ('\u{115bc}', '\u{115bd}'),
+    ('\u{115dc}', '\u{115dd}'),
+    ('\u{11633}', '\u{1163a}'),
+    ('\u{1163d}', '\u{1163d}'),
+    ('\u{11640}', '\u{11640}'),
+    ('\u{116ab}', '\u{116ab}'),
+    ('\u{116ad}', '\u{116ad}'),
+    ('\u{116b0}', '\u{116b5}'),
+    ('\u{1171d}', '\u{1171f}'),
+    ('\u{11722}', '\u{11725}'),
+    ('\u{11727}', '\u{1172a}'),
+    ('\u{1182f}', '\u{11837}'),
+    ('\u{1193b}', '\u{1193c}'),
+    ('\u{119d4}', '\u{119d7}'),
+    ('\u{119da}', '\u{119db}'),
+    ('\u{11a01}', '\u{11a0a}'),
+    ('\u{11a33}', '\u{11a33}'),
+    ('\u{11a35}', '\u{11a38}'),
+    ('\u{11a3b}', '\u{11a3e}'),
+    ('\u{11a51}', '\u{11a56}'),
+    ('\u{11a59}', '\u{11a5b}'),
+    ('\u{11a8a}', '\u{11a96}'),
+    ('\u{11a98}', '\u{11a98}'),
+    ('\u{11c30}', '\u{11c36}'),
+    ('\u{11c38}', '\u{11c3d}'),
+    ('\u{11c92}', '\u{11ca7}'),
+    ('\u{11caa}', '\u{11cb0}'),
+    ('\u{11cb2}', '\u{11cb3}'),
+    ('\u{11cb5}', '\u{11cb6}'),
+    ('\u{11d31}', '\u{11d36}'),
+    ('\u{11d3a}', '\u{11d3a}'),
+    ('\u{11d3c}', '\u{11d3d}'),
+    ('\u{11d3f}', '\u{11d41}'),
+    ('\u{11d43}', '\u{11d43}'),
+    ('\u{11d47}', '\u{11d47}'),
+    ('\u{11d90}', '\u{11d91}'),
+    ('\u{11d95}', '\u{11d95}'),
+    ('\u{11ef3}', '\u{11ef4}'),
+    ('\u{16f4f}', '\u{16f4f}'),
+    ('\u{16f8f}', '\u{16f92}'),
+    ('\u{16fe4}', '\u{16fe4}'),
+    ('\u{1bc9d}', '\u{1bc9d}'),
+    ('\u{1cf00}', '\u{1cf2d}'),
+    ('\u{1cf30}', '\u{1cf46}'),
+    ('\u{1da00}', '\u{1da36}'),
+    ('\u{1da3b}', '\u{1da6c}'),
+    ('\u{1da75}', '\u{1da75}'),
+    ('\u{1da84}', '\u{1da84}'),
+    ('\u{1da9b}', '\u{1da9f}'),
+    ('\u{1daa1}', '\u{1daaf}'),
+];
 
 fn is_droppable_mark(c: char) -> bool {
     // A nonspacing combining mark we fold away to de-accent ASCII-anchored tokens
@@ -108,6 +339,7 @@ fn is_droppable_mark(c: char) -> bool {
         return false;
     }
     canonical_combining_class(c) != 0
+        || (c >= '\u{488}' && in_sorted_char_ranges(c, DROPPABLE_MARK_EXTRA))
 }
 
 fn confusable(c: char) -> char {
@@ -120,6 +352,47 @@ fn confusable(c: char) -> char {
         .unwrap_or(c)
 }
 
+/// Unicode dash punctuation (`Pd`), excluding ASCII `-`, plus three `Sm` minus
+/// forms (U+2212 MINUS SIGN and the U+207B/U+208B super/subscript minuses, whose
+/// NFKC form is U+2212). 28 code points / 21 ranges, UCD 14.0.0, sorted.
+/// Folded 1:1 to ASCII `-` (detection-side) so a phone/id written with a Word/PDF
+/// dash (`138–0013–8000`) matches the same regex as the ASCII-hyphen form. Folded
+/// at Step 2 (pre-NFKC) so the super/subscript minuses fold before NFKC would turn
+/// them into an unfoldable U+2212. NFKC natively maps only the fullwidth/compat few
+/// (U+FE63, U+FF0D); these are the rest.
+const PD_DASH: &[(char, char)] = &[
+    ('\u{58a}', '\u{58a}'),
+    ('\u{5be}', '\u{5be}'),
+    ('\u{1400}', '\u{1400}'),
+    ('\u{1806}', '\u{1806}'),
+    ('\u{2010}', '\u{2015}'),
+    ('\u{207b}', '\u{207b}'), // SUPERSCRIPT MINUS (Sm) — folded pre-NFKC so its
+    ('\u{208b}', '\u{208b}'), // and SUBSCRIPT MINUS's NFKC-to-U+2212 form can't slip
+    ('\u{2212}', '\u{2212}'),
+    ('\u{2e17}', '\u{2e17}'),
+    ('\u{2e1a}', '\u{2e1a}'),
+    ('\u{2e3a}', '\u{2e3b}'),
+    ('\u{2e40}', '\u{2e40}'),
+    ('\u{2e5d}', '\u{2e5d}'),
+    ('\u{301c}', '\u{301c}'),
+    ('\u{3030}', '\u{3030}'),
+    ('\u{30a0}', '\u{30a0}'),
+    ('\u{fe31}', '\u{fe32}'),
+    ('\u{fe58}', '\u{fe58}'),
+    ('\u{fe63}', '\u{fe63}'),
+    ('\u{ff0d}', '\u{ff0d}'),
+    ('\u{10ead}', '\u{10ead}'),
+];
+
+/// Fold any Unicode dash (see [`PD_DASH`]) to ASCII `-`; other chars unchanged.
+fn fold_dash(c: char) -> char {
+    if c >= '\u{58a}' && in_sorted_char_ranges(c, PD_DASH) {
+        '-'
+    } else {
+        c
+    }
+}
+
 pub(crate) fn cn_digit(c: char) -> Option<char> {
     // _CN_DIGIT_MAP (normalize.py:98-118): 19 entries -> ASCII digit char
     Some(match c {
@@ -127,6 +400,15 @@ pub(crate) fn cn_digit(c: char) -> Option<char> {
         '壹'=>'1','贰'=>'2','叁'=>'3','肆'=>'4','伍'=>'5','陆'=>'6','柒'=>'7','捌'=>'8','玖'=>'9',
         _ => return None,
     })
+}
+
+/// A CJK numeral homograph that READS as an ASCII digit: [`cn_digit`]'s 19 entries
+/// plus `〇` (U+3007 IDEOGRAPHIC NUMBER ZERO, an `Nl` the frozen 19-entry map
+/// deliberately omits) → `'0'`. This is the "CJK digit including 〇" concept the
+/// digit-sequence classifier and [`digit_value`] both need; `cn_digit` itself stays
+/// frozen at 19 entries.
+pub(crate) fn cjk_digit(c: char) -> Option<char> {
+    cn_digit(c).or_else(|| (c == '\u{3007}').then_some('0'))
 }
 
 /// Non-decimal (`No`/`So`) characters whose NFKC fold CONTAINS an ASCII digit.
@@ -290,6 +572,65 @@ fn nd_digit_value(c: char) -> Option<u32> {
         .map(|i| c as u32 - DECIMAL_DIGIT_RANGES[i].0 as u32)
 }
 
+/// The single ASCII digit a char *reads as* for FAN-OUT recall, if any:
+///
+/// * an ASCII `0`–`9` (returns itself),
+/// * a CJK numeral homograph — [`cn_digit`]'s 19 entries (`三` → `3`),
+/// * `〇` (U+3007 IDEOGRAPHIC NUMBER ZERO, an `Nl` the 19-entry `_CN_DIGIT_MAP`
+///   omits) → `0`,
+/// * a non-ASCII Unicode `Nd` decimal digit — [`nd_digit_value`] (`١` → `1`),
+/// * a `No`/`So` digit-yielder ([`is_nfkc_digit_yielding_non_decimal`]) whose
+///   NFKC form is a single ASCII digit optionally wrapped in ASCII punctuation —
+///   a DECORATED DIGIT: one char (`¹` → "1", `⑧` → "8") or a punctuated form
+///   (`⑴` → "(1)", `⒈` → "1.", `🄀` → "0.").
+///
+/// `None` otherwise, deliberately for:
+/// * a fold with zero or ≥2 ASCII digits (`½` → "1⁄2", `⒛` → "20.") — no
+///   position-preserving single-digit reading; recovering them would need a
+///   length-changing candidate view with a rebuilt offset map this crate does
+///   not build;
+/// * a fold whose non-digit chars are not ASCII punctuation (`㎟` → "mm2",
+///   `㋀` → "1月", `㍘` → "0点") — a unit/month/hour SYMBOL, not an obscured
+///   number, so its digit is a unit exponent or ideographic label, never PII.
+///
+/// This is the reading table shared with the fan-out generator
+/// ([`crate::fanout`]) — a candidate-view helper, NOT a canonical normalize fold.
+/// Folding these unconditionally in [`normalize_digit_sequences`] would fuse a
+/// boundary digit into a run and break the ASCII-scoped `(?<![0-9])` / `(?![0-9])`
+/// anchors (see the boundary case there); recall folding happens per-candidate.
+pub(crate) fn digit_value(c: char) -> Option<char> {
+    if c.is_ascii_digit() {
+        return Some(c);
+    }
+    if let Some(d) = cjk_digit(c) {
+        return Some(d); // cn_digit's 19 entries + 〇
+    }
+    if let Some(v) = nd_digit_value(c) {
+        return char::from_digit(v, 10); // v is 0..=9 by construction -> always Some
+    }
+    if is_nfkc_digit_yielding_non_decimal(c) {
+        // A DECORATED DIGIT: exactly one ASCII digit, every other char ASCII
+        // punctuation (⑴ -> "(1)", ⒈ -> "1.", 🄀 -> "0.", ⑧ -> "8"). A fold with
+        // ≥2 digits (½ -> "1⁄2") or a non-punctuation companion (㎟ -> "mm2",
+        // ㋀ -> "1月") is a fraction/unit/label, not an obscured number. One pass
+        // over the 1–4-char fold, no allocation: bail on a 2nd digit or a
+        // non-punctuation companion.
+        let mut digit = None;
+        for d in c.nfkc() {
+            if d.is_ascii_digit() {
+                if digit.is_some() {
+                    return None; // ≥2 digits
+                }
+                digit = Some(d);
+            } else if !d.is_ascii_punctuation() {
+                return None; // a non-punctuation companion (unit/label)
+            }
+        }
+        return digit;
+    }
+    None
+}
+
 /// Walk `chars` and collect each maximal digit run. A run begins at a char that
 /// `classify` maps to `Some`, extends over further `Some` chars and interior
 /// [`is_digit_sep`] separators, and ends at the first char that is neither;
@@ -400,9 +741,15 @@ fn normalize_digit_sequences(chars: &mut [char]) {
     // letters, vulgar fractions No → "1⁄2"). Run membership is exactly the old
     // `cn_digit(c).is_some() || c.is_numeric()` — `Ascii`/`Exotic`/`Other` are all
     // `is_numeric`, so the runs are byte-identical to before; only the payload is
-    // richer, splitting out the two folds below.
+    // richer, splitting out the two folds below. (`〇` moves from `Other` to
+    // `Cjk('0')` — see the branch below — but it was already `is_numeric`, so it
+    // was already a run member; only its payload changes.)
     let runs = digit_runs(chars, |c| {
-        if let Some(ascii) = cn_digit(c) {
+        if let Some(ascii) = cjk_digit(c) {
+            // cn_digit's 19 entries + 〇 (U+3007 IDEOGRAPHIC NUMBER ZERO): classing 〇
+            // as CJK lets a Chinese-digit number written with 〇 zeros (一三八〇〇一三八〇〇〇
+            // = 13800138000) count toward Fold 1's CJK majority AND fold to '0' with
+            // the rest, instead of a lone `Other` leaving it half-folded (138〇〇138〇〇〇).
             Some(DigitClass::Cjk(ascii))
         } else if c.is_ascii_digit() {
             Some(DigitClass::Ascii)
@@ -570,9 +917,9 @@ pub(crate) fn normalize_core(text: &str) -> Option<(Vec<char>, Vec<usize>)> {
     }
     chars = folded_chars;
     offset_map = folded_map;
-    // Step 2: confusables (1:1)
+    // Step 2: confusables + Unicode-dash fold (both 1:1)
     for c in chars.iter_mut() {
-        *c = confusable(*c);
+        *c = fold_dash(confusable(*c));
     }
     // Step 3: per-char NFKC (only if the joined string isn't already NFKC)
     let joined: String = chars.iter().collect();
@@ -876,6 +1223,51 @@ mod tests {
         (0x1D173, 0x1D17A),
         (0xE0000, 0xE0FFF),
     ];
+
+    #[test]
+    fn non_default_ignorable_format_chars_are_stripped_and_cannot_split_a_run() {
+        // Representative per newly-covered Cf class (Arabic number sign, Arabic end
+        // of ayah, Syriac abbreviation mark, interlinear annotation, Kaithi number
+        // sign). Each is stripped, so a spliced one cannot split a digit run.
+        for c in ['\u{600}', '\u{6dd}', '\u{70f}', '\u{fff9}', '\u{110bd}'] {
+            assert!(is_invisible(c), "U+{:04X} (non-DI Cf) must be stripped", c as u32);
+        }
+
+        let (out, _) = normalize_text(&format!("13800{}138000", '\u{fff9}'));
+        assert!(out.contains("13800138000"), "a non-DI Cf split a phone: {out:?}");
+    }
+
+    #[test]
+    fn ccc0_and_enclosing_marks_are_droppable_and_cannot_split_a_run() {
+        // ccc==0 nonspacing marks (Thai U+0E31, Malayalam U+0D00) and enclosing
+        // marks (U+20DD, U+0488, U+1ABE) — missed by the ccc!=0 test, dropped now.
+        for c in ['\u{e31}', '\u{d00}', '\u{20dd}', '\u{488}', '\u{1abe}'] {
+            assert!(is_droppable_mark(c), "U+{:04X} (ccc0 Mn / Me) must be droppable", c as u32);
+        }
+
+        let (out, _) = normalize_text(&format!("13800{}138000", '\u{e31}'));
+        assert!(out.contains("13800138000"), "a ccc0 mark split a phone: {out:?}");
+    }
+
+    #[test]
+    fn unicode_dashes_fold_to_ascii_hyphen_so_they_cannot_break_a_separated_run() {
+        for c in [
+            '\u{2010}', '\u{2013}', '\u{2014}', '\u{2015}', '\u{2212}', '\u{207b}', '\u{208b}',
+            '\u{301c}', '\u{ff0d}',
+        ] {
+            assert_eq!(fold_dash(c), '-', "U+{:04X} should fold to ASCII '-'", c as u32);
+        }
+        assert_eq!(fold_dash('-'), '-', "ASCII hyphen unchanged");
+        assert_eq!(fold_dash('a'), 'a', "non-dash unchanged");
+
+        let (out, _) = normalize_text("138–0013–8000"); // U+2013 en-dashes
+        assert!(out.contains("138-0013-8000"), "Unicode dash not folded to '-': {out:?}");
+
+        // super/subscript minus fold pre-NFKC, before NFKC would produce an
+        // unfoldable U+2212.
+        let (sup, _) = normalize_text("138⁻0013⁻8000"); // U+207B
+        assert!(sup.contains("138-0013-8000"), "superscript minus not folded: {sup:?}");
+    }
 
     #[test]
     fn every_default_ignorable_code_point_is_stripped() {
@@ -1305,6 +1697,26 @@ mod tests {
         assert_eq!(normalize_text("壹贰叁肆伍陆柒捌玖").0, "123456789");
         // A run including 九 (first-row nine) + 零: 七八九零壹贰叁 → "7890123".
         assert_eq!(normalize_text("七八九零壹贰叁").0, "7890123");
+    }
+
+    #[test]
+    fn ideographic_zero_folds_as_a_cjk_digit_in_a_majority_run() {
+        // 〇 (U+3007) is an `Nl` the 19-entry cn_digit map omits, so before the
+        // classifier learned it, a Chinese-digit phone written with 〇 zeros folded
+        // its 一三八 but left the 〇 verbatim (138〇〇138〇〇〇 → leak). Now 〇 counts as
+        // CJK: an all-CJK run folds whole.
+        assert_eq!(normalize_text("一三八〇〇一三八〇〇〇").0, "13800138000");
+        // 〇 at first / interior / last position of a majority-CJK run.
+        assert_eq!(normalize_text("〇一二三四五六").0, "0123456");
+        // A lone boundary 〇 on an otherwise-ASCII run is a minority (1 of 12) → NOT
+        // folded, so the adjacent 11-digit ASCII phone keeps its `(?<![0-9])` anchor.
+        assert_eq!(normalize_text("13800138000〇").0, "13800138000〇");
+        // 〇 is the same DigitClass::Cjk('0') as 零 (already in the cn_digit map), so
+        // its normalization is byte-identical to 零's in every position — including
+        // the majority-fusion case where a dozen leading zeros merge into the run.
+        let z = "零".repeat(12) + "13800138000";
+        let o = "〇".repeat(12) + "13800138000";
+        assert_eq!(normalize_text(&o).0, normalize_text(&z).0);
     }
 
     #[test]

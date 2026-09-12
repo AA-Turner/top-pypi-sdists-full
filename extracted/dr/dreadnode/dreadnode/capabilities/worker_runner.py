@@ -164,7 +164,7 @@ class WorkerRunner:
 
         try:
             for handler in worker._startup_handlers:
-                async with client.workflow(
+                async with client.session_group(
                     self._workflow_title("startup"),
                     **self._workflow_kwargs(),
                 ):
@@ -253,7 +253,7 @@ class WorkerRunner:
         shutdown_errors: list[str] = []
         for handler in reversed(self.worker._shutdown_handlers):
             try:
-                async with self.client.workflow(
+                async with self.client.session_group(
                     self._workflow_title("shutdown"),
                     **self._workflow_kwargs(),
                 ):
@@ -302,7 +302,7 @@ class WorkerRunner:
     ) -> None:
         """Invoke one ``on_event`` handler; swallow exceptions (CAP-WAPI-016)."""
         try:
-            async with self.client.workflow(
+            async with self.client.session_group(
                 self._workflow_title(envelope.kind),
                 **self._workflow_kwargs(),
             ):
@@ -328,7 +328,7 @@ class WorkerRunner:
             delay = self._compute_next_delay(spec)
             await asyncio.sleep(delay)
             try:
-                async with self.client.workflow(
+                async with self.client.session_group(
                     self._workflow_title("scheduled run"),
                     **self._workflow_kwargs(),
                 ):

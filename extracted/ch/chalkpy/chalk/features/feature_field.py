@@ -224,6 +224,9 @@ class WindowConfigResolved:
     with the resolved config rather than being reconstructed downstream."""
     fold_initial_value: Any = None
     """The state a `history_fold` starts from before any event is applied."""
+    offline_continuous_buffer_duration_seconds: int | None = None
+    """The continuous buffer offline queries use in place of `continuous_buffer_duration_seconds`.
+    `None` means they use the online buffer, which is what every aggregation not setting it does."""
 
 
 class Feature(Generic[_TPrim, _TRich]):

@@ -102,12 +102,14 @@ async def test_memory_recall_access_update_owns_standalone_coordinator(
         cxm.agent_memory, "filter_agent_memories", AsyncMock(return_value=[row])
     )
     entered: list[str] = []
+    coordinator_args: list[dict[str, Any]] = []
     queued: list[tuple[str, dict[str, Any]]] = []
     spawned: list[Any] = []
 
     @asynccontextmanager
     async def fake_standalone(**kwargs: Any):
         entered.append(kwargs["reason"])
+        coordinator_args.append(kwargs)
         yield object()
 
     def fake_queue(item_id: str, **fields: Any) -> str:
@@ -124,8 +126,17 @@ async def test_memory_recall_access_update_owns_standalone_coordinator(
     result = await memory_recall({"scope": "user"}, _tool_ctx())
     assert result.success is True
     assert len(spawned) == 1
+    # Detached tasks deliberately inherit no AppContext.  Model that boundary
+    # after scheduling: any late ``ToolContext.user_id`` access must fail.
+    def _no_detached_context(_self: ToolContext) -> str:
+        raise RuntimeError("No AppContext is set")
+
+    monkeypatch.setattr(ToolContext, "user_id", property(_no_detached_context))
     await spawned[0]
     assert entered == ["agent_memory_access_count"]
+    assert coordinator_args == [
+        {"reason": "agent_memory_access_count", "user_id": USER_ID}
+    ]
     assert queued == [
         (
             "memory-id",

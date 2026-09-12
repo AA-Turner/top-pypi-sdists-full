@@ -4,22 +4,53 @@ from __future__ import annotations
 import argparse
 import asyncio
 import ctypes
-from ctypes import wintypes
 import gc
 import importlib
+import importlib.util
 import json
 import os
 import statistics
 import subprocess
 import sys
 import time
+from collections.abc import Awaitable, Callable
+from ctypes import wintypes
 from dataclasses import dataclass, replace
-from typing import Callable
-
+from pathlib import Path
+from typing import Any, cast
 
 LOOP_CHOICES = ("asyncio", "uvloop", "winloop", "zuvloop", "rsloop")
 WORKLOAD_CHOICES = ("callbacks", "tasks", "tcp_streams")
-RSLOOP_PROFILE_ENV = "RSLOOP_TRACY"
+
+
+def sampling_profiler_command(command: list[str], output: Path) -> list[str]:
+    """Wrap a Python command with Python 3.15's sampling profiler."""
+    if sys.version_info < (3, 15):
+        raise RuntimeError(
+            "profiling requires Python 3.15 or newer; rerun with "
+            "`uv run --python 3.15 ...`"
+        )
+    if importlib.util.find_spec("profiling.sampling") is None:
+        raise RuntimeError(
+            "this interpreter does not provide the `profiling.sampling` module"
+        )
+    if not command or Path(command[0]).resolve() != Path(sys.executable).resolve():
+        raise ValueError("the profiled command must use the current Python interpreter")
+
+    output = output.expanduser().resolve().with_suffix(".html")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return [
+        sys.executable,
+        "-m",
+        "profiling.sampling",
+        "run",
+        "--all-threads",
+        "--native",
+        "--flamegraph",
+        "-o",
+        str(output),
+        *command[1:],
+    ]
 
 
 def default_loops_csv() -> str:
@@ -122,12 +153,11 @@ def parse_args() -> argparse.Namespace:
         "--profile-rsloop-dir",
         type=str,
         default=None,
-        help="Optional directory placeholder used to label one rsloop Tracy run per workload before measured runs",
+        help="Write one Python 3.15 sampling-profiler flamegraph per rsloop workload",
     )
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--loop", choices=LOOP_CHOICES, help=argparse.SUPPRESS)
     parser.add_argument("--workload", choices=WORKLOAD_CHOICES, help=argparse.SUPPRESS)
-    parser.add_argument("--profile-label", help=argparse.SUPPRESS)
     return parser.parse_args()
 
 
@@ -158,13 +188,6 @@ def validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--payload-size must be > 0")
 
 
-def env_flag(name: str) -> bool:
-    value = os.environ.get(name)
-    if value is None:
-        return False
-    return value.strip().lower() not in {"", "0", "false", "no", "off"}
-
-
 def loop_factory_for(loop_name: str) -> Callable[[], asyncio.AbstractEventLoop]:
     if loop_name == "asyncio":
         return asyncio.new_event_loop
@@ -179,9 +202,9 @@ def loop_factory_for(loop_name: str) -> Callable[[], asyncio.AbstractEventLoop]:
             raise RuntimeError("winloop is only supported on Windows")
 
         winloop = importlib.import_module("winloop")
-        factory = getattr(winloop, "new_event_loop", None)
-        if callable(factory):
-            return factory
+        winloop_factory: Any = getattr(winloop, "new_event_loop", None)
+        if callable(winloop_factory):
+            return cast(Callable[[], asyncio.AbstractEventLoop], winloop_factory)
 
         policy_cls = getattr(winloop, "EventLoopPolicy", None) or getattr(
             winloop, "WinLoopPolicy", None
@@ -285,7 +308,7 @@ def format_bytes(num_bytes: int) -> str:
     raise AssertionError("unreachable")
 
 
-def run_with_loop(loop_name: str, coro: asyncio.coroutines) -> ChildResult:
+def run_with_loop(loop_name: str, coro: Awaitable[ChildResult]) -> ChildResult:
     loop_factory = loop_factory_for(loop_name)
     if sys.version_info[:2] >= (3, 12):
         return asyncio.run(coro, loop_factory=loop_factory)
@@ -422,28 +445,9 @@ def child_main(args: argparse.Namespace) -> int:
         else:  # pragma: no cover - parser guards this
             raise AssertionError(f"unsupported workload: {args.workload}")
 
-        profile_requested = args.profile_label is not None or (
-            args.loop == "rsloop" and env_flag(RSLOOP_PROFILE_ENV)
-        )
         loop_factory_for(args.loop)
         baseline_rss_bytes = get_current_rss_bytes()
-        if profile_requested and not args.profile_label:
-            print(
-                f"[profile] Tracy enabled via {RSLOOP_PROFILE_ENV}=1 for {args.loop}/{args.workload}",
-                flush=True,
-            )
-        if profile_requested:
-            if args.loop != "rsloop":
-                raise RuntimeError("profiling is only supported for rsloop")
-            rsloop = importlib.import_module("rsloop")
-            if args.profile_label:
-                print(
-                    f"[profile] Tracy session label: {args.profile_label}", flush=True
-                )
-            with rsloop.profile():
-                result = run_with_loop(args.loop, coro)
-        else:
-            result = run_with_loop(args.loop, coro)
+        result = run_with_loop(args.loop, coro)
     finally:
         gc.enable()
 
@@ -481,7 +485,7 @@ def run_child(
     workload: str,
     args: argparse.Namespace,
     *,
-    profile_label: str | None = None,
+    profile_output: Path | None = None,
 ) -> ChildResult:
     cmd = [
         sys.executable,
@@ -502,9 +506,12 @@ def run_child(
         "--payload-size",
         str(args.payload_size),
     ]
-    if profile_label is not None:
-        cmd.extend(["--profile-label", profile_label])
+    if profile_output is not None:
+        cmd = sampling_profiler_command(cmd, profile_output)
     env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, (os.path.dirname(script_path), env.get("PYTHONPATH")))
+    )
     if loop_name == "rsloop":
         env["RSLOOP_USE_FAST_STREAMS"] = "1" if args.rsloop_fast_streams else "0"
     proc = subprocess.run(
@@ -525,7 +532,11 @@ def run_child(
     lines = [line for line in proc.stdout.splitlines() if line.strip()]
     if not lines:
         raise RuntimeError(f"{loop_name}/{workload} produced no output")
-    payload = json.loads(lines[-1])
+    payload = next(
+        json.loads(line)
+        for line in reversed(lines)
+        if line.lstrip().startswith("{")
+    )
     return ChildResult(
         loop=payload["loop"],
         workload=payload["workload"],
@@ -622,7 +633,6 @@ def parent_main(args: argparse.Namespace) -> int:
     profile_rsloop_dir = (
         os.path.abspath(args.profile_rsloop_dir) if args.profile_rsloop_dir else None
     )
-    env_profile_enabled = env_flag(RSLOOP_PROFILE_ENV)
 
     available_loops: list[str] = []
     skipped_loops: dict[str, str] = {}
@@ -644,9 +654,6 @@ def parent_main(args: argparse.Namespace) -> int:
     script_path = os.path.abspath(__file__)
     all_results: list[dict[str, object]] = []
 
-    if env_profile_enabled:
-        print(f"Tracy profiling enabled via {RSLOOP_PROFILE_ENV}=1")
-
     for workload in selected_workloads:
         workload_runs: dict[str, list[ChildResult]] = {}
         if workload == "tcp_streams":
@@ -660,14 +667,14 @@ def parent_main(args: argparse.Namespace) -> int:
             print(f"Running {workload} on {loop_name}...")
             if profile_rsloop_dir and loop_name == "rsloop":
                 os.makedirs(profile_rsloop_dir, exist_ok=True)
-                profile_label = os.path.join(profile_rsloop_dir, f"rsloop-{workload}")
-                print(f"  starting Tracy session labeled {profile_label}")
+                profile_output = Path(profile_rsloop_dir, f"rsloop-{workload}.html")
+                print(f"  writing sampling profile to {profile_output}")
                 run_child(
                     script_path,
                     loop_name,
                     workload,
                     args,
-                    profile_label=profile_label,
+                    profile_output=profile_output,
                 )
             for _ in range(args.warmups):
                 run_child(script_path, loop_name, workload, args)

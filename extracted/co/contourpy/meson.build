@@ -8,7 +8,7 @@ project(
   ],
   license: 'BSD-3-Clause',
   meson_version: '>= 1.2.0',
-  version: '1.3.3',
+  version: '1.4.0',
 )
 
 # Check meson project version is the same as in _version.py
@@ -20,7 +20,7 @@ endif
 
 py_mod = import('python')
 py3 = py_mod.find_installation(pure: false)
-pybind11_dep = dependency('pybind11')
+pybind11_dep = dependency('pybind11', version : '>= 2.13.2, != 2.13.3')
 
 subdir('lib/contourpy')
 subdir('src')

@@ -3,6 +3,19 @@ from http import HTTPStatus
 from django.test.client import Client
 from django.urls import reverse
 
+from allauth.headless.internal import sessionkit
+
+
+def test_lookup_anonymous_session(db):
+    session = sessionkit.new_session()
+    session["pending"] = True
+    session.save()
+
+    loaded_session = sessionkit.lookup_session(session.session_key)
+
+    assert loaded_session is not None
+    assert loaded_session["pending"] is True
+
 
 def test_app_session_gone(db, user):
     # intentionally use a vanilla Django test client

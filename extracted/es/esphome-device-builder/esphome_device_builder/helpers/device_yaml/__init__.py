@@ -34,6 +34,7 @@ from ._loading import (
     load_device_from_storage,
     load_device_yaml,
     pending_changes_via_hash,
+    resolution_incomplete,
 )
 from ._mqtt_block import (
     SecretRef,
@@ -63,7 +64,9 @@ from ._parsing import (
     get_ota_encryption_key,
     get_resolved_api_encryption_key,
     get_resolved_encryption_key,
+    get_resolved_ota_encryption_key,
     has_top_level_block,
+    ota_encryption_block_unresolved,
     parse_esphome_meta,
     parse_platform_from_yaml,
     resolved_device_name,
@@ -72,11 +75,12 @@ from ._parsing import (
     yaml_has_api_encryption,
     yaml_has_top_level_block,
 )
-from ._resolve import EsphomeConfigUnavailableError, run_esphome_config
+from ._resolve import ESPHOME_CONFIG_TIMEOUT, EsphomeConfigUnavailableError, run_esphome_config
 
 __all__ = [
     "CAPTIVE_PORTAL_PLATFORMS",
     "DEFAULT_API_PORT",
+    "ESPHOME_CONFIG_TIMEOUT",
     "NETWORK_PROVIDER_COMPONENT_IDS",
     "WIFI_RADIO_PROVIDER_COMPONENT_IDS",
     "_UNRESOLVED_SUBSTITUTION_RE",
@@ -114,12 +118,15 @@ __all__ = [
     "get_ota_encryption_key",
     "get_resolved_api_encryption_key",
     "get_resolved_encryption_key",
+    "get_resolved_ota_encryption_key",
     "has_top_level_block",
     "load_device_from_storage",
     "load_device_yaml",
+    "ota_encryption_block_unresolved",
     "parse_esphome_meta",
     "parse_platform_from_yaml",
     "pending_changes_via_hash",
+    "resolution_incomplete",
     "resolved_device_name",
     "retarget_fallback_ap_ssid",
     "run_esphome_config",

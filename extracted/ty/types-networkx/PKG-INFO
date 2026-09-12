@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-networkx
-Version: 3.6.1.20260903
+Version: 3.6.1.20260911
 Summary: Typing stubs for networkx
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -41,4 +41,14 @@ This package was tested with the following type checkers:
 * [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`93a4ebde92adb94f67686a232c338b834b207442`](https://github.com/python/typeshed/commit/93a4ebde92adb94f67686a232c338b834b207442).
+[`bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e`](https://github.com/python/typeshed/commit/bcb5ba6a29b6e1a661b50a3b4476fe7636072e3e).
+
+## Optional dependencies
+
+Some stubs depend on third-party libraries that are not required by every user.
+The following extras are available:
+
+```console
+pip install 'types-networkx[all]' # installs all optional dependencies
+pip install 'types-networkx[numpy]' # installs numpy>=1.21
+```

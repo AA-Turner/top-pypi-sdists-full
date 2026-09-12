@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_circleci_coverage
-Version: 0.2.247
+Version: 0.2.459
 Summary:  Pytest plugin that works with pytest-cov to generate coverage data for CircleCI's Smarter Testing
 License-Expression: MIT
 License-File: LICENSE

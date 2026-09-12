@@ -48,6 +48,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
 from matrx_ai.orchestrator.step_phase import emit_step_phase
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,12 @@ class StrictJsonTruncatedError(StrictJsonError):
     """
 
 
+@mandate_carrier_passthrough(
+    "a generic strict-JSON funnel: its callers (workflow AI nodes, content-plan "
+    "lanes, any internal consumer) supply the Holder on the metadata they pass. "
+    "Stamping one here would LABEL every caller with a mandate that does not hold "
+    "them."
+)
 async def _run_completion(
     messages: list[dict[str, Any]],
     system_text: str,

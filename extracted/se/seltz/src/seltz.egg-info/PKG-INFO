@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.14.0
+Version: 1.15.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -282,6 +282,17 @@ for source in run.output.sources:
 `wait` and `create_and_wait` return once the run reaches a terminal `status`
 (`AGENT_RUN_STATUS_COMPLETED`, `_FAILED`, or `_CANCELLED` — compare with the
 `AgentRunStatus` enum); `run.stop_reason` says why it ended.
+
+`effort` picks how much research a run may do, and its price — one of the
+deployment's level names (`low`, `medium`, `high`, `max`). Omit it and the run
+uses the default level; `run.request.effort` echoes the level it ran at:
+
+```python
+run = client.agent.create_and_wait(
+    "Who are the current CEOs of OpenAI, Anthropic and Mistral AI?",
+    effort="high",
+)
+```
 
 Pass an OpenAI-style `response_format` object as `output_schema` to also get
 structured output (`run.output.structured`, a JSON string shaped by your

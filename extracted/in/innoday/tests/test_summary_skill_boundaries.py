@@ -82,6 +82,21 @@ REMOVED_DIRECTIVE_FRAGMENTS = (
 )
 
 
+#: The second removed instruction, verbatim from the version that shipped the
+#: v1.12.0 release summary as a console transcript:
+#:
+#:     Print each gap's `detail` and its `remedy` verbatim; the remedy is often
+#:     an exact command.
+#:
+#: Every `innoday tickets update` line in that summary came from executing it.
+#: Same two-fragment treatment and the same honest limit: a paraphrase telling
+#: the narrator to print remedies gets past this, and the reviewer is the check.
+REMOVED_REMEDY_FRAGMENTS = (
+    "and its `remedy` verbatim",
+    "the remedy is often an exact command",
+)
+
+
 @pytest.fixture(scope="module")
 def normalised_text() -> str:
     return re.sub(r"\s+", " ", SKILL.read_text()).lower()
@@ -99,4 +114,18 @@ def test_the_removed_unmapped_count_directive_has_not_come_back(normalised_text)
             f"{fragment!r} is back in SKILL.md — that instruction is what put "
             "InnoDay's unmapped assignee count into a client's work summary "
             "(#563, defect 1)"
+        )
+
+
+def test_the_removed_print_the_remedy_directive_has_not_come_back(normalised_text):
+    """A summary is what shipped; a command is how somebody fixes the tickets.
+
+    Restoring this instruction is what turns the second one back into the first
+    -- twelve `innoday tickets update` lines inside an account of a release. The
+    commands still exist, offered after the draft and printed when asked for.
+    """
+    for fragment in REMOVED_REMEDY_FRAGMENTS:
+        assert re.sub(r"\s+", " ", fragment).lower() not in normalised_text, (
+            f"{fragment!r} is back in SKILL.md — that instruction is what put "
+            "CLI commands into the body of a client-facing release summary"
         )

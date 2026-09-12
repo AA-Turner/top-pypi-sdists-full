@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: harbor
-Version: 0.22.0
+Version: 0.23.0
 Summary: A framework for evaluating and optimizing agents and models using sandboxed environments.
 Author: Alex Shaw
 Author-email: Alex Shaw <alexgshaw64@gmail.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
-Requires-Dist: pydantic>=2.11.7
+Requires-Dist: pydantic>=2.12.0
 Requires-Dist: shortuuid>=1.0.13
 Requires-Dist: typer>=0.16.0
 Requires-Dist: requests>=2.32.4
@@ -27,6 +27,7 @@ Requires-Dist: httpx>=0.27.0
 Requires-Dist: filelock>=3.29.4
 Requires-Dist: platformdirs>=4.10.0
 Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: claude-agent-sdk>=0.1.17 ; extra == 'adapter'
 Requires-Dist: harbor[cloud] ; extra == 'all'
 Requires-Dist: harbor[tinker] ; extra == 'all'
@@ -57,12 +58,13 @@ Requires-Dist: harbor[beam] ; extra == 'cloud'
 Requires-Dist: harbor[hyperbrowser] ; extra == 'cloud'
 Requires-Dist: harbor[hf-sandbox] ; extra == 'cloud'
 Requires-Dist: harbor[vercel] ; extra == 'cloud'
+Requires-Dist: harbor[runta] ; extra == 'cloud'
 Requires-Dist: openai>=2.0 ; extra == 'computer-1'
 Requires-Dist: anthropic[bedrock]>=0.102.0 ; extra == 'computer-1'
 Requires-Dist: google-genai>=2.3.0 ; extra == 'computer-1'
 Requires-Dist: cua-train>=0.1.0 ; extra == 'cua'
 Requires-Dist: cwsandbox>=0.23.3 ; extra == 'cwsandbox'
-Requires-Dist: daytona>=0.192.0 ; extra == 'daytona'
+Requires-Dist: daytona>=0.210.0 ; extra == 'daytona'
 Requires-Dist: dspy>=2.6.0 ; extra == 'dspy'
 Requires-Dist: e2b>=2.25.0 ; extra == 'e2b'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'e2b'
@@ -70,22 +72,23 @@ Requires-Dist: boto3>=1.41.5 ; extra == 'ec2'
 Requires-Dist: kubernetes>=32.0.0 ; extra == 'gke'
 Requires-Dist: huggingface-hub>=1.22.0 ; extra == 'hf-sandbox'
 Requires-Dist: datasets>=4.4.1 ; extra == 'huggingface'
-Requires-Dist: hyperbrowser>=0.93.1 ; extra == 'hyperbrowser'
+Requires-Dist: hyperbrowser>=1.3.0 ; extra == 'hyperbrowser'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'hyperbrowser'
 Requires-Dist: islo>=0.3.3 ; extra == 'islo'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'islo'
 Requires-Dist: harbor-langsmith ; extra == 'langsmith'
 Requires-Dist: langsmith[sandbox]>=0.8.8 ; extra == 'langsmith'
-Requires-Dist: modal>=1.5.1 ; extra == 'modal'
+Requires-Dist: modal>=1.5.4 ; extra == 'modal'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'modal'
 Requires-Dist: novita-sandbox>=2.0.6 ; extra == 'novita'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'novita'
 Requires-Dist: opensandbox>=0.1.7 ; extra == 'opensandbox'
 Requires-Dist: runloop-api-client>=1.23.2 ; extra == 'runloop'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'runloop'
+Requires-Dist: runta-sdk>=0.1.21 ; extra == 'runta'
 Requires-Dist: skypilot-nightly>=0.10.0 ; extra == 'skypilot'
 Requires-Dist: dockerfile-parse>=2.0.1 ; extra == 'skypilot'
-Requires-Dist: tensorlake>=0.5.97 ; extra == 'tensorlake'
+Requires-Dist: tensorlake>=0.5.117 ; extra == 'tensorlake'
 Requires-Dist: tinker>=0.14.0 ; extra == 'tinker'
 Requires-Dist: tinker-cookbook>=0.1.0 ; extra == 'tinker'
 Requires-Dist: transformers>=5.3.0,<=5.5.3 ; extra == 'tinker'
@@ -117,6 +120,7 @@ Provides-Extra: modal
 Provides-Extra: novita
 Provides-Extra: opensandbox
 Provides-Extra: runloop
+Provides-Extra: runta
 Provides-Extra: skypilot
 Provides-Extra: tensorlake
 Provides-Extra: tinker
@@ -138,7 +142,7 @@ Harbor is a framework from the creators of [Terminal-Bench](https://www.tbench.a
 
 - Evaluate arbitrary agents like Claude Code, OpenHands, Codex CLI, and more.
 - Build and share your own benchmarks and environments.
-- Conduct experiments in thousands of environments in parallel through providers like Daytona, Modal, LangSmith, Blaxel, and Novita Sandbox.
+- Conduct experiments in thousands of environments in parallel through providers like Daytona, Modal, LangSmith, Blaxel, Novita Sandbox, Tensorlake, and Runta.
 - Generate rollouts for RL optimization.
 
 Check out the [Harbor Cookbook](https://github.com/harbor-framework/harbor-cookbook) for end-to-end examples and guides.
@@ -204,7 +208,6 @@ If you use **Harbor** in academic work, please cite it using the “Cite this re
 author = {{Harbor Framework Team}},
 title = {{Harbor: A framework for evaluating and optimizing agents and models in container environments}},
 year = {2026},
-version = {v0.16.1},
 doi = {10.5281/zenodo.20953922},
 url = {https://doi.org/10.5281/zenodo.20953922}
 }

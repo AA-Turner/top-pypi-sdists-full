@@ -99,6 +99,8 @@ class TurnStartCommandPayload(BaseModel):
     agent: str | None = None
     reset: bool = False
     generate_params_extra: dict[str, t.Any] | None = None
+    metadata: dict[str, t.Any] | None = None
+    """Client-supplied message attribution; runtime credentials determine access."""
 
     @field_validator("model")
     @classmethod
@@ -111,6 +113,7 @@ class TurnCancelCommandPayload(BaseModel):
     """Cancel the active turn for a session."""
 
     turn_id: str | None = None
+    drop_queued: bool = False
 
 
 class PromptRespondCommandPayload(BaseModel):

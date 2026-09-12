@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.25.2
+Version: 2.25.3
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -62,7 +62,7 @@ Requires-Dist: markdownify==1.2.3
 Requires-Dist: mcp==1.28.1
 Requires-Dist: mdit-py-plugins==0.5.0
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: mistralai-vibe-local-harness==0.4.3
+Requires-Dist: mistralai-vibe-local-harness==0.4.5
 Requires-Dist: mistralai==2.6.0
 Requires-Dist: more-itertools==11.0.2
 Requires-Dist: opentelemetry-api==1.39.1
@@ -357,7 +357,7 @@ Most modern terminals should work, but older or minimal terminal emulators may h
 Simply run `vibe` to enter the interactive chat loop.
 
 - **Multi-line Input**: Press `Ctrl+J` or `Shift+Enter` for select terminals to insert a newline.
-- **File Paths**: Reference files in your prompt using the `@` symbol for smart autocompletion (e.g., `> Read the file @src/agent.py`).
+- **File Paths**: Reference files in your prompt using the `@` symbol for smart autocompletion (e.g., `> Read the file @src/agent.py`). A bare `@` quickly lists immediate non-hidden entries; after a path character, Git workspaces suggest tracked and non-ignored files. Pasting a standalone existing absolute or home-relative file or folder also creates a mention.
 - **Shell Commands**: Prefix any command with `!` to execute it directly in your shell, bypassing the agent (e.g., `> !ls -l`).
 - **External Editor**: Press `Ctrl+G` to edit your current input in an external editor.
 - **Tool Output Toggle**: Press `Ctrl+O` to toggle the tool output view.

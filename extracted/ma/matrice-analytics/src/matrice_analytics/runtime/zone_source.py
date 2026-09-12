@@ -37,7 +37,7 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -188,6 +188,14 @@ class ZoneGeometryResolver:
         self._cameras: Dict[str, _DeploymentAttempt] = {}
         self._session: Any = None
         self._pointer_reported: set = set()
+        #: Cameras whose "no geometry" outcome has been explained once. Both sets exist for the
+        #: same reason: the answer is re-checked on a TTL for as long as the app runs, so a line
+        #: logged per attempt is a line logged forever.
+        self._absent_reported: set = set()
+        self._failure_reported: set = set()
+        #: Last outcome logged per deployment, so the TTL re-check is silent unless the answer
+        #: actually changed. See :meth:`_refresh`.
+        self._deployment_reported: Dict[str, str] = {}
 
     # -- configuration -----------------------------------------------------
 
@@ -333,17 +341,36 @@ class ZoneGeometryResolver:
                     f"{len((answer.zone_config or {}).get('lines') or {})}l)"
                 )
 
-        attempt.outcome = _RESOLVED if found else _NONE_DECLARED
+        outcome = _RESOLVED if found else _NONE_DECLARED
+        attempt.outcome = outcome
+
+        # Only on a CHANGE of outcome. `_refresh` runs once per TTL for the life of the app, so
+        # an unconditional line here is 12/hour per deployment forever, saying the same thing.
+        previous = self._deployment_reported.get(deployment_id)
+        if previous == outcome:
+            return
+        self._deployment_reported[deployment_id] = outcome
+
+        # WARNING when a deployment has no geometry on any camera -- and again when that clears.
+        # Same reason as the per-camera line below: this deployment's logging config drops
+        # matrice_analytics INFO records, so at INFO both the problem and its resolution are
+        # written and never seen. An ordinary first "resolved" stays INFO: nothing is wrong, and
+        # a success does not deserve a WARNING just to be visible.
+        level = logging.WARNING if _NONE_DECLARED in (outcome, previous) else logging.INFO
         if found:
-            logger.info(
+            logger.log(
+                level,
                 "zone geometry: app %s -- deployment %s resolved: %s",
                 self._app_id,
                 deployment_id,
                 ", ".join(found),
             )
         else:
-            logger.info(
-                "zone geometry: app %s -- deployment %s declares no zones or lines on any camera",
+            logger.log(
+                level,
+                "zone geometry: app %s -- deployment %s declares no zones or lines on any "
+                "camera, so every camera on it runs without zone geometry. Draw a zone in the "
+                "streaming UI if this deployment needs one.",
                 self._app_id,
                 deployment_id,
             )
@@ -366,15 +393,48 @@ class ZoneGeometryResolver:
             document = self._call_by_camera_app(camera_id, str(application_id))
         except Exception as exc:  # noqa: BLE001
             attempt.outcome = _UNKNOWN
-            logger.debug(
-                "zone geometry: app %s camera %s -- fallback lookup failed: %s",
-                self._app_id,
-                camera_id,
-                exc,
-            )
+            # Once at WARNING, then quiet. Since ANLY-15 an absent document is no longer an
+            # exception, so reaching here means the call genuinely could not be made -- worth
+            # seeing, unlike the DEBUG line that used to hide it.
+            if camera_id in self._failure_reported:
+                logger.debug(
+                    "zone geometry: app %s camera %s -- fallback lookup failed again: %s",
+                    self._app_id,
+                    camera_id,
+                    exc,
+                )
+            else:
+                self._failure_reported.add(camera_id)
+                logger.warning(
+                    "zone geometry: app %s camera %s -- fallback lookup could not be made "
+                    "(attempt %d, will retry): %s",
+                    self._app_id,
+                    camera_id,
+                    attempt.attempts,
+                    exc,
+                )
             return None
         if not isinstance(document, dict):
             attempt.outcome = _NONE_DECLARED
+            # A settled answer: this camera has no post-processing config at all, so it has no
+            # zones. Said once, because it is a normal configuration and not a fault -- but said,
+            # because "the dashboard is empty" is otherwise unexplained.
+            if camera_id not in self._absent_reported:
+                self._absent_reported.add(camera_id)
+                # WARNING, not INFO, and the level is load-bearing: this deployment's logging
+                # config drops matrice_analytics INFO records entirely (verified live on
+                # 6aa25a07 -- zero matrice_analytics INFO lines across two TTL cycles, while
+                # WARNING records from the same package do reach the log). At INFO this line,
+                # and the pre-existing "declares no zones" one in `_refresh`, are written and
+                # never seen, which is why nobody could explain an empty dashboard.
+                logger.warning(
+                    "zone geometry: app %s camera %s -- no post-processing config exists for "
+                    "application %s, so this camera declares no zones or lines; running without "
+                    "zone geometry. Draw a zone in the streaming UI if this camera needs one.",
+                    self._app_id,
+                    camera_id,
+                    application_id,
+                )
             return None
         attempt.outcome = _RESOLVED
 

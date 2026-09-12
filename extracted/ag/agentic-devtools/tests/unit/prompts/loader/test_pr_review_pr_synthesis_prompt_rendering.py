@@ -23,6 +23,8 @@ class TestPrReviewPrSynthesisPromptRendering:
             "repo_review_focus_areas": "",
             "pr_url": "https://dev.azure.com/example-org/ExampleProject/_git/example-repo-name/pullrequest/42",
             "source_code_platform": "AzureDevOps",
+            "review_artifact_dir_name": "e8f8350144db",
+            "review_artifact_dir": "pull-request-review/e8f8350144db",
         }
 
     def test_renders_without_focus_areas(self):
@@ -62,6 +64,20 @@ class TestPrReviewPrSynthesisPromptRendering:
         result = self._render(**self._base_variables())
 
         assert "pr-context.md" in result
+
+    def test_shared_artifacts_use_commit_scoped_directory(self):
+        """Shared review snapshots are anchored to the resolved commit-scoped directory."""
+        result = self._render(**self._base_variables())
+
+        assert "<state_dir>/pull-request-review/e8f8350144db/" in result
+        for filename in (
+            "pull-request-jira-issue.json",
+            "pull-request-files.json",
+            "pull-request-threads.json",
+            "manifest.json",
+        ):
+            assert filename in result
+        assert "<state_dir>/pull-request-jira-issue.json" not in result
 
     def test_review_criteria_present(self):
         """Review criteria are listed."""

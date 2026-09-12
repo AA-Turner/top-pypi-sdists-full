@@ -260,7 +260,7 @@ class CapabilityRegistry:
 
     def to_runtime_info(self, *, working_dir: Path) -> RuntimeInfoResponse:
         """Serialize registry state for CLI/runtime introspection."""
-        from dreadnode.capabilities.sync import bare_capability_name
+        from dreadnode.capabilities.sync import bare_capability_name, decode_capability_dirname
 
         def _provenance_for(
             *, bare_name: str, source: str
@@ -467,31 +467,72 @@ class CapabilityRegistry:
 
         for failure in self.load_failures:
             name = failure.get("name", "unknown")
+            failure_path = _local_path(failure.get("path"))
+            binding = None
+            if failure.get("source") == "runtime":
+                # Synced capabilities live in `<owner>_<name>` directories and the
+                # loader names a failure by its directory, so decode before
+                # matching the binding. Bindings a loaded capability already
+                # claimed were popped above; whatever remains is unloaded.
+                canonical = decode_capability_dirname(name)
+                binding = binding_by_bare.get(bare_capability_name(canonical))
+                name = bare_capability_name(canonical)
+            component = ComponentStatusInfo(
+                kind="capability",
+                name=name,
+                status="error",
+                error=failure.get("error"),
+                detail="Review the load error, resolve its cause, then reload the capability",
+            )
+            # A partially loaded capability can also have a discovery failure.
+            # Match its path, not just its name: a broken local capability may
+            # shadow a healthy bundled capability with the same name.
+            existing = next(
+                (
+                    item
+                    for item in capabilities_out
+                    if item.name == name
+                    and failure_path is not None
+                    and item.local_path == failure_path
+                ),
+                None,
+            )
+            if existing is not None:
+                if component not in existing.components:
+                    existing.components.append(component)
+                continue
+
+            source = "runtime" if binding else "local"
             display_name, canonical_name = _display_identity(
                 bare_name=name,
-                source="local",
-                binding=None,
+                source=source,
+                binding=binding,
             )
+            # Disabled bindings already have an entry above. Keep installation
+            # state and diagnostics on the same record.
+            if binding is not None and binding.get("id"):
+                existing = next(
+                    (item for item in capabilities_out if item.binding_id == binding.get("id")),
+                    None,
+                )
+                if existing is not None:
+                    if component not in existing.components:
+                        existing.components.append(component)
+                    continue
             cap_update = self.update_info.get(canonical_name) if canonical_name else None
             capabilities_out.append(
                 CapabilityInfo(
                     name=name,
                     display_name=display_name,
                     canonical_name=canonical_name,
-                    local_path=_local_path(failure.get("path")),
-                    source="local",
-                    provenance=_provenance_for(bare_name=name, source="local"),
-                    enabled=True,
+                    local_path=failure_path,
+                    source=source,
+                    provenance=_provenance_for(bare_name=name, source=source),
+                    version=binding.get("version") if binding else None,
+                    binding_id=binding.get("id") if binding else None,
+                    enabled=binding.get("enabled", True) if binding else True,
                     update_available=cap_update,
-                    components=[
-                        ComponentStatusInfo(
-                            kind="capability",
-                            name=name,
-                            status="error",
-                            error=failure.get("error"),
-                            detail="Check capability.yaml format and directory structure",
-                        )
-                    ],
+                    components=[component],
                 )
             )
 

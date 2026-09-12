@@ -93,6 +93,7 @@ from ..utils import (  # noqa: E402
     filter_by_confidence,
     match_results_structure,
 )
+from ..utils.format_utils import face_landmarks  # noqa: E402
 from ..utils.location_name_cache import LocationNameCache  # noqa: E402
 from .embedding_manager import EmbeddingConfig, EmbeddingManager  # noqa: E402
 from .face_recognition_client import FacialRecognitionClient  # noqa: E402
@@ -2699,7 +2700,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                                 "frame_id": detection.get("frame_id", frame_id),
                                 # Preserve face-specific fields
                                 "embedding": detection.get("embedding", []),
-                                "landmarks": detection.get("landmarks", None),
+                                "landmarks": face_landmarks(detection),
                                 "fps": detection.get("fps", 30),
                             }
                             processed_data.append(standard_detection)
@@ -2716,7 +2717,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                         "frame_id": detection.get("frame_id", 0),
                         # Preserve face-specific fields
                         "embedding": detection.get("embedding", []),
-                        "landmarks": detection.get("landmarks", None),
+                        "landmarks": face_landmarks(detection),
                         "fps": detection.get("fps", 30),
                         "metadata": detection.get("metadata", {}),
                     }
@@ -3216,6 +3217,43 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
 
         return alerts
 
+    def _project_detection_rows(self, detections: List[Dict]) -> List[Dict]:
+        """The published per-detection rows — the ONLY place a field reaches the wire.
+
+        `create_detection_object` returns a fresh ``{category, bounding_box}``, so a field that is
+        not named in the literal below does not survive, however carefully it was computed
+        upstream. That is not a detail of this function, it IS this function, which is why it is
+        one now: `employee_id` and `similarity_score` were computed in `_process_single_detection`
+        and silently dropped here for exactly that reason (DEF-15), and nothing complained because
+        nothing downstream could ever have read them.
+
+        Landmarks are read through :func:`face_landmarks` rather than by key, because the legacy FR
+        codebase publishes them as ``landmarks`` and the refactored inference SDK publishes the
+        same geometry as ``keypoints``, with no translation on either side.
+        """
+        rows = []
+        for detection in detections:
+            row = self.create_detection_object(
+                detection.get("display_name", ""), detection.get("bounding_box", {})
+            )
+            row.update(
+                {
+                    "person_id": detection.get("person_id"),
+                    # display_name drives the front-end label-suppression policy
+                    "person_name": detection.get("display_name", ""),
+                    # explicit label field for UI overlays
+                    "label": detection.get("display_name", ""),
+                    "recognition_status": detection.get("recognition_status", "unknown"),
+                    "enrolled": detection.get("enrolled", False),
+                    # raw pass-through only (no pose/quality gate computed here)
+                    "landmarks": face_landmarks(detection),
+                    "employee_id": detection.get("employee_id"),
+                    "similarity_score": detection.get("similarity_score", 0.0),
+                }
+            )
+            rows.append(row)
+        return rows
+
     def _generate_tracking_stats(
         self,
         counting_summary: Dict,
@@ -3272,28 +3310,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
         # current_new_counts: Only NEW objects that appeared for first time
         current_new_counts = [{"category": cat, "count": count} for cat, count in new_counts_dict.items()]
 
-        # Prepare detections with face recognition info
-        detections = []
-        for detection in counting_summary.get("detections", []):
-            bbox = detection.get("bounding_box", {})
-            category = detection.get("display_name", "")
-
-            detection_obj = self.create_detection_object(category, bbox)
-            # Add face recognition specific fields
-            detection_obj.update(
-                {
-                    "person_id": detection.get("person_id"),
-                    # Use display_name for front-end label suppression policy
-                    "person_name": detection.get("display_name", ""),
-                    # Explicit label field for UI overlays
-                    "label": detection.get("display_name", ""),
-                    "recognition_status": detection.get("recognition_status", "unknown"),
-                    "enrolled": detection.get("enrolled", False),
-                    # Raw pass-through only (no pose/quality gate computed here).
-                    "landmarks": detection.get("landmarks"),
-                }
-            )
-            detections.append(detection_obj)
+        detections = self._project_detection_rows(counting_summary.get("detections", []))
 
         # Build alert_settings array in expected format
         alert_settings = []
@@ -3529,7 +3546,7 @@ class FaceRecognitionEmbeddingUseCase(BaseProcessor):  # codeql[py/should-be-con
                     "recognition_status": det.get("recognition_status"),
                     "enrolled": det.get("enrolled"),
                     "embedding": det.get("embedding", []),
-                    "landmarks": det.get("landmarks"),
+                    "landmarks": face_landmarks(det),
                     "staff_details": det.get("staff_details"),  # Full staff information from API
                 }
                 for det in detections

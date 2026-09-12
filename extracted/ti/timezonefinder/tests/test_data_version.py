@@ -18,6 +18,7 @@ from scripts.configs import (
     DATA_DISTRIBUTION_NAME,
     DATA_PYPROJECT_FILE,
     DATA_REPORT_FILE,
+    DATA_SOURCE_FILE,
     DATA_VERSION_FILE,
     DATA_VERSION_TAG_PATTERN,
     DEFAULT_INPUT_PATH,
@@ -28,8 +29,10 @@ from scripts.configs import (
     data_distribution_version,
     read_data_version,
     resolve_data_version,
+    validate_data_distribution_version,
 )
 from scripts.reporting import DATA_VERSION_LABEL
+from scripts.upstream_release import read_record
 from timezonefinder import TimezoneFinder
 from timezonefinder.configs import (
     DATA_FORMAT_LAYOUT_VERSIONS,
@@ -38,7 +41,7 @@ from timezonefinder.configs import (
     DEFAULT_DATA_DIR,
     UNKNOWN_DATA_VERSION,
 )
-from timezonefinder.flatbuf.io.hybrid_shortcuts import SHORTCUT_LAYOUT_VERSION
+from timezonefinder.shortcut_index import SHORTCUT_LAYOUT_VERSION
 from timezonefinder.flatbuf.io.polygons import POLYGON_LAYOUT_VERSION
 
 
@@ -74,6 +77,27 @@ def test_data_version_format():
     assert DATA_VERSION_TAG_PATTERN.fullmatch(content), (
         f"DATA_VERSION content {content!r} does not match the "
         "timezone-boundary-builder release tag format (e.g. '2026c')"
+    )
+
+
+def test_the_recorded_upstream_source_is_the_packaged_release():
+    # DATA_SOURCE names the upstream archive the packaged binaries were built from,
+    # and is what the next update compares against to notice an asset replaced in
+    # place. Both facts are worthless if it describes a different release than
+    # DATA_VERSION, which is what a hand-run regeneration that skipped
+    # update_data.sh would leave behind. A malformed digest is the quieter failure
+    # of the two: the comparison it guards would still run and still pass.
+    record = read_record(DATA_SOURCE_FILE)
+    assert record is not None, (
+        f"{DATA_SOURCE_FILE.name} is missing. It is written by update_data.sh once "
+        "it has verified the download against the release API."
+    )
+    assert record.tag == read_data_version(), (
+        f"{DATA_SOURCE_FILE.name} records the upstream release {record.tag!r}, but "
+        f"{DATA_VERSION_FILE.name} says the packaged data is {read_data_version()!r}."
+    )
+    assert len(record.sha256) == 64 and set(record.sha256) <= set("0123456789abcdef"), (
+        f"{DATA_SOURCE_FILE.name} records {record.sha256!r}, which is not a SHA-256"
     )
 
 
@@ -197,7 +221,7 @@ def test_a_data_directory_without_a_stamp_says_how_to_fix_it(tmp_path):
 
     with TimezoneFinder(bin_file_location=data_dir) as tf:
         with pytest.raises(FileNotFoundError, match="no dataset version stamp"):
-            tf.data_version
+            tf.data_version  # noqa: B018 - the access is what must raise
 
 
 @pytest.mark.parametrize(
@@ -229,19 +253,39 @@ def test_a_version_cannot_be_derived_from_a_non_release_tag(data_tag: str) -> No
         data_distribution_version(data_tag)
 
 
+@pytest.mark.parametrize(
+    ("post_release", "expected"),
+    [(0, "3.2026.3"), (1, "3.2026.3.post1"), (12, "3.2026.3.post12")],
+)
+def test_a_recompiled_upstream_release_uses_a_post_release(
+    post_release: int, expected: str
+) -> None:
+    assert data_distribution_version("2026c", 3, post_release) == expected
+
+
+def test_a_negative_post_release_is_refused() -> None:
+    with pytest.raises(ValueError, match="zero or a positive integer"):
+        data_distribution_version("2026c", 3, -1)
+
+
 def test_the_data_distribution_version_matches_the_packaged_release() -> None:
     # the second of the two hand-touchable copies of DATA_FORMAT_VERSION: the data
     # package's own version. update_data.sh writes it from the tag it just parsed, so
     # this catches a hand-edit and a half-applied update alike - a version naming a
     # release other than the one whose binaries sit next to it would publish data
     # under a number no consumer could use to pin it.
-    assert _declared_version(DATA_PYPROJECT_FILE) == data_distribution_version(
-        read_data_version()
-    ), (
+    declared = Version(_declared_version(DATA_PYPROJECT_FILE))
+    derived = data_distribution_version(read_data_version())
+    try:
+        validate_data_distribution_version(str(declared), read_data_version())
+    except ValueError as error:
+        pytest.fail(str(error))
+    assert declared.base_version == derived, (
         f"{DATA_PYPROJECT_FILE} declares "
-        f"{_declared_version(DATA_PYPROJECT_FILE)!r}, but the packaged release "
+        f"{str(declared)!r}, but the packaged release "
         f"{read_data_version()!r} at format version {DATA_FORMAT_VERSION} derives "
-        f"{data_distribution_version(read_data_version())!r}."
+        f"{derived!r}. Only a .postN suffix may distinguish a rebuilt distribution "
+        "from that same upstream release."
     )
 
 

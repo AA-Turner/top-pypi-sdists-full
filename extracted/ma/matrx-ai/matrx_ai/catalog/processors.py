@@ -199,6 +199,18 @@ def _explicit_effort(canonical: dict[str, Any]) -> str | None:
 # Writes params: thinking, output_config.effort (adaptive), max_tokens.
 
 ANTHROPIC_MIN_BUDGET_TOKENS = 1024
+# LAST RESORT ONLY — the offering's own `default_max_tokens` is the answer, and
+# it must BE the model's real `ai.model_definition.max_tokens`.
+#
+# 🚨 This constant is a number from the era when 32,768 WAS the Anthropic
+# ceiling, and on 2026-09-11 all eleven Anthropic offerings still declared it
+# while Opus 5 and Sonnet 5 could do 128,000 — so every caller who declared
+# nothing was silently capped at a quarter of the model's room, and nothing
+# said so. Never raise this constant to chase a new model: put the model's real
+# maximum in its offering row, where the catalog can carry the truth per model.
+# The guard that notices the next drift:
+# `python scripts/check_output_ceiling_defaults.py` (`--self-test` to prove it
+# can fail).
 ANTHROPIC_DEFAULT_MAX_TOKENS = 32768
 
 # ThinkingConfig.to_anthropic_thinking effort_to_budget, verbatim.

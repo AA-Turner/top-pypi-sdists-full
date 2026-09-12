@@ -3,10 +3,10 @@
 Covers the pieces the `benchmark`/`benchmark-comment` workflows depend on
 (see `.github/workflows/benchmark.yml`):
 
-* `scripts.normalize_benchmark_json` - rewrites the single value
-  `benchmark-action/github-action-benchmark` tracks from the noise-sensitive
-  mean to a chosen estimator, and stamps the CPU into the one field that
-  reaches the trend chart
+* `scripts.normalize_benchmark_json` - rewrites the tracked value from the
+  noise-sensitive mean to a chosen estimator, and records which one
+* `scripts.export_timing_chart_json` - restates that measurement as the
+  lookups/sec the trend chart plots, under the labels the docs use
 * `scripts.compare_benchmark_runs` - compares a pull request's head against
   its merge base, both measured on the same runner
 * `scripts.describe_benchmark_machine` - says which machine a report came from
@@ -34,8 +34,11 @@ from scripts.benchmark_noise import (
 )
 from scripts.benchmark_utils import load_benchmark_json, machine_label
 from scripts.compare_benchmark_runs import (
+    CORROBORATING_ESTIMATORS,
     REGRESSION_THRESHOLD_PCT,
     BenchmarkComparison,
+    benchmark_set_warnings,
+    comparison_estimator,
     comparability_warnings,
     compare_runs,
     regressions,
@@ -44,11 +47,10 @@ from scripts.compare_benchmark_runs import (
 from scripts.compare_benchmark_runs import render_markdown as render_comparison
 from scripts.describe_benchmark_machine import acceleration_label
 from scripts.describe_benchmark_machine import render_markdown as render_description
-from scripts.normalize_benchmark_json import (
-    ESTIMATOR_KEY,
-    annotate_machine_identity,
-    normalize_benchmark_data,
+from scripts.export_timing_chart_json import (
+    to_chart_entries as to_timing_chart_entries,
 )
+from scripts.normalize_benchmark_json import ESTIMATOR_KEY, normalize_benchmark_data
 
 CPU_7763 = "AMD EPYC 7763 64-Core Processor"
 CPU_9V74 = "AMD EPYC 9V74 80-Core Processor"
@@ -107,8 +109,8 @@ def test_normalize_tracks_the_requested_estimator():
     normalized = normalize_benchmark_data(data, "min")
 
     stats = normalized["benchmarks"][0]["stats"]
-    # `ops` is the only number the action reads; `mean` is what it renders
-    # next to it, so the two must agree
+    # `ops` is derived from `mean`, so a reader of the stored report - or
+    # pytest-benchmark's own `--benchmark-compare` - sees the two agree
     assert stats["ops"] == pytest.approx(1.0)
     assert stats["mean"] == pytest.approx(1.0)
     # the untouched statistics survive for anyone debugging the run
@@ -162,33 +164,87 @@ def test_normalized_report_round_trips_through_json(tmp_path):
 
 
 @pytest.mark.unit
-def test_normalize_stamps_the_cpu_into_the_rounds_field():
-    # `rounds` is the only pytest-benchmark field the action's extractor
-    # copies through verbatim, so it is how the CPU reaches the trend chart's
-    # tooltip - without it a stored data point can never be attributed to a
-    # machine once its artifact has expired
-    data = _measured_on(_run(test_a=_stats(1.0, 2.0, 4.0)))
+def test_the_chart_export_states_lookups_per_second():
+    # one round is one pass over `batch_size` points, so the extractor's
+    # "iterations per second" is batches per second - a unit nothing else in
+    # this project quotes. The chart states what a reader can compare against
+    # the µs/query figures in the docs.
+    data = _measured_on(_run(test_a=_stats(minimum=0.005, median=2.0, mean=4.0)))
 
-    annotated = annotate_machine_identity(data)
+    entry = to_timing_chart_entries(data, "min")[0]
 
-    rounds = annotated["benchmarks"][0]["stats"]["rounds"]
-    assert rounds == f"50 on {CPU_7763} @ 3.2449 GHz"
-
-
-@pytest.mark.unit
-def test_normalize_leaves_rounds_alone_without_a_recorded_cpu():
-    data = _run(test_a=_stats(1.0, 2.0, 4.0))
-
-    assert annotate_machine_identity(data)["benchmarks"][0]["stats"]["rounds"] == 50
+    assert entry["unit"] == "lookups/sec"
+    assert entry["value"] == pytest.approx(2500 / 0.005)
 
 
 @pytest.mark.unit
-def test_annotating_does_not_mutate_the_input():
-    data = _measured_on(_run(test_a=_stats(1.0, 2.0, 4.0)))
+def test_the_chart_export_names_the_workload_not_the_node_id():
+    data = _measured_on(
+        _run(**{"test_timezone_at[random-in_memory]": _stats(0.005, 2.0, 4.0)})
+    )
 
-    annotate_machine_identity(data)
+    entry = to_timing_chart_entries(data, "min")[0]
 
-    assert data["benchmarks"][0]["stats"]["rounds"] == 50
+    assert entry["name"] == "TimezoneFinder.timezone_at() - random points, in-memory"
+
+
+@pytest.mark.unit
+def test_the_chart_export_names_the_machine_and_the_estimator():
+    # the chart outlives the artifact holding `machine_info`, so a point that
+    # does not name its own CPU can never be attributed to one afterwards -
+    # and this pool's CPUs differ by more than any plausible code change
+    data = _measured_on(_run(test_a=_stats(0.005, 2.0, 4.0)))
+
+    entry = to_timing_chart_entries(data, "min")[0]
+
+    assert entry["extra"] == f"min of 50 round(s) on {CPU_7763} @ 3.2449 GHz"
+
+
+@pytest.mark.unit
+def test_the_chart_export_carries_the_spread_as_a_throughput_band():
+    # `stddev` is measured in seconds; a throughput band is its first-order
+    # propagation, not the number itself
+    data = _measured_on(_run(test_a=_stats(minimum=0.005, median=2.0, mean=4.0)))
+    stddev = data["benchmarks"][0]["stats"]["stddev"]
+
+    entry = to_timing_chart_entries(data, "min")[0]
+
+    expected = entry["value"] * stddev / 0.005
+    assert entry["range"] == f"± {expected:.0f}"
+
+
+@pytest.mark.unit
+def test_the_chart_export_refuses_a_report_without_a_batch_size():
+    # dividing by a guessed batch size would put a wrong-by-a-constant-factor
+    # point on a chart that keeps it forever
+    data = _run(test_a=_stats(0.005, 2.0, 4.0))
+
+    with pytest.raises(ValueError, match="batch_size"):
+        to_timing_chart_entries(data, "min")
+
+
+@pytest.mark.unit
+def test_the_chart_export_refuses_two_benchmarks_with_one_label():
+    # the label is the chart's join key now, so a collision would interleave
+    # two metrics into a single, meaningless series
+    data = _measured_on(
+        _run(
+            **{
+                "test_unmapped[a]": _stats(0.005, 2.0, 4.0),
+                "test_unmapped[b]": _stats(0.005, 2.0, 4.0),
+            }
+        )
+    )
+    data["benchmarks"][1]["name"] = data["benchmarks"][0]["name"]
+
+    with pytest.raises(ValueError, match="same chart label"):
+        to_timing_chart_entries(data, "min")
+
+
+@pytest.mark.unit
+def test_the_chart_export_refuses_an_empty_report():
+    with pytest.raises(ValueError, match="no 'benchmarks' entries"):
+        to_timing_chart_entries(_measured_on({"benchmarks": []}), "min")
 
 
 @pytest.mark.unit
@@ -226,8 +282,25 @@ def test_compare_rejects_a_renamed_benchmark():
     base = _run(a=_stats(1.0, 1.0, 1.0))
     head = _run(b=_stats(1.0, 1.0, 1.0))
 
-    with pytest.raises(ValueError, match="same benchmarks"):
+    with pytest.raises(ValueError, match="no common benchmarks"):
         compare_runs([base], [head], "min")
+
+
+@pytest.mark.unit
+def test_compare_uses_shared_benchmarks_when_the_head_adds_one():
+    base = _run(a=_stats(1.0, 1.0, 1.0))
+    head = _run(
+        a=_stats(1.1, 1.1, 1.1),
+        new_benchmark=_stats(2.0, 2.0, 2.0),
+    )
+
+    (comparison,) = compare_runs([base], [head], "min")
+    (warning,) = benchmark_set_warnings([base], [head])
+
+    assert comparison.name == "benchmarks/test_x.py::a"
+    assert comparison.change_pct == pytest.approx(10.0)
+    assert "new head benchmark" in warning
+    assert "new_benchmark" in warning
 
 
 @pytest.mark.unit
@@ -315,11 +388,109 @@ def test_comparison_markdown_names_the_machine_and_flags_the_verdicts():
         estimator="min",
         machine=f"{CPU_7763} @ 3.2449 GHz",
         threshold_pct=REGRESSION_THRESHOLD_PCT,
+        lookups_per_round=2500,
     )
 
     assert CPU_7763 in report
-    assert "+50.0%" in report and "🔴 slower" in report
-    assert "-50.0%" in report and "🟢 faster" in report
+    assert "-33.3%" in report and "🔴 slower" in report
+    assert "+100.0%" in report and "🟢 faster" in report
+    assert "base (lookups/s)" in report
+    assert "2,500" in report and "5,000" in report
+    assert "| result |" in report
+
+
+@pytest.mark.unit
+def test_memory_comments_default_to_the_median_despite_a_tracked_minimum():
+    report = _run(a=_stats(1.0, 2.0, 3.0))
+    report[ESTIMATOR_KEY] = "min"
+
+    assert comparison_estimator([report], "min", "memory") == "median"
+    assert comparison_estimator([report], "mean", "duration") == "min"
+    del report[ESTIMATOR_KEY]
+    assert comparison_estimator([report], "mean", "duration") == "mean"
+
+
+@pytest.mark.unit
+def test_compare_carries_a_second_estimator_for_every_row():
+    # a single estimator cannot express "no effect"; the corroborating one is
+    # what lets a reader see whether the two agree
+    base = _run(a=_stats(1.0, 2.0, 4.0))
+    head = _run(a=_stats(0.5, 2.0, 4.0))
+
+    (comparison,) = compare_runs([base], [head], "min")
+
+    assert CORROBORATING_ESTIMATORS["min"] == "median"
+    assert comparison.change_pct == pytest.approx(-50.0)
+    assert comparison.corroborating_change_pct == pytest.approx(0.0)
+
+
+@pytest.mark.unit
+def test_a_head_only_benchmark_does_not_shift_the_second_estimator():
+    # the two features meet here: rows are restricted to the shared names,
+    # while the corroborating estimator is reduced per side over every
+    # benchmark that side carries. Looking the second estimator up by name
+    # rather than by position is what keeps a head-only benchmark from
+    # pairing `a`'s min against `new_benchmark`'s median.
+    base = _run(a=_stats(1.0, 4.0, 1.0))
+    head = _run(a=_stats(1.0, 2.0, 1.0), new_benchmark=_stats(9.0, 9.0, 9.0))
+
+    (comparison,) = compare_runs([base], [head], "min")
+
+    assert comparison.name == "benchmarks/test_x.py::a"
+    assert comparison.base_corroborating == pytest.approx(4.0)
+    assert comparison.head_corroborating == pytest.approx(2.0)
+    assert comparison.corroborating_change_pct == pytest.approx(-50.0)
+
+
+@pytest.mark.unit
+def test_compare_drops_the_second_estimator_when_it_is_missing():
+    # an older report, or a metric that records one statistic only, loses the
+    # courtesy column rather than failing the comparison CI depends on
+    stats = {"min": 1.0, "mean": 1.0, "ops": 1.0, "rounds": 5}
+    base = _run(a=dict(stats))
+    head = _run(a=dict(stats))
+
+    (comparison,) = compare_runs([base], [head], "min")
+
+    assert comparison.corroborating_change_pct is None
+
+
+@pytest.mark.unit
+def test_comparison_markdown_marks_a_row_the_estimators_disagree_about():
+    disagreeing = BenchmarkComparison(
+        "benchmarks/test_x.py::a",
+        base=1.0,
+        head=0.5,
+        base_corroborating=1.0,
+        head_corroborating=1.0,
+    )
+    agreeing = BenchmarkComparison(
+        "benchmarks/test_x.py::b",
+        base=1.0,
+        head=0.5,
+        base_corroborating=1.0,
+        head_corroborating=0.5,
+    )
+
+    report = render_comparison([disagreeing, agreeing], estimator="min", machine=None)
+
+    rows = {
+        line.split("|")[1].strip(): line for line in report.splitlines() if "::" in line
+    }
+    assert "⚠️ unresolved" in rows["`benchmarks/test_x.py::a`"]
+    assert "⚠️ unresolved" not in rows["`benchmarks/test_x.py::b`"]
+    assert "median change" in report
+
+
+@pytest.mark.unit
+def test_comparison_markdown_renders_a_missing_second_estimator_as_absent():
+    report = render_comparison(
+        [BenchmarkComparison("a", base=1.0, head=1.0)], estimator="min", machine=None
+    )
+
+    (row,) = (line for line in report.splitlines() if line.startswith("| `"))
+    assert "| n/a |" in row
+    assert "⚠️ unresolved" not in row
 
 
 @pytest.mark.unit
@@ -346,7 +517,7 @@ def test_comparison_markdown_neutralises_the_benchmark_name():
     )
 
     (row,) = (line for line in report.splitlines() if line.startswith("| `"))
-    assert row.count("|") == 6  # 5 columns, not forged by the name
+    assert row.count("|") == 7  # 6 columns, not forged by the name
     assert "`evil'/' name second line`" in row
 
 
@@ -472,3 +643,14 @@ def test_acceleration_path_check_rejects_the_inactive_path():
 
     with pytest.raises(RuntimeError, match="acceleration path"):
         check_acceleration_path(inactive)
+
+
+@pytest.mark.unit
+def test_the_chart_export_names_the_statistics_it_did_not_find():
+    # a report from another measurement script carries a different set of
+    # statistics; a bare KeyError three frames down says nothing about which
+    # benchmark or which estimator
+    data = _measured_on(_run(test_a={"min": 0.005, "stddev": 0.0, "rounds": 1}))
+
+    with pytest.raises(ValueError, match="no 'median' statistic; available:"):
+        to_timing_chart_entries(data, "median")

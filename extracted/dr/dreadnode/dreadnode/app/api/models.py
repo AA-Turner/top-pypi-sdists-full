@@ -95,11 +95,18 @@ class PlatformConfig(BaseModel):
     # web UI defaults it the other way and fails closed, but nothing in the SDK
     # gates on it today — it is mirrored so the drift check stays meaningful.
     airgapped: bool = False
+    email_configured: bool = False
     recaptcha_enabled: bool = False
     recaptcha_site_key: str | None = None
+    account_defender_enabled: bool = False
+    account_defender_site_key: str | None = None
     credits_enabled: bool = True
     feedback_enabled: bool = False
     integrations_enabled: bool = True
+    # Whether the operator has enabled the Slack integration for this
+    # deployment. Absent (False) on older platforms, which have no Slack routes
+    # at all, so a client that does not receive it shows nothing (SLK-GATE-003).
+    slack_enabled: bool = False
     # False on older platforms whose /feedback rejects diagnostic-report fields.
     feedback_diagnostics: bool = False
     website_url: str
@@ -299,6 +306,14 @@ class Organization(BaseModel):
     """URL-friendly identifier for the organization."""
     description: str | None = None
     """Description of the organization."""
+    avatar_preset: t.Literal["slate", "blue", "violet", "green", "amber"] | None = None
+    """Selected avatar color preset."""
+    avatar_source: t.Literal["image", "preset"] | None = None
+    """Which avatar is active; None renders the organization name initial."""
+    avatar_image_available: bool = False
+    """Whether the organization has an uploaded avatar image."""
+    avatar_image_revision: str | None = None
+    """Revision of the uploaded avatar image."""
     is_active: bool = True
     """Is the organization active?"""
     allow_external_invites: bool = False

@@ -113,3 +113,54 @@ def test_real_database_failure_remains_operational() -> None:
     assert database._structured_query_error_type(ConnectionError("database unavailable")) == (
         "database"
     )
+
+
+@pytest.mark.asyncio
+async def test_reads_outside_an_application_schema_are_refused(monkeypatch) -> None:
+    """Reads no longer need a registered model, so the schema guard covers them.
+
+    Without this, the live-catalog read path would make auth/vault/graveyard
+    relations selectable through the `sql` tool.
+    """
+
+    async def runner(**kwargs: Any) -> list[dict[str, Any]]:  # pragma: no cover
+        raise AssertionError("a non-application schema must never reach the runner")
+
+    monkeypatch.setattr(_ext, "get_scoped_query_runner", lambda: runner)
+
+    for table in ("auth.users", "vault.secrets", "graveyard.old_thing"):
+        result = await database._sql_query_scoped(
+            {"table": table},
+            ToolContext(call_id="call-guard"),
+            1.0,
+            "super_admin",
+        )
+        assert result.success is False
+        assert result.error is not None
+        assert result.error.error_type == "permission"
+        assert "not application data" in result.error.message
+
+
+@pytest.mark.asyncio
+async def test_bare_table_name_is_qualified_before_the_read(monkeypatch) -> None:
+    seen: dict[str, Any] = {}
+
+    async def runner(**kwargs: Any) -> list[dict[str, Any]]:
+        seen.update(kwargs)
+        return []
+
+    async def schemas_for(name: str) -> list[str]:
+        return ["ai"]
+
+    monkeypatch.setattr(_ext, "get_scoped_query_runner", lambda: runner)
+    monkeypatch.setattr(database, "_schemas_for_table", schemas_for)
+
+    result = await database._sql_query_scoped(
+        {"table": "provider_sync_candidates"},
+        ToolContext(call_id="call-bare"),
+        1.0,
+        "developer",
+    )
+
+    assert result.success is True
+    assert seen["table"] == "ai.provider_sync_candidates"

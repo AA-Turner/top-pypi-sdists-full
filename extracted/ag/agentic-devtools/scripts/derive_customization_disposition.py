@@ -69,19 +69,15 @@ PROMPT_SUBAGENT_TO_SKILL_RECLASSIFICATIONS = {
     ),
 }
 
-#: Root ``--verify-authored`` scans for an authored skill - an ``agdt-*`` directory
-#: holding a ``SKILL.md``.  Only the re-slugged ``agdt-*`` form counts; non-``agdt``
-#: skills already present in the repository (e.g. ``run-targeted-checks``) are outside
-#: the migration namespace and must not be treated as unexpected orphans.
+#: Root ``--verify-authored`` scans for authored skills under this root. The scan keeps
+#: migration output bounded by expected target slugs plus ``agdt-*`` legacy re-slugs so
+#: unrelated repository skills are not reported as migration divergences.
 #: ``.agents/skills/<name>/SKILL.md`` is the only supported skill root (see
 #: ``.agents/skills/README.md:28``); ``.github/skills`` is not read by any runtime.
 AUTHORED_SKILL_ROOTS = (".agents/skills",)
 
-#: Root ``--verify-authored`` scans for an authored subagent.  Repository-authored
-#: re-slugged subagents live alongside the legacy dot-named corpus under
-#: ``.github/agents``, so only ``agdt-*.agent.md`` matches count here: the legacy
-#: ``agdt.*.agent.md`` files remain the input to this table, and the repository's
-#: non-``agdt`` agents are outside the migration namespace.
+#: Root ``--verify-authored`` scans for authored subagents under this root. The scan
+#: keeps migration output bounded by expected targets plus ``agdt-*`` legacy re-slugs.
 AUTHORED_AGENT_ROOTS = (".github/agents",)
 
 DISPOSITIONS = ("delete", "merge", "skill", "subagent", "collapse")
@@ -209,6 +205,20 @@ _DISPATCH_RE = re.compile("|".join(_DISPATCH_PHRASES), re.IGNORECASE)
 
 #: ``handoffs:`` entries name their target with an ``agent:`` key.
 _HANDOFF_RE = re.compile(r"^\s*(?:-\s*)?agent:\s*[\"']?(agdt\.[\w.-]+)[\"']?\s*$", re.MULTILINE)
+_SUPERVISOR_AGENT_TYPE_RE = re.compile(r"\bagent_type:\s*[`\"]?([A-Za-z0-9_.-]+)")
+# Migration-only marker owned by this script; it is intentionally outside the runtime ``agdt``
+# frontmatter schema.
+_CHILD_DISPATCH_DISABLED_RE = re.compile(
+    r"<!--\s*derive_customization_disposition:\s*child_dispatch:\s*false\s*-->",
+    re.IGNORECASE,
+)
+_SUPERVISOR_AGENT_TYPE_TO_SLUG = {
+    "ai-pr-loop-pattern-audit": "agdt.ai-pr-loop-supervision.pattern-auditor",
+    "agdt-ai-pr-loop-supervision-pattern-auditor": "agdt.ai-pr-loop-supervision.pattern-auditor",
+    "ai-pr-loop-workflow-monitor": "agdt.ai-pr-loop-supervision.workflow-monitor",
+    "agdt-ai-pr-loop-supervision-steward": "agdt.ai-pr-loop-supervision.steward",
+    "agdt-ai-pr-loop-supervision-workflow-monitor": "agdt.ai-pr-loop-supervision.workflow-monitor",
+}
 
 #: A fenced block opener, e.g. ```` ```bash ````, capturing its info string.
 _FENCE_RE = re.compile(r"^\s*```+\s*(\w*)")
@@ -235,6 +245,7 @@ _GLOB_TOKEN_RE = re.compile(r"(?<![A-Za-z0-9_.\-/])(/?[A-Za-z0-9_.\-/]*\*+[A-Za-
 _PROVIDER_RE = re.compile(r"\b(jira|azure devops|azure-devops|github|gitlab)\b", re.IGNORECASE)
 
 _WORKFLOW_RE = re.compile(r"\bworkflow\b", re.IGNORECASE)
+_FRONTMATTER_NAME_RE = re.compile(r"^name:[ \t]*([^\n#]*?)[ \t]*(?:#.*)?$", re.MULTILINE)
 
 
 # --------------------------------------------------------------------------------------
@@ -505,6 +516,31 @@ def to_target_slug(slug: str) -> str:
     return target
 
 
+def _frontmatter_target_name(frontmatter: str) -> str | None:
+    """Return a valid frontmatter `name` target, when present.
+
+    Args:
+        frontmatter: YAML frontmatter text.
+
+    Returns:
+        The normalized `name` value when it is a valid target slug, else ``None``.
+    """
+    match = _FRONTMATTER_NAME_RE.search(frontmatter)
+    if match is None:
+        return None
+    raw_value = match.group(1).strip()
+    value = raw_value
+    if raw_value[:1] in {"'", '"'} or raw_value[-1:] in {"'", '"'}:
+        if len(raw_value) < 2 or raw_value[0] != raw_value[-1]:
+            return None
+        value = raw_value[1:-1]
+    if len(value) > TARGET_SLUG_MAX_LEN:
+        return None
+    if not TARGET_SLUG_RE.fullmatch(value):
+        return None
+    return value
+
+
 # --------------------------------------------------------------------------------------
 # Units
 # --------------------------------------------------------------------------------------
@@ -594,7 +630,7 @@ def load_units(repo_root: Path) -> list[Unit]:
     return units
 
 
-def dispatched_slugs(units: Sequence[Unit]) -> frozenset[str]:
+def dispatched_slugs(units: Sequence[Unit], supervisor_dispatches: Iterable[str] = ()) -> frozenset[str]:
     """Return the slugs of units another unit dispatches - T4's first limb.
 
     Dispatch is read two ways, both mechanical: a ``handoffs:`` entry in another
@@ -603,6 +639,9 @@ def dispatched_slugs(units: Sequence[Unit]) -> frozenset[str]:
 
     Args:
         units: Every loaded unit.
+        supervisor_dispatches: Additional dispatched unit slugs derived from explicit
+            supervisor ``agent_type`` mappings. Values must already be normalized to
+            loaded unit slugs.
 
     Returns:
         The dispatched slugs.
@@ -615,7 +654,22 @@ def dispatched_slugs(units: Sequence[Unit]) -> frozenset[str]:
                 dispatched.add(target)
         if _DISPATCH_RE.search(unit.body):
             dispatched.add(unit.slug)
-    return frozenset(dispatched)
+    known_supervisor_dispatches = set(supervisor_dispatches) & known
+    return frozenset(dispatched | known_supervisor_dispatches)
+
+
+def supervisor_dispatch_slugs(units: Sequence[Unit], supervisor_text: str) -> frozenset[str]:
+    """Return loaded unit slugs named by the supervisor's ``agent_type`` references."""
+    if _CHILD_DISPATCH_DISABLED_RE.search(supervisor_text):
+        return frozenset()
+    known = {unit.slug for unit in units}
+    slugs: set[str] = set()
+    for reference in _SUPERVISOR_AGENT_TYPE_RE.findall(supervisor_text):
+        reference = _SUPERVISOR_AGENT_TYPE_TO_SLUG.get(reference, reference)
+        if reference.startswith("ai-pr-loop-supervision"):
+            reference = reference.replace("ai-pr-loop-supervision-", "agdt.ai-pr-loop-supervision.", 1)
+        slugs.add(reference)
+    return frozenset(slugs & known)
 
 
 # --------------------------------------------------------------------------------------
@@ -756,7 +810,8 @@ def derive_rows(repo_root: Path) -> list[Row]:
     """
     units = load_units(repo_root)
     entry_points = entry_point_slugs(repo_root / "pyproject.toml")
-    dispatched = dispatched_slugs(units)
+    supervisor_skill = repo_root / ".agents/skills/ai-pr-loop-supervision/SKILL.md"
+    dispatched = dispatched_slugs(units, supervisor_dispatch_slugs(units, supervisor_skill.read_text(encoding="utf-8")))
     t2_tracked = tracked_files(repo_root)
 
     unknown_subagents = set(T4_VERBOSE_OUTPUT) - set(dispatched)
@@ -775,7 +830,15 @@ def derive_rows(repo_root: Path) -> list[Row]:
         t0 = fires_t0(unit, entry_points)
         stub_by_path[unit.path] = is_stub
         t0_by_path[unit.path] = t0
-        dispositions[unit.path] = _classify(unit, is_stub, t0, dispatched, substantive_prompts, repo_root, t2_tracked)
+        dispositions[unit.path] = _classify(
+            unit,
+            is_stub,
+            t0,
+            dispatched,
+            substantive_prompts,
+            repo_root,
+            t2_tracked,
+        )
 
     residue_firing_t0 = sorted(
         unit.slug
@@ -806,7 +869,10 @@ def derive_rows(repo_root: Path) -> list[Row]:
         else:
             group = _group_for(unit.slug, skill_singletons)
             family = merge_family(unit.slug)
-            target = to_target_slug(family if disposition == "merge" and family else unit.slug)
+            if disposition == "merge" and family:
+                target = to_target_slug(family)
+            else:
+                target = _frontmatter_target_name(unit.frontmatter) or to_target_slug(unit.slug)
         rows.append(
             Row(
                 path=unit.path,
@@ -854,7 +920,8 @@ def _classify(
     # T4 is evaluated before T3 because the dispatch relationship is the dominant trait: a
     # dispatched subagent that also has numbered steps is still a subagent, not a skill.
     if carries_the_body and unit.slug in T4_VERBOSE_OUTPUT and unit.slug in dispatched:
-        return "subagent", f"T4: {T4_VERBOSE_OUTPUT[unit.slug]}"
+        reason = f"T4: {T4_VERBOSE_OUTPUT[unit.slug]}"
+        return "subagent", reason
     family = merge_family(unit.slug)
     if family is not None:
         return "merge", f"Step of the `{family}` workflow-step family; merges into one skill."
@@ -1267,11 +1334,13 @@ can prove the property without trusting a fresh derivation.
 
 ### Re-slug
 
-`agdt.x.y` → `agdt-x-y`, lowercased, validated against `^[a-z0-9](-?[a-z0-9])*$` and a
-64-character limit. A dot is illegal in a skill name and an illegal name fails to load
-silently. An agent file and the prompt stub of the same slug map to one target slug —
-that is the intended merge, not a collision — and so do the members of a merged
-workflow-step family. Any other repeated target is reported as an error.
+Targets use the authored frontmatter `name` when that value is present and already matches
+`^[a-z0-9](-?[a-z0-9])*$` within the 64-character limit; otherwise the fallback re-slug is
+`agdt.x.y` → `agdt-x-y` (lowercased and validated). This keeps migration targets aligned with
+actual invocation names while preserving deterministic fallback for legacy wrappers. An agent
+file and the prompt stub of the same slug map to one target slug — that is the intended merge,
+not a collision — and so do the members of a merged workflow-step family. Any other repeated
+target is reported as an error.
 
 ## Summary
 
@@ -1419,6 +1488,7 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             artifact kind does not match what the table permits for that target.
     """
     expected_kinds_by_target = _expected_authored_kinds_by_target(rows)
+    expected_targets = set(expected_kinds_by_target)
     legacy_expected_kinds_by_slug: dict[str, set[str]] = defaultdict(set)
     for item in rows:
         if item.target == "-":
@@ -1435,12 +1505,36 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
 
     authored_paths_by_slug: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for root in AUTHORED_SKILL_ROOTS:
-        for skill in sorted((repo_root / root).glob("agdt-*/SKILL.md")):
-            authored_paths_by_slug[skill.parent.name].append(("skill", skill.relative_to(repo_root).as_posix()))
+        for skill in sorted((repo_root / root).glob("*/SKILL.md")):
+            slug = skill.parent.name
+            frontmatter, _ = split_frontmatter(skill.read_text(encoding="utf-8"))
+            if _frontmatter_target_name(frontmatter) != slug:
+                continue
+            expected_kinds = expected_kinds_by_target.get(slug, set())
+            if slug.startswith("agdt-"):
+                pass
+            elif "skill" not in expected_kinds:
+                continue
+            authored_paths_by_slug[slug].append(("skill", skill.relative_to(repo_root).as_posix()))
     for root in AUTHORED_AGENT_ROOTS:
-        for agent in sorted((repo_root / root).glob("agdt-*.agent.md")):
+        for agent in sorted((repo_root / root).glob("*.agent.md")):
             slug = agent.name.removesuffix(".agent.md")
-            authored_paths_by_slug[slug].append(("subagent", agent.relative_to(repo_root).as_posix()))
+            frontmatter, _ = split_frontmatter(agent.read_text(encoding="utf-8"))
+            declared_name = _FRONTMATTER_NAME_RE.search(frontmatter) is not None
+            frontmatter_target = _frontmatter_target_name(frontmatter)
+            if declared_name:
+                if frontmatter_target is None:
+                    continue
+                target = frontmatter_target
+            else:
+                target = slug
+            expected_kinds = expected_kinds_by_target.get(target, set())
+            legacy_namespace = slug.startswith(("agdt.", "agdt-"))
+            if target.startswith("agdt-") or (declared_name and legacy_namespace):
+                pass
+            elif "subagent" not in expected_kinds:
+                continue
+            authored_paths_by_slug[target].append(("subagent", agent.relative_to(repo_root).as_posix()))
 
     authored: set[str] = set()
     for slug, claims in sorted(authored_paths_by_slug.items()):
@@ -1458,7 +1552,7 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             )
         authored.add(slug)
 
-    expected = set(expected_kinds_by_target)
+    expected = expected_targets
     recognized = expected | legacy_slugs
     return sorted(authored), sorted(expected - authored), sorted(authored - recognized)
 

@@ -873,8 +873,11 @@ async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str
     ANSI developer banner). On a schema miss, attach what makes the next call
     succeed: did-you-mean tables, the schema's table list, or the real columns.
     """
-    text = str(exc).lower()
-    if "read-only" in text or "read only" in text:
+    # Classification is by SQLSTATE / exception type ONLY. It used to be by
+    # substring — `"policy" in text` — which reported an unknown column named
+    # `sync_policy` as a permissions failure (2026-09-11 incident) and sent a
+    # super-admin agent chasing access it already had.
+    if _db_hints.is_read_only_error(exc):
         return (
             "The `query` action is read-only — it cannot modify data. To change "
             "data, use action 'insert' / 'update' / 'delete' / 'upsert' if you are "
@@ -882,12 +885,13 @@ async def _agent_db_error(exc: Exception, query: str | None = None) -> tuple[str
             "your own permissions.",
             "Re-issue the change as a write action, or use the `data` tools.",
         )
-    if "permission denied" in text or "row-level security" in text or "policy" in text:
+    if _db_hints.is_permission_error(exc):
         return (
-            "That statement touched rows or tables your access level doesn't permit. "
-            "Non-super-admin database access runs under your own row-level-security "
-            "permissions — you can only read/write what you own or have been granted. "
-            "Broader access requires super_admin.",
+            "That statement touched rows or tables your access level doesn't permit "
+            "(Postgres SQLSTATE 42501 — insufficient privilege or a row-level-security "
+            "policy denial). Non-super-admin database access runs under your own "
+            "row-level-security permissions — you can only read/write what you own or "
+            "have been granted. Broader access requires super_admin.",
             "Scope the query to data you own, or ask a super_admin if you need more.",
         )
     facts = _db_hints.parse_db_error(exc)
@@ -916,6 +920,41 @@ def _structured_query_error_type(exc: Exception) -> str:
     return "database"
 
 
+async def _resolve_read_target(table: str) -> tuple[str | None, str | None]:
+    """Authorize a READ target. Returns ``(schema.table, error_message)``.
+
+    Reads no longer require a registered ORM model (a live view is readable the
+    moment it exists), so the schema guard that writes always had now applies to
+    reads too: nothing outside an application schema is reachable through this
+    tool. A bare name that exists in exactly one app schema is qualified here;
+    anything unresolvable is handed back to the normal error/hint path, which
+    knows how to say "did you mean".
+    """
+    raw = (table or "").strip()
+    if not raw:
+        return None, "table is required."
+    schema, name = _split_schema_table(raw)
+    if schema is None:
+        schemas = await _schemas_for_table(name)
+        if len(schemas) == 1:
+            schema = schemas[0]
+        elif len(schemas) > 1:
+            return None, (
+                f"Table '{raw}' exists in multiple schemas; qualify it as schema.table "
+                f"(candidates: {[f'{s}.{name}' for s in schemas]})."
+            )
+        else:
+            # Unknown name — let the query fail through the hint builder, which
+            # produces did-you-mean suggestions instead of a flat refusal.
+            return raw, None
+    if schema in _NON_APP_SCHEMAS:
+        return None, (
+            f"Schema '{schema}' is not application data and is not readable through "
+            f"the `sql` tool."
+        )
+    return f"{schema}.{name}", None
+
+
 async def _sql_query_scoped(
     inner_args: dict[str, Any], ctx: ToolContext, started_at: float, admin_level: str | None
 ) -> ToolResult:
@@ -923,6 +962,12 @@ async def _sql_query_scoped(
     from matrx_ai._ext import get_scoped_query_runner
 
     parsed = DbQueryArgs(**inner_args)
+    qualified, read_error = await _resolve_read_target(parsed.table)
+    if read_error:
+        return _sql_permission_error(read_error, started_at, ctx)
+    if qualified and qualified != parsed.table:
+        inner_args = {**inner_args, "table": qualified}
+        parsed = DbQueryArgs(**inner_args)
     runner = get_scoped_query_runner()
     if admin_level == SUPER_ADMIN:
         return _sql_stamp(await db_query(inner_args, ctx), started_at, ctx)

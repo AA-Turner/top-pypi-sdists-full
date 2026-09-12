@@ -161,6 +161,12 @@ POST_PROCESSING_CONFIGS_PATH = (
 #: another deployment's geometry, because there is no other document to pick up.
 POST_PROCESSING_CONFIG_BY_CAMERA_APP_PATH = "/v1/inference/post_processing_config"
 
+#: Route prefixes the local gateway serves from an **on-prem** service instead of proxying to the
+#: cloud (``location /v1/inference -> api_inference``). For these the session's own base URL is the
+#: authority, and :func:`backend_base_url` is not a fallback but a wrong answer -- see
+#: :func:`_bases_for`.
+LOCAL_AUTHORITY_PREFIXES = ("/v1/inference/",)
+
 #: A 24-hex Mongo ObjectId. Used to recognise an action id in ``sys.argv``.
 _OBJECT_ID_RE = re.compile(r"^[0-9a-f]{24}$")
 
@@ -510,6 +516,48 @@ def backend_base_url(env: Optional[Mapping[str, str]] = None) -> str:
     return f"https://{stage}.backend.app.matrice.ai"
 
 
+def _bases_for(path: str, env: Optional[Mapping[str, str]] = None) -> tuple:
+    """The base URLs worth trying for ``path``, in order.
+
+    Two bases for a **cloud-only** route, because the local gateway 302s those out and httpx drops
+    the ``Authorization`` header across the origin change -- the case :func:`backend_base_url`
+    exists for.
+
+    One base for a route in :data:`LOCAL_AUTHORITY_PREFIXES`, because retrying those against the
+    cloud is not a fallback, it is a category error, and an expensive one (ANLY-15):
+
+    * The gateway proxies ``/v1/inference/*`` to the on-prem ``api_inference``. That service, not
+      the cloud, owns the answer -- on an ``accessScale: "local"`` deployment the document exists
+      in the on-prem mongo and *nowhere else*, so the cloud has nothing to return even in
+      principle.
+    * The retry cannot authenticate anyway. Tokens are minted against ``$MATRICE_BASE_URL``
+      (``token_auth.py`` ``VALIDATE_ACCESS_KEY_URL`` / ``REFRESH_TOKEN_URL``), i.e. the local
+      gateway's ``api_user``, so a direct-to-cloud call presents a JWT that the cloud never issued
+      and is refused ``401 Invalid authentication token``. Going direct also bypasses the
+      gateway's ``cloud_egress`` listener, which is the *only* sanctioned crossing: it strips
+      ``Authorization`` and substitutes the deployment's ``X-License-Key``. This module already
+      does the crossing correctly for the one route that needs it -- see ``_mint_via_license``.
+    * ``rpc``'s 401 handler then re-mints (against the gateway, successfully) and retries into the
+      same refusal, so each attempt costs two cloud round trips plus a re-auth, logs a full error
+      block, and cannot ever succeed.
+    """
+    if path.startswith(LOCAL_AUTHORITY_PREFIXES):
+        return (None,)
+    return (None, backend_base_url(env))
+
+
+def _is_not_found(response: Any) -> bool:
+    """True when ``response`` is ``matrice_common``'s canonical 404 envelope.
+
+    ``rpc._execute_request`` short-circuits **every** 404 into ``_not_found_response()`` and never
+    raises, so "the document does not exist" arrives looking exactly like a failed call. It is
+    distinguishable only by the ``status_code`` the envelope carries, and telling the two apart is
+    what lets a fetcher honour its documented "returns nothing when absent" contract instead of
+    escalating a perfectly good answer into another attempt.
+    """
+    return isinstance(response, dict) and response.get("status_code") == 404
+
+
 def _rpc_data(
     session: Any,
     path: str,
@@ -523,9 +571,14 @@ def _rpc_data(
     call and the right one. Only if that fails does it retry against
     :func:`backend_base_url`, because the most likely reason for the first failure is a
     cross-origin redirect that stripped the auth header rather than anything wrong with the request.
+    A locally-owned route gets no such retry; :func:`_bases_for` says why.
+
+    A 404 is deliberately *not* short-circuited here, unlike in the post-processing fetchers: on a
+    cloud-only route it is the signature of the redirect having stripped the auth header, which is
+    precisely the case the second base exists to rescue.
     """
     attempts: list[str] = []
-    for base in (None, backend_base_url(env)):
+    for base in _bases_for(path, env):
         try:
             rpc = _rpc(session)
             response = rpc.get(path) if base is None else rpc.get(path, base_url=base)
@@ -697,17 +750,18 @@ def fetch_post_processing_configs(
     routing at the runner exists to avoid.
 
     ``data`` on this route is a **list**, which is why it does not go through :func:`_rpc_data`
-    (that coerces a non-dict ``data`` to ``{}``). The same two-base retry applies, for the same
-    reason: a local gateway may not proxy the route.
+    (that coerces a non-dict ``data`` to ``{}``).
 
-    Returns an empty list when the deployment has no configs. Raises :class:`AppBundleError` when
-    the call itself could not be made, so the caller can distinguish "no zones" from "no answer".
+    Returns an empty list when the deployment has no configs -- including when the backend says so
+    with a 404, which is an answer and is treated as one (ANLY-15). Raises :class:`AppBundleError`
+    when the call itself could not be made, so the caller can distinguish "no zones" from "no
+    answer". This route is locally owned, so it gets a single base; :func:`_bases_for` says why.
     """
     session = session if session is not None else _open_session(f"deployment {app_deployment_id}")
     path = POST_PROCESSING_CONFIGS_PATH.format(app_deployment_id=app_deployment_id)
 
     attempts: list[str] = []
-    for base in (None, backend_base_url(env)):
+    for base in _bases_for(path, env):
         try:
             rpc = _rpc(session)
             response = rpc.get(path) if base is None else rpc.get(path, base_url=base)
@@ -723,6 +777,10 @@ def fetch_post_processing_configs(
             if isinstance(data, list):
                 return [entry for entry in data if isinstance(entry, (dict, list))]
             return [data] if isinstance(data, dict) else []
+        if _is_not_found(response):
+            # The deployment has no configs. An answer, not a failure -- do not spend another
+            # attempt on it and do not raise.
+            return []
         attempts.append(f"{base or 'session base url'}: {_describe(response)}")
 
     raise AppBundleError(
@@ -743,8 +801,8 @@ def fetch_post_processing_config_by_camera_and_app(
     """One camera's post-processing config for one application, or ``None``.
 
     The fallback for :func:`fetch_post_processing_configs`. Same route group, so the credentials
-    that already reach the deployment-scoped call reach this one too -- and the same two-base
-    retry, for the same local-gateway reason documented on :func:`backend_base_url`.
+    that already reach the deployment-scoped call reach this one too -- and, being locally owned,
+    the same single base; :func:`_bases_for` says why a cloud retry is wrong here.
 
     This is the key the streaming UI both writes and reads on, so what it returns is by
     construction the polygon the operator can see drawn. Use it when the deployment-scoped query
@@ -761,7 +819,7 @@ def fetch_post_processing_config_by_camera_and_app(
     params = {"cameraId": camera_id, "applicationId": application_id}
 
     attempts: list[str] = []
-    for base in (None, backend_base_url(env)):
+    for base in _bases_for(path, env):
         try:
             rpc = _rpc(session)
             response = (
@@ -780,7 +838,11 @@ def fetch_post_processing_config_by_camera_and_app(
             data = response.get("data")
             return data if isinstance(data, dict) else None
         # A 404 here is the document not existing, which is an answer. Only keep looking when the
-        # call itself failed.
+        # call itself failed. Before ANLY-15 this comment described an intent the code could not
+        # carry out: `rpc` renders every 404 as an ordinary unsuccessful envelope, so "absent"
+        # fell through to the next attempt and, ultimately, to a raise.
+        if _is_not_found(response):
+            return None
         attempts.append(f"{base or 'session base url'}: {_describe(response)}")
 
     raise AppBundleError(

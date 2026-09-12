@@ -5,22 +5,40 @@ for timezone operations.
 """
 
 from collections.abc import Callable
+import math
 from pathlib import Path
-import re
-from typing import Any
+from typing import Any, Final, get_args
 
 import numpy as np
+import numpy.typing as npt
 
 from timezonefinder.configs import (
+    COORD2INT_FACTOR,
     DEFAULT_DATA_DIR,
+    MAX_LAT_VAL,
+    MAX_LNG_VAL,
+    MIN_LAT_VAL,
+    MIN_LNG_VAL,
+    NO_ZONE_ID,
     OCEAN_TIMEZONE_PREFIX,
+    CoordArrayLike,
+    OnInvalid,
 )
 from timezonefinder import utils_numba, utils_clang
 
 __all__ = [
+    "is_valid_lat",
+    "is_valid_lng",
+    "coord2int",
     "validate_lat",
     "validate_lng",
     "validate_coordinates",
+    "coordinate_arrays",
+    "out_of_bounds",
+    "ON_INVALID_POLICIES",
+    "coordinate_resolution",
+    "degrees_to_metres",
+    "EARTH_EQUATORIAL_RADIUS_M",
     "close_resource",
     "is_ocean_timezone",
     "get_boundaries_dir",
@@ -28,6 +46,8 @@ __all__ = [
     "get_hole_registry_path",
     # Re-exported from submodules
     "inside_polygon",
+    "inside_polygon_packed",
+    "packed_buffers",
     "using_numba",
     "clang_extension_loaded",
 ]
@@ -36,23 +56,85 @@ __all__ = [
 # make numba functions available via utils
 using_numba = utils_numba.using_numba
 clang_extension_loaded = utils_clang.clang_extension_loaded
-is_valid_lat = utils_numba.is_valid_lat
-is_valid_lng = utils_numba.is_valid_lng
-coord2int = utils_numba.coord2int
 int2coord = utils_numba.int2coord
 convert2coords = utils_numba.convert2coords
 convert2coord_pairs = utils_numba.convert2coord_pairs
-get_last_change_idx = utils_numba.get_last_change_idx
+
+
+# --- the scalar coordinate helpers ------------------------------------------------
+#
+# Plain Python, and defined *here* rather than in ``utils_numba`` beside ``int2coord``
+# for exactly that reason: that module is what the package compiles, and a reader
+# reaching for a function there is entitled to assume it is compiled. Each of these
+# takes one number and performs one operation, which is the shape ``njit`` cannot pay
+# for - an empty dispatch is ~98 ns against ~40 ns to do the work - so the decorator
+# came off and the definitions followed it out. The rule is in the
+# `query-path decisions <../contributing/improvements/decisions/query-performance-and-shortcut-index-decisions.md>`__.
+#
+# ``int2coord`` above stays where it is and stays compiled, which is the line between
+# the two modules: ``convert2coords`` and ``convert2coord_pairs`` call it from nopython
+# mode over a whole ring, where the dispatch amortises to nothing. Same for the
+# vectorised bounds validators the data converter uses (``scripts/utils_numba.py``) -
+# those inline the comparison below rather than calling it, because numba cannot call a
+# pure-Python function from nopython mode, and ``tests/test_property_validation.py``
+# holds the two forms to each other.
+#
+# All three read the bounds and the scale from ``configs``; do not restate them as
+# literals, and see the comment beside ``MIN_LAT_VAL`` for why they are declared
+# pre-negated.
+
+
+def is_valid_lat(lat: float) -> bool:
+    """Whether a latitude in degrees lies within the coordinate plane."""
+    return MIN_LAT_VAL <= lat <= MAX_LAT_VAL
+
+
+def is_valid_lng(lng: float) -> bool:
+    """Whether a longitude in degrees lies within the coordinate plane."""
+    return MIN_LNG_VAL <= lng <= MAX_LNG_VAL
+
+
+def coord2int(double: float) -> int:
+    """A coordinate in degrees as the scaled integer the packaged data stores.
+
+    Truncates toward zero, which is what a *query* wants: it is where the caller's float
+    falls on the storage grid. ``scripts.utils.source_coord2int`` is the converter's
+    counterpart and rounds instead, because applied to the source that truncation
+    introduces an error the source does not have.
+
+    Nothing narrows the result. The former ``njit`` signature cast it to ``int32``, so an
+    out-of-range product wrapped silently under numba while the no-numba configuration a
+    plain ``pip install`` gives never did; both answer the same now. Query-path callers
+    are bounded to +-180 degrees by :func:`validate_coordinates` first, i.e. +-1.8e9.
+    """
+    return int(double * COORD2INT_FACTOR)
 
 
 inside_polygon: Callable[[int, int, np.ndarray], bool]
+# The same test over the packed payload a data directory actually stores, which is what
+# the lookup path runs. Two entry points rather than one because they answer different
+# questions: `inside_polygon` takes a bare coordinate array and is the naive reference -
+# what build-time geometry code holds, and what the kernel tests check answers against -
+# while `inside_polygon_packed` takes a whole collection and finds the ring by where its
+# blocks start. Neither can stand in for the other: a payload cannot be built per call
+# without encoding the ring, which is the cost the format exists to have already paid.
+inside_polygon_packed: Callable[..., bool]
+# What a collection hands that kernel, built once when it is loaded: the arrays
+# themselves on the numba backend, cffi handles onto them on the C one.
+packed_buffers: Callable[
+    [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], tuple
+]
 # at import time fix which "point-in-polygon" implementation will be used
 if clang_extension_loaded and not using_numba:
     # use the C implementation only if Numba is not present
     inside_polygon = utils_clang.pt_in_poly_clang
+    inside_polygon_packed = utils_clang.pt_in_poly_clang_packed
+    packed_buffers = utils_clang.packed_buffers_clang
 else:
     # use the (JIT compiled) python function if Numba is present or the C extension cannot be loaded
     inside_polygon = utils_numba.pt_in_poly_python
+    inside_polygon_packed = utils_numba.pt_in_poly_packed
+    packed_buffers = utils_numba.packed_buffers_numba
 
 
 def _validate_coordinate(
@@ -64,6 +146,12 @@ def _validate_coordinate(
 ) -> None:
     """
     Internal helper for coordinate validation.
+
+    ``validator`` is an ordinary Python function, which is what makes this chain cheap
+    enough to keep: ``is_valid_lat`` / ``is_valid_lng`` used to be ``njit``, and the
+    dispatch cost more than the comparison they perform - 87.8 ns against 40.6 - twice on
+    *every* query. Removing the decorator, rather than bypassing the helpers at the call
+    site, keeps one definition of where the world ends.
 
     :param value: The coordinate value to validate
     :param validator: Function that returns True if coordinate is valid
@@ -85,7 +173,7 @@ def validate_lat(lat: float) -> None:
     :param lat: Latitude value to validate (must be in range [-90.0, 90.0])
     :raises ValueError: If latitude is outside valid bounds (-90 to 90)
     """
-    _validate_coordinate(lat, is_valid_lat, "latitude", -90.0, 90.0)
+    _validate_coordinate(lat, is_valid_lat, "latitude", MIN_LAT_VAL, MAX_LAT_VAL)
 
 
 def validate_lng(lng: float) -> None:
@@ -95,7 +183,7 @@ def validate_lng(lng: float) -> None:
     :param lng: Longitude value to validate (must be in range [-180.0, 180.0])
     :raises ValueError: If longitude is outside valid bounds (-180 to 180)
     """
-    _validate_coordinate(lng, is_valid_lng, "longitude", -180.0, 180.0)
+    _validate_coordinate(lng, is_valid_lng, "longitude", MIN_LNG_VAL, MAX_LNG_VAL)
 
 
 def validate_coordinates(lng: float, lat: float) -> tuple[float, float]:
@@ -124,6 +212,168 @@ def validate_coordinates(lng: float, lat: float) -> tuple[float, float]:
     return lng, lat
 
 
+# --- the same validation, one batch at a time -------------------------------------
+#
+# The scalar and array forms sit together because they are one contract at two arities,
+# and the one place they deliberately differ has to be visible from both: a ``None``
+# coordinate. ``float(None)`` raises above, while ``np.asarray(..., dtype=float64)``
+# turns it into NaN, so the array form rejects it explicitly rather than letting a
+# missing value become an out-of-range coordinate.
+
+#: What ``on_invalid`` accepts on the batch lookups. ``"raise"`` is the default because
+#: it is what the scalar methods do, and a batch call is not the place to quietly change
+#: the contract; ``"skip"`` exists because raising on element 999,999 and discarding the
+#: 999,998 answers already computed is hostile. Derived from
+#: :data:`~timezonefinder.configs.OnInvalid` rather than written out again, so the two
+#: cannot drift; that alias is also what lets a type checker reject a mistyped policy at
+#: the call site instead of leaving it to raise at runtime.
+ON_INVALID_POLICIES: Final[tuple[str, ...]] = get_args(OnInvalid)
+
+
+def coordinate_arrays(
+    lngs: CoordArrayLike, lats: CoordArrayLike
+) -> tuple[np.ndarray, np.ndarray]:
+    """The two input axes as 1-D float64 arrays.
+
+    ``np.asarray`` is what makes the zero-copy path real: a C-contiguous float64 array
+    is passed straight through, and anything else is converted once for the whole batch
+    rather than per point.
+
+    :raises TypeError: if either axis holds something that is not convertible to float.
+    :raises ValueError: if either axis is not one-dimensional, or the two differ in length.
+    """
+    arrays = []
+    for name, values in (("lngs", lngs), ("lats", lats)):
+        raw = np.asarray(values)
+        # ``None`` is the one unconvertible value numpy does not refuse: an explicit
+        # float cast turns it into NaN, which every later stage then reads as an
+        # out-of-range coordinate - so under ``on_invalid="skip"`` a null in the
+        # caller's data would come back as NO_ZONE_ID, indistinguishable from a point
+        # no zone covers. Reject it here, as the scalar methods' ``float()`` does.
+        # Only an object array can hold one, which the float64 fast path never is.
+        if raw.dtype == object and any(v is None for v in raw.reshape(-1).tolist()):
+            raise TypeError(
+                f"{name} must hold numbers, but holds None. A missing coordinate has "
+                "to be dropped or replaced by the caller: read as a number it would "
+                f"become NaN and be answered with {NO_ZONE_ID}, which is also what a "
+                "point no timezone covers is answered with."
+            )
+        try:
+            array = np.asarray(raw, dtype=np.float64)
+        except (TypeError, ValueError) as e:
+            raise TypeError(
+                f"{name} must hold numbers convertible to float: {e}"
+            ) from e
+        if array.ndim != 1:
+            raise ValueError(
+                f"{name} must be one-dimensional, got shape {array.shape}. "
+                "Coordinates are passed one axis per argument, never as an (N, 2) array "
+                "whose column order would have to be guessed."
+            )
+        arrays.append(array)
+    lng_array, lat_array = arrays
+    if lng_array.shape != lat_array.shape:
+        raise ValueError(
+            "lngs and lats must hold the same number of coordinates, got "
+            f"{lng_array.shape[0]} and {lat_array.shape[0]}"
+        )
+    return lng_array, lat_array
+
+
+def out_of_bounds(lngs: np.ndarray, lats: np.ndarray) -> np.ndarray:
+    """Which coordinates no lookup can answer, as a boolean mask.
+
+    A bound comparison rejects NaN and infinity as a side effect - both compare ``False``
+    against everything - so this is the whole of what ``utils.validate_coordinates`` does
+    per point, in two vectorised passes instead of 2N calls.
+    """
+    return ~((np.abs(lngs) <= MAX_LNG_VAL) & (np.abs(lats) <= MAX_LAT_VAL))
+
+
+# --- how finely a coordinate can be represented -----------------------------------
+#
+# Two dtypes carry a coordinate in this package and they degrade in opposite ways: a
+# float resolves *relative* to magnitude, so it is worst near +-180, while the packaged
+# int32 is fixed point and resolves the same everywhere. The functions below compute
+# both, so the resolution this package claims is derived rather than restated -
+# `tests/test_coordinate_precision.py` checks the documented figures against them.
+
+#: WGS84 semi-major axis. The metre figures here are quoted at the equator, where a
+#: degree of longitude is longest and the ground error of a fixed step is therefore
+#: worst - so a distance derived from it is an upper bound, which is what a resolution
+#: claim needs to be.
+EARTH_EQUATORIAL_RADIUS_M: Final[float] = 6_378_137.0
+
+
+def degrees_to_metres(degrees: float, at_latitude: float = 0.0) -> float:
+    """Ground distance spanned by an angle of longitude, on a WGS84-radius sphere.
+
+    Longitude, because that is the axis whose degree is longest and whose quantisation
+    error is therefore the worst case. A degree of longitude shrinks with ``cos(lat)``,
+    so the default of the equator is the bound rather than a typical value.
+
+    Spherical, not ellipsoidal: the difference is ~0.3 %, far below the precision any
+    claim here is stated to, and an exact geodesic would need a dependency for a figure
+    used only to describe an order of magnitude.
+
+    :param degrees: the angle to convert, in degrees.
+    :param at_latitude: latitude at which to measure, in degrees. Default: the equator.
+    :return: the distance in metres.
+    """
+    metres_per_degree = math.pi * EARTH_EQUATORIAL_RADIUS_M / 180.0
+    return degrees * metres_per_degree * math.cos(math.radians(at_latitude))
+
+
+def coordinate_resolution(
+    dtype: npt.DTypeLike, at_degrees: float = MAX_LNG_VAL
+) -> float:
+    """The smallest difference in degrees that ``dtype`` can represent - its ULP.
+
+    The two storage forms answer this differently, which is the whole point of asking:
+
+    * **A floating-point dtype** spaces its values relative to their magnitude, so the
+      answer depends on ``at_degrees`` and is worst at the largest coordinate, +-180.
+      This is what decides whether a caller's array is precise enough to be worth
+      looking up: ``float32`` resolves ~1.7 m there, over a hundred times coarser than
+      the packaged data, so a point near a border can round to the wrong side of it.
+    * **An integer dtype** is read as fixed point scaled by ``COORD2INT_FACTOR``, so one
+      unit is one step everywhere on the globe and ``at_degrees`` does not enter. That
+      even spacing is why the packaged data is stored this way.
+
+    :param dtype: anything ``numpy.dtype`` accepts - a floating or integer type.
+    :param at_degrees: the coordinate magnitude to measure at. Ignored for integer
+        dtypes, which are evenly spaced. Default: the largest valid longitude, the
+        worst case for a float.
+    :return: the representable step at that point, in degrees. Pair it with
+        :func:`degrees_to_metres` for a ground distance.
+    :raises TypeError: if ``dtype`` is neither floating nor integer.
+    :raises ValueError: if an integer ``dtype`` is too narrow to hold the scaled
+        coordinate range at all, since its step would then be beside the point.
+
+    Example:
+        >>> import numpy as np
+        >>> round(degrees_to_metres(coordinate_resolution(np.int32)) * 100, 2)
+        1.11
+    """
+    dtype = np.dtype(dtype)
+    if np.issubdtype(dtype, np.floating):
+        return float(np.spacing(np.asarray(abs(at_degrees), dtype=dtype)))
+    if np.issubdtype(dtype, np.integer):
+        widest = int(np.iinfo(dtype).max)
+        needed = int(MAX_LNG_VAL * COORD2INT_FACTOR)
+        if widest < needed:
+            raise ValueError(
+                f"{dtype.name} cannot hold a scaled coordinate: +-180 degrees scaled by "
+                f"{COORD2INT_FACTOR:,} needs {needed:,} and {dtype.name} holds at most "
+                f"{widest:,}. Its step is not the limiting factor - it cannot address "
+                "the globe."
+            )
+        return 1.0 / COORD2INT_FACTOR
+    raise TypeError(
+        f"a coordinate is stored as a float or as a scaled integer, not as {dtype.name}"
+    )
+
+
 def close_resource(obj: Any) -> None:
     """
     Safely close a resource object, suppressing expected errors.
@@ -138,8 +388,11 @@ def close_resource(obj: Any) -> None:
     is a safety guarantee rather than a failure: unmapping while views reference the
     memory would leave them dangling. Closing is then merely deferred - the mapping is
     released once the last view is dropped and nothing else references the mmap object.
-    Callers that suppress this must therefore also drop their own references to the
-    mmap, as ``FileCoordAccessor.cleanup()`` does, otherwise the mapping stays alive
+    A caller that suppresses this must therefore drop *its own* exports of the mapping
+    before attempting the close and its reference to the mmap object after, as
+    ``FileCoordAccessor.cleanup()`` does: a view the caller itself holds refuses the
+    close exactly as a caller-facing one does, so leaving one in place turns the
+    deferral from the exceptional case into every case, and the mapping stays alive
     for as long as the caller does.
 
     This is useful for cleanup operations where some resources may not exist or may fail
@@ -171,7 +424,11 @@ def is_ocean_timezone(timezone_name: str) -> bool:
         raise TypeError(
             f"timezone_name must be a string, got {type(timezone_name).__name__}"
         )
-    return re.match(OCEAN_TIMEZONE_PREFIX, timezone_name) is not None
+    # a prefix comparison, not a regex: ``OCEAN_TIMEZONE_PREFIX`` holds no regex
+    # metacharacters and ``re.match`` anchors at the start, so this is exactly what
+    # the pattern meant - at roughly a fifth of the cost, on a check ``timezone_at_land``
+    # runs once per answer
+    return timezone_name.startswith(OCEAN_TIMEZONE_PREFIX)
 
 
 def get_boundaries_dir(data_dir: Path = DEFAULT_DATA_DIR) -> Path:

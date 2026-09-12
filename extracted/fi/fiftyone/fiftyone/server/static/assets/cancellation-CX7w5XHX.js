@@ -1,1 +1,0 @@
-var e=`The operation was aborted`;function t(t=e){let n=Error(t);return n.name=`AbortError`,n}function n(n,r=e){if(n?.aborted)throw t(r)}export{n,t};

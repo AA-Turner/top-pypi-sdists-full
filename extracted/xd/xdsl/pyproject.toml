@@ -25,7 +25,7 @@ dependencies = [
 ]
 optional-dependencies.dev = [
   "coverage<8",
-  "filecheck==1.0.3",
+  "filecheck==1.0.6",
   "lit<19",
   "marimo>=0.23,<0.24",
   "prek~=0.4.0",
@@ -33,14 +33,14 @@ optional-dependencies.dev = [
   "pytest<9.2",
   "pytest-asyncio",
   "pytest-cov",
-  "ruff==0.16.3",
+  "ruff==0.16.6",
   "sympy==1.14",
   "textual-dev==1.8",
   "toml<0.11",
 ]
 optional-dependencies.gui = [ "pyclip==0.7", "textual>=8,<9" ]
 optional-dependencies.heir = [ "heir-py==2026.8.1" ]
-optional-dependencies.llvm = [ "llvmlite~=0.47.0" ]
+optional-dependencies.llvm = [ "cffi>=2", "llvmlite~=0.47.0" ]
 urls."Issue Tracker" = "https://github.com/xdslproject/xdsl/issues"
 urls."Source Code" = "https://github.com/xdslproject/xdsl"
 urls.Homepage = "https://xdsl.dev/"
@@ -102,8 +102,6 @@ lint.ignore = [
   # Help welcome removing ignores below
   # https://github.com/xdslproject/xdsl/issues/5927
   "RUF002", # https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-docstring
-  "RUF003", # https://docs.astral.sh/ruff/rules/ambiguous-unicode-character-comment
-  "RUF012", # https://docs.astral.sh/ruff/rules/mutable-class-default
 ]
 lint.per-file-ignores."**/filecheck/*" = [ "E501", "F811", "F841" ]
 lint.per-file-ignores."__init__.py" = [ "F403" ]
@@ -157,6 +155,9 @@ reportUnnecessaryIsInstance = true
 reportUnnecessaryTypeIgnoreComment = true
 
 [tool.pytest]
+ini_options.testpaths = [ "docs/notebooks", "tests" ]
+# HTML exports contain executable copies of the source notebooks.
+ini_options.norecursedirs = [ "docs/notebooks/html" ]
 ini_options.python_files = [ "docs/notebooks/**.py", "tests/*test_*.py" ]
 ini_options.python_classes = "Test_*"
 ini_options.python_functions = "test_*"

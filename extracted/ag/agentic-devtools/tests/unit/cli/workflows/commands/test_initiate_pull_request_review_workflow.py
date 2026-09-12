@@ -10,6 +10,24 @@ from agentic_devtools.cli.workflows import commands
 from agentic_devtools.prompts import loader
 
 
+class _Cp1252Stream:
+    """Stream that rejects non-ASCII text like a cp1252 console."""
+
+    encoding = "cp1252"
+
+    def __init__(self) -> None:
+        self.writes: list[str] = []
+
+    def write(self, text: str) -> int:
+        if any(ord(character) > 127 for character in text):
+            raise UnicodeEncodeError("charmap", text, 0, len(text), "character maps to <undefined>")
+        self.writes.append(text)
+        return len(text)
+
+    def flush(self) -> None:
+        return None
+
+
 @pytest.fixture
 def temp_prompts_dir(tmp_path):
     """Create a temporary prompts directory with test templates."""
@@ -95,6 +113,40 @@ class TestInitiatePRReviewWorkflowBranches:
         captured = capsys.readouterr()
         assert "Not in the correct context" in captured.out
         assert "Copilot session will start automatically" in captured.out
+
+    def test_pr_review_cp1252_output_reaches_auto_setup(self, temp_state_dir, clear_state_before):
+        """Should use ASCII fallbacks and continue through preflight auto-setup."""
+        state.set_value("pull_request_id", "123")
+        state.set_value("jira.issue_key", "PROJECT-1234")
+        stdout = _Cp1252Stream()
+        stderr = _Cp1252Stream()
+
+        with (
+            patch("agentic_devtools.cli.workflows.commands.check_worktree_and_branch") as mock_preflight,
+            patch(
+                "agentic_devtools.cli.azure_devops.helpers.get_pull_request_source_branch", return_value="feature/test"
+            ),
+            patch("agentic_devtools.cli.workflows.preflight.perform_auto_setup", return_value=True) as mock_setup,
+            patch("agentic_devtools.cli.workflows.commands.sys.stdout", stdout),
+            patch("agentic_devtools.cli.workflows.commands.sys.stderr", stderr),
+        ):
+            from agentic_devtools.cli.workflows.preflight import PreflightResult
+
+            mock_preflight.return_value = PreflightResult(
+                folder_valid=False,
+                branch_valid=False,
+                folder_name="wrong",
+                branch_name="main",
+                issue_key="PROJECT-1234",
+            )
+            commands.initiate_pull_request_review_workflow(_argv=[])
+
+        output = "".join(stdout.writes)
+        assert mock_setup.called
+        assert "[WARN]" in output
+        assert "[OK] Worktree setup started" in output
+        assert output.isascii()
+        assert "".join(stderr.writes).isascii()
 
     def test_pr_review_preflight_fails_with_auto_setup_fails(self, temp_state_dir, clear_state_before, capsys):
         """Test PR review when preflight fails and auto_setup also fails."""

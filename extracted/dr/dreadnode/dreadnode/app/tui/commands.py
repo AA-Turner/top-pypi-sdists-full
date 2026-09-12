@@ -51,6 +51,11 @@ SLASH_COMMANDS: list[SlashCommand] = [
     SlashCommand("/models", "Browse models"),
     SlashCommand("/pull", "Pull a Hub artifact into local cache", "<type://[org/]name[@version]>"),
     SlashCommand("/thinking", "Toggle thinking/reasoning effort", "[on|off|low|medium|high|max]"),
+    SlashCommand(
+        "/transcript",
+        "Show the full agent transcript (expand reasoning + tool output) or compact it",
+        "[full|compact]",
+    ),
     SlashCommand("/runtimes", "View workspace interactive runtimes"),
     SlashCommand("/environments", "Browse available environments"),
     SlashCommand("/capabilities", "Manage runtime capabilities"),

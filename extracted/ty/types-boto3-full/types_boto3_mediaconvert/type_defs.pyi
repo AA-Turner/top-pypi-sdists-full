@@ -155,6 +155,7 @@ from .literals import (
     DolbyVisionCompatibilityType,
     DolbyVisionLevel6ModeType,
     DolbyVisionMappingType,
+    DolbyVisionPresenceType,
     DolbyVisionProfileType,
     DropFrameTimecodeType,
     DvbddsHandlingType,
@@ -593,6 +594,7 @@ __all__ = (
     "DestinationSettingsTypeDef",
     "DisassociateCertificateRequestTypeDef",
     "DolbyVisionLevel6MetadataTypeDef",
+    "DolbyVisionMetadataTypeDef",
     "DolbyVisionTypeDef",
     "DurationControlTypeDef",
     "DvbNitSettingsTypeDef",
@@ -1244,6 +1246,13 @@ class CmfcSettingsTypeDef(TypedDict):
 class ContentLightLevelTypeDef(TypedDict):
     MaxContentLightLevel: NotRequired[int]
     MaxFrameAverageLightLevel: NotRequired[int]
+
+class DolbyVisionMetadataTypeDef(TypedDict):
+    BaseLayer: NotRequired[DolbyVisionPresenceType]
+    EnhancementLayer: NotRequired[DolbyVisionPresenceType]
+    Level: NotRequired[int]
+    Profile: NotRequired[int]
+    Rpu: NotRequired[DolbyVisionPresenceType]
 
 class ColorConversion3DLUTSettingTypeDef(TypedDict):
     FileInput: NotRequired[str]
@@ -2204,6 +2213,8 @@ class CodecMetadataTypeDef(TypedDict):
     CodedFrameRate: NotRequired[FrameRateTypeDef]
     ColorPrimaries: NotRequired[ColorPrimariesType]
     ContentLightLevel: NotRequired[ContentLightLevelTypeDef]
+    DisplayAspectRatio: NotRequired[AspectRatioTypeDef]
+    DolbyVision: NotRequired[DolbyVisionMetadataTypeDef]
     FieldOrder: NotRequired[str]
     Hdr10PlusPresence: NotRequired[Literal["PRESENT"]]
     Height: NotRequired[int]
@@ -2211,6 +2222,7 @@ class CodecMetadataTypeDef(TypedDict):
     MatrixCoefficients: NotRequired[MatrixCoefficientsType]
     Profile: NotRequired[str]
     Rotation: NotRequired[int]
+    SampleAspectRatio: NotRequired[AspectRatioTypeDef]
     ScanType: NotRequired[str]
     TransferCharacteristics: NotRequired[TransferCharacteristicsType]
     Width: NotRequired[int]

@@ -14,6 +14,7 @@ from arthur_client.api_bindings.api.data_plane_associations_v1_api import DataPl
 from arthur_client.api_bindings.api.data_planes_v1_api import DataPlanesV1Api
 from arthur_client.api_bindings.api.data_retrieval_v1_api import DataRetrievalV1Api
 from arthur_client.api_bindings.api.datasets_v1_api import DatasetsV1Api
+from arthur_client.api_bindings.api.discovery_sources_v1_api import DiscoverySourcesV1Api
 from arthur_client.api_bindings.api.feature_flags_v1_api import FeatureFlagsV1Api
 from arthur_client.api_bindings.api.groups_v1_api import GroupsV1Api
 from arthur_client.api_bindings.api.jobs_v1_api import JobsV1Api

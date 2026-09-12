@@ -204,6 +204,8 @@ class Agent(XPanderSharedModel):
     unique_name: str
     origin_template: Optional[str] = None
     environment_id: str = None
+    # One runtime environment (toolchain layer) for this agent's turns; None = default. Not environment_id (Locations).
+    runtime_environment_id: Optional[str] = None
     tools: Optional[ToolsRepository] = None
     icon: Optional[str] = "🚀"
     connectivity_details: Optional[
@@ -222,6 +224,8 @@ class Agent(XPanderSharedModel):
     # Resolved enabled-skills subset (name/description/version), embedded by the
     # backend in the agent payload so it can be injected into the agent's context.
     skills: Optional[List[Dict]] = []
+    # Inheritance-flattened env spec + hash, resolved at read time for the fleet. Computed, not persisted.
+    runtime_environment: Optional[Dict] = None
     status: Optional[AgentStatus] = AgentStatus.ACTIVE
     knowledge_bases: Optional[List[AgentKnowledgeBase]] = []
     version: Optional[int] = 1

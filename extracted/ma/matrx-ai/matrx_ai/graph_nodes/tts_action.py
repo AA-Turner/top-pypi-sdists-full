@@ -27,6 +27,10 @@ from matrx_graph.types.result import NodeResult, failure, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.mandates import (
+    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    step_metadata,
+)
 from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage
 
 
@@ -269,7 +273,8 @@ async def ai_text_to_speech(
             config,
             max_iterations=1,
             max_retries_per_iteration=2,
-            metadata=inputs.metadata or None,
+            metadata=step_metadata(inputs.metadata, spec_type="ai.tts"),
+            mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
         )
 
         response = getattr(completed, "final_response", None)

@@ -747,10 +747,13 @@ class TestTargetDateCanBeClearedAndPreserved:
 
 
 class TestReleaseHonoursTheContextDirectory:
-    """`--dir` is the automation path: the MCP server, cron jobs and skills like
-    `innoday:morning-sync` run from one place and point the CLI at another
-    project's workspace. A human would `cd` and never see this; an agent hits it
-    every time."""
+    """`--dir` is an automation path: the MCP server and cron jobs run from one
+    place and point the CLI at another project's workspace. A human would `cd`
+    and never see this; an agent hits it every time.
+
+    This used to name `innoday:morning-sync` as an example. That skill now
+    addresses projects by `--org`/`--project` instead, because it runs on cloud
+    machines where nothing is cloned and there is no workspace to point at."""
 
     def _resolve(self, monkeypatch, context_dir):
         import argparse

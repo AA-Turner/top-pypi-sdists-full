@@ -149,6 +149,7 @@ _LAZY_COMMANDS: dict[str, tuple[str, str | None]] = {
     "task": ("dreadnode.app.cli.task", None),
     "task-set": ("dreadnode.app.cli.task_set", None),
     "train": ("dreadnode.app.cli.train", None),
+    "workflow": ("dreadnode.app.cli.workflow", None),
     "worlds": ("dreadnode.app.cli.worlds", None),
 }
 
@@ -336,9 +337,22 @@ def _run_print(tui_args: TuiArgs) -> None:
     if not tui_args.prompt:
         raise ValueError("--print requires --prompt")
 
+    # Resolve the same way the TUI does, so ``--profile`` and the scope
+    # flags reach the headless runtime instead of being re-derived from
+    # whichever profile happens to be active on disk.
+    from dreadnode.app.config import ProfileError
+
+    try:
+        profile = tui_args.resolve()
+    except ProfileError as exc:
+        raise ValueError(str(exc)) from exc
+    except Exception:
+        profile = None
+
     asyncio.run(
         run_print_mode(
             prompt=tui_args.prompt,
+            profile=profile,
             model=resolve_model(tui_args.model) if tui_args.model else None,
             agent=tui_args.agent,
             capabilities_dirs=tui_args.capabilities_dirs,

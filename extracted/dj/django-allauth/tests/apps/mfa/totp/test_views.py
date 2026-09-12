@@ -76,17 +76,19 @@ def test_activate_totp_success(
     reauthentication_bypass,
     settings,
     mailoutbox,
+    django_capture_on_commit_callbacks,
 ):
     settings.ACCOUNT_EMAIL_NOTIFICATIONS = True
     with reauthentication_bypass():
         resp = auth_client.get(reverse("mfa_activate_totp"))
         with totp_validation_bypass():
-            resp = auth_client.post(
-                reverse("mfa_activate_totp"),
-                {
-                    "code": "123",
-                },
-            )
+            with django_capture_on_commit_callbacks(execute=True):
+                resp = auth_client.post(
+                    reverse("mfa_activate_totp"),
+                    {
+                        "code": "123",
+                    },
+                )
     assert resp["location"] == reverse("mfa_view_recovery_codes")
     assert Authenticator.objects.filter(
         user=user, type=Authenticator.Type.TOTP
@@ -98,6 +100,38 @@ def test_activate_totp_success(
     assert "Authenticator App Activated" in mailoutbox[0].subject
     assert "Authenticator app activated." in mailoutbox[0].body
     assert SECRET_SESSION_KEY not in auth_client.session
+
+
+def test_activate_totp_rolls_back_when_recovery_code_creation_fails(
+    auth_client,
+    totp_validation_bypass,
+    user,
+    reauthentication_bypass,
+    mailoutbox,
+    django_capture_on_commit_callbacks,
+):
+    with reauthentication_bypass():
+        auth_client.get(reverse("mfa_activate_totp"))
+        with (
+            totp_validation_bypass(),
+            patch(
+                "allauth.mfa.totp.internal.flows.auto_generate_recovery_codes",
+                side_effect=RuntimeError,
+            ),
+            patch(
+                "allauth.mfa.totp.internal.flows.signals.authenticator_added"
+            ) as added_signal,
+            django_capture_on_commit_callbacks(execute=True),
+            pytest.raises(RuntimeError),
+        ):
+            auth_client.post(reverse("mfa_activate_totp"), {"code": "123"})
+
+    assert not Authenticator.objects.filter(
+        user=user, type=Authenticator.Type.TOTP
+    ).exists()
+    assert not added_signal.send.called
+    assert not mailoutbox
+    assert SECRET_SESSION_KEY in auth_client.session
 
 
 def test_deactivate_totp_success(

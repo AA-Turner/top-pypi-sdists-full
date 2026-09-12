@@ -572,6 +572,55 @@ def _resolve_produced_item_types(
     return resolved
 
 
+def _resolve_workflow_topologies(
+    capability_root: Path,
+    workflow_paths: list[str] | None,
+    *,
+    capability_name: str,
+    known_agents: t.Collection[str],
+) -> list[dict[str, t.Any]]:
+    """Compile each declared workflow to a topology document at build time.
+
+    Same bargain as ``_resolve_produced_item_types`` above: the platform never
+    executes capability code, so extraction happens here and the compiled graph
+    travels in the package. An invalid graph fails the *build* — loudly, on the
+    author's machine, with every problem listed at once rather than one per
+    round-trip.
+
+    ``compile_workflow`` reads decorators, type annotations, docstrings, and a
+    narrow AST scan. It never runs a step body.
+    """
+    from dreadnode.workflows import compile_workflow
+    from dreadnode.workflows.errors import WorkflowCompileError
+    from dreadnode.workflows.loader import load_workflow_file
+
+    resolved: list[dict[str, t.Any]] = []
+    errors: list[str] = []
+
+    for rel in workflow_paths or []:
+        file_path = (capability_root / rel).resolve()
+        if not file_path.is_file():
+            raise FileNotFoundError(f"workflows references missing module: {rel}")
+
+        try:
+            workflow = load_workflow_file(file_path, capability_root)
+            topology = compile_workflow(
+                workflow,
+                capability=capability_name,
+                source_root=str(capability_root),
+                known_agents=known_agents,
+            )
+        except WorkflowCompileError as exc:
+            errors.append(str(exc))
+            continue
+
+        resolved.append(topology.to_json_dict())
+
+    if errors:
+        raise ValueError("\n\n".join(errors))
+    return resolved
+
+
 def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
     """Build an OCI image from a capability directory.
 
@@ -661,9 +710,20 @@ def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
         custom_item_type_refs(cap.manifest),
     )
 
+    # Compiled at build time and carried in the package, so the platform can
+    # ingest a queryable graph without importing capability Python. Agent names
+    # are cross-checked here, where the author's source is still at hand.
+    workflows_list = _resolve_workflow_topologies(
+        capability_root,
+        manifest_dict.get("workflows"),
+        capability_name=cap.name,
+        known_agents=[agent.name for agent in cap.agents],
+    )
+
     config_dict: dict[str, t.Any] = {
         "capability_manifest": manifest_dict,
         "item_types": item_types_list,
+        "workflows": workflows_list,
         "agents": [
             {
                 "name": agent.name,

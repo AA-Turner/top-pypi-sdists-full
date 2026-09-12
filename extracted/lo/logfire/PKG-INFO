@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: logfire
-Version: 5.0.0
+Version: 5.1.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://pydantic.dev/logfire
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -77,6 +77,10 @@ Provides-Extra: httpx
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.42b0; extra == 'httpx'
 Provides-Extra: litellm
 Requires-Dist: openinference-instrumentation-litellm>=0; extra == 'litellm'
+Provides-Extra: litestar
+Requires-Dist: litestar>=2.11.0; extra == 'litestar'
+Requires-Dist: opentelemetry-instrumentation-asgi>=0.42b0; extra == 'litestar'
+Requires-Dist: pydantic>=2.5; extra == 'litestar'
 Provides-Extra: mysql
 Requires-Dist: opentelemetry-instrumentation-mysql>=0.42b0; extra == 'mysql'
 Provides-Extra: psycopg
@@ -99,6 +103,8 @@ Provides-Extra: starlette
 Requires-Dist: opentelemetry-instrumentation-starlette>=0.42b0; extra == 'starlette'
 Provides-Extra: system-metrics
 Requires-Dist: opentelemetry-instrumentation-system-metrics>=0.42b0; extra == 'system-metrics'
+Provides-Extra: urllib
+Requires-Dist: opentelemetry-instrumentation-urllib>=0.42b0; extra == 'urllib'
 Provides-Extra: variables
 Requires-Dist: pydantic-handlebars>=0.2.1; extra == 'variables'
 Requires-Dist: pydantic>=2; extra == 'variables'

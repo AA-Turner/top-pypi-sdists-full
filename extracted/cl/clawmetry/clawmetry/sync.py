@@ -402,6 +402,11 @@ def _acquire_pid_lock() -> bool:
 # in the stack says so.
 _STALLED_INGEST_SECS = float(os.environ.get("CLAWMETRY_STALLED_INGEST_SECS", "") or 3600)
 
+# What the watchdog last saw, as (last_sync value, time.monotonic() when we
+# first saw that value). The pair is what lets the check tell a suspended
+# machine from a wedged ingest loop; see _report_if_ingest_stalled.
+_STALL_WATCH = {"last_sync": None, "since_mono": None}
+
 
 def _report_if_ingest_stalled() -> None:
     """detectors.py ships ``no_progress`` to tell a customer their agent has
@@ -413,9 +418,34 @@ def _report_if_ingest_stalled() -> None:
         from clawmetry import field_report as _fr
 
         age = _fr.last_sync_age_secs()
-        if age is not None and age > _STALLED_INGEST_SECS:
-            _fr.report_daemon_failure("daemon_ingest_stalled",
-                                      version=_get_version())
+
+        # Track how long THIS value of last_sync has been the current one, on a
+        # clock that does not advance while the machine is suspended.
+        raw = _fr.last_sync_raw()
+        now_mono = time.monotonic()
+        if raw != _STALL_WATCH["last_sync"]:
+            _STALL_WATCH["last_sync"] = raw
+            _STALL_WATCH["since_mono"] = now_mono
+
+        if age is None or age <= _STALLED_INGEST_SECS:
+            return
+
+        # The wall clock says it has been a long time, which on its own does not
+        # mean ingest stalled. `last_sync` is a wall-clock stamp, so a laptop
+        # suspended overnight wakes with an age of hours while the daemon is
+        # healthy and its next cycle completes seconds later. Reporting that
+        # marks every sleeping machine as broken, and an alarm that fires on
+        # healthy nodes is one people learn to ignore.
+        #
+        # time.monotonic() does not advance across suspend on Darwin or Linux,
+        # so "how long have we been watching this same last_sync while actually
+        # running" is the honest measure. Both clocks must agree.
+        since = _STALL_WATCH["since_mono"]
+        if since is None or (now_mono - since) <= _STALLED_INGEST_SECS:
+            return
+
+        _fr.report_daemon_failure("daemon_ingest_stalled",
+                                  version=_get_version())
     except Exception as e:  # noqa: BLE001 - the watchdog must never die
         log.debug("stall check skipped: %s", e)
 
@@ -5012,8 +5042,52 @@ def _local_ingest_sessions_batch(rows: list, node_id: str) -> None:
             "cwd":        _session_cwd(s),
             "git_branch": _session_git_branch(s),
         })
+    for row in session_rows:
+        q = _openclaw_session_quality(store, row)
+        if q is not None:
+            row["metadata"] = dict(row["metadata"] or {}, quality=q)
     if session_rows:
         store.ingest_sessions_batch(session_rows)
+
+
+# sid -> (last_active_at it was graded at, stored quality block). The metadata
+# upsert replaces the whole blob, so a row re-sent without its grade would ERASE
+# the stored one; the cache lets an unchanged session carry its grade forward
+# without re-reading its events every cycle.
+_OPENCLAW_QUALITY_CACHE: dict = {}
+_OPENCLAW_QUALITY_CACHE_MAX = 5000
+
+
+def _openclaw_session_quality(store, row: dict):
+    """Quality verdicts for one OpenClaw session row, for ``metadata.quality``.
+
+    Family runtimes are graded at ingest (``_session_quality`` in
+    ``sync_family_runtimes``); OpenClaw sessions never were, so every OpenClaw
+    session had no grade and the Harness Engineering bench stamped OpenClaw
+    "Can't see" (2026-09-11). The cycle ingests events before session
+    metadata, so the session's events are already in the store here. A
+    session still being written is re-graded on its next change. Never
+    raises; None means "leave metadata as is".
+    """
+    sid = row.get("session_id") or ""
+    if not sid or ":" in sid:
+        return None  # runtime-prefixed ids belong to the family path
+    stamp = str(row.get("last_active_at") or "")
+    hit = _OPENCLAW_QUALITY_CACHE.get(sid)
+    if hit and hit[0] == stamp:
+        return hit[1]
+    try:
+        events = store.query_events(session_id=sid, limit=4000) or []
+        q = _session_quality_from_rows(
+            events, runtime="openclaw", session_id=sid,
+            thresholds=_quality_thresholds_for("openclaw", store))
+    except Exception:
+        log.debug("openclaw quality assessment failed (%s)", sid, exc_info=True)
+        return hit[1] if hit else None
+    if len(_OPENCLAW_QUALITY_CACHE) >= _OPENCLAW_QUALITY_CACHE_MAX:
+        _OPENCLAW_QUALITY_CACHE.clear()
+    _OPENCLAW_QUALITY_CACHE[sid] = (stamp, q)
+    return q
 
 
 def _local_ingest_memory_files(all_files: list, changed_paths: list) -> None:
@@ -6459,10 +6533,30 @@ def sync_openclaw_claude_sessions_via_index(
 # ``channel_messages`` (so per-provider routes in ``routes/channels.py`` see
 # it). No JSONL re-read at request time.
 #
-# The directory layout below is the canonical list maintained alongside the
-# 21 adapter routes in ``routes/channels.py``. If a new adapter ships, add its
-# directory name to ``_CHANNEL_DIRS`` and the daemon will pick it up on the
-# next cycle — no further wiring required.
+# The directory layout below is the canonical list of FILESYSTEM directory
+# names, maintained alongside the adapter routes in ``routes/channels.py``.
+#
+# Adding a directory here is NOT sufficient to ship a channel. A channel is
+# four independent lists, and one in three of them is broken in a way that
+# looks like a different bug each time:
+#
+#   ``sync._CHANNEL_DIRS``            (here)  historical transcripts ingest
+#   ``gateway_tap.CHANNEL_NAMES``             live events arrive
+#   ``entitlements.ALL_CHANNELS`` + LABELS    the UI/entitlement can see it
+#   ``routes/channels.py``                    the endpoint exists
+#
+# Miss the gateway list and live messages never arrive while history works.
+# Miss the catalogue and the channel is invisible even with rows in the store.
+#
+# Every name is currently byte-identical across all four lists -- none even
+# contains a hyphen. They are still four separate edits: nothing derives one
+# list from another, and nothing enforces that they agree beyond
+# tests/test_channel_four_lists.py, which compares on a normalised form so a
+# future adapter that does need different spellings does not silently pass.
+#
+# Recorded as "A chat channel is four lists, and a channel in three of them is
+# broken" in the Runtime and Session Observability blueprint, with an ADR for
+# why these stay four explicit lists rather than one registry.
 _CHANNEL_DIRS: tuple[str, ...] = (
     "telegram",
     "signal",
@@ -6487,6 +6581,7 @@ _CHANNEL_DIRS: tuple[str, ...] = (
     "nextcloudtalk",
     "clickclack",
     "buzz",
+    "fishaudio",
 )
 
 # Filenames inside ``~/.openclaw/<channel>/`` that are NOT conversation
@@ -12364,6 +12459,83 @@ def _apply_pending_write(qtype: str, q: dict, owner_hash: str | None = None) -> 
     raise ValueError(f"unhandled write type: {qtype}")
 
 
+def _apply_answer_decision(q: dict, approval_id: str, resolver: str,
+                           reason) -> None:
+    """``decision='answer'``: the person answered a question the agent asked
+    (Claude Code AskUserQuestion) from the cloud strip, not from the local
+    Approvals tab.
+
+    The pick arrives as ``sealed_answers``: the browser encrypts
+    ``{"answers": {...}}`` with this node's E2E key (the key the question
+    arrived under), so the cloud relays it without reading it. It is then
+    validated against the question set the hook stored, exactly like a local
+    answer (``question_sets.apply_answer_decision``), and the waiting hook
+    resumes the session with it.
+
+    Anything wrong (no key, a seal from another key, a label that is not one
+    of the options, the row already decided or expired) leaves the row as it
+    is: the hook hands the question to the terminal at its deadline. Never a
+    fabricated answer, never raises."""
+    sealed = q.get("sealed_answers")
+    if not isinstance(sealed, str) or not sealed.strip():
+        log.warning("approval_decision %s: answer carries no sealed_answers",
+                    approval_id)
+        return
+    try:
+        key = str(load_config().get("encryption_key") or "")
+        opened = decrypt_payload(sealed.strip(), key) if key else None
+    except Exception as e:
+        log.warning("approval_decision %s: sealed answer unreadable (%s)",
+                    approval_id, type(e).__name__)
+        return
+    answers = opened.get("answers") if isinstance(opened, dict) else None
+    if not isinstance(answers, dict) or not answers:
+        log.warning("approval_decision %s: sealed answer has no answers",
+                    approval_id)
+        return
+    try:
+        from clawmetry import local_store
+        from clawmetry import question_sets as qsets
+        store = local_store.get_store()
+        row = next((r for r in (store.query_approvals(status="pending",
+                                                      limit=500) or [])
+                    if isinstance(r, dict) and r.get("id") == approval_id),
+                   None)
+    except Exception as e:
+        log.warning("approval_decision %s: local_store unavailable: %s",
+                    approval_id, e)
+        return
+    if row is None:
+        log.debug("[approval] %s relayed answer: no pending row (already "
+                  "decided, expired, or another node)", approval_id)
+        return
+
+    def _write(method: str, **kwargs) -> bool:
+        try:
+            getattr(store, method)(**kwargs)
+            return True
+        except Exception as we:
+            log.warning("approval_decision %s: %s failed: %s",
+                        approval_id, method, we)
+            return False
+
+    ok, msg, _code = qsets.apply_answer_decision(
+        approval_id, row, answers, resolver=resolver, reason=reason,
+        write=_write)
+    if not ok:
+        log.warning("[approval] %s relayed answer rejected: %s",
+                    approval_id, msg)
+        return
+    log.info("[approval] %s answered via %s", approval_id, resolver)
+    try:
+        from clawmetry import audit as _audit
+        _audit.audit_event("approval.decision", actor=resolver,
+                           target=approval_id, result="answered",
+                           source="cloud-relay")
+    except Exception:
+        pass
+
+
 def _apply_approval_decision(q: dict) -> None:
     """Flip an approvals row in local DuckDB based on a cloud-relayed
     decision. Used by `_dispatch_pending_queries`.
@@ -12381,6 +12553,9 @@ def _apply_approval_decision(q: dict) -> None:
         return
     resolver = (q.get("resolver") or "cloud-relay").strip()
     reason = q.get("reason")
+    if decision == "answer":
+        _apply_answer_decision(q, approval_id, resolver, reason)
+        return
     try:
         from clawmetry import local_store
         store = local_store.get_store()
@@ -14910,11 +15085,29 @@ def _family_ingest_rev() -> str:
     without a bump the "What the agent was given" panel stays empty for every
     session that had already been seen. Bump the salt when the OSS extraction
     changes without a pro release.
+
+    ``/q2`` (2026-09-11): quality grading started reading JSON-string tool
+    ``arguments`` (Codex). ``metadata.quality`` is graded only at ingest, so
+    without the bump every already-seen Codex session stays "not measurable"
+    and the Harness Engineering bench keeps stamping Codex "Can't see".
+
+    ``/t1`` (2026-09-11): titles skip harness-injected context
+    (``clawmetry/injected_context.py``). Stored titles are written only at
+    ingest, so without the bump every idle Codex session keeps its
+    "# AGENTS.md instructions for …" title, locally and in the sealed cloud
+    ``title_blob``.
+
+    ``/t2`` (2026-09-11): the family cloud row started carrying
+    ``event_count``, the only count the cloud stores and the number the hosted
+    session page renders as "Messages". That row is written only when a
+    session is processed, so without the bump every session already recorded
+    keeps "Messages 0" until it happens to grow again. Same rule as above: a
+    change to what ingest writes needs a salt, or it reaches new sessions only.
     """
     try:
         import importlib.metadata as _ilm
 
-        return _ilm.version("clawmetry-pro") + "/ctx1"
+        return _ilm.version("clawmetry-pro") + "/ctx1/q2/t2"
     except Exception:
         return ""
 
@@ -15321,8 +15514,15 @@ def _session_quality(events, *, runtime: str, session_id: str,
     rebuild exists to remove. Exhibit lists are already capped inside
     ``Verdict.as_dict`` so the metadata blob stays small.
     """
+    return _session_quality_from_rows(
+        _adapter_events_to_rows(events, runtime), runtime=runtime,
+        session_id=session_id, thresholds=thresholds)
+
+
+def _session_quality_from_rows(rows, *, runtime: str, session_id: str,
+                               thresholds: dict) -> dict:
+    """``_session_quality`` for rows already in DuckDB event shape (OpenClaw)."""
     from clawmetry.quality_signals import assess_session
-    rows = _adapter_events_to_rows(events, runtime)
     a = assess_session(rows, runtime=runtime, session_id=session_id,
                        thresholds=thresholds)
     d = a.as_dict()
@@ -15616,6 +15816,99 @@ def _ingest_keepalive_heartbeat(config: dict) -> bool:
         return True
 
 
+# ── Answer-window heartbeat ────────────────────────────────────────────────
+# A parked approval is a person's decision an agent is blocked on, and the
+# runtime waits only a few minutes before its own terminal prompt takes over.
+# The decision travels on the cloud relay, which is drained BY A HEARTBEAT —
+# and the main loop's heartbeat lands at the END of a cycle, so one heavy
+# ingest pass can swallow the whole window.
+#
+# Burned 2026-09-11: an answer clicked on the cloud strip 22 s before the
+# deadline was drained 5 s AFTER it. The daemon had spent 90 s syncing 7,388
+# events between two heartbeats, the question went to the terminal, and the
+# person's answer reached nobody. Every surface was correct; the delivery was
+# simply late.
+#
+# While a window is open this thread heartbeats every couple of seconds, so an
+# answer (or an Approve/Deny) reaches the waiting hook in seconds. It costs one
+# indexed read of the pending queue when nobody is waiting, and nothing at all
+# on a node with no cloud account.
+_ANSWER_WINDOW_POLL_SEC = 2.0
+
+
+def _approval_deadline_ms(row: dict) -> int:
+    """End of a hook-parked approval's window (``args.deadline_ms``), or 0.
+
+    Also read by ``_build_device_summary`` further down: a request past its
+    window is not offered on any surface."""
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    try:
+        return max(0, int(args.get("deadline_ms") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _answer_window_open(now_ms: "int | None" = None) -> bool:
+    """True while a parked approval is still inside its answer window.
+
+    Reads the pending queue's ``args.deadline_ms``, stamped by the gate-hook
+    receiver when it parks a call. A request without one carries no runtime
+    clock and never holds this fast path open. Never raises."""
+    try:
+        from clawmetry import local_store
+        rows = local_store.get_store().query_approvals(
+            status="pending", limit=50) or []
+    except Exception:
+        return False
+    now_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        deadline_ms = _approval_deadline_ms(r)
+        if deadline_ms and deadline_ms > now_ms:
+            return True
+    return False
+
+
+def _answer_window_tick(config: dict) -> bool:
+    """One pass: heartbeat when (and only when) somebody is still waiting.
+    Returns True when a heartbeat was sent. Never raises."""
+    if not (config or {}).get("api_key"):
+        return False
+    try:
+        from clawmetry.config import is_cloud_disabled
+        if is_cloud_disabled():
+            return False
+    except Exception:
+        pass
+    if not _answer_window_open():
+        return False
+    try:
+        send_heartbeat(config)
+        return True
+    except Exception as e:  # noqa: BLE001
+        log.debug("answer-window heartbeat failed (non-fatal): %s", e)
+        return False
+
+
+def _start_answer_window_heartbeat(config: dict, stop_event=None) -> None:
+    """Start the background thread that keeps the relay drained while a
+    person's decision is still reachable. Never raises."""
+    def _run():
+        while not (stop_event is not None and stop_event.is_set()):
+            try:
+                _answer_window_tick(config)
+            except Exception as e:  # noqa: BLE001
+                log.debug("answer-window heartbeat tick failed: %s", e)
+            if stop_event is not None:
+                stop_event.wait(timeout=_ANSWER_WINDOW_POLL_SEC)
+            else:
+                time.sleep(_ANSWER_WINDOW_POLL_SEC)
+
+    threading.Thread(target=_run, daemon=True,
+                     name="answer-window-heartbeat").start()
+
+
 # Session.extra keys a family adapter may stamp on a CHILD session (subagent /
 # workflow run / workflow agent) that ride into the ``subagents`` row's data
 # blob verbatim. Everything the orchestration surfaces read lives here; the
@@ -15873,6 +16166,12 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # list-block content, and caches per session so an already-titled
                 # session never re-reads the transcript head. Never raises.
                 _ftitle = (s.display_name or s.title or "").strip()
+                # An adapter's own title can be injected context: Codex
+                # titled every session "# AGENTS.md instructions for …"
+                # (founder report 2026-09-11). Keep only the human part.
+                if _ftitle and not _session_titles.looks_like_session_id(
+                        _ftitle, s.id):
+                    _ftitle = _session_titles.derive_title_from_texts([_ftitle])
                 if not _ftitle or _session_titles.looks_like_session_id(_ftitle, s.id):
                     _ftitle = _session_titles.title_for_family_session(
                         runtime, s.id, _events
@@ -16061,6 +16360,18 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     "total_tokens": int(s.total_tokens or 0),
                     "cost_usd": s.cost_usd,
                     "message_count": int(s.message_count or 0),
+                    # The hosted session page renders "Messages" from
+                    # sessions.event_count, which is the ONLY count the cloud
+                    # stores (its sessions table has no message_count column).
+                    # The OpenClaw row has always sent it; this one never did,
+                    # so every Codex / Cursor / Claude Code session read
+                    # "Messages 0" beside a full transcript (founder report
+                    # 2026-09-11: a Codex session showing 0 against 371
+                    # messages locally). len(_events) is the same raw-row count
+                    # the OpenClaw path sends, and the cloud upsert keeps the
+                    # GREATEST of old and new, so a read capped by
+                    # _family_event_read_cap() can never walk the number back.
+                    "event_count": len(_events),
                     "runtime": runtime,
                     "model": s.model or "",
                     # Cost-intelligence (foundation): carried to the cloud so the
@@ -17120,31 +17431,21 @@ def _derive_transcript_title(msgs):
     """
     if not isinstance(msgs, (list, tuple)):
         return ""
+    from clawmetry.injected_context import human_prompt
     for m in msgs:
         if not isinstance(m, dict):
             continue
         if m.get("role") != "user":
             continue
-        c = m.get("content")
-        text = ""
-        if isinstance(c, str):
-            text = c
-        elif isinstance(c, list):
-            for block in c:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    t = block.get("text")
-                    if isinstance(t, str) and t.strip():
-                        text = t
-                        break
-                elif isinstance(block, str) and block.strip():
-                    text = block
-                    break
+        # Only what the person typed: Codex's "# AGENTS.md instructions"
+        # turn, Cursor's <user_query> wrapper and friends are harness
+        # context (founder report 2026-09-11).
+        text = human_prompt(m.get("content"))
         if not text:
             # Some adapters write the prompt under a sibling key.
             for fld in ("text", "prompt", "finalPromptText"):
-                v = m.get(fld)
-                if isinstance(v, str) and v.strip():
-                    text = v
+                text = human_prompt(m.get(fld))
+                if text:
                     break
         text = " ".join((text or "").split())  # collapse all whitespace runs
         if not text:
@@ -17193,12 +17494,16 @@ def _render_transcript_page(page: dict, args: dict) -> dict:
 def _first_user_prompt_index(msgs):
     """Index of the opening user prompt in a transcript message list, or
     ``None``. Mirrors what the replay's turn grouping treats as a turn anchor:
-    ``role == "user"``, not a tool chip, non-empty text content."""
+    ``role == "user"``, not a tool chip, and text the person typed: a bare
+    ``[Image: source: …]`` placeholder row used to win here, so the cap kept
+    it and dropped the real opening prompt (and with it the title) on every
+    session over the cap."""
+    from clawmetry.injected_context import human_prompt
     for i, m in enumerate(msgs):
         if not isinstance(m, dict) or m.get("role") != "user" or m.get("tool"):
             continue
         c = m.get("content")
-        if isinstance(c, str) and c.strip():
+        if isinstance(c, str) and human_prompt(c):
             return i
     return None
 
@@ -19999,19 +20304,29 @@ def _build_cron_jobs(paths):
 
 
 def _seconds_since(ts) -> int:
-    """Seconds elapsed since an ISO-ish timestamp string (the store writes naive
-    local wall-clock), clamped to >= 0; returns 0 on any parse failure. Used so
-    the device's approval ``waiting_seconds`` is a real value, not always 0."""
+    """Seconds elapsed since an ISO-ish timestamp string, clamped to >= 0;
+    returns 0 on any parse failure. Used so the device's approval
+    ``waiting_seconds`` is a real value, not always 0.
+
+    A naive string is local wall-clock (most store rows); a ``Z`` or
+    ``+HH:MM`` suffix is honoured. Burned 2026-09-11: hook-parked approvals
+    are stamped ``...Z`` (UTC) and the ``Z`` was stripped, so on a CEST
+    machine every question read "waiting 2h 2m" the moment it was asked."""
     if not ts:
         return 0
     try:
-        from datetime import datetime
-        s = str(ts).strip().replace("Z", "")
+        from datetime import datetime, timezone
+        s = str(ts).strip()
+        utc = s.endswith("Z")
+        if utc:
+            s = s[:-1] + "+00:00"
         try:
             dt = datetime.fromisoformat(s)
         except ValueError:
             dt = datetime.fromisoformat(s.split(".")[0].split("+")[0])
-        ref = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+            if utc:
+                dt = dt.replace(tzinfo=timezone.utc)
+        ref = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
         return max(0, int((ref - dt).total_seconds()))
     except Exception:
         return 0
@@ -20771,6 +21086,15 @@ def _refresh_attention_cache(store) -> int:
         store.expire_stale_hook_attention(ATTENTION_HOOK_MAX_AGE_SECONDS)
     except Exception as _pe:  # noqa: BLE001
         log.debug("attention-detect: persist failed (continuing): %s", _pe)
+    # Same safety valve for the approvals queue: a hook that died before its
+    # window ended leaves a row every surface would keep offering buttons on.
+    try:
+        n_expired = store.expire_stale_approvals()
+        if n_expired:
+            log.info("[approval] expired %d request(s) nothing was waiting on",
+                     n_expired)
+    except Exception as _ae:  # noqa: BLE001
+        log.debug("approval sweep failed (continuing): %s", _ae)
     return len(items)
 
 
@@ -21441,7 +21765,8 @@ def _record_guard_observation(store, sid: str, runtime: str, agent_id: str,
         store.record_guard_observation(
             sid, cohort, runtime=runtime, agent_id=agent_id,
             tool_calls=profile["tool_calls"], write_files=profile["write_files"],
-            wrote=profile["wrote"], hosts=profile["hosts"])
+            wrote=profile["wrote"], hosts=profile["hosts"],
+            write_hosts=profile.get("write_hosts") or [])
         if runtime_cohort and runtime_cohort != cohort:
             # A composite key: one session contributes a row to each cohort,
             # and the PK is the session id, so the second row needs its own.
@@ -21449,7 +21774,8 @@ def _record_guard_observation(store, sid: str, runtime: str, agent_id: str,
                 f"{runtime_cohort}|{sid}", runtime_cohort, runtime=runtime,
                 agent_id=agent_id, tool_calls=profile["tool_calls"],
                 write_files=profile["write_files"], wrote=profile["wrote"],
-                hosts=profile["hosts"])
+                hosts=profile["hosts"],
+                write_hosts=profile.get("write_hosts") or [])
     except Exception as e:  # noqa: BLE001
         log.debug("guard: baseline observation failed for %s: %s", sid, e)
 
@@ -21869,6 +22195,9 @@ def _emit_detector_incidents(store, state: dict) -> int:
     bad_sessions: set = set()
     emitted = 0
     all_incidents: list = []
+    # Each session's write actions, for the fleet pass after the loop
+    # (clawmetry/detector_swarm.py). Collected here so the steps are parsed once.
+    fleet_fps: dict = {}
     for s in candidates:
         sid = s.get("session_id") or ""
         try:
@@ -21896,6 +22225,13 @@ def _emit_detector_incidents(store, state: dict) -> int:
         _record_guard_observation(
             store, sid, runtime or "", facts.get("agent_id") or "",
             _det.session_profile(steps, thresholds.get("write_tools")))
+        try:
+            from clawmetry import detector_swarm as _swarm
+            _fps = _swarm.write_fingerprints(steps)
+            if _fps:
+                fleet_fps[sid] = _fps
+        except Exception as _fe:  # noqa: BLE001
+            log.debug("detectors: fingerprinting skipped for %s: %s", sid, _fe)
 
         try:
             incidents = _det.run_all(events, sid, runtime, facts=facts,
@@ -22046,6 +22382,14 @@ def _emit_detector_incidents(store, state: dict) -> int:
             memo.pop(k, None)
     except Exception:
         pass
+    # The fleet question: are sessions that should be independent acting in
+    # step? One pass per tick over every session's write actions, after the
+    # per-session pass, so its incidents reach the same policy pass below.
+    try:
+        all_incidents.extend(_emit_fleet_incidents(store, state, fleet_fps, now))
+    except Exception as e:  # noqa: BLE001
+        log.warning("detectors: fleet pass failed: %s", e)
+
     # Guard policies: turn this tick's incidents into at most one enforcement
     # decision per session. Isolated from the emit path above — a policy
     # failure must never stop telemetry ingest.
@@ -22056,6 +22400,96 @@ def _emit_detector_incidents(store, state: dict) -> int:
         log.warning("guard: policy pass failed: %s", e)
 
     return emitted
+
+
+def _emit_fleet_incidents(store, state: dict, fleet_fps: dict, now: float) -> list:
+    """Run ``coordinated_action`` over this tick's write actions.
+
+    One human message per fingerprint, however many sessions share it: forty
+    pages about one swarm get muted, one page with a count gets read. Each
+    participating session still gets its own ``loop_signals`` row, so the
+    Guard tab shows the finding on every row it concerns and a policy that
+    names ``coordinated_action`` can act per session.
+
+    Returns the per-session copies for the policy pass. Never raises.
+    """
+    if not fleet_fps:
+        return []
+    try:
+        from clawmetry import detector_swarm as _swarm
+        keys = sorted({_swarm.fingerprint_key(fp)
+                       for fps in fleet_fps.values() for fp in fps})
+        hist = store.query_action_fingerprints(keys=keys) or {}
+        parents = store.query_subagent_parents(session_ids=sorted(fleet_fps)) or {}
+    except Exception as e:  # noqa: BLE001
+        log.debug("detectors: fleet pass inputs unavailable: %s", e)
+        return []
+
+    incidents = _swarm.coordinated_action(
+        fleet_fps, parents=parents, history=hist.get("first_seen") or {},
+        history_since_ms=hist.get("since"), now=now)
+
+    # Remember what was seen, AFTER judging it, so this tick's burst is judged
+    # against the memory from before it.
+    try:
+        seen: dict = {}
+        for sid, fps in fleet_fps.items():
+            for fp in fps:
+                seen.setdefault(_swarm.fingerprint_key(fp), [tuple(fp), set()])[1].add(sid)
+        store.record_action_fingerprints(fingerprints=[
+            (k, fp[0], fp[1], fp[2], len(sids)) for k, (fp, sids) in sorted(seen.items())])
+    except Exception as e:  # noqa: BLE001
+        log.debug("detectors: fingerprint memory write failed: %s", e)
+
+    memo = state.setdefault("detector_emit_memo", {})
+    if not isinstance(memo, dict):
+        memo = {}
+        state["detector_emit_memo"] = memo
+    reemit = max(30, STUCK_MIN_SECONDS // 2)
+    out: list = []
+    for inc in incidents:
+        base = {k: v for k, v in inc.items() if k != "participants"}
+        key = str((inc.get("evidence") or {}).get("fingerprint_key") or "")
+        delivered_via: list = []
+        try:
+            from clawmetry import incident_alerts as _ia
+            res = _ia.deliver_incident(
+                store, dict(base, session_id="fleet:" + key[:100]), source="fleet_detector")
+            delivered_via = list(res.get("delivered_via") or [])
+        except Exception as e:  # noqa: BLE001
+            log.debug("detectors: fleet alert delivery skipped: %s", e)
+        for sid in list(inc.get("participants") or [])[:200]:
+            per = dict(base, session_id=sid,
+                       runtime=_detector_runtime(sid, "") or "unknown")
+            out.append(per)
+            memo_key = f"{sid}::coordinated_action"
+            last = memo.get(memo_key)
+            if isinstance(last, (int, float)) and (now - last) < reemit:
+                continue
+            try:
+                store.ingest_loop_signal(
+                    session_id=sid,
+                    signature="daemon_detect_coordinated_action",
+                    repeat_count=_DETECT_SEVERITY_COUNT.get("warning", 5),
+                    severity="warning",
+                    agent_type=str(per["runtime"]),
+                    details={
+                        "source": "daemon_fleet_detector",
+                        "kind": "coordinated_action",
+                        "message": per.get("title"),
+                        "detail": per.get("detail"),
+                        "evidence": per.get("evidence"),
+                        "first_bad_step": None,
+                        "spend_at_risk_usd": None,
+                        "spend_basis": "unknown",
+                        "delivered_via": delivered_via,
+                    },
+                )
+                memo[memo_key] = now
+                log.info("detectors: %s", per.get("title"))
+            except Exception as e:  # noqa: BLE001
+                log.warning("detectors: fleet loop_signal failed for %s: %s", sid, e)
+    return out
 
 
 # ── Per-session loops slice (Command River Phase-2) ─────────────────────────
@@ -22277,6 +22711,34 @@ def _build_loops_slice(store):
     return out
 
 
+def _device_question_set(row: dict) -> list:
+    """The approval's question set (``args._cm_questions``, stored by the
+    hook receiver from Claude Code's AskUserQuestion), trimmed for the
+    snapshot: what a surface needs to render the options and nothing else.
+    Empty when the approval is an ordinary yes/no request."""
+    args = row.get("args") if isinstance(row.get("args"), dict) else {}
+    out = []
+    for q in (args.get("_cm_questions") or [])[:4]:
+        if not isinstance(q, dict) or not q.get("question"):
+            continue
+        options = [
+            {"label": str(o.get("label"))[:120],
+             "description": str(o.get("description") or "")[:240]}
+            for o in (q.get("options") or [])[:4]
+            if isinstance(o, dict) and o.get("label")
+        ]
+        if not options:
+            continue
+        out.append({
+            "question": str(q.get("question"))[:400],
+            "header": str(q.get("header") or "")[:40],
+            "multiSelect": bool(q.get("multiSelect")),
+            "allow_free_text": bool(q.get("allow_free_text")),
+            "options": options,
+        })
+    return out
+
+
 def _build_device_summary(spending, daily_usage, efficiency=None):
     """Compact, all-runtime payload for a WiFi hardware companion.
 
@@ -22411,8 +22873,16 @@ def _build_device_summary(spending, daily_usage, efficiency=None):
         pass
     try:
         from clawmetry import waste_flags as _wf
+        now_ms = int(time.time() * 1000)
+        # Only requests something is still waiting on. A hook-parked row
+        # carries its window's end in args.deadline_ms; once that has passed
+        # the runtime has already fallen back to its own terminal prompt, so
+        # Approve/Deny (or an answer) could no longer reach it. Burned
+        # 2026-09-11: a question sat on the cloud strip for 2h38m after the
+        # gate hook lost its receiver and the terminal had taken over.
         ap = [r for r in (store.query_approvals(status="pending", limit=200) or [])
-              if isinstance(r, dict)]
+              if isinstance(r, dict)
+              and not (0 < _approval_deadline_ms(r) <= now_ms)]
         if ap:
             oldest = min(ap, key=lambda r: (r.get("created_at") or ""))
             sid = oldest.get("requestor_session_id") or ""
@@ -22425,6 +22895,17 @@ def _build_device_summary(spending, daily_usage, efficiency=None):
                 # field and got 0 every time because we never sent it (#contract).
                 "waiting_seconds": _seconds_since(oldest.get("created_at")),
             }
+            deadline_ms = _approval_deadline_ms(oldest)
+            if deadline_ms:
+                summary["approval"]["deadline_ms"] = deadline_ms
+            questions = _device_question_set(oldest)
+            if questions:
+                # The runtime asked a question (Claude Code AskUserQuestion),
+                # not for permission: surfaces render its options, and the
+                # pick comes back as an `answer` decision. Rides the E2E
+                # snapshot, so the cloud never reads the question.
+                summary["approval"]["kind"] = "question_set"
+                summary["approval"]["questions"] = questions
     except Exception:
         pass
     # Surface a "something is stuck" alert from the daemon's loop-detection
@@ -22582,7 +23063,10 @@ def _build_bench_slice(store, *, days: int = 30) -> dict:
 
     since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
         "%Y-%m-%dT%H:%M:%S")
-    rows = store.query_quality_sessions(since=since, limit=1500) or []
+    # Per-runtime cap: a single cost-ordered cap let claude_code fill all
+    # 1500 rows and every quieter runtime vanished from the bench (2026-09-11).
+    rows = store.query_quality_sessions(
+        since=since, limit=6000, per_runtime_limit=1500) or []
     grouped: dict = {}
     for r in rows:
         if isinstance(r, dict):
@@ -24645,6 +25129,17 @@ def run_daemon() -> None:
     except Exception as _e:
         log.warning(f"approvals watcher failed to start: {_e}")
 
+    # ── Answer-window heartbeat ──────────────────────────────────────────
+    # While a parked approval is still reachable, drain the relay every few
+    # seconds so a decision made on a cloud surface arrives before the
+    # runtime's own prompt takes over (see _answer_window_open).
+    try:
+        _start_answer_window_heartbeat(config)
+        log.info("answer-window heartbeat thread started "
+                 f"({_ANSWER_WINDOW_POLL_SEC}s while someone is waiting)")
+    except Exception as _e:
+        log.warning(f"answer-window heartbeat failed to start: {_e}")
+
     # ── Inbound approval decisions ────────────────────────────────────
     # Deliberately NOT started here. Bringing a decision back from a chat
     # message is part of the paid delivery layer, which attaches itself
@@ -25131,7 +25626,11 @@ def run_daemon() -> None:
             lg = 0
             now_log = time.time()
             if now_log - last_log_sync > log_sync_interval:
-                lg = sync_logs(config, state, paths)
+                try:
+                    lg = sync_logs(config, state, paths)
+                except Exception as _lg_e:
+                    log.warning("log sync error (non-fatal): %s", _lg_e)
+                    lg = 0
                 last_log_sync = now_log
             try:
                 sync_voice_log_events(config, state, paths)
@@ -25202,7 +25701,19 @@ def run_daemon() -> None:
                     "pre-checkpoint local-store flush failed (continuing): %s",
                     _flush_e,
                 )
-            save_state(state)
+            # field-failure daemon_ingest_stalled (#5853-#5858): unlike every
+            # other call in this loop, this one used to run bare. A
+            # persistent write failure (disk full, a transient permission
+            # error, …) propagated straight to the outer "Sync cycle error"
+            # handler below, skipping the heartbeat/alerts/detector passes
+            # still to come AND leaving the fresh last_sync unwritten on
+            # disk -- which is exactly what field_report.last_sync_age_secs()
+            # reads. Same class of bug as #5800-#5834, one more call the
+            # earlier sweeps missed.
+            try:
+                save_state(state)
+            except Exception as _ss_e:
+                log.warning("save_state failed (continuing): %s", _ss_e)
             if ev or lg or mem or crons or sm or snap or cron_runs or tg or oc_cc:
                 try:
                     from clawmetry.config import cloud_egress_enabled as _cee

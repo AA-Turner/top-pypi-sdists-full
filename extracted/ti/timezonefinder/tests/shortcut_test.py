@@ -8,9 +8,13 @@ import pytest
 
 
 from scripts.hex_utils import surrounds_north_pole, surrounds_south_pole
-from scripts.shortcuts import check_shortcut_sorting, has_coherent_sequences
+from scripts.shortcuts import check_shortcut_sorting
+from tests.auxiliaries import (
+    AMBIGUOUS_SHORTCUT_POINTS_FIXTURE,
+    load_benchmark_points,
+)
 from timezonefinder.configs import DEFAULT_DATA_DIR, SHORTCUT_H3_RES
-from timezonefinder.utils_numba import int2coord
+from timezonefinder.utils import coord2int, int2coord
 
 # Tests now work directly with hybrid_shortcuts format
 
@@ -21,28 +25,17 @@ def latlng_to_cell(lng: float, lat: float) -> int:
     return h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES)
 
 
-def test_single_shortcut_binary_exists(hybrid_shortcut_file_path):
-    """Test that only a single binary file for the shortcut index exists in the data folder."""
-    data_dir = DEFAULT_DATA_DIR
+def test_single_shortcut_binary_exists(shortcut_file_path):
+    """Exactly one shortcut binary ships, and it is the one the reader opens.
 
-    # Find all binaries that could be shortcut-related
-    shortcut_files = list(data_dir.glob("*shortcut*.bin"))
-
-    # We expect exactly one shortcut binary (hybrid_shortcuts_uint8.bin or hybrid_shortcuts_uint16.bin)
-    assert len(shortcut_files) == 1, (
-        f"Expected exactly 1 shortcut binary in {data_dir}, "
-        f"but found {len(shortcut_files)}: {[f.name for f in shortcut_files]}"
-    )
-
-    # Verify it's the correct hybrid shortcuts file
-    shortcut_file = shortcut_files[0]
-    assert shortcut_file.name.startswith("hybrid_shortcuts_"), (
-        f"Expected hybrid shortcuts file, but found {shortcut_file.name}"
-    )
-
-    # Verify it matches the expected file based on zone_id_dtype
-    assert shortcut_file == hybrid_shortcut_file_path, (
-        f"Found shortcut file {shortcut_file.name} doesn't match expected {hybrid_shortcut_file_path.name}"
+    A data directory left over from an older format keeps its binary under a different
+    name, and nothing about a stale second file announces itself - the finder simply
+    never reads it.
+    """
+    shortcut_files = list(DEFAULT_DATA_DIR.glob("*shortcut*.bin"))
+    assert shortcut_files == [shortcut_file_path], (
+        f"expected {shortcut_file_path.name} alone in {DEFAULT_DATA_DIR}, found "
+        f"{[f.name for f in shortcut_files]}"
     )
 
 
@@ -216,24 +209,8 @@ def test_unique_shortcut_consistency(tf, hybrid_shortcuts):
                 )
 
 
-@pytest.mark.parametrize(
-    "lst,expected",
-    [
-        ([], True),
-        ([1], True),
-        ([1, 1], True),
-        ([2, 3], True),
-        ([2, 3, 3, 0, 0, 4], True),
-        ([2, 3, 2], False),
-        ([2, 3, 2, 3], False),
-    ],
-)
-def test_has_coherent_check_fct(lst, expected):
-    assert has_coherent_sequences(lst) == expected
-
-
 def test_shortcut_sorting(tf, hybrid_shortcuts):
-    """Test that shortcuts are correctly sorted by zone ID and polygon size."""
+    """Test that shortcuts are ordered with a whole final zone suffix."""
     invalid_sortings = []
     for hex_id, hybrid_value in hybrid_shortcuts.items():
         if isinstance(hybrid_value, int):
@@ -250,3 +227,141 @@ def test_shortcut_sorting(tf, hybrid_shortcuts):
                 )
 
     assert not invalid_sortings, f"Shortcut sorting errors: {invalid_sortings[:5]}"
+
+
+# Coordinates whose H3 cell has all six corners inside a hole of the polygon that covers
+# the coordinate itself - an ocean zone's cut-out around an island, or one country's
+# enclave inside another. Compiling the index by corner alone dropped that polygon from
+# the cell, and every coordinate in the part of the cell outside the hole was answered
+# with the zone that happens to be left.
+HOLE_CLIPPED_CELL_COORDS = [
+    # in South Africa, in a cell whose corners are all inside Lesotho
+    (27.52307, -29.24473),
+    # Tuamotus: ocean around an atoll, in a cell whose corners are all on the Tahiti side
+    (-145.65772, -15.78144),
+    # near Adak, and near San Andrés
+    (178.89059, 51.84103),
+    (-81.57602, 12.19784),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("lng,lat", HOLE_CLIPPED_CELL_COORDS)
+def test_a_hole_clipping_a_cell_leaves_the_covering_polygon_in_it(tf, lng, lat):
+    """``timezone_at`` must answer what the polygons actually say, at these coordinates.
+
+    The two methods differ only in what they do when no candidate contains the point:
+    ``certain_timezone_at`` says so, ``timezone_at`` answers with the last zone in the
+    cell without testing it. So they disagree exactly when the index has left out the
+    polygon that covers the point, which is what these coordinates used to demonstrate.
+
+    Pinned as an invariant rather than as expected zone names, since the names are the
+    packaged dataset's answer and a data update is free to move a border.
+    """
+    certain = tf.certain_timezone_at(lng=lng, lat=lat)
+
+    assert certain is not None
+    assert tf.timezone_at(lng=lng, lat=lat) == certain
+
+
+# Coordinates in the three cells north of latitude 88.5 whose stored ring jumps the
+# +-180 degree cut. Judged as a planar ring it is not a hexagon at all but a
+# self-intersecting shape spanning most of the globe, so the overlap tests answered about
+# that shape and the ocean strip on the far side of the cut was left out of all three.
+ANTIMERIDIAN_CELL_COORDS = [
+    (-179.42048, 89.60654),
+    (-175.13121, 89.44923),
+    (177.58690, 88.76167),
+    (179.61929, 88.60653),
+    (174.97945, 88.91468),
+    (172.97725, 88.64155),
+    (178.31014, 89.18498),
+    (174.21060, 89.33760),
+]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("lng,lat", ANTIMERIDIAN_CELL_COORDS)
+def test_a_cell_crossing_the_antimeridian_keeps_the_polygon_covering_it(tf, lng, lat):
+    """Same invariant as above, on the other way a cell used to lose its polygon."""
+    certain = tf.certain_timezone_at(lng=lng, lat=lat)
+
+    assert certain is not None
+    assert tf.timezone_at(lng=lng, lat=lat) == certain
+
+
+@pytest.mark.slow
+def test_the_index_lists_the_polygon_covering_each_sampled_coordinate(tf):
+    """Sweep cell interiors, which the vertex-driven tests above never visit.
+
+    ``test_shortcut_completeness`` walks the polygon vertices, so it sees a cell only
+    where a boundary passes through it. A cell can still lose a polygon that covers its
+    interior, and this is what notices.
+
+    Sampled by area rather than uniformly in latitude, so it is a workload and not a
+    pole-heavy one - which also means it visits the cells at the antimeridian and the
+    poles far too rarely to stand in for an exhaustive check. The exhaustive form is
+    this same assertion over the seven resolution-5 child centres of every cell
+    (``h3.cell_to_children(cell, SHORTCUT_H3_RES + 1)`` over ``all_res_candidates``),
+    which enumerates the defective cells outright instead of sampling for them - that
+    is what ``ANTIMERIDIAN_CELL_COORDS`` and ``HOLE_CLIPPED_CELL_COORDS`` were found
+    with. At ~2 million lookups it costs ~8 minutes against this test's ~15 seconds,
+    so run it by hand after changing the shortcut compiler rather than on every gate.
+    """
+    n = 100_000
+    rng = np.random.default_rng(20260825)
+    # area weighted, so the sample is a workload rather than a pole-heavy one
+    lats = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, n)))
+    lngs = rng.uniform(-180.0, 180.0, n)
+
+    uncovered = [
+        (float(lng), float(lat))
+        for lng, lat in zip(lngs, lats, strict=True)
+        if tf.certain_timezone_at(lng=float(lng), lat=float(lat)) is None
+    ]
+
+    assert not uncovered, (
+        "the shortcut index does not list the polygon covering "
+        f"{len(uncovered)} of {n} sampled coordinates, e.g. {uncovered[:5]}"
+    )
+
+
+@pytest.mark.unit
+def test_the_candidate_loop_answers_what_the_narrowed_array_answered(tf):
+    """``_zone_id_among`` agrees with the form that narrowed the whole list up front.
+
+    It now reads the zone id of the *one* candidate that answers, where it used to index
+    an array built from the same candidate list by position. The loop's ``i`` is what
+    tied those two together, so the failure mode is a pairing that has slipped: a
+    neighbouring zone returned for a fraction of ambiguous points, with no exception and
+    no empty answer.
+
+    The reference below is that earlier form, so this compares the two implementations
+    rather than comparing numpy indexing to itself - which is what an assertion over the
+    candidate lists alone would do, and it cannot fail. Injecting
+    ``possible_boundaries[(i + 1) % len(possible_boundaries)]`` into the real loop turns
+    1,003 of these 2,000 points red.
+    """
+
+    def reference(possible_boundaries, last_zone_change_idx, lng, lat):
+        """The pre-change body: narrow every candidate's zone id before testing a point."""
+        zone_ids = tf.zone_ids[possible_boundaries]
+        x, y = coord2int(lng), coord2int(lat)
+        for i, boundary_id in enumerate(possible_boundaries):
+            if i >= last_zone_change_idx:
+                break
+            if tf.inside_of_polygon(boundary_id, x, y):
+                return int(zone_ids[i])
+        return int(zone_ids[-1])
+
+    points = load_benchmark_points(AMBIGUOUS_SHORTCUT_POINTS_FIXTURE)[:2000]
+    for lng, lat in points:
+        entry = tf.shortcuts.entry_of(latlng_to_cell(lng, lat))
+        if entry >= 0:
+            # a unique-zone cell is answered by the table and reaches no candidate loop
+            continue
+        candidates = tf.shortcuts.candidates_of(entry)
+        last = tf.shortcuts.stop_index_of(entry)
+        assert tf._zone_id_among(candidates, last, lng, lat) == reference(
+            candidates, last, lng, lat
+        ), f"({lng}, {lat}) in cell entry {entry} over candidates {candidates.tolist()}"

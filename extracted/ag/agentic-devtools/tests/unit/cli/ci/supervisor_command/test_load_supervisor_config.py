@@ -13,10 +13,10 @@ def test_load_supervisor_config_returns_defaults_without_path(tmp_path) -> None:
 
     assert config.max_candidates == 10
     assert config.thresholds == SupervisorConfig()
-    assert config.mode == "report_only"
+    assert config.mode == "audit"
 
 
-def test_load_supervisor_config_reads_thresholds_and_limit(tmp_path) -> None:
+def test_load_supervisor_config_rejects_unsupported_mode(tmp_path) -> None:
     path = tmp_path / "config.json"
     path.write_text(
         json.dumps(
@@ -33,9 +33,30 @@ def test_load_supervisor_config_reads_thresholds_and_limit(tmp_path) -> None:
         encoding="utf-8",
     )
 
+    with pytest.raises(ValueError, match="audit"):
+        load_supervisor_config(path)
+
+
+def test_load_supervisor_config_reads_thresholds_and_limit(tmp_path) -> None:
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "mode": "audit",
+                "max_candidates": 3,
+                "thresholds": {
+                    "loop_stale_seconds": 60,
+                    "task_stale_seconds": 120,
+                    "review_wait_seconds": 180,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
     config = load_supervisor_config(path)
 
-    assert config.mode == "diagnose_only"
+    assert config.mode == "audit"
     assert config.max_candidates == 3
     assert config.thresholds == SupervisorConfig(60, 120, 180)
 
@@ -54,6 +75,7 @@ def test_load_supervisor_config_rejects_malformed_values(tmp_path) -> None:
         ("not-json", "could not load"),
         ("[]", "JSON object"),
         (json.dumps({"mode": ""}), "mode"),
+        (json.dumps({"mode": "report_only"}), "mode must be 'audit'"),
         (json.dumps({"thresholds": []}), "thresholds"),
         (json.dumps({"thresholds": {"loop_stale_seconds": 0}}), "loop_stale_seconds"),
     ],

@@ -82,6 +82,35 @@ class TestInjectSkills:
         assert target.exists()
         assert "# Prompt" in target.read_text(encoding="utf-8")
 
+    def test_copies_canonical_validation_skill_directory(self, tmp_path):
+        """Copies a bundled directory-shaped validation skill without flattening it."""
+        agents_source = tmp_path / "source_agents"
+        prompts_source = tmp_path / "source_prompts"
+        skills_source = tmp_path / "source_skills"
+        agents_source.mkdir()
+        prompts_source.mkdir()
+        skill_dir = skills_source / "ensure-repository-validation"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: ensure-repository-validation\ndescription: Validate a repository.\nagdt: {}\n---\n# Body",
+            encoding="utf-8",
+        )
+
+        def select_source(kind):
+            return {
+                "agents": agents_source,
+                "prompts": prompts_source,
+                "skills": skills_source,
+            }[kind]
+
+        with patch("agentic_devtools.skill_injector._get_source_dir", side_effect=select_source):
+            result = inject_skills(tmp_path)
+
+        assert result is True
+        target = tmp_path / ".agents" / "skills" / "ensure-repository-validation" / "SKILL.md"
+        assert target.exists()
+        assert "# Body" in target.read_text(encoding="utf-8")
+
     def test_generates_readme_with_manifest(self, tmp_path):
         """Generates agdt.README.md with a file manifest table in each target directory."""
         source = tmp_path / "source_agents"

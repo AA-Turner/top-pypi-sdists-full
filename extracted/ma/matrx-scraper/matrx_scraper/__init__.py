@@ -18,6 +18,8 @@ and load only what the caller actually needs.
 
 from __future__ import annotations
 
+import importlib
+
 from typing import TYPE_CHECKING
 
 _LAZY_IMPORTS: dict[str, str] = {
@@ -119,6 +121,67 @@ _LAZY_IMPORTS: dict[str, str] = {
     "ALL_TOOLS": "matrx_scraper.ai_tools",
 }
 
+# Keep each deferred import target literal.  The mandate/reference scanner must
+# be able to audit the same optional module surface that PEP 562 resolves at
+# runtime; a computed ``import_module(module_path)`` makes that import opaque.
+# The values remain module loaders (rather than eager imports) so importing the
+# package still does not require browser, database, or other optional extras.
+_MODULE_LOADERS = {
+    "matrx_scraper.ai_browser": lambda: importlib.import_module("matrx_scraper.ai_browser"),
+    "matrx_scraper.ai_tools": lambda: importlib.import_module("matrx_scraper.ai_tools"),
+    "matrx_scraper.browser_pool": lambda: importlib.import_module("matrx_scraper.browser_pool"),
+    "matrx_scraper.cache": lambda: importlib.import_module("matrx_scraper.cache"),
+    "matrx_scraper.crawler": lambda: importlib.import_module("matrx_scraper.crawler"),
+    "matrx_scraper.custom_extractors": lambda: importlib.import_module(
+        "matrx_scraper.custom_extractors"
+    ),
+    "matrx_scraper.domain_config": lambda: importlib.import_module("matrx_scraper.domain_config"),
+    "matrx_scraper.events": lambda: importlib.import_module("matrx_scraper.events"),
+    "matrx_scraper.orchestrator": lambda: importlib.import_module("matrx_scraper.orchestrator"),
+    "matrx_scraper.pagerank": lambda: importlib.import_module("matrx_scraper.pagerank"),
+    "matrx_scraper.parser": lambda: importlib.import_module("matrx_scraper.parser"),
+    "matrx_scraper.parser.hashing": lambda: importlib.import_module("matrx_scraper.parser.hashing"),
+    "matrx_scraper.parser.link_extractor": lambda: importlib.import_module(
+        "matrx_scraper.parser.link_extractor"
+    ),
+    "matrx_scraper.parser.main_content": lambda: importlib.import_module(
+        "matrx_scraper.parser.main_content"
+    ),
+    "matrx_scraper.parser.noise_config": lambda: importlib.import_module(
+        "matrx_scraper.parser.noise_config"
+    ),
+    "matrx_scraper.parser.noise_remover": lambda: importlib.import_module(
+        "matrx_scraper.parser.noise_remover"
+    ),
+    "matrx_scraper.performance": lambda: importlib.import_module("matrx_scraper.performance"),
+    "matrx_scraper.preview": lambda: importlib.import_module("matrx_scraper.preview"),
+    "matrx_scraper.queue_backend": lambda: importlib.import_module("matrx_scraper.queue_backend"),
+    "matrx_scraper.rate_limiter": lambda: importlib.import_module("matrx_scraper.rate_limiter"),
+    "matrx_scraper.recipe_runtime": lambda: importlib.import_module("matrx_scraper.recipe_runtime"),
+    "matrx_scraper.recipes": lambda: importlib.import_module("matrx_scraper.recipes"),
+    "matrx_scraper.scrape_options": lambda: importlib.import_module("matrx_scraper.scrape_options"),
+    "matrx_scraper.search": lambda: importlib.import_module("matrx_scraper.search"),
+    "matrx_scraper.seo_audit": lambda: importlib.import_module("matrx_scraper.seo_audit"),
+    "matrx_scraper.service": lambda: importlib.import_module("matrx_scraper.service"),
+    "matrx_scraper.structured_data": lambda: importlib.import_module(
+        "matrx_scraper.structured_data"
+    ),
+    "matrx_scraper.url_utils": lambda: importlib.import_module("matrx_scraper.url_utils"),
+    "matrx_scraper.utils": lambda: importlib.import_module("matrx_scraper.utils"),
+}
+
+# These long-lived top-level compatibility names intentionally differ from the
+# implementation symbol.  Keep the alias projection here, beside the PEP 562
+# boundary, so neither the canonical implementation API nor lazy loading needs
+# a second wrapper or eager import.
+_LAZY_SOURCE_NAMES = {
+    "CustomExtractor": "Extractor",
+    "find_extractors_for_url": "find_for_url",
+    "run_custom_extractors": "run_all",
+    "run_custom_extractor": "run_extractor",
+    "PageRankEdge": "Edge",
+}
+
 
 def configure_db(db_config_name: str) -> None:
     """Bind matrx-scraper's ``scraper.*`` and ``web.*`` models to a host pool.
@@ -144,10 +207,9 @@ def __getattr__(name: str):
     module_path = _LAZY_IMPORTS.get(name)
     if module_path is None:
         raise AttributeError(f"module 'matrx_scraper' has no attribute {name!r}")
-    import importlib
 
-    module = importlib.import_module(module_path)
-    value = getattr(module, name)
+    module = _MODULE_LOADERS[module_path]()
+    value = getattr(module, _LAZY_SOURCE_NAMES.get(name, name))
     globals()[name] = value
     return value
 

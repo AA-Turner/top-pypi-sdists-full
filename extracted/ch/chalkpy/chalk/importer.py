@@ -853,6 +853,14 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
             if isinstance(f.window_materialization, dict)
             else None
         ),
+        offline_continuous_buffer_duration_seconds=(
+            _try_parse_duration(
+                "offline_continuous_buffer_duration",
+                f.window_materialization.get("offline_continuous_buffer_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
         cache_aggregated_values=(
             f.window_materialization.get("cache_aggregated_values", False)
             if isinstance(f.window_materialization, dict)
@@ -1217,6 +1225,14 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
             _try_parse_duration(
                 "continuous_buffer_duration",
                 f.window_materialization.get("continuous_buffer_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        offline_continuous_buffer_duration_seconds=(
+            _try_parse_duration(
+                "offline_continuous_buffer_duration",
+                f.window_materialization.get("offline_continuous_buffer_duration", None),
             )
             if isinstance(f.window_materialization, dict)
             else None

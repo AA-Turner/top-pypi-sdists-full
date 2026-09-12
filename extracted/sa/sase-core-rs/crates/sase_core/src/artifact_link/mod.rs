@@ -1,21 +1,44 @@
 //! First-class artifact link graph: row schema, relation registry, managed
 //! tables, companion paths, and frontmatter inlet.
 
+mod cutover;
 mod events;
 mod inlet;
 mod managed_table;
 mod merge;
+mod ownership;
 mod path;
 mod publication_retry;
 mod relation;
 mod row_resolution;
 mod wire;
 
+pub use cutover::{
+    artifact_link_cutover_attestation, artifact_link_cutover_baseline_event,
+    artifact_link_cutover_import_identity, artifact_link_cutover_marker,
+    artifact_link_cutover_marker_canonical_json,
+    artifact_link_cutover_progress, artifact_link_cutover_read_state,
+    artifact_link_outbox_classify_line, artifact_link_outbox_legacy_conversion,
+    parse_artifact_link_cutover_marker,
+    ArtifactLinkCutoverBaselineEventRequestWire,
+    ArtifactLinkCutoverBaselineEventWire, ArtifactLinkCutoverEventStoreWire,
+    ArtifactLinkCutoverImportIdentityWire,
+    ArtifactLinkCutoverImportRequestWire, ArtifactLinkCutoverMarkerWire,
+    ArtifactLinkCutoverProgressRequestWire, ArtifactLinkCutoverProgressWire,
+    ArtifactLinkCutoverReadRootWire, ArtifactLinkCutoverReadStateWire,
+    ArtifactLinkCutoverRoleInputWire, ArtifactLinkCutoverRoleWire,
+    ArtifactLinkCutoverRootObservationWire, ArtifactLinkCutoverStateWire,
+    ArtifactLinkOutboxLegacyConversionWire,
+    ArtifactLinkOutboxLineClassificationWire,
+    ARTIFACT_LINK_CUTOVER_WIRE_SCHEMA_VERSION,
+};
 pub use events::{
+    artifact_link_alias_producer_id, artifact_link_derived_producer_id,
     artifact_link_event_canonical_json, artifact_link_event_digest,
     artifact_link_event_path_for_digest, artifact_link_event_validate_bytes,
-    artifact_link_event_validate_path, canonicalize_artifact_link_alias,
-    canonicalize_artifact_link_event,
+    artifact_link_event_validate_path, artifact_link_machine_run_id,
+    artifact_link_stable_fact_created_at, artifact_link_stable_operation_id,
+    canonicalize_artifact_link_alias, canonicalize_artifact_link_event,
     canonicalize_artifact_link_event_json_value, reduce_link_events,
     resolve_artifact_link_event_aliases, ArtifactLinkAliasResolutionWire,
     ArtifactLinkAliasWire, ArtifactLinkEventCanonicalWire,
@@ -45,6 +68,12 @@ pub use managed_table::{
     REFERENCED_BY_BLOCK_WIRE_SCHEMA_VERSION,
 };
 pub use merge::merge_artifact_link_indexes;
+pub use ownership::{
+    artifact_link_event_owner_requirements, artifact_link_publication_receipt,
+    ArtifactLinkOwnerRefWire, ArtifactLinkOwnerRequirementWire,
+    ArtifactLinkPublicationEvidenceWire, ArtifactLinkPublicationReceiptWire,
+    ARTIFACT_LINK_PUBLICATION_OWNERSHIP_WIRE_SCHEMA_VERSION,
+};
 pub use path::{
     artifact_md_path, bead_lineage_root, bead_page_relpath, companion_md_path,
     ArtifactCompanionPathWire, ArtifactMdPathKindWire,

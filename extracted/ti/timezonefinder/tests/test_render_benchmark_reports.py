@@ -6,6 +6,7 @@ import pytest
 
 from scripts.benchmark_utils import BenchmarkReporter, add_system_status_section
 from scripts.configs import (
+    COMPARISON_REPORT_FILE,
     INITIALIZATION_REPORT_FILE,
     MEMORY_REPORT_FILE,
     PERFORMANCE_REPORT_FILE,
@@ -13,10 +14,12 @@ from scripts.configs import (
 )
 from scripts.reporting import DATA_VERSION_LABEL, FIXTURE_VERSION_LABEL
 from scripts.render_benchmark_reports import (
+    FUNCTION_LABELS,
     PROVENANCE_FIELDS,
     acceleration_path_label,
     add_benchmark_table,
     add_comparison_bullet,
+    add_ci_tracking_note,
     add_fastest_slowest_bullet,
     add_headline_section,
     format_duration,
@@ -25,8 +28,12 @@ from scripts.render_benchmark_reports import (
     get_batch_size,
     get_fixture_provenance,
     humanize_benchmark_name,
+    interpreted_kernel_labels,
     is_ci_tracked_configuration,
     percent_faster,
+    relative_speed_label,
+    render_acceleration_paths,
+    render_comparison,
     render_initialization,
     render_memory,
     render_polygon,
@@ -65,6 +72,8 @@ _FAKE_SYSTEM_INFO = {
     "numpy_version": "2.0.0",
     "using_clang_pip": True,
     "using_numba": False,
+    "ci_tracked_benchmarks": (),
+    "ci_benchmark_estimator": "min",
 }
 
 
@@ -95,7 +104,7 @@ def _texts(reporter: BenchmarkReporter) -> list[str]:
         ),
         (
             "test_pt_in_poly_clang[large]",
-            "point-in-polygon (C/clang) - large polygons",
+            "bare kernel (C/clang) - large polygons",
         ),
         (
             "test_initialization[TimezoneFinder-in_memory]",
@@ -138,7 +147,7 @@ def test_humanize_benchmark_name_covers_every_expected_benchmark():
         ),
         (
             "test_pt_in_poly_clang[small]",
-            "point-in-polygon (C/clang)",
+            "bare kernel (C/clang)",
             "small polygons",
         ),
     ],
@@ -160,7 +169,7 @@ def test_add_benchmark_table_hoists_shared_function_label_out_of_rows():
 
     sections = [item for item in reporter.content if item[0] == "section"]
     tables = [item for item in reporter.content if item[0] == "table"]
-    assert [title for _, title, _ in sections] == ["point-in-polygon (C/clang)"]
+    assert [title for _, title, _ in sections] == ["bare kernel (C/clang)"]
 
     (_, _, rows) = tables[0]
     assert len(rows) == 3
@@ -280,6 +289,129 @@ def test_add_benchmark_table_extra_columns_are_appended():
     assert rows[0][-2] == "42"  # Rounds column untouched by the extra column
 
 
+def test_interpreted_kernel_labels_name_the_measuring_environment_and_restore():
+    """The `*_python` node ids carry two implementations; only the label says which.
+
+    Restoring matters as much as replacing: `FUNCTION_LABELS` is shared by every
+    renderer, so a label left behind would describe the previous run.
+    """
+    before = FUNCTION_LABELS["test_pt_in_poly_python_packed"]
+
+    with interpreted_kernel_labels({"using_numba": False}):
+        assert FUNCTION_LABELS["test_pt_in_poly_python_packed"] == (
+            "packed kernel (pure Python)"
+        )
+    with interpreted_kernel_labels({"using_numba": True}):
+        assert FUNCTION_LABELS["test_pt_in_poly_python_packed"] == (
+            "packed kernel (Numba)"
+        )
+
+    assert FUNCTION_LABELS["test_pt_in_poly_python_packed"] == before
+
+
+def _fake_acceleration_run(
+    path: str,
+    *,
+    cpu: str = "Apple M1 Pro",
+    baseline: float = 1.0,
+    clock: str = "3.2 GHz",
+) -> dict:
+    """One `scripts.measure_acceleration_paths` report, with one row per section."""
+    comparison = {
+        "baseline_name": "clang",
+        "challenger_name": path,
+        "rounds": 15,
+        "batch_size": 2500,
+        "threshold": 0.03,
+        "win_margin": 0.10,
+        "best_baseline": baseline,
+        "best_challenger": baseline * 2,
+        "challenger_wins": 0,
+    }
+    return {
+        "machine_info": {
+            "cpu": {"brand_raw": cpu, "hz_actual_friendly": clock},
+            "timezonefinder": {
+                **_FAKE_SYSTEM_INFO,
+                "acceleration_path": path,
+                "baseline_path": "clang",
+            },
+        },
+        "kernels": {"small": comparison},
+        "lookups": {"random": comparison},
+    }
+
+
+def test_acceleration_page_reports_each_pair_against_its_own_clang_baseline(tmp_path):
+    output = tmp_path / "acceleration.rst"
+
+    render_acceleration_paths(
+        [_fake_acceleration_run("numba"), _fake_acceleration_run("python")], output
+    )
+
+    page = output.read_text(encoding="utf-8")
+    assert "Numba JIT" in page and "pure Python" in page
+    # both challengers are 2x their baseline in the fixture
+    assert page.count("2.00x") >= 2
+    # and the page must say, in so many words, that it does not cross the two runs
+    assert "third ratio is not derived" in page
+
+
+def test_acceleration_page_refuses_runs_from_two_machines(tmp_path):
+    """Two CPUs cannot share a page: `ubuntu-latest` alone spans a ~1.6x spread."""
+    runs = [
+        _fake_acceleration_run("numba", cpu="Apple M1 Pro"),
+        _fake_acceleration_run("python", cpu="AMD EPYC 7763"),
+    ]
+
+    with pytest.raises(ValueError, match="different CPUs"):
+        render_acceleration_paths(runs, tmp_path / "acceleration.rst")
+
+
+def test_acceleration_page_accepts_one_cpu_reporting_two_clock_speeds(tmp_path):
+    """Identity is the model, not the clock the core happened to be boosted to.
+
+    Both runs of the first CI render came off one EPYC 7763 and reported 2.4454 GHz
+    and 3.2435 GHz, which rejected a pair measured on the same machine. Whether two
+    runs are *comparable* is what the shared clang baseline answers; this check only
+    establishes that they ran on the same hardware.
+    """
+    runs = [
+        _fake_acceleration_run("numba", cpu="AMD EPYC 7763", clock="2.4454 GHz"),
+        _fake_acceleration_run("python", cpu="AMD EPYC 7763", clock="3.2435 GHz"),
+    ]
+
+    render_acceleration_paths(runs, tmp_path / "acceleration.rst")
+
+
+def test_acceleration_page_needs_one_run_per_environment(tmp_path):
+    with pytest.raises(ValueError, match="one run per environment"):
+        render_acceleration_paths(
+            [_fake_acceleration_run("numba")], tmp_path / "acceleration.rst"
+        )
+
+
+def test_acceleration_page_publishes_the_shared_baselines_spread(tmp_path):
+    """The two runs' clang timings are the reader's comparability check.
+
+    Published, not enforced: nothing on the page divides one run into the other, so a
+    divergence is information about the environments rather than a reason to fail.
+    """
+    output = tmp_path / "acceleration.rst"
+
+    render_acceleration_paths(
+        [
+            _fake_acceleration_run("numba", baseline=1.0),
+            _fake_acceleration_run("python", baseline=1.2),
+        ],
+        output,
+    )
+
+    page = output.read_text(encoding="utf-8")
+    assert "20.0 %" in page
+    assert "**no**" in page
+
+
 def test_add_comparison_bullet_picks_the_actually_faster_bench():
     # bench_a is passed first but is the *slower* one - the bullet must not
     # assume argument order, it must compare the JSON's mean values
@@ -290,12 +422,12 @@ def test_add_comparison_bullet_picks_the_actually_faster_bench():
     add_comparison_bullet(reporter, "Small polygons", slow, fast)
 
     (text,) = _texts(reporter)
-    assert "point-in-polygon (Python, Numba if available)" in text
+    assert "bare kernel (interpreted)" in text
     # fast=0.001s took half the time of slow=0.002s -> twice as fast -> 100% faster, 2x
     assert "100% faster" in text
     assert "2.00x" in text
     # the slower one must still be named as the one being compared against
-    assert "point-in-polygon (C/clang)" in text
+    assert "bare kernel (C/clang)" in text
 
 
 def test_add_comparison_bullet_custom_label_fn_avoids_redundancy():
@@ -449,23 +581,100 @@ def test_headline_section_says_so_when_the_run_is_the_ci_tracked_one():
 def test_headline_section_describes_the_measured_environment():
     reporter = BenchmarkReporter(title="t", output_path="/dev/null")
 
-    add_headline_section(reporter, _FAKE_SYSTEM_INFO, ["**~1.00ms** per thing"])
+    add_headline_section(
+        reporter,
+        _FAKE_SYSTEM_INFO,
+        ["**~1.00ms** per thing"],
+        "AMD EPYC 7763 @ 3.2 GHz",
+    )
 
     headline, banner = _texts(reporter)
     assert headline == "**~1.00ms** per thing"
     # the environment named is the one recorded in the JSON, not the one
     # rendering the report
     assert "Linux x86_64" in banner
+    assert "AMD EPYC 7763 @ 3.2 GHz" in banner
     assert "Python 3.13.0" in banner
+
+
+def test_ci_tracking_note_names_the_rows_and_estimator_from_the_measured_run():
+    reporter = BenchmarkReporter(title="t", output_path="/dev/null")
+    tracked = "benchmarks/test_timezone_finding.py::test_timezone_at[random-in_memory]"
+    benches = [
+        {
+            **_fake_bench("test_timezone_at[random-in_memory]"),
+            "fullname": tracked,
+        },
+        {
+            **_fake_bench("test_timezone_at[random-file_based]"),
+            "fullname": "benchmarks/test_timezone_finding.py::test_timezone_at[random-file_based]",
+        },
+    ]
+
+    add_ci_tracking_note(
+        reporter,
+        _FAKE_SYSTEM_INFO
+        | {"ci_tracked_benchmarks": [tracked], "ci_benchmark_estimator": "min"},
+        benches,
+    )
+
+    (note,) = _texts(reporter)
+    assert "``min`` estimator" in note
+    assert "random points, in-memory" in note
+    assert "random points, file-based" not in note
+    assert "leads with ``Mean``" in note
+
+
+def test_ci_tracking_note_refuses_measurements_without_recorded_provenance():
+    reporter = BenchmarkReporter(title="t", output_path="/dev/null")
+
+    with pytest.raises(ValueError, match="missing the recorded CI subset"):
+        add_ci_tracking_note(reporter, {}, [])
 
 
 # one benchmark per renderer, enough to exercise the full render path: the
 # renderers tolerate a missing benchmark (headline blocks are conditional), so
 # a minimal JSON still reaches the point where provenance is - or isn't -
 # stamped
+def _fake_latency_json() -> dict:
+    """A minimal query-latency report, in the shape ``scripts.measure_query_latency``
+    writes. Only the timezone-finding renderer takes one - it renders the distribution
+    as a section of its own page rather than as a page of its own."""
+    return {
+        "machine_info": {
+            "timezonefinder": {
+                **_FAKE_SYSTEM_INFO,
+                "fixture_version": 2,
+                "data_version": "2026c",
+                "latency_points": 100,
+                "latency_repetitions": 3,
+            }
+        },
+        "benchmarks": [
+            {
+                "fullname": f"latency::random::{statistic}",
+                "name": f"latency::random::{statistic}",
+                "stats": {"mean": value, "min": value, "max": value, "rounds": 1},
+            }
+            for statistic, value in (
+                ("p50", 1e-6),
+                ("p90", 3e-6),
+                ("p99", 3e-5),
+                ("p99.9", 6e-5),
+                ("mean", 2e-6),
+                ("max", 1e-4),
+            )
+        ],
+    }
+
+
+def _render_timezone_finding_with_latency(data: dict, output_path) -> None:
+    render_timezone_finding(data, _fake_latency_json(), output_path)
+
+
 _RENDERERS = {
     "timezonefinding": (
-        render_timezone_finding,
+        _render_timezone_finding_with_latency,
         "benchmarks/test_timezone_finding.py::test_timezone_at[random-in_memory]",
     ),
     "polygon": (
@@ -477,6 +686,10 @@ _RENDERERS = {
         "benchmarks/test_initialization.py::test_initialization[TimezoneFinder-file_based]",
     ),
     "memory": (render_memory, "memory::TimezoneFinder[file_based]::steady_heap"),
+    "comparison": (
+        render_comparison,
+        "benchmarks/test_comparison.py::test_lookup_tzfpy[random]",
+    ),
 }
 
 
@@ -488,6 +701,7 @@ def _fake_benchmark_json(fullname: str) -> dict:
                 "batch_size": 100,
                 "fixture_version": 2,
                 "data_version": "2026c",
+                "tzfpy_version": "1.2.3",
             }
         },
         "benchmarks": [
@@ -521,6 +735,7 @@ def test_every_renderer_stamps_the_provenance_into_the_written_report(
         POLYGON_REPORT_FILE,
         INITIALIZATION_REPORT_FILE,
         MEMORY_REPORT_FILE,
+        COMPARISON_REPORT_FILE,
     ],
     ids=lambda path: path.name,
 )
@@ -576,3 +791,93 @@ def test_add_fastest_slowest_bullet_reports_both_ends():
     # 0.001s vs 0.05s -> 50x -> 4900% faster (not the old, misleadingly-small
     # 98% that (slower-faster)/slower would give for a 50x speedup)
     assert "4900% faster" in text
+
+
+@pytest.mark.parametrize(
+    "subject, reference, expected",
+    [
+        # the direction is read off the numbers, never assumed: this table is
+        # the one place in the docs that scores somebody else's package
+        (2e-6, 4e-7, "5.00x slower"),
+        (4e-7, 2e-6, "5.00x faster"),
+        # under NEGLIGIBLE_DIFFERENCE_PCT, in both directions
+        (1.00e-6, 1.01e-6, "about the same"),
+        (1.01e-6, 1.00e-6, "about the same"),
+        (1e-6, 1e-6, "about the same"),
+    ],
+)
+def test_relative_speed_label(subject: float, reference: float, expected: str):
+    assert relative_speed_label(subject, reference) == expected
+
+
+def test_render_comparison_refuses_a_json_that_never_measured_the_other_package(
+    tmp_path,
+):
+    # the failure this guards is silent, not loud: without `tzfpy` installed the
+    # comparison benchmarks skip while every other suite still runs, so the JSON
+    # is complete enough to render a page that compares this package against
+    # nothing and says so nowhere
+    data = _fake_benchmark_json(
+        "benchmarks/test_comparison.py::test_lookup_timezonefinder[random]"
+    )
+    del data["machine_info"]["timezonefinder"]["tzfpy_version"]
+
+    with pytest.raises(ValueError, match="compare"):
+        render_comparison(data, tmp_path / "report.rst")
+
+
+def test_render_comparison_names_the_measured_version_of_the_other_package(tmp_path):
+    # that package releases outside this repository entirely, so a page of
+    # ratios against an unnamed build is a page of ratios with no denominator
+    output_path = tmp_path / "report.rst"
+
+    render_comparison(
+        _fake_benchmark_json(
+            "benchmarks/test_comparison.py::test_lookup_tzfpy[random]"
+        ),
+        output_path,
+    )
+
+    assert "1.2.3" in output_path.read_text(encoding="utf-8")
+
+
+def test_reporter_renders_every_content_kind_without_touching_stdout(capsys):
+    """The page is what ``render`` returns, not what the call printed.
+
+    ``write_report`` used to point ``sys.stdout`` at the output file and print
+    into it, because the table renderer it called printed. Both redirectors are
+    gone; a renderer that starts printing again would silently drop its content
+    on the floor here, and put back the destination-bound-at-redirection-time
+    behaviour ``scripts/reporting.py`` was rid of.
+    """
+    reporter = BenchmarkReporter(title="Results", output_path="/dev/null")
+    reporter.add_text("intro")
+    reporter.add_text("")  # a spacer, which adds no second blank line
+    reporter.add_section("Timing", 1)
+    reporter.add_table(["Benchmark", "Rounds"], [["lookup", 100]])
+    reporter.add_note("measured on one machine")
+
+    page = reporter.render()
+
+    assert capsys.readouterr().out == ""
+    assert page.startswith("\n\nResults\n=======\n")
+    assert "\n\nTiming\n------\n" in page
+    assert "intro\n\n\n" in page  # text, its blank line, then the spacer's
+    assert "   * - lookup\n     - 100\n" in page
+    assert ".. note::\n\n   measured on one machine\n" in page
+
+
+def test_write_report_writes_exactly_what_render_returned(tmp_path):
+    """Minus the trailing blank line every section leaves behind, which
+    ``end-of-file-fixer`` strips - the normalisation that keeps a freshly
+    rendered page comparable with the committed one before the hook has run.
+    """
+    output_path = tmp_path / "report.rst"
+    reporter = BenchmarkReporter(title="Results", output_path=output_path)
+    reporter.add_table(["Benchmark"], [["lookup"]])
+
+    reporter.write_report()
+
+    assert (
+        output_path.read_text(encoding="utf-8") == reporter.render().rstrip("\n") + "\n"
+    )

@@ -23,10 +23,11 @@ Two traps this module exists to handle:
 The API key lives in the ``[NASS] api_key`` config key (geobase.txt).
 """
 
-import io
 from pathlib import Path
 
 import pandas as pd
+
+from geocif.viz._style import MONTHS
 
 QUICKSTATS_URL = "https://quickstats.nass.usda.gov/api/api_GET/"
 
@@ -36,8 +37,7 @@ CROP_QUERY = {
     "soybean": ("SOYBEANS", "SOYBEANS - YIELD, MEASURED IN BU / ACRE"),
 }
 
-_MONTH_NUM = {"JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
-              "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12}
+_MONTH_NUM = {m.upper(): i + 1 for i, m in enumerate(MONTHS)}
 
 # Aggregate pseudo-states carried in the same response ("OTHER STATES", fips 98).
 _NOT_A_STATE = {"98", "99", "00"}
@@ -79,7 +79,7 @@ def fetch(api_key, years, crops=("maize", "soybean"), cache=None, offline=False,
     """Per-state monthly forecasts + final estimates for ``years``/``crops``.
 
     Always prefers a live query so the current season is up to date, writing
-    the result to ``cache`` when given. If the API cannot be reached (or
+    a non-empty result to ``cache`` when given. If the API cannot be reached (or
     ``offline`` is set) the cache is used instead — a compute node without
     egress still renders the same figures, just without any newer NASS report.
     """
@@ -91,11 +91,11 @@ def fetch(api_key, years, crops=("maize", "soybean"), cache=None, offline=False,
                          f"known: {sorted(CROP_QUERY)}")
 
     if not offline:
-        try:
-            import requests
+        import requests
 
-            sess = session or requests.Session()
-            frames = []
+        sess = session or requests.Session()
+        raw = []
+        try:
             for crop in crops:
                 commodity, short_desc = CROP_QUERY[crop]
                 for year in years:
@@ -112,18 +112,24 @@ def fetch(api_key, years, crops=("maize", "soybean"), cache=None, offline=False,
                     if r.status_code == 400:
                         continue
                     r.raise_for_status()
-                    frames.append(_tidy(r.json().get("data", []), crop))
-            out = (pd.concat(frames, ignore_index=True) if frames
-                   else pd.DataFrame(columns=COLUMNS))
-            if cache is not None:
-                cache.parent.mkdir(parents=True, exist_ok=True)
-                out.to_csv(cache, index=False)
-            return out
-        except Exception as exc:                      # network/DNS/HTTP/parse
+                    raw.append((crop, r.json().get("data", [])))
+        except (requests.RequestException, ValueError) as exc:  # network/DNS/HTTP/JSON
             if cache is None or not cache.exists():
                 raise
             print(f"NASS QuickStats unreachable ({type(exc).__name__}: {exc}); "
                   f"falling back to the cached extract {cache}")
+        else:
+            # Tidying and caching happen outside the try: a failure after a
+            # successful fetch must surface, not masquerade as "unreachable".
+            frames = [_tidy(rows, crop) for crop, rows in raw]
+            out = (pd.concat(frames, ignore_index=True) if frames
+                   else pd.DataFrame(columns=COLUMNS))
+            # An all-400 (or otherwise empty) answer carries no data — writing
+            # it would permanently poison a cache built by an earlier run.
+            if cache is not None and not out.empty:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                out.to_csv(cache, index=False)
+            return out
 
     if cache is None or not cache.exists():
         raise ValueError("offline NASS reference requested but no cache exists "

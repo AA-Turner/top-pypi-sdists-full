@@ -12,7 +12,7 @@ class add_compositor_effect(bpy.ops._BPyOpsSubModOp):
         undo: bool | None = None,
         /,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Add a scene compositor effect to the scene
+        """Add a compositor effect to the scene
 
         :param execution_context:
         :param undo:
@@ -48,7 +48,7 @@ class add_compositor_effect_node_group_asset(bpy.ops._BPyOpsSubModOp):
         relative_asset_identifier: str = "",
         session_uid: int | None = 0,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Add a scene compositor effect to the scene with a node group asset
+        """Add a scene effect with a node group asset
 
         :param execution_context:
         :param undo:
@@ -99,7 +99,7 @@ class duplicate_compositor_effect(bpy.ops._BPyOpsSubModOp):
         *,
         name: str = "",
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Duplicate the active or the given scene compositor effect
+        """Duplicate the active or the given scene effect
 
         :param execution_context:
         :param undo:
@@ -114,7 +114,7 @@ class duplicate_compositor_effect_node_group(bpy.ops._BPyOpsSubModOp):
         undo: bool | None = None,
         /,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Duplicate the active scene compositor effect node group and assign the new node group to the effect
+        """Duplicate the active scene effect node group and assign the new node group to the effect
 
         :param execution_context:
         :param undo:
@@ -533,7 +533,7 @@ class move_compositor_effect_to_index(bpy.ops._BPyOpsSubModOp):
         name: str = "",
         index: int | None = 0,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Change the scene compositor effects index in the stack so it evaluates after the set number of others
+        """Change the scene effects index in the stack so it evaluates after the set number of others
 
         :param execution_context:
         :param undo:
@@ -578,7 +578,7 @@ class new_compositor_effect_node_group(bpy.ops._BPyOpsSubModOp):
         undo: bool | None = None,
         /,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Create a new compositor node group and assign it to the active scene compositor effect
+        """Create a new compositor node group and assign it to the active scene effect
 
         :param execution_context:
         :param undo:
@@ -652,7 +652,7 @@ class remove_compositor_effect(bpy.ops._BPyOpsSubModOp):
         *,
         name: str = "Name",
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Remove a scene compositor effect from the scene
+        """Remove a scene effect from the scene
 
         :param execution_context:
         :param undo:
@@ -697,7 +697,7 @@ class set_active_compositor_effect(bpy.ops._BPyOpsSubModOp):
         *,
         name: str = "",
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-        """Set the given scene compositor effect as the active one
+        """Set the given scene effect as the active one
 
         :param execution_context:
         :param undo:

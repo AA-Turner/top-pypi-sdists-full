@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite_toolkit
-Version: 0.8.200
+Version: 0.8.202
 Summary: Official Cognite Data Fusion tool for project templates and configuration deployment
 Author: Cognite AS
 Author-email: Cognite AS <support@cognite.com>
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: OS Independent
 Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: cognite-sdk>=8.6.0,<9.0.0
-Requires-Dist: httpx>=0.28.1
+Requires-Dist: httpx2>=2.12.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: typer>=0.12.0,<1.0.0
 Requires-Dist: rich>=13.9.4

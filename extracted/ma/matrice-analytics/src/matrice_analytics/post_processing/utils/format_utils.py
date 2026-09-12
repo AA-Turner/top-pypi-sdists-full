@@ -6,6 +6,35 @@ from typing import Any, Dict, List
 
 from ..core.base import ResultFormat
 
+#: Keys a face detection may carry its 5-point landmarks under.
+#:
+#: ``landmarks`` is what the legacy face-recognition codebase publishes. The refactored inference
+#: SDK publishes the same geometry as ``keypoints`` — face landmarks ride inside the detection
+#: record because they are attached to one face, and ``keypoints`` is the name the SDK's detection
+#: port uses for points generally. Neither side translates, so a consumer that knows only one name
+#: silently sees no landmarks at all from the other producer: every read returns ``None``, no
+#: exception, and a face-recognition result stops even being *recognised* as one (see
+#: :func:`detect_result_format`, which keys on landmark presence).
+_LANDMARK_KEYS = ("landmarks", "keypoints")
+
+
+def face_landmarks(detection: Dict[str, Any], default: Any = None) -> Any:
+    """The detection's 5-point landmarks under whichever name its producer used.
+
+    Prefers ``landmarks`` so a record carrying both is unchanged. Read through this rather than
+    ``detection.get("landmarks")`` anywhere the producer might be either codebase.
+    """
+    for key in _LANDMARK_KEYS:
+        value = detection.get(key)
+        if value:
+            return value
+    return default
+
+
+def has_face_landmarks(detection: Dict[str, Any]) -> bool:
+    """Whether this detection carries landmarks under any known name."""
+    return face_landmarks(detection) is not None
+
 
 def match_results_structure(results):
     """
@@ -29,9 +58,13 @@ def match_results_structure(results):
         if len(results) > 0 and isinstance(results[0], dict):
             if results[0].get("masks"):
                 return ResultFormat.INSTANCE_SEGMENTATION
-            elif results[0].get("embedding") or results[0].get("landmarks"):
+            elif results[0].get("embedding") or has_face_landmarks(results[0]):
                 return ResultFormat.FACE_RECOGNITION
-            elif "bounding_box" in results[0] and "category" in results[0] and "confidence" in results[0]:
+            elif (
+                "bounding_box" in results[0]
+                and "category" in results[0]
+                and "confidence" in results[0]
+            ):
                 return ResultFormat.DETECTION
         return ResultFormat.DETECTION  # Default for list format
 
@@ -50,7 +83,7 @@ def match_results_structure(results):
                 first_detection = first_frame_data[0]
                 if isinstance(first_detection, dict):
                     # Check for face recognition format first (has embedding or landmarks)
-                    if first_detection.get("embedding") or first_detection.get("landmarks"):
+                    if first_detection.get("embedding") or has_face_landmarks(first_detection):
                         return ResultFormat.FACE_RECOGNITION
                     # Check if it has track_id (object tracking) or not (activity recognition)
                     elif "track_id" in first_detection:
@@ -121,8 +154,8 @@ def convert_to_coco_format(results: Any) -> List[Dict]:
             # Add face recognition specific fields if present
             if "embedding" in detection:
                 coco_result["embedding"] = detection["embedding"]
-            if "landmarks" in detection:
-                coco_result["landmarks"] = detection["landmarks"]
+            if has_face_landmarks(detection):
+                coco_result["landmarks"] = face_landmarks(detection)
 
             coco_results.append(coco_result)
 
@@ -171,8 +204,8 @@ def convert_to_coco_format(results: Any) -> List[Dict]:
                     # Add face recognition specific fields if present
                     if "embedding" in detection:
                         coco_result["embedding"] = detection["embedding"]
-                    if "landmarks" in detection:
-                        coco_result["landmarks"] = detection["landmarks"]
+                    if has_face_landmarks(detection):
+                        coco_result["landmarks"] = face_landmarks(detection)
 
                     coco_results.append(coco_result)
                     result_id += 1
@@ -248,8 +281,8 @@ def convert_to_tracking_format(detections: List[Dict], frame_id: str = "0") -> D
         # Add face recognition specific fields if present
         if "embedding" in detection:
             tracking_detection["embedding"] = detection["embedding"]
-        if "landmarks" in detection:
-            tracking_detection["landmarks"] = detection["landmarks"]
+        if has_face_landmarks(detection):
+            tracking_detection["landmarks"] = face_landmarks(detection)
 
         tracking_results[frame_id].append(tracking_detection)
 
@@ -282,7 +315,7 @@ def convert_tracking_to_detection_format(tracking_results: Dict) -> List[Dict]:
     """
     detections = []
 
-    for frame_id, frame_detections in tracking_results.items():
+    for _frame_id, frame_detections in tracking_results.items():
         if isinstance(frame_detections, list):
             for detection in frame_detections:
                 detection_item = {

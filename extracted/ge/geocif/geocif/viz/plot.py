@@ -5,6 +5,8 @@ from pathlib import Path
 import geopandas as gpd
 import matplotlib
 import matplotlib.pyplot as plt
+
+from geocif.viz._style import NODATA
 import numpy as np
 import pandas as pd
 from matplotlib.lines import Line2D as Line
@@ -92,6 +94,41 @@ def _compute_norm(df, attribute_df, merge_col, name_col, series, vmin, vmax,
     return df_comb, norm, breaks
 
 
+def _region_fill(value, series, dict_lup, use_key, cmap, norm):
+    """Facecolor for one region's value, or ``None`` when it should not be drawn.
+
+    Single source of truth for the per-region fill decision on the matplotlib
+    path, mirroring ``_plot_map_pygmt``'s ``_fill_for`` so the two backends
+    stay in visual parity:
+
+    * qualitative: ``value`` is looked up in ``dict_lup`` (by key or by label,
+      per ``use_key``); no match -> ``None`` (region skipped, as the pygmt path
+      drops fill-less rows). An explicit found-flag is used because a
+      qualitative key of ``0`` is falsy but perfectly valid.
+    * NaN: "region excluded from analysis" (e.g. yield_outlook's
+      minimal-crop-area filter) -> lightgray silhouette (0.85 == 0xd9/255,
+      exactly the pygmt path's ``#d9d9d9``) so the country outline stays
+      complete.
+    * otherwise: colormap color — including a value of exactly 0, which the
+      old ``elif key:`` truthiness test silently skipped.
+    """
+    if series == "qualitative":
+        key = None
+        for k, val_cc in dict_lup.items():
+            if (use_key and k == value) or (not use_key and val_cc == value):
+                key = k
+                break
+        if key is None:
+            return None
+        if isinstance(cmap, list):
+            return _normalize_color(cmap[(key - 1) % len(cmap)])
+        return _normalize_color(cmap.colors[(key - 1) % len(cmap.colors)])
+
+    if pd.isna(value):
+        return (0.85, 0.85, 0.85, 1.0)
+    return cmap.mpl_colormap(norm(value))
+
+
 def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
                   cmap, norm, alpha_feature, do_borders, annotate_regions,
                   annotate_region_column, annotate_values=False,
@@ -108,80 +145,63 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
         if merge_col in df_comb and df_comb[merge_col][i] == "region":
             continue
 
-        key = None
-        if series == "qualitative":
-            for key, val_cc in dict_lup.items():
-                if use_key:
-                    if key == df_comb[name_col][i]:
-                        break
-                else:
-                    if val_cc == df_comb[name_col][i]:
-                        break
-        else:
-            key = df_comb[name_col][i]
+        # The fill decision lives in _region_fill (shared ladder with the
+        # pygmt path); the feature is then built and added UNCONDITIONALLY
+        # whenever fc is set. The old structure only reached add_feature
+        # inside the colormapped `elif key:` branch, so excluded (NaN ->
+        # gray) regions were never drawn and 0-valued regions were skipped
+        # by truthiness — both diverging from the pygmt backend.
+        fc = _region_fill(df_comb[name_col][i], series, dict_lup, use_key,
+                          cmap, norm)
+        if fc is None:
+            continue
 
-        # NaN in the value column means "region excluded from analysis"
-        # (e.g. yield_outlook's minimal-crop-area filter). Draw as
-        # lightgray silhouette with the normal black border so the
-        # country outline stays complete.
-        if key is not None and series != "qualitative" and pd.isna(key):
-            key = "__excluded__"
-            fc = (0.85, 0.85, 0.85, 1.0)
-        elif key:
-            if series == "qualitative":
-                if isinstance(cmap, list):
-                    fc = _normalize_color(cmap[(key - 1) % len(cmap)])
-                else:
-                    fc = _normalize_color(cmap.colors[(key - 1) % len(cmap.colors)])
-            else:
-                fc = cmap.mpl_colormap(norm(key))
+        from shapely.ops import unary_union
+        raw_geom = df_comb["geometry"][i]
+        # Merge sub-polygons to remove internal edges
+        merged = unary_union(raw_geom)
+        geom = [merged] if merged.geom_type == "Polygon" else merged
 
-            from shapely.ops import unary_union
-            raw_geom = df_comb["geometry"][i]
-            # Merge sub-polygons to remove internal edges
-            merged = unary_union(raw_geom)
-            geom = [merged] if merged.geom_type == "Polygon" else merged
+        region_feature = ShapelyFeature(
+            geom,
+            ccrs.PlateCarree(),
+            facecolor=fc,
+            edgecolor="black" if do_borders else "none",
+            linestyle="-",
+            linewidth=0.5 if do_borders else 0.0,
+            alpha=alpha_feature,
+        )
 
-            region_feature = ShapelyFeature(
-                geom,
-                ccrs.PlateCarree(),
-                facecolor=fc,
-                edgecolor="black" if do_borders else "none",
-                linestyle="-",
-                linewidth=0.5 if do_borders else 0.0,
-                alpha=alpha_feature,
-            )
+        lw = 0.5 if do_borders else 0.0
+        ax.add_feature(region_feature, linewidth=lw)
 
-            lw = 0.5 if do_borders else 0.0
-            ax.add_feature(region_feature, linewidth=lw)
-
-            if annotate_regions or annotate_values:
-                # NOTE: the county-scale suppression is applied by the caller
-                # (plot_map passes an already-resolved annotate_regions), and
-                # annotate_values is resolved with it — see plot_map.
-                lon, lat = region["geometry"].centroid.x, region["geometry"].centroid.y
-                # Transform lat/lon centroid into the axes projection so labels
-                # land correctly under any projection (identity for PlateCarree,
-                # reprojected for Albers/USA).
-                try:
-                    xt, yt = ax.projection.transform_point(lon, lat, ccrs.PlateCarree())
-                except Exception:
-                    xt, yt = lon, lat
-                if np.isfinite(xt) and np.isfinite(yt):
-                    parts = []
-                    if annotate_region_column in region and pd.notna(region[annotate_region_column]):
-                        parts.append(str(region[annotate_region_column]).title())
-                    if annotate_values and pd.notna(region[name_col]):
-                        parts.append(value_fmt.format(region[name_col]))
-                    if parts:
-                        plt.annotate(
-                            text="\n".join(parts),
-                            xy=(xt, yt),
-                            ha="center",
-                            va="center",
-                            fontsize=3,
-                            bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
-                        )
+        if annotate_regions or annotate_values:
+            # NOTE: the county-scale suppression is applied by the caller
+            # (plot_map passes an already-resolved annotate_regions), and
+            # annotate_values is resolved with it — see plot_map.
+            lon, lat = region["geometry"].centroid.x, region["geometry"].centroid.y
+            # Transform lat/lon centroid into the axes projection so labels
+            # land correctly under any projection (identity for PlateCarree,
+            # reprojected for Albers/USA).
+            try:
+                xt, yt = ax.projection.transform_point(lon, lat, ccrs.PlateCarree())
+            except Exception:
+                xt, yt = lon, lat
+            if np.isfinite(xt) and np.isfinite(yt):
+                parts = []
+                if annotate_region_column in region and pd.notna(region[annotate_region_column]):
+                    parts.append(str(region[annotate_region_column]).title())
+                if annotate_values and pd.notna(region[name_col]):
+                    parts.append(value_fmt.format(region[name_col]))
+                if parts:
+                    plt.annotate(
+                        text="\n".join(parts),
+                        xy=(xt, yt),
+                        ha="center",
+                        va="center",
+                        fontsize=3,
+                        bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
+                    )
 
 
 
@@ -577,6 +597,7 @@ def _plot_map_pygmt(
     the caller's env (no pygmt needed).
     """
     import json
+    import shutil
     import tempfile
     import subprocess
     from matplotlib.colors import to_hex
@@ -613,7 +634,7 @@ def _plot_map_pygmt(
                    else cmap.colors[(key - 1) % len(cmap.colors)])
             return to_hex(_normalize_color(raw))
         if pd.isna(val):
-            return "#d9d9d9"  # region excluded from analysis -> lightgray
+            return NODATA     # region excluded from analysis -> lightgray
         return to_hex(cmap.mpl_colormap(norm(val)))
 
     gdf["_fill"] = gdf[name_col].map(_fill_for)
@@ -663,10 +684,10 @@ def _plot_map_pygmt(
         "projection": _gmt_projection_for(name_country),
         "title": title or "", "label": label or "",
         "do_borders": bool(do_borders),
-        # `or annotate_values` here would BYPASS the suppression entirely:
-        # diagnostics.mape_choropleth / metric_choropleth hardcode
-        # annotate_values=True, so every county map would still be labelled.
-        # Suppress the whole annotation at county scale, not just the name.
+        # `or annotate_values` still goes through the suppression: a caller
+        # asking for value labels (diagnostics forwards its callers' flag
+        # since 0.4.1022) gets them only where the label-fit heuristic says
+        # a county-scale map stays readable.
         "annotate": bool(
             effective_annotate_regions(
                 annotate_regions or annotate_values, len(gdf), gdf=gdf
@@ -682,30 +703,39 @@ def _plot_map_pygmt(
 
     os.makedirs(dir_out, exist_ok=True)
     tmpdir = tempfile.mkdtemp(prefix="pygmt_map_")
-    gj = os.path.join(tmpdir, "data.geojson")
-    pj = os.path.join(tmpdir, "params.json")
-    gdf[cols_keep].to_file(gj, driver="GeoJSON")
-    with open(pj, "w") as fh:
-        json.dump(params, fh)
+    try:
+        gj = os.path.join(tmpdir, "data.geojson")
+        pj = os.path.join(tmpdir, "params.json")
+        gdf[cols_keep].to_file(gj, driver="GeoJSON")
+        # params.json is written in BOTH branches: only the subprocess bridge
+        # reads it, but branching the write buys nothing over one extra file
+        # in a dir that is removed below anyway.
+        with open(pj, "w") as fh:
+            json.dump(params, fh)
 
-    if _gmt_available():
-        from . import _pygmt_render
-        # render() takes the params DICT (the subprocess __main__ path loads
-        # the JSON itself) — passing the path here was latent until an env
-        # could actually load GMT in-process (pixi-managed gmt, 0.4.886+).
-        _pygmt_render.render(gj, params)
-    else:
-        # Bridge: render in a pygmt-capable conda env.
-        env = os.environ.get("GEOCIF_PYGMT_CONDA_ENV", "pygmt_env")
-        helper = str(Path(__file__).with_name("_pygmt_render.py"))
-        cmd = f'conda run -n {env} python "{helper}" "{gj}" "{pj}"'
-        proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if proc.returncode != 0:
-            logger.warning(
-                "pygmt bridge failed (rc=%s) for %s; stderr: %s",
-                proc.returncode, fname, (proc.stderr or "")[-600:],
-            )
-            raise RuntimeError(f"pygmt bridge failed for {fname}")
+        if _gmt_available():
+            from . import _pygmt_render
+            # render() takes the params DICT (the subprocess __main__ path loads
+            # the JSON itself) — passing the path here was latent until an env
+            # could actually load GMT in-process (pixi-managed gmt, 0.4.886+).
+            _pygmt_render.render(gj, params)
+        else:
+            # Bridge: render in a pygmt-capable conda env.
+            env = os.environ.get("GEOCIF_PYGMT_CONDA_ENV", "pygmt_env")
+            helper = str(Path(__file__).with_name("_pygmt_render.py"))
+            cmd = f'conda run -n {env} python "{helper}" "{gj}" "{pj}"'
+            proc = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            if proc.returncode != 0:
+                logger.warning(
+                    "pygmt bridge failed (rc=%s) for %s; stderr: %s",
+                    proc.returncode, fname, (proc.stderr or "")[-600:],
+                )
+                raise RuntimeError(f"pygmt bridge failed for {fname}")
+    finally:
+        # The tmpdir exists only to hand the GeoJSON + params to the renderer.
+        # A yield_outlook run draws hundreds of maps, so one leaked dir per
+        # map accumulates in TMP — always clean up, success or failure.
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # =============================================================================

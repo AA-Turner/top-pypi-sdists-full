@@ -25,11 +25,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from geocif.viz._style import (
+    MONTHS as MON, NODATA, despine as _despine, style_ctx as _shared_ctx)
 from geocif.viz.aggregation import _write_lookup
 
 logger = logging.getLogger(__name__)
 
-NODATA = "#d9d9d9"          # grey for no data: never white, which reads as water
 REGION = [-20, 52, -36, 25]
 PROJ = "M15c"
 # FEWS NET ENSO-forecast ramp: teal (low probability) -> cream (the 0.33
@@ -80,9 +81,10 @@ CBAR_OFFSET = "+o0c/3.3c+e"
 LAND = "#f2f2f2"
 #: t/ha map: units whose trend baseline extrapolates too far to publish.
 WITHHELD = "#bdbdbd"
-MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-REAL_YEARS = list(range(1994, 2018))     # real S2S hindcast members
+# LEGACY fallback only (_predictor_heatmaps_legacy): the panel path
+# reads the era from predictors.csv, which the experiment derives
+# per combination via real_harvest_years().
+REAL_YEARS = list(range(1994, 2018))
 ROW_LABEL = {"z_PRCPTOT": "Season rainfall", "z_TMEAN": "Season temperature",
              "z_P_GF": "Grain-fill rainfall",
              "DRYHEAT": "Dry × hot (interaction)"}
@@ -118,21 +120,9 @@ def _use_agg():
 
 
 def _style_ctx():
-    """scienceplots when available, plain matplotlib otherwise."""
+    """Headless backend, then the shared scienceplots-or-default context."""
     _use_agg()
-    import matplotlib.pyplot as plt
-
-    try:
-        import scienceplots  # noqa: F401
-        return plt.style.context(["science", "no-latex"])
-    except Exception:
-        return plt.style.context("default")
-
-
-def _despine(*axes):
-    for ax in axes:
-        for sp in ("top", "right"):
-            ax.spines[sp].set_visible(False)
+    return _shared_ctx()
 
 
 def month_span(months):
@@ -374,6 +364,23 @@ def _write_cpt(path, stops):
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def defensible_baseline(frame, max_err):
+    """Units whose trend baseline is good enough to publish a t/ha number.
+
+    Module level, not a closure inside :func:`maps`, so it is reachable
+    without GMT: everything else in the t/ha map runs inside pygmt, and a
+    mask that decides which units are shown at all should not be testable
+    only on a machine that can render.
+
+    NaN means "no defensible baseline" — the same statement as exceeding
+    ``max_err``, so both fall outside. A bare ``> max_err`` filter drops
+    NaN units from the shown AND withheld layers, and they then render as
+    land outside the analysis.
+    """
+    err = frame["trend_extrap_err_pct"]
+    return err.notna() & (err <= max_err)
+
+
 def maps(out, gpkg, title_year=None, extent=None, label=""):
     """PyGMT choropleths, per crop and diagnostic.
 
@@ -392,11 +399,9 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
     # Imported HERE, not at module scope: _pygmt_render imports pygmt at its
     # top (it doubles as a standalone subprocess renderer), and this module
     # must stay importable on a machine with no GMT so the charts and
-    # heatmaps still render.
-    from geocif.viz._pygmt_render import (
-        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT, BORDER_PEN,
-        CBAR_POS, COAST_KW, POLY_PEN,
-    )
+    # heatmaps still render. The style constants come from the GMT-free
+    # viz/_style, so nothing pygmt-shaped is needed at module scope.
+    from geocif.viz._style import BORDER_PEN, CBAR_POS, COAST_KW, POLY_PEN
 
     out = Path(out)
     base, dir_plots, dir_csvs = _dirs(out, "maps")
@@ -410,8 +415,9 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         logger.info("no forecasts to map")
         return base
     year = title_year or int(fc["harvest_year"].mode().iloc[0])
-    # ADMIN1/ADMIN2 come along for the region name labels; the gpkg carries
-    # both, and _annotate() picks the finer one that is actually populated.
+    # ADMIN1/ADMIN2 ride along for the per-map CSVs, which is where a reader
+    # looks up which region a polygon is. They are deliberately NOT drawn on
+    # the map: see the note on annotations above _value_map.
     gdf = gpd.read_file(gpkg)[
         ["FNID", "ADMIN0", "ADMIN1", "ADMIN2", "geometry"]].rename(
         columns={"FNID": "fnid"})
@@ -438,37 +444,6 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         fig.coast(borders=BORDER_PEN, area_thresh=5000)
         fig.savefig(dir_plots / f"{stem}.png", dpi=350)
         lookup.append((f"{stem}.png", csv_name, desc))
-
-    def _annotate(fig, frame, val_col, fmt="{:.2f}"):
-        """Region name over its value, at the polygon centroid.
-
-        Gated by the same label-fit heuristic the outlook maps use
-        (`[ML] annotate_regions_auto`): region COUNT alone is a poor proxy
-        for legibility, so it also checks whether each polygon is actually
-        wide enough to hold its own name. On a continent-wide map with a few
-        hundred admin units this suppresses everything, which is the point.
-        """
-        from geocif.viz.plot import effective_annotate_regions
-
-        name_col = ("ADMIN2" if frame.get("ADMIN2") is not None
-                    and frame["ADMIN2"].notna().any() else "ADMIN1")
-        if name_col not in frame.columns:
-            return
-        lab = frame.assign(_label=frame[name_col].astype(str).str.title())
-        lab = lab[lab["_label"].str.lower().ne("nan")]
-        if lab.empty or not effective_annotate_regions(
-                True, len(lab), gdf=lab, label_col="_label"):
-            return
-        for _, row in lab.iterrows():
-            c = row["geometry"].centroid
-            if c.is_empty:
-                continue
-            fig.text(x=c.x, y=c.y, text=row["_label"], font=ANNOT_FONT,
-                     offset=ANNOT_OFFSET, **ANNOT_BOX)
-            v = row.get(val_col)
-            if pd.notna(v):
-                fig.text(x=c.x, y=c.y, text=fmt.format(v),
-                         font=ANNOT_VAL_FONT, offset="0c/-0.16c", **ANNOT_BOX)
 
     def _hatch_by_region(fig, frame, td):
         """Mark each polygon on ITS OWN verdict, not the country's.
@@ -519,7 +494,7 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         return g
 
     def _value_map(g, *, stem, title, value_col, cpt_stops, cbar_label,
-                   csv_name, desc, fmt="{:.2f}", hatch=True,
+                   csv_name, desc, hatch=True,
                    legend_rows=None, legend_w=6.6, withheld=None):
         """The one shape every value choropleth shares.
 
@@ -547,7 +522,6 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
                      close=True, aspatial=f"Z={value_col}")
             if hatch:
                 _hatch_by_region(fig, g, td)
-            _annotate(fig, g, value_col, fmt)
             # no legend to clear -> the bar keeps the tight default offset;
             # +e extenders stay on either way, the tails carry real values
             fig.colorbar(cmap=str(cpt), frame=f"x+l{cbar_label}",
@@ -606,7 +580,7 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
             g, stem=f"map_anomaly_{crop}{sfx}", csv_name=csv_name,
             title=f"Predicted {crop} yield departure from trend{where}, "
                   f"{year}",
-            value_col="ahat_pct", cpt_stops=ANOM_CPT, fmt="{:+.0f}%",
+            value_col="ahat_pct", cpt_stops=ANOM_CPT,
             cbar_label="Predicted yield departure from trend (%)",
             legend_rows=BASE_LEGEND,
             desc=f"predicted {crop} yield anomaly {year}, % vs trend")
@@ -627,9 +601,7 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         if d.empty:
             return
         d = d.sort_values("yhat_tha").drop_duplicates("fnid")
-        ok = d["trend_extrap_err_pct"].notna() & (
-            d["trend_extrap_err_pct"] <= max_err)
-        if not ok.any():
+        if not defensible_baseline(d, max_err).any():
             logger.info(f"no {crop} combination has a trend extrapolation "
                         f"within {max_err}% — t/ha map skipped")
             return
@@ -640,9 +612,9 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         g = _join(d, csv_name)
         if g is None:
             return
+        ok_g = defensible_baseline(g, max_err)
         _value_map(
-            g[g["trend_extrap_err_pct"] <= max_err],
-            withheld=g[g["trend_extrap_err_pct"] > max_err],
+            g[ok_g], withheld=g[~ok_g],
             stem=f"map_yield_tha_{crop}{sfx}", csv_name=csv_name,
             title=f"Predicted {crop} yield{where}, {year}",
             value_col="yhat_tha", cpt_stops=YIELD_CPT,
@@ -668,10 +640,15 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         d = fc[fc.crop == crop].dropna(subset=["region_auc"])
         if d.empty:
             return
-        d = d.drop_duplicates("fnid").filter(
-            items=["fnid", "country", "season_name", "region_auc",
-                   "region_r2", "region_n_years", "region_n_low",
-                   "region_skill"])
+        # Same dedup policy as the P_low map (worst P_low wins), so for the
+        # 13 two-season countries every map describes the SAME chosen
+        # forecast — an unsorted drop_duplicates left the row shown to
+        # whatever order the CSV happened to arrive in.
+        d = (d.sort_values("P_low", ascending=False)
+             .drop_duplicates("fnid")
+             .filter(items=["fnid", "country", "season_name", "region_auc",
+                            "region_r2", "region_n_years", "region_n_low",
+                            "region_skill"]))
         csv_name = f"map_region_roc_{crop}{sfx}.csv"
         g = _join(d, csv_name)
         if g is None:
@@ -697,7 +674,11 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
         d = fc[fc.crop == crop]
         if d.empty:
             return
-        d = d.drop_duplicates("fnid")[["fnid", "country", "season_name"]].copy()
+        # dedup aligned with the P_low map (see region_roc_map) — this map's
+        # entire message is WHICH season was forecast, so it must name the
+        # season behind the probability the reader just looked at
+        d = (d.sort_values("P_low", ascending=False).drop_duplicates("fnid")
+             [["fnid", "country", "season_name"]].copy())
         d["season_idx"] = d.season_name.map(season_index)
         g = gdf.merge(d, on="fnid", how="inner")
         if g.empty:
@@ -748,7 +729,7 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
             g, stem=f"map_out_of_support{sfx}", csv_name=csv_name,
             title=f"Distance of the {year} S2S predictors outside "
                   f"training range{where}",
-            value_col="oos_max_sigma", cpt_stops=OOS_CPT, fmt="{:.1f}",
+            value_col="oos_max_sigma", cpt_stops=OOS_CPT,
             hatch=False,
             cbar_label="Standard deviations beyond the training range",
             desc="worst per-unit predictor exceedance of the training "
@@ -794,17 +775,156 @@ def maps(out, gpkg, title_year=None, extent=None, label=""):
 # ---------------------------------------------------------------------------
 # predictor heatmaps
 # ---------------------------------------------------------------------------
+def _draw_heatmap(m, feats, years, real_years, smon, gfm, title, stem,
+                  dir_plots, dir_csvs):
+    """One predictor-by-year heatmap. Shared by the panel and legacy paths.
+
+    Scale to the HISTORICAL spread, not the full range: the forecast year
+    can sit several sigma outside anything on record, and letting it set
+    the scale flattens two decades of history into a uniform pale block.
+    The forecast column saturates and the colourbar arrows make that
+    visible.
+    """
+    import matplotlib.pyplot as plt
+
+    data = m[feats].T.to_numpy(dtype=float)
+    hist = m.loc[[y for y in years if y in real_years],
+                 feats].to_numpy(dtype=float)
+    vmax = (float(np.nanpercentile(np.abs(hist), 98))
+            if np.isfinite(hist).any() else 1.0)
+    vmax = max(vmax, 0.5)
+    with _style_ctx():
+        fig, ax = plt.subplots(
+            figsize=(max(6.2, 0.30 * len(years) + 3.4),
+                     0.62 * len(feats) + 1.9))
+        im_ = ax.imshow(data, cmap="RdBu", vmin=-vmax, vmax=vmax,
+                        aspect="auto", interpolation="nearest")
+        ax.set_xticks(range(len(years)))
+        ax.set_xticklabels([str(y) for y in years], rotation=90,
+                           fontsize=8.5)
+        ax.set_yticks(range(len(feats)))
+        ax.set_yticklabels([row_label(f, smon, gfm) for f in feats],
+                           fontsize=10)
+        for lb in ax.get_yticklabels():
+            lb.set_linespacing(1.35)
+        ax.axvline(len(years) - 1.5, color="black", lw=1.6)
+        ax.set_title(title, loc="left", fontsize=11)
+        cbar = fig.colorbar(im_, ax=ax, pad=0.015, fraction=0.03,
+                            extend="both")
+        cbar.set_label(
+            f"Z-score vs {min(real_years)}\u2013{max(real_years)} "
+            f"S2S hindcast", fontsize=9)
+        cbar.ax.tick_params(labelsize=8)
+        ax.set_xlabel("Harvest year", fontsize=9)
+        fig.savefig(dir_plots / f"{stem}.png", dpi=300, bbox_inches="tight")
+        plt.close(fig)
+    m.round(4).to_csv(dir_csvs / f"{stem}.csv")
+
+
+def _heatmap_stem(country, crop, season):
+    return (f"{country.replace(' ', '_').replace(',', '')}_{crop}_"
+            f"{season.replace('/', '_')}")
+
+
 def predictor_heatmaps(out, root, hvstat_csv, threshold_dir="crop_t0"):
     """Per combination, the model's predictors by year beside the forecast.
 
-    Only the real-hindcast years are shown plus the forecast year: the
-    2018-2025 seasons are climatology gap-fill in the NOAA archive -- every
-    year identical by construction -- so plotting them would show a flat band
-    that looks like signal and is not.
+    Renders from the ``predictors.csv`` panel the experiment writes, so
+    the heatmaps show exactly the features the model was fitted on. Only
+    real-hindcast years are shown plus the forecast year: the 2017+
+    seasons are climatology gap-fill in the NOAA archive -- every year
+    identical by construction -- so plotting them would show a flat band
+    that looks like signal and is not (the panel tags them
+    ``climatology_fill``).
+
+    Outputs written before 0.4.1022 carry no panel; those fall back to
+    recomputing the features in-place, with a warning, so an old run
+    directory stays renderable.
     """
     _use_agg()
-    import matplotlib.pyplot as plt
+    out = Path(out)
+    panel_csv = out / "predictors.csv"
+    if not panel_csv.exists():
+        logger.warning(
+            f"{panel_csv} not found (pre-0.4.1022 output) -- falling back "
+            f"to recomputing predictors in the viz layer; rerun the "
+            f"experiment to render from the persisted panel")
+        return _predictor_heatmaps_legacy(out, root, hvstat_csv,
+                                          threshold_dir)
 
+    base, dir_plots, dir_csvs = _dirs(out, "predictor_heatmaps")
+    panel = pd.read_csv(panel_csv)
+    cb = pd.read_csv(out / "combinations.csv")
+    cb = cb[cb.status == "forecast"].set_index(
+        ["country", "crop", "season_name"])
+    tidy, lookup = [], []
+
+    for (country, crop, season), sub in panel.groupby(
+            ["country", "crop", "season_name"], sort=True):
+        shown = sub[sub.kind.isin(["hindcast", "forecast"])]
+        real_years = sorted(shown.loc[shown.kind == "hindcast", "year"]
+                            .unique())
+        fc_years = sorted(shown.loc[shown.kind == "forecast", "year"]
+                          .unique())
+        if not real_years or not fc_years:
+            continue
+        years = real_years + fc_years
+        feats = list(pd.unique(sub.predictor))
+        m = (shown.pivot_table(index="year", columns="predictor",
+                               values="value", aggfunc="first")
+             .reindex(years).reindex(columns=feats))
+        m.index.name = "year"
+        off = int(sub["offset"].iloc[0])
+        n_units = int(sub["n_units"].iloc[0])
+        for f in feats:
+            for y in years:
+                v = m.loc[y, f]
+                tidy.append({"country": country, "crop": crop,
+                             "season_name": season, "offset": off,
+                             "predictor": f, "year": int(y),
+                             "value": (float(v) if np.isfinite(v)
+                                       else np.nan),
+                             "n_units": n_units})
+
+        smon = [int(x) for x in
+                str(sub["season_months"].iloc[0]).split(",") if x]
+        gfm = [int(x) for x in
+               str(sub["gf_months"].iloc[0]).split(",") if x]
+        iy, im = int(sub["init_year"].iloc[0]), int(sub["init_month"].iloc[0])
+        try:
+            r = cb.loc[(country, crop, season)]
+        except KeyError:
+            logger.warning(f"panel combination {country}/{crop}/{season} "
+                           f"missing from combinations.csv -- skipped")
+            continue
+        hy = int(fc_years[-1])
+        plant_m, harv_m = int(r.planting_month), int(r.harvest_month)
+        plant_y = hy - 1 if bool(r.wraps) else hy
+        title = (f"{country} \u00b7 {crop.capitalize()} \u00b7 {season} "
+                 f"season \u2014 planted {MON[plant_m - 1]} {plant_y}, "
+                 f"harvested {MON[harv_m - 1]} {hy} "
+                 f"(S2S init {MON[im - 1]} {iy})")
+        stem = _heatmap_stem(country, crop, season)
+        _draw_heatmap(m, feats, years, real_years, smon, gfm, title, stem,
+                      dir_plots, dir_csvs)
+        lookup.append((f"{stem}.png", f"{stem}.csv",
+                       f"{country} {crop.capitalize()} {season} \u2014 S2S "
+                       f"predictors, init {MON[im - 1]} {iy}"))
+
+    pd.DataFrame(tidy).round(4).to_csv(
+        dir_csvs / "predictor_values_all.csv", index=False)
+    _write_lookup(lookup, dir_plots, dir_csvs)
+    logger.info(f"predictor heatmaps -> {base} ({len(lookup)} figures)")
+    return base
+
+
+def _predictor_heatmaps_legacy(out, root, hvstat_csv, threshold_dir):
+    """Recompute-in-viz fallback for run directories without a panel.
+
+    DEPRECATED: everything below duplicates the experiment pipeline and
+    can drift from it (it did -- REAL_YEARS vs EVAL_SPAN); it exists only
+    so pre-0.4.1022 output directories stay renderable.
+    """
     from geocif.experiments.s2s_africa import (
         CROP_PRODUCTS, build_features, causal_trend_fnid, country_slug,
         features_for_offset, load_s2s_fnid, load_yields)
@@ -862,53 +982,15 @@ def predictor_heatmaps(out, root, hvstat_csv, threshold_dir="crop_t0"):
         iy, im = init_calendar(plant_m, off, hy, wraps)
         plant_y = hy - 1 if wraps else hy
         harv_m = int(r.harvest_month)
-        title = (f"{country} · {crop.capitalize()} · {season} season — "
-                 f"planted {MON[plant_m - 1]} {plant_y}, "
+        title = (f"{country} \u00b7 {crop.capitalize()} \u00b7 {season} "
+                 f"season \u2014 planted {MON[plant_m - 1]} {plant_y}, "
                  f"harvested {MON[harv_m - 1]} {hy} "
                  f"(S2S init {MON[im - 1]} {iy})")
-
-        # Scale to the HISTORICAL spread, not the full range: the forecast
-        # year can sit several sigma outside anything on record, and letting
-        # it set the scale flattens two decades of history into a uniform
-        # pale block. The forecast column saturates and the colourbar arrows
-        # make that visible.
-        data = m[feats].T.to_numpy(dtype=float)
-        hist = m.loc[[y for y in years if y in REAL_YEARS],
-                     feats].to_numpy(dtype=float)
-        vmax = (float(np.nanpercentile(np.abs(hist), 98))
-                if np.isfinite(hist).any() else 1.0)
-        vmax = max(vmax, 0.5)
-        with _style_ctx():
-            fig, ax = plt.subplots(
-                figsize=(max(6.2, 0.30 * len(years) + 3.4),
-                         0.62 * len(feats) + 1.9))
-            im_ = ax.imshow(data, cmap="RdBu", vmin=-vmax, vmax=vmax,
-                            aspect="auto", interpolation="nearest")
-            ax.set_xticks(range(len(years)))
-            ax.set_xticklabels([str(y) for y in years], rotation=90,
-                               fontsize=8.5)
-            ax.set_yticks(range(len(feats)))
-            ax.set_yticklabels([row_label(f, smon, gfm) for f in feats],
-                               fontsize=10)
-            for lb in ax.get_yticklabels():
-                lb.set_linespacing(1.35)
-            ax.axvline(len(years) - 1.5, color="black", lw=1.6)
-            ax.set_title(title, loc="left", fontsize=11)
-            cbar = fig.colorbar(im_, ax=ax, pad=0.015, fraction=0.03,
-                                extend="both")
-            cbar.set_label(
-                f"Z-score vs {REAL_YEARS[0]}–{REAL_YEARS[-1]} S2S hindcast",
-                fontsize=9)
-            cbar.ax.tick_params(labelsize=8)
-            ax.set_xlabel("Harvest year", fontsize=9)
-            stem = (f"{country.replace(' ', '_').replace(',', '')}_{crop}_"
-                    f"{season.replace('/', '_')}")
-            fig.savefig(dir_plots / f"{stem}.png", dpi=300,
-                        bbox_inches="tight")
-            plt.close(fig)
-        m.round(4).to_csv(dir_csvs / f"{stem}.csv")
+        stem = _heatmap_stem(country, crop, season)
+        _draw_heatmap(m, feats, years, REAL_YEARS, smon, gfm, title, stem,
+                      dir_plots, dir_csvs)
         lookup.append((f"{stem}.png", f"{stem}.csv",
-                       f"{country} {crop.capitalize()} {season} — S2S "
+                       f"{country} {crop.capitalize()} {season} \u2014 S2S "
                        f"predictors, init {MON[im - 1]} {iy}"))
 
     pd.DataFrame(tidy).round(4).to_csv(dir_csvs / "predictor_values_all.csv",

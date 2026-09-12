@@ -1194,6 +1194,22 @@ def test_emit_loop_error_message_construction(strategy: ReemissionVal) -> None:
         assert "NOTE" in str(e.value)
 
 
+def test_emit_loop_error_message_shows_locals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Locals of the failing frame are shown (f_locals isn't a dict on 3.13+)."""
+    monkeypatch.delenv("PSYGNAL_HIDE_LOCALS", raising=False)
+
+    def cb(v: int) -> None:
+        some_local = "hello"  # noqa: F841
+        raise ValueError("boom")
+
+    sig = SignalInstance((int,))
+    sig.connect(cb)
+    with pytest.raises(EmitLoopError) as e:
+        sig.emit(1)
+    assert "Local variables" in str(e.value)
+    assert "some_local" in str(e.value)
+
+
 def test_description():
     description = "A signal"
 
@@ -1233,3 +1249,61 @@ def test_signal_emission_disconnect(strategy: ReemissionVal) -> None:
     mock1.assert_called_once_with(2)
     mock2.assert_not_called()
     mock3.assert_called_once_with(2)
+
+
+@pytest.mark.parametrize("strategy", ReemissionMode._members())
+def test_object_deleted_during_emission(strategy: ReemissionVal) -> None:
+    """A weakly connected object collected mid-emission is skipped, not called.
+
+    The emit loop iterates a copy of the slots, so a slot removed while the
+    emission is running is still in hand when its turn comes. Calling one whose
+    object has been garbage collected raises ReferenceError.
+    """
+    sig = SignalInstance((int,), reemission=strategy)
+    mock = Mock()
+
+    class Receiver:
+        def method(self, value: int) -> None:
+            mock(value)
+
+    receiver = Receiver()
+    holder = [receiver]
+
+    def delete_receiver(value: int) -> None:
+        holder.clear()
+        gc.collect()
+
+    sig.connect(delete_receiver)
+    sig.connect(receiver.method)
+    del receiver
+
+    sig.emit(1)
+
+    mock.assert_not_called()
+    assert len(sig) == 1
+
+
+def test_threaded_object_deleted_during_emission() -> None:
+    """A dead callback wrapped for thread dispatch is also skipped."""
+    sig = SignalInstance((int,))
+    mock = Mock()
+
+    class Receiver:
+        def method(self, value: int) -> None:
+            mock(value)
+
+    receiver = Receiver()
+    holder = [receiver]
+
+    def delete_receiver(value: int) -> None:
+        holder.clear()
+        gc.collect()
+
+    sig.connect(delete_receiver)
+    sig.connect(receiver.method, thread="current")
+    del receiver
+
+    sig.emit(1)
+
+    mock.assert_not_called()
+    assert len(sig) == 1

@@ -705,7 +705,7 @@ class NetCDFPlot:
                 )
             # x_dim / y_dim are applied here via get_variable; forward only the coord pair so the
             # re-resolved subset does not try to re-apply axes it already has.
-            return nc._parent_nc.get_variable(
+            return nc._parent_nc._require_raster_variable(
                 nc._source_var_name, x_dim=axes.x_dim, y_dim=axes.y_dim
             ).plot(
                 selectors=selectors,
@@ -834,15 +834,17 @@ class NetCDFPlot:
             ``FacetGrid`` from cleopatra).
 
         Raises:
-            ValueError: If ``variable`` is ``None`` — the message lists the
+            ValueError: If `variable` is `None` — the message lists the
                 **gridded** variable names, which is what this call can actually
                 plot. Neither of the other two lists is right here:
-                ``variable_names`` omits a gridded ancillary array (GOES ABI's
-                ``DQF`` plots fine and is not enumerated), while the readable
-                superset adds 1-D arrays (``time_bounds``, ``band_id``) that
-                ``get_variable`` hands back as a raw ``gdal.MDArray`` with no
-                ``plot`` at all. An empty list therefore means the container holds
-                nothing plottable, which is a true and useful answer.
+                `variable_names` omits a gridded ancillary array (GOES ABI's
+                `DQF` plots fine and is not enumerated), while the readable
+                superset adds 1-D arrays (`time_bounds`, `band_id`) that
+                `get_variable` returns as a `LabeledArray`, which has no `plot`.
+                An empty list therefore means the container holds nothing
+                plottable, which is a true and useful answer. Also raised when
+                `variable` names one of those non-raster arrays: it is refused
+                by name rather than failing on the missing `plot`.
         """
         if variable is None:
             raise ValueError(
@@ -854,9 +856,9 @@ class NetCDFPlot:
         axes = axes or CoordinateSpec()
         # x_dim / y_dim are applied here via get_variable; forward only the coord pair so the
         # subset's plot does not re-resolve axes it already has.
-        return nc.get_variable(variable, x_dim=axes.x_dim, y_dim=axes.y_dim).plot(
-            axes=CoordinateSpec(coords=axes.coords), **plot_kwargs
-        )
+        return nc._require_raster_variable(
+            variable, x_dim=axes.x_dim, y_dim=axes.y_dim
+        ).plot(axes=CoordinateSpec(coords=axes.coords), **plot_kwargs)
 
     def _resolve_selectors(self, nc: NetCDF, selectors: Selectors) -> dict[str, Any]:
         """Flatten a :class:`Selectors` into a ``{dim_name: label}`` dict.
@@ -1439,9 +1441,13 @@ class NetCDFPlot:
                 ``coords``, ``_facet_stack``) before forwarding to
                 cleopatra's animate entry point.
             exclude_value: An extra value to mask alongside the variable's
-                no-data. Both are replaced with ``NaN`` in every streamed frame
-                (and passed to cleopatra as the template ``exclude_value``), so a
-                caller value takes effect rather than being dropped.
+                no-data. Both are replaced with `NaN` in every streamed frame
+                (and passed to cleopatra as the template `exclude_value`), so a
+                caller value takes effect rather than being dropped. The frames
+                are read through `read_array`, so they are physical values on a
+                CF-packed variable: this value is compared against those, and the
+                variable's sentinel is matched in the same units
+                (`Analysis._physical_no_data`), not as the stored number.
             basemap: Forwarded to :func:`render_array`. A web-tile basemap
                 (``str`` / ``True``) draws on the animation's single
                 persistent ``Axes`` underneath the frames; a cleopatra
@@ -1523,7 +1529,14 @@ class NetCDFPlot:
         # matplotlib renders transparent — so every animation frame masks no-data
         # exactly like the static path (#1013). The template still goes to cleopatra
         # raw so its own `exclude_value` masking sizes the colour scale.
-        no_data_value = [np.nan if v is None else v for v in nc.no_data_value]
+        # The sentinel in the units the frames are in: they are read through
+        # `read_array`, so on a packed variable the stored value never appears in them.
+        no_data_value = [
+            np.nan if value is None else value
+            for value in (
+                nc.analysis._physical_no_data(index) for index in range(nc.band_count)
+            )
+        ]
         resolved_exclude = (
             [no_data_value[0], exclude_value]
             if exclude_value is not None

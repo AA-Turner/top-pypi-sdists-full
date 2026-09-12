@@ -1256,7 +1256,8 @@ class Statement:
             view: StatementView controlling which dimensional data to include.
                   Used for STANDARD vs DETAILED filtering logic.
         """
-        from edgar.xbrl.core import PERIOD_END_LABEL, PERIOD_START_LABEL, get_unit_display_name
+        from edgar.xbrl.core import (PERIOD_END_LABEL, PERIOD_START_LABEL,
+                                     get_unit_display_name, row_metadata_value)
         from edgar.xbrl.core import is_point_in_time as get_is_point_in_time
         from edgar.xbrl.periods import determine_periods_to_display
         from edgar.xbrl.rendering import _is_html, html_to_text
@@ -1517,24 +1518,14 @@ class Statement:
 
             # Add unit if requested
             if include_unit:
-                units_dict = item.get('units', {})
-                # Get first available unit (should be same for all periods)
-                unit_ref = None
-                for period_key, _ in periods_to_display:
-                    if period_key in units_dict and units_dict[period_key] is not None:
-                        unit_ref = units_dict[period_key]
-                        break
+                unit_ref = row_metadata_value(item.get('units'),
+                                              (key for key, _ in periods_to_display))
                 row['unit'] = get_unit_display_name(unit_ref)
 
             # Add point_in_time if requested
             if include_point_in_time:
-                period_types_dict = item.get('period_types', {})
-                # Get first available period type
-                period_type = None
-                for period_key, _ in periods_to_display:
-                    if period_key in period_types_dict and period_types_dict[period_key] is not None:
-                        period_type = period_types_dict[period_key]
-                        break
+                period_type = row_metadata_value(item.get('period_types'),
+                                                 (key for key, _ in periods_to_display))
                 row['point_in_time'] = get_is_point_in_time(period_type)
 
             # Add structural columns
@@ -3503,17 +3494,24 @@ class StitchedStatement:
             )
         return self._statement_data
 
-    def render(self, show_date_range: bool = False) -> Table:
+    def render(self, show_date_range: Optional[bool] = None) -> Table:
         """
         Render the stitched statement as a formatted table.
 
         Args:
-            show_date_range: Whether to show full date ranges for duration periods
+            show_date_range: Whether to show full date ranges for duration periods.
+                             Defaults to the value the accessor stored on this
+                             statement, so an option passed to
+                             ``statements.income_statement(show_date_range=True)``
+                             also reaches ordinary Rich/``repr`` rendering.
 
         Returns:
             Rich Table containing the rendered statement
         """
         from edgar.xbrl.stitching import render_stitched_statement
+
+        if show_date_range is None:
+            show_date_range = self.show_date_range
 
         # Update the render_stitched_statement function call to pass the show_date_range parameter
         return render_stitched_statement(

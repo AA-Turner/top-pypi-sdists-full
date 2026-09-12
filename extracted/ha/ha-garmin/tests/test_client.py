@@ -1,5 +1,6 @@
 """Tests for GarminClient."""
 
+import asyncio
 import re
 from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -99,9 +100,47 @@ class TestGarminClient:
             mock_hr.return_value = []
             data = await client.fetch_activity_data()
 
-        mock_acts.assert_awaited_once_with(0, 10)
+        mock_acts.assert_awaited_once_with(0, GarminClient._RECENT_ACTIVITIES_LIMIT)
         assert data["lastActivity"]["activityId"] == 42
         assert len(data["lastActivities"]) == 1
+
+    async def test_fetch_activity_data_returns_more_than_ten_recent(self):
+        """lastActivities must not be capped at 10 (home-assistant-garmin_connect#567).
+
+        A consumer that derives a rolling-7-day count from `lastActivities`
+        needs the pool itself to hold more than a week's worth of activities
+        for an active user, or that count silently pins at the fetch limit
+        forever instead of tracking real activity.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        activities = [
+            {
+                "activityId": i,
+                "activityName": f"Activity {i}",
+                "activityType": {"typeKey": "running"},
+                "startTimeGMT": "2026-01-01T07:00:00",
+                "hasPolyline": False,
+            }
+            for i in range(15)
+        ]
+
+        with (
+            patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
+            patch.object(
+                client, "get_workouts", new_callable=AsyncMock
+            ) as mock_workouts,
+            patch.object(
+                client, "get_activity_hr_in_timezones", new_callable=AsyncMock
+            ) as mock_hr,
+        ):
+            mock_acts.return_value = activities
+            mock_workouts.return_value = []
+            mock_hr.return_value = []
+            data = await client.fetch_activity_data()
+
+        assert len(data["lastActivities"]) == 15
 
     async def test_fetch_activity_data_merges_ebike_fields(self):
         """Test fetch_activity_data merges e-bike fields from the summary endpoint (#527)."""
@@ -241,6 +280,49 @@ class TestGarminClient:
 
         assert "eBikeBatteryRemaining" not in data["lastActivity"]
         assert mock_summary.await_count == retry_limit
+
+    async def test_get_ebike_fields_concurrent_calls_do_not_race(self):
+        """Overlapping callers must not let one clobber the other's result (#527).
+
+        Regression test: two callers racing on the same activity_id used to
+        both see an empty cache, both fetch, and whichever wrote last (even
+        an empty/failed result) won -- silently discarding a concurrent
+        successful fetch. The lock must serialize them so the second caller
+        observes the first's finished, cached result instead of re-fetching.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        good_summary = {
+            "activityId": 1,
+            "eBikeBatteryRemaining": 64,
+            "eBikeBatteryUsage": 8,
+            "eBikeMaxAssistModes": 7,
+        }
+        call_count = 0
+
+        async def slow_success(_activity_id):
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.01)  # yield control so a second caller can start
+            return good_summary
+
+        with patch.object(client, "get_activity", side_effect=slow_success):
+            results = await asyncio.gather(
+                client._get_ebike_fields(1),
+                client._get_ebike_fields(1),
+            )
+
+        # Second caller waited for the lock and got the cached result instead
+        # of re-fetching -- one call, not two.
+        assert call_count == 1
+        expected = {
+            "eBikeBatteryRemaining": 64,
+            "eBikeBatteryUsage": 8,
+            "eBikeMaxAssistModes": 7,
+        }
+        assert results[0] == expected
+        assert results[1] == expected
 
     async def test_fetch_activity_data_skips_summary_for_non_rides(self):
         """Test fetch_activity_data does not fetch the summary for non-ride activities."""
@@ -578,6 +660,7 @@ class TestGarminClient:
                     "optimalSleepWindowEndMins": 20,
                 },
                 "sleepScores": {"overall": {"value": 85}},
+                "avgRespirationValue": 14.2,
             }
         }
 
@@ -615,6 +698,67 @@ class TestGarminClient:
         assert data["optimalBedtime"] == datetime(2026, 4, 12, 20, 40, tzinfo=UTC)
         assert data["wakeTime"] == datetime(2026, 4, 12, 3, 57, 47, tzinfo=UTC)
         assert data["optimalWakeTime"] == datetime(2026, 4, 13, 4, 30, tzinfo=UTC)
+        assert data["avgSleepRespirationValue"] == 14.2
+
+    async def test_fetch_core_data_bedtime_uses_gmt_local_delta_for_offset(self):
+        """bedtime/wake_time must not silently assume UTC+0 (home-assistant-garmin_connect#564).
+
+        Real-world payloads have been seen with no explicit timezoneOffset
+        field in dailySleepDTO and no SLEEP event in
+        bodyBatteryActivityEventList either -- the previous fallback chain
+        silently defaulted to a 0 offset in that case, storing the local
+        wall-clock time mislabeled as UTC. Home Assistant's own UTC-to-local
+        display conversion then shifted it by the viewer's offset *again*,
+        showing bedtime/wake_time hours later than reality. The GMT/Local
+        timestamp pair Garmin always sends alongside each sleep timestamp
+        must be used instead of falling through to 0.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        profile_payload = {"id": 1, "profileId": 2, "displayName": "testuser"}
+        summary_payload = {
+            "dailyStepGoal": 10000,
+            "totalSteps": 5000,
+            "totalDistanceMeters": 4000,
+            # Deliberately no bodyBatteryActivityEventList / timezoneOffset
+            # anywhere -- the exact shape that used to default to 0.
+        }
+        steps_payload = []
+
+        # Real UTC instants for a French UTC+2 (CEST) user: bedtime 22:44,
+        # wake 07:06 local.
+        gmt_start = datetime(2026, 8, 26, 20, 44, 0, tzinfo=UTC)
+        gmt_end = datetime(2026, 8, 27, 5, 6, 0, tzinfo=UTC)
+        offset = timedelta(minutes=120)
+
+        sleep_payload = {
+            "dailySleepDTO": {
+                "sleepStartTimestampGMT": int(gmt_start.timestamp() * 1000),
+                "sleepStartTimestampLocal": int(
+                    (gmt_start + offset).timestamp() * 1000
+                ),
+                "sleepEndTimestampGMT": int(gmt_end.timestamp() * 1000),
+                "sleepEndTimestampLocal": int((gmt_end + offset).timestamp() * 1000),
+                "sleepScores": {"overall": {"value": 84}},
+            }
+        }
+
+        responses = [
+            _mock_response(profile_payload),
+            _mock_response(summary_payload),
+            _mock_response(steps_payload),
+            _mock_response(sleep_payload),
+        ]
+
+        with patch("asyncio.to_thread", new_callable=AsyncMock) as mock_thread:
+            mock_thread.side_effect = responses
+            data = await client.fetch_core_data(date(2026, 8, 27))
+
+        # Stored as the true UTC instant, so a UTC+2 viewer's own display
+        # conversion correctly lands back on 22:44 / 07:06, not 00:44 / 09:06.
+        assert data["bedtime"] == gmt_start
+        assert data["wakeTime"] == gmt_end
 
     async def test_fetch_core_data_transient_error_does_not_use_yesterday(self):
         """Test a transient 502/503 does not get papered over with yesterday's summary.
@@ -1383,6 +1527,106 @@ class TestSecurityAuditHardening:
         client = GarminClient(auth)
         with pytest.raises(ValueError, match="user_profile_id"):
             await client.get_gear_defaults("1/../../admin")
+
+    async def test_fetch_gear_data_includes_sensors(self):
+        """fetch_gear_data must surface paired ANT+/BLE sensors (home-assistant-garmin_connect#535)."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        profile = MagicMock()
+        profile.profile_id = 999
+
+        sensor_payload = [
+            {
+                "deviceId": 111,
+                "sensorType": "HEART_RATE",
+                "batteryStatus": "good",
+                "batteryLevel": 82,
+            },
+            {
+                "deviceId": 222,
+                "sensorType": "BIKE_POWER",
+                "batteryStatus": "low",
+                "batteryLevel": 15,
+            },
+        ]
+
+        with (
+            patch.object(client, "get_user_profile", return_value=profile),
+            patch.object(client, "get_gear", return_value=[]),
+            patch.object(client, "get_gear_defaults", return_value=[]),
+            patch.object(client, "get_devices", return_value=[]),
+            patch.object(client, "get_device_last_used", return_value={}),
+            patch.object(client, "get_device_alarms", return_value=[]),
+            patch.object(client, "get_sensors", return_value=sensor_payload),
+        ):
+            data = await client.fetch_gear_data()
+
+        assert data["sensors"] == sensor_payload
+
+    async def test_fetch_gear_data_aggregates_solar_readings(self):
+        """Solar intensity must aggregate the whole day, not just the latest reading.
+
+        The latest reading alone reflects only the moment of the last sync,
+        which is way off from the day as a whole -- e.g. syncing in the
+        evening reads near 0% even on a sunny day
+        (home-assistant-garmin_connect#508).
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        profile = MagicMock()
+        profile.profile_id = 999
+
+        device = {"deviceId": 456, "productDisplayName": "Instinct 2X Solar"}
+
+        solar_payload = {
+            "solarDailyDataDTOs": [
+                {
+                    "solarInputReadings": [
+                        {
+                            "solarUtilization": 0,
+                            "activityTimeGainMs": 0,
+                            "readingTimestampGmt": "2026-04-12T06:00:00.0",
+                        },
+                        {
+                            "solarUtilization": 45,
+                            "activityTimeGainMs": 300000,
+                            "readingTimestampGmt": "2026-04-12T12:00:00.0",
+                        },
+                        {
+                            "solarUtilization": 80,
+                            "activityTimeGainMs": 600000,
+                            "readingTimestampGmt": "2026-04-12T14:00:00.0",
+                        },
+                        # Evening sync -- this is the only reading the old
+                        # "latest" logic surfaced.
+                        {
+                            "solarUtilization": 2,
+                            "activityTimeGainMs": 0,
+                            "readingTimestampGmt": "2026-04-12T20:00:00.0",
+                        },
+                    ]
+                }
+            ]
+        }
+
+        with (
+            patch.object(client, "get_user_profile", return_value=profile),
+            patch.object(client, "get_gear", return_value=[]),
+            patch.object(client, "get_gear_defaults", return_value=[]),
+            patch.object(client, "get_devices", return_value=[device]),
+            patch.object(client, "get_device_last_used", return_value={}),
+            patch.object(client, "get_device_alarms", return_value=[]),
+            patch.object(client, "get_sensors", return_value=[]),
+            patch.object(client, "get_device_solar_data", return_value=solar_payload),
+        ):
+            data = await client.fetch_gear_data()
+
+        entry = data["solarIntensity"][0]
+        assert entry["solarUtilization"] == 2  # latest reading, unchanged
+        assert entry["avgSolarUtilization"] == 31.8  # (0+45+80+2)/4
+        assert entry["totalActivityTimeGainMinutes"] == 15  # (300000+600000)/60000
 
     async def test_set_active_gear_rejects_unknown_activity_type(self):
         auth = _make_auth()

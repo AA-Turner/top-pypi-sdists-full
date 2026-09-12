@@ -177,7 +177,7 @@ class Config:
         z_se = lookup[se]
 
         z = np.asarray([[z_sw, z_se], [z_nw, z_ne]], dtype=np.float64)
-        z_masked = np.ma.array(z, mask=self.mask)  # type: ignore[no-untyped-call]
+        z_masked = np.ma.array(z, mask=self.mask)
 
         if suffix:
             zmean = z.mean()
@@ -275,7 +275,7 @@ class ConfigFilledCommon(Config):
         filled = cont_gen.filled(zlower, zupper)
         assert cont_gen.fill_type == FillType.OuterCode
         if TYPE_CHECKING:
-            filled = cast(FillReturn_OuterCode, filled)
+            filled = cast("FillReturn_OuterCode", filled)
         lines = filled[0]
 
         # May be 0..2 polygons, and there cannot be any holes.
@@ -420,7 +420,7 @@ class ConfigFilled(ConfigFilledCommon):
                         self._next_quad(config, suffix="(1)", set_0=lookup_1[zsum])
                     elif zmin == 0 and zmax == 2:
                         count_1 = np.count_nonzero(all == 1)
-                        lookup_0 = {2: -0.3, 3: -1, 4: -2-count_1/2, 5: -5, 6: -6}  # type: ignore[dict-item]
+                        lookup_0 = {2: -0.3, 3: -1, 4: -2-count_1/2, 5: -5, 6: -6}
                         self._next_quad(config, suffix="(0)", set_0=lookup_0[zsum])
 
                         if zsum <= 3:
@@ -431,13 +431,13 @@ class ConfigFilled(ConfigFilledCommon):
                             self._next_quad(config, suffix="(1)", set_0=-1)
 
                         lookup_2 = {2: 8.01, 3: 7.01, 4: 4+count_1/2, 5: 3.5, 6: 2.5}
-                        self._next_quad(config, suffix="(2)", set_2=lookup_2[zsum])  # type: ignore[arg-type]
+                        self._next_quad(config, suffix="(2)", set_2=lookup_2[zsum])
                     elif zmin == 1 and zmax == 2:
                         lookup_1 = {5: 2, 6: 1.65, 7: 1.6}
                         self._next_quad(config, suffix="(1)", set_2=lookup_1[zsum])
 
                         lookup_2 = {5: 4, 6: 3, 7: 2}
-                        self._next_quad(config, suffix="(2)", set_2=lookup_2[zsum])  # type: ignore[arg-type]
+                        self._next_quad(config, suffix="(2)", set_2=lookup_2[zsum])
                     else:
                         raise RuntimeError(f"Invalid combination of zmin {zmin} and zmax {zmax}")
                 else:
@@ -532,7 +532,7 @@ class ConfigLinesCommon(Config):
         lines_and_codes = cont_gen.lines(zlower)
         assert cont_gen.line_type == LineType.SeparateCode
         if TYPE_CHECKING:
-            lines_and_codes = cast(LineReturn_SeparateCode, lines_and_codes)
+            lines_and_codes = cast("LineReturn_SeparateCode", lines_and_codes)
         lines = lines_and_codes[0]
 
         for points in lines:

@@ -216,6 +216,12 @@ class DgApiMetricsApi:
         sort_targets: list[ReportingSortTarget] | None = None,
         sort_directions: list[ReportingSortDirection] | None = None,
     ) -> DgApiMetrics:
+        if not asset_keys and not asset_selection:
+            raise DagsterPlusClientError("An asset_selection or asset_keys is required.")
+
+        if asset_keys and asset_selection:
+            raise DagsterPlusClientError("Cannot provide both asset_selection and asset_keys.")
+
         result = self._client.get_asset_metrics(
             metrics_filter=AssetReportingMetricsFilter(
                 assets=_asset_inputs(asset_keys),
@@ -270,7 +276,6 @@ class DgApiMetricsApi:
         granularity: ReportingMetricsGranularity = ReportingMetricsGranularity.DAILY,
         aggregation_function: ReportingAggregationFunction | None = None,
         deployment_ids: list[int] | None = None,
-        branch_deployments: bool | None = None,
         limit: int | None = None,
         sort_targets: list[ReportingSortTarget] | None = None,
         sort_directions: list[ReportingSortDirection] | None = None,
@@ -278,7 +283,7 @@ class DgApiMetricsApi:
         result = self._client.get_deployment_metrics(
             metrics_filter=DeploymentReportingMetricsFilter(
                 deploymentIds=deployment_ids,
-                branchDeployments=branch_deployments,
+                branchDeployments=False,
                 limit=limit,
             ),
             metrics_selector=_selector(
@@ -306,6 +311,9 @@ class DgApiMetricsApi:
     ) -> DgApiMetrics:
         if not asset_keys and not asset_selection:
             raise DagsterPlusClientError("An asset_selection or asset_keys is required.")
+
+        if asset_keys and asset_selection:
+            raise DagsterPlusClientError("Cannot provide both asset_selection and asset_keys.")
 
         result = self._client.get_asset_selection_metrics(
             metrics_filter=AssetSelectionReportingMetricsFilter(

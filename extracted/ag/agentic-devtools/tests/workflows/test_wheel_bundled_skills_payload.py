@@ -32,6 +32,12 @@ def test_wheel_contains_skill_entry_and_resource(tmp_path: Path) -> None:
     with zipfile.ZipFile(wheel_path) as wheel:
         names = set(wheel.namelist())
 
-    assert "agentic_devtools/_bundled_skills/skills/run-targeted-checks/SKILL.md" in names
-    assert "agentic_devtools/_bundled_skills/skills/write-github-commit-message/SKILL.md" in names
-    assert "agentic_devtools/_bundled_skills/skills/write-github-commit-message/commit-types.md" in names
+    expected_entries = (
+        "agentic_devtools/_bundled_skills/skills/run-targeted-checks/SKILL.md",
+        "agentic_devtools/_bundled_skills/skills/write-github-commit-message/SKILL.md",
+        "agentic_devtools/_bundled_skills/skills/write-github-commit-message/commit-types.md",
+        "agentic_devtools/_bundled_skills/skills/ensure-repository-validation/SKILL.md",
+        "agentic_devtools/_bundled_skills/skills/agdt-setup-pr/SKILL.md",
+    )
+    missing = [entry for entry in expected_entries if entry not in names]
+    assert not missing, f"Missing bundled skill entries in wheel: {missing}"

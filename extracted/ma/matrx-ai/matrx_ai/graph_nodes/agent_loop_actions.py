@@ -34,6 +34,10 @@ from matrx_graph.types.result import Failure, NodeResult, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.mandates import (
+    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    step_metadata,
+)
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
     AiMessage,
@@ -258,7 +262,8 @@ async def _execute(config: Any, inputs: AgentLoopInput) -> Any:
         config,
         max_iterations=inputs.max_iterations,
         max_retries_per_iteration=inputs.max_retries_per_iteration,
-        metadata=inputs.metadata or None,
+        metadata=step_metadata(inputs.metadata, spec_type="ai.agent_loop"),
+        mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
 
 

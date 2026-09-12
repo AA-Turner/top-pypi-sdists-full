@@ -19,6 +19,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
 from matrx_ai.context.emitter_protocol import Emitter
+from matrx_ai.ops.pricing_drift import note_pricing_drift
 from matrx_ai.orchestrator.tracking import TimingUsage
 
 from .tracking import ToolCallUsage
@@ -601,6 +602,18 @@ class CompletedRequest:
                     )
                     if len(serialized_charges) == 1:
                         row["metadata"]["provider_charge"] = serialized_charges[0]
+                    # Until 2026-09-11 the variance above was written here and
+                    # read by NOTHING. Route it: a disagreement past tolerance
+                    # files one ops issue-class event per model per day, with
+                    # both numbers and the offering id, on the surface the
+                    # repair patrol already reads.
+                    note_pricing_drift(
+                        catalog_cost_usd=catalog_cost,
+                        provider_cost_usd=authoritative_provider_cost,
+                        offering_id=u.offering_id,
+                        model=u.matrx_model_name,
+                        provider=u.api,
+                    )
                 elif catalog_cost is not None:
                     row.setdefault("metadata", {}).update(
                         {

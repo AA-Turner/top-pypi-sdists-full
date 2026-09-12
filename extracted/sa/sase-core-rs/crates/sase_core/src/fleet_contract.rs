@@ -22,13 +22,14 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rand::{rngs::OsRng, RngCore};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::agent_scan::{
     AgentArtifactRecordWire, AgentMetaWire, DoneMarkerWire, RunningMarkerWire,
 };
+use crate::queue_directive::queue_weight_is_valid;
 use crate::store_lock::{
     acquire_store_lock, holder_path_for, timeout_from_env, HeldStoreLock,
     LockMode, StoreLockError,
@@ -82,6 +83,10 @@ pub const FLEET_READ_MAX_CONTENT_BYTES: u64 = 256 * 1024;
 pub const FLEET_READ_DEFAULT_REPLAY_EVENTS: usize = 128;
 /// Hard cap for durable fleet invalidation replay.
 pub const FLEET_READ_MAX_REPLAY_EVENTS: usize = 512;
+/// Versioned, recognizable prefix for opaque catalog snapshot IDs.
+pub const FLEET_CATALOG_SNAPSHOT_ID_PREFIX: &str = "catsnap_v1_";
+
+const FLEET_CATALOG_CURSOR_PREFIX: &str = "catcur_v1";
 
 #[derive(Debug, Error)]
 pub enum FleetContractError {
@@ -285,6 +290,27 @@ fn default_row_kind() -> FleetRowKindWire {
     FleetRowKindWire::AgentShell
 }
 
+/// Normalized family role for viewer folding.
+///
+/// Independent of `row_kind`: it distinguishes a family root from an
+/// ordinary member for `AgentShell` rows, carries `Monitor`/`Gate`/`Proc`
+/// straight through from their matching row kinds, and marks any row whose
+/// presentation is terminal (genuinely completed, or a demoted dead-active
+/// leftover) as `HistoricalShell` so a viewer can render "was running"
+/// uniformly once family topology stops mattering.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FleetFamilyRoleWire {
+    Root,
+    Member,
+    Monitor,
+    Gate,
+    Proc,
+    HistoricalShell,
+}
+
 /// Lifecycle status observed in the artifact record.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
@@ -479,6 +505,10 @@ pub struct ResolvedAgentSummaryWire {
     pub logical_key: String,
     pub exact_key: Option<String>,
     pub row_kind: FleetRowKindWire,
+    pub family_role: FleetFamilyRoleWire,
+    /// Parent's record identity, when this row is a tracked family member.
+    /// `None` for roots and rows with no tracked family lineage.
+    pub parent_timestamp: Option<String>,
     pub labels: HumanDisplayLabelsWire,
     pub project_name: String,
     pub model: Option<String>,
@@ -494,6 +524,14 @@ pub struct ResolvedAgentSummaryWire {
     pub freshness: ObservationFreshnessWire,
     pub capabilities: CapabilitySetWire,
     pub content: ContentMetadataWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_weight: Option<f64>,
+    #[serde(default)]
+    pub queue_weight_explicit: bool,
+    #[serde(default)]
+    pub queue_weight_invalid: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_weight_error: Option<String>,
     pub current_instance: bool,
     pub dismissable: bool,
     pub needs_attention: bool,
@@ -526,6 +564,9 @@ pub struct FleetSnapshotFreshnessWire {
 pub struct FleetAuthoritativeSnapshotWire {
     pub schema_version: u32,
     pub cursor: StoreCursorWire,
+    #[serde(default)]
+    pub catalog_scope: FleetCatalogScopeWire,
+    pub catalog_snapshot_id: String,
     pub counts: FleetLogicalAgentCountsWire,
     pub count_revision: Option<u64>,
     pub summaries: Vec<ResolvedAgentSummaryWire>,
@@ -537,15 +578,44 @@ pub struct FleetAuthoritativeSnapshotWire {
 pub struct FleetSummaryResponseWire {
     pub schema_version: u32,
     pub cursor: StoreCursorWire,
+    #[serde(default)]
+    pub catalog_scope: FleetCatalogScopeWire,
+    pub catalog_snapshot_id: String,
     pub counts: FleetLogicalAgentCountsWire,
     pub count_revision: Option<u64>,
     pub freshness: FleetSnapshotFreshnessWire,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FleetCatalogScopeWire {
+    #[default]
+    Presentation,
+    History,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FleetCatalogQueryWire {
     pub schema_version: u32,
+    /// Served catalog scope. Missing scope is a safe presentation request.
+    #[serde(default)]
+    pub scope: FleetCatalogScopeWire,
+    /// Optional snapshot evidence from a previous page. Continuation cursors
+    /// also carry this ID and are authoritative for their own offset.
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
     /// Opaque offset cursor returned by a previous catalog page.
     pub cursor: Option<String>,
     /// Requested row limit. `None` means [`FLEET_READ_DEFAULT_PAGE_ROWS`].
@@ -563,11 +633,16 @@ pub struct FleetCatalogQueryWire {
 #[serde(deny_unknown_fields)]
 pub struct FleetCatalogPageSelectionWire {
     pub schema_version: u32,
+    pub scope: FleetCatalogScopeWire,
+    pub snapshot_id: String,
     pub rows: Vec<ResolvedAgentSummaryWire>,
     pub limit: u32,
     pub total_matching_rows: u64,
     pub next_cursor: Option<String>,
     pub has_more: bool,
+    pub state: FleetCatalogContinuationStateWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_reason: Option<FleetCatalogResetReasonWire>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -656,16 +731,82 @@ pub enum FleetCatalogContinuationStateWire {
     ResyncRequired,
 }
 
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FleetCatalogResetReasonWire {
+    ScopeMismatch,
+    SnapshotMismatch,
+    RestartRequired,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FleetCatalogContinuationWire {
     pub schema_version: u32,
     pub snapshot_cursor: Option<StoreCursorWire>,
+    pub scope: FleetCatalogScopeWire,
+    pub snapshot_id: String,
     pub limit: u32,
     pub total_matching_rows: u64,
     pub next_cursor: Option<String>,
     pub has_more: bool,
     pub state: FleetCatalogContinuationStateWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_reason: Option<FleetCatalogResetReasonWire>,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum FleetCatalogAccumulationActionWire {
+    IgnoredOlderRequest,
+    Replaced,
+    Merged,
+    RestartRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FleetCatalogAccumulationStateWire {
+    pub schema_version: u32,
+    pub request_generation: u64,
+    pub scope: FleetCatalogScopeWire,
+    pub snapshot_id: Option<String>,
+    pub rows: Vec<ResolvedAgentSummaryWire>,
+    pub snapshot_cursor: Option<StoreCursorWire>,
+    pub counts: Option<FleetLogicalAgentCountsWire>,
+    pub count_revision: Option<u64>,
+    pub freshness: Option<FleetSnapshotFreshnessWire>,
+    pub limit: u32,
+    pub total_matching_rows: u64,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+    pub continuation_state: FleetCatalogContinuationStateWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reset_reason: Option<FleetCatalogResetReasonWire>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FleetCatalogAccumulationRequestWire {
+    pub schema_version: u32,
+    pub current: Option<FleetCatalogAccumulationStateWire>,
+    pub request_generation: u64,
+    pub requested_scope: FleetCatalogScopeWire,
+    pub requested_snapshot_id: Option<String>,
+    pub requested_cursor: Option<String>,
+    pub incoming: FleetCatalogPageWire,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FleetCatalogAccumulationDecisionWire {
+    pub schema_version: u32,
+    pub action: FleetCatalogAccumulationActionWire,
+    pub state: FleetCatalogAccumulationStateWire,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -683,6 +824,10 @@ pub struct FleetNormalizedHostWire {
     pub summaries: Vec<ResolvedAgentSummaryWire>,
     pub authoritative_counts: Option<FleetLogicalAgentCountsWire>,
     pub count_revision: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog_scope: Option<FleetCatalogScopeWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog_snapshot_id: Option<String>,
     pub catalog: Option<FleetCatalogContinuationWire>,
     pub unresolved_logical_keys: Vec<String>,
     pub diagnostics: Vec<FleetEnvelopeDiagnosticWire>,
@@ -1722,9 +1867,28 @@ pub fn project_resolved_agent_summary(
     let meta = request.record.agent_meta.as_ref();
     let done = request.record.done.as_ref();
     let running = request.record.running.as_ref();
+    let (
+        queue_weight,
+        queue_weight_explicit,
+        queue_weight_invalid,
+        queue_weight_error,
+    ) = queue_weight_for_record(&request.record);
     let family = meta
         .and_then(|value| value.family_shell.as_ref())
         .or_else(|| done.and_then(|value| value.family_shell.as_ref()));
+    let parent_timestamp = meta.and_then(|value| {
+        first_non_empty([
+            value.parent_timestamp.as_deref(),
+            value.parent_agent_timestamp.as_deref(),
+        ])
+        .map(str::to_string)
+    });
+    let family_role = family_role_for_projection(
+        facts.row_kind,
+        lifecycle,
+        facts.liveness,
+        parent_timestamp.is_some(),
+    );
     let labels = HumanDisplayLabelsWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         project_label: trim_to_limit(
@@ -1752,6 +1916,8 @@ pub fn project_resolved_agent_summary(
         logical_key,
         exact_key,
         row_kind: facts.row_kind,
+        family_role,
+        parent_timestamp,
         labels,
         project_name: trim_to_limit(
             &request.record.project_name,
@@ -1760,7 +1926,7 @@ pub fn project_resolved_agent_summary(
         model: model_for_record(meta, done, running),
         provider: provider_for_record(meta, done, running),
         status,
-        status_bucket: bucket_for_lifecycle(lifecycle),
+        status_bucket: bucket_for_lifecycle(lifecycle, facts.liveness),
         intent: intent_for_record(&request.record),
         observed_at_unix: facts.observed_at_unix,
         row_revision: facts.row_revision.clone(),
@@ -1770,6 +1936,10 @@ pub fn project_resolved_agent_summary(
         freshness: facts.freshness,
         capabilities: facts.capabilities.clone(),
         content: content_metadata(&facts.content_handles)?,
+        queue_weight,
+        queue_weight_explicit,
+        queue_weight_invalid,
+        queue_weight_error,
         current_instance: facts.current_instance,
         dismissable: facts.dismissable,
         needs_attention: facts.needs_attention
@@ -1843,6 +2013,7 @@ pub fn validate_fleet_authoritative_snapshot(
 ) -> Result<FleetAuthoritativeSnapshotWire, FleetContractError> {
     validate_schema("fleet authoritative snapshot", snapshot.schema_version)?;
     snapshot.cursor.validate()?;
+    validate_fleet_catalog_snapshot_id(&snapshot.catalog_snapshot_id)?;
     validate_fleet_snapshot_freshness(&snapshot.freshness)?;
     validate_fleet_logical_agent_counts(
         &snapshot.counts,
@@ -1867,6 +2038,14 @@ pub fn validate_fleet_authoritative_snapshot(
                 .to_string(),
         ));
     }
+    let expected_snapshot_id =
+        fleet_catalog_snapshot_id(snapshot.catalog_scope, &snapshot.summaries)?;
+    if snapshot.catalog_snapshot_id != expected_snapshot_id {
+        return Err(FleetContractError::Validation(
+            "fleet authoritative snapshot catalog_snapshot_id does not match summaries"
+                .to_string(),
+        ));
+    }
     Ok(snapshot.clone())
 }
 
@@ -1880,6 +2059,9 @@ pub fn validate_fleet_catalog_query(
     query: &FleetCatalogQueryWire,
 ) -> Result<FleetCatalogQueryWire, FleetContractError> {
     validate_schema("fleet catalog query", query.schema_version)?;
+    if let Some(snapshot_id) = &query.snapshot_id {
+        validate_fleet_catalog_snapshot_id(snapshot_id)?;
+    }
     if let Some(cursor) = &query.cursor {
         parse_catalog_cursor(cursor)?;
     }
@@ -1918,18 +2100,116 @@ pub fn validate_fleet_catalog_cursor(
     Ok(cursor.to_string())
 }
 
+pub fn validate_fleet_catalog_snapshot_id(
+    snapshot_id: &str,
+) -> Result<String, FleetContractError> {
+    validate_reference_id("fleet catalog snapshot_id", snapshot_id)?;
+    reject_path_like("fleet catalog snapshot_id", snapshot_id)?;
+    let Some(suffix) =
+        snapshot_id.strip_prefix(FLEET_CATALOG_SNAPSHOT_ID_PREFIX)
+    else {
+        return Err(FleetContractError::Validation(
+            "fleet catalog snapshot_id is not recognized".to_string(),
+        ));
+    };
+    if suffix.len() != 64
+        || !suffix
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+    {
+        return Err(FleetContractError::Validation(
+            "fleet catalog snapshot_id must end with 64 lowercase hex characters"
+                .to_string(),
+        ));
+    }
+    Ok(snapshot_id.to_string())
+}
+
+pub fn fleet_catalog_snapshot_id(
+    scope: FleetCatalogScopeWire,
+    summaries: &[ResolvedAgentSummaryWire],
+) -> Result<String, FleetContractError> {
+    let mut rows = summaries
+        .iter()
+        .map(|summary| {
+            let summary = validate_resolved_agent_summary(summary)?;
+            Ok::<_, FleetContractError>(catalog_snapshot_summary_value(
+                &summary,
+            ))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    rows.sort_by(|left, right| {
+        let left_key = (
+            left.get("logical_key")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            left.get("exact_key").and_then(Value::as_str).unwrap_or(""),
+        );
+        let right_key = (
+            right
+                .get("logical_key")
+                .and_then(Value::as_str)
+                .unwrap_or(""),
+            right.get("exact_key").and_then(Value::as_str).unwrap_or(""),
+        );
+        left_key.cmp(&right_key)
+    });
+    let payload = json!({
+        "domain": "sase-fleet-catalog-snapshot-v1",
+        "scope": scope,
+        "rows": rows,
+    });
+    let bytes = serde_json::to_vec(&payload).map_err(|error| {
+        FleetContractError::Validation(format!(
+            "fleet catalog snapshot could not be serialized: {error}"
+        ))
+    })?;
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    Ok(format!(
+        "{}{}",
+        FLEET_CATALOG_SNAPSHOT_ID_PREFIX,
+        hex::encode(hasher.finalize())
+    ))
+}
+
 pub fn select_fleet_catalog_page(
     query: &FleetCatalogQueryWire,
     summaries: &[ResolvedAgentSummaryWire],
 ) -> Result<FleetCatalogPageSelectionWire, FleetContractError> {
     let query = validate_fleet_catalog_query(query)?;
     let limit = normalize_catalog_limit(query.limit)?;
-    let start = query
+    let snapshot_id = fleet_catalog_snapshot_id(query.scope, summaries)?;
+    let cursor = query
         .cursor
         .as_deref()
         .map(parse_catalog_cursor)
-        .transpose()?
-        .unwrap_or(0);
+        .transpose()?;
+    let requested_scope = cursor
+        .as_ref()
+        .map(|cursor| cursor.scope)
+        .unwrap_or(query.scope);
+    let requested_snapshot_id = cursor
+        .as_ref()
+        .map(|cursor| cursor.snapshot_id.as_str())
+        .or(query.snapshot_id.as_deref());
+    if requested_scope != query.scope {
+        return Ok(fleet_catalog_restart_page(
+            query.scope,
+            snapshot_id,
+            limit,
+            FleetCatalogResetReasonWire::ScopeMismatch,
+        ));
+    }
+    if requested_snapshot_id.is_some_and(|requested| requested != snapshot_id) {
+        return Ok(fleet_catalog_restart_page(
+            query.scope,
+            snapshot_id,
+            limit,
+            FleetCatalogResetReasonWire::SnapshotMismatch,
+        ));
+    }
+    let start = cursor.map(|cursor| cursor.offset).unwrap_or(0);
     let mut rows = Vec::new();
     for summary in summaries {
         let summary = validate_resolved_agent_summary(summary)?;
@@ -1943,15 +2223,323 @@ pub fn select_fleet_catalog_page(
     let start = start.min(rows.len());
     let end = start.saturating_add(limit as usize).min(rows.len());
     let has_more = end < rows.len();
-    let next_cursor = has_more.then(|| format_catalog_cursor(end));
+    let next_cursor =
+        has_more.then(|| format_catalog_cursor(query.scope, &snapshot_id, end));
     Ok(FleetCatalogPageSelectionWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        scope: query.scope,
+        snapshot_id,
         rows: rows[start..end].to_vec(),
         limit,
         total_matching_rows,
         next_cursor,
         has_more,
+        state: if has_more {
+            FleetCatalogContinuationStateWire::Ready
+        } else {
+            FleetCatalogContinuationStateWire::Finished
+        },
+        reset_reason: None,
     })
+}
+
+pub fn accumulate_fleet_catalog_page(
+    request: &FleetCatalogAccumulationRequestWire,
+) -> Result<FleetCatalogAccumulationDecisionWire, FleetContractError> {
+    validate_schema(
+        "fleet catalog accumulation request",
+        request.schema_version,
+    )?;
+    if let Some(current) = &request.current {
+        validate_fleet_catalog_accumulation_state(current)?;
+        if request.request_generation < current.request_generation {
+            return Ok(FleetCatalogAccumulationDecisionWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                action: FleetCatalogAccumulationActionWire::IgnoredOlderRequest,
+                state: current.clone(),
+            });
+        }
+    }
+    if let Some(snapshot_id) = &request.requested_snapshot_id {
+        validate_fleet_catalog_snapshot_id(snapshot_id)?;
+    }
+    let parsed_cursor = request
+        .requested_cursor
+        .as_deref()
+        .map(parse_catalog_cursor)
+        .transpose()?;
+    if parsed_cursor
+        .as_ref()
+        .is_some_and(|cursor| cursor.scope != request.requested_scope)
+    {
+        return Ok(catalog_accumulation_restart(
+            request,
+            FleetCatalogResetReasonWire::ScopeMismatch,
+        ));
+    }
+    let incoming = validate_fleet_catalog_page_wire(&request.incoming)?;
+    let incoming_page = &incoming.page;
+    if incoming_page.scope != request.requested_scope {
+        return Ok(catalog_accumulation_restart(
+            request,
+            FleetCatalogResetReasonWire::ScopeMismatch,
+        ));
+    }
+    let requested_snapshot_id = parsed_cursor
+        .as_ref()
+        .map(|cursor| cursor.snapshot_id.as_str())
+        .or(request.requested_snapshot_id.as_deref());
+    if requested_snapshot_id
+        .is_some_and(|snapshot_id| snapshot_id != incoming_page.snapshot_id)
+    {
+        return Ok(catalog_accumulation_restart(
+            request,
+            FleetCatalogResetReasonWire::SnapshotMismatch,
+        ));
+    }
+    if incoming_page.state == FleetCatalogContinuationStateWire::ResyncRequired
+    {
+        return Ok(catalog_accumulation_restart(
+            request,
+            incoming_page
+                .reset_reason
+                .unwrap_or(FleetCatalogResetReasonWire::RestartRequired),
+        ));
+    }
+
+    let is_initial_request = parsed_cursor.is_none();
+    if is_initial_request {
+        let rows = incoming_page.rows.clone();
+        return Ok(FleetCatalogAccumulationDecisionWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            action: FleetCatalogAccumulationActionWire::Replaced,
+            state: catalog_accumulation_state_from_page(
+                request.request_generation,
+                incoming,
+                rows,
+            )?,
+        });
+    }
+
+    let Some(current) = &request.current else {
+        return Ok(catalog_accumulation_restart(
+            request,
+            FleetCatalogResetReasonWire::RestartRequired,
+        ));
+    };
+    if current.scope != incoming_page.scope
+        || current.snapshot_id.as_deref() != Some(&incoming_page.snapshot_id)
+    {
+        return Ok(catalog_accumulation_restart(
+            request,
+            FleetCatalogResetReasonWire::SnapshotMismatch,
+        ));
+    }
+    let rows = merge_catalog_rows(&current.rows, &incoming_page.rows)?;
+    Ok(FleetCatalogAccumulationDecisionWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        action: FleetCatalogAccumulationActionWire::Merged,
+        state: catalog_accumulation_state_from_page(
+            request.request_generation,
+            incoming,
+            rows,
+        )?,
+    })
+}
+
+fn catalog_accumulation_restart(
+    request: &FleetCatalogAccumulationRequestWire,
+    reset_reason: FleetCatalogResetReasonWire,
+) -> FleetCatalogAccumulationDecisionWire {
+    FleetCatalogAccumulationDecisionWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        action: FleetCatalogAccumulationActionWire::RestartRequired,
+        state: FleetCatalogAccumulationStateWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            request_generation: request.request_generation,
+            scope: request.requested_scope,
+            snapshot_id: None,
+            rows: Vec::new(),
+            snapshot_cursor: None,
+            counts: None,
+            count_revision: None,
+            freshness: None,
+            limit: request
+                .incoming
+                .page
+                .limit
+                .clamp(1, FLEET_READ_MAX_PAGE_ROWS),
+            total_matching_rows: 0,
+            next_cursor: None,
+            has_more: false,
+            continuation_state:
+                FleetCatalogContinuationStateWire::ResyncRequired,
+            reset_reason: Some(reset_reason),
+        },
+    }
+}
+
+fn catalog_accumulation_state_from_page(
+    request_generation: u64,
+    page: FleetCatalogPageWire,
+    rows: Vec<ResolvedAgentSummaryWire>,
+) -> Result<FleetCatalogAccumulationStateWire, FleetContractError> {
+    Ok(FleetCatalogAccumulationStateWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        request_generation,
+        scope: page.page.scope,
+        snapshot_id: Some(page.page.snapshot_id),
+        rows,
+        snapshot_cursor: Some(page.cursor),
+        counts: Some(page.counts),
+        count_revision: page.count_revision,
+        freshness: Some(page.freshness),
+        limit: page.page.limit,
+        total_matching_rows: page.page.total_matching_rows,
+        next_cursor: page.page.next_cursor,
+        has_more: page.page.has_more,
+        continuation_state: page.page.state,
+        reset_reason: page.page.reset_reason,
+    })
+}
+
+fn merge_catalog_rows(
+    current: &[ResolvedAgentSummaryWire],
+    incoming: &[ResolvedAgentSummaryWire],
+) -> Result<Vec<ResolvedAgentSummaryWire>, FleetContractError> {
+    let mut rows = BTreeMap::<String, ResolvedAgentSummaryWire>::new();
+    for summary in current.iter().chain(incoming) {
+        let summary = validate_resolved_agent_summary(summary)?;
+        let key = catalog_row_identity(&summary);
+        match rows.get(&key) {
+            Some(existing)
+                if existing.row_revision.revision
+                    >= summary.row_revision.revision => {}
+            _ => {
+                rows.insert(key, summary);
+            }
+        }
+    }
+    let mut rows = rows.into_values().collect::<Vec<_>>();
+    rows.sort_by(compare_catalog_summaries);
+    Ok(rows)
+}
+
+fn catalog_row_identity(summary: &ResolvedAgentSummaryWire) -> String {
+    format!(
+        "{}\0{}",
+        summary.logical_key,
+        summary.exact_key.as_deref().unwrap_or("")
+    )
+}
+
+fn validate_fleet_catalog_page_wire(
+    page: &FleetCatalogPageWire,
+) -> Result<FleetCatalogPageWire, FleetContractError> {
+    validate_schema("fleet catalog page", page.schema_version)?;
+    page.cursor.validate()?;
+    validate_fleet_logical_agent_counts(
+        &page.counts,
+        "fleet catalog page counts",
+    )?;
+    if page.count_revision != fleet_count_revision(&page.counts) {
+        return Err(FleetContractError::Validation(
+            "fleet catalog page count_revision does not match counts"
+                .to_string(),
+        ));
+    }
+    validate_fleet_snapshot_freshness(&page.freshness)?;
+    validate_fleet_catalog_page_selection(&page.page)?;
+    Ok(page.clone())
+}
+
+fn validate_fleet_catalog_page_selection(
+    page: &FleetCatalogPageSelectionWire,
+) -> Result<FleetCatalogPageSelectionWire, FleetContractError> {
+    validate_schema("fleet catalog page selection", page.schema_version)?;
+    validate_fleet_catalog_snapshot_id(&page.snapshot_id)?;
+    normalize_catalog_limit(Some(page.limit))?;
+    for row in &page.rows {
+        validate_resolved_agent_summary(row)?;
+    }
+    match page.state {
+        FleetCatalogContinuationStateWire::Ready => {
+            if !page.has_more || page.next_cursor.is_none() {
+                return Err(FleetContractError::Validation(
+                    "fleet catalog ready page requires has_more and next_cursor"
+                        .to_string(),
+                ));
+            }
+        }
+        FleetCatalogContinuationStateWire::Finished => {
+            if page.has_more || page.next_cursor.is_some() {
+                return Err(FleetContractError::Validation(
+                    "fleet catalog finished page must not have a continuation"
+                        .to_string(),
+                ));
+            }
+        }
+        FleetCatalogContinuationStateWire::ResyncRequired => {
+            if page.has_more
+                || page.next_cursor.is_some()
+                || !page.rows.is_empty()
+                || page.reset_reason.is_none()
+            {
+                return Err(FleetContractError::Validation(
+                    "fleet catalog resync page must have no rows or continuation and must carry a reset_reason"
+                        .to_string(),
+                ));
+            }
+        }
+    }
+    if let Some(cursor) = &page.next_cursor {
+        let cursor = parse_catalog_cursor(cursor)?;
+        if cursor.scope != page.scope || cursor.snapshot_id != page.snapshot_id
+        {
+            return Err(FleetContractError::Validation(
+                "fleet catalog next_cursor does not match page scope and snapshot_id"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(page.clone())
+}
+
+fn validate_fleet_catalog_accumulation_state(
+    state: &FleetCatalogAccumulationStateWire,
+) -> Result<FleetCatalogAccumulationStateWire, FleetContractError> {
+    validate_schema("fleet catalog accumulation state", state.schema_version)?;
+    if let Some(snapshot_id) = &state.snapshot_id {
+        validate_fleet_catalog_snapshot_id(snapshot_id)?;
+    }
+    if let Some(cursor) = &state.snapshot_cursor {
+        cursor.validate()?;
+    }
+    if let Some(counts) = &state.counts {
+        validate_fleet_logical_agent_counts(
+            counts,
+            "fleet catalog accumulation counts",
+        )?;
+    }
+    if let Some(freshness) = &state.freshness {
+        validate_fleet_snapshot_freshness(freshness)?;
+    }
+    normalize_catalog_limit(Some(state.limit))?;
+    for row in &state.rows {
+        validate_resolved_agent_summary(row)?;
+    }
+    if let Some(cursor) = &state.next_cursor {
+        let parsed = parse_catalog_cursor(cursor)?;
+        if parsed.scope != state.scope
+            || state.snapshot_id.as_deref() != Some(parsed.snapshot_id.as_str())
+        {
+            return Err(FleetContractError::Validation(
+                "fleet catalog accumulation next_cursor does not match state"
+                    .to_string(),
+            ));
+        }
+    }
+    Ok(state.clone())
 }
 
 pub fn validate_fleet_logical_batch_request(
@@ -2174,6 +2762,30 @@ pub fn validate_resolved_agent_summary(
             reject_secretish(field, value)?;
         }
     }
+    if let Some(weight) = summary.queue_weight {
+        if !queue_weight_is_valid(weight) {
+            return Err(FleetContractError::Validation(
+                "summary queue_weight must be a positive finite capacity weight"
+                    .to_string(),
+            ));
+        }
+    }
+    if summary.queue_weight_invalid && summary.queue_weight.is_some() {
+        return Err(FleetContractError::Validation(
+            "summary queue_weight cannot be present when queue_weight_invalid is true"
+                .to_string(),
+        ));
+    }
+    if !summary.queue_weight_invalid && summary.queue_weight_error.is_some() {
+        return Err(FleetContractError::Validation(
+            "summary queue_weight_error requires queue_weight_invalid"
+                .to_string(),
+        ));
+    }
+    if let Some(error) = &summary.queue_weight_error {
+        validate_label("queue_weight_error", error, MAX_INTENT_BYTES)?;
+        reject_secretish("queue_weight_error", error)?;
+    }
     let normalized = summary.capabilities.normalized()?;
     if normalized != summary.capabilities {
         return Err(FleetContractError::Validation(
@@ -2199,6 +2811,30 @@ pub fn validate_resolved_agent_summary(
         return Err(FleetContractError::Validation(
             "actionable resource capability requires an exact instance locator"
                 .to_string(),
+        ));
+    }
+    let family_role_matches_row_kind = match summary.row_kind {
+        FleetRowKindWire::Proc => {
+            summary.family_role == FleetFamilyRoleWire::Proc
+        }
+        FleetRowKindWire::Monitor => {
+            summary.family_role == FleetFamilyRoleWire::Monitor
+        }
+        FleetRowKindWire::Gate => {
+            summary.family_role == FleetFamilyRoleWire::Gate
+        }
+        FleetRowKindWire::AgentShell
+        | FleetRowKindWire::ContainerHeader
+        | FleetRowKindWire::HistoricalShell => matches!(
+            summary.family_role,
+            FleetFamilyRoleWire::Root
+                | FleetFamilyRoleWire::Member
+                | FleetFamilyRoleWire::HistoricalShell
+        ),
+    };
+    if !family_role_matches_row_kind {
+        return Err(FleetContractError::Validation(
+            "summary family_role is inconsistent with row_kind".to_string(),
         ));
     }
     Ok(summary.clone())
@@ -3439,12 +4075,68 @@ fn reject_inconsistent_projection(
 }
 
 fn counts_as_running(summary: &ResolvedAgentSummaryWire) -> bool {
+    // Require compatible live owner facts rather than trusting the status
+    // bucket alone: a bucket that claims Running/Starting can never count
+    // toward authoritative running counts when the owner-resolved liveness
+    // is definitively Dead or NotProcess.
+    let live_compatible = matches!(
+        summary.liveness,
+        OwnerLivenessWire::Alive | OwnerLivenessWire::Unknown
+    );
+    if !live_compatible {
+        return false;
+    }
     match summary.status_bucket {
         FleetStatusBucketWire::Running => !summary.dismissable,
         FleetStatusBucketWire::Starting => {
             summary.container_projected_concrete_agent
         }
         _ => false,
+    }
+}
+
+/// Whether a row's presentation should be treated as terminal ("was
+/// running") for family-role and status-bucket purposes: genuinely terminal
+/// lifecycle, or definitively `Dead`/`NotProcess` liveness — unless a
+/// waiting/question marker protects it.
+fn presentation_is_historical(
+    lifecycle: FleetLifecycleWire,
+    liveness: OwnerLivenessWire,
+) -> bool {
+    if matches!(
+        lifecycle,
+        FleetLifecycleWire::Waiting | FleetLifecycleWire::Asking
+    ) {
+        return false;
+    }
+    terminal_lifecycle(lifecycle)
+        || matches!(
+            liveness,
+            OwnerLivenessWire::Dead | OwnerLivenessWire::NotProcess
+        )
+}
+
+fn family_role_for_projection(
+    row_kind: FleetRowKindWire,
+    lifecycle: FleetLifecycleWire,
+    liveness: OwnerLivenessWire,
+    has_parent: bool,
+) -> FleetFamilyRoleWire {
+    match row_kind {
+        FleetRowKindWire::Proc => FleetFamilyRoleWire::Proc,
+        FleetRowKindWire::Monitor => FleetFamilyRoleWire::Monitor,
+        FleetRowKindWire::Gate => FleetFamilyRoleWire::Gate,
+        FleetRowKindWire::AgentShell
+        | FleetRowKindWire::ContainerHeader
+        | FleetRowKindWire::HistoricalShell => {
+            if presentation_is_historical(lifecycle, liveness) {
+                FleetFamilyRoleWire::HistoricalShell
+            } else if has_parent {
+                FleetFamilyRoleWire::Member
+            } else {
+                FleetFamilyRoleWire::Root
+            }
+        }
     }
 }
 
@@ -3492,9 +4184,26 @@ fn terminal_lifecycle(lifecycle: FleetLifecycleWire) -> bool {
 
 fn bucket_for_lifecycle(
     lifecycle: FleetLifecycleWire,
+    liveness: OwnerLivenessWire,
 ) -> FleetStatusBucketWire {
+    // A record whose owner-resolved liveness is definitively Dead or
+    // NotProcess can never bucket as Running/Starting, no matter what its
+    // lifecycle label says: the four-fact model presents it as stopped
+    // instead of fabricating an active state.
+    let liveness_stops = matches!(
+        liveness,
+        OwnerLivenessWire::Dead | OwnerLivenessWire::NotProcess
+    );
     match lifecycle {
+        FleetLifecycleWire::Starting if liveness_stops => {
+            FleetStatusBucketWire::Stopped
+        }
         FleetLifecycleWire::Starting => FleetStatusBucketWire::Starting,
+        FleetLifecycleWire::Running | FleetLifecycleWire::Unknown
+            if liveness_stops =>
+        {
+            FleetStatusBucketWire::Stopped
+        }
         FleetLifecycleWire::Running | FleetLifecycleWire::Unknown => {
             FleetStatusBucketWire::Running
         }
@@ -3579,15 +4288,86 @@ fn provider_for_record(
     .map(|value| trim_to_limit(value, MAX_LABEL_BYTES))
 }
 
+fn queue_weight_for_record(
+    record: &AgentArtifactRecordWire,
+) -> (Option<f64>, bool, bool, Option<String>) {
+    if let Some(waiting) = &record.waiting {
+        if waiting.queue_weight_invalid {
+            return (
+                None,
+                waiting.queue_weight_explicit,
+                true,
+                waiting.queue_weight_error.clone(),
+            );
+        }
+        if let Some(weight) = waiting.queue_weight {
+            if queue_weight_is_valid(weight) {
+                return (
+                    Some(weight),
+                    waiting.queue_weight_explicit,
+                    false,
+                    None,
+                );
+            }
+            return (None, waiting.queue_weight_explicit, true, None);
+        }
+    }
+    if let Some(meta) = &record.agent_meta {
+        if meta.queue_weight_invalid {
+            return (
+                None,
+                meta.queue_weight_explicit,
+                true,
+                meta.queue_weight_error.clone(),
+            );
+        }
+        if let Some(weight) = meta.queue_weight {
+            if queue_weight_is_valid(weight) {
+                return (Some(weight), meta.queue_weight_explicit, false, None);
+            }
+            return (None, meta.queue_weight_explicit, true, None);
+        }
+    }
+    (None, false, false, None)
+}
+
 fn intent_for_record(record: &AgentArtifactRecordWire) -> Option<String> {
-    first_non_empty([
+    let raw = first_non_empty([
         record
             .agent_meta
             .as_ref()
             .and_then(|value| value.plan_action.as_deref()),
         record.raw_prompt_snippet.as_deref(),
-    ])
-    .map(|value| trim_to_limit(value, MAX_INTENT_BYTES))
+    ])?;
+    // Owner-produced prompts and plan actions are ordinary free text and
+    // routinely span multiple lines; strip control characters (newlines,
+    // CR, tabs, ...) before byte-bounding so a normal multiline prompt
+    // cannot make the display intent fail `validate_label`'s control
+    // character rejection. A value that normalizes to nothing (e.g. only
+    // control characters) becomes an omitted label instead of an invalid
+    // empty one.
+    let bounded =
+        trim_to_limit(&replace_control_characters(raw), MAX_INTENT_BYTES);
+    if bounded.is_empty() {
+        None
+    } else {
+        Some(bounded)
+    }
+}
+
+/// Replace control characters (including newline/CR/tab) with a plain space
+/// so owner-produced free text is safe to display as a single-line label.
+fn replace_control_characters(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_control() {
+                ' '
+            } else {
+                character
+            }
+        })
+        .collect()
 }
 
 fn first_non_empty<'a>(
@@ -4110,6 +4890,8 @@ fn normalize_federation_host_strict(
         summaries: payload_normalization.summaries,
         authoritative_counts: payload_normalization.authoritative_counts,
         count_revision: payload_normalization.count_revision,
+        catalog_scope: payload_normalization.catalog_scope,
+        catalog_snapshot_id: payload_normalization.catalog_snapshot_id,
         catalog: payload_normalization.catalog,
         unresolved_logical_keys: payload_normalization.unresolved_logical_keys,
         diagnostics,
@@ -4173,6 +4955,8 @@ fn invalid_federation_host(
         summaries: Vec::new(),
         authoritative_counts: None,
         count_revision: None,
+        catalog_scope: None,
+        catalog_snapshot_id: None,
         catalog: None,
         unresolved_logical_keys: Vec::new(),
         diagnostics,
@@ -4184,6 +4968,8 @@ struct PayloadNormalization {
     summaries: Vec<ResolvedAgentSummaryWire>,
     authoritative_counts: Option<FleetLogicalAgentCountsWire>,
     count_revision: Option<u64>,
+    catalog_scope: Option<FleetCatalogScopeWire>,
+    catalog_snapshot_id: Option<String>,
     freshness: Option<FleetSnapshotFreshnessWire>,
     catalog: Option<FleetCatalogContinuationWire>,
     unresolved_logical_keys: Vec<String>,
@@ -4201,6 +4987,8 @@ fn normalize_host_payload(
             summaries: Vec::new(),
             authoritative_counts: None,
             count_revision: None,
+            catalog_scope: None,
+            catalog_snapshot_id: None,
             freshness: None,
             catalog: None,
             unresolved_logical_keys: Vec::new(),
@@ -4214,6 +5002,8 @@ fn normalize_host_payload(
         &[
             "schema_version",
             "cursor",
+            "catalog_scope",
+            "catalog_snapshot_id",
             "counts",
             "count_revision",
             "freshness",
@@ -4230,6 +5020,19 @@ fn normalize_host_payload(
         operation,
         &mut diagnostics,
     )?;
+    let mut catalog_scope = payload
+        .get("catalog_scope")
+        .map(|value| wire_from_json_value(value, "fleet catalog scope"))
+        .transpose()?;
+    let mut catalog_snapshot_id = optional_string_field(
+        payload,
+        "catalog_snapshot_id",
+        "fleet catalog snapshot_id",
+        MAX_IDENTIFIER_BYTES,
+    )?;
+    if let Some(snapshot_id) = &catalog_snapshot_id {
+        validate_fleet_catalog_snapshot_id(snapshot_id)?;
+    }
     let freshness = payload
         .get("freshness")
         .map(|value| {
@@ -4266,6 +5069,8 @@ fn normalize_host_payload(
             &mut diagnostics,
         )?;
         summaries = parsed.0;
+        catalog_scope = Some(parsed.1.scope);
+        catalog_snapshot_id = Some(parsed.1.snapshot_id.clone());
         catalog = Some(parsed.1);
         partial |= catalog.as_ref().is_some_and(|catalog| {
             catalog.state == FleetCatalogContinuationStateWire::ResyncRequired
@@ -4281,6 +5086,8 @@ fn normalize_host_payload(
         summaries,
         authoritative_counts,
         count_revision,
+        catalog_scope,
+        catalog_snapshot_id,
         freshness,
         catalog,
         unresolved_logical_keys,
@@ -4309,14 +5116,35 @@ fn normalized_catalog_page(
         "fleet catalog payload.page",
         &[
             "schema_version",
+            "scope",
+            "snapshot_id",
             "rows",
             "limit",
             "total_matching_rows",
             "next_cursor",
             "has_more",
+            "state",
+            "reset_reason",
         ],
     )?;
     validate_optional_schema(page, "fleet catalog payload.page")?;
+    let scope = page
+        .get("scope")
+        .map(|value| wire_from_json_value(value, "fleet catalog scope"))
+        .transpose()?
+        .unwrap_or_default();
+    let snapshot_id = optional_string_field(
+        page,
+        "snapshot_id",
+        "fleet catalog snapshot_id",
+        MAX_IDENTIFIER_BYTES,
+    )?
+    .ok_or_else(|| {
+        FleetContractError::Validation(
+            "fleet catalog snapshot_id is required".to_string(),
+        )
+    })?;
+    validate_fleet_catalog_snapshot_id(&snapshot_id)?;
     let rows = resolved_summaries_array(
         page.get("rows"),
         "fleet catalog payload.page.rows",
@@ -4336,28 +5164,65 @@ fn normalized_catalog_page(
         MAX_IDENTIFIER_BYTES,
     )?;
     let has_more = required_bool_field(page, "has_more")?;
-    let mut state = if has_more {
-        FleetCatalogContinuationStateWire::Ready
-    } else {
-        FleetCatalogContinuationStateWire::Finished
-    };
+    let reset_reason = page
+        .get("reset_reason")
+        .filter(|value| !value.is_null())
+        .map(|value| wire_from_json_value(value, "fleet catalog reset_reason"))
+        .transpose()?;
+    let state = page
+        .get("state")
+        .map(|value| {
+            wire_from_json_value(value, "fleet catalog continuation state")
+        })
+        .transpose()?
+        .unwrap_or(if has_more {
+            FleetCatalogContinuationStateWire::Ready
+        } else {
+            FleetCatalogContinuationStateWire::Finished
+        });
+    if state == FleetCatalogContinuationStateWire::ResyncRequired {
+        if has_more || raw_next_cursor.is_some() || !rows.is_empty() {
+            return Err(FleetContractError::Validation(
+                "fleet catalog resync page must have no rows or continuation"
+                    .to_string(),
+            ));
+        }
+        return Ok((
+            rows,
+            FleetCatalogContinuationWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                snapshot_cursor,
+                scope,
+                snapshot_id,
+                limit,
+                total_matching_rows,
+                next_cursor: None,
+                has_more,
+                state,
+                reset_reason: reset_reason
+                    .or(Some(FleetCatalogResetReasonWire::RestartRequired)),
+            },
+        ));
+    }
     let mut next_cursor = None;
     match (has_more, raw_next_cursor) {
-        (true, Some(cursor)) => match parse_catalog_cursor(&cursor) {
-            Ok(_) => next_cursor = Some(cursor),
-            Err(error) => {
-                state = FleetCatalogContinuationStateWire::ResyncRequired;
-                diagnostics.push(fleet_envelope_diagnostic(
-                    alias,
-                    operation,
-                    "fleet_cursor_invalid",
-                    "warning",
-                    &error.to_string(),
-                )?);
+        (true, Some(cursor)) => {
+            let parsed = parse_catalog_cursor(&cursor)?;
+            if parsed.scope != scope || parsed.snapshot_id != snapshot_id {
+                return Err(FleetContractError::Validation(
+                    "fleet catalog next_cursor does not match page scope and snapshot_id"
+                        .to_string(),
+                ));
             }
-        },
+            if state != FleetCatalogContinuationStateWire::Ready {
+                return Err(FleetContractError::Validation(
+                    "fleet catalog page has continuation but state is not ready"
+                        .to_string(),
+                ));
+            }
+            next_cursor = Some(cursor);
+        }
         (true, None) => {
-            state = FleetCatalogContinuationStateWire::ResyncRequired;
             diagnostics.push(fleet_envelope_diagnostic(
                 alias,
                 operation,
@@ -4365,9 +5230,12 @@ fn normalized_catalog_page(
                 "warning",
                 "fleet catalog page has more rows but no next_cursor",
             )?);
+            return Err(FleetContractError::Validation(
+                "fleet catalog page has more rows but no next_cursor"
+                    .to_string(),
+            ));
         }
         (false, Some(_)) => {
-            state = FleetCatalogContinuationStateWire::ResyncRequired;
             diagnostics.push(fleet_envelope_diagnostic(
                 alias,
                 operation,
@@ -4375,19 +5243,38 @@ fn normalized_catalog_page(
                 "warning",
                 "fleet catalog page returned next_cursor without has_more",
             )?);
+            return Err(FleetContractError::Validation(
+                "fleet catalog page returned next_cursor without has_more"
+                    .to_string(),
+            ));
         }
         (false, None) => {}
+    }
+    if !has_more && state != FleetCatalogContinuationStateWire::Finished {
+        return Err(FleetContractError::Validation(
+            "fleet catalog page without continuation must be finished"
+                .to_string(),
+        ));
+    }
+    if reset_reason.is_some() {
+        return Err(FleetContractError::Validation(
+            "fleet catalog reset_reason is only valid on resync_required pages"
+                .to_string(),
+        ));
     }
     Ok((
         rows,
         FleetCatalogContinuationWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             snapshot_cursor,
+            scope,
+            snapshot_id,
             limit,
             total_matching_rows,
             next_cursor,
             has_more,
             state,
+            reset_reason: None,
         },
     ))
 }
@@ -4791,16 +5678,7 @@ fn fleet_envelope_diagnostic(
 }
 
 fn sanitize_diagnostic_message(message: &str) -> String {
-    let normalized = message
-        .chars()
-        .map(|character| {
-            if character.is_control() {
-                ' '
-            } else {
-                character
-            }
-        })
-        .collect::<String>();
+    let normalized = replace_control_characters(message);
     let trimmed = normalized.trim();
     let redacted = if trimmed.contains("://")
         || trimmed.contains("Authorization:")
@@ -5215,14 +6093,59 @@ fn normalize_project_limit(
     Ok(limit)
 }
 
-fn parse_catalog_cursor(cursor: &str) -> Result<usize, FleetContractError> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ParsedCatalogCursor {
+    scope: FleetCatalogScopeWire,
+    snapshot_id: String,
+    offset: usize,
+}
+
+fn parse_catalog_cursor(
+    cursor: &str,
+) -> Result<ParsedCatalogCursor, FleetContractError> {
     validate_reference_id("fleet catalog cursor", cursor)?;
     reject_path_like("fleet catalog cursor", cursor)?;
-    let Some(offset) = cursor.strip_prefix("off:") else {
+    let Some(body) = cursor.strip_prefix(FLEET_CATALOG_CURSOR_PREFIX) else {
         return Err(FleetContractError::Validation(
             "fleet catalog cursor is not recognized".to_string(),
         ));
     };
+    let Some(body) = body.strip_prefix(':') else {
+        return Err(FleetContractError::Validation(
+            "fleet catalog cursor is malformed".to_string(),
+        ));
+    };
+    let mut parts = body.split(':');
+    let Some(scope_token) = parts.next() else {
+        return Err(FleetContractError::Validation(
+            "fleet catalog cursor scope is missing".to_string(),
+        ));
+    };
+    let Some(snapshot_id) = parts.next() else {
+        return Err(FleetContractError::Validation(
+            "fleet catalog cursor snapshot_id is missing".to_string(),
+        ));
+    };
+    let Some(offset) = parts.next() else {
+        return Err(FleetContractError::Validation(
+            "fleet catalog cursor offset is missing".to_string(),
+        ));
+    };
+    if parts.next().is_some() {
+        return Err(FleetContractError::Validation(
+            "fleet catalog cursor is malformed".to_string(),
+        ));
+    }
+    let scope = match scope_token {
+        "p" => FleetCatalogScopeWire::Presentation,
+        "h" => FleetCatalogScopeWire::History,
+        _ => {
+            return Err(FleetContractError::Validation(
+                "fleet catalog cursor scope is not recognized".to_string(),
+            ))
+        }
+    };
+    validate_fleet_catalog_snapshot_id(snapshot_id)?;
     if offset.is_empty()
         || !offset.bytes().all(|byte| byte.is_ascii_digit())
         || (offset.len() > 1 && offset.starts_with('0'))
@@ -5231,15 +6154,63 @@ fn parse_catalog_cursor(cursor: &str) -> Result<usize, FleetContractError> {
             "fleet catalog cursor offset is malformed".to_string(),
         ));
     }
-    offset.parse::<usize>().map_err(|_| {
+    let offset = offset.parse::<usize>().map_err(|_| {
         FleetContractError::Validation(
             "fleet catalog cursor offset is out of range".to_string(),
         )
+    })?;
+    Ok(ParsedCatalogCursor {
+        scope,
+        snapshot_id: snapshot_id.to_string(),
+        offset,
     })
 }
 
-fn format_catalog_cursor(offset: usize) -> String {
-    format!("off:{offset}")
+fn format_catalog_cursor(
+    scope: FleetCatalogScopeWire,
+    snapshot_id: &str,
+    offset: usize,
+) -> String {
+    let scope = match scope {
+        FleetCatalogScopeWire::Presentation => "p",
+        FleetCatalogScopeWire::History => "h",
+    };
+    format!("{FLEET_CATALOG_CURSOR_PREFIX}:{scope}:{snapshot_id}:{offset}")
+}
+
+fn fleet_catalog_restart_page(
+    scope: FleetCatalogScopeWire,
+    snapshot_id: String,
+    limit: u32,
+    reset_reason: FleetCatalogResetReasonWire,
+) -> FleetCatalogPageSelectionWire {
+    FleetCatalogPageSelectionWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        scope,
+        snapshot_id,
+        rows: Vec::new(),
+        limit,
+        total_matching_rows: 0,
+        next_cursor: None,
+        has_more: false,
+        state: FleetCatalogContinuationStateWire::ResyncRequired,
+        reset_reason: Some(reset_reason),
+    }
+}
+
+fn catalog_snapshot_summary_value(summary: &ResolvedAgentSummaryWire) -> Value {
+    let mut value = serde_json::to_value(summary).unwrap_or_else(|_| {
+        json!({
+            "logical_key": summary.logical_key,
+            "exact_key": summary.exact_key,
+            "row_revision": summary.row_revision.revision,
+        })
+    });
+    if let Value::Object(object) = &mut value {
+        object.remove("observed_at_unix");
+        object.remove("freshness");
+    }
+    value
 }
 
 fn validate_identifier_vec(
@@ -6306,6 +7277,55 @@ mod tests {
         project_resolved_agent_summary(&request).unwrap()
     }
 
+    fn catalog_snapshot_id(
+        scope: FleetCatalogScopeWire,
+        summaries: &[ResolvedAgentSummaryWire],
+    ) -> String {
+        fleet_catalog_snapshot_id(scope, summaries).unwrap()
+    }
+
+    fn catalog_cursor(
+        scope: FleetCatalogScopeWire,
+        snapshot_id: &str,
+        offset: usize,
+    ) -> String {
+        let scope = match scope {
+            FleetCatalogScopeWire::Presentation => "p",
+            FleetCatalogScopeWire::History => "h",
+        };
+        format!("catcur_v1:{scope}:{snapshot_id}:{offset}")
+    }
+
+    fn catalog_response(
+        page: FleetCatalogPageSelectionWire,
+        count_rows: &[ResolvedAgentSummaryWire],
+    ) -> FleetCatalogPageWire {
+        let counts =
+            count_logical_agents(&FleetLogicalAgentCountsRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                summaries: count_rows.to_vec(),
+            })
+            .unwrap();
+        FleetCatalogPageWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            cursor: StoreCursorWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                store_generation: "gen-test".to_string(),
+                sequence: 1,
+            },
+            counts: counts.clone(),
+            count_revision: fleet_count_revision(&counts),
+            freshness: FleetSnapshotFreshnessWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                freshness: ObservationFreshnessWire::Fresh,
+                partial: false,
+                refreshed_at_unix: Some(1000.0),
+                error: None,
+            },
+            page,
+        }
+    }
+
     fn projection_request(
         locator: LogicalAgentLocatorWire,
         exact_locator: Option<AgentInstanceLocatorWire>,
@@ -6601,11 +7621,16 @@ mod tests {
     fn projection_outputs_safe_summary_and_detail_without_local_fields() {
         let locator = logical('a', "worker");
         let exact_locator = exact('a', "worker", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.queue_weight = Some(0.25);
+            meta.queue_weight_explicit = true;
+        }
         let mut request = projection_request(
             locator.clone(),
             Some(exact_locator.clone()),
             1,
-            record_running(),
+            record,
         );
         request.owner_facts.capabilities =
             caps(&["stop", "content.read", "stop"]);
@@ -6619,6 +7644,9 @@ mod tests {
         assert_eq!(summary.freshness, ObservationFreshnessWire::Stale);
         assert_eq!(summary.capabilities.resource, vec!["content.read", "stop"]);
         assert_eq!(summary.content.handle_count, 1);
+        assert_eq!(summary.queue_weight, Some(0.25));
+        assert!(summary.queue_weight_explicit);
+        assert!(!summary.queue_weight_invalid);
         let value = serde_json::to_value(&summary).unwrap();
         assert_no_forbidden_local_fields(&value);
 
@@ -6626,6 +7654,124 @@ mod tests {
         assert_eq!(detail.content_handles.len(), 1);
         let detail_value = serde_json::to_value(&detail).unwrap();
         assert_no_forbidden_local_fields(&detail_value);
+    }
+
+    #[test]
+    fn projection_prefers_waiting_queue_weight_over_metadata() {
+        let locator = logical('a', "weighted");
+        let exact_locator = exact('a', "weighted", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.queue_weight = Some(2.0);
+            meta.queue_weight_explicit = false;
+        }
+        record.waiting = Some(crate::agent_scan::WaitingMarkerWire {
+            queue_weight: Some(0.5),
+            queue_weight_explicit: true,
+            ..crate::agent_scan::WaitingMarkerWire::default()
+        });
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.queue_weight, Some(0.5));
+        assert!(summary.queue_weight_explicit);
+        assert!(!summary.queue_weight_invalid);
+    }
+
+    #[test]
+    fn projection_normalizes_control_characters_in_multiline_raw_prompt_intent()
+    {
+        let locator = logical('a', "multiline");
+        let exact_locator = exact('a', "multiline", "run-1");
+        let mut record = record_running();
+        record.raw_prompt_snippet = Some(
+            "Refactor the widget\nand update the tests\r\nplease\tthanks"
+                .to_string(),
+        );
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        let intent = summary.intent.as_deref().unwrap();
+        assert!(!intent.chars().any(char::is_control));
+        assert_eq!(
+            intent,
+            "Refactor the widget and update the tests  please thanks"
+        );
+    }
+
+    #[test]
+    fn projection_normalizes_control_characters_in_plan_action_intent() {
+        let locator = logical('a', "plan-multiline");
+        let exact_locator = exact('a', "plan-multiline", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.plan_action = Some("Step 1: build\nStep 2: test".to_string());
+        }
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(
+            summary.intent.as_deref(),
+            Some("Step 1: build Step 2: test")
+        );
+    }
+
+    #[test]
+    fn projection_bounds_multiline_unicode_intent_to_byte_limit() {
+        let locator = logical('a', "byte-limit");
+        let exact_locator = exact('a', "byte-limit", "run-1");
+        let mut record = record_running();
+        record.raw_prompt_snippet =
+            Some(format!("line one\nline two\n{}", "é".repeat(400)));
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        let intent = summary.intent.unwrap();
+        assert!(intent.len() <= MAX_INTENT_BYTES);
+        assert!(!intent.chars().any(char::is_control));
+        assert!(validate_label("intent", &intent, MAX_INTENT_BYTES).is_ok());
+    }
+
+    #[test]
+    fn projection_omits_intent_when_normalization_leaves_it_empty() {
+        let locator = logical('a', "empty-intent");
+        let exact_locator = exact('a', "empty-intent", "run-1");
+        let mut record = record_running();
+        record.raw_prompt_snippet = Some("\u{1}\u{2}\u{3}".to_string());
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert!(summary.intent.is_none());
+    }
+
+    #[test]
+    fn external_wire_summary_with_raw_control_character_intent_is_rejected() {
+        let locator = logical('a', "external");
+        let exact_locator = exact('a', "external", "run-1");
+        let request = projection_request(
+            locator,
+            Some(exact_locator),
+            1,
+            record_running(),
+        );
+        let mut summary = project_resolved_agent_summary(&request).unwrap();
+
+        // A projected summary already carries a normalized intent; strict
+        // external validation (the boundary used by federation imports and
+        // any other externally supplied wire payload) must still reject a
+        // raw control character regardless of how the value arrived.
+        summary.intent = Some("bad\nintent".to_string());
+        assert!(validate_resolved_agent_summary(&summary).is_err());
     }
 
     #[test]
@@ -6683,6 +7829,116 @@ mod tests {
     }
 
     #[test]
+    fn family_role_distinguishes_root_member_and_historical_shell() {
+        // A live root: no tracked parent.
+        let root_request = projection_request(
+            logical('a', "root"),
+            Some(exact('a', "root", "run-1")),
+            1,
+            record_running(),
+        );
+        let root = project_resolved_agent_summary(&root_request).unwrap();
+        assert_eq!(root.family_role, FleetFamilyRoleWire::Root);
+        assert_eq!(root.parent_timestamp, None);
+        assert_eq!(root.status_bucket, FleetStatusBucketWire::Running);
+
+        // A live member: tracked parent_timestamp.
+        let mut member_record = record_running();
+        member_record.agent_meta.as_mut().unwrap().parent_timestamp =
+            Some("20260906110000".to_string());
+        let member_request = projection_request(
+            logical('a', "member"),
+            Some(exact('a', "member", "run-1")),
+            1,
+            member_record,
+        );
+        let member = project_resolved_agent_summary(&member_request).unwrap();
+        assert_eq!(member.family_role, FleetFamilyRoleWire::Member);
+        assert_eq!(member.parent_timestamp, Some("20260906110000".to_string()));
+
+        // A genuinely completed record is a historical shell.
+        let done = summary_done('a', "done", 1, 1000.0);
+        assert_eq!(done.family_role, FleetFamilyRoleWire::HistoricalShell);
+
+        // A Dead active-tier record (not yet done, not protected) demotes
+        // into a historical shell and a stopped bucket, never running.
+        let mut demoted_request = projection_request(
+            logical('a', "demoted"),
+            Some(exact('a', "demoted", "run-1")),
+            1,
+            record_running(),
+        );
+        demoted_request.owner_facts.liveness = OwnerLivenessWire::Dead;
+        demoted_request.owner_facts.current_instance = false;
+        demoted_request.owner_facts.occupied_runner_slot = false;
+        demoted_request.owner_facts.capabilities = caps(&[]);
+        let demoted = project_resolved_agent_summary(&demoted_request).unwrap();
+        assert_eq!(demoted.family_role, FleetFamilyRoleWire::HistoricalShell);
+        assert_eq!(demoted.status_bucket, FleetStatusBucketWire::Stopped);
+        assert_eq!(demoted.lifecycle, FleetLifecycleWire::Running);
+
+        // A waiting record protected by a marker stays Root/Waiting even if
+        // its owner liveness is Dead: a waiting/question marker must never
+        // be demoted.
+        let mut protected_record = record_running();
+        protected_record.running = None;
+        protected_record.waiting =
+            Some(crate::agent_scan::WaitingMarkerWire::default());
+        let mut protected_request = projection_request(
+            logical('a', "protected"),
+            Some(exact('a', "protected", "run-1")),
+            1,
+            protected_record,
+        );
+        protected_request.owner_facts.liveness = OwnerLivenessWire::Dead;
+        protected_request.owner_facts.current_instance = false;
+        protected_request.owner_facts.occupied_runner_slot = false;
+        protected_request.owner_facts.capabilities = caps(&[]);
+        let protected =
+            project_resolved_agent_summary(&protected_request).unwrap();
+        assert_eq!(protected.family_role, FleetFamilyRoleWire::Root);
+        assert_eq!(protected.status_bucket, FleetStatusBucketWire::Waiting);
+    }
+
+    #[test]
+    fn dead_or_not_process_liveness_never_counts_as_running() {
+        let mut alive_request = projection_request(
+            logical('a', "alive"),
+            Some(exact('a', "alive", "run-1")),
+            1,
+            record_running(),
+        );
+        alive_request.owner_facts.occupied_runner_slot = false;
+        let alive = project_resolved_agent_summary(&alive_request).unwrap();
+
+        let mut dead_request = projection_request(
+            logical('a', "dead"),
+            Some(exact('a', "dead", "run-1")),
+            1,
+            record_running(),
+        );
+        dead_request.owner_facts.liveness = OwnerLivenessWire::Dead;
+        dead_request.owner_facts.occupied_runner_slot = false;
+        dead_request.owner_facts.capabilities = caps(&[]);
+        let dead = project_resolved_agent_summary(&dead_request).unwrap();
+        assert_eq!(dead.status_bucket, FleetStatusBucketWire::Stopped);
+        // Still counted as a logical agent (it is still a served row) even
+        // though liveness alone keeps it out of the running count below:
+        // this proves `counts_as_running` gates on liveness directly rather
+        // than trusting the status bucket or `current_instance` alone.
+        assert!(dead.current_instance);
+
+        let counts =
+            count_logical_agents(&FleetLogicalAgentCountsRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                summaries: vec![alive.clone(), dead],
+            })
+            .unwrap();
+        assert_eq!(counts.logical_agent_total, 2);
+        assert_eq!(counts.running, 1);
+    }
+
+    #[test]
     fn count_contract_is_order_independent_and_deduplicates_current_instances()
     {
         let locator = logical('a', "worker");
@@ -6735,6 +7991,7 @@ mod tests {
 
         let mut monitor = newer.clone();
         monitor.row_kind = FleetRowKindWire::Monitor;
+        monitor.family_role = FleetFamilyRoleWire::Monitor;
         let request = FleetLogicalAgentCountsRequestWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             summaries: vec![
@@ -6978,6 +8235,14 @@ mod tests {
         .unwrap();
         let apollo_counts = authoritative_counts(9, 9, Some(1_800_000_000.0));
         let mac_counts = authoritative_counts(2, 2, Some(1_700_000_001.0));
+        let apollo_snapshot_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&apollo_done),
+        );
+        let mac_snapshot_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&mac_running),
+        );
         let response = json!({
             "schema_version": 1,
             "operation": "catalog",
@@ -6999,6 +8264,8 @@ mod tests {
                             "store_generation": "gen-apollo",
                             "sequence": 12
                         },
+                        "catalog_scope": "presentation",
+                        "catalog_snapshot_id": apollo_snapshot_id.clone(),
                         "counts": apollo_counts,
                         "count_revision": 99,
                         "freshness": {
@@ -7010,11 +8277,18 @@ mod tests {
                         },
                         "page": {
                             "schema_version": 1,
+                            "scope": "presentation",
+                            "snapshot_id": apollo_snapshot_id.clone(),
                             "rows": [apollo_done],
                             "limit": 50,
                             "total_matching_rows": 42,
-                            "next_cursor": "off:50",
-                            "has_more": true
+                            "next_cursor": catalog_cursor(
+                                FleetCatalogScopeWire::Presentation,
+                                &apollo_snapshot_id,
+                                50,
+                            ),
+                            "has_more": true,
+                            "state": "ready"
                         }
                     },
                     "error": null
@@ -7035,15 +8309,24 @@ mod tests {
                             "store_generation": "gen-mac",
                             "sequence": 3
                         },
+                        "catalog_scope": "presentation",
+                        "catalog_snapshot_id": mac_snapshot_id.clone(),
                         "counts": mac_counts,
                         "freshness": "fresh",
                         "page": {
                             "schema_version": 1,
+                            "scope": "presentation",
+                            "snapshot_id": mac_snapshot_id.clone(),
                             "rows": [mac_running],
                             "limit": 20,
                             "total_matching_rows": 25,
-                            "next_cursor": "off:20",
-                            "has_more": true
+                            "next_cursor": catalog_cursor(
+                                FleetCatalogScopeWire::Presentation,
+                                &mac_snapshot_id,
+                                20,
+                            ),
+                            "has_more": true,
+                            "state": "ready"
                         }
                     },
                     "error": null
@@ -7069,7 +8352,14 @@ mod tests {
                 .unwrap()
                 .next_cursor
                 .as_deref(),
-            Some("off:50")
+            Some(
+                catalog_cursor(
+                    FleetCatalogScopeWire::Presentation,
+                    &apollo_snapshot_id,
+                    50,
+                )
+                .as_str()
+            )
         );
         assert_eq!(
             normalized.hosts[1]
@@ -7078,7 +8368,22 @@ mod tests {
                 .unwrap()
                 .next_cursor
                 .as_deref(),
-            Some("off:20")
+            Some(
+                catalog_cursor(
+                    FleetCatalogScopeWire::Presentation,
+                    &mac_snapshot_id,
+                    20,
+                )
+                .as_str()
+            )
+        );
+        assert_eq!(
+            normalized.hosts[0].catalog_scope,
+            Some(FleetCatalogScopeWire::Presentation)
+        );
+        assert_eq!(
+            normalized.hosts[0].catalog_snapshot_id.as_deref(),
+            Some(apollo_snapshot_id.as_str())
         );
         assert_eq!(
             normalized.hosts[0]
@@ -7212,6 +8517,10 @@ mod tests {
             record_running(),
         ))
         .unwrap();
+        let healthy_snapshot_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&healthy),
+        );
         let response = json!({
             "schema_version": 1,
             "operation": "catalog",
@@ -7233,15 +8542,20 @@ mod tests {
                             "store_generation": "gen-apollo",
                             "sequence": 12
                         },
+                        "catalog_scope": "presentation",
+                        "catalog_snapshot_id": healthy_snapshot_id.clone(),
                         "counts": authoritative_counts(1, 1, Some(2_000.0)),
                         "freshness": "fresh",
                         "page": {
                             "schema_version": 1,
+                            "scope": "presentation",
+                            "snapshot_id": healthy_snapshot_id,
                             "rows": [healthy],
                             "limit": 50,
                             "total_matching_rows": 1,
                             "next_cursor": null,
-                            "has_more": false
+                            "has_more": false,
+                            "state": "finished"
                         }
                     },
                     "error": null
@@ -7327,7 +8641,7 @@ mod tests {
     }
 
     #[test]
-    fn federation_invalid_host_cursor_requests_host_resync_but_keeps_rows() {
+    fn federation_malformed_external_catalog_cursor_rejects_host_wire() {
         let row = project_resolved_agent_summary(&projection_request(
             logical('b', "cursor"),
             Some(exact('b', "cursor", "run-1")),
@@ -7335,6 +8649,10 @@ mod tests {
             record_running(),
         ))
         .unwrap();
+        let snapshot_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&row),
+        );
         let response = json!({
             "schema_version": 1,
             "operation": "catalog",
@@ -7359,11 +8677,14 @@ mod tests {
                     "freshness": "fresh",
                     "page": {
                         "schema_version": 1,
+                        "scope": "presentation",
+                        "snapshot_id": snapshot_id,
                         "rows": [row],
                         "limit": 50,
                         "total_matching_rows": 2,
                         "next_cursor": "../other-host",
-                        "has_more": true
+                        "has_more": true,
+                        "state": "ready"
                     }
                 },
                 "error": null
@@ -7377,17 +8698,128 @@ mod tests {
             },
         )
         .unwrap();
+        assert_eq!(normalized.hosts[0].status, "invalid");
+        assert!(normalized.hosts[0].catalog.is_none());
+        assert!(normalized.hosts[0].partial);
+        assert!(normalized.summaries.is_empty());
+        assert!(normalized.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "fleet_envelope_invalid"
+                && diagnostic.alias.as_deref() == Some("apollo")
+        }));
+    }
+
+    #[test]
+    fn federation_typed_catalog_resync_preserves_healthy_hosts() {
+        let row = project_resolved_agent_summary(&projection_request(
+            logical('c', "healthy"),
+            Some(exact('c', "healthy", "run-1")),
+            3,
+            record_running(),
+        ))
+        .unwrap();
+        let restart_snapshot_id =
+            catalog_snapshot_id(FleetCatalogScopeWire::History, &[]);
+        let healthy_snapshot_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&row),
+        );
+        let response = json!({
+            "schema_version": 1,
+            "operation": "catalog",
+            "configured_hosts": 2,
+            "hosts": [
+                {
+                    "schema_version": 1,
+                    "alias": "history",
+                    "provider_ref": "history-provider",
+                    "installation_id": id('b'),
+                    "endpoint": "https://history.example.test",
+                    "status": "ok",
+                    "cached": false,
+                    "age_seconds": null,
+                    "payload": {
+                        "schema_version": 1,
+                        "cursor": {
+                            "schema_version": 1,
+                            "store_generation": "gen-history",
+                            "sequence": 8
+                        },
+                        "catalog_scope": "history",
+                        "catalog_snapshot_id": restart_snapshot_id.clone(),
+                        "counts": authoritative_counts(0, 0, None),
+                        "freshness": "fresh",
+                        "page": {
+                            "schema_version": 1,
+                            "scope": "history",
+                            "snapshot_id": restart_snapshot_id.clone(),
+                            "rows": [],
+                            "limit": 50,
+                            "total_matching_rows": 0,
+                            "next_cursor": null,
+                            "has_more": false,
+                            "state": "resync_required",
+                            "reset_reason": "snapshot_mismatch"
+                        }
+                    },
+                    "error": null
+                },
+                {
+                    "schema_version": 1,
+                    "alias": "healthy",
+                    "provider_ref": "healthy-provider",
+                    "installation_id": id('c'),
+                    "endpoint": "https://healthy.example.test",
+                    "status": "ok",
+                    "cached": false,
+                    "age_seconds": null,
+                    "payload": {
+                        "schema_version": 1,
+                        "cursor": {
+                            "schema_version": 1,
+                            "store_generation": "gen-healthy",
+                            "sequence": 9
+                        },
+                        "catalog_scope": "presentation",
+                        "catalog_snapshot_id": healthy_snapshot_id.clone(),
+                        "counts": authoritative_counts(1, 1, Some(1_000.0)),
+                        "freshness": "fresh",
+                        "page": {
+                            "schema_version": 1,
+                            "scope": "presentation",
+                            "snapshot_id": healthy_snapshot_id,
+                            "rows": [row],
+                            "limit": 50,
+                            "total_matching_rows": 1,
+                            "next_cursor": null,
+                            "has_more": false,
+                            "state": "finished"
+                        }
+                    },
+                    "error": null
+                }
+            ]
+        });
+
+        let normalized = normalize_fleet_federation_response(
+            &FleetFederationNormalizeRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                response,
+            },
+        )
+        .unwrap();
+
+        assert!(normalized.partial);
+        assert_eq!(normalized.summaries.len(), 1);
         let catalog = normalized.hosts[0].catalog.as_ref().unwrap();
         assert_eq!(
             catalog.state,
             FleetCatalogContinuationStateWire::ResyncRequired
         );
-        assert!(catalog.next_cursor.is_none());
-        assert_eq!(normalized.summaries.len(), 1);
-        assert!(normalized.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "fleet_cursor_invalid"
-                && diagnostic.alias.as_deref() == Some("apollo")
-        }));
+        assert_eq!(
+            catalog.reset_reason,
+            Some(FleetCatalogResetReasonWire::SnapshotMismatch)
+        );
+        assert_eq!(normalized.hosts[1].status, "ok");
     }
 
     #[test]
@@ -7475,6 +8907,8 @@ mod tests {
         .unwrap();
         let query = FleetCatalogQueryWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
             cursor: None,
             limit: Some(1),
             project_ids: Vec::new(),
@@ -7488,6 +8922,11 @@ mod tests {
         assert_eq!(first.rows.len(), 1);
         assert_eq!(first.total_matching_rows, 2);
         assert!(first.has_more);
+        assert_eq!(first.scope, FleetCatalogScopeWire::Presentation);
+        assert!(first
+            .next_cursor
+            .as_deref()
+            .is_some_and(|cursor| cursor.starts_with("catcur_v1:p:")));
         let second = select_fleet_catalog_page(
             &FleetCatalogQueryWire {
                 cursor: first.next_cursor,
@@ -7501,6 +8940,8 @@ mod tests {
 
         assert!(validate_fleet_catalog_query(&FleetCatalogQueryWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
             cursor: Some("../bad".to_string()),
             limit: Some(1),
             project_ids: Vec::new(),
@@ -7511,6 +8952,8 @@ mod tests {
         .is_err());
         assert!(validate_fleet_catalog_query(&FleetCatalogQueryWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
             cursor: None,
             limit: Some(FLEET_READ_MAX_PAGE_ROWS + 1),
             project_ids: Vec::new(),
@@ -7519,6 +8962,298 @@ mod tests {
             include_terminal: false,
         })
         .is_err());
+    }
+
+    #[test]
+    fn catalog_snapshot_identity_is_scope_and_stable_content_scoped() {
+        let alpha = project_resolved_agent_summary(&projection_request(
+            logical('a', "alpha"),
+            Some(exact('a', "alpha", "run-1")),
+            1,
+            record_running(),
+        ))
+        .unwrap();
+        let mut alpha_observed_later = alpha.clone();
+        alpha_observed_later.observed_at_unix += 60.0;
+        alpha_observed_later.freshness = ObservationFreshnessWire::Stale;
+        let same_content_id = catalog_snapshot_id(
+            FleetCatalogScopeWire::Presentation,
+            std::slice::from_ref(&alpha),
+        );
+        assert_eq!(
+            same_content_id,
+            catalog_snapshot_id(
+                FleetCatalogScopeWire::Presentation,
+                std::slice::from_ref(&alpha_observed_later),
+            )
+        );
+        assert_ne!(
+            same_content_id,
+            catalog_snapshot_id(
+                FleetCatalogScopeWire::History,
+                std::slice::from_ref(&alpha),
+            )
+        );
+        let empty =
+            catalog_snapshot_id(FleetCatalogScopeWire::Presentation, &[]);
+        assert_eq!(
+            empty,
+            catalog_snapshot_id(FleetCatalogScopeWire::Presentation, &[])
+        );
+
+        let mut beta_record = record_running();
+        beta_record.agent_meta.as_mut().unwrap().name =
+            Some("athena.beta".to_string());
+        let beta = project_resolved_agent_summary(&projection_request(
+            logical('a', "beta"),
+            Some(exact('a', "beta", "run-1")),
+            1,
+            beta_record,
+        ))
+        .unwrap();
+        assert_ne!(
+            same_content_id,
+            catalog_snapshot_id(
+                FleetCatalogScopeWire::Presentation,
+                std::slice::from_ref(&beta),
+            )
+        );
+
+        let mut revised_alpha = alpha.clone();
+        revised_alpha.row_revision.revision += 1;
+        assert_ne!(
+            same_content_id,
+            catalog_snapshot_id(
+                FleetCatalogScopeWire::Presentation,
+                std::slice::from_ref(&revised_alpha),
+            )
+        );
+    }
+
+    #[test]
+    fn catalog_cursor_scope_or_snapshot_mismatch_returns_restart_page() {
+        let alpha = project_resolved_agent_summary(&projection_request(
+            logical('a', "alpha"),
+            Some(exact('a', "alpha", "run-1")),
+            1,
+            record_running(),
+        ))
+        .unwrap();
+        let beta = project_resolved_agent_summary(&projection_request(
+            logical('a', "beta"),
+            Some(exact('a', "beta", "run-1")),
+            2,
+            record_running(),
+        ))
+        .unwrap();
+        let gamma = project_resolved_agent_summary(&projection_request(
+            logical('a', "gamma"),
+            Some(exact('a', "gamma", "run-1")),
+            3,
+            record_running(),
+        ))
+        .unwrap();
+        let query = FleetCatalogQueryWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(1),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        };
+        let first =
+            select_fleet_catalog_page(&query, &[alpha.clone(), beta]).unwrap();
+        let stale = select_fleet_catalog_page(
+            &FleetCatalogQueryWire {
+                cursor: first.next_cursor.clone(),
+                ..query.clone()
+            },
+            &[alpha.clone(), gamma.clone()],
+        )
+        .unwrap();
+        assert!(stale.rows.is_empty());
+        assert_eq!(
+            stale.state,
+            FleetCatalogContinuationStateWire::ResyncRequired
+        );
+        assert_eq!(
+            stale.reset_reason,
+            Some(FleetCatalogResetReasonWire::SnapshotMismatch)
+        );
+        assert!(stale.next_cursor.is_none());
+
+        let cross_scope = select_fleet_catalog_page(
+            &FleetCatalogQueryWire {
+                scope: FleetCatalogScopeWire::History,
+                cursor: first.next_cursor,
+                ..query
+            },
+            &[alpha, gamma],
+        )
+        .unwrap();
+        assert_eq!(
+            cross_scope.reset_reason,
+            Some(FleetCatalogResetReasonWire::ScopeMismatch)
+        );
+        assert!(validate_fleet_catalog_cursor("off:1").is_err());
+    }
+
+    #[test]
+    fn catalog_accumulation_uses_generations_and_snapshot_equality() {
+        let alpha = project_resolved_agent_summary(&projection_request(
+            logical('a', "alpha"),
+            Some(exact('a', "alpha", "run-1")),
+            1,
+            record_running(),
+        ))
+        .unwrap();
+        let beta = project_resolved_agent_summary(&projection_request(
+            logical('a', "beta"),
+            Some(exact('a', "beta", "run-1")),
+            2,
+            record_running(),
+        ))
+        .unwrap();
+        let rows = vec![alpha.clone(), beta.clone()];
+        let query = FleetCatalogQueryWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(1),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        };
+        let first_page = select_fleet_catalog_page(&query, &rows).unwrap();
+        let first_cursor = first_page.next_cursor.clone();
+        let first = accumulate_fleet_catalog_page(
+            &FleetCatalogAccumulationRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                current: None,
+                request_generation: 2,
+                requested_scope: FleetCatalogScopeWire::Presentation,
+                requested_snapshot_id: None,
+                requested_cursor: None,
+                incoming: catalog_response(first_page, &rows),
+            },
+        )
+        .unwrap();
+        assert_eq!(first.action, FleetCatalogAccumulationActionWire::Replaced);
+        assert_eq!(first.state.rows.len(), 1);
+
+        let older = accumulate_fleet_catalog_page(
+            &FleetCatalogAccumulationRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                current: Some(first.state.clone()),
+                request_generation: 1,
+                requested_scope: FleetCatalogScopeWire::Presentation,
+                requested_snapshot_id: first.state.snapshot_id.clone(),
+                requested_cursor: None,
+                incoming: catalog_response(
+                    select_fleet_catalog_page(&query, &[]).unwrap(),
+                    &[],
+                ),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            older.action,
+            FleetCatalogAccumulationActionWire::IgnoredOlderRequest
+        );
+        assert_eq!(older.state.rows, first.state.rows);
+
+        let second_page = select_fleet_catalog_page(
+            &FleetCatalogQueryWire {
+                cursor: first_cursor.clone(),
+                ..query.clone()
+            },
+            &rows,
+        )
+        .unwrap();
+        let merged = accumulate_fleet_catalog_page(
+            &FleetCatalogAccumulationRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                current: Some(first.state.clone()),
+                request_generation: 2,
+                requested_scope: FleetCatalogScopeWire::Presentation,
+                requested_snapshot_id: first.state.snapshot_id.clone(),
+                requested_cursor: first_cursor,
+                incoming: catalog_response(second_page, &rows),
+            },
+        )
+        .unwrap();
+        assert_eq!(merged.action, FleetCatalogAccumulationActionWire::Merged);
+        assert_eq!(merged.state.rows.len(), 2);
+
+        let mut revised_alpha = alpha.clone();
+        revised_alpha.row_revision.revision += 10;
+        let duplicate_page = FleetCatalogPageSelectionWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: merged.state.snapshot_id.clone().unwrap(),
+            rows: vec![revised_alpha.clone()],
+            limit: 1,
+            total_matching_rows: 2,
+            next_cursor: None,
+            has_more: false,
+            state: FleetCatalogContinuationStateWire::Finished,
+            reset_reason: None,
+        };
+        let revised = accumulate_fleet_catalog_page(
+            &FleetCatalogAccumulationRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                current: Some(merged.state.clone()),
+                request_generation: 2,
+                requested_scope: FleetCatalogScopeWire::Presentation,
+                requested_snapshot_id: merged.state.snapshot_id.clone(),
+                requested_cursor: Some(catalog_cursor(
+                    FleetCatalogScopeWire::Presentation,
+                    merged.state.snapshot_id.as_deref().unwrap(),
+                    1,
+                )),
+                incoming: catalog_response(duplicate_page, &rows),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            revised
+                .state
+                .rows
+                .iter()
+                .find(|row| row.logical_key == revised_alpha.logical_key)
+                .unwrap()
+                .row_revision
+                .revision,
+            revised_alpha.row_revision.revision
+        );
+
+        let replacement = accumulate_fleet_catalog_page(
+            &FleetCatalogAccumulationRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                current: Some(revised.state),
+                request_generation: 3,
+                requested_scope: FleetCatalogScopeWire::Presentation,
+                requested_snapshot_id: None,
+                requested_cursor: None,
+                incoming: catalog_response(
+                    select_fleet_catalog_page(&query, &[]).unwrap(),
+                    &[],
+                ),
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            replacement.action,
+            FleetCatalogAccumulationActionWire::Replaced
+        );
+        assert!(replacement.state.rows.is_empty());
+        assert_eq!(replacement.state.total_matching_rows, 0);
+        assert!(replacement.state.next_cursor.is_none());
     }
 
     #[test]

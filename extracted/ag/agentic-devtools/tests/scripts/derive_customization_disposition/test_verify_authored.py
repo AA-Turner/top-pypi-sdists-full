@@ -16,12 +16,45 @@ def test_nothing_authored_yet(tmp_path: Path) -> None:
 
 
 def test_authored_skill_is_matched(tmp_path: Path) -> None:
-    """A directory holding a `SKILL.md` is an authored skill."""
+    """A directory holding a correctly named `SKILL.md` is an authored skill."""
+    skill = tmp_path / ".agents" / "skills" / "agdt-example"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: agdt-example\n---\n# Example\n", encoding="utf-8")
+    authored, missing, unexpected = derive.verify_authored([row(target="agdt-example")], tmp_path)
+    assert (authored, missing, unexpected) == (["agdt-example"], [], [])
+
+
+def test_skill_without_name_is_not_matched(tmp_path: Path) -> None:
+    """A skill without a frontmatter name does not satisfy an authored target."""
     skill = tmp_path / ".agents" / "skills" / "agdt-example"
     skill.mkdir(parents=True)
     (skill / "SKILL.md").write_text("# Example\n", encoding="utf-8")
     authored, missing, unexpected = derive.verify_authored([row(target="agdt-example")], tmp_path)
-    assert (authored, missing, unexpected) == (["agdt-example"], [], [])
+    assert (authored, missing, unexpected) == ([], ["agdt-example"], [])
+
+
+def test_expected_non_agdt_skill_is_matched(tmp_path: Path) -> None:
+    """An expected non-`agdt-*` target name is still matched when authored."""
+    skill = tmp_path / ".agents" / "skills" / "ai-pr-loop-supervision"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: ai-pr-loop-supervision\n---\n# Example\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored([row(target="ai-pr-loop-supervision")], tmp_path)
+    assert (authored, missing, unexpected) == (["ai-pr-loop-supervision"], [], [])
+
+
+def test_non_agdt_subagent_target_ignores_skill_of_same_name(tmp_path: Path) -> None:
+    """A non-`agdt-*` subagent target is not satisfied by an unrelated same-named skill."""
+    skill = tmp_path / ".agents" / "skills" / "ai-pr-loop-supervision-admission"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("# Example\n", encoding="utf-8")
+    authored, missing, unexpected = derive.verify_authored(
+        [row(target="ai-pr-loop-supervision-admission", disposition="subagent")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == ([], ["ai-pr-loop-supervision-admission"], [])
 
 
 def test_authored_subagent_is_matched(tmp_path: Path) -> None:
@@ -34,6 +67,67 @@ def test_authored_subagent_is_matched(tmp_path: Path) -> None:
         tmp_path,
     )
     assert (authored, missing, unexpected) == (["agdt-example"], [], [])
+
+
+def test_frontmatter_name_matches_authored_subagent(tmp_path: Path) -> None:
+    """A valid frontmatter name matches an authored subagent independently of its filename."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt.ai-pr-loop-supervision.worker.agent.md").write_text(
+        "---\nname: ai-pr-loop-supervision-worker\n---\n# Worker\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored(
+        [row(target="ai-pr-loop-supervision-worker", disposition="subagent")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == (["ai-pr-loop-supervision-worker"], [], [])
+
+
+def test_legacy_namespace_with_non_agdt_frontmatter_is_unexpected(tmp_path: Path) -> None:
+    """A legacy-namespaced agent with a non-`agdt-*` target remains visible to verification."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt.ai-pr-loop-supervision.workflow-monitor.agent.md").write_text(
+        "---\nname: ai-pr-loop-workflow-monitor\n---\n# Monitor\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored(
+        [row(disposition="delete", target="-", slug="agdt.ai-pr-loop-supervision.workflow-monitor")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == (["ai-pr-loop-workflow-monitor"], [], ["ai-pr-loop-workflow-monitor"])
+
+
+def test_invalid_frontmatter_name_does_not_fall_back_to_filename(tmp_path: Path) -> None:
+    """An invalid declared name leaves the expected target unsatisfied."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt-example.agent.md").write_text(
+        "---\nname: invalid_name\n---\n# Example\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored(
+        [row(target="agdt-example", disposition="subagent")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == ([], ["agdt-example"], [])
+
+
+@pytest.mark.parametrize("declaration", ["name:\n", "name: # no target\n"])
+def test_empty_frontmatter_name_does_not_fall_back_to_filename(tmp_path: Path, declaration: str) -> None:
+    """An empty declared name leaves the expected target unsatisfied."""
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt-example.agent.md").write_text(
+        f"---\n{declaration}---\n# Example\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored(
+        [row(target="agdt-example", disposition="subagent")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == ([], ["agdt-example"], [])
 
 
 def test_legacy_dot_named_agent_is_ignored(tmp_path: Path) -> None:
@@ -52,7 +146,7 @@ def test_unexpected_authored_unit_is_reported(tmp_path: Path) -> None:
     """A skill this map does not expect is a divergence worth failing on."""
     skill = tmp_path / ".agents" / "skills" / "agdt-surprise"
     skill.mkdir(parents=True)
-    (skill / "SKILL.md").write_text("# Surprise\n", encoding="utf-8")
+    (skill / "SKILL.md").write_text("---\nname: agdt-surprise\n---\n# Surprise\n", encoding="utf-8")
     _, _, unexpected = derive.verify_authored([row(disposition="delete", target="-")], tmp_path)
     assert unexpected == ["agdt-surprise"]
 
@@ -61,7 +155,7 @@ def test_existing_skill_for_deleted_wrapper_is_reported_unexpected(tmp_path: Pat
     """A deleted wrapper does not exempt a same-named authored skill from verification."""
     skill = tmp_path / ".agents" / "skills" / "agdt-example"
     skill.mkdir(parents=True)
-    (skill / "SKILL.md").write_text("# Example\n", encoding="utf-8")
+    (skill / "SKILL.md").write_text("---\nname: agdt-example\n---\n# Example\n", encoding="utf-8")
     authored, missing, unexpected = derive.verify_authored(
         [
             row(
@@ -101,7 +195,7 @@ def test_duplicate_claims_raise(tmp_path: Path) -> None:
     agent = tmp_path / ".github" / "agents"
     skill.mkdir(parents=True)
     agent.mkdir(parents=True)
-    (skill / "SKILL.md").write_text("# One\n", encoding="utf-8")
+    (skill / "SKILL.md").write_text("---\nname: agdt-example\n---\n# One\n", encoding="utf-8")
     (agent / "agdt-example.agent.md").write_text("# Two\n", encoding="utf-8")
     with pytest.raises(ValueError, match="multiple authored artifacts"):
         derive.verify_authored([row(target="agdt-example", disposition="skill")], tmp_path)

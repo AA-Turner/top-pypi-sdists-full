@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timezonefinder
-Version: 8.3.0
+Version: 9.0.0
 Summary: python package for finding the timezone of any point on earth (coordinates) offline
 Author-email: jannikmi <github@michelfe.it>
 License: The MIT License (MIT)
@@ -46,9 +46,8 @@ Requires-Dist: numpy>=2
 Requires-Dist: h3>=4
 Requires-Dist: cffi<3,>=1.15.1
 Requires-Dist: flatbuffers>=25.2.10
-Requires-Dist: timezonefinder-data<2,>=1.2026.3
+Requires-Dist: timezonefinder-data<4,>=3.2026.3.post1
 Provides-Extra: numba
-Requires-Dist: numpy<2.4; extra == "numba"
 Requires-Dist: numba<1,>=0.60; extra == "numba"
 Provides-Extra: pytz
 Requires-Dist: pytz>=2022.7.1; extra == "pytz"
@@ -111,11 +110,11 @@ It combines preprocessed polygon data, H3-based spatial shortcuts, and optional 
 Quick Guide
 -----------
 
-It is recommended to install it together with the optional `Numba <https://numba.pydata.org/>`__ package for increased performance:
-
 .. code-block:: console
 
-    pip install timezonefinder[numba]
+    pip install timezonefinder
+
+This compiles a small C extension for the point-in-polygon test. The optional `Numba <https://numba.pydata.org/>`__ extra (``pip install timezonefinder[numba]``) replaces that extension with a JIT-compiled kernel and takes precedence over it - a dispatch rule, not a promise of more speed. The `acceleration path comparison <https://timezonefinder.readthedocs.io/en/latest/benchmark_results_acceleration_paths.html>`__ measures all three against each other and is regenerated with every report; check it before adding the extra.
 
 The timezone boundary data is installed automatically as the separate ``timezonefinder-data`` distribution, so that a new dataset ships without a new ``timezonefinder`` release. Pin it to hold a deployment to one dataset - the `release history <https://pypi.org/project/timezonefinder-data/#history>`__ lists the versions to choose from: ``pip install timezonefinder "timezonefinder-data==<version>"``.
 
@@ -128,14 +127,20 @@ The timezone boundary data is installed automatically as the separate ``timezone
     tz = timezone_at(lng=13.358, lat=52.5061)  # 'Europe/Berlin'
 
 
-    # For improved performance and control, create and reuse an instance:
+    # For improved performance and control, reuse one instance for the whole job.
+    # The context manager releases its coordinate data even if the job raises:
     from timezonefinder import TimezoneFinder
 
-    tf = TimezoneFinder(in_memory=True)  # reuse
+    with TimezoneFinder(in_memory=True) as tf:
+        tz = tf.timezone_at(lng=13.358, lat=52.5061)  # 'Europe/Berlin'
 
-    query_points = [(13.358, 52.5061), ...]
-    for lng, lat in query_points:
-        tz = tf.timezone_at(lng=lng, lat=lat)  # 'Europe/Berlin'
+        # Many coordinates at once, one array per axis - ids for a caller that maps
+        # them itself, names for one that does not:
+        lngs = [13.358, 2.3522]
+        lats = [52.5061, 48.8566]
+        zone_ids = tf.timezone_ids_at(lngs=lngs, lats=lats)
+        names = tf.timezone_names_at(lngs=lngs, lats=lats)
+        # ['Europe/Berlin', 'Europe/Paris']
 
 
 **Note:** This library uses the full original timezone dataset with all >440 timezone names, providing full localization capabilities and historical timezone accuracy. For applications that prefer a smaller memory footprint, the reduced "timezones-now" dataset is available via the ``update_data.sh`` script (cf. `Documentation <https://timezonefinder.readthedocs.io/en/latest/data_format.html#alternative-dataset-options>`__).
@@ -144,8 +149,8 @@ The timezone boundary data is installed automatically as the separate ``timezone
 How it works
 ------------
 
-A lookup scales the coordinates to 32-bit integers (x 10^7, ~1 cm resolution), finds the point's
-H3 hexagon at resolution 3, and reads a precomputed shortcut for that cell. Most cells are covered
+A lookup scales the coordinates to 32-bit integers (x 10^7, ~1.1 cm steps), finds the point's
+H3 hexagon at resolution 4, and reads a precomputed shortcut for that cell. Most cells are covered
 by a single timezone, so the answer is returned immediately with no geometry touched at all. Only
 an ambiguous cell falls through to the polygons it lists: bounding-box rejection first, then a
 ray-casting point-in-polygon test - holes before the outer ring, since holes are smaller and can
@@ -168,8 +173,10 @@ this page, which would go stale.
 
 The point-in-polygon routine has three interchangeable backends, selected at import time: a
 clang-compiled C extension (built automatically when a compiler is available), Numba JIT
-compilation (preferred when the optional dependency is installed), and pure Python. The pure-Python
-fallback is ~400x slower and always correct - a missing compiler costs speed, never results.
+compilation (preferred when the optional dependency is installed), and pure Python. All three return
+identical answers - a missing compiler costs speed, never results. Which is fastest is measured, not
+assumed: see the `acceleration path comparison
+<https://timezonefinder.readthedocs.io/en/latest/benchmark_results_acceleration_paths.html>`__.
 
 * `benchmark trend chart <https://jannikmi.github.io/timezonefinder/dev/bench/>`__ - appended to on every push to ``master``
 * `benchmark reports <https://timezonefinder.readthedocs.io/en/latest/7_performance.html>`__ - lookup, point-in-polygon, initialization and memory

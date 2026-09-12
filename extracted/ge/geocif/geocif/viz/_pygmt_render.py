@@ -32,36 +32,61 @@ import json
 import tempfile
 
 import geopandas as gpd
-import pygmt
 
-# ---------------------------------------------------------------------------
-# Shared style. These are the look-and-feel of every geocif choropleth; other
-# renderers (viz/s2s_africa.py) import them rather than restating the values,
-# so the two families cannot drift apart.
-# ---------------------------------------------------------------------------
-#: Background coast. No `land=` fill: the map's white ground is what makes the
-#: choropleth read as the only data on it, and a grey landmass competes with a
-#: grey no-data class.
-COAST_KW = dict(shorelines="0.3p,gray60", borders="1/0.2p,gray70",
-                area_thresh=5000)
-#: Admin-unit outline. Heavy enough to separate neighbours at a glance.
-POLY_PEN = "0.4p,black"
-#: National outline, drawn AFTER the choropleth so it sits on top of it.
-BORDER_PEN = "2/0.7p,black"
-#: Horizontal colorbar under the frame.
-CBAR_POS = "JBC+w12c/0.35c+h"
-#: Region annotations: name above the centroid, value below (GMT text has no
-#: reliable newline, so two offset calls).
-ANNOT_FONT = "8p,Helvetica,black"
-ANNOT_VAL_FONT = "7p,Helvetica-Oblique,black"
-ANNOT_BOX = dict(fill="white@30", pen="0.2p,gray40")
-ANNOT_OFFSET = "0c/0.16c"
-#: Region excluded from the analysis. Never white, which reads as water.
-NODATA = "#d9d9d9"
+# The shared style constants live in the stdlib-only viz/_style.py so that
+# GMT-free modules can import them too. The dual import keeps THIS file
+# runnable both in-package and as a standalone script in the pygmt bridge
+# env (same directory on sys.path, no geocif installed there).
+try:
+    from geocif.viz._style import (
+        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
+        ANNOT_VAL_OFFSET, AREA_THRESH, BORDER_PEN, CBAR_POS, COAST_KW,
+        NODATA, POLY_PEN)
+except ImportError:  # standalone: `python _pygmt_render.py ...`
+    from _style import (
+        ANNOT_BOX, ANNOT_FONT, ANNOT_OFFSET, ANNOT_VAL_FONT,
+        ANNOT_VAL_OFFSET, AREA_THRESH, BORDER_PEN, CBAR_POS, COAST_KW,
+        NODATA, POLY_PEN)
+
+
+def annotate_centroids(fig, gdf, label_col, val_col=None, fmt="{}",
+                       font=ANNOT_FONT, val_font=ANNOT_VAL_FONT):
+    """Name above the polygon centroid, value below it.
+
+    The one annotation loop for both map families — the two drifted copies
+    disagreed on the empty-centroid guard (a geometry reduced to nothing
+    by simplify() crashes fig.text) and hand-mirrored the value offset.
+    A name with no drawable value sits centred, un-offset.
+    """
+    import pandas as pd
+
+    for _, row in gdf.iterrows():
+        c = row["geometry"].centroid
+        if c.is_empty:
+            continue
+        lbl = str(row[label_col])
+        val = row[val_col] if val_col else None
+        if val is not None and pd.notna(val):
+            txt = val if isinstance(val, str) else fmt.format(val)
+            if str(txt).lower() not in ("", "nan"):
+                fig.text(x=c.x, y=c.y, text=lbl, font=font,
+                         offset=ANNOT_OFFSET, **ANNOT_BOX)
+                fig.text(x=c.x, y=c.y, text=str(txt), font=val_font,
+                         offset=ANNOT_VAL_OFFSET, **ANNOT_BOX)
+                continue
+        fig.text(x=c.x, y=c.y, text=lbl, font=font, **ANNOT_BOX)
 
 
 def render(geojson_path, params):
-    """Render the choropleth described by ``geojson_path`` + ``params`` dict."""
+    """Render the choropleth described by ``geojson_path`` + ``params`` dict.
+
+    pygmt is imported HERE, not at module scope, so importing this module
+    needs no GMT C library — which is what the header has always claimed
+    and what lets the style constants and :func:`annotate_centroids` be
+    shared with GMT-free callers (and tested off-cluster).
+    """
+    import pygmt
+
     gdf = gpd.read_file(geojson_path)
     p = params
     fig = pygmt.Figure()
@@ -107,24 +132,11 @@ def render(geojson_path, params):
                          frame=(f"x+l{label}" if label else "af"))
 
         if p.get("annotate") and "_label" in gdf.columns:
-            font = p.get("annot_font", ANNOT_FONT)
-            val_font = p.get("annot_val_font", ANNOT_VAL_FONT)
-            has_val = "_label_val" in gdf.columns
-            for _, row in gdf.iterrows():
-                c = row["geometry"].centroid
-                if c.is_empty:
-                    continue
-                lbl = str(row["_label"])
-                val = str(row["_label_val"]) if has_val else ""
-                if val and val.lower() != "nan":
-                    # Region name on top, metric value below the centroid
-                    # (GMT text has no reliable newline, so two offset calls).
-                    fig.text(x=c.x, y=c.y, text=lbl, font=font,
-                             offset=ANNOT_OFFSET, **ANNOT_BOX)
-                    fig.text(x=c.x, y=c.y, text=val, font=val_font,
-                             offset="0c/-0.16c", **ANNOT_BOX)
-                else:
-                    fig.text(x=c.x, y=c.y, text=lbl, font=font, **ANNOT_BOX)
+            annotate_centroids(
+                fig, gdf, "_label",
+                val_col="_label_val" if "_label_val" in gdf.columns else None,
+                font=p.get("annot_font", ANNOT_FONT),
+                val_font=p.get("annot_val_font", ANNOT_VAL_FONT))
 
         os.makedirs(os.path.dirname(p["out_path"]) or ".", exist_ok=True)
         fig.savefig(p["out_path"], dpi=p.get("dpi", 350))

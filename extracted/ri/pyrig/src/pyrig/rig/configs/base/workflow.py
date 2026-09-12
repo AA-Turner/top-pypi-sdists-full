@@ -10,11 +10,13 @@ from pyrig_runtime.core.strings import snake_to_kebab_case
 from ruamel.yaml.comments import CommentedMap
 
 from pyrig.core.iterate import deep_sorted_dict, traverse_structure
+from pyrig.core.resources import resource_content
 from pyrig.core.strings import (
     reformat_name,
     split_on_uppercase,
 )
 from pyrig.core.subprocesses import Args
+from pyrig.rig import resources
 from pyrig.rig.configs.base.yaml import YMLDictConfigFile
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tools.linting.shell import ShellLinter
@@ -711,12 +713,12 @@ class WorkflowConfigFile(YMLDictConfigFile):
         ]
 
     def checkout_action(self) -> str:
-        """Return the `actions/checkout` action slug.
+        """Return the pinned `actions/checkout` action reference.
 
         Returns:
-            The `"actions/checkout"` action slug.
+            The `"actions/checkout@<sha>"` action reference.
         """
-        return "actions/checkout"
+        return f"actions/checkout@{self.checkout_action_sha()}"
 
     def checkout_action_sha(self) -> str:
         """Return the pinned commit SHA for `actions/checkout`.
@@ -724,7 +726,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
         Returns:
             Commit SHA `actions/checkout` is pinned to.
         """
-        return "3d3c42e5aac5ba805825da76410c181273ba90b1"  # pragma: allowlist secret
+        return resource_content(
+            self.checkout_action_sha.__name__.upper(),
+            resources,
+        ).strip()
 
     def step_checkout_repository(self) -> dict[str, Any]:
         """Build a step that checks out the repository.
@@ -740,17 +745,17 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.step(
             self.step_checkout_repository,
-            uses=f"{self.checkout_action()}@{self.checkout_action_sha()}",
+            uses=self.checkout_action(),
             with_={"persist-credentials": False},
         )
 
     def setup_uv_action(self) -> str:
-        """Return the `astral-sh/setup-uv` action slug.
+        """Return the pinned `astral-sh/setup-uv` action reference.
 
         Returns:
-            The `"astral-sh/setup-uv"` action slug.
+            The `"astral-sh/setup-uv@<sha>"` action reference.
         """
-        return "astral-sh/setup-uv"
+        return f"astral-sh/setup-uv@{self.setup_uv_action_sha()}"
 
     def setup_uv_action_sha(self) -> str:
         """Return the pinned commit SHA for `astral-sh/setup-uv`.
@@ -758,7 +763,10 @@ class WorkflowConfigFile(YMLDictConfigFile):
         Returns:
             Commit SHA `astral-sh/setup-uv` is pinned to.
         """
-        return "20cfd1bf945f4377ade1205e4dbc17946fc9a30d"  # pragma: allowlist secret
+        return resource_content(
+            self.setup_uv_action_sha.__name__.upper(),
+            resources,
+        ).strip()
 
     def step_setup_package_manager(
         self,
@@ -780,7 +788,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return self.step(
             self.step_setup_package_manager,
-            uses=f"{self.setup_uv_action()}@{self.setup_uv_action_sha()}",
+            uses=self.setup_uv_action(),
             with_={"python-version": python_version},
         )
 

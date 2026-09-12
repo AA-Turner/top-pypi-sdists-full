@@ -3,7 +3,7 @@
 A run is asynchronous: `create` returns at once with the run in `pending`
 state, and the caller polls `get` (or lets `wait` / `create_and_wait` poll)
 until `status` reaches a terminal state — completed, failed, or cancelled.
-Runs typically take a few minutes and at most around 45.
+Runs take minutes; how many depends on the `effort` level.
 
 Unlike the wrapper responses the monitor service returns, `create`, `get`,
 `cancel` and the waiters return the bare `AgentRun` envelope: the per-RPC
@@ -56,11 +56,16 @@ def _output_schema(output_schema: OutputSchemaInput) -> str:
 
 
 def _create_request(
-    api_key: str, query: str, output_schema: Union[OutputSchemaInput, None, Omit]
+    api_key: str,
+    query: str,
+    output_schema: Union[OutputSchemaInput, None, Omit],
+    effort: Union[str, None, Omit],
 ) -> Any:
     request = agent_pb2.CreateAgentRunRequest(query=query, api_key=api_key)
     if is_given(output_schema) and output_schema is not None:
         request.output_schema = _output_schema(output_schema)
+    if is_given(effort) and effort is not None:
+        request.effort = effort
     return request
 
 
@@ -107,6 +112,7 @@ class AgentService:
         query: str,
         *,
         output_schema: Union[OutputSchemaInput, None, Omit] = OMIT,
+        effort: Union[str, None, Omit] = OMIT,
     ) -> agent_pb2.AgentRun:
         """Start a run. Returns the AgentRun envelope in `pending` state; poll
         `get` with its id (or use `create_and_wait`).
@@ -114,8 +120,14 @@ class AgentService:
         `output_schema` is an optional OpenAI-style `response_format` object
         (dict or JSON string) requesting structured output; it adds
         `output.structured` and its `grounding` alongside the cited text
-        answer. The request is validated before anything is billed."""
-        request = _create_request(self._api_key, query, output_schema)
+        answer.
+
+        `effort` is how much research the run may do, and its price: one of
+        the deployment's level names (e.g. `low`, `medium`, `high`, `max`).
+        Omitted, the run uses the default level.
+
+        The request is validated before anything is billed."""
+        request = _create_request(self._api_key, query, output_schema, effort)
         try:
             response = self._stub.CreateAgentRun(
                 request, timeout=DEFAULT_TIMEOUT_SECONDS
@@ -188,12 +200,13 @@ class AgentService:
         query: str,
         *,
         output_schema: Union[OutputSchemaInput, None, Omit] = OMIT,
+        effort: Union[str, None, Omit] = OMIT,
         poll_interval: float = DEFAULT_POLL_INTERVAL_SECONDS,
         timeout: Optional[float] = None,
     ) -> agent_pb2.AgentRun:
         """`create` then `wait` in one call: start a run and return it once it
         reaches a terminal state. See both for the arguments' meaning."""
-        run = self.create(query, output_schema=output_schema)
+        run = self.create(query, output_schema=output_schema, effort=effort)
         return self.wait(run.id, poll_interval=poll_interval, timeout=timeout)
 
 
@@ -213,6 +226,7 @@ class AsyncAgentService(AgentService):
         query: str,
         *,
         output_schema: Union[OutputSchemaInput, None, Omit] = OMIT,
+        effort: Union[str, None, Omit] = OMIT,
     ) -> agent_pb2.AgentRun:
         """Start a run. Returns the AgentRun envelope in `pending` state; poll
         `get` with its id (or use `create_and_wait`).
@@ -220,8 +234,14 @@ class AsyncAgentService(AgentService):
         `output_schema` is an optional OpenAI-style `response_format` object
         (dict or JSON string) requesting structured output; it adds
         `output.structured` and its `grounding` alongside the cited text
-        answer. The request is validated before anything is billed."""
-        request = _create_request(self._api_key, query, output_schema)
+        answer.
+
+        `effort` is how much research the run may do, and its price: one of
+        the deployment's level names (e.g. `low`, `medium`, `high`, `max`).
+        Omitted, the run uses the default level.
+
+        The request is validated before anything is billed."""
+        request = _create_request(self._api_key, query, output_schema, effort)
         try:
             response = await self._stub.CreateAgentRun(
                 request, timeout=DEFAULT_TIMEOUT_SECONDS
@@ -298,10 +318,11 @@ class AsyncAgentService(AgentService):
         query: str,
         *,
         output_schema: Union[OutputSchemaInput, None, Omit] = OMIT,
+        effort: Union[str, None, Omit] = OMIT,
         poll_interval: float = DEFAULT_POLL_INTERVAL_SECONDS,
         timeout: Optional[float] = None,
     ) -> agent_pb2.AgentRun:
         """`create` then `wait` in one call: start a run and return it once it
         reaches a terminal state. See both for the arguments' meaning."""
-        run = await self.create(query, output_schema=output_schema)
+        run = await self.create(query, output_schema=output_schema, effort=effort)
         return await self.wait(run.id, poll_interval=poll_interval, timeout=timeout)

@@ -3427,6 +3427,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def brokerage_data(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
+        """
+        Gets a read-only view of the brokerage data shared by the brokerage, data queue handler or any other component,
+        for example account information. Usually empty when not running in live mode
+        """
+        ...
+
+    @property
     def statistics(self) -> QuantConnect.Statistics.StatisticsResults:
         """The current statistics for the running algorithm."""
         ...
@@ -7039,6 +7047,14 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         the benchmark at each date/time requested
         
         :param benchmark: The benchmark producing function
+        """
+        ...
+
+    def set_brokerage_data(self, brokerage_data: Common.Util.ReadOnlyExtendedDictionary[str, str]) -> None:
+        """
+        Sets the brokerage data read-only view. Can only be set once, it's shared by the engine
+        
+        :param brokerage_data: The brokerage data
         """
         ...
 

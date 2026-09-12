@@ -18,6 +18,7 @@ from arthur_client.api_bindings.models.agent import Agent
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.agent_metadata import AgentMetadata
 from arthur_client.api_bindings.models.agent_metadata_response import AgentMetadataResponse
+from arthur_client.api_bindings.models.agent_observations import AgentObservations
 from arthur_client.api_bindings.models.agent_response import AgentResponse
 from arthur_client.api_bindings.models.agent_sort import AgentSort
 from arthur_client.api_bindings.models.aggregation_kind import AggregationKind
@@ -59,6 +60,7 @@ from arthur_client.api_bindings.models.bound_member_kind import BoundMemberKind
 from arthur_client.api_bindings.models.bound_resource import BoundResource
 from arthur_client.api_bindings.models.bound_resource_kind import BoundResourceKind
 from arthur_client.api_bindings.models.bound_role import BoundRole
+from arthur_client.api_bindings.models.cloud_agent_creation_source import CloudAgentCreationSource
 from arthur_client.api_bindings.models.compliance_alert_rule_results import ComplianceAlertRuleResults
 from arthur_client.api_bindings.models.compliance_alert_summary import ComplianceAlertSummary
 from arthur_client.api_bindings.models.compliance_attestation_rule_results import ComplianceAttestationRuleResults
@@ -140,6 +142,20 @@ from arthur_client.api_bindings.models.delete_group_membership import DeleteGrou
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
+from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
+from arthur_client.api_bindings.models.discovery_source import DiscoverySource
+from arthur_client.api_bindings.models.discovery_source_availability import DiscoverySourceAvailability
+from arthur_client.api_bindings.models.discovery_source_class import DiscoverySourceClass
+from arthur_client.api_bindings.models.discovery_source_config import DiscoverySourceConfig
+from arthur_client.api_bindings.models.discovery_source_config_sort import DiscoverySourceConfigSort
+from arthur_client.api_bindings.models.discovery_source_field import DiscoverySourceField
+from arthur_client.api_bindings.models.discovery_source_field_data_type import DiscoverySourceFieldDataType
+from arthur_client.api_bindings.models.discovery_source_health import DiscoverySourceHealth
+from arthur_client.api_bindings.models.discovery_source_non_sensitive_field import DiscoverySourceNonSensitiveField
+from arthur_client.api_bindings.models.discovery_source_sort import DiscoverySourceSort
+from arthur_client.api_bindings.models.discovery_source_type_schema import DiscoverySourceTypeSchema
+from arthur_client.api_bindings.models.discovery_source_type_schema_field import DiscoverySourceTypeSchemaField
+from arthur_client.api_bindings.models.discovery_source_vendor import DiscoverySourceVendor
 from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
 from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.eval_config import EvalConfig
@@ -149,7 +165,8 @@ from arthur_client.api_bindings.models.examples_config import ExamplesConfig
 from arthur_client.api_bindings.models.extended_role import ExtendedRole
 from arthur_client.api_bindings.models.fetch_data_job_spec import FetchDataJobSpec
 from arthur_client.api_bindings.models.fetch_model_task_job_spec import FetchModelTaskJobSpec
-from arthur_client.api_bindings.models.gcp_agent_creation_source import GCPAgentCreationSource
+from arthur_client.api_bindings.models.gcp_agent_creation_source_input import GCPAgentCreationSourceInput
+from arthur_client.api_bindings.models.gcp_agent_creation_source_output import GCPAgentCreationSourceOutput
 from arthur_client.api_bindings.models.gcp_agent_metadata import GCPAgentMetadata
 from arthur_client.api_bindings.models.gcp_agent_metadata_response import GCPAgentMetadataResponse
 from arthur_client.api_bindings.models.generate_metrics_spec_request import GenerateMetricsSpecRequest
@@ -193,7 +210,8 @@ from arthur_client.api_bindings.models.llm_model_response import LLMModelRespons
 from arthur_client.api_bindings.models.list_datasets_job_spec import ListDatasetsJobSpec
 from arthur_client.api_bindings.models.list_type import ListType
 from arthur_client.api_bindings.models.logit_bias_item import LogitBiasItem
-from arthur_client.api_bindings.models.manual_agent_creation_source import ManualAgentCreationSource
+from arthur_client.api_bindings.models.manual_agent_creation_source_input import ManualAgentCreationSourceInput
+from arthur_client.api_bindings.models.manual_agent_creation_source_output import ManualAgentCreationSourceOutput
 from arthur_client.api_bindings.models.metric_response import MetricResponse
 from arthur_client.api_bindings.models.metric_type import MetricType
 from arthur_client.api_bindings.models.metrics_arg_spec import MetricsArgSpec
@@ -226,10 +244,12 @@ from arthur_client.api_bindings.models.numeric_custom_aggregation_test_result im
 from arthur_client.api_bindings.models.numeric_metric import NumericMetric
 from arthur_client.api_bindings.models.numeric_point import NumericPoint
 from arthur_client.api_bindings.models.numeric_time_series import NumericTimeSeries
-from arthur_client.api_bindings.models.otel_agent_creation_source import OTELAgentCreationSource
+from arthur_client.api_bindings.models.otel_agent_creation_source_input import OTELAgentCreationSourceInput
+from arthur_client.api_bindings.models.otel_agent_creation_source_output import OTELAgentCreationSourceOutput
 from arthur_client.api_bindings.models.object_type import ObjectType
 from arthur_client.api_bindings.models.object_value import ObjectValue
 from arthur_client.api_bindings.models.organization import Organization
+from arthur_client.api_bindings.models.output_column_check_result import OutputColumnCheckResult
 from arthur_client.api_bindings.models.pii_config import PIIConfig
 from arthur_client.api_bindings.models.pagination import Pagination
 from arthur_client.api_bindings.models.patch_alert_rule import PatchAlertRule
@@ -240,6 +260,8 @@ from arthur_client.api_bindings.models.patch_data_plane import PatchDataPlane
 from arthur_client.api_bindings.models.patch_data_plane_capabilities import PatchDataPlaneCapabilities
 from arthur_client.api_bindings.models.patch_dataset import PatchDataset
 from arthur_client.api_bindings.models.patch_dataset_locator import PatchDatasetLocator
+from arthur_client.api_bindings.models.patch_discovery_source import PatchDiscoverySource
+from arthur_client.api_bindings.models.patch_discovery_source_config import PatchDiscoverySourceConfig
 from arthur_client.api_bindings.models.patch_group import PatchGroup
 from arthur_client.api_bindings.models.patch_job import PatchJob
 from arthur_client.api_bindings.models.patch_model import PatchModel
@@ -289,6 +311,9 @@ from arthur_client.api_bindings.models.post_data_plane_association import PostDa
 from arthur_client.api_bindings.models.post_data_retrieval_operation import PostDataRetrievalOperation
 from arthur_client.api_bindings.models.post_dataset import PostDataset
 from arthur_client.api_bindings.models.post_dataset_join_spec import PostDatasetJoinSpec
+from arthur_client.api_bindings.models.post_discovery_source import PostDiscoverySource
+from arthur_client.api_bindings.models.post_discovery_source_config import PostDiscoverySourceConfig
+from arthur_client.api_bindings.models.post_discovery_source_config_engines import PostDiscoverySourceConfigEngines
 from arthur_client.api_bindings.models.post_end_user import PostEndUser
 from arthur_client.api_bindings.models.post_global_role_binding import PostGlobalRoleBinding
 from arthur_client.api_bindings.models.post_group import PostGroup
@@ -357,6 +382,9 @@ from arthur_client.api_bindings.models.resource_list_data_plane import ResourceL
 from arthur_client.api_bindings.models.resource_list_data_plane_association import ResourceListDataPlaneAssociation
 from arthur_client.api_bindings.models.resource_list_data_source import ResourceListDataSource
 from arthur_client.api_bindings.models.resource_list_dataset import ResourceListDataset
+from arthur_client.api_bindings.models.resource_list_discovery_source import ResourceListDiscoverySource
+from arthur_client.api_bindings.models.resource_list_discovery_source_config import ResourceListDiscoverySourceConfig
+from arthur_client.api_bindings.models.resource_list_discovery_source_type_schema import ResourceListDiscoverySourceTypeSchema
 from arthur_client.api_bindings.models.resource_list_group import ResourceListGroup
 from arthur_client.api_bindings.models.resource_list_group_membership import ResourceListGroupMembership
 from arthur_client.api_bindings.models.resource_list_job_error import ResourceListJobError
@@ -387,6 +415,7 @@ from arthur_client.api_bindings.models.role_sort import RoleSort
 from arthur_client.api_bindings.models.rule_response import RuleResponse
 from arthur_client.api_bindings.models.rule_scope import RuleScope
 from arthur_client.api_bindings.models.rule_type import RuleType
+from arthur_client.api_bindings.models.siem_agent_creation_source import SIEMAgentCreationSource
 from arthur_client.api_bindings.models.scalar_type import ScalarType
 from arthur_client.api_bindings.models.schedule_jobs_job_spec import ScheduleJobsJobSpec
 from arthur_client.api_bindings.models.schema_inspection_job_spec import SchemaInspectionJobSpec
@@ -400,6 +429,7 @@ from arthur_client.api_bindings.models.sketch_metric import SketchMetric
 from arthur_client.api_bindings.models.sketch_point import SketchPoint
 from arthur_client.api_bindings.models.sketch_time_series import SketchTimeSeries
 from arthur_client.api_bindings.models.sort_order import SortOrder
+from arthur_client.api_bindings.models.source_address import SourceAddress
 from arthur_client.api_bindings.models.sub_agent import SubAgent
 from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
 from arthur_client.api_bindings.models.task_connection_info import TaskConnectionInfo

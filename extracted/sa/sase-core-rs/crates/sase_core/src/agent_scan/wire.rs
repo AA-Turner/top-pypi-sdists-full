@@ -65,6 +65,16 @@ pub struct AgentArtifactScanOptionsWire {
     pub only_projects: Vec<String>,
     #[serde(default)]
     pub include_project_states: Vec<String>,
+    /// When true, skip artifact dirs carrying a `done` marker before
+    /// parsing any of their other marker files, and skip marker files not
+    /// consumed by the runner-slot capacity snapshot (`plan_path.json`,
+    /// `xprompts.json`) even for dirs that are still scanned. Purely a scan
+    /// cost optimization: the returned record shape is unchanged, and every
+    /// field the capacity snapshot consumes (`agent_meta`, `running`,
+    /// `waiting`, `workflow_state`, `pending_question`) is still parsed for
+    /// non-done dirs.
+    #[serde(default)]
+    pub capacity_only: bool,
 }
 
 impl Default for AgentArtifactScanOptionsWire {
@@ -82,6 +92,7 @@ impl Default for AgentArtifactScanOptionsWire {
             include_waiting: true,
             only_projects: Vec::new(),
             include_project_states: Vec::new(),
+            capacity_only: false,
         }
     }
 }
@@ -202,6 +213,22 @@ pub struct DoneMarkerWire {
     /// `monitor_*` / `gate_*` fields. `None` when the record is neither.
     #[serde(default)]
     pub family_shell: Option<FamilyShellWire>,
+    #[serde(default)]
+    pub monitor_diagnostic_manifest_ref: Option<String>,
+    #[serde(default)]
+    pub monitor_retained_log_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_monitor_result_id: Option<String>,
+    #[serde(default)]
+    pub continuation_monitor_result_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_node_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_manifest_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_budget_decision_path: Option<String>,
+    #[serde(default)]
+    pub monitor_followup_budget_decision_path: Option<String>,
 }
 
 /// Bounded JSON value stored under `agent_meta.json::output_variables`.
@@ -565,6 +592,8 @@ pub struct AgentMetaWire {
     #[serde(default)]
     pub queue_weight_error: Option<String>,
     #[serde(default)]
+    pub runner_claim_owner_key: Option<String>,
+    #[serde(default)]
     pub wait_completed_at: Option<String>,
     #[serde(default)]
     pub plan_submitted_at: Vec<String>,
@@ -596,6 +625,22 @@ pub struct AgentMetaWire {
     /// `monitor_*` / `gate_*` fields. `None` when the record is neither.
     #[serde(default)]
     pub family_shell: Option<FamilyShellWire>,
+    #[serde(default)]
+    pub monitor_diagnostic_manifest_ref: Option<String>,
+    #[serde(default)]
+    pub monitor_retained_log_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_monitor_result_id: Option<String>,
+    #[serde(default)]
+    pub continuation_monitor_result_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_node_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_manifest_ref: Option<String>,
+    #[serde(default)]
+    pub continuation_budget_decision_path: Option<String>,
+    #[serde(default)]
+    pub monitor_followup_budget_decision_path: Option<String>,
     #[serde(default)]
     pub shell_kind: Option<String>,
     #[serde(default)]
@@ -647,6 +692,8 @@ pub struct FamilyShellGateWire {
     pub notification_id: Option<String>,
     #[serde(default)]
     pub decision_path: Option<String>,
+    #[serde(default)]
+    pub claim_holder_pid: Option<i64>,
 }
 
 /// One durable family-shell member: a monitor or a gate, never both.
@@ -688,6 +735,12 @@ pub struct FamilyShellWire {
     #[serde(default)]
     pub next_model: Option<String>,
     #[serde(default)]
+    pub completion_ref: Option<String>,
+    #[serde(default)]
+    pub profile: Option<String>,
+    #[serde(default)]
+    pub policy_digest: Option<String>,
+    #[serde(default)]
     pub followup_agent: Option<String>,
     #[serde(default)]
     pub followup_outcome: Option<String>,
@@ -697,6 +750,22 @@ pub struct FamilyShellWire {
     pub followup_degraded_reason: Option<String>,
     #[serde(default)]
     pub followup_prompt_path: Option<String>,
+    #[serde(default)]
+    pub followup_attempt_id: Option<String>,
+    #[serde(default)]
+    pub followup_attempt_fingerprint: Option<String>,
+    #[serde(default)]
+    pub followup_attempt_stage: Option<String>,
+    #[serde(default)]
+    pub followup_error_stage: Option<String>,
+    #[serde(default)]
+    pub followup_error_type: Option<String>,
+    #[serde(default)]
+    pub host_completion_status: Option<String>,
+    #[serde(default)]
+    pub host_completion_message: Option<String>,
+    #[serde(default)]
+    pub host_completion_reason: Option<String>,
     #[serde(default)]
     pub monitor: Option<FamilyShellMonitorWire>,
     #[serde(default)]
@@ -1061,6 +1130,9 @@ mod tests {
                 next_action: Some("Reply to the user.".to_string()),
                 next_output: Some("tail".to_string()),
                 next_model: Some("@small".to_string()),
+                completion_ref: Some("cci:test".to_string()),
+                profile: Some("verify".to_string()),
+                policy_digest: Some("sha256:policy".to_string()),
                 followup_agent: Some("acme--1".to_string()),
                 request_fingerprint: Some("sha256:deadbeef".to_string()),
                 followup_outcome: Some("launched-degraded".to_string()),
@@ -1072,6 +1144,16 @@ mod tests {
                 ),
                 followup_prompt_path: Some(
                     "artifacts/followup_prompt.md".to_string(),
+                ),
+                followup_attempt_id: None,
+                followup_attempt_fingerprint: None,
+                followup_attempt_stage: None,
+                followup_error_stage: None,
+                followup_error_type: None,
+                host_completion_status: Some("finalizing".to_string()),
+                host_completion_message: Some("running finalizers".to_string()),
+                host_completion_reason: Some(
+                    "verification succeeded".to_string(),
                 ),
                 monitor: Some(FamilyShellMonitorWire {
                     command: Some("just check-full".to_string()),
@@ -1125,6 +1207,9 @@ mod tests {
                 next_action: Some("Resume after gate.".to_string()),
                 next_output: Some("summary,details".to_string()),
                 next_model: Some("@large".to_string()),
+                completion_ref: None,
+                profile: None,
+                policy_digest: None,
                 followup_agent: Some("acme--1".to_string()),
                 followup_outcome: Some("launched".to_string()),
                 followup_error: Some("claim moved late".to_string()),
@@ -1134,6 +1219,14 @@ mod tests {
                 followup_prompt_path: Some(
                     "artifacts/gate_followup.md".to_string(),
                 ),
+                followup_attempt_id: None,
+                followup_attempt_fingerprint: None,
+                followup_attempt_stage: None,
+                followup_error_stage: None,
+                followup_error_type: None,
+                host_completion_status: None,
+                host_completion_message: None,
+                host_completion_reason: None,
                 elapsed_seconds: Some(12.5),
                 label: Some("approval/gate-1".to_string()),
                 reason: Some("Need owner approval".to_string()),
@@ -1149,6 +1242,7 @@ mod tests {
                     bundle_path: Some("gate_bundle.json".to_string()),
                     notification_id: Some("notif-1".to_string()),
                     decision_path: Some("gate_decision.md".to_string()),
+                    claim_holder_pid: None,
                 }),
             }),
             shell_kind: Some("gate".to_string()),
@@ -1258,6 +1352,20 @@ mod tests {
         let done = DoneMarkerWire {
             outcome: Some("monitored".to_string()),
             status_label: Some("MONITORED".to_string()),
+            monitor_diagnostic_manifest_ref: Some("artifact:diag".to_string()),
+            monitor_retained_log_ref: Some("artifact:log".to_string()),
+            continuation_monitor_result_id: Some("result-1".to_string()),
+            continuation_monitor_result_ref: Some(
+                "artifact:result".to_string(),
+            ),
+            continuation_node_ref: Some("node:1".to_string()),
+            continuation_manifest_ref: Some("artifact:manifest".to_string()),
+            continuation_budget_decision_path: Some(
+                "/tmp/budget.json".to_string(),
+            ),
+            monitor_followup_budget_decision_path: Some(
+                "/tmp/followup-budget.json".to_string(),
+            ),
             family_shell: Some(FamilyShellWire {
                 kind: "monitor".to_string(),
                 state: Some("completed".to_string()),
@@ -1270,6 +1378,12 @@ mod tests {
                 followup_prompt_path: Some(
                     "artifacts/monitor_followup.md".to_string(),
                 ),
+                completion_ref: Some("cci:test".to_string()),
+                profile: Some("verify".to_string()),
+                policy_digest: Some("sha256:policy".to_string()),
+                host_completion_status: Some("completed_by_host".to_string()),
+                host_completion_message: Some("done".to_string()),
+                host_completion_reason: Some("eligible".to_string()),
                 monitor: Some(FamilyShellMonitorWire {
                     exit_code: Some(0),
                     ..Default::default()

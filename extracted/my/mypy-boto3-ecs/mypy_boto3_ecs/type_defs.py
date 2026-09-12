@@ -66,6 +66,7 @@ from .literals import (
     EFSAuthorizationConfigIAMType,
     EFSTransitEncryptionType,
     ExecuteCommandLoggingType,
+    ExpressCpuArchitectureType,
     ExpressGatewayServiceScalingMetricType,
     ExpressGatewayServiceStatusCodeType,
     FirelensConfigurationTypeType,
@@ -2843,6 +2844,7 @@ class ExpressGatewayServiceConfigurationTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationOutputTypeDef]
     healthCheckPath: NotRequired[str]
     primaryContainer: NotRequired[ExpressGatewayContainerOutputTypeDef]
@@ -3240,6 +3242,7 @@ class CreateExpressGatewayServiceRequestTypeDef(TypedDict):
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
     taskDefinitionArn: NotRequired[str]
@@ -3254,6 +3257,7 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
+    cpuArchitecture: NotRequired[ExpressCpuArchitectureType]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     taskDefinitionArn: NotRequired[str]
 

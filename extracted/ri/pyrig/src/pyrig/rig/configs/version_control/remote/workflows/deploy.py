@@ -3,6 +3,8 @@
 from types import MethodType
 from typing import Any
 
+from pyrig.core.resources import resource_content
+from pyrig.rig import resources
 from pyrig.rig.configs.base.workflow import WorkflowConfigFile
 from pyrig.rig.configs.version_control.remote.configure import (
     ConfigureRepositoryConfigFile,
@@ -175,12 +177,12 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         )
 
     def configure_pages_action(self) -> str:
-        """Return the `actions/configure-pages` action slug.
+        """Return the pinned `actions/configure-pages` action reference.
 
         Returns:
-            The `"actions/configure-pages"` action slug.
+            The `"actions/configure-pages@<sha>"` action reference.
         """
-        return "actions/configure-pages"
+        return f"actions/configure-pages@{self.configure_pages_action_sha()}"
 
     def configure_pages_action_sha(self) -> str:
         """Return the pinned commit SHA for `actions/configure-pages`.
@@ -188,7 +190,10 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         Returns:
             Commit SHA `actions/configure-pages` is pinned to.
         """
-        return "45bfe0192ca1faeb007ade9deae92b16b8254a0d"  # pragma: allowlist secret
+        return resource_content(
+            self.configure_pages_action_sha.__name__.upper(),
+            resources,
+        ).strip()
 
     def step_configure_pages(self) -> dict[str, Any]:
         """Build a step that enables GitHub Pages.
@@ -198,17 +203,17 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.step(
             self.step_configure_pages,
-            uses=f"{self.configure_pages_action()}@{self.configure_pages_action_sha()}",
+            uses=self.configure_pages_action(),
             with_={"enablement": "true", "token": self.insert_repo_token()},
         )
 
     def deploy_pages_action(self) -> str:
-        """Return the `actions/deploy-pages` action slug.
+        """Return the pinned `actions/deploy-pages` action reference.
 
         Returns:
-            The `"actions/deploy-pages"` action slug.
+            The `"actions/deploy-pages@<sha>"` action reference.
         """
-        return "actions/deploy-pages"
+        return f"actions/deploy-pages@{self.deploy_pages_action_sha()}"
 
     def deploy_pages_action_sha(self) -> str:
         """Return the pinned commit SHA for `actions/deploy-pages`.
@@ -216,7 +221,10 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         Returns:
             Commit SHA `actions/deploy-pages` is pinned to.
         """
-        return "368f82528645a54fb793d4d04e342629a3f51346"  # pragma: allowlist secret
+        return resource_content(
+            self.deploy_pages_action_sha.__name__.upper(),
+            resources,
+        ).strip()
 
     def step_deploy_documentation(self) -> dict[str, Any]:
         """Build a step that deploys the uploaded Pages artifact to GitHub Pages.
@@ -229,16 +237,18 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.step(
             self.step_deploy_documentation,
-            uses=f"{self.deploy_pages_action()}@{self.deploy_pages_action_sha()}",
+            uses=self.deploy_pages_action(),
         )
 
     def upload_pages_artifact_action(self) -> str:
-        """Return the `actions/upload-pages-artifact` action slug.
+        """Return the pinned `actions/upload-pages-artifact` action reference.
 
         Returns:
-            The `"actions/upload-pages-artifact"` action slug.
+            The `"actions/upload-pages-artifact@<sha>"` action reference.
         """
-        return "actions/upload-pages-artifact"
+        return (
+            f"actions/upload-pages-artifact@{self.upload_pages_artifact_action_sha()}"
+        )
 
     def upload_pages_artifact_action_sha(self) -> str:
         """Return the pinned commit SHA for `actions/upload-pages-artifact`.
@@ -246,7 +256,10 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         Returns:
             Commit SHA `actions/upload-pages-artifact` is pinned to.
         """
-        return "fc324d3547104276b827a68afc52ff2a11cc49c9"  # pragma: allowlist secret
+        return resource_content(
+            self.upload_pages_artifact_action_sha.__name__.upper(),
+            resources,
+        ).strip()
 
     def step_upload_documentation(self) -> dict[str, Any]:
         """Build a step that uploads the `site/` directory as a Pages artifact.
@@ -256,9 +269,6 @@ class DeployWorkflowConfigFile(WorkflowConfigFile):
         """
         return self.step(
             self.step_upload_documentation,
-            uses=(
-                f"{self.upload_pages_artifact_action()}"
-                f"@{self.upload_pages_artifact_action_sha()}"
-            ),
+            uses=self.upload_pages_artifact_action(),
             with_={"path": DocsBuilder.I.site_dir().as_posix()},
         )

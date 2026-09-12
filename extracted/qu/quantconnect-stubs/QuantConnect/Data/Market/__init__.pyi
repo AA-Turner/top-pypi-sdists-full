@@ -65,6 +65,11 @@ class BaseContract(System.Object, QuantConnect.Data.ISymbolProvider, metaclass=a
         ...
 
     @property
+    def days_to_expiry(self) -> int:
+        """Calendar days from this contract's time until it stops trading"""
+        ...
+
+    @property
     def time(self) -> datetime.datetime:
         """Gets the local date time this contract's data was last updated"""
         ...
@@ -2522,6 +2527,31 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    def atm(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts at the money. Alias for at_the_money
+        
+        :param max_strike_distance: The largest distance between a strike and the underlying price for its contracts to be at
+        the money, in units of the underlying price. Zero selects only a strike equal to the price. Null, the default, selects the
+        strikes on either side of the price, the highest at or below it and the lowest at or above it, each only when it is within
+        the percentage of the price given by OptionFilterUniverse.default_at_the_money_strike_distance
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def at_the_money(self, max_strike_distance: typing.Optional[float] = None) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts at the money: the ones with strikes within the given distance of the underlying price, or by default
+        the ones at the strikes on either side of it. Same as BaseOptionFilterUniverse{TUniverse, TData}.AtTheMoney
+        
+        :param max_strike_distance: The largest distance between a strike and the underlying price for its contracts to be at
+        the money, in units of the underlying price. Zero selects only a strike equal to the price. Null, the default, selects the
+        strikes on either side of the price, the highest at or below it and the lowest at or above it, each only when it is within
+        the percentage of the price given by OptionFilterUniverse.default_at_the_money_strike_distance
+        :returns: A new chain with the filter applied, empty when the underlying price is unknown.
+        """
+        ...
+
     def back_month(self) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects the contracts of the second nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.BackMonth
@@ -2666,6 +2696,45 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    @overload
+    def expiration(self, expiries: typing.List[datetime.datetime]) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring on any of the given dates. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.Expiration(IEnumerable{DateTime})
+        
+        :param expiries: The expiration dates
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def expiring_after(self, date: datetime.datetime) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring after the given date, excluding it. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringAfter
+        
+        :param date: The date the expirations must be after
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def expiring_before(self, date: datetime.datetime) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring before the given date, excluding it. Time of day is ignored.
+        Same as ContractSecurityFilterUniverse{T, TData}.ExpiringBefore
+        
+        :param date: The date the expirations must be before
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def farthest_expiration(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts of the farthest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FarthestExpiration
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
     def front_month(self) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects the contracts of the nearest expiration. Same as ContractSecurityFilterUniverse{T, TData}.FrontMonth
@@ -2704,6 +2773,15 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    def in_the_money(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the in the money contracts: calls with strikes below the underlying price and puts with strikes above it.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.InTheMoney
+        
+        :returns: A new chain with the filter applied, empty when the underlying price is unknown.
+        """
+        ...
+
     def iron_butterfly(self, min_days_till_expiry: int = 30, strike_spread: float = 5) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects an OTM call, an ATM call, an ATM put and an OTM put with the same expiry and equal strike distance closest to the criteria given, for an iron butterfly. Same as BaseOptionFilterUniverse{TUniverse, TData}.IronButterfly
@@ -2722,6 +2800,14 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         :param near_strike_spread: The desired strike price distance of the near call and near put from the current underlying price
         :param far_strike_spread: The desired strike price distance of the far call and far put from the current underlying price
         :returns: A new chain with the selected contracts, empty if there is no match.
+        """
+        ...
+
+    def itm(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the in the money contracts. Alias for in_the_money
+        
+        :returns: A new chain with the filter applied.
         """
         ...
 
@@ -2783,6 +2869,23 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         :param min: The minimum open interest value
         :param max: The maximum open interest value
         :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def otm(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the out of the money contracts. Alias for out_of_the_money
+        
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def out_of_the_money(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the out of the money contracts: calls with strikes above the underlying price and puts with strikes below it.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.OutOfTheMoney
+        
+        :returns: A new chain with the filter applied, empty when the underlying price is unknown.
         """
         ...
 
@@ -2898,6 +3001,7 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         """
         ...
 
+    @overload
     def strikes(self, min_strike: int, max_strike: int) -> QuantConnect.Data.Market.OptionChain:
         """
         Selects the contracts with strikes in the given range relative to the underlying price, in number of strikes.
@@ -2905,6 +3009,37 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         
         :param min_strike: The minimum strike relative to the underlying price, for example, -1 would filter out contracts further than 1 strike below market price
         :param max_strike: The maximum strike relative to the underlying price, for example, +1 would filter out contracts further than 1 strike above market price
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    @overload
+    def strikes(self, strikes: typing.List[float]) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with any of the given strike prices.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.Strikes(IEnumerable{decimal})
+        
+        :param strikes: The strike prices
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def strikes_above(self, price: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with strikes above the given price, excluding it.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.StrikesAbove
+        
+        :param price: The price the strikes must be above
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def strikes_below(self, price: float) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts with strikes below the given price, excluding it.
+        Same as BaseOptionFilterUniverse{TUniverse, TData}.StrikesBelow
+        
+        :param price: The price the strikes must be below
         :returns: A new chain with the filter applied.
         """
         ...
@@ -2964,6 +3099,14 @@ class OptionChain(QuantConnect.Data.Market.BaseChain[QuantConnect.Data.Market.Op
         From C# use Linq's Where, which keeps this chain's type untouched
         
         :param predicate: Function determining which contracts are kept
+        :returns: A new chain with the filter applied.
+        """
+        ...
+
+    def zero_dte(self) -> QuantConnect.Data.Market.OptionChain:
+        """
+        Selects the contracts expiring today. Same as BaseOptionFilterUniverse{TUniverse, TData}.ZeroDte
+        
         :returns: A new chain with the filter applied.
         """
         ...

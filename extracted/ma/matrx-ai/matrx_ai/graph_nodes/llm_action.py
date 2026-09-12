@@ -21,6 +21,10 @@ from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+from matrx_ai.graph_nodes.mandates import (
+    WORKFLOW_STEP_INTELLIGENCE_MANDATE,
+    step_metadata,
+)
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
     normalize_completed_result,
@@ -147,7 +151,8 @@ async def llm_chat(
         config,
         max_iterations=1,
         max_retries_per_iteration=2,
-        metadata=inputs.metadata or None,
+        metadata=step_metadata(inputs.metadata, spec_type="ai.llm"),
+        mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.

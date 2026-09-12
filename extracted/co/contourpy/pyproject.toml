@@ -1,8 +1,7 @@
 [build-system]
 build-backend = "mesonpy"
 requires = [
-    "meson >= 1.2.0",
-    "meson-python >= 0.13.1",
+    "meson-python >= 0.18.0",
     "pybind11 >= 2.13.2, != 2.13.3",
 ]
 
@@ -14,31 +13,32 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dependencies = [
-    "numpy >= 1.25",
+    "numpy >= 2.0",
 ]
 description = "Python library for calculating contours of 2D quadrilateral grids"
 dynamic = ["version"]
-license = {file = "LICENSE"}
+license = "BSD-3-Clause"
+license-files= ["LICENSE"]
 name = "contourpy"
 readme = "README_simple.md"
-requires-python = ">= 3.11"
+requires-python = ">= 3.12"
 
 [project.optional-dependencies]
 docs = [
-    "furo",
-    "sphinx >= 7.2",
+    "myst-parser",
+    "sphinx",
+    "sphinx-book-theme",
     "sphinx-copybutton",
 ]
 bokeh = [
@@ -52,20 +52,21 @@ mypy = [
     "contourpy[bokeh,docs]",
     "bokeh",
     "docutils-stubs",
-    "mypy == 1.17.0",
+    "mypy == 2.1.0",
     "types-Pillow",
 ]
 test = [
     # Standard test dependencies.
     "contourpy[test-no-images]",
     "matplotlib",
+    "pre-commit",
     "Pillow",
 ]
 test-no-images = [
     # Dependencies to run tests excluding image-generating tests.
     "pytest",
     "pytest-cov",
-    "pytest-rerunfailures",
+    "pytest-rerunfailures < 16",
     "pytest-xdist",
     "wurlitzer",
 ]
@@ -89,16 +90,27 @@ setup = [
 
 
 [tool.cibuildwheel]
-build = "cp{311,312,313,313t,314,314t}-* pp311-*"
-enable = ["cpython-freethreading", "pypy", "cpython-prerelease"]
-skip = "*-musllinux_{ppc64le,s390x}"
+build = "cp{312,313,313t,314,314t,315,315t}-*"
+enable = ["cpython-prerelease"]
+skip = [
+    "*-musllinux_{ppc64le,riscv64,s390x}",
+    "cp315*_riscv64",
+]
 test-requires = "pytest"
 test-command = [
     'python -c "from contourpy.util import build_config; from pprint import pprint; pprint(build_config())"',
     'pytest -v {project}/tests/test_minimal.py',
 ]
 # Only test combinations for which a numpy wheel exists to avoid compiling numpy from source.
-test-skip = "*_{ppc64le,s390x}"
+test-skip = "*_{ppc64le,s390x} cp315-pyodide_wasm32"
+
+[tool.cibuildwheel.ios]
+xbuild-tools = ["ninja"]
+# numpy iOS wheels are not on PyPI yet; see https://github.com/numpy/numpy/pull/28759
+# Use the BeeWare independent repository in the meantime.
+environment = { PIP_EXTRA_INDEX_URL = "https://pypi.anaconda.org/beeware/simple" }
+test-sources = ["tests"]
+test-command = "python -m pytest -vv tests/test_minimal.py"
 
 [[tool.cibuildwheel.overrides]]
 # See https://github.com/contourpy/contourpy/issues/424
@@ -109,6 +121,25 @@ config-settings.setup-args = [
     "-Dcpp_link_args=['ucrt.lib','vcruntime.lib','/nodefaultlib:libucrt.lib','/nodefaultlib:libvcruntime.lib']"
 ]
 
+[[tool.cibuildwheel.overrides]]
+select = "cp315*"
+inherit.environment = "append"
+environment = { PIP_PRE = "1", PIP_EXTRA_INDEX_URL = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/" }
+
+[[tool.cibuildwheel.overrides]]
+select = "*riscv64*"
+# numpy does not provide riscv64 wheel yet. See https://github.com/numpy/numpy/issues/30216
+# RISE is building and distributing popular wheels for riscv64 such as numpy
+# Let's install from rise project for now: https://riseproject.gitlab.io/python/wheel_builder/packages/numpy
+# Note: only manylinux wheel available (no musllinux)
+before-test = "python -m pip install -v --only-binary=:all: --extra-index-url https://gitlab.com/api/v4/projects/riseproject%2Fpython%2Fwheel_builder/packages/pypi/simple numpy "
+
+[[tool.cibuildwheel.overrides]]
+# Reassert the BeeWare NumPy index for iOS. This must come after the cp315* override
+# above, which would otherwise replace PIP_EXTRA_INDEX_URL with the scientific-python
+# nightly index for cp315 iOS builds (NumPy iOS wheels are only on BeeWare).
+select = "*-ios_*"
+environment = { PIP_EXTRA_INDEX_URL = "https://pypi.anaconda.org/beeware/simple" }
 
 [tool.codespell]
 ignore-words-list = "nd,socio-economic"
@@ -125,7 +156,7 @@ exclude_also = [
 
 [tool.mypy]
 files = ["lib/contourpy", "benchmarks", "docs", "tests"]
-python_version = "3.10"
+python_version = "3.12"
 
 allow_redefinition = true
 check_untyped_defs = true
@@ -166,7 +197,7 @@ line-length = 100
 [tool.ruff.lint]
 ignore = [
     "B905",
-    "PLW1510",
+    "PLC0415",
     "PLW2901",
 ]
 select = [

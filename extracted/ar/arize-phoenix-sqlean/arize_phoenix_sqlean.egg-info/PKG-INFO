@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize-phoenix-sqlean
-Version: 0.1.1
+Version: 0.1.2
 Summary: sqlite3 with extensions
 Home-page: https://github.com/Arize-ai/phoenix/tree/main/packages/phoenix-sqlean
 Author: Anton Zhiyanov

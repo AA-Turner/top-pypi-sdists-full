@@ -652,19 +652,21 @@ def fetch_branch(branch_name: str, dry_run: bool = False) -> bool:
     Returns:
         True if fetch succeeded, False otherwise
     """
+    from ..workflows.base import _safe_print
+
     if dry_run:
-        print(f"[DRY RUN] Would fetch origin/{branch_name}")
+        _safe_print(f"[DRY RUN] Would fetch origin/{branch_name}")
         return True
 
-    print(f"Fetching origin/{branch_name}...")
+    _safe_print(f"Fetching origin/{branch_name}...")
     result = run_git("fetch", "origin", branch_name, check=False)
     if result.returncode != 0:
-        print(f"Warning: Failed to fetch origin/{branch_name}")
+        _safe_print(f"Warning: Failed to fetch origin/{branch_name}")
         if result.stderr:
-            print(result.stderr.strip())
+            _safe_print(result.stderr.strip())
         return False
 
-    print(f"Fetched origin/{branch_name} successfully.")
+    _safe_print(f"Fetched origin/{branch_name} successfully.")
     return True
 
 
@@ -751,8 +753,10 @@ def reset_branch_to_origin(branch_name: str, dry_run: bool = False) -> bool:
     Returns:
         True if reset succeeded, False otherwise
     """
+    from ..workflows.base import _safe_print
+
     if dry_run:
-        print(f"[DRY RUN] Would reset to origin/{branch_name}")
+        _safe_print(f"[DRY RUN] Would reset to origin/{branch_name}")
         return True
 
     # Guard: check for uncommitted/untracked working tree changes
@@ -766,13 +770,13 @@ def reset_branch_to_origin(branch_name: str, dry_run: bool = False) -> bool:
     if head_result.returncode == 0:
         current_branch = head_result.stdout.strip()
         if current_branch != branch_name:
-            print(f"Error: Expected to be on branch '{branch_name}' but HEAD is on '{current_branch}'.")
+            _safe_print(f"Error: Expected to be on branch '{branch_name}' but HEAD is on '{current_branch}'.")
             print("Aborting reset to avoid resetting the wrong branch.")
             return False
     else:
         print("Warning: Could not determine current branch. Aborting reset as a safety precaution.")
         if head_result.stderr:
-            print(f"  {head_result.stderr.strip()}")
+            _safe_print(f"  {head_result.stderr.strip()}")
         return False
 
     # Guard: check for unpushed local commits before hard reset
@@ -782,28 +786,30 @@ def reset_branch_to_origin(branch_name: str, dry_run: bool = False) -> bool:
         try:
             ahead = int(count_text)
         except ValueError:
-            print(f"Warning: Could not parse rev-list output ({count_text!r}), aborting reset as a safety precaution.")
+            _safe_print(
+                f"Warning: Could not parse rev-list output ({count_text!r}), aborting reset as a safety precaution."
+            )
             return False
         if ahead > 0:
-            print(f"Warning: Local branch has {ahead} unpushed commit(s) ahead of origin/{branch_name}.")
+            _safe_print(f"Warning: Local branch has {ahead} unpushed commit(s) ahead of origin/{branch_name}.")
             print("Aborting reset to avoid losing local work. Push or discard your local commits, then retry.")
             return False
     else:
         print(f"Warning: Could not check for unpushed commits (rev-list exited {ahead_result.returncode}).")
         if ahead_result.stderr:
-            print(f"  {ahead_result.stderr.strip()}")
+            _safe_print(f"  {ahead_result.stderr.strip()}")
         print("Aborting reset as a safety precaution.")
         return False
 
-    print(f"Resetting branch to origin/{branch_name}...")
+    _safe_print(f"Resetting branch to origin/{branch_name}...")
     result = run_git("reset", "--hard", f"origin/{branch_name}", check=False)
     if result.returncode != 0:
-        print(f"Warning: Failed to reset to origin/{branch_name}")
+        _safe_print(f"Warning: Failed to reset to origin/{branch_name}")
         if result.stderr:
-            print(result.stderr.strip())
+            _safe_print(result.stderr.strip())
         return False
 
-    print(f"Reset to origin/{branch_name} successfully.")
+    _safe_print(f"Reset to origin/{branch_name} successfully.")
     return True
 
 
@@ -818,19 +824,21 @@ def fetch_main(main_branch: str = "main", dry_run: bool = False) -> bool:
     Returns:
         True if fetch succeeded, False otherwise
     """
+    from ..workflows.base import _safe_print
+
     if dry_run:
-        print(f"[DRY RUN] Would fetch origin/{main_branch}")
+        _safe_print(f"[DRY RUN] Would fetch origin/{main_branch}")
         return True
 
-    print(f"Fetching latest from origin/{main_branch}...")
+    _safe_print(f"Fetching latest from origin/{main_branch}...")
     result = run_git("fetch", "origin", main_branch, check=False)
     if result.returncode != 0:
-        print(f"Warning: Failed to fetch origin/{main_branch}")
+        _safe_print(f"Warning: Failed to fetch origin/{main_branch}")
         if result.stderr:
-            print(result.stderr.strip())
+            _safe_print(result.stderr.strip())
         return False
 
-    print(f"Fetched origin/{main_branch} successfully.")
+    _safe_print(f"Fetched origin/{main_branch} successfully.")
     return True
 
 
@@ -980,19 +988,20 @@ def checkout_branch(branch_name: str, dry_run: bool = False) -> CheckoutResult:
     Returns:
         CheckoutResult indicating success or the type of failure
     """
+    from ..workflows.base import _safe_print
     from .core import get_current_branch
 
     # Check if already on the branch
     try:
         current = get_current_branch()
         if current == branch_name:
-            print(f"Already on branch '{branch_name}'")
+            _safe_print(f"Already on branch '{branch_name}'")
             return CheckoutResult(CheckoutResult.SUCCESS)
     except SystemExit:
         pass  # Could be detached HEAD, continue with checkout
 
     if dry_run:
-        print(f"[DRY RUN] Would checkout branch '{branch_name}'")
+        _safe_print(f"[DRY RUN] Would checkout branch '{branch_name}'")
         return CheckoutResult(CheckoutResult.SUCCESS)
 
     # Check for uncommitted changes first
@@ -1007,20 +1016,20 @@ def checkout_branch(branch_name: str, dry_run: bool = False) -> CheckoutResult:
             f"Then restart the workflow.",
         )
 
-    print(f"Checking out branch '{branch_name}'...")
+    _safe_print(f"Checking out branch '{branch_name}'...")
 
     # First try to checkout existing local branch
     result = run_git("checkout", branch_name, check=False)
 
     if result.returncode == 0:
-        print(f"Checked out branch '{branch_name}' successfully.")
+        _safe_print(f"Checked out branch '{branch_name}' successfully.")
         return CheckoutResult(CheckoutResult.SUCCESS)
 
     # If local doesn't exist, try to checkout from origin
     result = run_git("checkout", "-b", branch_name, f"origin/{branch_name}", check=False)
 
     if result.returncode == 0:
-        print(f"Checked out branch '{branch_name}' from origin.")
+        _safe_print(f"Checked out branch '{branch_name}' from origin.")
         return CheckoutResult(CheckoutResult.SUCCESS)
 
     # Branch not found

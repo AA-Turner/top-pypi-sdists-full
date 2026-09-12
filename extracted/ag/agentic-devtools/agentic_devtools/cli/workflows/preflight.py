@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .base import _safe_print
 from .worktree_setup import _parse_non_negative_timeout
 
 _WORKFLOW_AUTO_EXECUTE_TIMEOUTS: dict[str, int] = {
@@ -339,10 +340,10 @@ def perform_auto_setup(
         if auto_execute_timeout is None:
             auto_execute_timeout = _WORKFLOW_AUTO_EXECUTE_TIMEOUTS.get(workflow_name, 1800)
 
-    print(f"\n{'=' * 80}")
-    print("AUTOMATIC ENVIRONMENT SETUP (BACKGROUND)")
-    print("=" * 80)
-    print(f"\nStarting background task to set up worktree for {issue_key}...")
+    _safe_print(f"\n{'=' * 80}")
+    _safe_print("AUTOMATIC ENVIRONMENT SETUP (BACKGROUND)")
+    _safe_print("=" * 80)
+    _safe_print(f"\nStarting background task to set up worktree for {issue_key}...")
 
     try:
         setup_kwargs: dict[str, Any] = dict(
@@ -367,10 +368,10 @@ def perform_auto_setup(
         # without requiring the user to manually set background.task_id.
         set_value("background.task_id", task_id)
 
-        print(f"\n✅ Background task started: {task_id}")
-        print("\n" + "=" * 80)
-        print("NEXT STEPS")
-        print("=" * 80)
+        _safe_print(f"\n✅ Background task started: {task_id}")
+        _safe_print("\n" + "=" * 80)
+        _safe_print("NEXT STEPS")
+        _safe_print("=" * 80)
         next_steps = """
 The worktree setup is running in the background.
 """
@@ -409,11 +410,11 @@ To monitor progress:
   2. Or run: agdt-task-wait
      This waits for setup to finish; then inspect the log for the review task status.
 """
-        print(next_steps)
-        print("=" * 80)
+        _safe_print(next_steps)
+        _safe_print("=" * 80)
 
         return True
 
     except Exception as e:
-        print(f"\n❌ Failed to start background task: {e}")
+        _safe_print(f"\n❌ Failed to start background task: {e}")
         return False

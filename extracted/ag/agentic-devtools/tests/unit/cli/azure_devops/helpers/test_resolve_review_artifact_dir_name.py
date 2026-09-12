@@ -43,6 +43,43 @@ class TestResolveReviewArtifactDirName:
         assert "PR99999" in captured.err
         assert "not set" in captured.err
 
+    def test_prefers_setup_selected_pr_fallback_over_stale_discovery(self, tmp_path):
+        """Uses the setup-selected PR directory instead of an older matching artifact."""
+        stale_dir = tmp_path / "pull-request-review" / "2fea8cdf46c8"
+        stale_dir.mkdir(parents=True)
+        (stale_dir / "manifest.json").write_text('{"pullRequestId": 123}', encoding="utf-8")
+
+        with (
+            patch("agentic_devtools.cli.azure_devops.helpers.get_state_dir", return_value=tmp_path),
+            patch(
+                "agentic_devtools.cli.azure_devops.helpers.get_value",
+                side_effect=lambda key: "PR123" if key == "review.artifact_dir_name" else "123",
+            ),
+        ):
+            assert resolve_review_artifact_dir_name(123, None, warn=False) == "PR123"
+
+    def test_ignores_setup_selected_directory_for_another_pr(self, tmp_path):
+        """Does not reuse a setup override after the review PR changes."""
+        with (
+            patch("agentic_devtools.cli.azure_devops.helpers.get_state_dir", return_value=tmp_path),
+            patch(
+                "agentic_devtools.cli.azure_devops.helpers.get_value",
+                side_effect=lambda key: "PR123" if key == "review.artifact_dir_name" else "123",
+            ),
+        ):
+            assert resolve_review_artifact_dir_name(456, None, warn=False) == "PR456"
+
+    def test_ignores_unsafe_setup_selected_directory(self, tmp_path):
+        """Does not use an unsafe setup override as a path segment."""
+        with (
+            patch("agentic_devtools.cli.azure_devops.helpers.get_state_dir", return_value=tmp_path),
+            patch(
+                "agentic_devtools.cli.azure_devops.helpers.get_value",
+                side_effect=lambda key: "../evil" if key == "review.artifact_dir_name" else "123",
+            ),
+        ):
+            assert resolve_review_artifact_dir_name(123, None, warn=False) == "PR123"
+
     def test_falls_back_to_pr_id_when_empty_string(self, capsys):
         """Returns PR<id> fallback when commit_hash_short is empty string."""
         result = resolve_review_artifact_dir_name(42, "")

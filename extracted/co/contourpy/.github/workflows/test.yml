@@ -22,6 +22,9 @@ defaults:
 env:
   PYTEST: python -m pytest -v -n auto --color=yes --log-image-diffs
 
+permissions:
+  contents: read
+
 jobs:
   pre-commit:
     name: pre-commit
@@ -29,15 +32,17 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
       - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
 
   codebase:
     name: codebase
@@ -50,12 +55,13 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -66,7 +72,7 @@ jobs:
 
       - name: Install cppcheck
         run: |
-          CPPCHECK_VERSION=2.13.0
+          CPPCHECK_VERSION=2.17.1
           CPPCHECK_TGZ=$CPPCHECK_VERSION.tar.gz
           cd $RUNNER_TEMP
           wget --no-verbose https://github.com/danmar/cppcheck/archive/refs/tags/$CPPCHECK_TGZ
@@ -90,14 +96,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       # Required version of chromium used for Bokeh image tests.
-      CHROME_VER: "118.0.5993.88"
-      CHROME_REV: "chromium_2670"
-
+      CHROME_VER: "141.0.7390.54"
+      CHROME_REV: "chromium_3265"
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-13, macos-14, windows-latest]  # macos-14 is ARM
-        python-version: ["3.11", "3.12", "3.13"]
+        os: [ubuntu-24.04, macos-14, macos-15-intel, windows-2022]
+        python-version: ["3.12", "3.13", "3.14", "3.14t"]
         name: ["Test"]
         short-name: ["test"]
         include:
@@ -129,34 +134,18 @@ jobs:
             build-numpy-debug: true
           # Test against earliest supported numpy
           - os: ubuntu-24.04
-            python-version: "3.11"
+            python-version: "3.12"
             name: "Test earliest numpy"
             short-name: "test-earliest-numpy"
-            extra-install-args: "numpy==1.25"
+            extra-install-args: "numpy==2.0"
           # Compile using C++11.
           - os: ubuntu-24.04
             python-version: "3.13"
             name: "Test C++11"
             short-name: "test-c++11"
             extra-install-args: "-Csetup-args=-Dcpp_std=c++11"
-          # PyPy 3.11
-          - os: ubuntu-24.04
-            python-version: "pypy3.11"
-            name: "Test"
-            short-name: "test"
-            test-no-images: true
-          - os: macos-14
-            python-version: "pypy3.11"
-            name: "Test"
-            short-name: "test"
-            test-no-images: true
-          - os: windows-latest
-            python-version: "pypy3.11"
-            name: "Test"
-            short-name: "test"
-            test-no-images: true
           # Win32 test.
-          - os: windows-latest
+          - os: windows-2022
             python-version: "3.13"
             name: "Win32"
             short-name: "test-win32"
@@ -176,73 +165,55 @@ jobs:
             short-name: "test-nightlies"
             matplotlib-nightly: true
             numpy-nightly: true
-          - os: macos-13
-            python-version: "3.13"
-            name: "Nightly wheels"
-            short-name: "test-nightlies"
-            matplotlib-nightly: true
-            numpy-nightly: true
-          - os: windows-latest
-            python-version: "3.13"
-            name: "Nightly wheels"
-            short-name: "test-nightlies"
-            matplotlib-nightly: true
-            numpy-nightly: true
-          # Python 3.13 free-threading test.
-          - os: ubuntu-24.04
-            python-version: "3.13t"
-            name: "Test"
-            short-name: "test"
-          # Python 3.14 test.
-          - os: ubuntu-24.04
-            python-version: "3.14-dev"
-            name: "Test"
-            short-name: "test"
-            matplotlib-nightly: true
-          - os: macos-13
-            python-version: "3.14-dev"
-            name: "Test"
-            short-name: "test"
-            matplotlib-nightly: true
           - os: macos-14
-            python-version: "3.14-dev"
-            name: "Test"
-            short-name: "test"
+            python-version: "3.13"
+            name: "Nightly wheels"
+            short-name: "test-nightlies"
             matplotlib-nightly: true
-          - os: windows-latest
-            python-version: "3.14-dev"
-            name: "Test"
-            short-name: "test"
+            numpy-nightly: true
+          - os: windows-2022
+            python-version: "3.13"
+            name: "Nightly wheels"
+            short-name: "test-nightlies"
             matplotlib-nightly: true
-          # Python 3.14 free-threading test.
+            numpy-nightly: true
+          # Python 3.15-dev and 3.15t-dev
           - os: ubuntu-24.04
-            python-version: "3.14t-dev"
+            python-version: "3.15-dev"
             name: "Test"
             short-name: "test"
-            matplotlib-nightly: true
+            build-numpy: true
+            test-no-images: true
+          - os: ubuntu-24.04
+            python-version: "3.15t-dev"
+            name: "Test"
+            short-name: "test"
+            build-numpy: true
+            test-no-images: true
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Python ${{ matrix.python-version }}
         if: ${{ !matrix.win32 }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Setup Python ${{ matrix.python-version }} win32
         if: matrix.win32
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x86
 
       - name: Setup MSVC (32-bit)
         if: matrix.win32
-        uses: bus1/cabuild/action/msdevshell@v1
+        uses: bus1/cabuild/action/msdevshell@06ea2833eef61e9b0d0ce0d728416e617e4fb1fe # v1
         with:
           architecture: 'x86'
 
@@ -374,7 +345,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.coverage-files
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: ${{ matrix.coverage-files }}
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -382,16 +353,16 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ matrix.short-name }}_${{ matrix.os }}_${{ matrix.python-version }}
           path: result_images/
 
   test-in-docker:
     # In-docker tests are either emulated hardware or musllinux
-    name: In docker ${{ matrix.arch }} ${{ matrix.manylinux_version }}
+    name: In docker ${{ matrix.arch }} ${{ matrix.image }}
     if: github.event_name != 'schedule' || github.repository_owner == 'contourpy'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
@@ -399,108 +370,121 @@ jobs:
         include:
           # musllinux x86_64.
           - arch: x86_64
-            manylinux_version: musllinux
             image: musllinux_1_2_x86_64
+            os: ubuntu-24.04
             venv: venv
             test: test
           # musllinux aarch64.
           - arch: aarch64
-            manylinux_version: musllinux
             image: musllinux_1_2_aarch64
+            os: ubuntu-24.04-arm
             venv: venv
             test: test-no-images
           # ppc64le and s390x: dependencies are conda packages.
           - arch: ppc64le
-            manylinux_version: manylinux2014
-            image: manylinux2014_ppc64le
+            image: manylinux_2_28_ppc64le
+            os: ubuntu-24.04
+            qemu: true
             venv: conda
             test: test
           - arch: s390x
-            manylinux_version: manylinux2014
-            image: manylinux2014_s390x
+            image: manylinux_2_28_s390x
+            os: ubuntu-24.04
+            qemu: true
             venv: conda
             test: test
+          # riscv64: numpy from https://riseproject.gitlab.io/python/wheel_builder/packages/numpy
+          - arch: riscv64
+            image: manylinux_2_39_riscv64
+            os: ubuntu-24.04
+            qemu: true
+            venv: venv
+            test: test-no-images
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up QEMU
-        if: ${{ matrix.arch }} != "x86_64"
-        uses: docker/setup-qemu-action@v3
+        if: ${{ matrix.qemu }}
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4
         with:
-          platforms: all
-          # Temporary workaround
-          image: tonistiigi/binfmt:qemu-v8.1.5
+          platforms: ${{ matrix.arch }}
 
       - name: Run inside docker
-        uses: addnab/docker-run-action@v3
-        with:
-          image: quay.io/pypa/${{ matrix.image }}:latest
-          options: -v ${{ github.workspace }}:/work -e ARCH=${{ matrix.arch }} -e VENV=${{ matrix.venv}} -e TEST=${{ matrix.test }}
-          shell: bash
-          run: |
-            echo "-------------------- start --------------------"
-            set -eu
-            uname -a
-            cd /work
+        run: |
+          docker run --rm --platform=linux/${{ matrix.arch }} -v ${{ github.workspace }}:/work \
+            -e ARCH=${{ matrix.arch }} -e VENV=${{ matrix.venv}} -e TEST=${{ matrix.test }} \
+            quay.io/pypa/${{ matrix.image }}:latest /bin/bash -c '
+              echo "-------------------- start --------------------";
+              set -eu;
+              uname -a;
+              cd /work;
 
-            if [[ $VENV == "venv" ]]
-            then
-              echo "==> Create virtual environment"
-              /opt/python/cp312-cp312/bin/python -m venv venv
-              . venv/bin/activate
-              which python
-              python --version
-            else
-              echo "==> Install conda"
-              cd /tmp
-              curl -LO "http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-$ARCH.sh"
-              bash Miniconda3-latest-Linux-$ARCH.sh -p /work/venv -b
-              rm Miniconda3-latest-Linux-$ARCH.sh
-              cd /work
+              if [[ $VENV == "venv" ]];
+              then
+                echo "==> Create virtual environment";
+                /opt/python/cp314-cp314/bin/python -m venv venv;
+                . venv/bin/activate;
+                which python;
+                python --version;
+              else
+                echo "==> Install conda";
+                cd /tmp;
+                curl -LO "http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-$ARCH.sh";
+                bash Miniconda3-latest-Linux-$ARCH.sh -p /work/venv -b;
+                rm Miniconda3-latest-Linux-$ARCH.sh;
+                cd /work;
 
-              echo "==> Activate conda in this shell"
-              . /work/venv/etc/profile.d/conda.sh
+                echo "==> Activate conda in this shell";
+                . /work/venv/etc/profile.d/conda.sh;
 
-              echo "==> Create and activate conda environment"
-              conda create -n my_env -q python=3.12
-              conda activate my_env
+                echo "==> Create and activate conda environment";
+                conda create -n my_env -q python=3.12;
+                conda activate my_env;
 
-              echo "==> Install conda dependencies"
-              conda install -q -c conda-forge -c nodefaults numpy matplotlib Pillow
-              conda list
-            fi
+                echo "==> Install conda dependencies";
+                conda install -q -c conda-forge -c nodefaults numpy matplotlib Pillow;
+                conda list;
+              fi;
 
-            echo "==> Upgrade pip"
-            python -m pip install --upgrade pip
+              echo "==> Upgrade pip";
+              python -m pip install --upgrade pip;
 
-            echo "==> Install contourpy with test dependencies"
-            python -m pip install -v .[$TEST] --only-binary=numpy
+              if [[ $ARCH == "riscv64" ]];
+              then
+                echo "==> Preinstall riscv64 packages";
+                python -m pip install -v --only-binary=:all: --extra-index-url https://gitlab.com/api/v4/projects/riseproject%2Fpython%2Fwheel_builder/packages/pypi/simple numpy;
+              fi;
 
-            echo "==> Smoke test"
-            python -m pip list
-            python -c "from contourpy.util import build_config; from pprint import pprint; pprint(build_config())"
-            python -c "import contourpy as c; print('NDEBUG', c._contourpy.NDEBUG)"
+              echo "==> Install contourpy with test dependencies";
+              python -m pip install -v .[$TEST] --only-binary=numpy;
 
-            PYTEST="python -m pytest -v -n auto --color=yes --log-image-diffs"
-            if [[ $TEST == "test-no-images" ]]
-            then
-              echo "==> Run non-image and non-big tests"
-              ${PYTEST} tests/ -k "not (big or image)"
-            else
-              echo "==> Run tests except 'big' ones as on emulated hardware"
-              ${PYTEST} tests/ -k "not big"
-            fi
-            echo "-------------------- end --------------------"
+              echo "==> Smoke test";
+              python -m pip list;
+              python -c "from contourpy.util import build_config; from pprint import pprint; pprint(build_config())";
+              python -c "import contourpy as c; print(\"NDEBUG\", c._contourpy.NDEBUG)";
+
+              PYTEST="python -m pytest -v -n auto --color=yes --log-image-diffs";
+              if [[ $TEST == "test-no-images" ]];
+              then
+                echo "==> Run non-image and non-big tests";
+                ${PYTEST} tests/ -k "not (big or image)";
+              else
+                echo "==> Run tests except big ones as on emulated hardware";
+                ${PYTEST} tests/ -k "not big";
+              fi;
+              echo "-------------------- end --------------------";
+            '
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: docker_${{ matrix.arch }}_${{ matrix.manylinux_version }}
+          name: docker_${{ matrix.image }}
           path: result_images/
 
   merge:
@@ -510,7 +494,7 @@ jobs:
     needs: [test, test-in-docker]
     steps:
       - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: test-artifacts
           separate-directories: true

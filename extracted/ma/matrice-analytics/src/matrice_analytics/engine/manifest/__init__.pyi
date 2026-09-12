@@ -537,6 +537,37 @@ class EmissionSpec:
     ...
 
 # From models
+class FaceRecognitionProfile:
+    # The face half of ``identity_match.profile`` — how a face resolver decides *who*.
+    #
+    #     **Read by the identity resolver, not by a stage.** Every field here configures the recogniser
+    #     that runs upstream of (or beside) the pipeline; none of it is arithmetic a primitive could do,
+    #     for the reasons in :class:`IdentityMatchConfig`'s docstring. The stage carries the block so the
+    #     values live with the app that needs them instead of as dataclass defaults in the legacy tree,
+    #     where changing one is a code change and a release.
+    #
+    #     **Every field defaults to ``None``, meaning "use the resolver's own default".** Declaring the
+    #     block therefore changes nothing; only writing a value does. The names match
+    #     ``FaceRecognitionEmbeddingConfig`` **1:1** on purpose, so the existing legacy reader
+    #     (``face_recognition.py`` ``_apply_recognition_profile``) can consume this block unchanged
+    #     rather than through a translation table that would be one more thing to keep in step.
+    #
+    #     **``kind`` is required, and that is deliberate.** Only the face profile exists today, but LPR
+    #     shares this stage and its eight equivalents (``ocr_confidence_threshold``, ``min_plate_len``,
+    #     ``stable_frames_required`` and the rest) have zero name overlap with these. When the plate
+    #     profile lands, ``profile`` becomes a discriminated union — and a union cannot resolve a tag
+    #     that was left to a default. Requiring ``kind`` now costs one line per manifest and makes that
+    #     change free; defaulting it would make every face manifest written in the meantime fail to load
+    #     the day the second profile appears.
+    #
+    #     ⚠ The **tracker** settings are deliberately absent. ``tracker_buffer`` and
+    #     ``tracker_max_time_lost`` are on ``FaceRecognitionEmbeddingConfig`` too, but the manifest
+    #     already expresses them as ``track.track_buffer`` / ``track.max_time_lost``. Two ways to set one
+    #     number is how two dashboards come to disagree.
+
+    ...
+
+# From models
 class GeometryRequirement:
     # A runtime geometry precondition that the manifest can state but cannot check.
     #
@@ -550,7 +581,7 @@ class GeometryRequirement:
 
 # From models
 class IdentityMatchConfig:
-    # ``identity_match`` — watchlist match (plates, faces).
+    # ``identity_match`` — count subjects by an identity resolved **upstream**.
     #
     #     Not implemented. No primitive registers under ``identity_match``, so a manifest that used
     #     it validated cleanly and then failed at pipeline build with a bare registry ``KeyError``.
@@ -558,6 +589,37 @@ class IdentityMatchConfig:
     #     :meth:`AppManifest.unimplemented_primitives` reports it and the loader logs it — the
     #     manifest still validates on purpose (``08`` §2), so an author can write the config ahead
     #     of the runtime.
+    #
+    #     **MLAPP-262 (W5): this stage does NOT do the matching, and cannot.** A primitive runs on the
+    #     stage path, which is free of I/O and has no ``numpy``; the real matcher needs Redis, an HTTP
+    #     client for the gallery, and 512-dimension vector arithmetic, and its slow path's default
+    #     timeout is 200 ms against a 40 ms frame budget at 25 fps. An enrollment gallery also fits no
+    #     ``Lifetime`` the ``StateStore`` offers — it grows on enrollment, is invalidated out of band
+    #     and is shared across streams. So the stage **reads** an identity that arrived on the
+    #     detection (``model.identity_field``) and counts by it. Where the resolver itself lives is a
+    #     separate, open decision; nothing here depends on its answer.
+    #
+    #     **The field names are domain-neutral on purpose, and that is binding.** This one class serves
+    #     faces *and* plates: LPR registers the same three-case-type structure nine lines below FR's in
+    #     ``post_processor.py``, and LPR is the cleaner fit because its watchlist is already downstream.
+    #     An FR-shaped field list is a review defect, not an option. For the same reason the twelve
+    #     recognition-profile fields (``similarity_threshold``, ``probation_frames`` and the rest) are
+    #     **not flattened onto this class**: LPR's eight equivalents do the same jobs with zero shared
+    #     names, and twenty optional fields on one class means every app carries a dozen it must ignore
+    #     with nothing in the schema saying which.
+    #
+    #     **MLAPP-265: they live in** ``profile``, **the discriminated block this docstring asked for.**
+    #     :class:`FaceRecognitionProfile` carries the face settings behind ``kind: face``; the plate
+    #     equivalents become a sibling member when LPR needs them, and neither app sees the other's
+    #     fields. The block is optional and every field inside it defaults to ``None``, so adding it
+    #     changed no existing manifest and no app's behaviour. The settings themselves are read by the
+    #     resolver, not by this stage — which does not move, and cannot.
+    #
+    #     🔴 **Precondition: the identity handed to this stage is already CANONICAL.** This stage
+    #     de-duplicates by exact match. FR's ``person_id`` is exact, so that is correct for faces. A
+    #     plate is **not**: ``EY09VWS``, ``EY09VW5`` and ``EV09VWS`` are one plate, normalised upstream
+    #     by ``_normalize_plate``. Handing this stage raw plate text therefore **silently inflates**
+    #     every distinct-subject count — no error, just a bigger number. Normalise before the stage.
 
     ...
 

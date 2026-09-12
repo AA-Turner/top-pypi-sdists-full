@@ -37,6 +37,7 @@ ENV_BUNDLE_REF: str = ...  # From app_bundle
 ENV_LICENSE_KEY: str = ...  # From app_bundle
 ENV_SELF_MINT: str = ...  # From app_bundle
 LICENSE_KEY_HEADER: str = ...  # From app_bundle
+LOCAL_AUTHORITY_PREFIXES: Tuple[Any, ...] = ...  # From app_bundle
 POST_PROCESSING_CONFIGS_PATH: str = ...  # From app_bundle
 POST_PROCESSING_CONFIG_BY_CAMERA_APP_PATH: str = ...  # From app_bundle
 USECASE_DOWNLOAD_LICENSE_PATH: str = ...  # From app_bundle
@@ -152,8 +153,8 @@ def fetch_post_processing_config_by_camera_and_app(camera_id: str, application_i
     One camera's post-processing config for one application, or ``None``.
     
         The fallback for :func:`fetch_post_processing_configs`. Same route group, so the credentials
-        that already reach the deployment-scoped call reach this one too -- and the same two-base
-        retry, for the same local-gateway reason documented on :func:`backend_base_url`.
+        that already reach the deployment-scoped call reach this one too -- and, being locally owned,
+        the same single base; :func:`_bases_for` says why a cloud retry is wrong here.
     
         This is the key the streaming UI both writes and reads on, so what it returns is by
         construction the polygon the operator can see drawn. Use it when the deployment-scoped query
@@ -179,11 +180,12 @@ def fetch_post_processing_configs(app_deployment_id: str) -> List[Dict[str, Any]
         routing at the runner exists to avoid.
     
         ``data`` on this route is a **list**, which is why it does not go through :func:`_rpc_data`
-        (that coerces a non-dict ``data`` to ``{}``). The same two-base retry applies, for the same
-        reason: a local gateway may not proxy the route.
+        (that coerces a non-dict ``data`` to ``{}``).
     
-        Returns an empty list when the deployment has no configs. Raises :class:`AppBundleError` when
-        the call itself could not be made, so the caller can distinguish "no zones" from "no answer".
+        Returns an empty list when the deployment has no configs -- including when the backend says so
+        with a 404, which is an answer and is treated as one (ANLY-15). Raises :class:`AppBundleError`
+        when the call itself could not be made, so the caller can distinguish "no zones" from "no
+        answer". This route is locally owned, so it gets a single base; :func:`_bases_for` says why.
     """
     ...
 

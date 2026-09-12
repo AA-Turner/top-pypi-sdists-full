@@ -38,11 +38,18 @@ from ._base_client import (
 from .lib.browser_routing.routing import (
     BrowserRouteCache,
     BrowserRoutingConfig,
-    strip_direct_vm_auth,
+    prepare_direct_vm_request,
     rewrite_direct_vm_options,
     browser_routing_config_from_env,
+    install_direct_vm_auth_stripping,
+    is_stale_direct_vm_auth_response,
     should_retry_stale_direct_vm_auth,
+    install_stale_direct_vm_auth_eviction,
+    install_async_direct_vm_auth_stripping,
     maybe_evict_browser_route_from_response,
+    should_retry_direct_vm_connection_error,
+    install_async_stale_direct_vm_auth_eviction,
+    direct_vm_request_body_is_known_unreplayable,
     maybe_populate_browser_route_cache_from_response,
 )
 
@@ -66,6 +73,7 @@ if TYPE_CHECKING:
         browser_pools,
         config_registry,
         credential_providers,
+        vault_provider_configs,
     )
     from .resources.apps import AppsResource, AsyncAppsResource
     from .resources.proxies import ProxiesResource, AsyncProxiesResource
@@ -83,6 +91,7 @@ if TYPE_CHECKING:
     from .resources.telemetry.telemetry import TelemetryResource, AsyncTelemetryResource
     from .resources.credential_providers import CredentialProvidersResource, AsyncCredentialProvidersResource
     from .resources.audit_logs.audit_logs import AuditLogsResource, AsyncAuditLogsResource
+    from .resources.vault_provider_configs import VaultProviderConfigsResource, AsyncVaultProviderConfigsResource
     from .resources.organization.organization import OrganizationResource, AsyncOrganizationResource
     from .resources.config_registry.config_registry import ConfigRegistryResource, AsyncConfigRegistryResource
 
@@ -205,6 +214,8 @@ class Kernel(SyncAPIClient):
         )
         self.browser_route_cache = _browser_route_cache or BrowserRouteCache()
         self._browser_routing = browser_routing_config_from_env()
+        install_direct_vm_auth_stripping(self._client)
+        install_stale_direct_vm_auth_eviction(self._client)
 
     @cached_property
     def deployments(self) -> DeploymentsResource:
@@ -280,6 +291,12 @@ class Kernel(SyncAPIClient):
         from .resources.browser_pools import BrowserPoolsResource
 
         return BrowserPoolsResource(self)
+
+    @cached_property
+    def vault_provider_configs(self) -> VaultProviderConfigsResource:
+        from .resources.vault_provider_configs import VaultProviderConfigsResource
+
+        return VaultProviderConfigsResource(self)
 
     @cached_property
     def vaults(self) -> VaultsResource:
@@ -369,13 +386,21 @@ class Kernel(SyncAPIClient):
 
     @override
     def _prepare_request(self, request: httpx.Request) -> None:
-        strip_direct_vm_auth(request, cache=self.browser_route_cache)
+        prepare_direct_vm_request(request, cache=self.browser_route_cache)
+
+    @override
+    def _should_retry_on_connection_error(self, request: httpx.Request) -> bool:
+        return should_retry_direct_vm_connection_error(request)
 
     @override
     def _should_retry(self, response: httpx.Response) -> bool:
-        if should_retry_stale_direct_vm_auth(response):
-            maybe_evict_browser_route_from_response(response, cache=self.browser_route_cache)
-            return True
+        if direct_vm_request_body_is_known_unreplayable(response.request):
+            return False
+        if is_stale_direct_vm_auth_response(response):
+            # The route was already evicted by the response hook; retry only when
+            # the body can be rebuilt, otherwise the caller sees the original auth
+            # failure and a later call goes to the control plane.
+            return should_retry_stale_direct_vm_auth(response)
         return super()._should_retry(response)
 
     @override
@@ -594,6 +619,8 @@ class AsyncKernel(AsyncAPIClient):
         )
         self.browser_route_cache = _browser_route_cache or BrowserRouteCache()
         self._browser_routing = browser_routing_config_from_env()
+        install_async_direct_vm_auth_stripping(self._client)
+        install_async_stale_direct_vm_auth_eviction(self._client)
 
     @cached_property
     def deployments(self) -> AsyncDeploymentsResource:
@@ -669,6 +696,12 @@ class AsyncKernel(AsyncAPIClient):
         from .resources.browser_pools import AsyncBrowserPoolsResource
 
         return AsyncBrowserPoolsResource(self)
+
+    @cached_property
+    def vault_provider_configs(self) -> AsyncVaultProviderConfigsResource:
+        from .resources.vault_provider_configs import AsyncVaultProviderConfigsResource
+
+        return AsyncVaultProviderConfigsResource(self)
 
     @cached_property
     def vaults(self) -> AsyncVaultsResource:
@@ -758,13 +791,21 @@ class AsyncKernel(AsyncAPIClient):
 
     @override
     async def _prepare_request(self, request: httpx.Request) -> None:
-        strip_direct_vm_auth(request, cache=self.browser_route_cache)
+        prepare_direct_vm_request(request, cache=self.browser_route_cache)
+
+    @override
+    def _should_retry_on_connection_error(self, request: httpx.Request) -> bool:
+        return should_retry_direct_vm_connection_error(request)
 
     @override
     def _should_retry(self, response: httpx.Response) -> bool:
-        if should_retry_stale_direct_vm_auth(response):
-            maybe_evict_browser_route_from_response(response, cache=self.browser_route_cache)
-            return True
+        if direct_vm_request_body_is_known_unreplayable(response.request):
+            return False
+        if is_stale_direct_vm_auth_response(response):
+            # The route was already evicted by the response hook; retry only when
+            # the body can be rebuilt, otherwise the caller sees the original auth
+            # failure and a later call goes to the control plane.
+            return should_retry_stale_direct_vm_auth(response)
         return super()._should_retry(response)
 
     @override
@@ -964,6 +1005,12 @@ class KernelWithRawResponse:
         return BrowserPoolsResourceWithRawResponse(self._client.browser_pools)
 
     @cached_property
+    def vault_provider_configs(self) -> vault_provider_configs.VaultProviderConfigsResourceWithRawResponse:
+        from .resources.vault_provider_configs import VaultProviderConfigsResourceWithRawResponse
+
+        return VaultProviderConfigsResourceWithRawResponse(self._client.vault_provider_configs)
+
+    @cached_property
     def vaults(self) -> vaults.VaultsResourceWithRawResponse:
         from .resources.vaults import VaultsResourceWithRawResponse
 
@@ -1095,6 +1142,12 @@ class AsyncKernelWithRawResponse:
         from .resources.browser_pools import AsyncBrowserPoolsResourceWithRawResponse
 
         return AsyncBrowserPoolsResourceWithRawResponse(self._client.browser_pools)
+
+    @cached_property
+    def vault_provider_configs(self) -> vault_provider_configs.AsyncVaultProviderConfigsResourceWithRawResponse:
+        from .resources.vault_provider_configs import AsyncVaultProviderConfigsResourceWithRawResponse
+
+        return AsyncVaultProviderConfigsResourceWithRawResponse(self._client.vault_provider_configs)
 
     @cached_property
     def vaults(self) -> vaults.AsyncVaultsResourceWithRawResponse:
@@ -1230,6 +1283,12 @@ class KernelWithStreamedResponse:
         return BrowserPoolsResourceWithStreamingResponse(self._client.browser_pools)
 
     @cached_property
+    def vault_provider_configs(self) -> vault_provider_configs.VaultProviderConfigsResourceWithStreamingResponse:
+        from .resources.vault_provider_configs import VaultProviderConfigsResourceWithStreamingResponse
+
+        return VaultProviderConfigsResourceWithStreamingResponse(self._client.vault_provider_configs)
+
+    @cached_property
     def vaults(self) -> vaults.VaultsResourceWithStreamingResponse:
         from .resources.vaults import VaultsResourceWithStreamingResponse
 
@@ -1361,6 +1420,12 @@ class AsyncKernelWithStreamedResponse:
         from .resources.browser_pools import AsyncBrowserPoolsResourceWithStreamingResponse
 
         return AsyncBrowserPoolsResourceWithStreamingResponse(self._client.browser_pools)
+
+    @cached_property
+    def vault_provider_configs(self) -> vault_provider_configs.AsyncVaultProviderConfigsResourceWithStreamingResponse:
+        from .resources.vault_provider_configs import AsyncVaultProviderConfigsResourceWithStreamingResponse
+
+        return AsyncVaultProviderConfigsResourceWithStreamingResponse(self._client.vault_provider_configs)
 
     @cached_property
     def vaults(self) -> vaults.AsyncVaultsResourceWithStreamingResponse:

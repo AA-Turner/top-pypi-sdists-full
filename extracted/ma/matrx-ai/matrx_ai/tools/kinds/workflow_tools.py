@@ -55,19 +55,27 @@ from pydantic import JsonValue
         "hint": "Call get_node_type with a `type` to see its schemas.",
     },
     # PLACEHOLDER — the union of list_node_types / get_node_type /
-    # definition_shape / list_workflows / get_workflow.
+    # definition_shape / list_models / list_workflows / get_workflow.
     maturity="placeholder",
 )
 class WorkflowCatalogResult(KindModel):
     #: ``list_node_types``.
     node_types: list[dict] | None = None
     total: int | None = None
+    #: Dynamic list actions report the true total and whether their JSON-safe
+    #: page was shortened before the universal result gate could damage it.
+    returned: int | None = None
+    truncated: bool | None = None
     #: ``get_node_type`` — the full palette entry (schemas included), wrapped.
     node_type: dict | None = None
     #: ``definition_shape`` — the worked example + its notes.
     example: dict | None = None
     notes: dict | None = None
     example_is_valid: bool | None = None
+    #: ``list_models`` — the live model catalog as compact picker rows
+    #: (id, name, common_name, provider, is_primary/recommended, is_deprecated,
+    #: cost/speed rating, context_window, output_type, capability tags).
+    models: list[dict] | None = None
     #: ``list_workflows``.
     workflows: list[dict] | None = None
     #: ``get_workflow`` — the full definition row, wrapped.
@@ -79,7 +87,12 @@ class WorkflowCatalogResult(KindModel):
     "workflow_author_result",
     label="Workflow Author Result",
     family="workflow_tools",
-    example={"saved": True, "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "name": "My Flow", "version": 1},
+    example={
+        "saved": True,
+        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "name": "My Flow",
+        "version": 1,
+    },
     # PLACEHOLDER — validation reports and create/update save receipts.
     maturity="placeholder",
 )
@@ -96,6 +109,10 @@ class WorkflowAuthorResult(KindModel):
     plans: list[dict] | None = None
     #: Rulebook provenance-stamp notes (what the platform normalized).
     provenance: list[str] | None = None
+    #: ``patch`` only — what the merge ACTUALLY changed, read off the stored
+    #: definition before and after (a removed node takes its edges with it, so
+    #: the request and the result are not the same story).
+    changes: list[str] | None = None
     hint: str | None = None
 
 
@@ -125,7 +142,11 @@ class WorkflowRunStatus(KindModel):
     "workflow_node_result",
     label="Workflow Node Result",
     family="workflow_tools",
-    example={"applied": True, "workflow_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6", "node_id": "draft"},
+    example={
+        "applied": True,
+        "workflow_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "node_id": "draft",
+    },
     # PLACEHOLDER — the Node Agent's union: context bundle (wrapped), patch
     # receipts, backing-agent read (wrapped) and update receipt.
     maturity="placeholder",

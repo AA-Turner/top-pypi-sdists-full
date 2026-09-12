@@ -74,18 +74,25 @@ from matrx_ai.persistence.registry import (
     register_table,
 )
 from matrx_ai.persistence.replay import (
+    ACTOR_FK_SIGNATURES,
+    PERMANENT_FAILURE_SIGNATURES,
     RECOVERABLE_RETRY_ERRORS,
     ReplayReport,
+    is_actor_fk_violation_text,
+    is_permanent_failure_exception,
+    is_permanent_failure_text,
     replay_pending,
     run_auto_replay_loop,
 )
 
 __all__ = [
+    "ACTOR_FK_SIGNATURES",
     "Coordinator",
     "CoordinatorPhase",
     "FlushReason",
     "FlushReport",
     "OpType",
+    "PERMANENT_FAILURE_SIGNATURES",
     "PersistenceBarrierError",
     "RECOVERABLE_RETRY_ERRORS",
     "ReplayReport",
@@ -95,6 +102,9 @@ __all__ = [
     "queue_agent_memory_delete",
     "queue_agent_memory_update",
     "get_persistence_model",
+    "is_actor_fk_violation_text",
+    "is_permanent_failure_exception",
+    "is_permanent_failure_text",
     "is_registered",
     "queue_conversation_create",
     "queue_conversation_update",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: evidently
-Version: 0.7.21
+Version: 0.7.23
 Summary: Open-source tools to analyze, monitor, and debug machine learning model in production.
 Project-URL: Homepage, https://github.com/evidentlyai/evidently
 Author-email: Emeli Dral <emeli.dral@gmail.com>

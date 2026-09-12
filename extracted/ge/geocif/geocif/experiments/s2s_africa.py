@@ -959,6 +959,58 @@ def class_probabilities(ahat, hist_anoms, residuals):
             "P_below_trend": round(float((x < 0).mean()), 3)}
 
 
+
+
+def predictor_panel_rows(country, crop, season_name, fx_h, fx_f, feats,
+                         planting, offset, wraps, harvest_year):
+    """Per-year mean of each fitted predictor, one row per (year, feature).
+
+    Written by :func:`run` into ``predictors.csv`` so the predictor
+    heatmaps are a pure read of what the model actually saw. They used to
+    recompute features inside the viz layer, which let the two drift: a
+    pipeline change (the rainfall-only default, say) would leave the
+    heatmaps showing a model that no longer exists, and the viz layer kept
+    its own hindcast-era constant that disagreed with EVAL_SPAN at both
+    edges.
+
+    ``kind`` distinguishes the three provenances a year can have:
+    ``hindcast`` (real S2S members), ``climatology_fill`` (2017+ archive
+    fill — identical by construction, excluded from training AND from the
+    heatmaps), and ``forecast`` (the pending season, from the UNCLIPPED
+    forecast features so out-of-support saturation stays visible).
+    """
+    lm = lead_map(planting, offset)
+    smon = [m for m in season_months(planting) if m in lm]
+    gfm = [m for m in season_months(planting)[2:4] if m in lm]
+    iy, im = init_calendar(planting, offset, harvest_year, wraps)
+    meta = {"country": country, "crop": crop, "season_name": season_name,
+            "offset": offset, "init_year": iy, "init_month": im,
+            "season_months": ",".join(str(m) for m in smon),
+            "gf_months": ",".join(str(m) for m in gfm)}
+    rows = []
+    for fx, forecast in ((fx_h, False), (fx_f, True)):
+        if fx is None or fx.empty:
+            continue
+        sub = fx[fx.year == harvest_year] if forecast else             fx[fx.year != harvest_year]
+        if sub.empty:
+            continue
+        real = set(real_harvest_years(planting, offset, wraps,
+                                      sorted(sub.year.unique())))
+        m = sub.groupby("year")[feats].mean()
+        n = sub.groupby("year")["fnid"].nunique()
+        for y, vals in m.iterrows():
+            kind = "forecast" if forecast else (
+                "hindcast" if y in real else "climatology_fill")
+            for f in feats:
+                v = vals[f]
+                rows.append({**meta, "year": int(y), "kind": kind,
+                             "predictor": f,
+                             "value": (round(float(v), 4)
+                                       if np.isfinite(v) else None),
+                             "n_units": int(n.loc[y])})
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # config
 # ---------------------------------------------------------------------------
@@ -1065,7 +1117,7 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
             # country has no forecastable season", which is a different story.
             logger.warning(f"s2s_countries not in the yield table: {missing}")
 
-    combos, skills, forecasts, excluded = [], [], [], []
+    combos, skills, forecasts, excluded, panel = [], [], [], [], []
     s2s_cache = {}
 
     for (country, product, season_name), g in ylds.groupby(
@@ -1246,6 +1298,11 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
         res = fit_ols(train, fl)
         fxc, oos = clip_to_support(fx_f, train, fl)
         fxc["ahat"] = predict_ols(res, fxc, fl)
+        # fx_h/fx_f, not train/fxc: the panel shows the predictors as built,
+        # before the anomaly join and before out-of-support clipping.
+        panel.extend(predictor_panel_rows(
+            country, crop, season_name, fx_h, fx_f, fl,
+            cal["planting_month"], off_used, cal["wraps"], hy))
 
         lo_f = loyo(train, fl, [y for y in eval_years if y in set(train.year)])
         reg_skill = per_region_skill(lo_f, anoms, edges)
@@ -1381,6 +1438,8 @@ def run(path_config_files=None, *, parser=None, logger_obj=None,
     fdf = pd.DataFrame(forecasts)
     fdf.to_csv(out / "forecasts.csv", index=False)
     pd.DataFrame(excluded).to_csv(out / "excluded.csv", index=False)
+    if panel:
+        pd.DataFrame(panel).to_csv(out / "predictors.csv", index=False)
 
     n_fc = int((cdf["status"] == "forecast").sum()) if not cdf.empty else 0
     logger.info(f"combinations: {len(cdf)} | forecast: {n_fc} | "

@@ -18,6 +18,11 @@ if TYPE_CHECKING:
     import contourpy._contourpy as cpy
 
 
+def is_old_matplotlib() -> bool:
+    import matplotlib as mpl
+    return mpl.__version_info__ < (3, 12, 0)
+
+
 @pytest.fixture
 def two_outers_one_hole() -> tuple[cpy.CoordinateArray, ...]:
     x, y = np.meshgrid([0., 1., 2., 3.], [0., 1., 2.])
@@ -31,7 +36,7 @@ def two_outers_one_hole() -> tuple[cpy.CoordinateArray, ...]:
 def xyz_chunk_test() -> tuple[cpy.CoordinateArray, ...]:
     x, y = np.meshgrid(np.arange(5), np.arange(5))
     z = 0.5*np.abs(y - 2) + 0.1*(x - 2)
-    return x, y, z
+    return x, y, z  # type: ignore[return-value]
 
 
 @pytest.mark.parametrize("name", util_test.all_names())
@@ -117,8 +122,10 @@ def test_filled_simple_chunk(name: str, fill_type: FillType, multi: bool) -> Non
             renderer.filled(cont_gen.filled(levels[i], levels[i+1]), fill_type, color=f"C{i}")
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.08 if is_old_matplotlib() else None
     compare_images(
-        image_buffer, "filled_simple_chunk.png", f"{name}_{fill_type}_{multi}", mean_threshold=0.12,
+        image_buffer, "filled_simple_chunk.png", f"{name}_{fill_type}_{multi}",
+        mean_threshold=mean_threshold,
     )
 
 
@@ -145,8 +152,10 @@ def test_filled_simple_chunk_threads(fill_type: FillType, thread_count: int) -> 
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.08 if is_old_matplotlib() else None
     compare_images(
-        image_buffer, "filled_simple_chunk.png", f"{fill_type}_{thread_count}", mean_threshold=0.12,
+        image_buffer, "filled_simple_chunk.png", f"{fill_type}_{thread_count}",
+        mean_threshold=mean_threshold,
     )
 
 
@@ -193,9 +202,10 @@ def test_filled_simple_no_corner_mask_chunk(name: str, fill_type: FillType) -> N
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.07 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_simple_no_corner_mask_chunk.png", f"{name}_{fill_type}",
-        mean_threshold=0.11,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -223,9 +233,10 @@ def test_filled_simple_no_corner_mask_chunk_threads(fill_type: FillType, thread_
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.07 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_simple_no_corner_mask_chunk.png", f"{fill_type}_{thread_count}",
-        mean_threshold=0.11,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -274,9 +285,10 @@ def test_filled_simple_corner_mask_chunk(name: str) -> None:
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.07 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_simple_corner_mask_chunk.png", f"{name}_{fill_type}",
-        mean_threshold=0.10,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -305,9 +317,10 @@ def test_filled_simple_corner_mask_chunk_threads(fill_type: FillType, thread_cou
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.07 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_simple_corner_mask_chunk.png", f"{fill_type}_{thread_count}",
-        mean_threshold=0.10,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -388,22 +401,10 @@ def test_filled_random_chunk(name: str, fill_type: FillType, multi: bool) -> Non
             renderer.filled(cont_gen.filled(levels[i], levels[i+1]), fill_type, color=f"C{i}")
     image_buffer = renderer.save_to_buffer()
 
-    max_threshold = None
-    mean_threshold = None
-    if name == "mpl2005":
-        max_threshold = 128
-        mean_threshold = 0.16
-    elif name in ("serial", "threaded"):
-        if fill_type in (FillType.ChunkCombinedCode, FillType.ChunkCombinedOffset):
-            max_threshold = 99
-            mean_threshold = 0.142
-        else:
-            max_threshold = 135
-            mean_threshold = 0.19
-
+    mean_threshold = 0.14 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_chunk.png", f"{name}_{fill_type}_{multi}",
-        max_threshold=max_threshold, mean_threshold=mean_threshold,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -430,16 +431,10 @@ def test_filled_random_chunk_threads(fill_type: FillType, thread_count: int) -> 
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
-    if fill_type in (FillType.ChunkCombinedCode, FillType.ChunkCombinedOffset):
-        max_threshold = 99
-        mean_threshold = 0.142
-    else:
-        max_threshold = 135
-        mean_threshold = 0.19
-
+    mean_threshold = 0.06 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_chunk.png", f"{fill_type}_{thread_count}",
-        max_threshold=max_threshold, mean_threshold=mean_threshold,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -486,22 +481,10 @@ def test_filled_random_no_corner_mask_chunk(name: str, fill_type: FillType) -> N
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
-    max_threshold = None
-    mean_threshold = None
-    if name == "mpl2005":
-        max_threshold = 128
-        mean_threshold = 0.19
-    elif name in ("serial", "threaded"):
-        if fill_type in (FillType.ChunkCombinedCode, FillType.ChunkCombinedOffset):
-            max_threshold = 99
-            mean_threshold = 0.18
-        else:
-            max_threshold = 135
-            mean_threshold = 0.23
-
+    mean_threshold = 0.17 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_no_corner_mask_chunk.png", f"{name}_{fill_type}",
-        max_threshold=max_threshold, mean_threshold=mean_threshold,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -529,16 +512,10 @@ def test_filled_random_no_corner_mask_chunk_threads(fill_type: FillType, thread_
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
-    if fill_type in (FillType.ChunkCombinedCode, FillType.ChunkCombinedOffset):
-        max_threshold = 99
-        mean_threshold = 0.18
-    else:
-        max_threshold = 135
-        mean_threshold = 0.23
-
+    mean_threshold = 0.07 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_no_corner_mask_chunk.png", f"{fill_type}_{thread_count}",
-        max_threshold=max_threshold, mean_threshold=mean_threshold,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -587,15 +564,10 @@ def test_filled_random_corner_mask_chunk(name: str) -> None:
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
-    max_threshold = None
-    mean_threshold = None
-    if name in ("serial", "threaded"):
-        max_threshold = 135
-        mean_threshold = 0.17
-
+    mean_threshold = 0.12 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_corner_mask_chunk.png", f"{name}_{fill_type}",
-        max_threshold=max_threshold, mean_threshold=mean_threshold,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -624,9 +596,10 @@ def test_filled_random_corner_mask_chunk_threads(fill_type: FillType, thread_cou
     renderer.multi_filled(cont_gen.multi_filled(levels), fill_type)
     image_buffer = renderer.save_to_buffer()
 
+    mean_threshold = 0.05 if is_old_matplotlib() else None
     compare_images(
         image_buffer, "filled_random_corner_mask_chunk.png", f"{fill_type}_{thread_count}",
-        max_threshold=135, mean_threshold=0.17,
+        mean_threshold=mean_threshold,
     )
 
 
@@ -701,7 +674,7 @@ def test_return_by_fill_type(
 
     if fill_type == FillType.OuterCode:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_OuterCode, filled)
+            filled = cast("cpy.FillReturn_OuterCode", filled)
         assert_outer_points(filled[0])
         codes = filled[1]
         assert isinstance(codes, list) and len(codes) == 2
@@ -709,7 +682,7 @@ def test_return_by_fill_type(
         assert_array_equal(codes[1], [1, 2, 2, 79])
     elif fill_type == FillType.OuterOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_OuterOffset, filled)
+            filled = cast("cpy.FillReturn_OuterOffset", filled)
         assert_outer_points(filled[0])
         offsets = filled[1]
         assert isinstance(offsets, list) and len(offsets) == 2
@@ -717,17 +690,17 @@ def test_return_by_fill_type(
         assert_array_equal(offsets[1], [0, 4])
     elif fill_type == FillType.ChunkCombinedCode:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedCode, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedCode", filled)
         assert_chunk_points(filled[0])
         assert_chunk_codes(filled[1])
     elif fill_type == FillType.ChunkCombinedOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedOffset", filled)
         assert_chunk_points(filled[0])
         assert_chunk_offsets(filled[1])
     elif fill_type == FillType.ChunkCombinedCodeOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedCodeOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedCodeOffset", filled)
         assert_chunk_points(filled[0])
         assert_chunk_codes(filled[1])
 
@@ -737,7 +710,7 @@ def test_return_by_fill_type(
         assert_array_equal(outer_offsets_or_none[0], [0, 13, 17])
     elif fill_type == FillType.ChunkCombinedOffsetOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedOffsetOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedOffsetOffset", filled)
         assert_chunk_points(filled[0])
         assert_chunk_offsets(filled[1])
 
@@ -823,7 +796,7 @@ def test_return_by_fill_type_chunk(
 
     if fill_type == FillType.OuterCode:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_OuterCode, filled)
+            filled = cast("cpy.FillReturn_OuterCode", filled)
         assert_outer_points(filled[0], expected)
         codes = filled[1]
         assert isinstance(codes, list) and len(codes) == 4
@@ -831,7 +804,7 @@ def test_return_by_fill_type_chunk(
             assert_array_equal(codes[chunk], [1, 2, 2, 2, 2, 2, 2, 2, 79])
     elif fill_type == FillType.OuterOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_OuterOffset, filled)
+            filled = cast("cpy.FillReturn_OuterOffset", filled)
         assert_outer_points(filled[0], expected)
         offsets = filled[1]
         assert isinstance(offsets, list) and len(offsets) == 4
@@ -839,17 +812,17 @@ def test_return_by_fill_type_chunk(
             assert_array_equal(offsets[chunk], [0, 9])
     elif fill_type == FillType.ChunkCombinedCode:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedCode, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedCode", filled)
         assert_chunk_points(filled[0], expected)
         assert_chunk_codes(filled[1])
     elif fill_type == FillType.ChunkCombinedOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedOffset", filled)
         assert_chunk_points(filled[0], expected)
         assert_chunk_offsets(filled[1])
     elif fill_type == FillType.ChunkCombinedCodeOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedCodeOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedCodeOffset", filled)
         assert_chunk_points(filled[0], expected)
         assert_chunk_codes(filled[1])
 
@@ -861,7 +834,7 @@ def test_return_by_fill_type_chunk(
             assert_array_equal(chunk_outer_offsets, [0, 9])
     elif fill_type == FillType.ChunkCombinedOffsetOffset:
         if TYPE_CHECKING:
-            filled = cast(cpy.FillReturn_ChunkCombinedOffsetOffset, filled)
+            filled = cast("cpy.FillReturn_ChunkCombinedOffsetOffset", filled)
         assert_chunk_points(filled[0], expected)
         assert_chunk_offsets(filled[1])
 
@@ -916,8 +889,8 @@ def test_filled_compare_slow(seed: int) -> None:
         util_test.assert_filled(filled_serial, cont_gen_serial.fill_type)
 
         if TYPE_CHECKING:
-            filled_mpl2014 = cast(cpy.FillReturn_OuterCode, filled_mpl2014)
-            filled_serial = cast(cpy.FillReturn_ChunkCombinedOffsetOffset, filled_serial)
+            filled_mpl2014 = cast("cpy.FillReturn_OuterCode", filled_mpl2014)
+            filled_serial = cast("cpy.FillReturn_ChunkCombinedOffsetOffset", filled_serial)
 
         # Check same results obtained for each in terms of number of points, etc.
         code_list = filled_mpl2014[1]

@@ -290,6 +290,22 @@ _CORE_MESSAGES = {
         "en": "add rules disabled by default ON TOP of the standard set "
               "(--select replaces the set); the value forms are the same",
     },
+    "cli.help.as-ci": {
+        "ru": "гонять тот же набор правил, что джоба CI проекта: ключи --select/--ignore/"
+              "--enable и базлайн берутся из .gitlab-ci.yml (или воркфлоу GitHub) рядом с "
+              "проектом; можно назвать файл явно",
+        "en": "run the rule set the project's CI job runs: the --select/--ignore/--enable "
+              "flags and the baseline are taken from .gitlab-ci.yml (or a GitHub workflow) "
+              "next to the project; the file can be named explicitly",
+    },
+    "cli.help.as-ci-job": {
+        "ru": "какую джобу файла CI брать: пайплайн гоняет линтер не один раз, когда проект "
+              "проверяет второе дерево (перевод) своим набором; имя можно назвать частью "
+              "(--as-ci-job english), включает --as-ci",
+        "en": "which job of the CI file to take: a pipeline runs the linter more than once "
+              "when the project checks a second tree (a translation) by a set of its own; a "
+              "part of the name is enough (--as-ci-job english), implies --as-ci",
+    },
     "cli.help.baseline": {
         "ru": "гасить находки, замороженные в файле базлайна (создаётся --write-baseline); "
               "новые находки выводятся как обычно",
@@ -394,6 +410,10 @@ _CORE_MESSAGES = {
     "cli.help.meta.file": {
         "ru": "ФАЙЛ",
         "en": "FILE",
+    },
+    "cli.help.meta.job": {
+        "ru": "ДЖОБА",
+        "en": "JOB",
     },
     "cli.help.meta.version": {
         "ru": "ВЕРСИЯ",
@@ -545,6 +565,19 @@ _CORE_MESSAGES = {
     "cli.help.lsp.enable": {
         "ru": "включить правила поверх набора по умолчанию",
         "en": "enable rules on top of the default set",
+    },
+    "cli.help.lsp.as-ci": {
+        "ru": "судить тем же набором правил, что джоба CI проекта: ключи --select/--ignore/"
+              "--enable и базлайн берутся из команды xbsl в файле пайплайна (можно назвать "
+              "файл явно); пайплайна нет – набор настроек остаётся, причина пишется в stderr",
+        "en": "judge by the rule set the project's CI job runs: the --select/--ignore/--enable "
+              "flags and the baseline are taken from the xbsl command of the pipeline file "
+              "(the file can be named); with no pipeline the settings' set stands and the "
+              "reason goes to stderr",
+    },
+    "cli.help.lsp.as-ci-job": {
+        "ru": "какую джобу файла CI брать (включает --as-ci); имя можно назвать частью",
+        "en": "which job of the CI file to take (implies --as-ci); a part of the name is enough",
     },
     "cli.help.lsp.baseline": {
         "ru": "файл базлайна (абсолютный или относительно папки воркспейса) – исключённые "

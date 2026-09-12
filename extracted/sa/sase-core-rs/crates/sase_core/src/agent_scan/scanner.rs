@@ -83,6 +83,9 @@ pub fn scan_agent_artifacts(
             stats.artifact_dirs_visited += 1;
             let has_done_marker =
                 candidate.artifact_dir.join("done.json").exists();
+            if has_done_marker && options.capacity_only {
+                continue;
+            }
             if has_done_marker
                 && options.not_before_timestamp.as_deref().is_some_and(
                     |not_before| candidate.timestamp.as_str() < not_before,
@@ -163,6 +166,9 @@ pub fn scan_agent_artifact_dirs(
         }
 
         let has_done_marker = candidate.artifact_dir.join("done.json").exists();
+        if has_done_marker && options.capacity_only {
+            continue;
+        }
         if has_done_marker
             && options.not_before_timestamp.as_deref().is_some_and(
                 |not_before| candidate.timestamp.as_str() < not_before,
@@ -560,12 +566,15 @@ fn scan_artifact_dir(
         None
     };
 
-    let plan_path =
+    let plan_path = if options.capacity_only {
+        None
+    } else {
         load_marker_object(&artifact_dir.join("plan_path.json"), stats)
-            .map(|m| plan_path_from_object(&m));
+            .map(|m| plan_path_from_object(&m))
+    };
 
     let mut prompt_steps: Vec<PromptStepMarkerWire> = Vec::new();
-    if options.include_prompt_step_markers {
+    if options.include_prompt_step_markers && !options.capacity_only {
         let mut step_files: Vec<PathBuf> =
             sorted_dir_entries(artifact_dir, stats)
                 .into_iter()
@@ -595,18 +604,22 @@ fn scan_artifact_dir(
         }
     }
 
-    let raw_prompt_snippet = if options.include_raw_prompt_snippets {
-        read_raw_prompt_snippet(
-            artifact_dir,
-            options.max_prompt_snippet_bytes as usize,
-            stats,
-        )
-    } else {
-        None
-    };
+    let raw_prompt_snippet =
+        if options.include_raw_prompt_snippets && !options.capacity_only {
+            read_raw_prompt_snippet(
+                artifact_dir,
+                options.max_prompt_snippet_bytes as usize,
+                stats,
+            )
+        } else {
+            None
+        };
 
-    let used_xprompts =
-        load_used_xprompts(&artifact_dir.join(USED_XPROMPTS_FILE), stats);
+    let used_xprompts = if options.capacity_only {
+        Vec::new()
+    } else {
+        load_used_xprompts(&artifact_dir.join(USED_XPROMPTS_FILE), stats)
+    };
 
     AgentArtifactRecordWire {
         project_name: project_name.to_string(),
@@ -1118,6 +1131,9 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         ),
         queue_weight_invalid,
         queue_weight_error,
+        runner_claim_owner_key: coerce_str(data.get("runner_claim_owner_key"))
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
         wait_completed_at: coerce_str(data.get("wait_completed_at")),
         plan_submitted_at: coerce_str_list(data.get("plan_submitted_at")),
         epic_started_at: coerce_str(data.get("epic_started_at")),
@@ -1139,6 +1155,28 @@ fn agent_meta_from_object(data: &Map<String, Value>) -> AgentMetaWire {
         retry_terminal: coerce_bool_truthy(data.get("retry_terminal")),
         retry_error_category: coerce_str(data.get("retry_error_category")),
         family_shell: family_shell_from_object(data),
+        monitor_diagnostic_manifest_ref: coerce_str(
+            data.get("monitor_diagnostic_manifest_ref"),
+        ),
+        monitor_retained_log_ref: coerce_str(
+            data.get("monitor_retained_log_ref"),
+        ),
+        continuation_monitor_result_id: coerce_str(
+            data.get("continuation_monitor_result_id"),
+        ),
+        continuation_monitor_result_ref: coerce_str(
+            data.get("continuation_monitor_result_ref"),
+        ),
+        continuation_node_ref: coerce_str(data.get("continuation_node_ref")),
+        continuation_manifest_ref: coerce_str(
+            data.get("continuation_manifest_ref"),
+        ),
+        continuation_budget_decision_path: coerce_str(
+            data.get("continuation_budget_decision_path"),
+        ),
+        monitor_followup_budget_decision_path: coerce_str(
+            data.get("monitor_followup_budget_decision_path"),
+        ),
         shell_kind: coerce_str(data.get("shell_kind")),
         proc_id: coerce_str(data.get("proc_id")),
     }
@@ -1183,6 +1221,9 @@ fn family_shell_from_object(
             next_action: coerce_str(data.get("monitor_next_action")),
             next_output: coerce_str(data.get("monitor_next_output")),
             next_model: coerce_str(data.get("monitor_next_model")),
+            completion_ref: coerce_str(data.get("monitor_completion_ref")),
+            profile: coerce_str(data.get("monitor_profile")),
+            policy_digest: coerce_str(data.get("monitor_policy_digest")),
             followup_agent: coerce_str(data.get("monitor_followup_agent")),
             followup_outcome: coerce_str(data.get("monitor_followup_outcome")),
             followup_error: coerce_str(data.get("monitor_followup_error")),
@@ -1191,6 +1232,30 @@ fn family_shell_from_object(
             ),
             followup_prompt_path: coerce_str(
                 data.get("monitor_followup_prompt_path"),
+            ),
+            followup_attempt_id: coerce_str(
+                data.get("monitor_followup_attempt_id"),
+            ),
+            followup_attempt_fingerprint: coerce_str(
+                data.get("monitor_followup_attempt_fingerprint"),
+            ),
+            followup_attempt_stage: coerce_str(
+                data.get("monitor_followup_attempt_stage"),
+            ),
+            followup_error_stage: coerce_str(
+                data.get("monitor_followup_error_stage"),
+            ),
+            followup_error_type: coerce_str(
+                data.get("monitor_followup_error_type"),
+            ),
+            host_completion_status: coerce_str(
+                data.get("monitor_host_completion_status"),
+            ),
+            host_completion_message: coerce_str(
+                data.get("monitor_host_completion_message"),
+            ),
+            host_completion_reason: coerce_str(
+                data.get("monitor_host_completion_reason"),
             ),
             monitor: Some(FamilyShellMonitorWire {
                 command: coerce_str(data.get("monitor_command")),
@@ -1231,6 +1296,9 @@ fn family_shell_from_object(
             next_action: coerce_str(data.get("gate_next_action")),
             next_output: coerce_str(data.get("gate_next_output")),
             next_model: coerce_str(data.get("gate_next_model")),
+            completion_ref: None,
+            profile: None,
+            policy_digest: None,
             followup_agent: coerce_str(data.get("gate_followup_agent")),
             followup_outcome: coerce_str(data.get("gate_followup_outcome")),
             followup_error: coerce_str(data.get("gate_followup_error")),
@@ -1240,6 +1308,24 @@ fn family_shell_from_object(
             followup_prompt_path: coerce_str(
                 data.get("gate_followup_prompt_path"),
             ),
+            followup_attempt_id: coerce_str(
+                data.get("gate_followup_attempt_id"),
+            ),
+            followup_attempt_fingerprint: coerce_str(
+                data.get("gate_followup_attempt_fingerprint"),
+            ),
+            followup_attempt_stage: coerce_str(
+                data.get("gate_followup_attempt_stage"),
+            ),
+            followup_error_stage: coerce_str(
+                data.get("gate_followup_error_stage"),
+            ),
+            followup_error_type: coerce_str(
+                data.get("gate_followup_error_type"),
+            ),
+            host_completion_status: None,
+            host_completion_message: None,
+            host_completion_reason: None,
             monitor: None,
             gate: Some(FamilyShellGateWire {
                 kind: coerce_str(data.get("gate_kind")),
@@ -1250,6 +1336,7 @@ fn family_shell_from_object(
                 bundle_path: coerce_str(data.get("gate_bundle_path")),
                 notification_id: coerce_str(data.get("gate_notification_id")),
                 decision_path: coerce_str(data.get("gate_decision_path")),
+                claim_holder_pid: coerce_int(data.get("gate_claim_holder_pid")),
             }),
         });
     }
@@ -1299,6 +1386,28 @@ fn done_marker_from_object(data: &Map<String, Value>) -> DoneMarkerWire {
         ),
         status_label: coerce_str(data.get("status_label")),
         family_shell: family_shell_from_object(data),
+        monitor_diagnostic_manifest_ref: coerce_str(
+            data.get("monitor_diagnostic_manifest_ref"),
+        ),
+        monitor_retained_log_ref: coerce_str(
+            data.get("monitor_retained_log_ref"),
+        ),
+        continuation_monitor_result_id: coerce_str(
+            data.get("continuation_monitor_result_id"),
+        ),
+        continuation_monitor_result_ref: coerce_str(
+            data.get("continuation_monitor_result_ref"),
+        ),
+        continuation_node_ref: coerce_str(data.get("continuation_node_ref")),
+        continuation_manifest_ref: coerce_str(
+            data.get("continuation_manifest_ref"),
+        ),
+        continuation_budget_decision_path: coerce_str(
+            data.get("continuation_budget_decision_path"),
+        ),
+        monitor_followup_budget_decision_path: coerce_str(
+            data.get("monitor_followup_budget_decision_path"),
+        ),
     }
 }
 
@@ -1476,7 +1585,25 @@ mod tests {
                 "agent_family_role": "monitor",
                 "monitor_id": "m4kq",
                 "monitor_next_action": "Reply to the user.",
-                "monitor_next_model": "@small"
+                "monitor_next_model": "@small",
+                "monitor_next_output": "auto",
+                "monitor_completion_ref": "cci:test",
+                "monitor_profile": "verify",
+                "monitor_policy_digest": "sha256:policy",
+                "monitor_followup_agent": "acme--next",
+                "monitor_followup_outcome": "launched-degraded",
+                "monitor_followup_degraded_reason": "workspace 0 fallback",
+                "monitor_followup_prompt_path": "followup.md",
+                "monitor_host_completion_status": "finalizing",
+                "monitor_host_completion_message": "running finalizers",
+                "monitor_host_completion_reason": "verification succeeded",
+                "monitor_diagnostic_manifest_ref": "artifact:diag",
+                "monitor_retained_log_ref": "artifact:log",
+                "continuation_monitor_result_id": "result-1",
+                "continuation_monitor_result_ref": "artifact:result",
+                "continuation_node_ref": "node:1",
+                "continuation_manifest_ref": "artifact:manifest",
+                "continuation_budget_decision_path": "/tmp/budget.json"
             }),
         );
 
@@ -1490,6 +1617,50 @@ mod tests {
         assert_eq!(shell.kind, "monitor");
         assert_eq!(shell.next_action.as_deref(), Some("Reply to the user."));
         assert_eq!(shell.next_model.as_deref(), Some("@small"));
+        assert_eq!(shell.next_output.as_deref(), Some("auto"));
+        assert_eq!(shell.completion_ref.as_deref(), Some("cci:test"));
+        assert_eq!(shell.profile.as_deref(), Some("verify"));
+        assert_eq!(shell.policy_digest.as_deref(), Some("sha256:policy"));
+        assert_eq!(shell.followup_agent.as_deref(), Some("acme--next"));
+        assert_eq!(
+            shell.followup_degraded_reason.as_deref(),
+            Some("workspace 0 fallback")
+        );
+        assert_eq!(shell.followup_prompt_path.as_deref(), Some("followup.md"));
+        assert_eq!(shell.host_completion_status.as_deref(), Some("finalizing"));
+        assert_eq!(
+            shell.host_completion_message.as_deref(),
+            Some("running finalizers")
+        );
+        assert_eq!(
+            shell.host_completion_reason.as_deref(),
+            Some("verification succeeded")
+        );
+        assert_eq!(
+            meta.monitor_diagnostic_manifest_ref.as_deref(),
+            Some("artifact:diag")
+        );
+        assert_eq!(
+            meta.monitor_retained_log_ref.as_deref(),
+            Some("artifact:log")
+        );
+        assert_eq!(
+            meta.continuation_monitor_result_id.as_deref(),
+            Some("result-1")
+        );
+        assert_eq!(
+            meta.continuation_monitor_result_ref.as_deref(),
+            Some("artifact:result")
+        );
+        assert_eq!(meta.continuation_node_ref.as_deref(), Some("node:1"));
+        assert_eq!(
+            meta.continuation_manifest_ref.as_deref(),
+            Some("artifact:manifest")
+        );
+        assert_eq!(
+            meta.continuation_budget_decision_path.as_deref(),
+            Some("/tmp/budget.json")
+        );
     }
 
     #[test]
@@ -1599,6 +1770,49 @@ mod tests {
     }
 
     #[test]
+    fn scanner_projects_runner_claim_owner_key_and_ignores_blank() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let present = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260910120101");
+        let blank = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260910120102");
+        write_json(
+            &present.join("agent_meta.json"),
+            json!({
+                "name": "owned",
+                "runner_claim_owner_key": "fam:parallel:20260910120000"
+            }),
+        );
+        write_json(
+            &blank.join("agent_meta.json"),
+            json!({
+                "name": "blank",
+                "runner_claim_owner_key": "   "
+            }),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(snapshot.records.len(), 2);
+        let present_meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        assert_eq!(
+            present_meta.runner_claim_owner_key.as_deref(),
+            Some("fam:parallel:20260910120000")
+        );
+        let blank_meta = snapshot.records[1].agent_meta.as_ref().unwrap();
+        assert_eq!(blank_meta.runner_claim_owner_key, None);
+    }
+
+    #[test]
     fn scanner_round_trips_gate_shell_metadata() {
         let tmp = tempdir().unwrap();
         let projects = tmp.path().join("projects");
@@ -1631,6 +1845,11 @@ mod tests {
                 "gate_followup_error": "claim moved late",
                 "gate_followup_degraded_reason": "workspace unavailable",
                 "gate_followup_prompt_path": "gate_followup.md",
+                "gate_followup_attempt_id": "att-1",
+                "gate_followup_attempt_fingerprint": "sha256:cafe",
+                "gate_followup_attempt_stage": "launched",
+                "gate_followup_error_stage": "recording",
+                "gate_followup_error_type": "OSError",
                 "gate_elapsed_seconds": 2.5,
                 "gate_label": "approval/gate-1",
                 "gate_reason": "Need owner approval",
@@ -1676,6 +1895,12 @@ mod tests {
         assert_eq!(meta_shell.id.as_deref(), Some("gate-1"));
         assert_eq!(meta_shell.state.as_deref(), Some("pending"));
         assert_eq!(meta_shell.next_model.as_deref(), Some("@large"));
+        assert_eq!(meta_shell.followup_attempt_id.as_deref(), Some("att-1"));
+        assert_eq!(
+            meta_shell.followup_attempt_stage.as_deref(),
+            Some("launched")
+        );
+        assert_eq!(meta_shell.followup_error_type.as_deref(), Some("OSError"));
         assert!(meta_shell.output_truncated);
         let meta_gate = meta_shell.gate.as_ref().unwrap();
         assert_eq!(
@@ -1783,5 +2008,254 @@ mod tests {
         let step = &snapshot.records[0].prompt_steps[0];
         assert!(step.model_alias_trail.is_empty());
         assert_eq!(step.model_alias_origin, None);
+    }
+
+    fn write_done_dir(projects: &Path, timestamp: &str) {
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join(timestamp);
+        write_json(
+            &artifact.join("agent_meta.json"),
+            json!({"name": format!("done-{timestamp}")}),
+        );
+        write_json(
+            &artifact.join("done.json"),
+            json!({"outcome": "completed"}),
+        );
+        write_json(
+            &artifact.join("plan_path.json"),
+            json!({"plan_path": "plans/example.md"}),
+        );
+        write_json(
+            &artifact.join("xprompts.json"),
+            json!([{"name": "coder", "kind": "part"}]),
+        );
+    }
+
+    #[test]
+    fn capacity_only_skips_done_dirs_before_parsing_markers() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        for i in 0..20 {
+            write_done_dir(&projects, &format!("2026042712{i:04}"));
+        }
+        let running = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427130000");
+        write_json(&running.join("agent_meta.json"), json!({"name": "runner"}));
+        write_json(&running.join("running.json"), json!({"pid": 4242}));
+        let waiting = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427140000");
+        write_json(&waiting.join("agent_meta.json"), json!({"name": "waiter"}));
+        write_json(
+            &waiting.join("waiting.json"),
+            json!({"slot_requested_at": "2026-04-27T14:00:00Z"}),
+        );
+
+        let full_scan = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert_eq!(full_scan.records.len(), 22);
+
+        let capacity_scan = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire {
+                capacity_only: true,
+                ..AgentArtifactScanOptionsWire::default()
+            },
+        );
+        assert_eq!(capacity_scan.records.len(), 2);
+        assert!(capacity_scan
+            .records
+            .iter()
+            .all(|record| !record.has_done_marker));
+        // Every dir is still counted as visited (observability), but only
+        // the two non-done dirs get their marker files parsed.
+        assert_eq!(capacity_scan.stats.artifact_dirs_visited, 22);
+        assert!(
+            capacity_scan.stats.marker_files_parsed
+                < full_scan.stats.marker_files_parsed
+        );
+        assert_eq!(capacity_scan.stats.marker_files_parsed, 4);
+    }
+
+    #[test]
+    fn capacity_only_preserves_capacity_snapshot_fields() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let waiting = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427150000");
+        write_json(
+            &waiting.join("agent_meta.json"),
+            json!({
+                "name": "waiter",
+                "agent_family": "acme",
+                "agent_family_role": null,
+                "parent_timestamp": "20260427140000",
+                "runner_claim_owner_key": "acme:parallel:20260427140000",
+            }),
+        );
+        write_json(
+            &waiting.join("waiting.json"),
+            json!({
+                "slot_requested_at": "2026-04-27T15:00:00Z",
+                "eligible_since": "2026-04-27T15:00:05Z",
+                "wait_priority": 3,
+                "wait_runners": 1,
+                "queue_weight": 2.5,
+                "queue_weight_explicit": true,
+            }),
+        );
+
+        let running = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427160000");
+        write_json(
+            &running.join("agent_meta.json"),
+            json!({"name": "runner", "pid": 5150, "run_started_at": "2026-04-27T16:00:00Z"}),
+        );
+        write_json(&running.join("running.json"), json!({"pid": 5150}));
+        write_json(
+            &running.join("workflow_state.json"),
+            json!({"workflow_name": "wf", "status": "running", "appears_as_agent": true}),
+        );
+        write_json(
+            &running.join("pending_question.json"),
+            json!({"session_id": "sess-1"}),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire {
+                capacity_only: true,
+                ..AgentArtifactScanOptionsWire::default()
+            },
+        );
+        assert_eq!(snapshot.records.len(), 2);
+
+        let waiting_record = snapshot
+            .records
+            .iter()
+            .find(|r| r.timestamp == "20260427150000")
+            .unwrap();
+        let waiting_marker = waiting_record.waiting.as_ref().unwrap();
+        assert_eq!(
+            waiting_marker.slot_requested_at.as_deref(),
+            Some("2026-04-27T15:00:00Z")
+        );
+        assert_eq!(
+            waiting_marker.eligible_since.as_deref(),
+            Some("2026-04-27T15:00:05Z")
+        );
+        assert_eq!(waiting_marker.wait_priority, Some(3));
+        assert_eq!(waiting_marker.queue_weight, Some(2.5));
+        assert!(waiting_marker.queue_weight_explicit);
+        let waiting_meta = waiting_record.agent_meta.as_ref().unwrap();
+        assert_eq!(
+            waiting_meta.parent_timestamp.as_deref(),
+            Some("20260427140000")
+        );
+        assert_eq!(
+            waiting_meta.runner_claim_owner_key.as_deref(),
+            Some("acme:parallel:20260427140000")
+        );
+
+        let running_record = snapshot
+            .records
+            .iter()
+            .find(|r| r.timestamp == "20260427160000")
+            .unwrap();
+        assert_eq!(running_record.running.as_ref().unwrap().pid, Some(5150));
+        assert_eq!(running_record.agent_meta.as_ref().unwrap().pid, Some(5150));
+        assert!(
+            running_record
+                .workflow_state
+                .as_ref()
+                .unwrap()
+                .appears_as_agent
+        );
+        assert!(running_record.pending_question.is_some());
+    }
+
+    #[test]
+    fn capacity_only_omits_plan_path_and_used_xprompts() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let running = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427170000");
+        write_json(&running.join("agent_meta.json"), json!({"name": "runner"}));
+        write_json(&running.join("running.json"), json!({"pid": 9000}));
+        write_json(
+            &running.join("plan_path.json"),
+            json!({"plan_path": "plans/example.md"}),
+        );
+        write_json(
+            &running.join("xprompts.json"),
+            json!([{"name": "coder", "kind": "part"}]),
+        );
+
+        let capacity_scan = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire {
+                capacity_only: true,
+                ..AgentArtifactScanOptionsWire::default()
+            },
+        );
+        assert_eq!(capacity_scan.records.len(), 1);
+        assert!(capacity_scan.records[0].plan_path.is_none());
+        assert!(capacity_scan.records[0].used_xprompts.is_empty());
+
+        let full_scan = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        );
+        assert!(full_scan.records[0].plan_path.is_some());
+        assert!(!full_scan.records[0].used_xprompts.is_empty());
+    }
+
+    #[test]
+    fn capacity_only_keeps_active_dir_without_running_or_waiting_marker() {
+        // A shell can occupy a runner slot via `agent_meta.run_started_at`
+        // alone (home-mode runs only write `running.json`); capacity_only
+        // must not drop such dirs just because neither marker file exists.
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let started = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join("20260427180000");
+        write_json(
+            &started.join("agent_meta.json"),
+            json!({"name": "starting", "run_started_at": "2026-04-27T18:00:00Z"}),
+        );
+
+        let snapshot = scan_agent_artifacts(
+            &projects,
+            AgentArtifactScanOptionsWire {
+                capacity_only: true,
+                ..AgentArtifactScanOptionsWire::default()
+            },
+        );
+        assert_eq!(snapshot.records.len(), 1);
+        assert!(!snapshot.records[0].has_done_marker);
+        assert!(snapshot.records[0].running.is_none());
+        assert!(snapshot.records[0].waiting.is_none());
     }
 }

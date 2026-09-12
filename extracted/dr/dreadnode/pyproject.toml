@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.45"
+version = "2.0.46"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -120,6 +120,7 @@ all = ["dreadnode[scoring,training,video,airt-ml]"]
 
 [dependency-groups]
 dev = [
+    "dreadnode-workflow-core>=0.1.0,<0.2",
     "mypy>=1.8.0,<2.0.0",
     "ruff>=0.15,<1.0",
     "ty==0.0.24",  # pinned: 0.0.63 introduces ~120 new diagnostics; upgrade separately
@@ -174,10 +175,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["dreadnode"]
+packages = ["dreadnode", "dreadnode_workflow_core"]
 
 [tool.hatch.build.targets.sdist]
-include = ["/dreadnode", "/README.md"]
+include = ["/dreadnode", "/dreadnode_workflow_core", "/README.md"]
 
 # Dev
 
@@ -412,6 +413,10 @@ skip-magic-trailing-comma = false
 extend-immutable-calls = ["dreadnode.core.meta.Config", "dreadnode.core.meta.config.Config"]
 
 [tool.ruff.lint.extend-per-file-ignores]
+"dreadnode/builtin_capabilities/dreadnode/skills/creating-capabilities/assets/workflows/*.py" = [
+    "INP001",  # standalone modules copied into authored capabilities
+    "ARG001",  # every workflow step accepts ctx, even when the example does not need it
+]
 # Prefer inline `# noqa` for isolated exceptions. File-level ignores are reserved
 # for genuinely file-wide cases like fixture trees, glyph-heavy UI output, or
 # static confusable-character tables.
@@ -499,6 +504,11 @@ extend-immutable-calls = ["dreadnode.core.meta.Config", "dreadnode.core.meta.con
 "dreadnode/optimization/console.py" = [
     "RUF001", # sigma/statistical symbols are intentional UI output
 ]
+
+[tool.uv.sources]
+# Editable source for development. Release builds vendor this package into the
+# SDK wheel so users do not need a separately published distribution.
+dreadnode-workflow-core = { path = "../workflow-core", editable = true }
 
 [tool.uv]
 index-strategy = "unsafe-best-match"

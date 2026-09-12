@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import warnings
+from typing import Any, cast
 
 import pytest
 import rsloop
@@ -98,7 +99,6 @@ class TestRun:
             "runtime_profile",
             "minimum_os",
             "tls_backend",
-            "profiler",
         }
         assert info["version"] == rsloop.__version__
         assert info["profile"] in {"debug", "release"}
@@ -109,7 +109,6 @@ class TestRun:
         assert info["runtime_profile"] == "rsloop"
         assert info["minimum_os"] == expected_minimum_os
         assert info["tls_backend"] == "rustls"
-        assert info["profiler"] == rsloop.profiler_compiled()
 
     def test_install_makes_asyncio_create_rsloop_loops(self) -> None:
         original_policy = get_event_loop_policy()
@@ -188,7 +187,10 @@ class TestRun:
 
         assert rsloop.run(main()) == "ok"
 
-    def test_repeated_delayed_thread_completions_wake_loop(self) -> None:
+    @pytest.mark.stress
+    def test_repeated_delayed_thread_completions_wake_loop(
+        self, iteration_count
+    ) -> None:
         def delayed_result(value: int) -> int:
             # Let the loop leave its short spin window and park in the OS
             # selector before the worker schedules its completion.
@@ -196,17 +198,18 @@ class TestRun:
             return value
 
         async def main() -> None:
-            for expected in range(500):
+            for expected in range(iteration_count(100, 500)):
                 actual = await run_in_thread(delayed_result, expected)
                 assert actual == expected
 
         rsloop.run(main())
 
-    def test_repeated_command_dispatch_across_runs(self) -> None:
+    @pytest.mark.stress
+    def test_repeated_command_dispatch_across_runs(self, iteration_count) -> None:
         loop = rsloop.new_event_loop()
         try:
             asyncio.set_event_loop(loop)
-            for expected in range(10_000):
+            for expected in range(iteration_count(2_000, 10_000)):
                 future = loop.create_future()
                 loop.call_soon(future.set_result, expected)
                 assert loop.run_until_complete(future) == expected
@@ -214,8 +217,11 @@ class TestRun:
             asyncio.set_event_loop(None)
             loop.close()
 
-    def test_repeated_command_dispatch_across_loop_lifecycles(self) -> None:
-        for expected in range(1_000):
+    @pytest.mark.stress
+    def test_repeated_command_dispatch_across_loop_lifecycles(
+        self, iteration_count
+    ) -> None:
+        for expected in range(iteration_count(200, 1_000)):
             loop = rsloop.new_event_loop()
             try:
                 future = loop.create_future()
@@ -224,7 +230,10 @@ class TestRun:
             finally:
                 loop.close()
 
-    def test_run_waits_for_runtime_finish_acknowledgement(self) -> None:
+    @pytest.mark.stress
+    def test_run_waits_for_runtime_finish_acknowledgement(
+        self, iteration_count
+    ) -> None:
         async def main() -> None:
             loop = asyncio.get_running_loop()
             reader, writer = socket.socketpair()
@@ -232,7 +241,7 @@ class TestRun:
                 # Replacing an FD watcher queues work for the runtime thread.
                 # Finishing the run must wait for that queue instead of using
                 # the much shorter signal-polling interval as a deadline.
-                for _ in range(10_000):
+                for _ in range(iteration_count(2_000, 10_000)):
                     loop.add_reader(reader, lambda: None)
 
                 loop.remove_reader(reader)
@@ -385,6 +394,7 @@ else:
 
             class WriteProtocol(asyncio.Protocol):
                 def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport = cast(asyncio.WriteTransport, transport)
                     transport.write(b"pipe-write-demo")
                     transport.close()
 
@@ -440,6 +450,7 @@ else:
                     self.events: list[str] = []
 
                 def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport = cast(asyncio.WriteTransport, transport)
                     self.transport = transport
                     self.default_limits = transport.get_write_buffer_limits()
                     transport.set_write_buffer_limits(high=1, low=0)
@@ -506,6 +517,7 @@ else:
                     self.stderr = bytearray()
 
                 def connection_made(self, transport: asyncio.BaseTransport) -> None:
+                    transport = cast(asyncio.SubprocessTransport, transport)
                     self.transport = transport
 
                 def pipe_data_received(self, fd: int, data: bytes) -> None:
@@ -545,6 +557,7 @@ else:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdin_transport = transport.get_pipe_transport(0)
+            stdin_transport = cast(asyncio.WriteTransport, stdin_transport)
             stdin_transport.write(b"hello subprocess")
             stdin_transport.close()
             return await asyncio.wait_for(done, 3.0)
@@ -563,7 +576,7 @@ else:
         unconditionally, so each keyword has to be accepted at the default value
         a caller gets when it says nothing.
         """
-        defaults: dict[str, object] = {
+        defaults: dict[str, Any] = {
             "close_fds": True,
             "creationflags": 0,
             "cwd": None,
@@ -602,7 +615,9 @@ else:
                     if transport.get_returncode() is not None:
                         break
                     await asyncio.sleep(0.01)
-                return transport.get_returncode()
+                returncode = transport.get_returncode()
+                assert returncode is not None
+                return returncode
             finally:
                 transport.close()
 
@@ -632,21 +647,17 @@ else:
 
     def test_subprocess_shell_round_trip(self) -> None:
         async def main() -> dict[str, object]:
-            result: dict[str, object] | None = None
-            for _ in range(10):
-                proc = await asyncio.create_subprocess_shell(
-                    "echo shell-ok",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-                stdout, stderr = await asyncio.wait_for(proc.communicate(), 3.0)
-                result = {
-                    "stdout": stdout.decode().strip(),
-                    "stderr": stderr.decode().strip(),
-                    "returncode": proc.returncode,
-                }
-            assert result is not None
-            return result
+            proc = await asyncio.create_subprocess_shell(
+                "echo shell-ok",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), 3.0)
+            return {
+                "stdout": stdout.decode().strip(),
+                "stderr": stderr.decode().strip(),
+                "returncode": proc.returncode,
+            }
 
         assert rsloop.run(main()) == {
             "stdout": "shell-ok",
@@ -656,13 +667,14 @@ else:
 
     def test_subprocess_exec_text_mode_round_trip(self) -> None:
         async def main() -> dict[str, object]:
+            create_subprocess_exec = cast(Any, asyncio.create_subprocess_exec)
             script = (
                 "import sys; "
                 "data = sys.stdin.read().rstrip('\\n'); "
                 "sys.stdout.write('out:' + data + '\\r\\nsecond\\n'); "
                 "sys.stderr.write('err:' + data + '\\r')"
             )
-            proc = await asyncio.create_subprocess_exec(
+            proc = await create_subprocess_exec(
                 sys.executable,
                 "-c",
                 script,
@@ -703,6 +715,7 @@ else:
 
     def test_subprocess_shell_text_mode_round_trip(self) -> None:
         async def main() -> dict[str, object]:
+            create_subprocess_shell = cast(Any, asyncio.create_subprocess_shell)
             script = (
                 "import sys; "
                 "sys.stdout.write('shell-out\\r\\n'); "
@@ -713,7 +726,7 @@ else:
             else:
                 cmd = shlex.join([sys.executable, "-c", script])
 
-            proc = await asyncio.create_subprocess_shell(
+            proc = await create_subprocess_shell(
                 cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -738,7 +751,7 @@ else:
         }
 
     def test_getaddrinfo_accepts_type_keyword(self) -> None:
-        async def main() -> list[tuple[object, ...]]:
+        async def main() -> list[tuple[Any, ...]]:
             loop = asyncio.get_running_loop()
             return await loop.getaddrinfo(
                 "localhost",

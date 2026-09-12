@@ -2568,9 +2568,11 @@ class UniqueCount:
                         :meth:`StateStore.end_window` and to any future durable backing.
         
                 Note:
-                    ``config.by`` is ``Literal["track_id"]`` -- one strategy, checked at manifest
-                    load.  It is read rather than ignored so that adding a second strategy later is
-                    a change here and not a silent no-op.
+                    ``config.by`` selects the de-duplication key: ``track_id`` (distinct tracked
+                    objects) or ``identity`` (distinct subjects, MLAPP-262 E2).  The guard below is
+                    kept deliberately: the manifest schema and this runtime must never disagree about
+                    which strategies exist, because a strategy the manifest allows and the runtime
+                    ignores publishes a plausible-looking wrong number rather than failing.
         """
         ...
 

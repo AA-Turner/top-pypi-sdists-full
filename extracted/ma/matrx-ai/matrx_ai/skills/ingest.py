@@ -117,6 +117,47 @@ def _hash(body: str) -> str:
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
+# THE FLAT-FILE GUARD (2026-09-11). A bare ``<name>.md`` sitting in a skills
+# directory is a skill ONLY when it declares itself one (frontmatter carrying
+# both an id-ish key and a description — what every Claude/Cursor skill has).
+# Plain directory docs that live beside skills are NOT skills: the 2026-07-16
+# import ingested ``common-docs/skills/index.md`` (the bundle's listing) and
+# ``matrx-frontend/features/skills/FEATURE.md`` (a React feature's doc) as the
+# live platform skills "index" and "FEATURE". Folder layout
+# (``<skill_id>/SKILL.md``) is unaffected — the folder IS the declaration.
+_RESERVED_FLAT_STEMS = frozenset(
+    {
+        "readme",
+        "index",
+        "feature",
+        "claude",
+        "agent",
+        "agents",
+        "changelog",
+        "module_readme",
+        "state",
+        "decisions",
+        "plan",
+        "vision",
+        "notes",
+        "todo",
+        "contributing",
+        "license",
+    }
+)
+
+
+def _flat_md_is_skill(file_name: str, content: str) -> bool:
+    """Is this bare ``<name>.md`` in a skills dir actually a skill?"""
+    stem = file_name[:-3] if file_name.lower().endswith(".md") else file_name
+    if stem.strip().lower().replace("-", "_") in _RESERVED_FLAT_STEMS:
+        return False
+    fm, _ = _parse_frontmatter(content)
+    has_id = bool(_first_present(fm, "name", "skill_id", "id", "slug"))
+    has_description = bool(_first_present(fm, "description", "desc", "summary", "about"))
+    return has_id and has_description
+
+
 # ---------------------------------------------------------------------------
 # Filesystem walk
 # ---------------------------------------------------------------------------
@@ -310,8 +351,15 @@ def walk_filesystem(root: Path | str) -> list[ParsedSkill]:
                 parsed = _parse_file(skill_md, skill_id=child.name)
                 if parsed:
                     skills.append(parsed)
-        elif child.suffix.lower() == ".md" and child.name != "README.md":
-            parsed = _parse_file(child, skill_id=child.stem)
+        elif child.suffix.lower() == ".md":
+            try:
+                content = child.read_text(encoding="utf-8")
+            except Exception as exc:
+                vcprint(f"[skills.ingest] read failed {child}: {exc}", color="yellow")
+                continue
+            if not _flat_md_is_skill(child.name, content):
+                continue
+            parsed = _parse_content(content, skill_id=child.stem, source_path=str(child))
             if parsed:
                 skills.append(parsed)
 
@@ -369,10 +417,15 @@ def _looks_like_skills_dir(path: Path) -> bool:
     has_skill_md_folder = any(
         child.is_dir() and (child / "SKILL.md").exists() for child in children
     )
-    has_md = any(
-        child.is_file() and child.suffix.lower() == ".md" and child.name != "README.md"
-        for child in children
-    )
+    def _is_flat_skill(child: Path) -> bool:
+        if not (child.is_file() and child.suffix.lower() == ".md"):
+            return False
+        try:
+            return _flat_md_is_skill(child.name, child.read_text(encoding="utf-8"))
+        except Exception:
+            return False
+
+    has_md = any(_is_flat_skill(child) for child in children)
 
     resolved_str = str(path)
     matches_convention = any(
@@ -671,8 +724,6 @@ async def walk_via_proxy(
                 # layout B: <skill_id>.md
                 if not name.lower().endswith(".md"):
                     continue
-                if name == "README.md":
-                    continue
                 stem = name[:-3]
                 try:
                     content = await fs_read(b, path, encoding="utf8")
@@ -681,6 +732,10 @@ async def walk_via_proxy(
                         f"[skills.ingest] proxy fs_read {path} failed: {exc!r}",
                         color="yellow",
                     )
+                    continue
+                # Same flat-file guard as the local walker — a README/index/
+                # FEATURE doc beside skills is not a skill.
+                if not _flat_md_is_skill(name, content):
                     continue
                 parsed = _parse_content(
                     content,

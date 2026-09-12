@@ -54,7 +54,8 @@ class TestEvalConfig(unittest.TestCase):
                 reasoning_effort = 'none',
                 thinking = arthur_client.api_bindings.models.anthropic_thinking_param.AnthropicThinkingParam(
                     type = 'enabled', 
-                    budget_tokens = 56, )
+                    budget_tokens = 56, 
+                    display = 'summarized', )
             )
         else:
             return EvalConfig(

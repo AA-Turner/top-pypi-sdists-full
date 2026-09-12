@@ -81,6 +81,21 @@ def test_message_sanitization_is_local_and_never_retryable() -> None:
     assert "no AI provider request was attempted" in classified.user_message
 
 
+def test_terminal_assistant_sanitation_names_the_missing_next_turn() -> None:
+    failure = MessageSanitizationError(
+        "Anthropic request must end with a user/tool turn; terminal assistant history "
+        "would be unsupported response prefill"
+    )
+
+    classified = classify_provider_error("anthropic", failure)
+
+    assert classified.error_type == "message_sanitization_error"
+    assert classified.is_retryable is False
+    assert "assistant response" in classified.user_message
+    assert "next user instruction" in classified.user_message
+    assert "no AI provider request was attempted" in classified.user_message
+
+
 @pytest.mark.asyncio
 async def test_message_sanitization_forces_dedicated_structured_capture(monkeypatch) -> None:
     captured = []

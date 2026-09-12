@@ -24,6 +24,8 @@ from .common import (
     MEMINFO_DATA,
     MEMINFO_VALUES,
     NETDEV_DATA,
+    NETDEV_DATA_NO_ETH0,
+    NETDEV_DATA_NO_VLAN1,
     NVRAM_DHCP_DATA,
     NVRAM_DHCP_VALUES,
     NVRAM_FIRMWARE_DATA,
@@ -130,6 +132,57 @@ async def test_get_current_transfer_second_successful(
         assert await mocked_wrt.get_current_transfer_rates() == {
             "rx": 21734767,
             "tx": 13230063,
+        }
+        mocked_time.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_current_transfer_first_no_vlan1(
+    mocked_wrt: AsusWrt,
+) -> None:
+    """Test rates when vlan1 is missing from netdev output.
+
+    Regression: previously raised ValueError for not enough values.
+    """
+    mocked_wrt._connection.run_command = AsyncMock(
+        return_value=NETDEV_DATA_NO_VLAN1
+    )
+    assert await mocked_wrt.get_current_transfer_rates() == {"rx": 0, "tx": 0}
+
+
+@pytest.mark.asyncio
+async def test_get_current_transfer_first_no_eth0(
+    mocked_wrt: AsusWrt,
+) -> None:
+    """Test rates when wan interface (eth0) is missing.
+
+    Regression: previously raised ValueError for not enough values.
+    """
+    mocked_wrt._connection.run_command = AsyncMock(
+        return_value=NETDEV_DATA_NO_ETH0
+    )
+    assert await mocked_wrt.get_current_transfer_rates() == {"rx": 0, "tx": 0}
+
+
+@pytest.mark.asyncio
+async def test_get_current_transfer_second_no_vlan1(
+    mocked_wrt: AsusWrt,
+) -> None:
+    """Test get_current_transfer_rates second call with vlan1 missing.
+
+    Verifies rate calculation works when vlan1 defaults to zero.
+    """
+    mocked_wrt._connection.run_command = AsyncMock(
+        return_value=NETDEV_DATA_NO_VLAN1
+    )
+    with patch("aioasuswrt.asuswrt.time", return_value=120) as mocked_time:
+        mocked_wrt._last_transfer_rates_check = 60
+        mocked_wrt._transfer_rates = TransferRates(
+            -1 + _BIT_WRAP, -1 + _BIT_WRAP
+        )
+        assert await mocked_wrt.get_current_transfer_rates() == {
+            "rx": 22939914,
+            "tx": 14936810,
         }
         mocked_time.assert_called_once()
 

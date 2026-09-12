@@ -112,6 +112,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             completed_at=time.time(),
             tool_name="shell_execute",
             call_id=ctx.call_id,
+            output_self_capped=True,
         )
 
     return ToolResult(
@@ -126,6 +127,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         completed_at=time.time(),
         tool_name="shell_execute",
         call_id=ctx.call_id,
+        output_self_capped=True,
     )
 
 

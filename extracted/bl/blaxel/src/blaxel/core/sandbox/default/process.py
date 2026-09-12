@@ -4,6 +4,12 @@ from typing import Any, Callable, Dict, Literal, Union
 import httpx
 
 from ...common.settings import settings
+from ..client.api.process.delete_process_identifier_stdin import (
+    asyncio_detailed as delete_process_stdin,
+)
+from ..client.api.process.post_process_identifier_stdin import (
+    asyncio_detailed as post_process_stdin,
+)
 from ..client.models import ProcessResponse, SuccessResponse
 from ..client.models.process_request import ProcessRequest
 from ..transient_retry import retry_on_transient_reset_async
@@ -12,6 +18,7 @@ from ..types import (
     ProcessRequestWithLog,
     ProcessResponseWithLog,
     SandboxConfiguration,
+    api_result,
 )
 from .action import SandboxAction
 
@@ -479,6 +486,26 @@ class SandboxProcess(SandboxAction):
             return result
         finally:
             await response.aclose()
+
+    async def write_stdin(self, identifier: str, data: Union[str, bytes]) -> SuccessResponse:
+        """Write raw bytes to the stdin of a process started with ``stdin=True``.
+
+        Bytes are forwarded verbatim, so include the trailing newline your protocol
+        expects. Not retried: a duplicate write would corrupt the stream.
+        """
+        async with self.get_api_client() as client:
+            # str or bytes, sent as-is with the octet-stream content type.
+            response = await post_process_stdin(identifier, client=client, body=data)
+        return api_result(response, SuccessResponse)
+
+    async def close_stdin(self, identifier: str) -> SuccessResponse:
+        """Close the process's stdin (EOF). Idempotent.
+
+        For stdio protocols such as MCP this is the clean shutdown path.
+        """
+        async with self.get_api_client() as client:
+            response = await delete_process_stdin(identifier, client=client)
+        return api_result(response, SuccessResponse)
 
     async def logs(
         self,

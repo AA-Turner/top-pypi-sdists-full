@@ -325,6 +325,27 @@ class MaterializationWindowConfig(TypedDict, total=False):
     continuous_buffer_duration: Duration | None
     """The minimum period of time for which to sample data directly via online query, rather than from the backfilled aggregations."""
 
+    offline_continuous_buffer_duration: Duration | None
+    """The continuous buffer to use for offline queries, in place of `continuous_buffer_duration`.
+
+    Offline queries read the backfilled aggregations, whose trailing edge lags the online path,
+    so the span that has to be recomputed from raw events is a different one. Set this to size
+    that span independently of the online buffer.
+
+    When unset, offline queries use `continuous_buffer_duration`. Online queries and aggregate
+    backfills always use `continuous_buffer_duration` and ignore this.
+
+    >>> count: Windowed[int] = windowed(
+    ...     "1d", "7d",
+    ...     materialization={
+    ...         "bucket_duration": "1d",
+    ...         "continuous_buffer_duration": "1h",
+    ...         "offline_continuous_buffer_duration": "2d",
+    ...     },
+    ...     expression=_.events.count(),
+    ... )
+    """
+
     cache_aggregated_values: bool
     """
     If True, caches the computed, aggregated values for the given time windows in the online store. At query time the cached values are read instead of computed the aggregation from the buckets.

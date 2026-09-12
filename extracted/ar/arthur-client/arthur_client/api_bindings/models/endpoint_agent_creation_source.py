@@ -17,31 +17,22 @@ import pprint
 import re  # noqa: F401
 import json
 
-from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.agent_observations import AgentObservations
+from arthur_client.api_bindings.models.source_address import SourceAddress
 from typing import Optional, Set
 from typing_extensions import Self
 
 class EndpointAgentCreationSource(BaseModel):
     """
-    One agent discovered on one managed endpoint.  GRAIN IS PER (SOFTWARE, DEVICE), not per software. The Discovery list shows a row per machine -- \"OpenClaw / MBP-4471 / openclaw --serve\" -- so the device is part of the finding's identity rather than a count attached to it. An earlier draft carried ``device_count`` instead and was the wrong shape: it could not name the machine, the user, or what the process was actually doing.  Every field here is obtainable from a ONE-SHOT osquery invocation plus MDM inventory. Deliberately absent, because they are not:  * **Destination hostname.** ``process_open_sockets`` returns ``remote_address`` as an   IP. Recovering ``api.anthropic.com`` needs reverse DNS, which is unreliable against   CDN and anycast ranges, or SNI capture. * **Connection counts over a window.** Only ``socket_events`` yields those, and it is   event-based: a one-shot run reports \"events are disabled\". It requires osqueryd   running persistently with the audit subsystem -- which is the decision that would   put code signing, notarization and PPPC back on the critical path.  Neither is modelled as a nullable field, on purpose. A column that is always null reads as \"not collected yet\" rather than \"this sensor cannot see it.\"
+    One agent observed on one managed endpoint.  Grain is per (software, device): ``address.instance`` is the device and ``address.resource_id`` the software, because the Discovery list shows a row per machine.  What it fills comes from three places: the collector's on-disk output, the MDM's device record, and the collector's catalog.  Where the collector's six output columns land, so none is unaccounted for:  ========  ============================================= column    carried as ========  ============================================= kind      ``address.resource_kind`` id        ``address.resource_id`` ver       ``observations.version`` loc       ``observations.install_path`` perms     ``observations.permissions`` extra     nothing -- see below ========  =============================================  ``extra`` means a different thing per kind (browser type, image size, deb arch, unit state, listening address) and a field here means one thing for every sensor. The listening address is the one value in it worth its own field eventually.  ``scan`` rows must never arrive: that kind marks a branch that could not look, not an agent that was found.  A one-shot sweep sees the machine, not behaviour over time. Anything needing persistent event capture -- outbound destinations, connection counts -- is out of reach until osqueryd runs with the audit subsystem, which would put code signing, notarization and PPPC on the critical path.
     """ # noqa: E501
+    vendor: StrictStr = Field(description="Upstream product this came from, e.g. 'splunk_enterprise', 'jamf_pro', 'aws_bedrock'. FREE TEXT, and deliberately not enumerated here: nothing in this package branches on the vendor -- capability and evidence ceilings are declared per source class -- so enumerating it would make every new vendor a release of this package plus a repin in three services. The registry is app_plane's discovery source type catalog, which is also where the display name lives. Values are `<platform>_<product>`, always, so a vendor shipping a second product that could be a source does not force a rename of the first.")
+    address: SourceAddress = Field(description="Where to find this agent again upstream. Required: a discovered agent that cannot be located again is not actionable.")
+    observations: Optional[AgentObservations] = Field(default=None, description="What the sensor could see. Only fields in `observable_fields()` are ever populated by this category.")
     type: Optional[StrictStr] = 'ENDPOINT'
-    mdm: Optional[StrictStr] = Field(default='jamf_pro', description="The device management system that reported this agent.")
-    software_key: StrictStr = Field(description="Stable, version-free identifier for the discovered software. Frozen wire contract: with device_key it forms the finding's identity, and changing either derivation orphans every existing agent AND duplicates it, because the Agents API has no delete.")
-    device_key: StrictStr = Field(description="Stable device identity, e.g. 'serial:C02XL4KHQ6NV'. Part of the frozen wire contract alongside software_key.")
-    device_name: Optional[StrictStr] = None
-    device_group: Optional[StrictStr] = None
-    assigned_user: Optional[StrictStr] = None
-    os_version: Optional[StrictStr] = None
-    process_cmdline: Optional[StrictStr] = None
-    parent_process: Optional[StrictStr] = None
-    install_path: Optional[StrictStr] = None
-    version: Optional[StrictStr] = None
-    first_seen: Optional[datetime] = None
-    classification: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["type", "mdm", "software_key", "device_key", "device_name", "device_group", "assigned_user", "os_version", "process_cmdline", "parent_process", "install_path", "version", "first_seen", "classification"]
+    __properties: ClassVar[List[str]] = ["vendor", "address", "observations", "type"]
 
     @field_validator('type')
     def type_validate_enum(cls, value):
@@ -51,16 +42,6 @@ class EndpointAgentCreationSource(BaseModel):
 
         if value not in set(['ENDPOINT']):
             raise ValueError("must be one of enum values ('ENDPOINT')")
-        return value
-
-    @field_validator('mdm')
-    def mdm_validate_enum(cls, value):
-        """Validates the enum"""
-        if value is None:
-            return value
-
-        if value not in set(['jamf_pro']):
-            raise ValueError("must be one of enum values ('jamf_pro')")
         return value
 
     model_config = ConfigDict(
@@ -102,56 +83,12 @@ class EndpointAgentCreationSource(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if device_name (nullable) is None
-        # and model_fields_set contains the field
-        if self.device_name is None and "device_name" in self.model_fields_set:
-            _dict['device_name'] = None
-
-        # set to None if device_group (nullable) is None
-        # and model_fields_set contains the field
-        if self.device_group is None and "device_group" in self.model_fields_set:
-            _dict['device_group'] = None
-
-        # set to None if assigned_user (nullable) is None
-        # and model_fields_set contains the field
-        if self.assigned_user is None and "assigned_user" in self.model_fields_set:
-            _dict['assigned_user'] = None
-
-        # set to None if os_version (nullable) is None
-        # and model_fields_set contains the field
-        if self.os_version is None and "os_version" in self.model_fields_set:
-            _dict['os_version'] = None
-
-        # set to None if process_cmdline (nullable) is None
-        # and model_fields_set contains the field
-        if self.process_cmdline is None and "process_cmdline" in self.model_fields_set:
-            _dict['process_cmdline'] = None
-
-        # set to None if parent_process (nullable) is None
-        # and model_fields_set contains the field
-        if self.parent_process is None and "parent_process" in self.model_fields_set:
-            _dict['parent_process'] = None
-
-        # set to None if install_path (nullable) is None
-        # and model_fields_set contains the field
-        if self.install_path is None and "install_path" in self.model_fields_set:
-            _dict['install_path'] = None
-
-        # set to None if version (nullable) is None
-        # and model_fields_set contains the field
-        if self.version is None and "version" in self.model_fields_set:
-            _dict['version'] = None
-
-        # set to None if first_seen (nullable) is None
-        # and model_fields_set contains the field
-        if self.first_seen is None and "first_seen" in self.model_fields_set:
-            _dict['first_seen'] = None
-
-        # set to None if classification (nullable) is None
-        # and model_fields_set contains the field
-        if self.classification is None and "classification" in self.model_fields_set:
-            _dict['classification'] = None
-
+        # override the default output from pydantic by calling `to_dict()` of address
+        if self.address:
+            _dict['address'] = self.address.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of observations
+        if self.observations:
+            _dict['observations'] = self.observations.to_dict()
         return _dict
 
     @classmethod
@@ -164,20 +101,10 @@ class EndpointAgentCreationSource(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "type": obj.get("type") if obj.get("type") is not None else 'ENDPOINT',
-            "mdm": obj.get("mdm") if obj.get("mdm") is not None else 'jamf_pro',
-            "software_key": obj.get("software_key"),
-            "device_key": obj.get("device_key"),
-            "device_name": obj.get("device_name"),
-            "device_group": obj.get("device_group"),
-            "assigned_user": obj.get("assigned_user"),
-            "os_version": obj.get("os_version"),
-            "process_cmdline": obj.get("process_cmdline"),
-            "parent_process": obj.get("parent_process"),
-            "install_path": obj.get("install_path"),
-            "version": obj.get("version"),
-            "first_seen": obj.get("first_seen"),
-            "classification": obj.get("classification")
+            "vendor": obj.get("vendor"),
+            "address": SourceAddress.from_dict(obj["address"]) if obj.get("address") is not None else None,
+            "observations": AgentObservations.from_dict(obj["observations"]) if obj.get("observations") is not None else None,
+            "type": obj.get("type") if obj.get("type") is not None else 'ENDPOINT'
         })
         return _obj
 

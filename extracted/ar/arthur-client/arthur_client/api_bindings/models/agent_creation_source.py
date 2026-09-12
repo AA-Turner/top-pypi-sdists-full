@@ -13,44 +13,48 @@
 
 
 from __future__ import annotations
-from inspect import getfullargspec
 import json
 import pprint
-import re  # noqa: F401
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
-from typing import Optional
+from typing import Any, List, Optional
+from arthur_client.api_bindings.models.cloud_agent_creation_source import CloudAgentCreationSource
 from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
-from arthur_client.api_bindings.models.gcp_agent_creation_source import GCPAgentCreationSource
-from arthur_client.api_bindings.models.manual_agent_creation_source import ManualAgentCreationSource
-from arthur_client.api_bindings.models.otel_agent_creation_source import OTELAgentCreationSource
-from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
+from arthur_client.api_bindings.models.gcp_agent_creation_source_input import GCPAgentCreationSourceInput
+from arthur_client.api_bindings.models.manual_agent_creation_source_input import ManualAgentCreationSourceInput
+from arthur_client.api_bindings.models.otel_agent_creation_source_input import OTELAgentCreationSourceInput
+from arthur_client.api_bindings.models.siem_agent_creation_source import SIEMAgentCreationSource
+from pydantic import StrictStr, Field
+from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
-from pydantic import Field
 
-AGENTCREATIONSOURCE_ANY_OF_SCHEMAS = ["EndpointAgentCreationSource", "GCPAgentCreationSource", "ManualAgentCreationSource", "OTELAgentCreationSource"]
+AGENTCREATIONSOURCE_ONE_OF_SCHEMAS = ["CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource"]
 
 class AgentCreationSource(BaseModel):
     """
     AgentCreationSource
     """
-
-    # data type: GCPAgentCreationSource
-    anyof_schema_1_validator: Optional[GCPAgentCreationSource] = None
-    # data type: OTELAgentCreationSource
-    anyof_schema_2_validator: Optional[OTELAgentCreationSource] = None
-    # data type: ManualAgentCreationSource
-    anyof_schema_3_validator: Optional[ManualAgentCreationSource] = None
+    # data type: GCPAgentCreationSourceInput
+    oneof_schema_1_validator: Optional[GCPAgentCreationSourceInput] = None
+    # data type: OTELAgentCreationSourceInput
+    oneof_schema_2_validator: Optional[OTELAgentCreationSourceInput] = None
+    # data type: ManualAgentCreationSourceInput
+    oneof_schema_3_validator: Optional[ManualAgentCreationSourceInput] = None
+    # data type: CloudAgentCreationSource
+    oneof_schema_4_validator: Optional[CloudAgentCreationSource] = None
+    # data type: SIEMAgentCreationSource
+    oneof_schema_5_validator: Optional[SIEMAgentCreationSource] = None
     # data type: EndpointAgentCreationSource
-    anyof_schema_4_validator: Optional[EndpointAgentCreationSource] = None
-    if TYPE_CHECKING:
-        actual_instance: Optional[Union[EndpointAgentCreationSource, GCPAgentCreationSource, ManualAgentCreationSource, OTELAgentCreationSource]] = None
-    else:
-        actual_instance: Any = None
-    any_of_schemas: Set[str] = { "EndpointAgentCreationSource", "GCPAgentCreationSource", "ManualAgentCreationSource", "OTELAgentCreationSource" }
+    oneof_schema_6_validator: Optional[EndpointAgentCreationSource] = None
+    actual_instance: Optional[Union[CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource]] = None
+    one_of_schemas: Set[str] = { "CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource" }
 
-    model_config = {
-        "validate_assignment": True,
-        "protected_namespaces": (),
+    model_config = ConfigDict(
+        validate_assignment=True,
+        protected_namespaces=(),
+    )
+
+
+    discriminator_value_class_map: Dict[str, str] = {
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -64,41 +68,51 @@ class AgentCreationSource(BaseModel):
             super().__init__(**kwargs)
 
     @field_validator('actual_instance')
-    def actual_instance_must_validate_anyof(cls, v):
+    def actual_instance_must_validate_oneof(cls, v):
         instance = AgentCreationSource.model_construct()
         error_messages = []
-        # validate data type: GCPAgentCreationSource
-        if not isinstance(v, GCPAgentCreationSource):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `GCPAgentCreationSource`")
+        match = 0
+        # validate data type: GCPAgentCreationSourceInput
+        if not isinstance(v, GCPAgentCreationSourceInput):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `GCPAgentCreationSourceInput`")
         else:
-            return v
-
-        # validate data type: OTELAgentCreationSource
-        if not isinstance(v, OTELAgentCreationSource):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `OTELAgentCreationSource`")
+            match += 1
+        # validate data type: OTELAgentCreationSourceInput
+        if not isinstance(v, OTELAgentCreationSourceInput):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `OTELAgentCreationSourceInput`")
         else:
-            return v
-
-        # validate data type: ManualAgentCreationSource
-        if not isinstance(v, ManualAgentCreationSource):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `ManualAgentCreationSource`")
+            match += 1
+        # validate data type: ManualAgentCreationSourceInput
+        if not isinstance(v, ManualAgentCreationSourceInput):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `ManualAgentCreationSourceInput`")
         else:
-            return v
-
+            match += 1
+        # validate data type: CloudAgentCreationSource
+        if not isinstance(v, CloudAgentCreationSource):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `CloudAgentCreationSource`")
+        else:
+            match += 1
+        # validate data type: SIEMAgentCreationSource
+        if not isinstance(v, SIEMAgentCreationSource):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `SIEMAgentCreationSource`")
+        else:
+            match += 1
         # validate data type: EndpointAgentCreationSource
         if not isinstance(v, EndpointAgentCreationSource):
             error_messages.append(f"Error! Input type `{type(v)}` is not `EndpointAgentCreationSource`")
         else:
-            return v
-
-        if error_messages:
+            match += 1
+        if match > 1:
+            # more than 1 match
+            raise ValueError("Multiple matches found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+        elif match == 0:
             # no match
-            raise ValueError("No match found when setting the actual_instance in AgentCreationSource with anyOf schemas: EndpointAgentCreationSource, GCPAgentCreationSource, ManualAgentCreationSource, OTELAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         else:
             return v
 
     @classmethod
-    def from_dict(cls, obj: Dict[str, Any]) -> Self:
+    def from_dict(cls, obj: Union[str, Dict[str, Any]]) -> Self:
         return cls.from_json(json.dumps(obj))
 
     @classmethod
@@ -106,34 +120,51 @@ class AgentCreationSource(BaseModel):
         """Returns the object represented by the json string"""
         instance = cls.model_construct()
         error_messages = []
-        # anyof_schema_1_validator: Optional[GCPAgentCreationSource] = None
+        match = 0
+
+        # deserialize data into GCPAgentCreationSourceInput
         try:
-            instance.actual_instance = GCPAgentCreationSource.from_json(json_str)
-            return instance
+            instance.actual_instance = GCPAgentCreationSourceInput.from_json(json_str)
+            match += 1
         except (ValidationError, ValueError) as e:
-             error_messages.append(str(e))
-        # anyof_schema_2_validator: Optional[OTELAgentCreationSource] = None
+            error_messages.append(str(e))
+        # deserialize data into OTELAgentCreationSourceInput
         try:
-            instance.actual_instance = OTELAgentCreationSource.from_json(json_str)
-            return instance
+            instance.actual_instance = OTELAgentCreationSourceInput.from_json(json_str)
+            match += 1
         except (ValidationError, ValueError) as e:
-             error_messages.append(str(e))
-        # anyof_schema_3_validator: Optional[ManualAgentCreationSource] = None
+            error_messages.append(str(e))
+        # deserialize data into ManualAgentCreationSourceInput
         try:
-            instance.actual_instance = ManualAgentCreationSource.from_json(json_str)
-            return instance
+            instance.actual_instance = ManualAgentCreationSourceInput.from_json(json_str)
+            match += 1
         except (ValidationError, ValueError) as e:
-             error_messages.append(str(e))
-        # anyof_schema_4_validator: Optional[EndpointAgentCreationSource] = None
+            error_messages.append(str(e))
+        # deserialize data into CloudAgentCreationSource
+        try:
+            instance.actual_instance = CloudAgentCreationSource.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into SIEMAgentCreationSource
+        try:
+            instance.actual_instance = SIEMAgentCreationSource.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
+        # deserialize data into EndpointAgentCreationSource
         try:
             instance.actual_instance = EndpointAgentCreationSource.from_json(json_str)
-            return instance
+            match += 1
         except (ValidationError, ValueError) as e:
-             error_messages.append(str(e))
+            error_messages.append(str(e))
 
-        if error_messages:
+        if match > 1:
+            # more than 1 match
+            raise ValueError("Multiple matches found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+        elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into AgentCreationSource with anyOf schemas: EndpointAgentCreationSource, GCPAgentCreationSource, ManualAgentCreationSource, OTELAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -147,7 +178,7 @@ class AgentCreationSource(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], EndpointAgentCreationSource, GCPAgentCreationSource, ManualAgentCreationSource, OTELAgentCreationSource]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None
@@ -155,6 +186,7 @@ class AgentCreationSource(BaseModel):
         if hasattr(self.actual_instance, "to_dict") and callable(self.actual_instance.to_dict):
             return self.actual_instance.to_dict()
         else:
+            # primitive type
             return self.actual_instance
 
     def to_str(self) -> str:

@@ -12,13 +12,17 @@ reached by a data tag, and that the two streams cannot borrow each other's
 credentials - both of which fail invisibly: a data tag that reaches build.yml's
 release job produces a GitHub Release for the code version with code artefacts
 attached to it, and nothing about that looks wrong until someone reads the release
-page.
+page. Neither stream holds a token any more, so what keeps them apart is the
+deployment environment each publishing identity is bound to.
 """
+
+import re
+from pathlib import Path
 
 import pytest
 import yaml
 
-from tests.auxiliaries import WORKFLOW_DIR
+from tests.auxiliaries import ACTION_DIR, PROJECT_ROOT, WORKFLOW_DIR
 
 BUILD_WORKFLOW = WORKFLOW_DIR / "build.yml"
 PUBLISH_DATA_WORKFLOW = WORKFLOW_DIR / "publish_data.yml"
@@ -28,6 +32,106 @@ DATA_TAG_PREFIX = "data-v"
 # from the other stream's tag
 PYPI_PUBLISH_ACTION = "pypa/gh-action-pypi-publish"
 GITHUB_RELEASE_ACTION = "ncipollo/release-action"
+# the release job's stand-in for the tox matrix it skips on a tag ref
+GREEN_RUN_STEP_ID = "verify_tested_on_master"
+# the one implementation of "flatten every uploaded artefact into dist/"
+STAGE_ACTION = ACTION_DIR / "stage-artifacts" / "action.yml"
+STAGE_ACTION_REF = "./.github/actions/stage-artifacts"
+DATA_WHEEL_INPUT = "include-data-wheel"
+DATA_WHEEL_PREFIX = "timezonefinder_data-"
+
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+# a module is a command when it has an entry point; a gate is always one, because a
+# gate is only useful where a pipeline can invoke it
+SCRIPT_ENTRY_POINT = '__name__ == "__main__"'
+
+# What a gate must run before. `None` is the answer for a command that refuses nothing
+# a release depends on - which most of them are, and which is fine to say out loud.
+NOT_A_GATE = None
+# the first irreversible step of the code stream: `release` publishes a GitHub Release
+# with the wheels attached and creates the tag, before `publish-pypi` uploads anything
+RELEASE_GATE = "build.yml's first publishing step"
+# the weekly data update's own boundary, pinned by tests/test_data_update_guard.py
+DATA_UPDATE_GATE = "the weekly data update's merge"
+
+# Every command under `scripts/`, and the irreversible step it has to precede.
+#
+# Exhaustive on purpose. A gate that nothing invokes is indistinguishable from a gate
+# that passed, so "nobody wired it up" must not be a state this repository can reach by
+# omission: adding a command fails `test_every_script_command_says_what_it_gates` until
+# it is classified here, and classifying it as a release gate then forces the ordering
+# assertion below. `scripts/changelog_fragments.py` shipped reachable only from a manual
+# `make` target and no test noticed, which is what this table exists to prevent.
+SCRIPT_GATES: dict[str, str | None] = {
+    "audit_shortcut_candidates": DATA_UPDATE_GATE,
+    "_memory_probe": NOT_A_GATE,
+    "assert_acceleration_path": NOT_A_GATE,
+    "benchmark_noise": NOT_A_GATE,
+    # refuses, but over a report's binding to the commit that measured it, and
+    # `benchmark.yml` publishes nothing a release depends on
+    "benchmark_report_artifact": NOT_A_GATE,
+    "bootstrap_data": NOT_A_GATE,
+    "changelog_fragments": RELEASE_GATE,
+    "check_data_dependency": RELEASE_GATE,
+    "compare_benchmark_runs": NOT_A_GATE,
+    "data_releases": NOT_A_GATE,
+    "data_update_guard": DATA_UPDATE_GATE,
+    "describe_benchmark_machine": NOT_A_GATE,
+    "export_memory_chart_json": NOT_A_GATE,
+    "export_timing_chart_json": NOT_A_GATE,
+    "file_converter": NOT_A_GATE,
+    "generate_benchmark_fixtures": NOT_A_GATE,
+    "measure_acceleration_paths": NOT_A_GATE,
+    # a one-off, hand-run restatement of the stored gh-pages history
+    "migrate_benchmark_chart_history": NOT_A_GATE,
+    "measure_memory": NOT_A_GATE,
+    "measure_query_latency": NOT_A_GATE,
+    "measure_tzfpy_agreement": NOT_A_GATE,
+    "normalize_benchmark_json": NOT_A_GATE,
+    "render_benchmark_reports": NOT_A_GATE,
+    "reporting": NOT_A_GATE,
+    "shortcuts": NOT_A_GATE,
+    "tune_block_size": NOT_A_GATE,
+    "upstream_release": NOT_A_GATE,
+}
+
+# What each release gate costs if it does not run. Carried here rather than in a
+# docstring because the parametrised assertion below reports it.
+RELEASE_GATE_CONSEQUENCE = {
+    "check_data_dependency": (
+        "on a data format change the data distribution must be published first; "
+        "releasing the code first puts a wheel on PyPI that nobody can install, and "
+        "the version number is spent, so the only fix is a whole new release"
+    ),
+    "changelog_fragments": (
+        "a fragment surviving the tag is a change released with no entry anywhere: "
+        "changelog.d/ is pruned from the distribution, so the bullet is absent from "
+        "CHANGELOG.rst and from the package, and the release reads as if that change "
+        "never happened"
+    ),
+}
+
+# A gate whose boundary is not build.yml's, and the test that pins its ordering there.
+# The pointer is asserted to resolve, so it cannot rot into a claim nothing checks.
+GATE_ELSEWHERE_PROOF = {
+    "audit_shortcut_candidates": (
+        Path("tests") / "test_shortcut_candidate_coverage.py",
+        "test_dataset_validation_runs_all_streams_before_release_preparation",
+    ),
+    "data_update_guard": (
+        Path("tests") / "test_data_update_guard.py",
+        "test_a_draft_update_is_never_merged",
+    ),
+}
+
+
+def _script_commands() -> set[str]:
+    """The `scripts/` modules that can be invoked, by module name."""
+    return {
+        path.stem
+        for path in SCRIPTS_DIR.glob("*.py")
+        if SCRIPT_ENTRY_POINT in path.read_text(encoding="utf-8")
+    }
 
 
 def _workflow(path):
@@ -71,19 +175,19 @@ def _guarded_against_data_tags(workflow: dict, job_name: str) -> bool:
     )
 
 
-def _guarded_by_data_check(workflow: dict, job_name: str) -> bool:
-    """Whether the data-dependency check has run by the time ``job_name`` publishes.
+def _guarded_by_run_check(workflow: dict, job_name: str, marker: str) -> bool:
+    """Whether a ``run:`` step containing ``marker`` precedes ``job_name``'s publishing.
 
     Either in the job itself, ahead of its first publishing step and able to fail it,
     or in a job it depends on - a skipped dependency skips its dependents.
+
+    Parameterised by ``marker`` because more than one thing has to be established
+    before the first irreversible step, and they are all the same assertion about
+    ordering: a check that runs after the release is published checks nothing.
     """
     job = workflow["jobs"][job_name]
     steps = job["steps"]
-    guard = [
-        i
-        for i, step in enumerate(steps)
-        if "scripts.check_data_dependency" in str(step.get("run", ""))
-    ]
+    guard = [i for i, step in enumerate(steps) if marker in str(step.get("run", ""))]
     if guard:
         publishing = [
             i
@@ -95,7 +199,8 @@ def _guarded_by_data_check(workflow: dict, job_name: str) -> bool:
             return False
         return all("continue-on-error" not in steps[i] for i in guard)
     return any(
-        _guarded_by_data_check(workflow, dependency) for dependency in _needs(job)
+        _guarded_by_run_check(workflow, dependency, marker)
+        for dependency in _needs(job)
     )
 
 
@@ -143,17 +248,67 @@ def test_nothing_publishing_the_code_is_reachable_from_a_data_tag() -> None:
 
 
 @pytest.mark.unit
-def test_nothing_irreversible_runs_before_the_data_dependency_is_checked() -> None:
+def test_every_script_command_says_what_it_gates() -> None:
+    """No command may be silent about whether a release has to wait for it.
+
+    The failure this closes is not a wrong answer but a missing one. A gate nothing
+    invokes never speaks, and a pipeline that never consulted it looks exactly like a
+    pipeline it approved - so the default has to be a stated `NOT_A_GATE`, never an
+    absent row. Answering the question is the whole cost; answering it wrongly is
+    caught by the ordering assertion the answer selects.
+    """
+    commands = _script_commands()
+    unclassified = sorted(commands - set(SCRIPT_GATES))
+    assert not unclassified, (
+        f"new `scripts/` commands with no row in SCRIPT_GATES: {unclassified}. State "
+        "the irreversible step each must precede, or NOT_A_GATE if a release depends "
+        "on nothing it refuses."
+    )
+    stale = sorted(set(SCRIPT_GATES) - commands)
+    assert not stale, (
+        f"SCRIPT_GATES rows for commands that no longer exist: {stale}. Every row here "
+        "is asserted against the workflows, so a stale one asserts nothing."
+    )
+
+
+@pytest.mark.unit
+def test_a_gate_guarding_another_boundary_names_the_test_that_pins_it() -> None:
+    """A gate not asserted here has to be asserted somewhere, provably.
+
+    Otherwise the classification becomes the only record that it is a gate, which is
+    the exact shape of a check nobody runs.
+    """
+    for module, boundary in SCRIPT_GATES.items():
+        if boundary in (NOT_A_GATE, RELEASE_GATE):
+            continue
+        assert module in GATE_ELSEWHERE_PROOF, (
+            f"scripts/{module}.py gates {boundary} but names no test pinning it"
+        )
+        relative, test_name = GATE_ELSEWHERE_PROOF[module]
+        path = PROJECT_ROOT / relative
+        assert path.is_file(), f"{relative} does not exist"
+        assert f"def {test_name}(" in path.read_text(encoding="utf-8"), (
+            f"{relative} no longer defines {test_name}, so scripts/{module}.py's "
+            f"ordering against {boundary} is pinned by nothing"
+        )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "module", sorted(m for m, b in SCRIPT_GATES.items() if b == RELEASE_GATE)
+)
+def test_nothing_irreversible_runs_before_a_release_gate(module: str) -> None:
     """Ordering is the whole invariant: a check after the fact checks nothing.
 
-    On a data format change the data distribution must be published first, and
-    releasing the code first puts a wheel on PyPI that nobody can install - which
-    cannot be undone, because the version number is spent. The upload is not the first
-    step that cannot be taken back, though: the `release` job publishes a GitHub
-    Release with the wheels attached and creates the tag, before `publish-pypi` runs at
-    all. So the guard is asserted against *both* kinds of publishing step, and a job
-    may satisfy it through a dependency - a skipped `needs` skips its dependents, which
-    is why the upload job carries no copy of its own.
+    The upload is not the first step that cannot be taken back: the `release` job
+    publishes a GitHub Release with the wheels attached and creates the tag, before
+    `publish-pypi` runs at all. So each gate is asserted against *both* kinds of
+    publishing step, and a job may satisfy it through a dependency - a skipped `needs`
+    skips its dependents, which is why the upload job carries no copy of its own.
+
+    Parametrised over the table rather than written once per gate, so that classifying
+    a new command as a release gate creates its ordering assertion instead of leaving
+    one to be remembered.
     """
     workflow = _workflow(BUILD_WORKFLOW)
     publishing = {
@@ -165,13 +320,15 @@ def test_nothing_irreversible_runs_before_the_data_dependency_is_checked() -> No
         "so the action names above have gone stale"
     )
 
+    marker = f"scripts.{module}"
     unguarded = sorted(
-        name for name in publishing if not _guarded_by_data_check(workflow, name)
+        name for name in publishing if not _guarded_by_run_check(workflow, name, marker)
     )
     assert not unguarded, (
-        f"jobs in {BUILD_WORKFLOW.name} that publish without the data-dependency check "
-        f"having already run: {unguarded}. Put it in the job ahead of its first "
-        "publishing step, or in a job it needs."
+        f"jobs in {BUILD_WORKFLOW.name} that publish without `{marker}` having "
+        f"already run: {unguarded}. Put it in the job ahead of its first publishing "
+        f"step, or in a job it needs. If it does not run: "
+        f"{RELEASE_GATE_CONSEQUENCE[module]}."
     )
 
 
@@ -207,45 +364,378 @@ def test_the_data_stream_creates_no_github_release() -> None:
 
 
 @pytest.mark.unit
-def test_the_data_stream_publishes_without_a_shared_credential() -> None:
-    """What scopes the data stream to its own project, now that it holds no token.
+def test_both_streams_publish_without_a_shared_credential() -> None:
+    """What scopes each stream to its own project, now that neither holds a token.
 
-    It publishes by Trusted Publishing: PyPI trusts this workflow file, gated on a
-    deployment environment, and the job exchanges an OIDC identity for a short-lived
-    upload token. Two things therefore have to hold, and neither is self-announcing if
-    it stops holding. The job must request ``id-token: write`` - without it the
-    exchange has nothing to present, and the upload fails only at release time, on a
-    tag that cannot be pushed twice. And it must not reach for the code stream's
-    token, which would let a data release upload ``timezonefinder``.
+    Both publish by Trusted Publishing: PyPI trusts one workflow file per project,
+    gated on a deployment environment, and the job exchanges an OIDC identity for a
+    short-lived upload token. Three things therefore have to hold, and none is
+    self-announcing if it stops holding. A publishing job must request
+    ``id-token: write`` - without it the exchange has nothing to present, and the
+    upload fails only at release time, on a tag that cannot be pushed twice. It must
+    be gated on a deployment environment, which is what the publisher on PyPI is bound
+    to. And the two streams must not name the *same* environment, which is what keeps
+    a data release from presenting an identity PyPI accepts for ``timezonefinder``.
     """
-    workflow = _workflow(PUBLISH_DATA_WORKFLOW)
-    publishing = _jobs_using(workflow, PYPI_PUBLISH_ACTION)
-    assert publishing, f"{PUBLISH_DATA_WORKFLOW.name} publishes nothing"
+    publishing = {
+        (path.name, name): job
+        for path in (BUILD_WORKFLOW, PUBLISH_DATA_WORKFLOW)
+        for name, job in _jobs_using(_workflow(path), PYPI_PUBLISH_ACTION).items()
+    }
+    assert len(publishing) == 2, (
+        f"expected one PyPI upload job per stream, found {sorted(publishing)} - this "
+        "check no longer covers what it names"
+    )
 
-    for name, job in publishing.items():
+    for (workflow_name, name), job in publishing.items():
         assert job.get("permissions", {}).get("id-token") == "write", (
-            f"{name} publishes by OIDC but does not request id-token: write"
+            f"{workflow_name}: {name} publishes by OIDC but does not request "
+            "id-token: write"
         )
         assert job.get("environment"), (
-            f"{name} is not gated on a deployment environment, which is what the "
-            "trusted publisher on PyPI is bound to"
+            f"{workflow_name}: {name} is not gated on a deployment environment, which "
+            "is what the trusted publisher on PyPI is bound to"
+        )
+        with_a_password = [
+            step
+            for step in job["steps"]
+            if _uses(step).startswith(PYPI_PUBLISH_ACTION)
+            and "password" in (step.get("with") or {})
+        ]
+        assert not with_a_password, (
+            f"{workflow_name}: {name} passes a `password` to {PYPI_PUBLISH_ACTION}, "
+            "so it uploads with a long-lived token rather than by OIDC"
         )
 
-    code_secrets = {
-        step["with"]["password"]
-        for job in _jobs_using(_workflow(BUILD_WORKFLOW), PYPI_PUBLISH_ACTION).values()
+    environments = {job["environment"] for job in publishing.values()}
+    assert len(environments) == len(publishing), (
+        f"both streams publish from the same deployment environment {environments}; "
+        "a data release could then present an identity PyPI accepts for the code"
+    )
+
+
+# --- what a ref actually reaches -------------------------------------------------
+#
+# The code stream now splits by ref: a master push runs the tox matrix and publishes
+# nothing, a version tag publishes and skips the matrix. That split is expressed
+# entirely in `if:` conditions over `needs` results, where the failure mode is silent
+# and only surfaces during a real release - a skipped `needs` job skips its dependents,
+# and naming any status check function drops the implicit `success()` over the rest. So
+# these evaluate the conditions rather than read them.
+
+_STATUS_FUNCTIONS = ("success()", "always()", "cancelled()", "failure()")
+_PUBLISHING_ACTIONS = (PYPI_PUBLISH_ACTION, GITHUB_RELEASE_ACTION)
+
+
+def _as_python(condition: str) -> str:
+    """Translate the subset of GitHub expression syntax these conditions use."""
+    expression = condition.replace("!=", "\0NE\0")
+    expression = re.sub(r"needs\['([^']+)'\]\.result", r"needs['\1']", expression)
+    expression = re.sub(r"needs\.([A-Za-z0-9_-]+)\.result", r"needs['\1']", expression)
+    expression = expression.replace("cancelled()", "cancelled")
+    expression = expression.replace("always()", "True")
+    expression = expression.replace("github.ref", "ref")
+    expression = re.sub(
+        r"startsWith\(\s*([^,]+?)\s*,\s*('[^']*')\s*\)",
+        r"\1.startswith(\2)",
+        expression,
+    )
+    expression = expression.replace("&&", " and ").replace("||", " or ")
+    expression = expression.replace("!", " not ")
+    return expression.replace("\0NE\0", "!=")
+
+
+def _simulate(workflow: dict, ref: str, failing: frozenset[str] = frozenset()) -> dict:
+    """Every job's result for a run on ``ref``, with ``failing`` jobs failing.
+
+    Models the two rules that make this workflow's conditions non-obvious: a job with no
+    ``if`` runs only when every ``needs`` succeeded, and an ``if`` naming a status check
+    function replaces that rule entirely instead of narrowing it.
+    """
+    results: dict[str, str] = {}
+
+    def resolve(name: str) -> str:
+        if name in results:
+            return results[name]
+        job = workflow["jobs"][name]
+        needs = {dependency: resolve(dependency) for dependency in _needs(job)}
+        condition = job.get("if")
+        all_needs_succeeded = all(result == "success" for result in needs.values())
+        if condition is None:
+            runs = all_needs_succeeded
+        else:
+            condition = str(condition)
+            value = eval(  # noqa: S307 - the input is this repository's own workflow
+                _as_python(condition),
+                {},
+                {"ref": ref, "needs": needs, "cancelled": False},
+            )
+            names_status_function = any(fn in condition for fn in _STATUS_FUNCTIONS)
+            runs = bool(value) and (names_status_function or all_needs_succeeded)
+        results[name] = (
+            ("failure" if name in failing else "success") if runs else "skipped"
+        )
+        return results[name]
+
+    for name in workflow["jobs"]:
+        resolve(name)
+    return results
+
+
+@pytest.mark.unit
+def test_a_push_to_master_tests_and_publishes_nothing() -> None:
+    """The tag is the publish. Master's own run must not get there first.
+
+    It used to: the release job accepted `refs/heads/master`, and it hands the release
+    action a `tag:`, so master's run created the GitHub Release *and* the tag. The
+    maintainer's `git push` of that tag then found it already there, reported
+    "Everything up-to-date" and fired no webhook.
+    """
+    results = _simulate(_workflow(BUILD_WORKFLOW), "refs/heads/master")
+    assert results["test"] == "success", (
+        "the tox matrix must run on master - it is the only run that tests the tree a "
+        "tag will later publish without re-testing"
+    )
+    for name in ("release", "publish-pypi"):
+        assert results[name] == "skipped", (
+            f"a push to master reaches `{name}`, which publishes; the tag then races it"
+        )
+
+
+@pytest.mark.unit
+def test_a_version_tag_publishes_without_re_running_the_matrix() -> None:
+    """The skip-semantics check: `test` is skipped here, and skipping cascades.
+
+    A skipped `needs` job skips its dependents no matter what the dependent's `if` says,
+    unless that `if` names a status check function - which in turn discards the implicit
+    `success()` over every *other* dependency. Get either half wrong and nothing is
+    visible until a release either publishes nothing or publishes off a red matrix.
+    """
+    results = _simulate(_workflow(BUILD_WORKFLOW), "refs/tags/9.9.9")
+    assert results["test"] == "skipped", (
+        "the tox matrix runs on the tag ref as well, which is the duplicate run this "
+        "split exists to remove"
+    )
+    for name in ("release", "publish-pypi"):
+        assert results[name] == "success", (
+            f"`{name}` is skipped on a version tag: a skipped `needs` job skips its "
+            "dependents, so the condition has to name a status check function"
+        )
+
+
+@pytest.mark.unit
+def test_a_tag_release_still_requires_every_job_that_did_run() -> None:
+    """Naming a status function drops the implicit `success()` over *all* of `needs`.
+
+    So each dependency that is not skipped has to be re-checked by hand, and forgetting
+    one publishes off a red check.
+    """
+    workflow = _workflow(BUILD_WORKFLOW)
+    dependencies = _needs(workflow["jobs"]["release"])
+    assert dependencies, "`release` depends on nothing - this check is vacuous"
+    for dependency in dependencies:
+        results = _simulate(
+            workflow, "refs/tags/9.9.9", failing=frozenset({dependency})
+        )
+        if results[dependency] == "skipped":
+            continue
+        assert results["release"] == "skipped", (
+            f"`release` publishes even though `{dependency}` failed"
+        )
+
+
+@pytest.mark.unit
+def test_the_skipped_matrix_is_replaced_by_a_check_and_not_an_assumption() -> None:
+    """Skipping the matrix on a tag is only sound if that SHA passed on master.
+
+    Ancestry is the weaker claim and the one already checked: a commit can sit on master
+    with a red run, or with no run at all. So the release job has to assert the green run
+    exists, and assert it before the first step that cannot be taken back. The step is
+    pinned by `id`, not by its name or its shell - a rewording must not fail this, a
+    deletion must.
+    """
+    workflow = _workflow(BUILD_WORKFLOW)
+    if _simulate(workflow, "refs/tags/9.9.9")["test"] != "skipped":
+        pytest.skip("the matrix runs on tags again, so it needs no stand-in")
+
+    steps = workflow["jobs"]["release"]["steps"]
+    guard = [i for i, step in enumerate(steps) if step.get("id") == GREEN_RUN_STEP_ID]
+    assert guard, (
+        f"no step with id `{GREEN_RUN_STEP_ID}` in the release job, but the tox matrix "
+        "is skipped on tags - nothing establishes that this commit ever passed it"
+    )
+    publishing = [
+        i for i, step in enumerate(steps) if _uses(step).startswith(_PUBLISHING_ACTIONS)
+    ]
+    assert publishing and max(guard) < min(publishing), (
+        "the green-run check runs after the release is already published"
+    )
+    assert (
+        workflow["jobs"]["release"].get("permissions", {}).get("actions") == "read"
+    ), (
+        "the green-run check reads this commit's other workflow runs, which needs "
+        "`actions: read`; declaring any permission zeroes the rest, and the omission "
+        "fails only at release time, on a tag that cannot be pushed twice"
+    )
+
+
+# --- staging dist/ ---------------------------------------------------------------
+#
+# Three jobs need the same dist/ and one of them needs it to differ. Written out
+# three times, that difference was a diff between shell one-liners; through the
+# shared action it is a named input, which is what these two checks pin.
+
+
+@pytest.mark.unit
+def test_every_job_stages_dist_through_the_shared_action() -> None:
+    """A second inline copy is how the callers drifted apart in the first place.
+
+    The point of the action is not that the shell is written once - it is that the
+    data-wheel exclusion below is a parameter rather than something a reader has to
+    notice. A job that stages dist/ with its own `run:` opts out of that silently.
+    """
+    workflow = _workflow(BUILD_WORKFLOW)
+    callers = _jobs_using(workflow, STAGE_ACTION_REF)
+    assert callers, (
+        f"no job in {BUILD_WORKFLOW.name} uses {STAGE_ACTION_REF} - this check is "
+        "vacuous, so the action has been moved or renamed"
+    )
+
+    inline = sorted(
+        name
+        for name, job in workflow["jobs"].items()
         for step in job["steps"]
-        if _uses(step).startswith(PYPI_PUBLISH_ACTION)
-    }
-    assert code_secrets, (
-        f"no publishing credential found in {BUILD_WORKFLOW.name} - this check is "
-        "vacuous, so the code stream's mechanism has changed too"
+        if "mkdir -p dist/" in str(step.get("run", ""))
     )
-    data_workflow_text = PUBLISH_DATA_WORKFLOW.read_text(encoding="utf-8")
-    borrowed = sorted(
-        secret for secret in code_secrets if secret.strip() in data_workflow_text
+    assert not inline, (
+        f"jobs in {BUILD_WORKFLOW.name} that stage dist/ inline instead of through "
+        f"{STAGE_ACTION_REF}: {inline}"
     )
-    assert not borrowed, (
-        f"{PUBLISH_DATA_WORKFLOW.name} references the code stream's credential "
-        f"{borrowed}; that token can upload `timezonefinder`"
+
+
+@pytest.mark.unit
+def test_the_pypi_upload_stages_no_data_wheel() -> None:
+    """What keeps timezonefinder-data off `timezonefinder`'s trusted publisher.
+
+    The upload action takes no file list: it publishes whatever sits in dist/, with
+    the identity this job's environment is bound to. A data wheel staged here is
+    therefore released as part of the code project - it cannot be unpublished, and
+    it burns a version number the real data release then cannot use.
+    """
+    workflow = _workflow(BUILD_WORKFLOW)
+    for name in _jobs_using(workflow, PYPI_PUBLISH_ACTION):
+        staging = [
+            step
+            for step in workflow["jobs"][name]["steps"]
+            if _uses(step) == STAGE_ACTION_REF
+        ]
+        assert staging, (
+            f"{name} uploads to PyPI without staging dist/ through "
+            f"{STAGE_ACTION_REF}, so nothing excludes the data wheel"
+        )
+        for step in staging:
+            assert (step.get("with") or {}).get(DATA_WHEEL_INPUT) == "false", (
+                f"{name} stages dist/ with the data wheel included and uploads it as "
+                "`timezonefinder`"
+            )
+
+    action = yaml.safe_load(STAGE_ACTION.read_text(encoding="utf-8"))
+    assert action["inputs"][DATA_WHEEL_INPUT]["default"] == "true", (
+        f"{DATA_WHEEL_INPUT} defaults to excluding the data wheel, so the end-to-end "
+        "test would install a published dataset instead of this branch's"
+    )
+    assert DATA_WHEEL_PREFIX in str(action["runs"]["steps"]), (
+        f"{STAGE_ACTION.name} no longer names {DATA_WHEEL_PREFIX}, so "
+        f"{DATA_WHEEL_INPUT} excludes nothing"
+    )
+
+
+@pytest.mark.unit
+def test_a_job_using_a_local_action_checks_out_the_repo_first() -> None:
+    """``uses: ./...`` resolves from the workspace, not from the remote.
+
+    Without a checkout the step fails with "can't find action.yml". It is the
+    non-obvious cost of extracting one: `end-to-end-test` and `publish-pypi` had no
+    reason to check out at all before this, and `publish-pypi`'s remaining checkout
+    exists for nothing else.
+    """
+    for name, job in _workflow(BUILD_WORKFLOW)["jobs"].items():
+        steps = job["steps"]
+        local_action = next(
+            (i for i, step in enumerate(steps) if _uses(step).startswith("./")),
+            None,
+        )
+        if local_action is None:
+            continue
+        checkout = next(
+            (
+                i
+                for i, step in enumerate(steps)
+                if _uses(step).startswith("actions/checkout")
+            ),
+            None,
+        )
+        assert checkout is not None and checkout < local_action, (
+            f"{name} uses a local action without checking out the repository first"
+        )
+
+
+# Steps whose action needs a permission the job must therefore declare. `checkout`
+# authenticates with GITHUB_TOKEN, so it reads `contents`; `download-artifact` is
+# absent because it reads the *current* run's artifacts through the runtime token and
+# needs no `actions` scope unless handed a `run-id`.
+PERMISSION_BY_ACTION = {"actions/checkout": ("contents", {"read", "write"})}
+LOCAL_ACTION_PREFIX = "./.github/actions/"
+
+
+def _resolved_steps(job: dict) -> list[dict]:
+    """``job``'s steps, with each local composite action replaced by its own.
+
+    A permission is needed by whatever finally runs, and half of what these jobs run
+    lives behind `uses: ./.github/actions/...`, so reading only the job's file would
+    miss it.
+    """
+    steps: list[dict] = []
+    for step in job["steps"]:
+        ref = _uses(step)
+        if ref.startswith(LOCAL_ACTION_PREFIX):
+            action = ACTION_DIR / ref[len(LOCAL_ACTION_PREFIX) :] / "action.yml"
+            steps.extend(yaml.safe_load(action.read_text())["runs"]["steps"])
+        else:
+            steps.append(step)
+    return steps
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("workflow_file", [BUILD_WORKFLOW, PUBLISH_DATA_WORKFLOW])
+def test_a_job_declaring_permissions_declares_every_one_it_uses(
+    workflow_file: Path,
+) -> None:
+    """A `permissions:` block is exhaustive: naming one zeroes all the others.
+
+    So a job that lists `id-token: write` for Trusted Publishing and nothing else has
+    `contents: none`, and its checkout gets a 403 - which `publish-pypi` did, unnoticed,
+    because it is gated at its deployment environment and skipped before reaching a
+    step. A skipped job does not fail the run containing it, so the release went green
+    with nothing published. The permission is asserted here rather than discovered on
+    the one ref that can exercise it, which is a tag, after the version is spent.
+    """
+    workflow = yaml.safe_load(workflow_file.read_text())
+    missing = []
+    for name, job in workflow["jobs"].items():
+        declared = job.get("permissions")
+        if not declared:
+            continue
+        for step in _resolved_steps(job):
+            for action, (scope, accepted) in PERMISSION_BY_ACTION.items():
+                if (
+                    _uses(step).startswith(action)
+                    and declared.get(scope) not in accepted
+                ):
+                    missing.append(
+                        f"{name}: {action} needs {scope}, got {declared.get(scope)!r}"
+                    )
+    assert not missing, (
+        f"jobs in {workflow_file.name} whose `permissions:` omit a scope their own "
+        f"steps require: {missing}"
     )

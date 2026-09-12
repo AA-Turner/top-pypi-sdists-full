@@ -4800,7 +4800,11 @@ def openapi_spec() -> dict:
                 "summary": (
                     "#1753: read the operator-declared `coord drive` work "
                     "queue in run order. Filter by repo_name (+ optional "
-                    "issue_number); omit both to list the whole queue."
+                    "issue_number); omit both to list the whole queue. "
+                    "#3296: an explicit `state` also pulls in matching rows "
+                    "`coord.housekeeping.sweep()` has since archived, so "
+                    "terminal history stays reachable after it ages out of "
+                    "the live table."
                 ),
                 "parameters": [
                     {
@@ -4810,6 +4814,16 @@ def openapi_spec() -> dict:
                     {
                         "name": "issue_number", "in": "query", "required": False,
                         "schema": {"type": "integer"},
+                    },
+                    {
+                        "name": "state", "in": "query", "required": False,
+                        "schema": {"type": "string"},
+                        "description": (
+                            "#3296: filter by drive_queue.state (e.g. "
+                            "'done'/'blocked'/'failed'). When given, also "
+                            "reads drive_queue_archive so archived rows "
+                            "matching this state are still returned."
+                        ),
                     },
                 ],
                 "responses": {
@@ -5665,6 +5679,104 @@ def openapi_spec() -> dict:
     )
 
 
+# #3293: keys whose values are inherently volatile per-build (a sliding
+# window count) but carry no board-state signal of their own — excluded from
+# the ``/board`` ETag DIGEST INPUT only (see ``_board_digest_projection``
+# below and ``_stamp_board_version``'s docstring). Every one of these fields
+# still ships on the wire, unchanged; this only stops them from deciding
+# whether the version bumps.
+_BOARD_DIGEST_VOLATILE_TOP_KEYS = frozenset({"audit_recent_count"})
+
+
+def _board_digest_projection(result: dict) -> dict:
+    """A copy of *result* with digest-irrelevant volatile fields stripped.
+
+    Used ONLY to compute the ``/board`` ETag/version digest (#3293) — the
+    actual wire body is `result` itself, untouched. Three culprits, in order
+    of how often they move (see issue #3293's measurements):
+
+    - ``audit_recent_count``: a sliding 900s window count, changed on
+      essentially every build.
+    - ``issues[*].synced_at``: ~788 rows share one sync timestamp that moves
+      on the issues-sync tick, re-digesting the whole issues section at once.
+    - ``fleet_health``: moves on the 60s health tick. Its ``refreshed_at``
+      clock and its ``fleet_board_latency`` check are excluded — the latter
+      measures THIS /board response's own fetch latency and serialized size
+      and stores that measurement inside the response, which is structurally
+      self-invalidating for a content digest.
+
+    Deliberately narrow: per-machine health severities/results/headrooms are
+    left in the digest, because a real state change there (a machine going
+    offline, a disk filling up) SHOULD bump the ETag — only the fields that
+    move on their own, independent of any real state change, are excluded.
+    """
+    projection = {
+        k: v for k, v in result.items() if k not in _BOARD_DIGEST_VOLATILE_TOP_KEYS
+    }
+
+    issues = projection.get("issues")
+    if isinstance(issues, list):
+        projection["issues"] = [
+            {k: v for k, v in issue.items() if k != "synced_at"}
+            if isinstance(issue, dict) else issue
+            for issue in issues
+        ]
+
+    fleet_health = projection.get("fleet_health")
+    if isinstance(fleet_health, dict):
+        projection["fleet_health"] = _board_digest_fleet_health(fleet_health)
+
+    return projection
+
+
+def _board_digest_fleet_health(fleet_health: dict) -> dict:
+    """Strip ``fleet_health``'s clocks + self-referential latency check.
+
+    See ``_board_digest_projection`` — digest input only, never the wire body.
+    """
+    masked = {k: v for k, v in fleet_health.items() if k != "refreshed_at"}
+
+    machine_health = masked.get("machine_health")
+    if isinstance(machine_health, list):
+        masked["machine_health"] = [
+            _board_digest_health_row(row) if isinstance(row, dict) else row
+            for row in machine_health
+        ]
+
+    fleet_checks = masked.get("fleet_checks")
+    if isinstance(fleet_checks, list):
+        masked["fleet_checks"] = [
+            _board_digest_check_result(c) if isinstance(c, dict) else c
+            for c in fleet_checks
+        ]
+
+    return masked
+
+
+def _board_digest_health_row(row: dict) -> dict:
+    """Drop one machine's poll clocks (``received_at``/``checked_at``) from
+    the digest input — the results/severity/headroom that actually describe
+    the machine's state stay in, per ``_board_digest_projection``'s docstring.
+    """
+    return {k: v for k, v in row.items() if k not in ("received_at", "checked_at")}
+
+
+def _board_digest_check_result(check: dict) -> dict:
+    """Drop ``fleet_board_latency``'s self-measurement from the digest input.
+
+    This one check answers "how fast/big was the /board response that is
+    carrying this very check result?" — its ``headroom`` text and ``values``
+    (``latency_ms``/``payload_bytes``) are a measurement of the response
+    embedded in the response, so they change on every build regardless of
+    whether anything a human/client cares about actually changed. Every
+    other fleet check's headroom/values reflect real, digest-worthy state
+    and are left untouched.
+    """
+    if check.get("check_id") != "fleet_board_latency":
+        return check
+    return {k: v for k, v in check.items() if k not in ("headroom", "values")}
+
+
 def build_app(
     store: CoordStore,
     config: Config,
@@ -5723,14 +5835,30 @@ def build_app(
 
     _machine_metrics_sampler = machine_metrics_sampler or MachineMetricsSampler()
 
-    # Short-TTL cache for the computed /board projection so burst polls from the
-    # TUI don't each pay the full board_projection + merge-plan + stage-projection
+    # Cache for the computed /board projection so burst polls from the TUI
+    # don't each pay the full board_projection + merge-plan + stage-projection
     # recomputation (~465-issue load measured in the issue). Keyed to nothing
-    # (one board per daemon instance). TTL controlled by COORD_BOARD_CACHE_TTL
-    # (default 1.5 s). Busted immediately on board-mutating POSTs so a user
-    # action is visible on the very next poll without waiting out the TTL.
+    # (one board per daemon instance).
+    #
+    # #3294: the cache's PRIMARY invalidation trigger is "has anything
+    # written since this build?" (``store.change_token()``, ``dao.CoordStore``
+    # protocol — SQLite: ``PRAGMA data_version``), not a fixed clock. A 1.5 s
+    # TTL forced a full rebuild on essentially every poll, because pollers
+    # run at 5 s and always missed the window — and the rebuild (the
+    # ``fleet_board_latency`` check's own 0.65-0.8 s measurement) is what
+    # actually held the GIL, not the wire cost the ETag already covers.
+    # ``COORD_BOARD_CACHE_TTL`` (default below) survives only as a SAFETY
+    # UPPER BOUND — a rebuild is forced past that age regardless of the
+    # change token, in case the token's source ever misses a write path —
+    # not as the primary trigger. Busted immediately on board-mutating POSTs
+    # (``_bust_board_cache``, unchanged by #3294) so a user action is visible
+    # on the very next poll without waiting on either signal.
     _board_cache: dict | None = None
     _board_cache_at: float = 0.0
+    # #3294: the ``store.change_token()`` value as of ``_board_cache``'s
+    # build. A poll is served from cache only when the CURRENT token still
+    # equals this one — i.e. nothing has written since.
+    _board_cache_token: str | None = None
     # #1597 Part 2: the fully-rendered JSON bytes for the currently-cached
     # build, shared verbatim by every response that serves ``_board_cache``
     # (a fresh build's own responses, every single-flight follower, and
@@ -5768,13 +5896,31 @@ def build_app(
     _board_inflight: asyncio.Future[tuple] | None = None
 
     def _stamp_board_version(result: dict) -> tuple[str, bytes]:
-        """Serialize *result* to JSON exactly once, bump the version when the
-        content changed, stamp ``board_version`` into the payload, and
-        return ``(etag, body_bytes)`` — the SAME bytes serve as both the
-        content-hash input and the wire body (#1597 Part 2: previously this
-        hashed a separate ``sort_keys=True`` dump and the caller re-encoded
-        the dict a second time via ``JSONResponse`` — ~10 MB of JSON work per
-        build for a 5 MB board).
+        """Serialize *result* to JSON exactly once for the wire body, bump
+        the version when a STABLE PROJECTION of the content changed, stamp
+        ``board_version`` into the payload, and return ``(etag, body_bytes)``.
+
+        #1597 Part 2: the wire ``body`` bytes below are the same bytes
+        published to callers — no second encoder pass for the response
+        itself.
+
+        #3293: the content-hash input is deliberately NOT those same bytes
+        any more. The payload embeds fields that move on every build without
+        any board-state signal of their own — ``audit_recent_count`` (a
+        sliding 900s window count), ``issues[*].synced_at`` (~788 rows
+        re-stamped on one shared sync tick), and ``fleet_health``'s clocks
+        and its self-referential ``fleet_board_latency`` check (which
+        measures THIS response's own fetch latency/size and stores the
+        measurement inside the response being measured). Hashing those made
+        the ETag change on effectively every request, defeating #1336's
+        cache-validated polling entirely. ``_board_digest_projection`` builds
+        a masked copy for hashing only; the wire ``body`` — and every field
+        in it, unchanged — still carries the real values. This does cost a
+        second JSON encode of (most of) the payload on every cache-miss
+        rebuild, which is rare relative to requests (TTL-cached in between);
+        that's the trade #1597 avoided but #3293 requires; a truly stable
+        ETag that lets pollers 304 is worth far more than skipping it on the
+        rebuild path.
 
         ``board_version`` can't be known before the hash is computed (it
         depends on whether the hash changed), so it is deliberately excluded
@@ -5822,7 +5968,19 @@ def build_app(
                 indent=None, separators=(",", ":"), default=str,
             ).encode("utf-8")
         else:
-            digest = hashlib.sha256(body).hexdigest()[:16]
+            # #3293: hash a stable PROJECTION of the content, not the wire
+            # bytes themselves — see the docstring above. The wire `body`
+            # computed just above is untouched and still carries every
+            # field, including the ones excluded here.
+            # No `default=str` needed (unlike the fallback above): reaching
+            # this branch means the strict encode of `result` just SUCCEEDED,
+            # and the projection is a key-subset of those same values, so it
+            # cannot contain a type the strict encoder would reject.
+            digest_body = _json.dumps(
+                _board_digest_projection(result), ensure_ascii=False,
+                allow_nan=False, indent=None, separators=(",", ":"),
+            ).encode("utf-8")
+            digest = hashlib.sha256(digest_body).hexdigest()[:16]
         if digest != _board_hash:
             _board_hash = digest
             _board_version += 1
@@ -5912,17 +6070,34 @@ def build_app(
         # config reloads prompt.
         _refresh_config()
 
-        # Part 2 (cache): serve a cached projection if it's still within the TTL.
-        # Burst polls (TUI polls every ~2 s) hit the cache; the real computation
-        # only runs once per TTL window.  Cache is busted immediately by the
-        # board-mutating POST handlers below so user actions are visible on the
-        # very next poll without waiting out the TTL.
+        # Part 2 (cache): serve the cached projection when nothing has
+        # written since it was built (#3294). Burst polls (TUI polls every
+        # ~2 s) hit the cache; the real computation only runs when a write
+        # actually happened. Cache is also busted immediately by the
+        # board-mutating POST handlers below so user actions are visible on
+        # the very next poll without waiting on either signal.
         import time as _time  # noqa: PLC0415
-        _ttl = float(os.getenv("COORD_BOARD_CACHE_TTL", "1.5"))
+        # Safety upper bound only (#3294) — see the comment on
+        # `_board_cache_token` above. Raised from the pre-#3294 1.5 s default
+        # now that the change-token check is the primary trigger.
+        _safety_ttl = float(os.getenv("COORD_BOARD_CACHE_TTL", "30"))
         _now = _time.monotonic()
         nonlocal _board_cache, _board_cache_at, _board_cache_built_at, _board_body
-        nonlocal _board_inflight
+        nonlocal _board_cache_token, _board_inflight
         _client_etag = request.headers.get("if-none-match")
+
+        # #3294: cheap "did anything write?" probe — see
+        # `dao.CoordStore.change_token`'s docstring. Run inline (not
+        # threadpooled) like `_refresh_config()`'s stat() just above: a
+        # single PRAGMA on an already-open connection, not I/O of the shape
+        # #1336 invariant 1 guards against. A failure here must never crash
+        # the read path over a cache optimization — treat it as "assume
+        # changed" (a sentinel that can never equal a real cached token) so
+        # the worst case is an extra rebuild, never a wedged/stale cache.
+        try:
+            _current_token: str | None = store.change_token()
+        except Exception:  # noqa: BLE001 — fail toward rebuilding, not crashing
+            _current_token = None
 
         def _respond(result: dict, etag: str | None, body: bytes | None) -> Response:
             if _client_etag and etag and _client_etag == etag:
@@ -5948,7 +6123,18 @@ def build_app(
             _cached_etag = _board_etag
             _cached_at = _board_cache_at
             _cached_body = _board_body
-        if _cached is not None and (_now - _cached_at) < _ttl:
+            _cached_token = _board_cache_token
+        # #3294: fresh iff nothing wrote since this build (token still
+        # matches) AND we're inside the safety-TTL ceiling. `_cached_token
+        # is not None` rules out a `None == None` false match when either
+        # side came from a failed change_token() read (see above).
+        _fresh = (
+            _cached is not None
+            and _cached_token is not None
+            and _cached_token == _current_token
+            and (_now - _cached_at) < _safety_ttl
+        )
+        if _fresh:
             return _respond(_cached, _cached_etag, _cached_body)
 
         # #1597 Part 1: single-flight the rebuild.  On a cache miss, at most
@@ -5994,12 +6180,24 @@ def build_app(
         # concurrent request calls _refresh_config() while _build() is running.
         _cfg = config
 
-        def _build() -> tuple[float, dict]:
+        def _build() -> tuple[float, str | None, dict]:
             # Snapshot-order stamp: captured immediately before the DB read so
             # the publish step below can reject a build whose snapshot is
             # older than the one already cached (concurrent rebuilds can
             # finish out of order).
             _built_at = _time.monotonic()
+            # #3294: the change token AS OF this build's snapshot moment —
+            # published alongside the cache below so the *next* request's
+            # freshness check compares against "what had (or hadn't) written
+            # by the time THIS build started", not some later moment.
+            # `None` (never a real token — see `_current_token` above) if the
+            # read itself fails; that means the published cache below can
+            # never look "fresh" to a later poll, which is the safe direction
+            # to fail in.
+            try:
+                _built_token = store.change_token()
+            except Exception:  # noqa: BLE001 — see `_current_token` above
+                _built_token = None
             # ── board projection ──────────────────────────────────────────────
             try:
                 projection = store.board_projection()
@@ -6465,7 +6663,7 @@ def build_app(
             from coord.board_wire import bound_board_payload as _bound  # noqa: PLC0415
 
             _bound(projection)
-            return _built_at, projection
+            return _built_at, _built_token, projection
 
         # This coroutine is the single-flight leader: it alone runs _build(),
         # then fans its outcome out to every waiter (itself plus every
@@ -6473,7 +6671,7 @@ def build_app(
         # of the acceptance test, and why a failed build must reach every
         # waiter rather than wedging the followers.
         try:
-            built_at, result = await run_in_threadpool(_build)
+            built_at, built_token, result = await run_in_threadpool(_build)
         except _BoardReadError as e:
             _board_inflight = None  # clear FIRST: a retry must build fresh,
             # never see a "done" future and think it must wait on this one.
@@ -6522,7 +6720,9 @@ def build_app(
                     _board_body = body
                     _board_cache_at = _time.monotonic()
                     _board_cache_built_at = built_at
-                    # #1630: feed this build's own latency + wire size to the
+                    _board_cache_token = built_token  # #3294
+                    # #1630/#3294: feed this build's own latency + wire size
+                    # (+ the fact that a build happened at all) to the
                     # fleet-health snapshot's board-latency check — read back
                     # on the health-poll tick's own cadence, never recomputed
                     # inline (see FleetHealthRefresher.record_board_stats).
@@ -8559,9 +8759,16 @@ def build_app(
         # filters to that repo; `repo_name` + `issue_number` narrows to the (at
         # most one) entry for that issue; neither given lists the whole queue
         # (hand-sized by definition — one row per issue an operator queued).
+        #
+        # #3296: `?state=` additionally reads `drive_queue_archive` — the
+        # live table alone would silently lose a terminal entry the moment
+        # `coord.housekeeping.sweep()` ages it out, making archived history
+        # unreachable rather than merely un-shipped-by-default from the
+        # unfiltered list.
         from coord import state  # noqa: PLC0415
 
         repo_name = request.query_params.get("repo_name")
+        state_filter = request.query_params.get("state")
         raw_issue = request.query_params.get("issue_number")
         issue_number = None
         if raw_issue is not None:
@@ -8574,9 +8781,21 @@ def build_app(
         try:
             if repo_name and issue_number is not None:
                 entry = state._get_drive_queue_entry_local(repo_name, issue_number)
+                if entry is None and state_filter:
+                    entry = state._get_drive_queue_archive_entry_local(
+                        repo_name, issue_number
+                    )
+                if (
+                    entry is not None
+                    and state_filter
+                    and entry.get("state") != state_filter
+                ):
+                    entry = None
                 entries = [entry] if entry else []
             else:
-                entries = state._list_drive_queue_local(repo_name)
+                entries = state._list_drive_queue_local(
+                    repo_name, state=state_filter
+                )
         except Exception as e:  # noqa: BLE001
             return JSONResponse(
                 {"error": "drive-queue read failed", "detail": str(e)},

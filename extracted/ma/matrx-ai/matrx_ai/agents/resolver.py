@@ -31,6 +31,7 @@ from matrx_utils import vcprint
 from matrx_ai.agents.cache import AgentCache
 from matrx_ai.agents.definition import Agent
 from matrx_ai.config import LLMParams, UnifiedConfig
+from matrx_ai.config.message_config import UnifiedMessage
 
 
 async def _load_unified_config(conversation_id: str) -> UnifiedConfig:
@@ -49,6 +50,25 @@ async def _load_unified_config(conversation_id: str) -> UnifiedConfig:
     return await cxm.get_conversation_unified_config(conversation_id)
 
 
+async def _load_persisted_messages(conversation_id: str) -> list[UnifiedMessage]:
+    """Load only the canonical rebuilt message projection for a continuation.
+
+    A client-host store remains the authority when configured. Server callers
+    use the same cx message/tool/media rebuild funnel as full config loads,
+    without recreating unrelated structural configuration on every cache hit.
+    """
+    from matrx_ai.client_host import get_conversation_store
+
+    store = get_conversation_store()
+    if store is not None:
+        config_dict = await store.get_conversation_config(conversation_id)
+        return list(UnifiedConfig.from_dict(config_dict).messages)
+
+    from matrx_ai.db import cxm
+
+    return await cxm.get_rebuilt_conversation_messages(conversation_id)
+
+
 # ---------------------------------------------------------------------------
 # Conversation resolver
 # ---------------------------------------------------------------------------
@@ -58,14 +78,17 @@ class ConversationResolver:
     """Resolves a UnifiedConfig from a conversation_id.
 
     Resolution order:
-        1. AgentCache (in-memory, instant — already converted, zero reconstruction)
-        2. Database via cxm (auto-cached by the ORM layer)
-        3. HTTP 404 if not found
+        1. AgentCache for structural agent configuration (tools, variables,
+           runtime settings), plus a durable message-history fence.
+        2. Database via cxm for a cold config load and the authoritative
+           completed message projection on cached continuations.
+        3. HTTP 404 if the persisted conversation cannot be found.
 
-    The in-memory AgentCache is the primary cache. It stores Agent objects
-    whose .config is the fully-reconstructed UnifiedConfig (media already
-    processed, tool content already rebuilt). Hitting the cache means zero
-    DB queries and zero reconstruction work.
+    The in-memory AgentCache stores Agent objects whose ``.config`` has already
+    resolved structural agent state (media, tools, and runtime settings). Its
+    message list is an optimization only: a cached continuation reloads the
+    durable message projection before provider dispatch, so process-local cache
+    propagation cannot decide conversation history.
     """
 
     @staticmethod
@@ -77,8 +100,9 @@ class ConversationResolver:
         """Return a UnifiedConfig ready for execution.
 
         Appends user_input (if provided) and applies config_overrides before
-        returning. Updates AgentCache after a DB load so subsequent calls
-        within the same process are instant.
+        returning. Updates AgentCache after a cold DB load so subsequent calls
+        can reuse structural resolution; cached continuations still fence their
+        messages against durable history.
 
         Raises HTTPException(404) if the conversation cannot be found.
         """
@@ -88,6 +112,34 @@ class ConversationResolver:
         if agent is not None:
             vcprint(f"[ConversationResolver] Cache hit: {conversation_id}", color="green")
             config = deepcopy(agent.config)
+
+            # The cache is allowed to accelerate structural agent resolution,
+            # but it is never an authority for turn order.  A second transport
+            # task/process can resolve a follow-up after the prior request
+            # committed but before this process received that request's cache
+            # update.  Reusing the cached messages in that window silently
+            # sends an amnesiac provider payload.  Refresh only the durable
+            # message projection before appending the new turn: cached tools,
+            # variables, and runtime configuration remain intact, while the
+            # database remains the completed-turn fence for every caller of
+            # this shared resolver (agent, chat, resume, and voice).
+            try:
+                persisted_messages = await _load_persisted_messages(conversation_id)
+            except Exception as exc:
+                tb_str = traceback.format_exc()
+                vcprint(
+                    f"[ConversationResolver] history fence FAILED for {conversation_id}\n"
+                    f"  Exception type : {type(exc).__name__}\n"
+                    f"  Exception      : {exc}\n"
+                    f"  Traceback:\n{tb_str}",
+                    color="red",
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Conversation not found: {conversation_id}",
+                ) from exc
+            config.messages.clear()
+            config.messages.extend(deepcopy(persisted_messages))
         else:
             vcprint(
                 f"[ConversationResolver] Cache miss — loading from DB: {conversation_id}",

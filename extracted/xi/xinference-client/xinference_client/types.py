@@ -201,6 +201,18 @@ class ToolCalls(TypedDict):
     function: ToolCallFunction
 
 
+class ToolCallDeltaFunction(TypedDict, total=False):
+    name: str
+    arguments: str
+
+
+class ToolCallDelta(TypedDict):
+    index: int
+    id: NotRequired[str]
+    type: NotRequired[Literal["function"]]
+    function: NotRequired[ToolCallDeltaFunction]
+
+
 class CompletionChoice(TypedDict):
     text: NotRequired[str]
     index: int
@@ -209,10 +221,15 @@ class CompletionChoice(TypedDict):
     tool_calls: NotRequired[List[ToolCalls]]
 
 
+class PromptTokensDetails(TypedDict):
+    cached_tokens: int
+
+
 class CompletionUsage(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+    prompt_tokens_details: NotRequired[PromptTokensDetails]
 
 
 class CompletionChunk(TypedDict):
@@ -269,7 +286,7 @@ class ChatCompletionChunkDelta(TypedDict):
     role: NotRequired[str]
     reasoning_content: NotRequired[Union[str, None]]
     content: NotRequired[Union[str, None]]
-    tool_calls: NotRequired[List[ToolCalls]]
+    tool_calls: NotRequired[List[ToolCallDelta]]
 
 
 class ChatCompletionChunkChoice(TypedDict):
@@ -472,12 +489,14 @@ class CreateChatCompletion(  # type: ignore
 
 
 class LoRA:
-    def __init__(self, lora_name: str, local_path: str):
+    def __init__(self, lora_name: str, local_path: str, lora_scale: float = 1.0):
+        self.lora_scale = lora_scale
         self.lora_name = lora_name
         self.local_path = local_path
 
     def to_dict(self):
         return {
+            **({"lora_scale": self.lora_scale} if self.lora_scale != 1.0 else {}),
             "lora_name": self.lora_name,
             "local_path": self.local_path,
         }
@@ -485,6 +504,7 @@ class LoRA:
     @classmethod
     def from_dict(cls, data: Dict):
         return cls(
+            lora_scale=data.get("lora_scale", 1.0),
             lora_name=data["lora_name"],
             local_path=data["local_path"],
         )

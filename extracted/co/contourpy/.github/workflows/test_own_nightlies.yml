@@ -16,6 +16,9 @@ defaults:
 env:
   PYTEST: python -m pytest -v -n auto --color=yes
 
+permissions:
+  contents: read
+
 jobs:
   test_own_nightlies:
     name: "${{ matrix.os }} deps ${{ matrix.dependencies }}"
@@ -25,19 +28,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [ubuntu-24.04, macos-14, windows-latest, windows-11-arm]
-        os: [ubuntu-24.04, macos-14, windows-latest]
+        #os: [ubuntu-24.04, macos-14, windows-2022, windows-11-arm]
+        os: [ubuntu-24.04, macos-14, windows-2022]
         python-version: ["3.13"]
         dependencies: ["released", "nightlies"]
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
 

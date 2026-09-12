@@ -3852,9 +3852,8 @@ def test_qualified_attr():
 
 @irdl_custom_directive
 class Hello(CustomDirective):
-    def parse(self, parser: Parser, state: ParsingState) -> bool:
+    def parse(self, parser: Parser, state: ParsingState):
         parser.parse_keyword("hello")
-        return True
 
     def print(self, printer: Printer, state: PrintingState, op: IRDLOperation) -> None:
         state.print_whitespace(printer)
@@ -3890,7 +3889,7 @@ class Bars(CustomDirective):
 
     var: VariadicOperandVariable
 
-    def parse(self, parser: Parser, state: ParsingState) -> bool:
+    def parse(self, parser: Parser, state: ParsingState):
         first = parser.parse_optional_unresolved_operand()
         if first is None:
             operands = []
@@ -3899,7 +3898,6 @@ class Bars(CustomDirective):
             while parser.parse_optional_punctuation("|"):
                 operands.append(parser.parse_unresolved_operand())
         self.var.set(state, operands)
-        return bool(operands)
 
     def print(self, printer: Printer, state: PrintingState, op: IRDLOperation) -> None:
         operands = self.var.get(op)
@@ -3945,7 +3943,7 @@ def test_non_upper_classvar():
         class BadClassVar(CustomDirective):  # pyright: ignore[reportUnusedClass]
             bad: ClassVar
 
-            def parse(self, parser: Parser, state: ParsingState) -> bool:
+            def parse(self, parser: Parser, state: ParsingState) -> None:
                 raise NotImplementedError()
 
             def print(
@@ -3966,7 +3964,7 @@ def test_bad_parameter():
         class BadParam(CustomDirective):  # pyright: ignore[reportUnusedClass]
             int_param: int
 
-            def parse(self, parser: Parser, state: ParsingState) -> bool:
+            def parse(self, parser: Parser, state: ParsingState) -> None:
                 raise NotImplementedError()
 
             def print(
@@ -3988,8 +3986,8 @@ class EmptyDirectiveWithParams(CustomDirective):
     operand_types: TypeDirective
     results: TypeDirective
 
-    def parse(self, parser: Parser, state: ParsingState) -> bool:
-        return True
+    def parse(self, parser: Parser, state: ParsingState):
+        pass
 
     def print(self, printer: Printer, state: PrintingState, op: IRDLOperation) -> None:
         pass
@@ -4073,3 +4071,41 @@ def test_optional_anchor_dynamic_index_list(program: str, generic_program: str):
 
     check_roundtrip(program, ctx)
     check_equivalence(program, generic_program, ctx)
+
+
+def test_keywords_are_non_optional():
+    @irdl_op_definition
+    class NonOptionalKeyword(IRDLOperation):
+        name = "test.non_optional_keyword"
+
+        assembly_format = "`keyword` attr-dict"
+
+    ctx = Context()
+    ctx.load_op(NonOptionalKeyword)
+
+    parser = Parser(ctx, "test.non_optional_keyword keyword")
+    parser.parse_op()
+
+    parser = Parser(ctx, "test.non_optional_keyword")
+
+    with pytest.raises(ParseError, match="Expected 'keyword'"):
+        parser.parse_op()
+
+
+def test_punctuation_is_non_optional():
+    @irdl_op_definition
+    class NonOptionalPunctuation(IRDLOperation):
+        name = "test.non_optional_punctuation"
+
+        assembly_format = "`:` attr-dict"
+
+    ctx = Context()
+    ctx.load_op(NonOptionalPunctuation)
+
+    parser = Parser(ctx, "test.non_optional_punctuation :")
+    parser.parse_op()
+
+    parser = Parser(ctx, "test.non_optional_punctuation")
+
+    with pytest.raises(ParseError, match="Expected ':'"):
+        parser.parse_op()

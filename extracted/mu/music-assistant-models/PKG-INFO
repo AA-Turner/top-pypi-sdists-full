@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: music_assistant_models
-Version: 1.1.209
+Version: 1.1.210
 Summary: Music Assistant Base Models
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
@@ -9,6 +9,7 @@ Classifier: Environment :: Console
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -17,7 +18,7 @@ Requires-Dist: mashumaro>=3.14
 Requires-Dist: anyascii==0.3.3
 Provides-Extra: test
 Requires-Dist: codespell==2.4.3; extra == "test"
-Requires-Dist: isort==8.0.1; extra == "test"
+Requires-Dist: isort==9.0.1; extra == "test"
 Requires-Dist: mypy==2.3.1; extra == "test"
 Requires-Dist: pre-commit==4.6.2; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"

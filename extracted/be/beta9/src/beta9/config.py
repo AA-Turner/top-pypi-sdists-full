@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Optional, Tuple, Union
 
 from . import terminal
+from .env import is_remote
 
 DEFAULT_CLI_NAME = "Beta9"
 DEFAULT_CONTEXT_NAME = "default"
@@ -193,14 +194,20 @@ def get_config_context(name: str = DEFAULT_CONTEXT_NAME) -> ConfigContext:
     gateway_port = int(os.getenv("BETA9_GATEWAY_PORT", settings.gateway_port))
     token = os.getenv("BETA9_TOKEN", settings.api_token)
 
-    if gateway_host and gateway_port and token:
+    # Inside a container the gateway address is always injected; a token is
+    # not (managed endpoint replicas authenticate with their replica secret
+    # instead), so build a tokenless context rather than prompting.
+    if gateway_host and gateway_port and (token or is_remote()):
         return ConfigContext(
             token=token,
             gateway_host=gateway_host,
             gateway_port=gateway_port,
-            api_url=settings.api_url
-            if (gateway_host, gateway_port) == (settings.gateway_host, settings.gateway_port)
-            else None,
+            api_url=os.getenv("BETA9_API_URL")
+            or (
+                settings.api_url
+                if (gateway_host, gateway_port) == (settings.gateway_host, settings.gateway_port)
+                else None
+            ),
         )
 
     if not sys.stdin.isatty():

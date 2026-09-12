@@ -11,6 +11,7 @@ import json
 import os
 import time
 import typing as t
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -72,14 +73,18 @@ from dreadnode.app.server.runtime_events import (
 )
 from dreadnode.app.server.session_hydrator import SessionHydrator
 from dreadnode.app.server.session_persistence import SessionPersistenceCoordinator
-from dreadnode.app.server.turn_coordinator import QueuedTurnRequest, SessionTurnCoordinator
+from dreadnode.app.server.turn_coordinator import (
+    QueuedTurnRequest,
+    SessionTurnCoordinator,
+    TurnExecutionContext,
+)
 from dreadnode.app.server.websocket import (
     WebSocketConnectionRegistry,
     serve_runtime_event_stream,
     serve_runtime_websocket,
 )
 from dreadnode.core import startup_clock
-from dreadnode.tracing.span import bind_session_id
+from dreadnode.tracing.span import bind_session_id, bind_workflow
 
 if t.TYPE_CHECKING:
     from dreadnode.agents import Agent
@@ -665,6 +670,44 @@ def _warm_litellm() -> None:
         logger.debug("litellm warm failed after {}ms", elapsed)
 
 
+_WARM_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dn-litellm-warm")
+"""Runs the litellm warm off any event loop, so any loop can await it."""
+
+_LITELLM_WARM_TIMEOUT_SEC = 45.0
+"""Ceiling on how long readiness waits for the litellm warm to settle.
+
+Generous because exceeding it is not a failure — the runtime serves either way,
+the first turn just pays whatever is left, which is the behaviour this replaced.
+The bound only stops a pathological import holding readiness open forever.
+"""
+
+
+def _start_litellm_warm(state: ServerState) -> Future[None]:
+    """Start the litellm import on a thread, once per process.
+
+    Started as early as whoever owns startup can manage, so the import overlaps
+    configure, capability discovery and the MCP/worker connects instead of racing
+    the first request. It used to be created as the last act of
+    ``server_lifecycle``, one statement before ``mark_ready()`` — so the thread
+    meant to shift the cost off the first chat turn had no window to run in, and
+    the first turn blocked on it for 10-17s (ENG-8259).
+
+    Idempotent: the lifespan and ``ManagedRuntimeClient._start_in_process`` both
+    call it, and whichever runs first owns the future.
+
+    Deliberately a ``concurrent.futures.Future`` rather than
+    ``loop.run_in_executor``: the in-process runtime starts this on the TUI's
+    main loop but awaits it inside ``server_lifecycle``, which runs on the
+    transport's server loop. An asyncio future belongs to the loop that created
+    it and raises when awaited from another, so callers wrap this one with
+    ``asyncio.wrap_future`` in whichever loop is theirs.
+    """
+    if state.litellm_warm is None:
+        state.litellm_warm = _WARM_EXECUTOR.submit(_warm_litellm)
+        state.litellm_warm.add_done_callback(lambda _future: state.startup.mark("litellm_warmed"))
+    return state.litellm_warm
+
+
 def _is_synchronous_startup() -> bool:
     """Resolve the ``DREADNODE_SYNCHRONOUS_STARTUP`` env-var flag.
 
@@ -723,20 +766,53 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
         await registry.worker_manager.start(registry)
     state.startup.mark("workers_started")
 
+    # Hosted runtimes own Release 1 workflow execution. Local/TUI servers have
+    # no runtime id and keep using the explicit ``dn workflow run --local`` path.
+    runtime_id = state.runtime_id or os.environ.get("DREADNODE_RUNTIME_ID", "").strip()
+    if runtime_id and state.workflow_manager is None:
+        from dreadnode.app.server.workflow_manager import WorkflowLifecycleManager
+
+        state.runtime_id = runtime_id
+        state.workflow_manager = WorkflowLifecycleManager(
+            runtime_id=runtime_id,
+            resolve_api_context=state._get_api_context,
+            resolve_runtime_connection=lambda: (
+                state.runtime_url,
+                state.runtime_token,
+            ),
+        )
+        await state.workflow_manager.start()
+
     _configure_litellm_env()
 
-    # litellm is deliberately NOT imported here. It was the largest single item
-    # on the readiness path (~1.8s on a laptop, ~4.3s on a sandbox) and it ran
-    # last, so readiness waited on it (ENG-8259). The warm thread below still
-    # shifts the import cost off the first chat turn; it just no longer holds
-    # readiness open while it does.
+    # litellm is deliberately NOT imported inline here. It is the largest single
+    # item on the path to a first chat turn (~2s warm, 7-17s on a sandbox's cold
+    # overlay FS) and importing it here would run it last and serially.
+    #
+    # The warm is started earlier by whoever owns startup — the FastAPI lifespan,
+    # or `ManagedRuntimeClient._start_in_process` for the TUI — so by the time
+    # this runs it is usually in flight and this call just returns that future.
     #
     # The flags this block used to import litellm to set are covered by the
     # environment above. Note that LiteLLMGenerator.__post_model_init__ looks
     # like it sets them too, but that is not a pydantic hook and never runs —
     # see ENG-8259. Do not rely on it.
-    warm_future = asyncio.get_running_loop().run_in_executor(None, _warm_litellm)
-    warm_future.add_done_callback(lambda _future: state.startup.mark("litellm_warmed"))
+    warm_future = _start_litellm_warm(state)
+
+    # Ready has to mean "can serve a chat turn", so nobody marks ready until the
+    # import has settled. This lives here rather than in `_deferred_startup`
+    # because that function is only the FastAPI-lifespan path: the TUI's
+    # `ManagedRuntimeClient._start_in_process` runs uvicorn with `lifespan="off"`,
+    # drives this context manager itself and then marks ready directly, so a
+    # wait placed there would have left the in-process runtime with exactly the
+    # premature green light this exists to remove.
+    #
+    # On the normal path the warm has been in flight since startup began, so this
+    # returns immediately. `wrap_future` binds it to *this* loop, and a timeout
+    # cancels only that wrapper — the import keeps running and still marks itself.
+    if not warm_future.done():
+        with suppress(Exception):
+            await asyncio.wait_for(asyncio.wrap_future(warm_future), _LITELLM_WARM_TIMEOUT_SEC)
 
     if synchronous:
         wait_started_at = time.perf_counter()
@@ -746,7 +822,8 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
             # auth still settle into ``needs_auth`` once the bridge
             # times out, so the eval runs with an honest toolset.
             await registry.mcp_manager.wait_for_connects()
-        # warmup logs its own failure; we just want it settled.
+        # Unbounded, unlike the wait above: an eval wants the full toolset even
+        # if the import outlasts the readiness budget. Usually already settled.
         with suppress(Exception):
             await asyncio.wrap_future(warm_future)
         state.startup.mark("synchronous_settled")
@@ -759,8 +836,16 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
         yield
     finally:
         if not synchronous:
-            with suppress(Exception):
-                await asyncio.wait_for(asyncio.shield(warm_future), timeout=2)
+            # Same `wrap_future` the readiness wait uses: the handle is a
+            # `concurrent.futures.Future`, and `asyncio.shield` rejects one
+            # with a TypeError that a broad `suppress` would swallow, leaving
+            # this grace period silently dead. Only the timeout is suppressed,
+            # so a future mistake here surfaces instead of hiding.
+            with suppress(TimeoutError):
+                await asyncio.wait_for(asyncio.wrap_future(warm_future), timeout=2)
+        if state.workflow_manager is not None:
+            await state.workflow_manager.stop()
+            state.workflow_manager = None
         # Workers stop BEFORE MCP teardown
         if registry and registry.worker_manager:
             await registry.worker_manager.stop()
@@ -854,6 +939,10 @@ async def _lifespan(_app_instance: t.Any) -> t.AsyncIterator[None]:
     """
     state = get_state()
     state.startup.mark("lifespan_started")
+    # Before the deferred task, not inside it: this is the earliest point in the
+    # process with a running loop, and every millisecond here is a millisecond
+    # the import overlaps startup instead of the user's first turn.
+    _start_litellm_warm(state)
     stack = AsyncExitStack()
     task = asyncio.create_task(_deferred_startup(stack, state.startup))
 
@@ -929,7 +1018,8 @@ def _normalize_platform_session(s: dict[str, t.Any]) -> dict[str, t.Any]:
     Platform field names differ from the runtime's historical shape:
 
     - ``id`` → ``session_id``
-    - ``project_name`` → ``project``
+    - ``project_key`` → ``project`` (the slug; ``project_name`` is the
+      display name and is not addressable)
     - ``usage`` (split-bucket dict) → flat ``total_tokens`` /
       ``total_tool_call_count`` / ``total_cost_usd`` rollups
     - everything else passes through verbatim (including new lifecycle
@@ -939,7 +1029,7 @@ def _normalize_platform_session(s: dict[str, t.Any]) -> dict[str, t.Any]:
     return {
         "session_id": str(s.get("id", "")),
         "group_id": str(s["group_id"]) if s.get("group_id") else None,
-        "project": s.get("project_name"),
+        "project": s.get("project_key"),
         "created_at": s.get("created_at"),
         "updated_at": s.get("updated_at"),
         "message_count": s.get("message_count", 0),
@@ -1110,6 +1200,10 @@ class ServerState:
         # discovery must never rediscover the module singleton independently.
         self.instance: t.Any | None = None
         self.startup = StartupState()
+        # The litellm import, in flight. Owned here rather than by
+        # `server_lifecycle` so startup can begin it earlier and every path that
+        # marks ready waits on the same handle. See `_start_litellm_warm`.
+        self.litellm_warm: Future[None] | None = None
         self.deferred_configure: t.Callable[[], t.Any] | None = None
         self.event_bus = runtime_events.EventBus()
         self._sessions: dict[str, SessionRuntime] = {}
@@ -1133,6 +1227,7 @@ class ServerState:
         self.runtime_url: str | None = None
         self.runtime_token: str | None = None
         self.runtime_id: str | None = None
+        self.workflow_manager: t.Any = None
         # Single-use websocket auth tickets for browser clients, which cannot
         # set an Authorization header on the ws handshake. See ws_auth.py.
         self.ws_ticket_store = ws_auth.WsTicketStore()
@@ -1485,7 +1580,7 @@ class ServerState:
                         ) = _platform_usage_totals(s.get("usage"))
                         sessions[sid] = SessionInfo(
                             session_id=sid,
-                            project=s.get("project_name"),
+                            project=s.get("project_key"),
                             group_id=str(s["group_id"]) if s.get("group_id") else None,
                             created_at=datetime.fromisoformat(s["created_at"])
                             if s.get("created_at")
@@ -1920,15 +2015,26 @@ def _register_session_with_platform(
         # this to ``worker`` via the runtime client's default_session_origin.
         origin = session._origin or "user"
 
+        # Registration records *what the session is*, not what it will run, so a
+        # model it cannot resolve must not cost it its platform row. Resolution
+        # raises outright when nothing declares a model, and letting that escape
+        # meant an unresolvable model silently unregistered the session — taking
+        # the transcript, its item links, and its workflow-node link with it.
+        try:
+            canonical_model = model_resolution.resolve_turn_model_config(
+                bootstrap_model,
+                session.model,
+                session._agent_def,
+            ).canonical_model
+        except Exception:
+            canonical_model = session.model or ""
+            logger.debug("Registering session {} without a resolved model", session.session_id)
+
         api.save_session(
             org,
             ws,
             session.session_id,
-            model_resolution.resolve_turn_model_config(
-                bootstrap_model,
-                session.model,
-                session._agent_def,
-            ).canonical_model,
+            canonical_model,
             agent=session.agent_name,
             title=session.title,
             message_count=session.message_count,
@@ -2115,6 +2221,18 @@ class SessionRuntime:
             self._event_loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._event_loop = None
+
+    def _workflow_attribution(self) -> tuple[str | None, str | None]:
+        """The workflow run and step this session was opened for, if any.
+
+        Read from the labels the workflow host set at ``create_session``. The
+        runtime has no other way to know, and should not: it runs agent turns and
+        is deliberately unaware of the graph above it.
+        """
+        labels = self._reserved_labels
+        run = (labels.get("workflow_run") or [None])[0]
+        unit = (labels.get("workflow_unit") or [None])[0]
+        return run, unit
 
     @property
     def _storage(self) -> t.Any:
@@ -3124,12 +3242,12 @@ class SessionRuntime:
         self.persistence.close()
         self._event_bus.drop_session(self.session_id)
 
-    async def cancel(self) -> bool:
+    async def cancel(self, *, drop_queued: bool = False) -> bool:
         """Cancel the active turn or compaction.
 
-        If messages were queued while the turn was running, a new
-        processing task is started so they are handled normally rather
-        than being silently discarded.
+        With drop_queued, cancel queued requests accepted before this call and
+        publish a terminal event for each. Messages accepted after the stop
+        still run. Other clients retain the ordinary queued-message behavior.
 
         Returns True if a running turn/compaction was cancelled, False if already idle.
         """
@@ -3138,7 +3256,9 @@ class SessionRuntime:
         # both the requested and complete markers share the same turn.
         cancelled_turn_id = self._turns.active_turn_id
         _log_chat_timing(self.session_id, cancelled_turn_id, "cancel_requested", cancel_started_at)
-        was_busy = await self._turns.cancel_active()
+        dropped = await self._turns.discard_queued() if drop_queued else []
+        was_busy = await self._turns.cancel_active() or bool(dropped)
+        await self._publish_dropped_turns(dropped)
 
         if self._compaction_task is not None and not self._compaction_task.done():
             self._compaction_task.cancel()
@@ -3146,13 +3266,30 @@ class SessionRuntime:
             with suppress(asyncio.CancelledError):
                 await self._compaction_task
 
-        # If new messages arrived while we were cancelling, start a fresh
-        # processor so they are handled.  Previously we drained the queue
-        # here, which silently dropped messages the user sent after Esc.
+        # Messages accepted after the stop still run.
         await self._turns.ensure_processing(processor_factory=self._process_queue)
         _log_chat_timing(self.session_id, cancelled_turn_id, "cancel_complete", cancel_started_at)
 
         return was_busy
+
+    async def cancel_queued(self, turn_id: str, *, drop_queued: bool = False) -> bool:
+        """Cancel a queued turn without interrupting another active turn."""
+        dropped = await self._turns.discard_queued_turn(turn_id, drop_queued=drop_queued)
+        await self._publish_dropped_turns(dropped)
+        return bool(dropped)
+
+    async def _publish_dropped_turns(self, dropped: list[TurnExecutionContext]) -> None:
+        for context in dropped:
+            context.finish("cancelled")
+            event: EventPayload = {"type": "cancelled", "data": {"reason": "queue_dropped"}}
+            await context.request.stream.publish(event)
+            await context.request.stream.close()
+            await self._publish_broker_event(
+                kind=runtime_events.EVENT_TURN_CANCELLED,
+                turn_id=context.turn_id,
+                payload={"reason": "queue_dropped"},
+                terminal=True,
+            )
 
     async def enqueue_chat(
         self,
@@ -3162,6 +3299,7 @@ class SessionRuntime:
         agent: str | None = None,
         reset: bool = False,
         generate_params_extra: dict[str, t.Any] | None = None,
+        metadata: dict[str, t.Any] | None = None,
     ) -> tuple[str, asyncio.Queue[EventPayload | None]]:
         """Queue a chat turn and ensure the session processor is running.
 
@@ -3176,6 +3314,7 @@ class SessionRuntime:
             agent=agent,
             reset=reset,
             generate_params_extra=generate_params_extra,
+            metadata=metadata,
         )
         _, queue_depth = await self._turns.enqueue(
             request,
@@ -3391,11 +3530,18 @@ class SessionRuntime:
                 from dreadnode.agents.events import GenerationStep
 
                 try:
-                    with bind_session_id(self.session_id):
+                    # Workflow attribution rides on the agent's own spans rather
+                    # than a separate span tree — see the constants for why. The
+                    # host stamped these labels when it opened the session.
+                    with (
+                        bind_session_id(self.session_id),
+                        bind_workflow(*self._workflow_attribution()),
+                    ):
                         # Session owns the trajectory — agent operates on it directly
                         async with agent.stream(
                             request.message,
                             reset=request.reset,
+                            **({"message_metadata": request.metadata} if request.metadata else {}),
                             trajectory=self._trajectory,
                         ) as stream:
                             _log_chat_timing(
@@ -3545,6 +3691,7 @@ class SessionRuntime:
                         "turn_id": request.turn_id,
                         "reason": "user_interrupt",
                         "partial_response": _final_assistant_in_events(_turn_slice()),
+                        "dropped_queued": context.dropped_queued,
                         "duration_ms": _turn_duration_ms(),
                         "raw_event": cancelled_event,
                     },
@@ -5021,7 +5168,7 @@ def _populate_registry(instance: t.Any) -> None:
                 "name": failure.get("name", "unknown"),
                 "path": str(failure.get("path", "")),
                 "error": failure.get("error", "unknown error"),
-                "source": "local",
+                "source": failure.get("source", "local"),
             }
             for failure in result.failures
         )

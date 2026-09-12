@@ -43,14 +43,15 @@ Usage:
 import argparse
 import ast
 import configparser
-import sqlite3
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from geocif.viz._style import despine as _despine
 from geocif.viz.leadtime import _MONTHS, _asof_month, style_ctx
+from geocif.viz._outlook_db import drop_sparse_stages, load_outlook
 from geocif.viz.aggregation import _write_lookup
 from geocif.viz import nass as nass_mod
 
@@ -84,64 +85,18 @@ def _to_display(v, crop, units):
 
 
 def load(db_path, table, model="tabpfn"):
-    """Read one crop table (outlook experiment, one model) incl. CI columns."""
-    cols = ['"Model"', '"Region"', '"Harvest Year"', '"Stage Name"',
-            f'"{PRED}"', f'"{OBS}"']
-    optional = ("Stage Window Display", "Area (ha)", LO, HI, "alpha",
-                "Date", "Time")
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    try:
-        present = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
-        for opt in optional:
-            if opt in present:
-                cols.append(f'"{opt}"')
-        df = pd.read_sql(
-            f'SELECT {",".join(cols)} FROM "{table}" '
-            f"WHERE \"Experiment Name\" = 'outlook' AND \"Model\" = ?",
-            con, params=(model,),
-        )
-    finally:
-        con.close()
-    for opt in optional:
-        if opt not in df.columns:
-            df[opt] = np.nan
-    df = df.rename(columns={"Harvest Year": "year", "Stage Name": "stage",
-                            "Stage Window Display": "swd"})
-    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
-    for c in (OBS, PRED, LO, HI, "Area (ha)", "alpha"):
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.dropna(subset=[PRED, "year"])
-    df = df[(df[OBS].isna()) | (df[OBS] > 0)].copy()
+    """Read one crop table (outlook experiment, one model) incl. CI columns.
 
-    # De-duplicate (Region, year, stage). The writer's upsert key includes the
-    # wall-clock Time, so re-running an outlook into an existing DB appends a
-    # SECOND copy of every logical row rather than replacing it. Duplicates
-    # would double-weight a state in the national mean and make the
-    # full-pool calibration filters reject every year — silently.
-    key = ["Region", "year", "stage"]
-    if df.duplicated(key).any():
-        n_dup = int(df.duplicated(key).sum())
-        df = (df.sort_values(["Date", "Time"], na_position="first")
-              .drop_duplicates(key, keep="last"))
-        print(f"{table}: dropped {n_dup} duplicate (Region, year, stage) row(s); "
-              f"kept the most recently written copy of each")
-    df = df.copy()
-
-    # Fail loudly on inconsistent intervals: the tabpfn quantile path repairs
-    # monotonicity, so a violation here means the DB is not what we think.
-    # Each bound is checked on its own — a row with a populated lower CI and a
-    # NULL upper one must not slip past because the pair test needs both.
-    bad = df[((df[LO].notna()) & (df[LO] > df[PRED]))
-             | ((df[HI].notna()) & (df[PRED] > df[HI]))]
-    if len(bad):
-        raise ValueError(
-            f"{table}: {len(bad)} row(s) violate lower CI <= pred <= upper CI "
-            f"(first: {bad.iloc[0][['Region', 'year', 'stage']].to_dict()})"
-        )
-    alphas = df.loc[df["alpha"].notna(), "alpha"].unique()
-    if len(alphas) > 1 or (len(alphas) == 1 and abs(alphas[0] - 0.2) > 1e-9):
-        raise ValueError(f"{table}: expected a single alpha of 0.2, got {alphas}")
-    return df
+    Thin wrapper over the shared loader — geocif/viz/_outlook_db.py carries
+    the fork history, the upsert de-duplication and the parsed-timestamp fix
+    for it (Date/Time are month-name-first strings; sorting them raw could
+    keep a STALE row). Cone-specific choices: one model only, CI columns
+    validated, and obs-NaN rows KEPT because the live forecast year has no
+    observed value yet.
+    """
+    return load_outlook(db_path, table, model=model,
+                        extra_columns=("Area (ha)", LO, HI, "alpha"),
+                        validate_ci=True)
 
 
 def _plant_month(stages):
@@ -177,25 +132,16 @@ def prepare(df, min_region_frac=1.0):
     matters for the live season: its later cutoffs have not happened yet, and
     an all-stages requirement would silently drop the live year entirely.
     """
-    n_regions = df["Region"].nunique()
-    per_stage = df.groupby("stage")["Region"].nunique()
-    keep = per_stage[per_stage >= min_region_frac * n_regions].index.tolist()
-    dropped = {s: int(per_stage[s]) for s in per_stage.index if s not in keep}
-    if not keep:
-        raise ValueError(
-            f"no stage covers {min_region_frac:.0%} of the {n_regions} region(s) "
-            f"— per-stage coverage was {dict(per_stage)}. Lower min_region_frac "
-            f"to keep the earlier stages at the cost of a smaller region pool."
-        )
-    df = df[df["stage"].isin(keep)].copy()
+    df, dropped = drop_sparse_stages(df, min_region_frac)
 
+    stages_seen = sorted(set(df["stage"]))
     df["asof"] = [_asof_month(s, w) for s, w in zip(df["stage"], df["swd"])]
     n_undated = int(df["asof"].isna().sum())
     df = df.dropna(subset=["asof"])
     if df.empty:
         raise ValueError(
             f"no stage name maps to a forecast issue month ({n_undated} row(s) "
-            f"dropped; stages seen: {sorted(set(keep))}). The cone needs "
+            f"dropped; stages seen: {stages_seen}). The cone needs "
             f"month-window stages (run_time_steps=all); pre-season stage names "
             f"like 'Pre-Season (init Aug)' have no data cutoff to place on the "
             f"x-axis."
@@ -389,10 +335,7 @@ def _issue_labels(nat):
 
 
 def _finish_axes(ax):
-    ax.spines[["top", "right"]].set_visible(False)
-    # scienceplots turns ticks on all four sides; with the top/right spines
-    # hidden those become orphaned dashes floating at the plot edge.
-    ax.tick_params(which="both", top=False, right=False)
+    _despine(ax)
 
 
 def _save(fig, out_stem):

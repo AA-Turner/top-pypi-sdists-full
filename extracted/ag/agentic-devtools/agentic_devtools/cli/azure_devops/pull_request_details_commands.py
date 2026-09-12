@@ -454,6 +454,8 @@ def get_pull_request_details() -> None:
     Raises:
         SystemExit: On validation or execution errors.
     """
+    from ..workflows.base import _safe_print
+
     config = AzureDevOpsConfig.from_state()
     dry_run = is_dry_run()
     pull_request_id = get_pull_request_id(required=True)
@@ -466,17 +468,17 @@ def get_pull_request_details() -> None:
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     if dry_run:
-        print(f"DRY-RUN: Would retrieve pull request details for PR {pull_request_id}")
-        print(f"  Organization: {config.organization}")
-        print(f"  Project: {config.project}")
-        print(f"  Repository: {config.repository}")
-        print(f"  Output: {output_file}")
+        _safe_print(f"DRY-RUN: Would retrieve pull request details for PR {pull_request_id}")
+        _safe_print(f"  Organization: {config.organization}")
+        _safe_print(f"  Project: {config.project}")
+        _safe_print(f"  Repository: {config.repository}")
+        _safe_print(f"  Output: {output_file}")
         return
 
     pat = get_pat()
     headers = get_auth_headers(pat)
 
-    print(f"Retrieving pull request details for PR {pull_request_id}...")
+    _safe_print(f"Retrieving pull request details for PR {pull_request_id}...")
 
     # Fetch the PR object via the project-scoped Azure DevOps REST API.
     #
@@ -491,7 +493,7 @@ def get_pull_request_details() -> None:
     config = replace(config, organization=_normalize_org_url(config.organization))
     pr_data = fetch_pull_request_via_rest(pull_request_id, config, headers)
     if not pr_data:
-        print(
+        _safe_print(
             f"Error: Failed to get pull request details for PR {pull_request_id}. "
             "Verify the PAT (AZURE_DEV_OPS_COPILOT_PAT / AZURE_DEVOPS_EXT_PAT) is "
             f"valid and can access {config.organization}/{config.project}/{config.repository}.",
@@ -499,16 +501,16 @@ def get_pull_request_details() -> None:
         )
         sys.exit(1)
 
-    print("Pull request details retrieved successfully:")
-    print(f"  PR ID: {pr_data.get('pullRequestId')}")
-    print(f"  Title: {pr_data.get('title')}")
-    print(f"  Is Draft: {pr_data.get('isDraft')}")
-    print(f"  Status: {pr_data.get('status')}")
+    _safe_print("Pull request details retrieved successfully:")
+    _safe_print(f"  PR ID: {pr_data.get('pullRequestId')}")
+    _safe_print(f"  Title: {pr_data.get('title')}")
+    _safe_print(f"  Is Draft: {pr_data.get('isDraft')}")
+    _safe_print(f"  Status: {pr_data.get('status')}")
 
     if pr_data.get("autoCompleteSetBy"):
-        print(f"  Auto-Complete: Set by {pr_data['autoCompleteSetBy'].get('displayName')}")
+        _safe_print(f"  Auto-Complete: Set by {pr_data['autoCompleteSetBy'].get('displayName')}")
     else:
-        print("  Auto-Complete: Not set")
+        _safe_print("  Auto-Complete: Not set")
 
     # Extract branch info
     target_branch = normalize_ref_name(pr_data.get("targetRefName"))
@@ -592,9 +594,9 @@ def get_pull_request_details() -> None:
     if reviewer_payload and reviewer_payload.get("reviewedFiles"):  # pragma: no cover
         reviewed_count = len(reviewer_payload["reviewedFiles"])
 
-    print(f"Captured {len(files_details)} file entries for comparison.")
+    _safe_print(f"Captured {len(files_details)} file entries for comparison.")
     if reviewed_count > 0:  # pragma: no cover
-        print(f"Found {reviewed_count} files already reviewed on latest iteration.")
+        _safe_print(f"Found {reviewed_count} files already reviewed on latest iteration.")
 
     # Build output payload
     output_payload = {
@@ -611,4 +613,4 @@ def get_pull_request_details() -> None:
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output_payload, f, indent=2)
 
-    print(f"\nResponse (with file diffs) saved to: {output_file}")
+    _safe_print(f"\nResponse (with file diffs) saved to: {output_file}")

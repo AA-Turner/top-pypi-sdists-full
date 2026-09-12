@@ -54,6 +54,9 @@ def urlopen_json(request: urllib.request.Request, *, timeout: float = 15, attemp
             raise ValueError("hook response must be an object")
         except urllib.error.HTTPError:
             raise
+        except urllib.error.URLError as exc:
+            last_error = exc
+            time.sleep(0.05)
         except (
             BrokenPipeError,
             ConnectionAbortedError,
@@ -61,7 +64,6 @@ def urlopen_json(request: urllib.request.Request, *, timeout: float = 15, attemp
             TimeoutError,
             http.client.IncompleteRead,
             http.client.RemoteDisconnected,
-            urllib.error.URLError,
         ) as exc:
             last_error = exc
             time.sleep(0.05)

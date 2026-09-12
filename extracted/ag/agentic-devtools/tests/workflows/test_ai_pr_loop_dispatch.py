@@ -190,6 +190,193 @@ class TestResumeState:
         assert _dispatch._record_is_complete({**complete, "push_verification": "unverified"}) is False
 
 
+class TestUnresolvedReviewComments:
+    """Tests for filtering review comments before task creation."""
+
+    def test_filters_resolved_threads_and_keeps_unresolved_and_suppressed_comments(self) -> None:
+        provider = MagicMock()
+        provider.list_review_thread_states.return_value = {
+            1: (True, True),
+            2: (False, True),
+        }
+        comments = [
+            SimpleNamespace(id=1),
+            SimpleNamespace(id=2),
+            SimpleNamespace(id=-1),
+        ]
+
+        result = _dispatch._filter_unresolved_review_comments(provider=provider, pr_number=4110, comments=comments)
+
+        assert [comment.id for comment in result] == [2, -1]
+        provider.list_review_thread_states.assert_called_once_with(4110)
+
+    def test_keeps_comments_when_provider_has_no_thread_state_support(self) -> None:
+        provider = SimpleNamespace()
+        comments = [SimpleNamespace(id=1)]
+
+        result = _dispatch._filter_unresolved_review_comments(provider=provider, pr_number=4110, comments=comments)
+
+        assert result == comments
+
+    def test_keeps_comments_when_thread_state_lookup_degrades(self) -> None:
+        provider = MagicMock()
+        provider.list_review_thread_states.side_effect = NotImplementedError
+        comments = [SimpleNamespace(id=1)]
+
+        result = _dispatch._filter_unresolved_review_comments(provider=provider, pr_number=4110, comments=comments)
+
+        assert result == comments
+
+    def test_returns_noop_when_all_recovered_comments_are_resolved(self) -> None:
+        provider = MagicMock()
+        provider.list_review_thread_states.return_value = {1: (True, True)}
+        comments = [SimpleNamespace(id=1, is_suppressed=False, html_url="comment")]
+
+        with (
+            patch.object(_dispatch, "_build_parser") as build_parser,
+            patch.object(_dispatch, "_parse_review_url", return_value=("owner", "repo", 4110, 5176679383)),
+            patch.object(_dispatch, "_load_review_body", return_value="review"),
+            patch.object(_dispatch, "_load_head_sha") as load_head_sha,
+            patch.object(_dispatch.importlib, "import_module") as import_module,
+        ):
+            build_parser.return_value.parse_args.return_value = SimpleNamespace(
+                review_url="review-url",
+                content_file=None,
+                post_task_link=False,
+                dispatch_task=False,
+                monitor=False,
+                resume=False,
+                poll_interval_seconds=300.0,
+            )
+            import_module.return_value = SimpleNamespace(
+                GitHubActionsProvider=lambda _repository: provider,
+                _build_repair_comment=lambda **_kwargs: "unused",
+                _deduplicate_review_comments=lambda _comments, _suppressed: comments,
+                _parse_suppressed_from_review_body=lambda _body, source_review_id: [],
+            )
+
+            assert _dispatch.main() == 0
+
+        load_head_sha.assert_not_called()
+
+    def test_skips_existing_resolved_suppressed_thread_before_dispatch(self, tmp_path: Path) -> None:
+        provider = MagicMock()
+        provider.list_review_thread_states.side_effect = [{}, {42: (True, True)}]
+        suppressed_comment = SimpleNamespace(
+            id=-1,
+            is_suppressed=True,
+            html_url="",
+            body="finding",
+            path="src/example.py",
+            line=None,
+            start_line=None,
+        )
+
+        with (
+            patch.object(_dispatch, "_build_parser") as build_parser,
+            patch.object(_dispatch, "_parse_review_url", return_value=("owner", "repo", 4110, 5176679383)),
+            patch.object(_dispatch, "_load_review_body", return_value="review"),
+            patch.object(_dispatch, "_load_head_sha", return_value="head-sha"),
+            patch.object(_dispatch, "_load_pr_ref", side_effect=["main", "feature"]),
+            patch.object(_dispatch, "_ensure_suppressed_review_thread", return_value=(42, "comment-url")),
+            patch.object(_dispatch, "_dispatch_agent_task") as dispatch_agent_task,
+            patch.object(_dispatch.importlib, "import_module") as import_module,
+        ):
+            build_parser.return_value.parse_args.return_value = SimpleNamespace(
+                review_url="review-url",
+                content_file=None,
+                head_sha=None,
+                dispatch_task=True,
+                model=None,
+                base_ref=None,
+                head_ref=None,
+                parallel=False,
+                resume=False,
+                post_task_link=False,
+                monitor=False,
+                poll_interval_seconds=300.0,
+                output_dir=tmp_path,
+            )
+            import_module.return_value = SimpleNamespace(
+                GitHubActionsProvider=lambda _repository: provider,
+                _build_repair_comment=lambda **_kwargs: "unused",
+                _deduplicate_review_comments=lambda _comments, _suppressed: [suppressed_comment],
+                _parse_suppressed_from_review_body=lambda _body, source_review_id: [],
+            )
+            provider.list_review_comments.return_value = []
+
+            assert _dispatch.main() == 0
+
+        dispatch_agent_task.assert_not_called()
+
+    def test_refreshes_thread_state_before_each_sequential_dispatch(self, tmp_path: Path) -> None:
+        provider = MagicMock()
+        fresh_provider_one = MagicMock()
+        fresh_provider_two = MagicMock()
+        provider.list_review_thread_states.return_value = {}
+        fresh_provider_one.list_review_thread_states.return_value = {}
+        fresh_provider_two.list_review_thread_states.return_value = {2: (True, True)}
+        comments = [
+            SimpleNamespace(
+                id=1,
+                is_suppressed=False,
+                html_url="https://github.com/owner/repo/pull/4110#discussion_r1",
+                body="first",
+                path="src/first.py",
+                line=1,
+                start_line=None,
+            ),
+            SimpleNamespace(
+                id=2,
+                is_suppressed=False,
+                html_url="https://github.com/owner/repo/pull/4110#discussion_r2",
+                body="second",
+                path="src/second.py",
+                line=2,
+                start_line=None,
+            ),
+        ]
+
+        with (
+            patch.object(_dispatch, "_build_parser") as build_parser,
+            patch.object(_dispatch, "_parse_review_url", return_value=("owner", "repo", 4110, 5176679383)),
+            patch.object(_dispatch, "_load_review_body", return_value="review"),
+            patch.object(_dispatch, "_load_head_sha", return_value="head-sha"),
+            patch.object(_dispatch, "_load_pr_ref", side_effect=["main", "feature"]),
+            patch.object(_dispatch, "_dispatch_agent_task", return_value=("task-1", "task-url")) as dispatch_agent_task,
+            patch.object(_dispatch.importlib, "import_module") as import_module,
+        ):
+            build_parser.return_value.parse_args.return_value = SimpleNamespace(
+                review_url="review-url",
+                content_file=None,
+                head_sha=None,
+                dispatch_task=True,
+                model="model",
+                base_ref=None,
+                head_ref=None,
+                parallel=False,
+                resume=False,
+                post_task_link=False,
+                monitor=False,
+                poll_interval_seconds=300.0,
+                output_dir=tmp_path,
+            )
+            import_module.return_value = SimpleNamespace(
+                GitHubActionsProvider=MagicMock(side_effect=[provider, fresh_provider_one, fresh_provider_two]),
+                _build_repair_comment=lambda **_kwargs: "repair",
+                _deduplicate_review_comments=lambda _comments, _suppressed: comments,
+                _parse_suppressed_from_review_body=lambda _body, source_review_id: [],
+            )
+            provider.list_review_comments.return_value = comments
+
+            assert _dispatch.main() == 0
+
+        assert provider.list_review_thread_states.call_count == 1
+        assert fresh_provider_one.list_review_thread_states.call_count == 1
+        assert fresh_provider_two.list_review_thread_states.call_count == 1
+        dispatch_agent_task.assert_called_once()
+
+
 class TestAgentCommentCorrelation:
     """Tests for correlating a completed task with its assigned reply."""
 

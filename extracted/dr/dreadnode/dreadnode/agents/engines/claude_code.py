@@ -393,7 +393,11 @@ class ClaudeCodeEngine(AgentEngine):
                 Message(
                     "user",
                     str(ctx.goal or ""),
-                    metadata={"agent": agent.name, "model": agent.model_name},
+                    metadata={
+                        **(ctx.message_metadata or {}),
+                        "agent": agent.name,
+                        "model": agent.model_name,
+                    },
                 )
             )
         step_messages.append(assistant_msg)

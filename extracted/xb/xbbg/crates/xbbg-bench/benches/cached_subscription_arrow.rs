@@ -1,10 +1,10 @@
 //! Cached real Bloomberg subscription message -> xbbg-async SubscriptionState -> Arrow benchmark.
 //!
-//! This benchmark makes one bounded live subscription capture, keeps the returned
 //! Bloomberg `Event`s in memory, then replays those cached events many times
-//! through the real `SubscriptionState::on_message` path. It bridges the existing
-//! pure `xbbg-core` parsing and synthetic Arrow replay benchmarks without
-//! hammering Bloomberg data limits.
+//! through the real `SubscriptionState::on_message` path. Producer and consumer
+//! progress are scheduled independently against the exact bounded channel
+//! capacity, so overflow, cancellation, drain, and discard behavior remain
+//! executable without issuing additional Bloomberg requests.
 //!
 //! It does not change production hot paths.
 //!
@@ -16,9 +16,10 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use arrow_array::RecordBatch;
-use tokio::sync::mpsc;
-use xbbg_async::engine::state::{subscription_update_to_record_batch, SubscriptionState};
+use xbbg_async::engine::state::{
+    subscription_channel, subscription_update_to_record_batch, MessageOutcome,
+    SubscriptionReceiver, SubscriptionState,
+};
 use xbbg_async::engine::OverflowPolicy;
 use xbbg_bench::write_json;
 use xbbg_core::{CorrelationId, Event, EventType, Session, SessionOptions, SubscriptionList};
@@ -28,8 +29,10 @@ const DEFAULT_FIELDS: &str = "LAST_PRICE,BID,ASK";
 const DEFAULT_CAPTURE_MESSAGES: usize = 25;
 const DEFAULT_CAPTURE_TIMEOUT_MS: u64 = 15_000;
 const DEFAULT_REPLAY_LOOPS: usize = 1_000;
-const DEFAULT_FLUSH_THRESHOLD: usize = 1_024;
-const DEFAULT_CHANNEL_CAPACITY: usize = 16_384;
+const DEFAULT_COMPATIBILITY_FLUSH_THRESHOLD: usize = 1_024;
+const DEFAULT_CHANNEL_CAPACITY: usize = 1_024;
+const DEFAULT_CONSUMER_POLL_MESSAGES: usize = 1;
+const DEFAULT_CONSUMER_BATCH: usize = 1;
 const DEFAULT_ITERATIONS: usize = 5;
 const LIVE_ENABLE_ENV: &str = "CACHED_SUB_ENABLE_LIVE";
 
@@ -40,8 +43,13 @@ struct BenchConfig {
     capture_messages: usize,
     capture_timeout_ms: u64,
     replay_loops: usize,
-    flush_threshold: usize,
+    compatibility_flush_threshold: usize,
     channel_capacity: usize,
+    consumer_poll_messages: usize,
+    consumer_batch: usize,
+    consumer_delay_us: u64,
+    cancel_after_messages: usize,
+    drain_on_cancel: bool,
     iterations: usize,
     capture_all_fields: bool,
 }
@@ -56,10 +64,11 @@ struct CaptureResult {
 struct ReplayResult {
     iteration: usize,
     input_events: usize,
-    input_messages: usize,
-    replay_loops: usize,
-    rows_emitted: usize,
-    batches_emitted: usize,
+    processed_messages: usize,
+    configured_replay_loops: usize,
+    completed_replay_loops: usize,
+    accepted_rows: usize,
+    accepted_batches: usize,
     total_columns_emitted: usize,
     elapsed_us: u128,
     messages_per_sec: f64,
@@ -67,10 +76,24 @@ struct ReplayResult {
     cells_per_sec: f64,
     avg_columns_per_batch: f64,
     ns_per_message: f64,
-    effective_channel_capacity: usize,
+    channel_capacity: usize,
+    max_queue_depth: usize,
     dropped_batches: u64,
+    post_cancel_drained_batches: usize,
+    delivered_after_drop: usize,
+    discarded_batches: usize,
+    terminal_error_count: usize,
+    data_loss_error_count: usize,
+    unexpected_error_count: usize,
+    terminal_error_detail: String,
+    terminal_eof_observed: bool,
+    expected_data_loss: bool,
+    gap_outcome: &'static str,
+    stop_reason: &'static str,
+    status: &'static str,
+    cancelled: bool,
+    drain_on_cancel: bool,
 }
-
 fn main() {
     let config = BenchConfig::from_env();
 
@@ -85,8 +108,16 @@ fn main() {
         config.capture_all_fields
     );
     println!(
-        "replay loops={} flush={} iterations={} channel_capacity={}\n",
-        config.replay_loops, config.flush_threshold, config.iterations, config.channel_capacity
+        "replay loops={} compatibility_flush_threshold={} iterations={} channel_capacity={} consumer_poll_messages={} consumer_batch={} consumer_delay_us={} cancel_after_messages={} drain_on_cancel={}\n",
+        config.replay_loops,
+        config.compatibility_flush_threshold,
+        config.iterations,
+        config.channel_capacity,
+        config.consumer_poll_messages,
+        config.consumer_batch,
+        config.consumer_delay_us,
+        config.cancel_after_messages,
+        config.drain_on_cancel,
     );
 
     if !live_capture_enabled() {
@@ -155,8 +186,19 @@ impl BenchConfig {
                 DEFAULT_CAPTURE_TIMEOUT_MS,
             ),
             replay_loops: env_usize("CACHED_SUB_REPLAY_LOOPS", DEFAULT_REPLAY_LOOPS),
-            flush_threshold: env_usize("CACHED_SUB_FLUSH", DEFAULT_FLUSH_THRESHOLD),
+            compatibility_flush_threshold: env_usize(
+                "CACHED_SUB_COMPAT_FLUSH_THRESHOLD",
+                DEFAULT_COMPATIBILITY_FLUSH_THRESHOLD,
+            ),
             channel_capacity: env_usize("CACHED_SUB_CHANNEL_CAPACITY", DEFAULT_CHANNEL_CAPACITY),
+            consumer_poll_messages: env_usize(
+                "CACHED_SUB_CONSUMER_POLL_MESSAGES",
+                DEFAULT_CONSUMER_POLL_MESSAGES,
+            ),
+            consumer_batch: env_usize("CACHED_SUB_CONSUMER_BATCH", DEFAULT_CONSUMER_BATCH),
+            consumer_delay_us: env_u64("CACHED_SUB_CONSUMER_DELAY_US", 0),
+            cancel_after_messages: env_usize("CACHED_SUB_CANCEL_AFTER_MESSAGES", 0),
+            drain_on_cancel: env_bool("CACHED_SUB_DRAIN_ON_CANCEL", false),
             iterations: env_usize("CACHED_SUB_ITERATIONS", DEFAULT_ITERATIONS),
             capture_all_fields: env_bool("CACHED_SUB_ALL_FIELDS", false),
         }
@@ -286,88 +328,270 @@ fn capture_subscription_events(
     })
 }
 
-fn replay_cached_events(iteration: usize, config: &BenchConfig, events: &[Event]) -> ReplayResult {
-    let cached_messages = count_cached_messages(events);
-    let expected_batches = expected_batches(
-        cached_messages.saturating_mul(config.replay_loops),
-        config.flush_threshold,
-    );
-    let effective_channel_capacity = config
-        .channel_capacity
-        .max(expected_batches.saturating_add(1));
-    let (tx, mut rx) = mpsc::channel(effective_channel_capacity);
-    let mut state = SubscriptionState::with_policy(
-        config.ticker.clone(),
-        config.fields.clone(),
-        tx,
-        config.flush_threshold,
-        OverflowPolicy::DropNewest,
-        config.capture_all_fields,
-    );
+#[derive(Default)]
+struct DrainCounters {
+    rows: usize,
+    batches: usize,
+    columns: usize,
+    cells: usize,
+    terminal_error_count: usize,
+    data_loss_error_count: usize,
+    unexpected_error_count: usize,
+    terminal_error_details: Vec<String>,
+    adapter_error_details: Vec<String>,
+    terminal_eof_observed: bool,
+}
 
-    let started = Instant::now();
-    let mut input_messages = 0usize;
-
-    for _ in 0..config.replay_loops {
-        for event in events {
-            for message in event.messages() {
-                state.on_message(&message);
-                input_messages += 1;
+impl DrainCounters {
+    fn observe_terminal_error(&mut self, error: xbbg_core::BlpError) {
+        self.terminal_error_count += 1;
+        match error {
+            xbbg_core::BlpError::SubscriptionDataLoss { topic, detail } => {
+                self.data_loss_error_count += 1;
+                self.terminal_error_details
+                    .push(format!("subscription_data_loss({topic}): {detail}"));
+            }
+            error => {
+                self.unexpected_error_count += 1;
+                self.terminal_error_details.push(error.to_string());
             }
         }
     }
 
+    fn observe_adapter_error(&mut self, error: xbbg_core::BlpError) {
+        self.unexpected_error_count += 1;
+        self.adapter_error_details.push(error.to_string());
+    }
+
+    fn error_detail(&self) -> String {
+        self.terminal_error_details
+            .iter()
+            .map(|detail| format!("stream: {detail}"))
+            .chain(
+                self.adapter_error_details
+                    .iter()
+                    .map(|detail| format!("arrow: {detail}")),
+            )
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
+}
+
+#[derive(Clone, Copy)]
+struct DrainResult {
+    accepted_batches: usize,
+    fatal: bool,
+}
+
+fn replay_cached_events(iteration: usize, config: &BenchConfig, events: &[Event]) -> ReplayResult {
+    let (tx, mut rx) = subscription_channel(config.channel_capacity);
+    let mut state = SubscriptionState::with_policy(
+        config.ticker.clone(),
+        config.fields.clone(),
+        tx,
+        config.compatibility_flush_threshold,
+        OverflowPolicy::DropNewest,
+        config.capture_all_fields,
+    );
+    let started = Instant::now();
+    let mut processed_messages = 0usize;
+    let mut completed_replay_loops = 0usize;
+    let mut max_queue_depth = 0usize;
+    let mut cancelled = false;
+    let mut fatal_stream = false;
+    let mut stop_reason = "completed";
+    let mut saw_drop = false;
+    let mut delivered_after_drop = 0usize;
+    let mut counters = DrainCounters::default();
+
+    'produce: for _ in 0..config.replay_loops {
+        for event in events {
+            for message in event.messages() {
+                let outcome = state.on_message(&message);
+                processed_messages += 1;
+                saw_drop |= state.dropped_batches > 0;
+                max_queue_depth = max_queue_depth.max(rx.len());
+
+                if processed_messages.is_multiple_of(config.consumer_poll_messages) {
+                    let drained = drain_updates(&mut rx, config.consumer_batch, &mut counters);
+                    if saw_drop {
+                        delivered_after_drop += drained.accepted_batches;
+                    }
+                    if drained.accepted_batches > 0 && config.consumer_delay_us > 0 {
+                        std::thread::sleep(Duration::from_micros(config.consumer_delay_us));
+                    }
+                    if drained.fatal {
+                        fatal_stream = true;
+                        stop_reason = "consumer_error";
+                    }
+                }
+
+                match outcome {
+                    MessageOutcome::Normal { .. } => {}
+                    MessageOutcome::DataLoss => {
+                        fatal_stream = true;
+                        stop_reason = "message_data_loss";
+                    }
+                    MessageOutcome::Closed => {
+                        fatal_stream = true;
+                        stop_reason = "message_closed";
+                    }
+                }
+                if fatal_stream {
+                    break 'produce;
+                }
+
+                if config.cancel_after_messages > 0
+                    && processed_messages >= config.cancel_after_messages
+                {
+                    cancelled = true;
+                    stop_reason = "cancelled";
+                    break 'produce;
+                }
+            }
+        }
+        completed_replay_loops += 1;
+    }
+
     state.flush();
+    max_queue_depth = max_queue_depth.max(rx.len());
     let dropped_batches = state.dropped_batches;
     drop(state);
 
-    let mut rows_emitted = 0usize;
-    let mut batches_emitted = 0usize;
-    let mut total_columns_emitted = 0usize;
-    let mut total_cells_emitted = 0usize;
-    while let Ok(result) = rx.try_recv() {
-        let update = result.expect("SubscriptionState should not emit errors in replay");
-        let batch: RecordBatch = subscription_update_to_record_batch(&update)
-            .expect("SubscriptionUpdate should adapt to RecordBatch in replay");
-        rows_emitted += batch.num_rows();
-        batches_emitted += 1;
-        total_columns_emitted += batch.num_columns();
-        total_cells_emitted += batch.num_rows().saturating_mul(batch.num_columns());
-        std::hint::black_box(batch);
-    }
-
+    let (discarded_batches, post_cancel_drained_batches) =
+        if cancelled && !config.drain_on_cancel && !fatal_stream {
+            rx.close();
+            (discard_updates(&mut rx, &mut counters), 0)
+        } else {
+            let drained = drain_updates(&mut rx, usize::MAX, &mut counters);
+            if saw_drop {
+                delivered_after_drop += drained.accepted_batches;
+            }
+            (
+                0,
+                if cancelled {
+                    drained.accepted_batches
+                } else {
+                    0
+                },
+            )
+        };
     let elapsed = started.elapsed();
-    let elapsed_secs = elapsed.as_secs_f64();
+    let elapsed_secs = elapsed.as_secs_f64().max(f64::EPSILON);
 
-    if dropped_batches != 0 {
-        panic!("cached subscription benchmark dropped {dropped_batches} batches; increase CACHED_SUB_CHANNEL_CAPACITY or flush less often");
-    }
+    let expected_data_loss = dropped_batches > 0 || stop_reason == "message_data_loss";
+    let gap_outcome = if expected_data_loss
+        && counters.terminal_error_count == 1
+        && counters.data_loss_error_count == 1
+        && counters.unexpected_error_count == 0
+        && counters.terminal_eof_observed
+    {
+        "expected_data_loss_observed"
+    } else if expected_data_loss {
+        "expected_data_loss_mismatch"
+    } else if counters.terminal_error_count > 0 {
+        "unexpected_terminal_error"
+    } else if stop_reason == "message_closed" {
+        "closed_without_terminal_error"
+    } else {
+        "no_gap"
+    };
+    let status = if matches!(gap_outcome, "no_gap" | "expected_data_loss_observed")
+        && counters.adapter_error_details.is_empty()
+    {
+        "ok"
+    } else {
+        "error"
+    };
 
     ReplayResult {
         iteration,
         input_events: events.len(),
-        input_messages,
-        replay_loops: config.replay_loops,
-        rows_emitted,
-        batches_emitted,
-        total_columns_emitted,
+        processed_messages,
+        configured_replay_loops: config.replay_loops,
+        completed_replay_loops,
+        accepted_rows: counters.rows,
+        accepted_batches: counters.batches,
+        total_columns_emitted: counters.columns,
         elapsed_us: elapsed.as_micros(),
-        messages_per_sec: input_messages as f64 / elapsed_secs,
-        rows_per_sec: rows_emitted as f64 / elapsed_secs,
-        cells_per_sec: total_cells_emitted as f64 / elapsed_secs,
-        avg_columns_per_batch: average_columns(total_columns_emitted, batches_emitted),
-        ns_per_message: elapsed.as_nanos() as f64 / input_messages.max(1) as f64,
-        effective_channel_capacity,
+        messages_per_sec: processed_messages as f64 / elapsed_secs,
+        rows_per_sec: counters.rows as f64 / elapsed_secs,
+        cells_per_sec: counters.cells as f64 / elapsed_secs,
+        avg_columns_per_batch: average_columns(counters.columns, counters.batches),
+        ns_per_message: elapsed.as_nanos() as f64 / processed_messages.max(1) as f64,
+        channel_capacity: config.channel_capacity,
+        max_queue_depth,
         dropped_batches,
+        discarded_batches,
+        post_cancel_drained_batches,
+        delivered_after_drop,
+        terminal_error_count: counters.terminal_error_count,
+        data_loss_error_count: counters.data_loss_error_count,
+        unexpected_error_count: counters.unexpected_error_count,
+        terminal_error_detail: counters.error_detail(),
+        terminal_eof_observed: counters.terminal_eof_observed,
+        expected_data_loss,
+        gap_outcome,
+        stop_reason,
+        status,
+        cancelled,
+        drain_on_cancel: config.drain_on_cancel,
     }
 }
 
-fn count_cached_messages(events: &[Event]) -> usize {
-    events.iter().map(|event| event.messages().count()).sum()
+fn drain_updates(
+    rx: &mut SubscriptionReceiver,
+    limit: usize,
+    counters: &mut DrainCounters,
+) -> DrainResult {
+    let initial_terminal_errors = counters.terminal_error_count;
+    let initial_adapter_errors = counters.adapter_error_details.len();
+    let mut accepted_batches = 0usize;
+    while accepted_batches < limit {
+        match rx.try_recv() {
+            Ok(Ok(update)) => match subscription_update_to_record_batch(&update) {
+                Ok(batch) => {
+                    counters.rows += batch.num_rows();
+                    counters.batches += 1;
+                    counters.columns += batch.num_columns();
+                    counters.cells += batch.num_rows().saturating_mul(batch.num_columns());
+                    accepted_batches += 1;
+                    std::hint::black_box(batch);
+                }
+                Err(error) => {
+                    counters.observe_adapter_error(error);
+                    break;
+                }
+            },
+            Ok(Err(error)) => counters.observe_terminal_error(error),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
+            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                counters.terminal_eof_observed = true;
+                break;
+            }
+        }
+    }
+    DrainResult {
+        accepted_batches,
+        fatal: counters.terminal_error_count > initial_terminal_errors
+            || counters.adapter_error_details.len() > initial_adapter_errors,
+    }
 }
 
-fn expected_batches(messages: usize, flush_threshold: usize) -> usize {
-    messages.saturating_add(flush_threshold.saturating_sub(1)) / flush_threshold
+fn discard_updates(rx: &mut SubscriptionReceiver, counters: &mut DrainCounters) -> usize {
+    let mut discarded = 0usize;
+    loop {
+        match rx.try_recv() {
+            Ok(Ok(_)) => discarded += 1,
+            Ok(Err(error)) => counters.observe_terminal_error(error),
+            Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
+            Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                counters.terminal_eof_observed = true;
+                break;
+            }
+        }
+    }
+    discarded
 }
 
 fn average_columns(total_columns: usize, batches: usize) -> f64 {
@@ -379,27 +603,49 @@ fn average_columns(total_columns: usize, batches: usize) -> f64 {
 }
 
 fn print_results(results: &[ReplayResult]) {
-    println!("{:=<112}", "");
+    println!("{:=<152}", "");
     println!("  cached real subscription Message -> SubscriptionState -> Arrow");
-    println!("{:=<112}\n", "");
+    println!("{:=<152}\n", "");
     println!(
-        "  {:>9} {:>12} {:>12} {:>9} {:>9} {:>10} {:>14} {:>12}",
-        "Iteration", "Messages", "Rows", "Batches", "Cols/B", "Elapsed", "Rows/sec", "ns/msg"
+        "  {:>9} {:>11} {:>11} {:>9} {:>9} {:>10} {:>13} {:>11} {:>7} {:>19}",
+        "Iteration",
+        "Processed",
+        "Accepted",
+        "Batches",
+        "Cols/B",
+        "Elapsed",
+        "Rows/sec",
+        "ns/msg",
+        "Status",
+        "Stop"
     );
-    println!("  {:-<108}", "");
+    println!("  {:-<148}", "");
 
     for result in results {
         println!(
-            "  {:>9} {:>12} {:>12} {:>9} {:>9.2} {:>9}us {:>14.0} {:>12.1}",
+            "  {:>9} {:>11} {:>11} {:>9} {:>9.2} {:>9}us {:>13.0} {:>11.1} {:>7} {:>19}",
             result.iteration,
-            result.input_messages,
-            result.rows_emitted,
-            result.batches_emitted,
+            result.processed_messages,
+            result.accepted_rows,
+            result.accepted_batches,
             result.avg_columns_per_batch,
             result.elapsed_us,
             result.rows_per_sec,
             result.ns_per_message,
+            result.status,
+            result.stop_reason,
         );
+        println!(
+            "             gap={}; terminal_errors={}; data_loss_errors={}; unexpected_errors={}; eof={}",
+            result.gap_outcome,
+            result.terminal_error_count,
+            result.data_loss_error_count,
+            result.unexpected_error_count,
+            result.terminal_eof_observed,
+        );
+        if !result.terminal_error_detail.is_empty() {
+            println!("             error={}", result.terminal_error_detail);
+        }
     }
 
     let avg_rows_per_sec = results
@@ -413,15 +659,35 @@ fn print_results(results: &[ReplayResult]) {
         .sum::<f64>()
         / results.len() as f64;
     println!("\n  Average rows/sec: {:.0}", avg_rows_per_sec);
-    println!("  Average ns/message: {:.1}", avg_ns_per_message);
-    let effective_channel_capacity = results
+    println!("  Average ns/processed message: {:.1}", avg_ns_per_message);
+    let channel_capacity = results
         .first()
-        .map(|result| result.effective_channel_capacity)
+        .map(|result| result.channel_capacity)
+        .unwrap_or_default();
+    let max_queue_depth = results
+        .iter()
+        .map(|result| result.max_queue_depth)
+        .max()
         .unwrap_or_default();
     let dropped_batches: u64 = results.iter().map(|result| result.dropped_batches).sum();
-    println!("  Effective channel capacity: {effective_channel_capacity}");
-    println!("  Dropped batches: {dropped_batches}");
-    println!("{:=<112}\n", "");
+    let discarded_batches: usize = results.iter().map(|result| result.discarded_batches).sum();
+    let delivered_after_drop: usize = results
+        .iter()
+        .map(|result| result.delivered_after_drop)
+        .sum();
+    let matched_gaps = results
+        .iter()
+        .filter(|result| result.gap_outcome == "expected_data_loss_observed")
+        .count();
+    let expected_gaps = results
+        .iter()
+        .filter(|result| result.expected_data_loss)
+        .count();
+    println!("  Channel capacity / max depth: {channel_capacity} / {max_queue_depth}");
+    println!("  Dropped / discarded batches: {dropped_batches} / {discarded_batches}");
+    println!("  Delivered committed prefix after first drop: {delivered_after_drop}");
+    println!("  Expected data-loss outcomes observed: {matched_gaps} / {expected_gaps}");
+    println!("{:=<152}\n", "");
 }
 
 fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[ReplayResult]) {
@@ -440,9 +706,61 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
         .map(|result| result.ns_per_message)
         .sum::<f64>()
         / results.len() as f64;
+    let max_queue_depth = results
+        .iter()
+        .map(|result| result.max_queue_depth)
+        .max()
+        .unwrap_or_default();
+    let total_dropped_batches: u64 = results.iter().map(|result| result.dropped_batches).sum();
+    let total_discarded_batches: usize =
+        results.iter().map(|result| result.discarded_batches).sum();
+    let total_delivered_after_drop: usize = results
+        .iter()
+        .map(|result| result.delivered_after_drop)
+        .sum();
+    let total_processed_messages: usize =
+        results.iter().map(|result| result.processed_messages).sum();
+    let total_accepted_rows: usize = results.iter().map(|result| result.accepted_rows).sum();
+    let total_terminal_errors: usize = results
+        .iter()
+        .map(|result| result.terminal_error_count)
+        .sum();
+    let total_data_loss_errors: usize = results
+        .iter()
+        .map(|result| result.data_loss_error_count)
+        .sum();
+    let total_unexpected_errors: usize = results
+        .iter()
+        .map(|result| result.unexpected_error_count)
+        .sum();
+    let expected_data_loss_outcomes = results
+        .iter()
+        .filter(|result| result.expected_data_loss)
+        .count();
+    let matched_data_loss_outcomes = results
+        .iter()
+        .filter(|result| result.gap_outcome == "expected_data_loss_observed")
+        .count();
+    let input_descriptor = format!(
+        "ticker={};fields={};captured_events={};captured_messages={};replay_loops={};compatibility_flush_threshold={};channel_capacity={};consumer_poll_messages={};consumer_batch={};consumer_delay_us={};cancel_after_messages={};drain_on_cancel={}",
+        config.ticker,
+        config.fields.join("|"),
+        capture.events.len(),
+        capture.messages,
+        config.replay_loops,
+        config.compatibility_flush_threshold,
+        config.channel_capacity,
+        config.consumer_poll_messages,
+        config.consumer_batch,
+        config.consumer_delay_us,
+        config.cancel_after_messages,
+        config.drain_on_cancel,
+    );
+    let provenance = xbbg_bench::benchmark_provenance_json(&input_descriptor);
 
     let mut json = String::new();
     writeln!(&mut json, "{{").unwrap();
+    writeln!(&mut json, "  \"schema_version\": 3,").unwrap();
     writeln!(&mut json, "  \"timestamp\": {timestamp},").unwrap();
     writeln!(&mut json, "  \"crate\": \"xbbg-async\",").unwrap();
     writeln!(
@@ -451,14 +769,22 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
     )
     .unwrap();
     writeln!(&mut json, "  \"uses_bloomberg_session\": true,").unwrap();
-    let build_mode = xbbg_bench::build_mode();
     writeln!(
         &mut json,
-        "  \"target_cpu\": {{ \"native\": {} }},",
-        build_mode.target_cpu_native
+        "  \"coverage\": \"one bounded live SDK capture followed by cached Event replay through real SubscriptionState and Arrow adaptation\","
     )
     .unwrap();
-    writeln!(&mut json, "  \"debug_build\": {},", build_mode.debug_build).unwrap();
+    writeln!(
+        &mut json,
+        "  \"output_model\": \"one sparse SubscriptionUpdate/RecordBatch per accepted source message, including the trailing presence bitmap; terminal data loss preserves the accepted prefix, then emits one classified error and EOF\","
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "  \"timing_scope\": \"cached replay producer, configured consumer scheduling/delay, bounded channel, and Arrow adaptation; live capture excluded\","
+    )
+    .unwrap();
+    writeln!(&mut json, "  \"provenance\": {provenance},").unwrap();
     writeln!(&mut json, "  \"config\": {{").unwrap();
     writeln!(
         &mut json,
@@ -487,14 +813,44 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
     writeln!(&mut json, "    \"replay_loops\": {},", config.replay_loops).unwrap();
     writeln!(
         &mut json,
-        "    \"flush_threshold\": {},",
-        config.flush_threshold
+        "    \"compatibility_flush_threshold\": {},",
+        config.compatibility_flush_threshold
     )
     .unwrap();
     writeln!(
         &mut json,
-        "    \"channel_capacity\": {},",
+        "    \"channel_capacity_batches\": {},",
         config.channel_capacity
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"consumer_poll_messages\": {},",
+        config.consumer_poll_messages
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"consumer_batch\": {},",
+        config.consumer_batch
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"consumer_delay_us\": {},",
+        config.consumer_delay_us
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"cancel_after_messages\": {},",
+        config.cancel_after_messages
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"drain_on_cancel\": {},",
+        config.drain_on_cancel
     )
     .unwrap();
     writeln!(&mut json, "    \"iterations\": {},", config.iterations).unwrap();
@@ -516,6 +872,7 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
     .unwrap();
     writeln!(&mut json, "  }},").unwrap();
     writeln!(&mut json, "  \"summary\": {{").unwrap();
+    writeln!(&mut json, "    \"sample_count\": {},", results.len()).unwrap();
     writeln!(
         &mut json,
         "    \"avg_rows_per_sec\": {:.2},",
@@ -534,20 +891,51 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
         avg_ns_per_message
     )
     .unwrap();
-    let max_effective_channel_capacity = results
-        .iter()
-        .map(|result| result.effective_channel_capacity)
-        .max()
-        .unwrap_or_default();
-    let total_dropped_batches: u64 = results.iter().map(|result| result.dropped_batches).sum();
+    writeln!(&mut json, "    \"max_queue_depth\": {max_queue_depth},").unwrap();
     writeln!(
         &mut json,
-        "    \"effective_channel_capacity\": {max_effective_channel_capacity},"
+        "    \"processed_messages\": {total_processed_messages},"
+    )
+    .unwrap();
+    writeln!(&mut json, "    \"accepted_rows\": {total_accepted_rows},").unwrap();
+    writeln!(
+        &mut json,
+        "    \"terminal_errors\": {total_terminal_errors},"
     )
     .unwrap();
     writeln!(
         &mut json,
-        "    \"dropped_batches\": {total_dropped_batches}"
+        "    \"data_loss_errors\": {total_data_loss_errors},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"unexpected_errors\": {total_unexpected_errors},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"expected_data_loss_outcomes\": {expected_data_loss_outcomes},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"matched_data_loss_outcomes\": {matched_data_loss_outcomes},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"dropped_batches\": {total_dropped_batches},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"delivered_after_drop\": {total_delivered_after_drop},"
+    )
+    .unwrap();
+    writeln!(
+        &mut json,
+        "    \"discarded_batches\": {total_discarded_batches}"
     )
     .unwrap();
     writeln!(&mut json, "  }},").unwrap();
@@ -565,26 +953,32 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
         .unwrap();
         writeln!(
             &mut json,
-            "      \"input_messages\": {},",
-            result.input_messages
+            "      \"processed_messages\": {},",
+            result.processed_messages
         )
         .unwrap();
         writeln!(
             &mut json,
-            "      \"replay_loops\": {},",
-            result.replay_loops
+            "      \"configured_replay_loops\": {},",
+            result.configured_replay_loops
         )
         .unwrap();
         writeln!(
             &mut json,
-            "      \"rows_emitted\": {},",
-            result.rows_emitted
+            "      \"completed_replay_loops\": {},",
+            result.completed_replay_loops
         )
         .unwrap();
         writeln!(
             &mut json,
-            "      \"batches_emitted\": {},",
-            result.batches_emitted
+            "      \"accepted_rows\": {},",
+            result.accepted_rows
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"accepted_batches\": {},",
+            result.accepted_batches
         )
         .unwrap();
         writeln!(
@@ -626,14 +1020,94 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
         .unwrap();
         writeln!(
             &mut json,
-            "      \"effective_channel_capacity\": {},",
-            result.effective_channel_capacity
+            "      \"channel_capacity_batches\": {},",
+            result.channel_capacity
         )
         .unwrap();
         writeln!(
             &mut json,
-            "      \"dropped_batches\": {}",
+            "      \"max_queue_depth\": {},",
+            result.max_queue_depth
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"dropped_batches\": {},",
             result.dropped_batches
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"delivered_after_drop\": {},",
+            result.delivered_after_drop
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"discarded_batches\": {},",
+            result.discarded_batches
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"post_cancel_drained_batches\": {},",
+            result.post_cancel_drained_batches
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"terminal_error_count\": {},",
+            result.terminal_error_count
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"data_loss_error_count\": {},",
+            result.data_loss_error_count
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"unexpected_error_count\": {},",
+            result.unexpected_error_count
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"terminal_error_detail\": \"{}\",",
+            json_escape(&result.terminal_error_detail)
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"terminal_eof_observed\": {},",
+            result.terminal_eof_observed
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"expected_data_loss\": {},",
+            result.expected_data_loss
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"gap_outcome\": \"{}\",",
+            result.gap_outcome
+        )
+        .unwrap();
+        writeln!(
+            &mut json,
+            "      \"stop_reason\": \"{}\",",
+            result.stop_reason
+        )
+        .unwrap();
+        writeln!(&mut json, "      \"status\": \"{}\",", result.status).unwrap();
+        writeln!(&mut json, "      \"cancelled\": {},", result.cancelled).unwrap();
+        writeln!(
+            &mut json,
+            "      \"drain_on_cancel\": {}",
+            result.drain_on_cancel
         )
         .unwrap();
         writeln!(&mut json, "    }}{comma}").unwrap();
@@ -641,7 +1115,6 @@ fn write_results(config: &BenchConfig, capture: &CaptureResult, results: &[Repla
 
     writeln!(&mut json, "  ]").unwrap();
     writeln!(&mut json, "}}").unwrap();
-
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("benchmarks/results");
     let timestamped = dir.join(format!("cached_subscription_arrow_{timestamp}.json"));
     let latest = dir.join("cached_subscription_arrow_latest.json");

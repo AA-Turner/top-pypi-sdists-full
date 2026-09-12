@@ -480,21 +480,291 @@ def test_the_cli_writes_a_repository_and_says_where(tmp_path: Path, capsys):
                if line.startswith("записано файлов: ")]
     assert written and str(out / "Acme" / "TaskBook") in written[0], written
 
+
+# --- writing into a directory that is not empty --------------------------------------------------
+
+def _cli(argv: list[str]) -> int:
+    from xbsl.translation import cli as translate_cli
+
+    return translate_cli.cli_main(argv)
+
+
+def _project_and_dictionary(tmp_path: Path) -> tuple[Path, Path]:
+    root = tmp_path / "src" / "Acme" / "Задачник"
+    _mini_project(root)
+    dictionary = tmp_path / "dictionary.yaml"
+    dictionary.write_text(
+        "version: 1\nlanguage: en\ntokens:\n    Задачник: TaskBook\n    Основное: Main\n",
+        encoding="utf-8")
+    return root, dictionary
+
+
+def test_a_second_run_into_the_same_out_rewrites_the_tree(tmp_path: Path, capsys):
+    """The repeat itself is fine: the directory carries the project marker, so it is overwritten."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+
+    assert _cli(argv) == 0
+    assert _cli(argv) == 0
+    capsys.readouterr()
+    assert (out / "Acme" / "TaskBook" / "Project.yaml").is_file()
+
+
+def test_an_output_directory_of_someone_else_is_refused_in_words(tmp_path: Path, capsys):
+    """Nothing is written over a stranger's files - and the report says which directory and why."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out" / "Acme" / "TaskBook"
+    out.mkdir(parents=True)
+    (out / "README.txt").write_text("чужое", encoding="utf-8")
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--out", str(tmp_path / "out"),
+                 "--lang", "ru"])
+
+    text = capsys.readouterr().out
+    assert code == 1  # the tree is the job of the run: it was not written
+    assert "каталог вывода занят чужими файлами" in text and str(out) in text
+    assert (out / "README.txt").read_text(encoding="utf-8") == "чужое"
+
+
+def test_a_file_that_cannot_be_written_is_named_and_the_report_survives(tmp_path: Path, capsys):
+    """The pain of the backlog: an exception here answered with an exit code and an EMPTY log.
+
+    A leftover of an earlier run - a directory standing where a file goes - used to raise out of
+    the write step, and the whole report (coverage, the untranslated remainder) died with it.
+    """
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out" / "Acme" / "TaskBook"
+    out.mkdir(parents=True)
+    (out / "Project.yaml").mkdir()  # the marker is there, but a file cannot take its place
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--out", str(tmp_path / "out"),
+                 "--lang", "ru"])
+
+    text = capsys.readouterr().out
+    assert code == 1
+    assert "файл не записан" in text and "Project.yaml" in text
+    assert "записано файлов: " in text  # the report itself is printed, not lost
+    assert (out / "Main" / "Subsystem.yaml").is_file()  # the rest of the tree still went out
+
+
+def test_the_failed_files_are_named_up_to_a_point_and_then_counted(tmp_path: Path):
+    """A directory nobody can write to fails on every file - the lines must not bury the report."""
+    from xbsl.translation import project as project_module
+
+    root, _dict = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    report = translate_project(root, _layout_dictionary(), out, layout="repository")
+    assert report.written and not report.write_failed
+
+    broken = tmp_path / "broken"
+    broken.mkdir()
+    (broken / "Project.yaml").write_text("Id: x\n", encoding="utf-8")  # the marker: writing goes on
+    outputs = {Path("Project.yaml"): ("Проект.yaml", "Id: x\n", None)}
+    for index in range(11):
+        outputs[Path(f"f{index}.yaml")] = (f"ф{index}.yaml", "x", None)
+        (broken / f"f{index}.yaml").mkdir()  # a directory where each file goes
+    stopped = project_module.ProjectReport(root=root)
+    project_module._write_tree(broken, outputs, stopped)
+
+    assert stopped.write_failed and stopped.written == 1  # only the marker itself went out
+    assert len(stopped.problems) == project_module._WRITE_PROBLEMS_SHOWN + 1
+    assert "6" in stopped.problems[-1]  # 11 failures, five named, six counted
+
+
+# --- --clean: the leftovers of an earlier pass ---------------------------------------------------
+
+
+def test_a_renamed_source_leaves_an_orphan_that_clean_takes_out(tmp_path: Path, capsys):
+    """The pain: the pass overwrites what it writes and touches nothing else.
+
+    A file renamed in the sources leaves its old translation standing in the output tree, a
+    build takes the directory whole, and the orphan deploys along with everything else.
+    """
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    resources = root / "Основное" / "Ресурсы"
+    resources.mkdir(parents=True)
+    (resources / "percent.svg").write_text("<svg/>", encoding="utf-8")
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    # by name, not by path: the directory of resources is a platform name, and whether it is
+    # spelled in English depends on data this test does not need
+    written = lambda name: sorted(p.as_posix() for p in out.rglob(name))
+
+    assert _cli(argv) == 0
+    assert len(written("percent.svg")) == 1
+
+    (resources / "percent.svg").rename(resources / "percent-sign.svg")
+    assert _cli(argv) == 0
+    capsys.readouterr()
+    # the repeat alone is not enough - both names stand there now
+    assert len(written("percent.svg")) == 1 and len(written("percent-sign.svg")) == 1
+
+    assert _cli([*argv, "--clean"]) == 0
+    assert "убрано остатков прошлого прогона: 1" in capsys.readouterr().out
+    assert written("percent.svg") == []
+    assert len(written("percent-sign.svg")) == 1
+
+
+def test_clean_makes_the_write_that_a_leftover_directory_used_to_break(tmp_path: Path, capsys):
+    """A directory standing where a file goes fails that write - and `--clean` is the cure.
+
+    Files and directories are kept by different sets exactly for this: judged by the file set
+    the leftover directory would look like something to keep, and the write would go on
+    failing.
+    """
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    assert _cli(argv) == 0
+
+    marker = out / "Acme" / "TaskBook" / "Project.yaml"
+    marker.unlink()
+    (marker / "занято").mkdir(parents=True)
+    (marker / "занято" / "stub.txt").write_text("x", encoding="utf-8")
+
+    assert _cli(argv) == 1  # the write fails, as it did before
+    assert "файл не записан" in capsys.readouterr().out
+
+    assert _cli([*argv, "--clean"]) == 0
+    assert marker.is_file()
+
+
+def test_clean_keeps_the_files_this_pass_writes(tmp_path: Path, capsys):
+    """A guard against the opposite failure: cleaning must not take out the tree itself."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    assert _cli(argv) == 0
+    before = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+
+    assert _cli([*argv, "--clean"]) == 0
+    capsys.readouterr()
+
+    assert sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()) == before
+
+
+def test_clean_does_not_touch_a_directory_of_someone_else(tmp_path: Path, capsys):
+    """The occupancy guard stays the safety net: `--clean` is not "erase what you point at"."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out" / "Acme" / "TaskBook"
+    out.mkdir(parents=True)
+    (out / "README.txt").write_text("чужое", encoding="utf-8")
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--out", str(tmp_path / "out"),
+                 "--lang", "ru", "--clean"])
+
+    assert code == 1 and "каталог вывода занят чужими файлами" in capsys.readouterr().out
+    assert (out / "README.txt").read_text(encoding="utf-8") == "чужое"
+
+
+def test_clean_without_out_is_refused_rather_than_ignored(tmp_path: Path, capsys):
+    """Ignoring it would leave the caller believing a stale tree had been cleaned."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--lang", "ru", "--clean"])
+
+    assert code == 2 and "--clean" in capsys.readouterr().err
+
+
+def test_a_clean_says_which_leftovers_it_took_out(tmp_path: Path, capsys):
+    """A count answers nothing about what a build just lost - the names do."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    assert _cli(argv) == 0
+    orphan = next(out.rglob("Project.yaml")).parent / "Забытый.yaml"
+    orphan.write_text("Ид: x\n", encoding="utf-8")
+    capsys.readouterr()
+
+    assert _cli([*argv, "--clean"]) == 0
+
+    said = capsys.readouterr().out
+    assert "убрано остатков прошлого прогона: 1" in said and "Забытый.yaml" in said
+
+
+def test_a_dry_run_names_the_leftovers_and_takes_nothing_out(tmp_path: Path, capsys):
+    """The whole point: the answer to "what is about to go" arrives BEFORE it goes.
+
+    The first clean of a translated tree is a blind step otherwise - the only account of it
+    was a count printed after the fact.
+    """
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    assert _cli(argv) == 0
+    orphan = next(out.rglob("Project.yaml")).parent / "Забытый.yaml"
+    orphan.write_text("Ид: x\n", encoding="utf-8")
+    capsys.readouterr()
+
+    assert _cli([*argv, "--clean", "--dry-run"]) == 0
+
+    said = capsys.readouterr().out
+    assert "СУХОЙ ПРОГОН" in said and "Забытый.yaml" in said
+    assert "будет убрано остатков прошлого прогона: 1" in said
+    assert orphan.is_file()  # named, not taken
+
+    assert _cli([*argv, "--clean"]) == 0
+    assert not orphan.exists()  # ...and the real pass takes exactly what was named
+
+
+def test_a_dry_run_writes_no_tree_at_all(tmp_path: Path, capsys):
+    """Not only the removals: a first pass gets to see its size before it lands anywhere."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--out", str(out),
+                 "--lang", "ru", "--dry-run"])
+
+    said = capsys.readouterr().out
+    assert code == 0 and "будет записано файлов:" in said
+    assert not out.exists()
+
+
+def test_a_dry_run_of_an_occupied_directory_says_the_write_would_be_refused(
+    tmp_path: Path, capsys,
+):
+    """The occupancy guard is exactly what a dry run is for: it answers before the minutes."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out" / "Acme" / "TaskBook"
+    out.mkdir(parents=True)
+    (out / "README.txt").write_text("чужое", encoding="utf-8")
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--out", str(tmp_path / "out"),
+                 "--lang", "ru", "--clean", "--dry-run"])
+
+    assert code == 1 and "каталог вывода занят чужими файлами" in capsys.readouterr().out
+    assert (out / "README.txt").read_text(encoding="utf-8") == "чужое"
+
+
+def test_the_json_report_of_a_dry_run_carries_every_leftover(tmp_path: Path, capsys):
+    """The text report caps the list at a screenful; a machine reader gets all of it."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+    argv = [str(root), "--dictionary", str(dictionary), "--out", str(out), "--lang", "ru"]
+    assert _cli(argv) == 0
+    (next(out.rglob("Project.yaml")).parent / "Забытый.yaml").write_text("Ид: x\n",
+                                                                        encoding="utf-8")
+    capsys.readouterr()
+
+    assert _cli([*argv, "--clean", "--dry-run", "--format", "json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["dry_run"] is True and payload["planned"] > 0
+    assert payload["written"] == 0 and payload["removed"] == 0
+    assert payload["removals"] == ["Забытый.yaml"]
+
+
+def test_a_dry_run_without_out_is_refused(tmp_path: Path, capsys):
+    """Nothing is written anyway - answering as if the flag had shown something would be a lie."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--lang", "ru", "--dry-run"])
+
+    assert code == 2 and "--dry-run" in capsys.readouterr().err
+
+
 # --- the linter rule -----------------------------------------------------------------------------
-
-
-def _rule_findings(paths):
-    """Run the project rule the way the engine does: mapper per file, then the reduce."""
-    from xbsl.rules import translation_gaps
-
-    translation_gaps._dictionary_at.cache_clear()
-    facts = {}
-    for path in paths:
-        source = engine.load(path)
-        fact = translation_gaps._gaps_mapper(source)
-        if fact is not None:
-            facts[source.rel] = fact
-    return [d.message for d in translation_gaps.missing_translation(facts)]
 
 
 def _rule_findings(paths):

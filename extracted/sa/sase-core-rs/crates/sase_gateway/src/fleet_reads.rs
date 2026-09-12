@@ -4,39 +4,40 @@ use std::{
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use chrono::Utc;
+use chrono::{NaiveDateTime, Utc};
 use sase_core::{
     agent_scan::{
         AgentArtifactIndexFreshnessWire, AgentArtifactIndexQueryWire,
         AgentArtifactRecordShapeWire, AgentArtifactRecordWire,
         AgentArtifactScanOptionsWire, AgentMetaWire, DoneMarkerWire,
-        FamilyShellWire,
+        FamilyDismissalLineageCandidateWire, FamilyShellWire,
     },
     fleet_attention::{
         FLEET_ATTENTION_CAPABILITY_ANSWER_QUESTION,
         FLEET_ATTENTION_CAPABILITY_APPROVE_GATE,
     },
     fleet_contract::{
-        classify_cursor_replay, count_logical_agents,
+        classify_cache_freshness, classify_cursor_replay, count_logical_agents,
         cursor_replay_reason_to_resync_reason, ensure_installation_identity,
-        fleet_content_read_limit, fleet_count_revision,
-        fleet_project_eligibility_limit, instance_locator_key,
-        logical_locator_key, project_resolved_agent_detail,
-        select_fleet_catalog_page, select_fleet_logical_batch,
-        validate_fleet_authoritative_snapshot,
-        validate_fleet_content_read_request, validate_fleet_detail_request,
-        validate_fleet_invalidation_event,
+        fleet_catalog_snapshot_id, fleet_content_read_limit,
+        fleet_count_revision, fleet_project_eligibility_limit,
+        instance_locator_key, logical_locator_key,
+        project_resolved_agent_detail, select_fleet_catalog_page,
+        select_fleet_logical_batch, validate_fleet_authoritative_snapshot,
+        validate_fleet_catalog_query, validate_fleet_content_read_request,
+        validate_fleet_detail_request, validate_fleet_invalidation_event,
         validate_fleet_logical_batch_request,
         validate_fleet_project_eligibility_request,
         validate_fleet_replay_capacity, AgentInstanceLocatorWire,
-        CapabilitySetWire, ConnectionHealthWire, ContentHandleKindWire,
-        ContentHandleWire, CursorReplayClassificationWire,
-        CursorReplayRequestWire, FleetAuthoritativeSnapshotWire,
-        FleetCatalogPageWire, FleetCatalogQueryWire,
+        CacheFreshnessRequestWire, CapabilitySetWire, ConnectionHealthWire,
+        ContentHandleKindWire, ContentHandleWire,
+        CursorReplayClassificationWire, CursorReplayRequestWire,
+        FleetAuthoritativeSnapshotWire, FleetCatalogPageWire,
+        FleetCatalogQueryWire, FleetCatalogScopeWire,
         FleetContentReadRequestWire, FleetContentReadResponseWire,
         FleetContractError, FleetDetailRequestWire, FleetDetailResponseWire,
         FleetEventStreamItemWire, FleetInvalidationEventWire,
@@ -56,7 +57,12 @@ use sase_core::{
         FLEET_MUTATION_CAPABILITY_FORK, FLEET_MUTATION_CAPABILITY_RETRY,
         FLEET_MUTATION_CAPABILITY_STOP,
     },
+    fleet_presentation::{
+        decide_fleet_presentation, FleetPresentationCandidateWire,
+        FleetPresentationRequestWire,
+    },
     list_project_records, query_agent_artifact_index,
+    resolve_family_dismissal_lineage,
 };
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -64,6 +70,12 @@ use tokio::sync::{broadcast, Mutex as AsyncMutex};
 
 const SNAPSHOT_REFRESH_TIMEOUT: Duration = Duration::from_secs(4);
 const FLEET_EVENT_BROADCAST_CAPACITY: usize = 256;
+/// Below this age a served snapshot reads as `Fresh`.
+const FLEET_SNAPSHOT_FRESH_SECONDS: f64 = 5.0;
+/// At or beyond this age a served snapshot reads as `Stale` and a read that
+/// is not already holding the refresh lock requires a rebuild attempt
+/// instead of serving the cached entry outright.
+const FLEET_SNAPSHOT_STALE_SECONDS: f64 = 60.0;
 
 #[derive(Clone)]
 pub struct FleetReadService {
@@ -77,6 +89,8 @@ struct FleetReadServiceInner {
     refresh_timeout: Duration,
     cache: Mutex<Option<CachedFleetSnapshot>>,
     refresh_lock: AsyncMutex<()>,
+    history_cache: Mutex<Option<CachedFleetSnapshot>>,
+    history_refresh_lock: AsyncMutex<()>,
     events: FleetInvalidationHub,
 }
 
@@ -109,6 +123,8 @@ impl FleetReadService {
                 refresh_timeout,
                 cache: Mutex::new(None),
                 refresh_lock: AsyncMutex::new(()),
+                history_cache: Mutex::new(None),
+                history_refresh_lock: AsyncMutex::new(()),
                 events: FleetInvalidationHub::new(
                     FLEET_READ_DEFAULT_REPLAY_EVENTS,
                 )
@@ -128,10 +144,12 @@ impl FleetReadService {
     pub async fn summary(
         &self,
     ) -> Result<FleetSummaryResponseWire, FleetReadError> {
-        let snapshot = self.current_snapshot(false).await?;
+        let snapshot = self.stamped_snapshot(false).await?;
         Ok(FleetSummaryResponseWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             cursor: snapshot.wire.cursor,
+            catalog_scope: snapshot.wire.catalog_scope,
+            catalog_snapshot_id: snapshot.wire.catalog_snapshot_id,
             counts: snapshot.wire.counts,
             count_revision: snapshot.wire.count_revision,
             freshness: snapshot.wire.freshness,
@@ -142,15 +160,24 @@ impl FleetReadService {
         &self,
         query: FleetCatalogQueryWire,
     ) -> Result<FleetCatalogPageWire, FleetReadError> {
-        let snapshot = self.current_snapshot(false).await?;
-        let page = select_fleet_catalog_page(&query, &snapshot.wire.summaries)
+        let query = validate_fleet_catalog_query(&query)
             .map_err(FleetReadError::from)?;
+        let presentation = self.stamped_snapshot(false).await?;
+        let catalog_snapshot = match query.scope {
+            FleetCatalogScopeWire::Presentation => presentation.clone(),
+            FleetCatalogScopeWire::History => {
+                self.stamped_history_snapshot(false).await?
+            }
+        };
+        let page =
+            select_fleet_catalog_page(&query, &catalog_snapshot.wire.summaries)
+                .map_err(FleetReadError::from)?;
         Ok(FleetCatalogPageWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
-            cursor: snapshot.wire.cursor,
-            counts: snapshot.wire.counts,
-            count_revision: snapshot.wire.count_revision,
-            freshness: snapshot.wire.freshness,
+            cursor: catalog_snapshot.wire.cursor,
+            counts: presentation.wire.counts,
+            count_revision: presentation.wire.count_revision,
+            freshness: catalog_snapshot.wire.freshness,
             page,
         })
     }
@@ -161,7 +188,7 @@ impl FleetReadService {
     ) -> Result<FleetLogicalBatchResponseWire, FleetReadError> {
         validate_fleet_logical_batch_request(&request)
             .map_err(FleetReadError::from)?;
-        let snapshot = self.current_snapshot(false).await?;
+        let snapshot = self.stamped_snapshot(false).await?;
         let entries =
             select_fleet_logical_batch(&request, &snapshot.wire.summaries)
                 .map_err(FleetReadError::from)?;
@@ -181,7 +208,7 @@ impl FleetReadService {
     ) -> Result<FleetDetailResponseWire, FleetReadError> {
         let request = validate_fleet_detail_request(&request)
             .map_err(FleetReadError::from)?;
-        let snapshot = self.current_snapshot(false).await?;
+        let snapshot = self.stamped_snapshot(false).await?;
         let detail = snapshot
             .details_by_logical_key
             .get(&request.logical_key)
@@ -239,7 +266,7 @@ impl FleetReadService {
     pub async fn authoritative_snapshot(
         &self,
     ) -> Result<FleetAuthoritativeSnapshotWire, FleetReadError> {
-        Ok(self.current_snapshot(false).await?.wire)
+        Ok(self.stamped_snapshot(false).await?.wire)
     }
 
     pub async fn reconcile(
@@ -358,18 +385,84 @@ impl FleetReadService {
             .unwrap_or(0)
     }
 
+    #[cfg(test)]
+    pub fn history_refresh_count_for_test(&self) -> u64 {
+        self.inner
+            .history_cache
+            .lock()
+            .ok()
+            .and_then(|cache| {
+                cache.as_ref().map(|snapshot| snapshot.refresh_count)
+            })
+            .unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    pub fn history_cache_initialized_for_test(&self) -> bool {
+        self.inner
+            .history_cache
+            .lock()
+            .ok()
+            .and_then(|cache| cache.as_ref().map(|_| ()))
+            .is_some()
+    }
+
+    /// Push the cached snapshot's build instant backward so it reads as
+    /// older than it really is, without a wall-clock sleep.
+    #[cfg(test)]
+    pub fn age_cache_for_test(&self, seconds: f64) {
+        if let Ok(mut cache) = self.inner.cache.lock() {
+            if let Some(snapshot) = cache.as_mut() {
+                snapshot.build_instant -= Duration::from_secs_f64(seconds);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub fn age_history_cache_for_test(&self, seconds: f64) {
+        if let Ok(mut cache) = self.inner.history_cache.lock() {
+            if let Some(snapshot) = cache.as_mut() {
+                snapshot.build_instant -= Duration::from_secs_f64(seconds);
+            }
+        }
+    }
+
+    /// Return the current snapshot with every row and the envelope stamped
+    /// with age-derived freshness. This is the accessor every read path that
+    /// serves rows to a caller should use.
+    async fn stamped_snapshot(
+        &self,
+        force: bool,
+    ) -> Result<CachedFleetSnapshot, FleetReadError> {
+        let mut snapshot = self.current_snapshot(force).await?;
+        let freshness = observation_freshness_for_age(
+            snapshot.build_instant.elapsed().as_secs_f64(),
+        )?;
+        snapshot.wire.freshness.freshness = freshness;
+        for summary in &mut snapshot.wire.summaries {
+            summary.freshness = freshness;
+        }
+        for summary in snapshot.summaries_by_logical_key.values_mut() {
+            summary.freshness = freshness;
+        }
+        for detail in snapshot.details_by_logical_key.values_mut() {
+            detail.summary.freshness = freshness;
+        }
+        Ok(snapshot)
+    }
+
     async fn current_snapshot(
         &self,
         force: bool,
     ) -> Result<CachedFleetSnapshot, FleetReadError> {
         if !force {
-            if let Some(snapshot) = self.cached_snapshot()? {
+            if let Some(snapshot) = self.unexpired_cached_snapshot()? {
                 return Ok(snapshot);
             }
         }
         let _guard = self.inner.refresh_lock.lock().await;
         if !force {
-            if let Some(snapshot) = self.cached_snapshot()? {
+            if let Some(snapshot) = self.unexpired_cached_snapshot()? {
                 return Ok(snapshot);
             }
         }
@@ -383,6 +476,7 @@ impl FleetReadService {
                 .as_ref()
                 .map(|snapshot| snapshot.refresh_count)
                 .unwrap_or(0),
+            scope: FleetCatalogScopeWire::Presentation,
         };
         let result = tokio::time::timeout(
             self.inner.refresh_timeout,
@@ -413,6 +507,83 @@ impl FleetReadService {
         Ok(snapshot)
     }
 
+    async fn stamped_history_snapshot(
+        &self,
+        force: bool,
+    ) -> Result<CachedFleetSnapshot, FleetReadError> {
+        let mut snapshot = self.current_history_snapshot(force).await?;
+        let freshness = observation_freshness_for_age(
+            snapshot.build_instant.elapsed().as_secs_f64(),
+        )?;
+        snapshot.wire.freshness.freshness = freshness;
+        for summary in &mut snapshot.wire.summaries {
+            summary.freshness = freshness;
+        }
+        for summary in snapshot.summaries_by_logical_key.values_mut() {
+            summary.freshness = freshness;
+        }
+        for detail in snapshot.details_by_logical_key.values_mut() {
+            detail.summary.freshness = freshness;
+        }
+        Ok(snapshot)
+    }
+
+    async fn current_history_snapshot(
+        &self,
+        force: bool,
+    ) -> Result<CachedFleetSnapshot, FleetReadError> {
+        if !force {
+            if let Some(snapshot) = self.unexpired_cached_history_snapshot()? {
+                return Ok(snapshot);
+            }
+        }
+        let _guard = self.inner.history_refresh_lock.lock().await;
+        if !force {
+            if let Some(snapshot) = self.unexpired_cached_history_snapshot()? {
+                return Ok(snapshot);
+            }
+        }
+        let previous = self.cached_history_snapshot()?;
+        let build = BuildSnapshotRequest {
+            sase_home: self.inner.sase_home.clone(),
+            index_path: self.inner.index_path.clone(),
+            projects_root: self.inner.projects_root.clone(),
+            cursor: self.inner.events.current_cursor(),
+            prior_refresh_count: previous
+                .as_ref()
+                .map(|snapshot| snapshot.refresh_count)
+                .unwrap_or(0),
+            scope: FleetCatalogScopeWire::History,
+        };
+        let result = tokio::time::timeout(
+            self.inner.refresh_timeout,
+            tokio::task::spawn_blocking(move || build_snapshot_blocking(build)),
+        )
+        .await;
+        let snapshot = match result {
+            Ok(Ok(Ok(snapshot))) => snapshot,
+            Ok(Ok(Err(error))) => {
+                return self.retain_previous_history_or_error(previous, error)
+            }
+            Ok(Err(_)) => {
+                return self.retain_previous_history_or_error(
+                    previous,
+                    FleetReadError::Backend("snapshot_join".to_string()),
+                )
+            }
+            Err(_) => {
+                return self.retain_previous_history_or_error(
+                    previous,
+                    FleetReadError::Timeout("snapshot_refresh".to_string()),
+                )
+            }
+        };
+        *self.inner.history_cache.lock().map_err(|_| {
+            FleetReadError::Backend("history_snapshot_cache".to_string())
+        })? = Some(snapshot.clone());
+        Ok(snapshot)
+    }
+
     fn cached_snapshot(
         &self,
     ) -> Result<Option<CachedFleetSnapshot>, FleetReadError> {
@@ -421,6 +592,50 @@ impl FleetReadService {
             .lock()
             .map_err(|_| FleetReadError::Backend("snapshot_cache".to_string()))
             .map(|snapshot| snapshot.clone())
+    }
+
+    fn cached_history_snapshot(
+        &self,
+    ) -> Result<Option<CachedFleetSnapshot>, FleetReadError> {
+        self.inner
+            .history_cache
+            .lock()
+            .map_err(|_| {
+                FleetReadError::Backend("history_snapshot_cache".to_string())
+            })
+            .map(|snapshot| snapshot.clone())
+    }
+
+    /// The cached snapshot, unless it has reached the stale threshold: an
+    /// aged-out entry is treated as a cache miss so the caller falls through
+    /// to a genuine rebuild attempt instead of serving a frozen snapshot
+    /// forever.
+    fn unexpired_cached_snapshot(
+        &self,
+    ) -> Result<Option<CachedFleetSnapshot>, FleetReadError> {
+        let Some(snapshot) = self.cached_snapshot()? else {
+            return Ok(None);
+        };
+        if snapshot.build_instant.elapsed().as_secs_f64()
+            >= FLEET_SNAPSHOT_STALE_SECONDS
+        {
+            return Ok(None);
+        }
+        Ok(Some(snapshot))
+    }
+
+    fn unexpired_cached_history_snapshot(
+        &self,
+    ) -> Result<Option<CachedFleetSnapshot>, FleetReadError> {
+        let Some(snapshot) = self.cached_history_snapshot()? else {
+            return Ok(None);
+        };
+        if snapshot.build_instant.elapsed().as_secs_f64()
+            >= FLEET_SNAPSHOT_STALE_SECONDS
+        {
+            return Ok(None);
+        }
+        Ok(Some(snapshot))
     }
 
     fn retain_previous_or_error(
@@ -439,6 +654,23 @@ impl FleetReadService {
         })? = Some(snapshot.clone());
         Ok(snapshot)
     }
+
+    fn retain_previous_history_or_error(
+        &self,
+        previous: Option<CachedFleetSnapshot>,
+        error: FleetReadError,
+    ) -> Result<CachedFleetSnapshot, FleetReadError> {
+        let Some(mut snapshot) = previous else {
+            return Err(error);
+        };
+        snapshot.wire.freshness.freshness = ObservationFreshnessWire::Stale;
+        snapshot.wire.freshness.partial = true;
+        snapshot.wire.freshness.error = Some(error.safe_code());
+        *self.inner.history_cache.lock().map_err(|_| {
+            FleetReadError::Backend("history_snapshot_cache".to_string())
+        })? = Some(snapshot.clone());
+        Ok(snapshot)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -449,6 +681,13 @@ struct CachedFleetSnapshot {
     details_by_logical_key: BTreeMap<String, ResolvedAgentDetailWire>,
     content_by_handle: BTreeMap<String, FleetContentSource>,
     refresh_count: u64,
+    /// Monotonic instant this snapshot was built (or last successfully
+    /// rebuilt). Every row's `observed_at_unix` and the envelope's
+    /// `refreshed_at_unix` are stamped from one build timestamp at the same
+    /// moment; this field is the seam that lets a later read derive honest
+    /// freshness from actual elapsed time instead of trusting a stored
+    /// label.
+    build_instant: Instant,
 }
 
 #[derive(Clone, Debug)]
@@ -466,6 +705,7 @@ struct BuildSnapshotRequest {
     projects_root: PathBuf,
     cursor: StoreCursorWire,
     prior_refresh_count: u64,
+    scope: FleetCatalogScopeWire,
 }
 
 #[derive(Debug, Error)]
@@ -506,10 +746,8 @@ fn build_snapshot_blocking(
     let installation = ensure_installation_identity(&request.sase_home)
         .map_err(FleetReadError::from)?
         .record;
-    let scan = query_agent_artifact_index(
-        &request.index_path,
-        &request.projects_root,
-        AgentArtifactIndexQueryWire {
+    let index_query = match request.scope {
+        FleetCatalogScopeWire::Presentation => AgentArtifactIndexQueryWire {
             include_active: true,
             include_recent_completed: true,
             include_full_history: false,
@@ -522,6 +760,24 @@ fn build_snapshot_blocking(
             window_limit: Some(512),
             candidate_filter: None,
         },
+        FleetCatalogScopeWire::History => AgentArtifactIndexQueryWire {
+            include_active: false,
+            include_recent_completed: false,
+            include_full_history: true,
+            active_limit: None,
+            recent_completed_limit: None,
+            include_hidden: false,
+            freshness: AgentArtifactIndexFreshnessWire::Revalidate,
+            only_monitors: false,
+            record_shape: AgentArtifactRecordShapeWire::Full,
+            window_limit: None,
+            candidate_filter: None,
+        },
+    };
+    let scan = query_agent_artifact_index(
+        &request.index_path,
+        &request.projects_root,
+        index_query,
         AgentArtifactScanOptionsWire {
             max_prompt_snippet_bytes: 512,
             ..AgentArtifactScanOptionsWire::default()
@@ -529,10 +785,109 @@ fn build_snapshot_blocking(
     )
     .map_err(|_| FleetReadError::Backend("artifact_index".to_string()))?;
 
+    let build_instant = Instant::now();
+    let now_unix = current_unix_time();
+
+    // Obtain dismissal-lineage facts through the bounded core index API and
+    // resolve owner liveness once per candidate, so both are computed a
+    // single time per record instead of being re-derived per read path.
+    let lineage_candidates: Vec<FamilyDismissalLineageCandidateWire> = scan
+        .records
+        .iter()
+        .map(|record| FamilyDismissalLineageCandidateWire {
+            identity: record.artifact_dir.clone(),
+            project_name: record.project_name.clone(),
+            workflow_dir_name: record.workflow_dir_name.clone(),
+            timestamp: record.timestamp.clone(),
+        })
+        .collect();
+    let dismissed_by_identity: BTreeMap<String, bool> =
+        resolve_family_dismissal_lineage(
+            &request.index_path,
+            &lineage_candidates,
+        )
+        .map_err(|_| {
+            FleetReadError::Backend("family_dismissal_lineage".to_string())
+        })?
+        .into_iter()
+        .map(|result| (result.identity, result.family_root_dismissed))
+        .collect();
+
+    let mut liveness_by_identity = BTreeMap::new();
+    let mut presentation_candidates = Vec::with_capacity(scan.records.len());
+    for record in &scan.records {
+        let liveness = owner_liveness_for_record(record);
+        liveness_by_identity.insert(record.artifact_dir.clone(), liveness);
+        presentation_candidates.push(FleetPresentationCandidateWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            identity: record.artifact_dir.clone(),
+            liveness,
+            protected: record.waiting.is_some()
+                || record.pending_question.is_some(),
+            completion_time_unix: completion_time_for_record(record),
+            family_root_dismissed: dismissed_by_identity
+                .get(&record.artifact_dir)
+                .copied()
+                .unwrap_or(false),
+        });
+    }
+    // Select the served set, then build details, content handles, summaries,
+    // and counts only from that set. Presentation remains bounded; explicit
+    // history keeps the same safety filters without the terminal age/count
+    // window.
+    let served: BTreeSet<String> = match request.scope {
+        FleetCatalogScopeWire::Presentation => {
+            let decision =
+                decide_fleet_presentation(&FleetPresentationRequestWire {
+                    schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                    now_unix,
+                    candidates: presentation_candidates,
+                })
+                .map_err(FleetReadError::from)?;
+            decision
+                .current
+                .into_iter()
+                .chain(decision.recent_terminal)
+                .collect()
+        }
+        FleetCatalogScopeWire::History => presentation_candidates
+            .iter()
+            .filter(|candidate| history_candidate_is_served(candidate))
+            .map(|candidate| candidate.identity.clone())
+            .collect(),
+    };
+
     let mut details = Vec::new();
     let mut content_by_handle = BTreeMap::new();
+    let mut unresolved_rows: u32 = 0;
+    let mut unresolved_code: Option<String> = None;
     for record in scan.records {
-        let resolved = resolve_record(&installation.installation_id, &record)?;
+        if !served.contains(&record.artifact_dir) {
+            continue;
+        }
+        let liveness = liveness_by_identity
+            .get(&record.artifact_dir)
+            .copied()
+            .unwrap_or(OwnerLivenessWire::Unknown);
+        // One owner-produced record that cannot be projected must not erase
+        // the host's whole presentable set. Drop only that row and report the
+        // snapshot as partial, so hello/summary/catalog/detail keep serving
+        // every row that is still valid instead of failing the whole read.
+        let resolved = match resolve_record(
+            &installation.installation_id,
+            &record,
+            liveness,
+            now_unix,
+        ) {
+            Ok(resolved) => resolved,
+            Err(error) => {
+                unresolved_rows = unresolved_rows.saturating_add(1);
+                if unresolved_code.is_none() {
+                    unresolved_code = Some(error.safe_code());
+                }
+                continue;
+            }
+        };
         for source in resolved.content_sources {
             content_by_handle.insert(source.handle.id.clone(), source);
         }
@@ -548,6 +903,9 @@ fn build_snapshot_blocking(
         .iter()
         .map(|detail| detail.summary.clone())
         .collect::<Vec<_>>();
+    let catalog_snapshot_id =
+        fleet_catalog_snapshot_id(request.scope, &summaries)
+            .map_err(FleetReadError::from)?;
     let counts = count_logical_agents(&FleetLogicalAgentCountsRequestWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         summaries: summaries.clone(),
@@ -556,15 +914,19 @@ fn build_snapshot_blocking(
     let wire = FleetAuthoritativeSnapshotWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
         cursor: request.cursor,
+        catalog_scope: request.scope,
+        catalog_snapshot_id,
         count_revision: fleet_count_revision(&counts),
         counts,
         summaries,
         freshness: FleetSnapshotFreshnessWire {
             schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
             freshness: ObservationFreshnessWire::Fresh,
-            partial: false,
-            refreshed_at_unix: Some(current_unix_time()),
-            error: None,
+            partial: unresolved_rows > 0,
+            refreshed_at_unix: Some(now_unix),
+            error: unresolved_code.map(|code| {
+                format!("unresolved rows: {unresolved_rows} ({code})")
+            }),
         },
     };
     validate_fleet_authoritative_snapshot(&wire)
@@ -584,7 +946,19 @@ fn build_snapshot_blocking(
         details_by_logical_key,
         content_by_handle,
         refresh_count: request.prior_refresh_count.saturating_add(1),
+        build_instant,
     })
+}
+
+fn history_candidate_is_served(
+    candidate: &FleetPresentationCandidateWire,
+) -> bool {
+    candidate.protected
+        || matches!(
+            candidate.liveness,
+            OwnerLivenessWire::Alive | OwnerLivenessWire::Unknown
+        )
+        || !candidate.family_root_dismissed
 }
 
 struct ResolvedRecord {
@@ -595,6 +969,8 @@ struct ResolvedRecord {
 fn resolve_record(
     installation_id: &str,
     record: &AgentArtifactRecordWire,
+    liveness: OwnerLivenessWire,
+    build_unix: f64,
 ) -> Result<ResolvedRecord, FleetReadError> {
     let logical_locator = logical_locator_for_record(installation_id, record);
     let logical_key =
@@ -613,7 +989,6 @@ fn resolve_record(
         .map_err(FleetReadError::from)?;
     let (content_handles, content_sources) =
         content_handles_for_record(record, &logical_key, &row_revision)?;
-    let liveness = owner_liveness_for_record(record);
     let row_kind = row_kind_for_record(record);
     let is_terminal = record.done.is_some()
         || record.workflow_state.as_ref().is_some_and(|state| {
@@ -622,9 +997,21 @@ fn resolve_record(
                 "completed" | "failed" | "cancelled" | "noop"
             )
         });
+    // A Dead/NotProcess active-tier record (not yet marked done, not
+    // protected by a waiting/question marker) is terminal for presentation:
+    // it keeps its recorded lifecycle/status but loses current-instance and
+    // action capabilities, the same as a genuinely completed record.
+    let protected =
+        record.waiting.is_some() || record.pending_question.is_some();
+    let presentation_terminal = is_terminal
+        || (!protected
+            && matches!(
+                liveness,
+                OwnerLivenessWire::Dead | OwnerLivenessWire::NotProcess
+            ));
     let resource_caps = lifecycle_and_content_capabilities(
         row_kind,
-        is_terminal,
+        presentation_terminal,
         liveness,
         &content_handles,
         record.pending_question.is_some(),
@@ -648,11 +1035,11 @@ fn resolve_record(
                     }
                 },
                 freshness: ObservationFreshnessWire::Fresh,
-                observed_at_unix: current_unix_time(),
+                observed_at_unix: build_unix,
                 row_kind,
-                current_instance: !is_terminal
+                current_instance: !presentation_terminal
                     && row_kind == FleetRowKindWire::AgentShell,
-                dismissable: is_terminal,
+                dismissable: presentation_terminal,
                 needs_attention: record.pending_question.is_some(),
                 occupied_runner_slot: row_kind == FleetRowKindWire::AgentShell
                     && liveness == OwnerLivenessWire::Alive,
@@ -1120,6 +1507,38 @@ fn current_unix_time() -> f64 {
         + f64::from(now.timestamp_subsec_micros()) / 1_000_000.0
 }
 
+fn observation_freshness_for_age(
+    age_seconds: f64,
+) -> Result<ObservationFreshnessWire, FleetReadError> {
+    let decision = classify_cache_freshness(&CacheFreshnessRequestWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        viewer_monotonic_elapsed_seconds: Some(age_seconds),
+        fresh_threshold_seconds: FLEET_SNAPSHOT_FRESH_SECONDS,
+        stale_threshold_seconds: FLEET_SNAPSHOT_STALE_SECONDS,
+    })
+    .map_err(FleetReadError::from)?;
+    Ok(decision.freshness)
+}
+
+/// Trustworthy completion time for presentation ranking/bounding:
+/// `done.finished_at` when present, else the record's own timestamp parsed
+/// to unix seconds. `record.timestamp` is always present and always in the
+/// compact `%Y%m%d%H%M%S` artifact-directory format, so it is a safe final
+/// fallback even when `done` is absent (a demoted dead-active record).
+fn completion_time_for_record(record: &AgentArtifactRecordWire) -> f64 {
+    if let Some(finished_at) =
+        record.done.as_ref().and_then(|done| done.finished_at)
+    {
+        return finished_at;
+    }
+    parse_record_timestamp(&record.timestamp).unwrap_or_else(current_unix_time)
+}
+
+fn parse_record_timestamp(value: &str) -> Option<f64> {
+    let parsed = NaiveDateTime::parse_from_str(value, "%Y%m%d%H%M%S").ok()?;
+    Some(parsed.and_utc().timestamp() as f64)
+}
+
 fn stable_revision(record: &AgentArtifactRecordWire) -> u64 {
     let mut hasher = Sha256::new();
     hasher.update(b"sase-fleet-row-revision-v1\0");
@@ -1363,6 +1782,10 @@ pub fn resync_item(
 mod tests {
     use super::*;
     use base64::engine::general_purpose::STANDARD as BASE64;
+    use sase_core::fleet_contract::{
+        FleetCatalogContinuationStateWire, FleetCatalogResetReasonWire,
+        FleetStatusBucketWire,
+    };
     use serde_json::json;
     use tempfile::{tempdir, TempDir};
 
@@ -1376,8 +1799,19 @@ mod tests {
         let home = temp.path().to_path_buf();
         let projects = home.join("projects");
         seed_project(&projects, "proj");
-        seed_agent(&projects, "20260906120000", "alpha", "alpha output");
-        seed_agent(&projects, "20260906130000", "beta", "beta output");
+        // Recent-relative-to-now timestamps: the fleet presentation policy
+        // windows terminal presentation to the last seven days, so a fixed
+        // historical date would eventually fall outside that window and
+        // make these seeded rows silently vanish.
+        let now = Utc::now();
+        let alpha_ts = (now - chrono::Duration::minutes(2))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        let beta_ts = (now - chrono::Duration::minutes(1))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        seed_agent(&projects, &alpha_ts, "alpha", "alpha output");
+        seed_agent(&projects, &beta_ts, "beta", "beta output");
         sase_core::rebuild_agent_artifact_index(
             &home.join("agent_artifact_index.sqlite"),
             &projects,
@@ -1421,7 +1855,207 @@ mod tests {
                 "output_path": "output.txt"
             }),
         );
+        // Use this test process's own PID so `owner_liveness_for_record`
+        // resolves `Alive`: these fixtures represent ordinary current
+        // agents, and the presentation policy now treats a `NotProcess`
+        // active-tier record as terminal-for-presentation.
+        write_json(
+            &artifact.join("running.json"),
+            json!({"pid": std::process::id()}),
+        );
+    }
+
+    fn seed_done_agent(
+        projects: &Path,
+        timestamp: &str,
+        name: &str,
+        output: &str,
+        finished_at: f64,
+    ) {
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join(timestamp);
+        fs::create_dir_all(&artifact).unwrap();
+        fs::write(artifact.join("output.txt"), output).unwrap();
+        write_json(
+            &artifact.join("done.json"),
+            json!({
+                "outcome": "completed",
+                "finished_at": finished_at,
+                "name": name,
+                "model": "gpt-5",
+                "llm_provider": "codex",
+                "output_path": "output.txt"
+            }),
+        );
+    }
+
+    /// Seed an active-tier record whose PID (`0`) resolves deterministically
+    /// to `NotProcess` liveness, optionally as a tracked child of `parent`.
+    fn seed_dead_agent(
+        projects: &Path,
+        timestamp: &str,
+        name: &str,
+        parent: Option<&str>,
+    ) {
+        let artifact = projects
+            .join("proj")
+            .join("artifacts")
+            .join("ace-run")
+            .join(timestamp);
+        fs::create_dir_all(&artifact).unwrap();
+        let mut meta = json!({"name": name});
+        if let Some(parent) = parent {
+            meta["parent_timestamp"] = json!(parent);
+        }
+        write_json(&artifact.join("agent_meta.json"), meta);
         write_json(&artifact.join("running.json"), json!({"pid": 0}));
+    }
+
+    /// Seed an alive agent whose owner-written prompt file spans several
+    /// lines, the ordinary shape produced by every real agent launch.
+    fn seed_agent_with_raw_prompt(
+        projects: &Path,
+        timestamp: &str,
+        name: &str,
+        prompt: &str,
+    ) {
+        seed_agent(projects, timestamp, name, "output");
+        fs::write(
+            projects
+                .join("proj")
+                .join("artifacts")
+                .join("ace-run")
+                .join(timestamp)
+                .join("raw_xprompt.md"),
+            prompt,
+        )
+        .unwrap();
+    }
+
+    fn build_service(home: &Path, projects: &Path) -> FleetReadService {
+        sase_core::rebuild_agent_artifact_index(
+            &home.join("agent_artifact_index.sqlite"),
+            projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        FleetReadService::new(home.to_path_buf())
+    }
+
+    fn recent_timestamp(minutes: i64) -> String {
+        (Utc::now() - chrono::Duration::minutes(minutes))
+            .format("%Y%m%d%H%M%S")
+            .to_string()
+    }
+
+    fn catalog_query() -> FleetCatalogQueryWire {
+        FleetCatalogQueryWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::Presentation,
+            snapshot_id: None,
+            cursor: None,
+            limit: Some(10),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        }
+    }
+
+    fn history_catalog_query(
+        limit: u32,
+        cursor: Option<String>,
+    ) -> FleetCatalogQueryWire {
+        FleetCatalogQueryWire {
+            schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+            scope: FleetCatalogScopeWire::History,
+            snapshot_id: None,
+            cursor,
+            limit: Some(limit),
+            project_ids: Vec::new(),
+            query: None,
+            status_buckets: Vec::new(),
+            include_terminal: true,
+        }
+    }
+
+    /// An ordinary multiline prompt is the exact payload that made a host's
+    /// hello/summary/catalog/detail reads fail owner-side validation. The
+    /// scanner only trims the snippet, so interior newlines reach projection.
+    #[tokio::test]
+    async fn ordinary_multiline_prompt_stays_presentable_across_read_apis() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        seed_agent_with_raw_prompt(
+            &projects,
+            &recent_timestamp(2),
+            "alpha",
+            "Refactor the widget\nand update the tests\r\nplease\tthanks",
+        );
+        let service = build_service(&home, &projects);
+
+        let summary = service.summary().await.unwrap();
+        assert_eq!(summary.counts.logical_agent_total, 1);
+        assert!(!summary.freshness.partial);
+        assert_eq!(summary.freshness.error, None);
+
+        let catalog = service.catalog(catalog_query()).await.unwrap();
+        assert_eq!(catalog.page.rows.len(), 1);
+        let row = catalog.page.rows[0].clone();
+        let intent = row.intent.clone().unwrap();
+        assert!(!intent.chars().any(char::is_control));
+        assert_eq!(
+            intent,
+            "Refactor the widget and update the tests  please thanks"
+        );
+
+        let detail = service
+            .detail(FleetDetailRequestWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                logical_key: row.logical_key.clone(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(detail.detail.summary.intent, Some(intent));
+    }
+
+    /// One malformed owner-produced display value must not erase the host's
+    /// whole presentable set: the bad row drops out, every other row is still
+    /// served, and the snapshot says so through `partial` and a safe reason.
+    #[tokio::test]
+    async fn one_unprojectable_row_does_not_erase_the_presentable_set() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        seed_agent(&projects, &recent_timestamp(3), "alpha", "alpha output");
+        seed_agent(&projects, &recent_timestamp(2), "beta", "beta output");
+        // `agent_label` is byte-bounded but not control-character normalized,
+        // so this name still fails owner-side label validation.
+        seed_agent(&projects, &recent_timestamp(1), "bad\nname", "gamma");
+        let service = build_service(&home, &projects);
+
+        let summary = service.summary().await.unwrap();
+        assert_eq!(summary.counts.logical_agent_total, 2);
+        assert!(summary.freshness.partial);
+        assert_eq!(
+            summary.freshness.error.as_deref(),
+            Some("unresolved rows: 1 (validation)")
+        );
+
+        let catalog = service.catalog(catalog_query()).await.unwrap();
+        let labels = catalog
+            .page
+            .rows
+            .iter()
+            .map(|row| row.labels.agent_label.clone().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(labels, vec!["alpha".to_string(), "beta".to_string()]);
     }
 
     #[tokio::test]
@@ -1433,6 +2067,8 @@ mod tests {
         let first = service
             .catalog(FleetCatalogQueryWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
                 cursor: None,
                 limit: Some(1),
                 project_ids: Vec::new(),
@@ -1448,6 +2084,8 @@ mod tests {
         let second = service
             .catalog(FleetCatalogQueryWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
                 cursor: first.page.next_cursor,
                 limit: Some(1),
                 project_ids: Vec::new(),
@@ -1470,6 +2108,8 @@ mod tests {
         let page = service
             .catalog(FleetCatalogQueryWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
                 cursor: None,
                 limit: Some(1),
                 project_ids: Vec::new(),
@@ -1482,6 +2122,8 @@ mod tests {
         let all = service
             .catalog(FleetCatalogQueryWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
                 cursor: None,
                 limit: Some(10),
                 project_ids: Vec::new(),
@@ -1519,6 +2161,8 @@ mod tests {
         let all = service
             .catalog(FleetCatalogQueryWire {
                 schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
                 cursor: None,
                 limit: Some(10),
                 project_ids: Vec::new(),
@@ -1689,6 +2333,331 @@ mod tests {
         assert!(left.is_ok());
         assert!(right.is_ok());
         assert_eq!(service.refresh_count_for_test(), 1);
+    }
+
+    #[tokio::test]
+    async fn aged_cache_triggers_exactly_one_coalesced_rebuild() {
+        let (_temp, service) = seed_home();
+        service.summary().await.unwrap();
+        assert_eq!(service.refresh_count_for_test(), 1);
+
+        service.age_cache_for_test(FLEET_SNAPSHOT_STALE_SECONDS + 1.0);
+        let (left, right) = tokio::join!(service.summary(), service.summary());
+        assert!(left.is_ok());
+        assert!(right.is_ok());
+        assert_eq!(
+            service.refresh_count_for_test(),
+            2,
+            "a stale cache should trigger exactly one rebuild, coalesced \
+             across concurrent readers"
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_rebuild_retains_stale_partial_prior_snapshot() {
+        let (_temp, service) = seed_home();
+        let first = service.summary().await.unwrap();
+        assert_eq!(first.counts.logical_agent_total, 2);
+        assert_eq!(service.refresh_count_for_test(), 1);
+
+        service.age_cache_for_test(FLEET_SNAPSHOT_STALE_SECONDS + 1.0);
+        // Replace the index file with a directory so the next rebuild
+        // attempt fails deterministically instead of relying on timing.
+        fs::remove_file(service.index_path()).unwrap();
+        fs::create_dir_all(service.index_path()).unwrap();
+
+        let second = service.summary().await.unwrap();
+        assert_eq!(
+            second.counts.logical_agent_total, 2,
+            "a failed rebuild must retain the previous snapshot's data"
+        );
+        assert_eq!(second.freshness.freshness, ObservationFreshnessWire::Stale);
+        assert!(second.freshness.partial);
+        assert!(second.freshness.error.is_some());
+        assert_eq!(
+            service.refresh_count_for_test(),
+            1,
+            "a failed rebuild must not be counted as a successful refresh"
+        );
+    }
+
+    #[tokio::test]
+    async fn dead_active_leftovers_are_demoted_and_window_bounded() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        let now = Utc::now();
+        let recent_ts = (now - chrono::Duration::minutes(5))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        let old_ts = (now - chrono::Duration::days(8))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        seed_dead_agent(&projects, &recent_ts, "recent-dead", None);
+        seed_dead_agent(&projects, &old_ts, "old-dead", None);
+        sase_core::rebuild_agent_artifact_index(
+            &home.join("agent_artifact_index.sqlite"),
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        let service = FleetReadService::new(home);
+
+        let all = service
+            .catalog(FleetCatalogQueryWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
+                cursor: None,
+                limit: Some(10),
+                project_ids: Vec::new(),
+                query: None,
+                status_buckets: Vec::new(),
+                include_terminal: true,
+            })
+            .await
+            .unwrap();
+
+        let recent_row = all
+            .page
+            .rows
+            .iter()
+            .find(|row| {
+                row.labels.agent_label.as_deref() == Some("recent-dead")
+            })
+            .expect("recent dead-active leftover should still be served");
+        assert_eq!(recent_row.status_bucket, FleetStatusBucketWire::Stopped);
+        assert_eq!(recent_row.liveness, OwnerLivenessWire::NotProcess);
+        assert!(
+            !all.page.rows.iter().any(
+                |row| row.labels.agent_label.as_deref() == Some("old-dead")
+            ),
+            "a leftover outside the seven-day window must be excluded: {:?}",
+            all.page.rows
+        );
+    }
+
+    #[tokio::test]
+    async fn explicit_history_pages_beyond_presentation_without_eager_cache() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        let now = Utc::now();
+        for index in 0..205 {
+            let finished = now - chrono::Duration::minutes(index);
+            let timestamp = finished.format("%Y%m%d%H%M%S").to_string();
+            seed_done_agent(
+                &projects,
+                &timestamp,
+                &format!("done-{index:03}"),
+                "done output",
+                finished.timestamp() as f64,
+            );
+        }
+        let old_finished = now - chrono::Duration::days(8);
+        seed_done_agent(
+            &projects,
+            &old_finished.format("%Y%m%d%H%M%S").to_string(),
+            "old-done",
+            "old output",
+            old_finished.timestamp() as f64,
+        );
+        let service = build_service(&home, &projects);
+
+        let summary = service.summary().await.unwrap();
+        assert_eq!(summary.catalog_scope, FleetCatalogScopeWire::Presentation);
+        assert_eq!(summary.counts.logical_agent_total, 0);
+        assert!(!service.history_cache_initialized_for_test());
+
+        let presentation = service.catalog(catalog_query()).await.unwrap();
+        assert_eq!(
+            presentation.page.scope,
+            FleetCatalogScopeWire::Presentation
+        );
+        assert_eq!(presentation.page.total_matching_rows, 200);
+        assert_eq!(presentation.counts.logical_agent_total, 0);
+        assert!(!presentation.page.rows.iter().any(|row| row
+            .labels
+            .agent_label
+            .as_deref()
+            == Some("old-done")));
+        assert!(!service.history_cache_initialized_for_test());
+
+        let first_history = service
+            .catalog(history_catalog_query(100, None))
+            .await
+            .unwrap();
+        assert_eq!(first_history.page.scope, FleetCatalogScopeWire::History);
+        assert_eq!(first_history.page.total_matching_rows, 206);
+        assert_eq!(first_history.counts.logical_agent_total, 0);
+        assert_eq!(first_history.count_revision, summary.count_revision);
+        assert!(first_history.page.has_more);
+        assert!(service.history_cache_initialized_for_test());
+        assert_eq!(service.history_refresh_count_for_test(), 1);
+
+        let second_history = service
+            .catalog(history_catalog_query(
+                100,
+                first_history.page.next_cursor.clone(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(second_history.page.rows.len(), 100);
+        assert!(second_history.page.has_more);
+        let third_history = service
+            .catalog(history_catalog_query(
+                100,
+                second_history.page.next_cursor.clone(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(third_history.page.rows.len(), 6);
+        assert!(!third_history.page.has_more);
+        assert!(third_history.page.rows.iter().any(|row| {
+            row.labels.agent_label.as_deref() == Some("old-done")
+        }));
+    }
+
+    #[tokio::test]
+    async fn stale_snapshot_bound_cursor_returns_restart_page() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        seed_agent(&projects, &recent_timestamp(3), "alpha", "alpha output");
+        seed_agent(&projects, &recent_timestamp(2), "beta", "beta output");
+        let service = build_service(&home, &projects);
+
+        let first = service
+            .catalog(FleetCatalogQueryWire {
+                limit: Some(1),
+                ..catalog_query()
+            })
+            .await
+            .unwrap();
+        let stale_cursor = first.page.next_cursor.clone();
+        seed_agent(&projects, &recent_timestamp(1), "gamma", "gamma output");
+        sase_core::rebuild_agent_artifact_index(
+            &home.join("agent_artifact_index.sqlite"),
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        service.age_cache_for_test(FLEET_SNAPSHOT_STALE_SECONDS + 1.0);
+
+        let restart = service
+            .catalog(FleetCatalogQueryWire {
+                cursor: stale_cursor,
+                limit: Some(1),
+                ..catalog_query()
+            })
+            .await
+            .unwrap();
+        assert!(restart.page.rows.is_empty());
+        assert_eq!(
+            restart.page.state,
+            FleetCatalogContinuationStateWire::ResyncRequired
+        );
+        assert_eq!(
+            restart.page.reset_reason,
+            Some(FleetCatalogResetReasonWire::SnapshotMismatch)
+        );
+        assert!(restart.page.next_cursor.is_none());
+    }
+
+    #[tokio::test]
+    async fn failed_history_rebuild_retains_stale_partial_prior_snapshot() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        let finished = Utc::now() - chrono::Duration::days(8);
+        seed_done_agent(
+            &projects,
+            &finished.format("%Y%m%d%H%M%S").to_string(),
+            "old-done",
+            "old output",
+            finished.timestamp() as f64,
+        );
+        let service = build_service(&home, &projects);
+        let first = service
+            .catalog(history_catalog_query(10, None))
+            .await
+            .unwrap();
+        assert_eq!(first.page.total_matching_rows, 1);
+        assert_eq!(service.history_refresh_count_for_test(), 1);
+
+        service.age_history_cache_for_test(FLEET_SNAPSHOT_STALE_SECONDS + 1.0);
+        fs::remove_file(service.index_path()).unwrap();
+        fs::create_dir_all(service.index_path()).unwrap();
+
+        let second = service
+            .catalog(history_catalog_query(10, None))
+            .await
+            .unwrap();
+        assert_eq!(second.page.total_matching_rows, 1);
+        assert_eq!(second.freshness.freshness, ObservationFreshnessWire::Stale);
+        assert!(second.freshness.partial);
+        assert!(second.freshness.error.is_some());
+        assert_eq!(service.history_refresh_count_for_test(), 1);
+    }
+
+    #[tokio::test]
+    async fn dead_orphan_of_dismissed_family_is_excluded_from_catalog() {
+        let temp = tempdir().unwrap();
+        let home = temp.path().to_path_buf();
+        let projects = home.join("projects");
+        seed_project(&projects, "proj");
+        let now = Utc::now();
+        let root_ts = (now - chrono::Duration::minutes(10))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        let member_ts = (now - chrono::Duration::minutes(5))
+            .format("%Y%m%d%H%M%S")
+            .to_string();
+        seed_dead_agent(&projects, &root_ts, "root", None);
+        seed_dead_agent(&projects, &member_ts, "member", Some(&root_ts));
+        let index = home.join("agent_artifact_index.sqlite");
+        sase_core::rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        sase_core::replace_agent_artifact_index_dismissed_agents(
+            &index,
+            &[sase_core::AgentCleanupIdentityWire {
+                agent_type: "run".to_string(),
+                cl_name: "unknown".to_string(),
+                raw_suffix: Some(root_ts.clone()),
+            }],
+        )
+        .unwrap();
+        let service = FleetReadService::new(home);
+
+        let all = service
+            .catalog(FleetCatalogQueryWire {
+                schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+                scope: FleetCatalogScopeWire::Presentation,
+                snapshot_id: None,
+                cursor: None,
+                limit: Some(10),
+                project_ids: Vec::new(),
+                query: None,
+                status_buckets: Vec::new(),
+                include_terminal: true,
+            })
+            .await
+            .unwrap();
+
+        assert!(
+            all.page.rows.is_empty(),
+            "a dead root and its dead member must both be excluded once the \
+             family root is dismissed: {:?}",
+            all.page.rows
+        );
     }
 
     fn assert_no_paths_or_pids(value: &serde_json::Value) {

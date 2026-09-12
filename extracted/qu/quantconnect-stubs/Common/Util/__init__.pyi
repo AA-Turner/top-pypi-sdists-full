@@ -32,6 +32,10 @@ class ReadOnlyExtendedDictionary(typing.Generic[Common_Util_ReadOnlyExtendedDict
         ...
 
     @overload
+    def __init__(self, dictionary: System.Collections.Generic.Dictionary[Common_Util_ReadOnlyExtendedDictionary_TKey, Common_Util_ReadOnlyExtendedDictionary_TValue], copy: bool) -> None:
+        ...
+
+    @overload
     def __init__(self, data: System.Collections.Generic.IEnumerable[Common_Util_ReadOnlyExtendedDictionary_TValue], key_selector: typing.Callable[[Common_Util_ReadOnlyExtendedDictionary_TValue], Common_Util_ReadOnlyExtendedDictionary_TKey]) -> None:
         ...
 
@@ -101,6 +105,10 @@ class BaseExtendedDictionary(typing.Generic[Common_Util_BaseExtendedDictionary_T
 
     @overload
     def __init__(self, dictionary: System.Collections.Generic.IDictionary[Common_Util_BaseExtendedDictionary_TKey, Common_Util_BaseExtendedDictionary_TValue]) -> None:
+        ...
+
+    @overload
+    def __init__(self, dictionary: System.Collections.Generic.Dictionary[Common_Util_BaseExtendedDictionary_TKey, Common_Util_BaseExtendedDictionary_TValue], copy: bool) -> None:
         ...
 
     def __iter__(self) -> typing.Iterator[System.Collections.Generic.KeyValuePair[Common_Util_BaseExtendedDictionary_TKey, Common_Util_BaseExtendedDictionary_TValue]]:

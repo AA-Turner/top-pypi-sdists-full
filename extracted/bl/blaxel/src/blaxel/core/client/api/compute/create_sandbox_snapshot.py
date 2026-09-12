@@ -81,8 +81,8 @@ def sync_detailed(
 
     Args:
         sandbox_name (str):
-        body (SandboxSnapshotRequest): Request body for creating a snapshot of a sandbox. Captures
-            the current sandbox state.
+        body (SandboxSnapshotRequest): Request body for creating a snapshot. The source object is
+            required at the root endpoint and implied by the path on the nested one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,8 +118,8 @@ def sync(
 
     Args:
         sandbox_name (str):
-        body (SandboxSnapshotRequest): Request body for creating a snapshot of a sandbox. Captures
-            the current sandbox state.
+        body (SandboxSnapshotRequest): Request body for creating a snapshot. The source object is
+            required at the root endpoint and implied by the path on the nested one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -150,8 +150,8 @@ async def asyncio_detailed(
 
     Args:
         sandbox_name (str):
-        body (SandboxSnapshotRequest): Request body for creating a snapshot of a sandbox. Captures
-            the current sandbox state.
+        body (SandboxSnapshotRequest): Request body for creating a snapshot. The source object is
+            required at the root endpoint and implied by the path on the nested one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -185,8 +185,8 @@ async def asyncio(
 
     Args:
         sandbox_name (str):
-        body (SandboxSnapshotRequest): Request body for creating a snapshot of a sandbox. Captures
-            the current sandbox state.
+        body (SandboxSnapshotRequest): Request body for creating a snapshot. The source object is
+            required at the root endpoint and implied by the path on the nested one.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

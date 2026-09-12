@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.434.0"
+VERSION = "0.435.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -29363,6 +29363,23 @@ def _paper_2271(dataset):
             'formula': 'ratio = mean(omega.S.omega)/(max|omega|*mean|omega|^2) <= 17/20 (sampled 1182 form)',
             'source': 'PAPER_2271', 'residual_pct': 0.0,
             'status': 'GRADED_2026-09-10 (CAP HOLDS sampled; extreme-event scan OPEN)'}
+
+
+@_register('PAPER_2272')
+def _paper_2272(dataset):
+    """The in-medium sample (B277): JHTDB channel flow (Re_tau ~ 1000),
+    official REST, sanctioned testing token, deterministic points, walls
+    excluded (disclosed). Ratios 0.0391/0.0311 (sub-batch max 0.0734)
+    under BOTH 197/200 and 17/20 - THE IN-MEDIUM BRANCH HOLDS via the
+    tier-3 harness carrying the cap argument. CONSISTENCY PASS only: the
+    sampled statistic cannot discriminate the pair-cap branches; that
+    discrimination stays OPEN in the far tail with the kill test.
+    """
+    from uqff_ns_assembly import in_medium_sample_grade
+    return {'value': in_medium_sample_grade(),
+            'formula': 'ratio = mean(omega.S.omega)/(max|omega|*mean|omega|^2) <= 197/200 (in-medium) AND <= 17/20 (vacuum) - sampled 1182 form',
+            'source': 'PAPER_2272', 'residual_pct': 0.0,
+            'status': 'GRADED_2026-09-10 (IN-MEDIUM BRANCH HOLDS sampled; pair-cap discrimination OPEN)'}
 
 
 @_register('PAPER_2258')

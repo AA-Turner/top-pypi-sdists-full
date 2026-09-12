@@ -247,6 +247,53 @@ class TestNoViableExecutor:
 
 
 class TestMustCompleteExecution:
+    @pytest.mark.parametrize("tool_name", ("shell_execute", "shell_python"))
+    def test_process_tools_preserve_their_declared_deadline(self, tool_name: str) -> None:
+        from matrx_ai.tools.executor import _dispatch_timeout_seconds
+
+        definition = ToolDefinition(
+            name=tool_name,
+            timeout_seconds=0.01,
+        )
+
+        assert _dispatch_timeout_seconds(
+            definition,
+            {"timeout_seconds": 1},
+            is_delegated=False,
+        ) == 1
+
+    async def test_shell_process_deadline_is_not_cut_off_by_registry_default(
+        self, isolated_registry, executor, app_ctx_set
+    ) -> None:
+        """The declared shell timeout is authoritative up to its Pydantic cap."""
+        finished = asyncio.Event()
+
+        async def shell_child(_args: dict[str, Any], _ctx: ToolContext) -> dict[str, Any]:
+            await asyncio.sleep(0.04)
+            finished.set()
+            return {"result": {"status": "finished"}}
+
+        definition = ToolDefinition(
+            name="shell_execute",
+            description="Shell execution",
+            parameters={},
+            tool_type=ToolType.LOCAL,
+            function_path="tests.shell_child",
+            timeout_seconds=0.01,
+        )
+        definition._callable = shell_child
+        isolated_registry._tools["shell_execute"] = definition
+
+        _content, result = await executor.execute(
+            "shell_execute",
+            {"command": "echo bounded", "timeout_seconds": 1},
+            _make_ctx(),
+        )
+
+        assert finished.is_set()
+        assert result.success is True
+        assert result.output == {"status": "finished"}
+
     async def test_soft_timeout_returns_the_real_result(
         self, isolated_registry, executor, app_ctx_set
     ) -> None:

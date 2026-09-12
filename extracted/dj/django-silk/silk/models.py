@@ -1,11 +1,11 @@
 import base64
+import gzip
 import json
 import random
 import re
 from uuid import uuid4
 
 import sqlparse
-from django.conf import settings
 from django.core.files.storage import storages
 from django.core.files.storage.handler import InvalidStorageError
 from django.db import models, router, transaction
@@ -28,12 +28,18 @@ from django.utils.safestring import mark_safe
 from silk.config import SilkyConfig
 from silk.utils.profile_parser import parse_profile
 
-try:
-    silk_storage = storages['SILKY_STORAGE']
-except InvalidStorageError:
-    from django.utils.module_loading import import_string
-    storage_class = SilkyConfig().SILKY_STORAGE_CLASS or settings.DEFAULT_FILE_STORAGE
-    silk_storage = import_string(storage_class)()
+
+def get_silk_storage():
+    """Resolve profiler file storage at use-time (migration-safe callable)."""
+    try:
+        return storages['SILKY_STORAGE']
+    except InvalidStorageError:
+        from django.utils.module_loading import import_string
+        return import_string(SilkyConfig().SILKY_STORAGE_CLASS)()
+
+
+# Kept for historical migrations that reference silk.models.silk_storage.
+silk_storage = get_silk_storage()
 
 
 # Seperated out so can use in tests w/o models
@@ -84,7 +90,8 @@ class Request(models.Model):
     meta_num_queries = IntegerField(null=True, blank=True)
     meta_time_spent_queries = FloatField(null=True, blank=True)
     pyprofile = TextField(blank=True, default='')
-    prof_file = FileField(max_length=300, blank=True, storage=silk_storage)
+    # Callable storage keeps migrations stable across project STORAGES settings.
+    prof_file = FileField(max_length=300, blank=True, storage=get_silk_storage)
 
     # Useful method to create shortened copies of strings without losing start and end context
     # Used to ensure path and view_name don't exceed 190 characters
@@ -221,7 +228,15 @@ class Response(models.Model):
 
     @property
     def raw_body_decoded(self):
-        return base64.b64decode(self.raw_body)
+        raw_body = base64.b64decode(self.raw_body)
+        if self.headers.get('content-encoding') == 'gzip':
+            try:
+                return gzip.decompress(raw_body)
+            except (OSError, EOFError):
+                # Malformed gzip payloads must not crash the raw view;
+                # fall back to the still-compressed body.
+                return raw_body
+        return raw_body
 
 
 # TODO rewrite docstring

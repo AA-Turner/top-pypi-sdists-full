@@ -35,9 +35,10 @@ class OpenAIAttachFileRequest(BaseModel):
     Request body for attaching a file to a vector store.
     """ # noqa: E501
     file_id: StrictStr = Field(description="The ID of the file to attach.")
+    options: Optional[Dict[str, Any]] = None
     attributes: Optional[Dict[str, StringNumberBoolean]] = Field(default=None, description="Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format, and querying for objects via API or the dashboard. Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters, booleans, or numbers.")
     chunking_strategy: Optional[VectorStoreChunkingStrategyAutoVectorStoreChunkingStrategyStaticVectorStoreChunkingStrategyContextual] = None
-    __properties: ClassVar[list[str]] = ["file_id", "attributes", "chunking_strategy"]
+    __properties: ClassVar[list[str]] = ["file_id", "options", "attributes", "chunking_strategy"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -129,6 +130,11 @@ class OpenAIAttachFileRequest(BaseModel):
                     del _dict['chunking_strategy']
             else:
                 _dict['chunking_strategy'] = self.chunking_strategy
+        # set to None if options (nullable) is None
+        # and model_fields_set contains the field
+        if self.options is None and "options" in self.model_fields_set:
+            _dict['options'] = None
+
         # set to None if attributes (nullable) is None
         # and model_fields_set contains the field
         if self.attributes is None and "attributes" in self.model_fields_set:
@@ -153,6 +159,7 @@ class OpenAIAttachFileRequest(BaseModel):
         _obj = cls.model_validate({
             k: v for k, v in {
             "file_id": obj.get("file_id"),
+            "options": obj.get("options"),
             "attributes": dict(
                 (_k, StringNumberBoolean.from_dict(_v))
                 for _k, _v in obj["attributes"].items()

@@ -7493,7 +7493,7 @@ var _channelIcons = {
   'googlechat': '🔵', 'matrix': '🔢', 'msteams': '🏢', 'mattermost': '⚡',
   'line': '💚', 'nostr': '🟣', 'twitch': '💜', 'bluebubbles': '💙',
   'feishu': '🟠', 'zalo': '🩵', 'tlon': '🟤', 'synologychat': '🟦',
-  'nextcloudtalk': '☁️', 'clickclack': '🗨️', 'buzz': '🐝',
+  'nextcloudtalk': '☁️', 'clickclack': '🗨️', 'buzz': '🐝', 'fishaudio': '🎤',
   'cli': '🖥️', 'tui': '⌨️', 'cron': '⏰'
 };
 var _channelColors = {
@@ -7502,7 +7502,7 @@ var _channelColors = {
   'googlechat': '#1A73E8', 'matrix': '#0DBD8B', 'msteams': '#4B53BC', 'mattermost': '#0072C6',
   'line': '#06C755', 'nostr': '#9333ea', 'twitch': '#9146FF', 'bluebubbles': '#3478F6',
   'feishu': '#00D6B9', 'zalo': '#0068FF', 'tlon': '#A78BFA', 'synologychat': '#1A73E8',
-  'nextcloudtalk': '#0082C9', 'clickclack': '#FF6B35', 'buzz': '#F59E0B',
+  'nextcloudtalk': '#0082C9', 'clickclack': '#FF6B35', 'buzz': '#F59E0B', 'fishaudio': '#FF5A36',
   'cli': '#94a3b8', 'tui': '#94a3b8', 'cron': '#6B7280'
 };
 // Display-name overrides for channels whose snake/lower-case key isn't a
@@ -7519,7 +7519,8 @@ var _channelDisplayNames = {
   'tui':        'TUI',
   'synologychat': 'Synology Chat',
   'nextcloudtalk': 'Nextcloud Talk',
-  'clickclack':    'ClickClack'
+  'clickclack':    'ClickClack',
+  'fishaudio':     'Fish Audio'
 };
 
 function _channelDisplayName(provider) {
@@ -10564,6 +10565,9 @@ var LOOP_KIND_LABEL = {
   rate_limited: 'Being rate limited by its provider',
   blocked_on_user: 'Waiting for you to answer',
   crashed: 'Crashed and restarted',
+  // Fleet-wide: several unrelated agents doing the same unusual thing.
+  // Mirrors clawmetry/detector_swarm.py FLEET_KINDS.
+  coordinated_action: 'Acting in step with unrelated agents',
   // Not the agent's behaviour: what was in the folder it was pointed at.
   // Mirrors clawmetry/repo_scan.py WORKSPACE_KINDS.
   repo_config_exec: 'This folder is set up to run a program',
@@ -14476,6 +14480,8 @@ async function loadCrons() {
     renderCrons();
     // Load cron health summary panel
     loadCronHealth();
+    // Load the OpenClaw queue-lane rollup (issue #5721)
+    loadQueueLanes();
     // Load multi-node cron status from fleet nodes
     loadCronsMultiNode();
     // Load cron health monitor (GH #302)
@@ -14500,6 +14506,117 @@ async function loadCrons() {
             + '</div>';
     if (listEl) listEl.innerHTML = msg;
     console.warn('loadCrons failed', e);
+  }
+}
+
+// ---------------------------------------------------------------- Queue Lanes
+// OpenClaw records every background run in one ledger, and `runtime` IS the
+// queue lane: `cron`, `subagent`, `cli`. `sync.py::sync_run_ledger` mirrors
+// that ledger into DuckDB and `/api/run-ledger` has served the rollup since
+// #2100, but PR #5668 cut the only tab that read it, so both the endpoint and
+// the snapshot slice shipped in every wheel with zero UI consumers (#5721).
+//
+// This is that rollup, in Crons rather than in a tab of its own: `cron` is one
+// of the three lanes, Crons is already in the nav, and a rollup is a panel's
+// worth of content.
+//
+// Cloud reads the `runLedger` snapshot slice, not the endpoint. On the hosted
+// server `/api/run-ledger` is an oss-passthrough that finds no local DuckDB
+// and honestly returns empty lists, so fetching it there would paint a
+// false-empty panel over a node that has runs.
+var _QUEUE_LANE_LABELS = { cron: 'Cron', subagent: 'Sub-agents', cli: 'CLI' };
+
+function _queueLaneBadge(color, text) {
+  return '<span style="font-size:11px;background:' + color + '22;color:' + color
+       + ';border-radius:6px;padding:2px 8px;white-space:nowrap;">' + escHtml(text) + '</span>';
+}
+
+// Split out from loadQueueLanes so the empty state and the rollup can both be
+// exercised without a store or a network round trip.
+function renderQueueLanes(lanes) {
+  lanes = Array.isArray(lanes) ? lanes : [];
+  var html = '<div class="card" style="padding:14px;">';
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">';
+  html += '<span style="font-size:13px;font-weight:700;color:var(--text-primary);">&#x1F6E4;&#xFE0F; Queue Lanes</span>';
+  html += '<span style="font-size:11px;color:var(--text-muted);">OpenClaw background runs by lane: cron jobs, sub-agents, CLI turns</span>';
+  html += '</div>';
+
+  if (!lanes.length) {
+    // Name why it is empty. An endless "Loading..." over an empty ledger is
+    // what got the old Queue Lanes tab hidden in 44acaa72f, and what put six
+    // dead panels on the cloud Security tab.
+    html += '<div style="font-size:12px;color:var(--text-muted);line-height:1.7;">'
+         +  'No background runs recorded on this node, and this is the finished '
+         +  'state, not a spinner. ClawMetry mirrors OpenClaw\'s run ledger '
+         +  '(<code>state/openclaw.sqlite</code> on OpenClaw 2026.6.5 and newer, '
+         +  '<code>tasks/runs.sqlite</code> on 2026.5.x). An empty rollup means '
+         +  'either an OpenClaw older than those, or a node that has not run a '
+         +  'cron job, sub-agent or background CLI task yet.'
+         +  '</div>';
+    return html + '</div>';
+  }
+
+  html += '<div style="display:grid;gap:6px;">';
+  lanes.forEach(function(l) {
+    l = l || {};
+    var total   = Number(l.total || 0);
+    var ok      = Number(l.succeeded || 0);
+    var failed  = Number(l.failed || 0);
+    var running = Number(l.running || 0);
+    var queued  = Number(l.queued || 0);
+    var name    = _QUEUE_LANE_LABELS[l.lane] || String(l.lane || 'unknown');
+
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);flex-wrap:wrap;">';
+    html += '<span style="font-size:12px;font-weight:600;color:var(--text-primary);min-width:92px;">' + escHtml(name) + '</span>';
+    if (running) html += _queueLaneBadge('#3b82f6', running + ' running');
+    if (queued)  html += _queueLaneBadge('#f59e0b', queued + ' queued');
+    if (ok)      html += _queueLaneBadge('#22c55e', ok + ' succeeded');
+    if (failed)  html += _queueLaneBadge('#ef4444', failed + ' failed');
+    html += '<span style="font-size:11px;color:var(--text-muted);margin-left:auto;white-space:nowrap;">'
+         +  total + ' total'
+         +  (l.last_event_at ? ' &middot; last ' + escHtml(timeAgo(Number(l.last_event_at))) : '')
+         +  '</span>';
+    html += '</div>';
+
+    // A lane that mostly fails is the whole reason to look at this panel. On
+    // the node this was built against, 104 of 106 cron runs had failed with
+    // "heartbeat skipped: no-route" and no surface said so.
+    if (total >= 5 && failed * 2 >= total) {
+      html += '<div style="font-size:11px;color:#ef4444;padding:0 10px 2px;">'
+           +  failed + ' of ' + total + ' runs in this lane failed.'
+           +  '</div>';
+    }
+  });
+  html += '</div>';
+  return html + '</div>';
+}
+
+async function loadQueueLanes() {
+  var panel = document.getElementById('cron-queue-lanes');
+  if (!panel) return;
+  try {
+    var lanes = null;
+    if (window.CLOUD_MODE && typeof window.__cmSnap === 'function') {
+      var sp = await window.__cmSnap();
+      lanes = sp && sp.runLedger && sp.runLedger.lanes;
+    } else {
+      // limit=1 because this panel reads `lanes` only; the rollup is computed
+      // store-side and does not need the `runs` array.
+      var data = await (typeof fetchJsonWithTimeout === 'function'
+        ? fetchJsonWithTimeout('/api/run-ledger?limit=1', 8000)
+        : fetch('/api/run-ledger?limit=1').then(function(r) { return r.json(); }));
+      lanes = data && data.lanes;
+    }
+    panel.innerHTML = renderQueueLanes(lanes);
+  } catch (e) {
+    // Say it failed. Do not fall through to the empty state, which claims
+    // there are no runs.
+    panel.innerHTML = '<div class="card" style="padding:14px;font-size:13px;color:var(--text-error);">'
+      + 'Failed to load queue lanes: ' + escHtml(String((e && e.message) || e))
+      + ' <button onclick="loadQueueLanes()" style="margin-left:8px;background:transparent;'
+      + 'border:1px solid var(--border-primary);color:var(--text-secondary);border-radius:4px;'
+      + 'padding:2px 10px;font-size:11px;cursor:pointer;">Retry</button></div>';
+    console.warn('loadQueueLanes failed', e);
   }
 }
 
@@ -20121,7 +20238,10 @@ function _renderReplayEvent(ev, highlighted) {
   var displayContent = needsTruncate ? content.substring(0, 800) : content;
   var highlightStyle = highlighted ? 'box-shadow:0 0 0 2px #6366f1;' : '';
   var html = '<div class="chat-msg ' + cls + '" id="replay-msg-' + ev.originalIndex + '" style="' + highlightStyle + '">';
-  html += '<div class="chat-role">' + (isThinking ? '&#129504; ' + t("app.thinking_internal", null, "thinking (internal)") : escHtml(role)) + '</div>';
+  // Harness-injected context (Codex AGENTS.md / setup, <system-reminder>) is
+  // re-roled server-side to system + type "context"; name it for what it is.
+  var roleLabel = ev.type === 'context' ? 'context' : role;
+  html += '<div class="chat-role">' + (isThinking ? '&#129504; ' + t("app.thinking_internal", null, "thinking (internal)") : escHtml(roleLabel)) + '</div>';
   if (needsTruncate) {
     html += '<div class="chat-content-truncated" id="msg-' + ev.originalIndex + '-short" style="white-space:pre-wrap;word-break:break-word;">' + escHtml(displayContent) + '</div>';
     html += '<div id="msg-' + ev.originalIndex + '-full" style="display:none;white-space:pre-wrap;word-break:break-word;">' + escHtml(content) + '</div>';
@@ -26487,13 +26607,27 @@ function loadCostOptimizerData(isRefresh) {
     var html = '';
 
     // ══ SECTION 1: Cost Overview ══════════════════════════════════
-    var todayCost = data.todayCost || 0;
-    var monthCost = data.projectedMonthlyCost || 0;
+    // `data.todayCost || 0` then `.toFixed(3)` printed "$0.000" for a figure
+    // nobody had read, which is the exact confusion provenance.js exists to
+    // stop: "a zero and a hole are identical once they are formatted".
+    // Measured live on the hosted dashboard 2026-09-11, the optimizer showed
+    // $0.000 while the same snapshot carried spending.today = 272.36.
+    // cmMoney paints a real measured zero as "$0.00" and an absent figure as
+    // a dimmed "not available" pill, and carries the basis/formula/window in
+    // the tooltip. Same call the Cost tiles already use.
+    var _cm = window.cmMoney;
+    function _costCell(key, label, dp) {
+      if (_cm) return _cm(data, key, { label: label });
+      // Older bundle with no provenance module: keep the previous shape
+      // rather than inventing a second unknown convention here.
+      var v = data[key];
+      return v == null ? 'not available' : '$' + Number(v).toFixed(dp);
+    }
     html += '<div class="cost-overview">';
     html += '<div class="cost-overview-header">💰 Cost Overview</div>';
     html += '<div class="cost-overview-row">';
-    html += '<div class="cost-overview-item"><span class="cost-overview-label">Today</span><span class="cost-overview-value">$' + todayCost.toFixed(3) + '</span></div>';
-    html += '<div class="cost-overview-item"><span class="cost-overview-label">Month Projected</span><span class="cost-overview-value">$' + monthCost.toFixed(2) + '</span></div>';
+    html += '<div class="cost-overview-item"><span class="cost-overview-label">Today</span><span class="cost-overview-value">' + _costCell('todayCost', 'Cost today', 3) + '</span></div>';
+    html += '<div class="cost-overview-item"><span class="cost-overview-label">Month Projected</span><span class="cost-overview-value">' + _costCell('projectedMonthlyCost', 'Projected month', 2) + '</span></div>';
     html += '</div>';
     if (data.potentialSavings) {
       html += '<div class="savings-highlight">[prod] ' + data.potentialSavings + '</div>';
@@ -30872,6 +31006,9 @@ var GUARD_KIND_LABEL = {
   rate_limited: 'Rate limited by the provider',
   blocked_on_user: 'Waiting on you',
   crashed: 'Crashed and restarted',
+  // Fleet: several unrelated agents doing the same unusual thing. Keys
+  // mirror clawmetry/detector_swarm.py FLEET_KINDS.
+  coordinated_action: 'Coordinated with unrelated agents',
   // Workspace: what is in the folder this agent was pointed at. Not a
   // behaviour, which is why these two sort on their own axis and why the
   // policy form makes you name them rather than folding them into "any

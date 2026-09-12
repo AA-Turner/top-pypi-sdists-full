@@ -51,7 +51,7 @@ async def test_sse_returns_matching_response_and_closes_without_waiting_for_eof(
         [f"data: {json.dumps(payload)}\n\n".encode()],
         tail_error=httpx.ReadTimeout("SSE connection remains open"),
     )
-    result, _ = await _post(stream)
+    result, _, _ = await _post(stream)
     assert result == payload
     assert stream.closed is True
 
@@ -68,7 +68,7 @@ async def test_sse_ignores_progress_requests_and_mismatched_response_ids() -> No
             f"data: {json.dumps(expected)}\n\n".encode(),
         ]
     )
-    result, _ = await _post(stream)
+    result, _, _ = await _post(stream)
     assert result == expected
     assert stream.closed is True
 
@@ -82,7 +82,7 @@ async def test_sse_assembles_multiline_data_at_blank_event_boundary() -> None:
             b'data: "result":{"tools":[]}}\n\n',
         ]
     )
-    result, _ = await _post(stream)
+    result, _, _ = await _post(stream)
     assert result == {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
 
 
@@ -146,10 +146,129 @@ async def test_json_response_is_bounded_and_request_correlated() -> None:
         return httpx.Response(200, json=payload, request=request)
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        result, _ = await ExternalMCPClient()._post_rpc(
+        result, _, _ = await ExternalMCPClient()._post_rpc(
             client, "https://example.test", {"id": 7}, {"Accept": "application/json"}
         )
     assert result == payload
+
+
+@pytest.mark.asyncio
+async def test_post_rpc_follows_same_origin_308_and_returns_canonical_endpoint() -> None:
+    requests: list[str] = []
+    payload = {"jsonrpc": "2.0", "id": 7, "result": {"tools": []}}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        if request.url.path == "/mcp":
+            return httpx.Response(308, headers={"location": "/mcp/"}, request=request)
+        return httpx.Response(200, json=payload, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result, _, canonical_url = await ExternalMCPClient()._post_rpc(
+            client,
+            "https://docs.livekit.io/mcp",
+            {"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {}},
+            {"Accept": "application/json"},
+        )
+
+    assert result == payload
+    assert canonical_url == "https://docs.livekit.io/mcp/"
+    assert requests == ["https://docs.livekit.io/mcp", "https://docs.livekit.io/mcp/"]
+
+
+@pytest.mark.asyncio
+async def test_send_reuses_canonical_endpoint_for_initialized_and_tool_call() -> None:
+    requests: list[tuple[str, str, dict[str, str]]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.path, body["method"], dict(request.headers)))
+        if request.url.path == "/mcp":
+            return httpx.Response(308, headers={"location": "/mcp/"}, request=request)
+        if body["method"] == "initialize":
+            return httpx.Response(
+                200,
+                headers={"mcp-session-id": "session-1"},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": body["id"],
+                    "result": {"protocolVersion": "2025-06-18"},
+                },
+                request=request,
+            )
+        if body["method"] == "notifications/initialized":
+            return httpx.Response(202, request=request)
+        return httpx.Response(
+            200,
+            json={"jsonrpc": "2.0", "id": body["id"], "result": {"tools": []}},
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        client_mcp = ExternalMCPClient()
+        session_id, protocol_version, canonical_url = await client_mcp._handshake(
+            client,
+            "https://docs.livekit.io/mcp",
+            {"Authorization": "Bearer trusted-token"},
+        )
+        data, _, _ = await client_mcp._post_rpc(
+            client,
+            canonical_url,
+            client_mcp._build_request("tools/list", {}),
+            {
+                "Authorization": "Bearer trusted-token",
+                "MCP-Protocol-Version": protocol_version,
+                "Mcp-Session-Id": session_id or "",
+            },
+        )
+
+    assert data["result"] == {"tools": []}
+    assert [(path, method) for path, method, _ in requests] == [
+        ("/mcp", "initialize"),
+        ("/mcp/", "initialize"),
+        ("/mcp/", "notifications/initialized"),
+        ("/mcp/", "tools/list"),
+    ]
+    assert all(headers["authorization"] == "Bearer trusted-token" for _, _, headers in requests)
+    assert all(headers["content-type"].startswith("application/json") for _, _, headers in requests)
+
+
+@pytest.mark.asyncio
+async def test_post_rpc_refuses_cross_origin_redirect_before_forwarding_headers() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(308, headers={"location": "https://evil.example/mcp"}, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(RuntimeError, match="different origin"):
+            await ExternalMCPClient()._post_rpc(
+                client,
+                "https://mcp.example.test/mcp",
+                {"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {}},
+                {"Authorization": "Bearer should-not-leak"},
+            )
+
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_post_rpc_redirect_chain_obeys_one_absolute_deadline() -> None:
+    """Redirect hops cannot multiply the configured RPC timeout."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        await asyncio.sleep(0.03)
+        return httpx.Response(308, headers={"location": "/mcp/"}, request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(TimeoutError):
+            await ExternalMCPClient(timeout=0.05)._post_rpc(
+                client,
+                "https://mcp.example.test/mcp",
+                {"jsonrpc": "2.0", "id": 7, "method": "tools/list", "params": {}},
+                {"Authorization": "Bearer trusted-token"},
+            )
 
 
 @pytest.mark.asyncio

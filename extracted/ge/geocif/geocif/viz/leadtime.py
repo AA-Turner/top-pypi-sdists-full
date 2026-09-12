@@ -35,6 +35,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from geocif.viz._style import (MONTHS as _MONTHS,
+                               despine as _despine,
+                               style_ctx as _style_ctx)
+from geocif.viz._outlook_db import (common_pairs_across_models,
+                                    drop_sparse_stages, load_outlook)
+
 OBS = "Observed Yield (tn per ha)"
 PRED = "Predicted Yield (tn per ha)"
 
@@ -43,8 +49,6 @@ BASELINES = ("trend", "null")
 # Drawn as curves, in a fixed order so colors are stable across figures.
 ML_ORDER = ("tabpfn", "cubist", "catboost")
 
-_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 _MONTH_NUM = {m: i + 1 for i, m in enumerate(_MONTHS)}
 
 # CVD-safe, distinguishable in grayscale by marker as well as hue.
@@ -59,15 +63,9 @@ METRICS = [
 ]
 
 
-def style_ctx():
-    """scienceplots when available, plain matplotlib otherwise."""
-    import matplotlib.pyplot as plt
-
-    try:
-        import scienceplots  # noqa: F401
-        return plt.style.context(["science", "no-latex"])
-    except Exception:
-        return plt.style.context("default")
+# style_ctx stays importable from here (cone.py and callers use this
+# name); the implementation is the shared probe-once context.
+style_ctx = _style_ctx
 
 
 def _asof_month(stage_name, swd):
@@ -89,30 +87,18 @@ def _asof_month(stage_name, swd):
 
 
 def load(db_path, table):
-    """Read one crop table, keeping only the outlook experiment."""
-    cols = ['"Model"', '"Region"', '"Harvest Year"', '"Stage Name"', f'"{PRED}"', f'"{OBS}"']
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    try:
-        present = pd.read_sql(f'PRAGMA table_info("{table}")', con)["name"].tolist()
-        for opt in ("Stage Window Display", "Area (ha)"):
-            if opt in present:
-                cols.append(f'"{opt}"')
-        df = pd.read_sql(
-            f'SELECT {",".join(cols)} FROM "{table}" '
-            f"WHERE \"Experiment Name\" = 'outlook'", con
-        )
-    finally:
-        con.close()
-    if "Stage Window Display" not in df.columns:
-        df["Stage Window Display"] = np.nan
-    df = df.rename(columns={"Harvest Year": "year", "Stage Name": "stage",
-                            "Stage Window Display": "swd"})
-    df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
-    for c in (OBS, PRED, "Area (ha)"):
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-    df = df.dropna(subset=[OBS, PRED, "year"])
-    return df[df[OBS] > 0].copy()
+    """Read one crop table, keeping only the outlook experiment.
+
+    Thin wrapper over the shared loader (geocif/viz/_outlook_db.py has the
+    fork history): this is where leadtime GAINED the upsert de-duplication —
+    the writer's key includes wall-clock Time, so a re-run into an existing
+    DB appends a second copy of every logical row, and every region-year was
+    silently double-weighted in the skill scores here. All models are kept
+    (they share the axis); rows without an observed yield are dropped because
+    every metric below needs the truth.
+    """
+    return load_outlook(db_path, table, extra_columns=("Area (ha)",),
+                        require_obs=True)
 
 
 def prepare(df, min_region_frac=0.5):
@@ -123,25 +109,35 @@ def prepare(df, min_region_frac=0.5):
     March) is not comparable with the rest — its score describes a different
     pool of states, not an earlier forecast. Those stages are removed, then the
     frame is restricted to the (region, year) pairs present in EVERY surviving
-    stage so all curves and both baselines are scored on identical rows.
+    stage for EVERY model, so all curves and both baselines are scored on
+    identical rows. (An earlier version derived the sample from a single probe
+    model — a model missing rows was then scored on a smaller sample than the
+    others — and silently proceeded UNRESTRICTED when the sample came out
+    empty. Both fail closed now, like cone.prepare: shifting region pools
+    across stages or models is precisely what these curves must not compare.)
     """
-    n_regions = df["Region"].nunique()
-    per_stage = df.groupby("stage")["Region"].nunique()
-    keep = per_stage[per_stage >= min_region_frac * n_regions].index.tolist()
-    dropped = {s: int(per_stage[s]) for s in per_stage.index if s not in keep}
-    df = df[df["stage"].isin(keep)].copy()
+    df, dropped = drop_sparse_stages(df, min_region_frac)
 
     df["asof"] = [_asof_month(s, w) for s, w in zip(df["stage"], df["swd"])]
     df = df.dropna(subset=["asof"])
+    if df.empty:
+        raise ValueError(
+            "no stage name maps to an as-of month — the lead-time curves need "
+            "month-window stages (run_time_steps=all), not pre-season labels."
+        )
     df["asof"] = df["asof"].astype(int)
 
-    # common (region, year) sample across stages, using any single model
-    probe = df[df["Model"] == df["Model"].iloc[0]]
-    piv = probe.pivot_table(index=["Region", "year"], columns="stage",
-                            values=PRED, aggfunc="first")
-    common = piv.dropna().index
-    if len(common):
-        df = df.set_index(["Region", "year"]).loc[common].reset_index()
+    # common (region, year) sample across stages AND models
+    common, per_model = common_pairs_across_models(df)
+    if common is None or not len(common):
+        # Fail closed, not open: scoring whatever rows each model happens to
+        # have would compare models on DIFFERENT samples and call it a curve.
+        raise ValueError(
+            f"no (Region, year) pair covers every stage for every model, so "
+            f"no common sample exists — complete pairs per model: {per_model}. "
+            f"Check the DB for partially-written stages or models."
+        )
+    df = df.set_index(["Region", "year"]).loc[common].reset_index()
     return df, dropped, len(common)
 
 
@@ -242,10 +238,7 @@ def plot_metric(tab, metric, ylabel, higher_better, title, out_stem, units="Mg/h
         ax.set_ylabel(ylabel.format(units=units), fontsize=10)
         ax.tick_params(labelsize=9)
         ax.grid(True, linestyle=":", alpha=0.4)
-        ax.spines[["top", "right"]].set_visible(False)
-        # scienceplots turns ticks on all four sides; with the top/right spines
-        # hidden those become orphaned dashes floating at the plot edge.
-        ax.tick_params(which="both", top=False, right=False)
+        _despine(ax)
         ax.legend(frameon=False, fontsize=9,
                   loc="lower right" if higher_better else "upper right")
         ax.set_title(title, fontsize=10.5, loc="left")
@@ -378,10 +371,8 @@ def plot_crossings(cross, out_stem, agg):
         ax.set_xlabel("First forecast issue month beating the baseline "
                       "(EO data through end of month)", fontsize=10)
         ax.grid(True, axis="x", linestyle=":", alpha=0.45)
-        ax.spines[["top", "right", "left"]].set_visible(False)
+        _despine(ax, sides=("top", "right", "left"))
         ax.tick_params(axis="y", length=0)
-        # see note in plot_metric: kill the all-four-sides ticks scienceplots adds
-        ax.tick_params(which="both", top=False, right=False)
 
         handles = [
             plt.Line2D([], [], marker="o", ls="none", color=BASE_STYLE["null"][0],

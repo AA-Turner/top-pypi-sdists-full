@@ -159,6 +159,7 @@ __all__ = (
     "DolbyVisionCompatibilityType",
     "DolbyVisionLevel6ModeType",
     "DolbyVisionMappingType",
+    "DolbyVisionPresenceType",
     "DolbyVisionProfileType",
     "DropFrameTimecodeType",
     "DvbSubSubtitleFallbackFontType",
@@ -863,6 +864,7 @@ DescribeEndpointsPaginatorName = Literal["describe_endpoints"]
 DolbyVisionCompatibilityType = Literal["DUPLICATE_STREAM", "SUPPLEMENTAL_CODECS"]
 DolbyVisionLevel6ModeType = Literal["PASSTHROUGH", "RECALCULATE", "SPECIFY"]
 DolbyVisionMappingType = Literal["HDR10_1000", "HDR10_NOMAP"]
+DolbyVisionPresenceType = Literal["ABSENT", "PRESENT"]
 DolbyVisionProfileType = Literal["PROFILE_5", "PROFILE_8_1"]
 DropFrameTimecodeType = Literal["DISABLED", "ENABLED"]
 DvbSubSubtitleFallbackFontType = Literal[

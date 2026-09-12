@@ -61,15 +61,15 @@ async def test_shopify_ucp_discovery_skips_initialize_and_supplies_agent_profile
 ) -> None:
     requests = []
 
-    async def _post(self, url, *, json, headers):
-        requests.append({"payload": json, "headers": headers})
-        return httpx.Response(
-            200,
-            request=httpx.Request("POST", url),
-            json={"jsonrpc": "2.0", "id": json["id"], "result": {"tools": []}},
+    async def _post_rpc(self, http, url, payload, headers):
+        requests.append({"payload": payload, "headers": headers})
+        return (
+            {"jsonrpc": "2.0", "id": payload["id"], "result": {"tools": []}},
+            httpx.Headers(),
+            url,
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "post", _post)
+    monkeypatch.setattr(ExternalMCPClient, "_post_rpc", _post_rpc)
 
     tools = await ExternalMCPClient().discover_tools(
         "https://catalog.shopify.com/api/ucp/mcp"
@@ -92,18 +92,18 @@ async def test_ucp_user_agent_does_not_change_ordinary_mcp_headers(monkeypatch) 
     captured_headers = []
 
     async def _handshake(http, url, headers):
-        return None, "2025-06-18"
+        return None, "2025-06-18", url
 
-    async def _post(self, url, *, json, headers):
+    async def _post_rpc(http, url, payload, headers):
         captured_headers.append(headers)
-        return httpx.Response(
-            200,
-            request=httpx.Request("POST", url),
-            json={"jsonrpc": "2.0", "id": json["id"], "result": {"tools": []}},
+        return (
+            {"jsonrpc": "2.0", "id": payload["id"], "result": {"tools": []}},
+            httpx.Headers(),
+            url,
         )
 
     monkeypatch.setattr(client, "_handshake", _handshake)
-    monkeypatch.setattr(httpx.AsyncClient, "post", _post)
+    monkeypatch.setattr(client, "_post_rpc", _post_rpc)
 
     await client.discover_tools("https://ordinary.example/mcp")
 

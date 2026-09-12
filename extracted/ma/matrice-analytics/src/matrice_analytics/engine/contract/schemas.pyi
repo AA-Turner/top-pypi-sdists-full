@@ -230,19 +230,19 @@ class AggType:
     # How the backend collapses a metric across a rollup window.
     #
     #     ``sum`` / ``mean`` / ``min`` / ``max`` / ``last``, matching the backend
-    #     vocabulary at ``entities/raw_business_metrics_clickhouse.go:31-38``.
+    #     vocabulary.
     #
     #     Notably absent:
     #
     #     * ``avg`` -- the backend spells it ``mean``.  py_analytics' current
     #       dispatch knows only ``avg`` and **falls back to ``sum``** for anything
-    #       else (``analytics/base_processor.py:353-365``), so every manifest
+    #       else, so every manifest
     #       declaring ``mean`` publishes a *sum* of per-frame values today.  A
     #       60-second window at 25 fps can emit a "compliance percentage" of
-    #       150,000.  That is defect PY-1, a live production bug, and it is the
+    #       150,000.  That is a live production bug, and it is the
     #       reason an unknown ``agg_type`` must raise rather than fall back.
     #     * ``median`` -- accepted by the backend but it silently returns the mean
-    #       (BE-1, acknowledged in a code comment).  Declaring it would publish a
+    #       (acknowledged in a code comment).  Declaring it would publish a
     #       value that does not mean what it says.
 
     last: str
@@ -252,12 +252,12 @@ class AggType:
     sum: str
 
 class AggregationResult:
-    # S1 -- the ``results-agg`` message (contract Section 2).
+    # The ``results-agg`` message.
     #
     #     Emitted once per 60-second window per camera via
     #     ``XADD results-agg {"data": <json>}``.
     #
-    #     Field order matches the worked example in contract Section 2.4 so that a
+    #     Field order matches the published worked example so that a
     #     serialised payload is byte-comparable with the spec.
 
     ...
@@ -353,16 +353,17 @@ class FrameTrackingStats:
 
     ...
 class Incident:
-    # One entry in ``incident_res.incidents[]`` (contract Section 3.2).
+    # One entry in ``incident_res.incidents[]``.
 
     ...
 class IncidentMessage:
-    # S2 -- the ``incident_res`` message (contract Section 3).
+    # The ``incident_res`` message.
     #
     #     ``XADD incident_res {"data": <json>}``, emitted on a severity
     #     **transition**, never per frame.
     #
-    #     The field naming deliberately differs from S1: ``application_id`` rather
+    #     The field naming deliberately differs from ``results-agg``:
+    #     ``application_id`` rather
     #     than ``app_id``, ``location_name`` rather than ``location``.  Both are
     #     frozen -- they match a different Go DTO (``CameraEventIncoming``).
 
@@ -405,9 +406,9 @@ class ResultWrapper:
 class Severity:
     # Incident severity, lowercase on the wire.
     #
-    #     Vocabulary Section 2.  ``significant`` is deliberately *not* a member:
-    #     py_analytics uses it internally and it must never reach the wire
-    #     (FROZEN-7).  The backend has no such level, does not validate severity,
+    #     ``significant`` is deliberately *not* a member:
+    #     py_analytics uses it internally and it must never reach the wire.
+    #     The backend has no such level, does not validate severity,
     #     and would store the literal string -- which then sorts and scores as an
     #     unknown value.  Use :func:`parse_severity`, which maps it to ``high``.
 
@@ -467,35 +468,34 @@ class TrackingCount:
     # ``{"category": "person", "count": 3}`` -- one entry in a count list.
     #
     #     ``category`` here is the **ML class name** (``person``, ``vehicle``, ...),
-    #     not an analytics :class:`Category`.  Vocabulary Section 13: it is a free
+    #     not an analytics :class:`Category`.  It is a free
     #     string with no enum.
 
     ...
 class TrackingStats:
-    # The per-zone value of ``results-agg.tracking_stats`` (contract 2.2).
+    # The per-zone value of ``results-agg.tracking_stats``.
     #
-    #     All four count lists are always present -- **FROZEN-5**.
+    #     All four count lists are always present.
     #     ``current_new_counts`` and ``total_counts`` are ignored on the main
-    #     ingestion path (``tracker_clickhouse_service.go:626-687`` reads only
-    #     ``current_counts`` and ``total_current_counts``) but the instant-metric
+    #     ingestion path, which reads only
+    #     ``current_counts`` and ``total_current_counts``, but the instant-metric
     #     path and ``dataField`` resolution depend on them.  Do not "optimise" them
     #     away; declaring them with list defaults guarantees they serialise even
     #     when empty.
     #
     #     **``current_counts`` means one thing here and another on the frame
-    #     surface, and that is deliberate (BE-16).**  ``raw_analytics`` is a *delta
+    #     surface, and that is deliberate.**  ``raw_analytics`` is a *delta
     #     plus level* schema: ``count`` is "how many arrived since the previous
     #     reading", ``totalCount`` is "how many were there at the reading", and the
     #     five-minute rollup is ``argMin(totalCount, t) + sum(count) -
-    #     argMin(count, t)``
-    #     (``10_aggregated_analytics_totals_schema.sql:7``).  On **this** class --
-    #     S1, one row per 60-second window -- ``current_counts`` is therefore the
+    #     argMin(count, t)``.  On **this** class --
+    #     one row per 60-second window -- ``current_counts`` is therefore the
     #     window's **arrival delta**; a level there makes the rollup add up
     #     occupancy readings and publish several times the true footfall.  On
     #     :class:`FrameTrackingStats` it is the frame's level, because a frame has
     #     no interval to take a delta over and be-analytics reads it as
     #     ``total_count`` / ``category_total_count``, i.e. "how many objects right
-    #     now" (``tracker_clickhouse_service.go:1097-1120``).
+    #     now".
     #     :class:`~matrice_analytics.engine.runtime.window.ZoneCounters` builds both
     #     from the same four quantities.
 

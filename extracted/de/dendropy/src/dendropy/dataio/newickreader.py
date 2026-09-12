@@ -4,7 +4,7 @@
 ##############################################################################
 ##  DendroPy Phylogenetic Computing Library.
 ##
-##  Copyright 2010-2015 Jeet Sukumaran and Mark T. Holder.
+##  Copyright 2010-2026 Jeet Sukumaran, Mark T. Holder, and Matthew Andres Moreno.
 ##  All rights reserved.
 ##
 ##  See "LICENSE.rst" for terms and conditions of usage.
@@ -12,9 +12,10 @@
 ##  If you use this work or any portion thereof in published work,
 ##  please cite it as:
 ##
-##     Sukumaran, J. and M. T. Holder. 2010. DendroPy: a Python library
-##     for phylogenetic computing. Bioinformatics 26: 1569-1571.
-#
+##     Moreno, M. A., Holder, M. T., & Sukumaran, J. (2024). DendroPy 5: a
+##     mature Python library for phylogenetic computing. Journal of Open
+##     Source Software, 9(101), 6943, https://doi.org/10.21105/joss.06943
+##
 ##############################################################################
 
 """
@@ -142,15 +143,20 @@ class NewickReader(ioservice.DataReader):
         suppress_edge_lengths : boolean, default: |False|
             If |True|, edge length values will not be processed. If |False|,
             edge length values will be processed.
-        extract_comment_metadata : boolean, default: |True|
+        extract_comment_metadata : boolean or callable, default: |True|
             If |True| (default), any comments that begin with '&' or '&&' will
             be parsed and stored as part of the annotation set of the
             corresponding object (accessible through the ``annotations``
-            attribute of the object). This requires that the comment
-            contents conform to a particular format (NHX or BEAST: 'field =
-            value'). If |False|, then the comments will not be parsed,
-            but will be instead stored directly as elements of the ``comments``
-            list attribute of the associated object.
+            attribute of the object), using
+            :func:`dendropy.dataio.nexusprocessing.parse_comment_metadata_dendropy_v5_0_0`
+            (see its docstring for the comment format and known
+            limitations). If |False|, then the comments will not be
+            parsed, but will be instead stored directly as elements of
+            the ``comments`` list attribute of the associated object.
+            A callable may be given instead: it will be called with a
+            single comment token string and must return an iterable of
+            (field name, value) pairs, which is then converted into
+            |Annotation| objects.
         store_tree_weights : boolean, default: |False|
             If |True|, process the tree weight (e.g. "[&W 1/2]") comment
             associated with each tree, if any. Defaults to |False|.
@@ -190,6 +196,13 @@ class NewickReader(ioservice.DataReader):
             If |True|, then unsupported or unrecognized keyword arguments will
             not result in an error. Default is |False|: unsupported keyword
             arguments will result in an error.
+
+        See Also
+        --------
+
+        :func:`dendropy.dataio.nexusprocessing.parse_comment_metadata_dendropy_v5_0_0`
+        :func:`dendropy.dataio.nexusprocessing.parse_comment_metadata_beast2_v2_7_8`
+        :func:`dendropy.dataio.nexusprocessing.parse_comment_metadata_beast2_v2_7_8_nesting`
 
         """
 
@@ -407,6 +420,12 @@ class NewickReader(ioservice.DataReader):
             return
         rooting_token_found = False
         weighting_token_found = False
+        metacomment_parse_fn = (
+                self.extract_comment_metadata
+                if callable(self.extract_comment_metadata)
+                else nexusprocessing.parse_comment_metadata_dendropy_v5_0_0
+                if self.extract_comment_metadata
+                else None)
         for comment in tree_comments:
             stripped_comment = comment.strip()
             if stripped_comment in ["&u", "&U", "&r", "&R"]:
@@ -443,11 +462,13 @@ class NewickReader(ioservice.DataReader):
                     exc.__context__ = None # Python 3.0, 3.1, 3.2
                     exc.__cause__ = None # Python 3.3, 3.4
                     raise exc
-            elif self.extract_comment_metadata and comment.startswith("&"):
-                annotations = nexusprocessing.parse_comment_metadata_to_annotations(
-                    comment=comment)
-                if annotations:
-                    tree.annotations.update(annotations)
+            elif metacomment_parse_fn is not None and comment.startswith("&"):
+                # materialized so that an emptiness test is safe for any
+                # iterable, a generator included
+                metadata = list(metacomment_parse_fn(comment))
+                if metadata:
+                    nexusprocessing._comment_metadata_to_annotations(
+                            metadata, annotations=tree.annotations)
                 else:
                     tree.comments.append(comment)
             else:

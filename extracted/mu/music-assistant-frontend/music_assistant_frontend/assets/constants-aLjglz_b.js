@@ -1,0 +1,1 @@
+var e=`bg-primary absolute -top-0.5 -right-0.5 size-1.5 rounded-full`,t=new Set([`web_player_enabled`,`enable_browser_controls`,`force_mobile_layout`,`mobile_sidebar_side`,`ha_kiosk_mode`]);export{t as n,e as t};

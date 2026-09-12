@@ -1,7 +1,5 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: torch_memory_saver
-Version: 0.0.9.post1
+Version: 0.0.10
 Requires-Python: >=3.9
 License-File: LICENSE
-Dynamic: license-file
-Dynamic: requires-python

@@ -171,7 +171,8 @@ class ContextBar(SessionContextBar):
         hints_left.append(" agent  ", style=FG_FAINTEST)
         hints_left.append("^O", style=FG_FAINTEST)
         hints_left.append(
-            " show more" if self.output_mode == "compact" else " show less", style=FG_FAINTEST
+            " full transcript" if self.output_mode == "compact" else " compact view",
+            style=FG_FAINTEST,
         )
 
         hints_right = Text(no_wrap=True)

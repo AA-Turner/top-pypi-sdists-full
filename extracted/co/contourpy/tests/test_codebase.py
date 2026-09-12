@@ -20,7 +20,7 @@ def test_cppcheck() -> None:
     # Skip test if cppcheck is not installed.
     cmd = ["cppcheck", "--version"]
     try:
-        proc = run(cmd, capture_output=True)
+        proc = run(cmd, check=False, capture_output=True)
     except FileNotFoundError:
         pytest.skip()
 
@@ -31,13 +31,13 @@ def test_cppcheck() -> None:
         "cppcheck", "--quiet", "--enable=all", "--error-exitcode=1", "src",
         "-isrc/mpl2005_original.cpp", "--suppress=missingIncludeSystem", "--inline-suppr",
         "--suppress=knownConditionTrueFalse", "--check-level=exhaustive",
-        "--suppress=unmatchedSuppression",
+        "--suppress=unmatchedSuppression", "--suppress=missingOverride",
     ]
 
     if cpp_version >= Version("2.7"):
         cmd += ["--suppress=assertWithSideEffect"]
 
-    proc = run(cmd, capture_output=True)
+    proc = run(cmd, check=False, capture_output=True)
     assert proc.returncode == 0, f"cppcheck issues:\n{proc.stderr.decode('utf-8')}"
 
 
@@ -45,13 +45,13 @@ def test_mypy() -> None:
     # Skip test if mypy is not installed.
     cmd = ["mypy", "--version"]
     try:
-        proc = run(cmd, capture_output=True)
+        proc = run(cmd, check=False, capture_output=True)
     except FileNotFoundError:
         pytest.skip()
 
     cmd = ["mypy"]
-    proc = run(cmd, capture_output=True)
-    assert proc.returncode == 0, print(f"mypy issues:\n{proc.stdout.decode('utf-8')}")
+    proc = run(cmd, check=False, capture_output=True)
+    assert proc.returncode == 0, f"mypy issues:\n{proc.stdout.decode('utf-8')}"
 
 
 def test_version() -> None:

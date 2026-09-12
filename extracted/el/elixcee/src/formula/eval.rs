@@ -2433,7 +2433,7 @@ fn func_getpivotdata(
 
     let mut target_row = None;
     let mut target_col = Some(data_col);
-    for pair in args[2..].chunks_exact(2) {
+    for pair in args[2..].as_chunks::<2>().0 {
         let field = match evaluate(&pair[0], cells)? {
             Variant::Str(value) if !value.trim().is_empty() => value,
             _ => return Ok(Variant::Error(ExcelError::Value)),
@@ -14262,7 +14262,22 @@ fn func_transpose(
             }
             Ok(wrap_array(result))
         }
-        _ => evaluate(&args[0], cells),
+        _ => match evaluate(&args[0], cells)? {
+            Variant::Array(values) => {
+                let (rows, cols) = array_shape_for_expr(&args[0], cells, values.len());
+                if rows == 0 || cols == 0 || rows.checked_mul(cols) != Some(values.len()) {
+                    return Ok(Variant::Error(ExcelError::Value));
+                }
+                let mut result = vec![Variant::Empty; values.len()];
+                for row in 0..rows {
+                    for col in 0..cols {
+                        result[col * rows + row] = values[row * cols + col].clone();
+                    }
+                }
+                Ok(wrap_array(result))
+            }
+            value => Ok(value),
+        },
     }
 }
 
@@ -18948,10 +18963,7 @@ mod tests {
             calc("=SUM(SEQUENCE(2,3)+1/0)", &c),
             Variant::Error(ExcelError::DivZero)
         );
-        assert_eq!(
-            calc("=SUM(IF(SEQUENCE(2),1,1/0))", &c),
-            Variant::Integer(2)
-        );
+        assert_eq!(calc("=SUM(IF(SEQUENCE(2),1,1/0))", &c), Variant::Integer(2));
     }
 
     #[test]
@@ -19329,10 +19341,7 @@ mod tests {
         ]);
         // INDEX(A1:B2, 2, 1) = row 2 col 1 of range = A2 = 30
         assert_eq!(calc("=INDEX(A1:B2,2,1)", &c), Variant::Integer(30));
-        assert_eq!(
-            calc("=INDEX(SEQUENCE(2,2),2,2)", &c),
-            Variant::Integer(4)
-        );
+        assert_eq!(calc("=INDEX(SEQUENCE(2,2),2,2)", &c), Variant::Integer(4));
         assert_eq!(
             calc("=INDEX(A1:B2,-1,1)", &c),
             Variant::Error(ExcelError::Value)
@@ -21185,6 +21194,17 @@ mod tests {
                 Variant::Integer(1),
                 Variant::Integer(2),
                 Variant::Integer(3)
+            ])
+        );
+        assert_eq!(
+            calc("=TRANSPOSE(SEQUENCE(2,3))", &c),
+            Variant::Array(vec![
+                Variant::Integer(1),
+                Variant::Integer(4),
+                Variant::Integer(2),
+                Variant::Integer(5),
+                Variant::Integer(3),
+                Variant::Integer(6),
             ])
         );
     }

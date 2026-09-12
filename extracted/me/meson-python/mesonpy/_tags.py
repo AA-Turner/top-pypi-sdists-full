@@ -31,6 +31,26 @@ def get_interpreter_tag() -> str:
     return f'{name}{version[0]}{version[1]}'
 
 
+def _get_config_var(name: str, default: str | int | None = None) -> str | int | None:
+    value: str | int | None = sysconfig.get_config_var(name)
+    if value is None:
+        return default
+    return value
+
+
+def _get_cpython_abi() -> str:
+    # Fallback for Python distributions not implementing PEP 3149.
+    if sys.implementation.name != 'cpython':
+        raise NotImplementedError
+    version = sys.version_info
+    debug = threading = ''
+    if _get_config_var('Py_DEBUG', hasattr(sys, 'gettotalrefcount')):
+        debug = 'd'
+    if version >= (3, 13) and _get_config_var('Py_GIL_DISABLED'):
+        threading = 't'
+    return f'cp{version[0]}{version[1]}{threading}{debug}'
+
+
 def get_abi_tag() -> str:
     # The best solution to obtain the Python ABI is to parse the
     # $SOABI or $EXT_SUFFIX sysconfig variables as defined in PEP-314.
@@ -39,7 +59,13 @@ def get_abi_tag() -> str:
     # Using $EXT_SUFFIX will not break when PyPy will fix this.
     # See https://foss.heptapod.net/pypy/pypy/-/issues/3816 and
     # https://github.com/pypa/packaging/pull/607.
-    empty, abi, ext = str(sysconfig.get_config_var('EXT_SUFFIX')).split('.')
+    parts = str(sysconfig.get_config_var('EXT_SUFFIX')).split('.')
+
+    # Some Python distributions (notably pkgsrc, the default NetBSD
+    # package manager) patch the Python configure script to remove
+    # $SOABI from $EXT_SUFFIX.
+    if len(parts) < 3:
+        return _get_cpython_abi()
 
     # The packaging module initially based his understanding of the
     # $SOABI variable on the inconsistent value reported by PyPy, and
@@ -48,6 +74,7 @@ def get_abi_tag() -> str:
     # explicitly handled below) contains architecture information too.
     # Unfortunately, fixing this now would break compatibility.
 
+    abi = parts[1]
     if abi.startswith('cpython'):
         abi = 'cp' + abi.split('-')[1]
     elif abi.startswith('cp'):

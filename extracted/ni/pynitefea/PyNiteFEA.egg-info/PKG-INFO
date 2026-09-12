@@ -1,55 +1,42 @@
 Metadata-Version: 2.4
 Name: PyNiteFEA
-Version: 3.0.0
-Summary: A simple elastic 3D structural finite element library for Python.
-Home-page: https://github.com/JWock82/Pynite.git
-Author: D. Craig Brinck, PE, SE
-Author-email: Building.Code@outlook.com
+Version: 3.1.0
+Summary: A simple 3D structural finite element library for Python.
+Author-email: "D. Craig Brinck, PE, SE" <Building.Code@outlook.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/JWock82/Pynite
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=2.4.0
-Requires-Dist: PrettyTable
-Requires-Dist: scipy
 Requires-Dist: matplotlib
+Requires-Dist: numpy>=2.4.0
+Requires-Dist: prettytable
+Requires-Dist: scipy
 Provides-Extra: all
-Requires-Dist: Ipython; extra == "all"
-Requires-Dist: vtk>=9.3.0; extra == "all"
-Requires-Dist: pyvista[all,trame]>=0.43.4; extra == "all"
-Requires-Dist: trame_jupyter_extension; extra == "all"
+Requires-Dist: ipython; extra == "all"
 Requires-Dist: ipywidgets; extra == "all"
-Requires-Dist: pdfkit; extra == "all"
-Requires-Dist: Jinja2; extra == "all"
+Requires-Dist: jinja2; extra == "all"
+Requires-Dist: pyvista[all,trame]>=0.43.4; extra == "all"
+Requires-Dist: trame-jupyter-extension; extra == "all"
+Requires-Dist: vtk>=9.3.0; extra == "all"
 Provides-Extra: vtk
-Requires-Dist: IPython; extra == "vtk"
+Requires-Dist: ipython; extra == "vtk"
 Requires-Dist: vtk>=9.3.0; extra == "vtk"
 Provides-Extra: pyvista
-Requires-Dist: pyvista[all,trame]>=0.43.4; extra == "pyvista"
-Requires-Dist: trame_jupyter_extension; extra == "pyvista"
 Requires-Dist: ipywidgets; extra == "pyvista"
+Requires-Dist: pyvista[all,trame]>=0.43.4; extra == "pyvista"
+Requires-Dist: trame-jupyter-extension; extra == "pyvista"
 Provides-Extra: reporting
-Requires-Dist: pdfkit; extra == "reporting"
-Requires-Dist: Jinja2; extra == "reporting"
+Requires-Dist: jinja2; extra == "reporting"
 Provides-Extra: derivations
 Requires-Dist: jupyterlab; extra == "derivations"
 Requires-Dist: sympy; extra == "derivations"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <div align="center">
   <img src="https://github.com/JWock82/Pynite/raw/main/Resources/Full Logo No Buffer.png" width=40% align="center"/>
@@ -122,6 +109,10 @@ Here's a list of projects that use Pynite:
 * Phaenotyp (https://github.com/bewegende-Architektur/Phaenotyp) (https://youtu.be/shloSw9HjVI)
 
 # What's New?
+3.1.0
+* Improved detection of unstable structures.
+* Bug fix for shear walls. Shear walls were erroneously tracking other plates in the model for internal pier/coupling beam force summations, rather than just the plates related to the individual shear wall.
+
 3.0.0
 * Added pushover analysis! Currently, only steel sections are supported for pushover analysis. The assumed interaction equation used to estimate plastic behavior is currently calibrated toward I-shaped members.
 * Refactored all elastic stiffness matrix references from `K` and `k` to `Ke` and `ke`. Most users will not notice this change. Power users who were accessing the stiffness matrices directly will want to note this refactor.  This clarifies the code base by indicating which type of stiffness these matrices represent, and reduces ambiguity in preparation for addition of further geometric `Kg/kg` and plastic `Km/km` stiffness matrices.

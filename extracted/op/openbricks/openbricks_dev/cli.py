@@ -354,6 +354,10 @@ def _build_parser():
              "Guides and API pages both work. Omit for the index.",
     )
 
+    # ---- bricks (the LEGO brick library behind ``openbricks sim``) ----
+    from openbricks_dev import bricks as bricks_mod
+    bricks_mod.add_parser(sub)
+
     # ---- sim (passthrough to openbricks_sim.cli) ----
     #
     # Argparse-wise this is a stub: the real grammar lives in
@@ -363,8 +367,9 @@ def _build_parser():
     # ``openbricks --help``.
     sub.add_parser(
         "sim",
-        help="Run a sim subcommand (preview, run; "
-             "requires ``pip install openbricks[sim]``).",
+        help="Launch the sim (the native app), or run a sim subcommand "
+             "(app, workbench, preview, run; requires ``pip install "
+             "openbricks[sim]``).",
         description="Forwards all remaining arguments to the "
                     "MuJoCo-backed simulator's CLI. Use ``openbricks "
                     "sim --help`` to see the sim's own subcommand list.",
@@ -434,6 +439,9 @@ def main(argv=None):
         if args.command in ("docs", "doc"):
             from openbricks_dev import docs as docs_mod
             return docs_mod.run(args)
+        if args.command == "bricks":
+            from openbricks_dev import bricks as bricks_mod
+            return bricks_mod.run(args)
     except KeyboardInterrupt:
         print("\naborted.", file=sys.stderr)
         return 130

@@ -1,8 +1,13 @@
 """
 Coordinate accessors for timezonefinder.
 
-This module provides classes for accessing polygon coordinates
-either directly from file or from preloaded memory.
+Both accessors serve the same thing - a polygon collection's whole packed payload as
+one ``uint32`` array, plus where each ring's words begin in it - and differ only in
+where those words live: a memory map, or a copy on the heap. Since polygon layout 3
+that is the whole difference between the two memory modes, because a ring is decoded
+per lookup either way (``timezonefinder/block_payload.py``); before it, the in-memory
+mode additionally held every ring pre-decoded, which is what made it a different code
+path rather than a different buffer.
 """
 
 from abc import ABC, abstractmethod
@@ -13,18 +18,27 @@ from typing import BinaryIO
 import numpy as np
 
 from timezonefinder import utils
+from timezonefinder.block_payload import PAYLOAD_WORD_DTYPE
 from timezonefinder.configs import IntegerLike
 from timezonefinder.flatbuf.generated.polygons.PolygonCollection import (
     PolygonCollection,
 )
 from timezonefinder.flatbuf.io.polygons import (
+    derive_payload_offset_table,
     get_polygon_collection,
-    read_polygon_array_from_binary,
+    read_payload_at,
 )
 
 
 class AbstractCoordAccessor(ABC):
     """Abstract base class defining the interface for coordinate accessors."""
+
+    #: The collection's whole payload, as words. What the point-in-polygon kernels are
+    #: given: they address a block absolutely, so nothing is sliced per lookup.
+    words: np.ndarray
+    #: Where each ring's payload begins in :attr:`words`, and how long it is.
+    word_offsets: np.ndarray
+    word_lengths: np.ndarray
 
     @abstractmethod
     def __init__(self, coordinate_file_path: Path):
@@ -36,10 +50,9 @@ class AbstractCoordAccessor(ABC):
         """
         pass
 
-    @abstractmethod
     def __getitem__(self, idx: IntegerLike) -> np.ndarray:
         """
-        Get the polygon coordinates for the given index.
+        Get the packed payload of the ring stored at the given index.
 
         Args:
             idx: The polygon index. Numpy integers are accepted as well as
@@ -48,11 +61,14 @@ class AbstractCoordAccessor(ABC):
                 conversion per candidate polygon on the lookup fast path.
 
         Returns:
-            A numpy array containing the polygon coordinates
+            A zero-copy view of that ring's payload words. Decoding it needs the block
+            frames, which the owning :class:`~timezonefinder.polygon_array.PolygonArray`
+            holds - see its ``coords_of``.
         """
-        pass
+        return read_payload_at(
+            self.words, self.word_offsets[idx], self.word_lengths[idx]
+        )
 
-    @abstractmethod
     def __len__(self) -> int:
         """
         Get the number of polygons stored in the coordinate file.
@@ -60,7 +76,7 @@ class AbstractCoordAccessor(ABC):
         Not the number of polygon *ids* in the collection using it: the holes file
         stores only the rings that are not references to a boundary polygon.
         """
-        pass
+        return len(self.word_offsets)
 
     def __del__(self) -> None:
         """
@@ -75,7 +91,7 @@ class AbstractCoordAccessor(ABC):
 
 
 class FileCoordAccessor(AbstractCoordAccessor):
-    """Accessor that reads polygon coordinates from the file on demand."""
+    """Accessor that reads polygon payloads from the memory-mapped file."""
 
     def __init__(self, coordinate_file_path: Path):
         """
@@ -87,34 +103,54 @@ class FileCoordAccessor(AbstractCoordAccessor):
         self.coordinate_file_path = coordinate_file_path
         # Initialize file resources using proper resource management.
         try:
-            # Use memory-mapped file for on-demand reading
-            self.coord_file: BinaryIO = open(self.coordinate_file_path, "rb")
+            # Unbuffered: nothing reads payloads through this object - the mapping
+            # below serves them - and the offset table's scattered header reads are 6x
+            # slower through a buffer that every seek discards.
+            self.coord_file: BinaryIO = open(
+                self.coordinate_file_path, "rb", buffering=0
+            )
             # Create memory map
             self.coord_buf: mmap.mmap = mmap.mmap(
                 self.coord_file.fileno(), 0, access=mmap.ACCESS_READ
             )
-            self.polygon_collection: PolygonCollection = get_polygon_collection(
+            collection: PolygonCollection = get_polygon_collection(
                 self.coord_buf, self.coordinate_file_path
             )
+            # Where each ring's payload lives, resolved once and eagerly.
+            #
+            # Eagerly on purpose, and NOT because the table is cheap to build. Polygon
+            # payloads are not optional-path data: a `TimezoneFinder` exists to test
+            # points against polygons, and every query that is not answered outright by
+            # a unique-zone shortcut cell reaches this accessor. There is no population
+            # of callers who never need the table, so deferring it would move a certain
+            # cost to the first query rather than avoid it - and would buy that with a
+            # per-fetch `is None` branch on the hot path and a write to `self` from a
+            # lookup, which is exactly what a shared instance being safe for concurrent
+            # reads currently rests on: every attribute is assigned here or in
+            # `cleanup()`, and nothing on the lookup path mutates state. The lazy rule
+            # that governs `zone_positions` (read only by `certain_timezone_at` and
+            # `get_geometry`, which the `timezone_at` majority never calls) is the
+            # opposite case, not a precedent for this one.
+            #
+            # Read through the file rather than the mapping: the header words sit next
+            # to the polygons they describe, so walking them through the mapping would
+            # fault in a page per polygon and inflate the resident set of a finder that
+            # has answered nothing yet. The collection is not kept either - everything
+            # read after this point is addressed by offset.
+            self.word_offsets, self.word_lengths = derive_payload_offset_table(
+                collection, self.coord_file
+            )
+            self.word_offsets.flags.writeable = False
+            self.word_lengths.flags.writeable = False
+            # The mapping seen as words. A view, so it neither copies nor faults
+            # anything in; what makes it valid is that the writer pads the file to a
+            # whole number of words and FlatBuffers aligns the vectors inside it. Read
+            # only by construction, since the mapping is.
+            self.words = np.frombuffer(self.coord_buf, dtype=PAYLOAD_WORD_DTYPE)
         except Exception:
             # Clean up any partially initialized resources
             self.cleanup()
             raise
-
-    def __getitem__(self, idx: IntegerLike) -> np.ndarray:
-        """
-        Get the polygon coordinates for the given index.
-
-        Args:
-            idx: The polygon index
-
-        Returns:
-            A numpy array containing the polygon coordinates
-        """
-        return read_polygon_array_from_binary(self.polygon_collection, idx)
-
-    def __len__(self) -> int:
-        return self.polygon_collection.PolygonsLength()
 
     def cleanup(self) -> None:
         """Clean up resources.
@@ -128,11 +164,20 @@ class FileCoordAccessor(AbstractCoordAccessor):
         if close_resource is None:
             return
 
+        # `words` is this accessor's own zero-copy view onto the mapping, and it is
+        # dropped *before* the close is attempted rather than in the loop below.
+        # mmap.close() refuses to unmap while any export is alive, so leaving our own
+        # view in place would make close_resource swallow a BufferError even when
+        # nothing else holds one, deferring the unmapping to whenever the accessor is
+        # collected - on the one mode whose reason for existing is that the data need
+        # not be resident.
+        # A view a *caller* still holds refuses the close after this too, and must:
+        # unmapping underneath it would leave it dangling. That is the case
+        # close_resource's suppression exists for, and the only one left here.
+        if hasattr(self, "words"):
+            del self.words
+
         # close_resource already ignores None and common close errors.
-        # Note: closing coord_buf is refused while polygon arrays handed out by
-        # __getitem__ are still alive, since those are zero-copy views onto the mmap.
-        # close_resource suppresses the resulting BufferError (unmapping underneath a
-        # live view would leave it dangling).
         close_resource(getattr(self, "coord_file", None))
         close_resource(getattr(self, "coord_buf", None))
 
@@ -140,14 +185,20 @@ class FileCoordAccessor(AbstractCoordAccessor):
         # refused, these are the only remaining owners besides the caller's views, so
         # releasing them lets the mapping go as soon as the last view is dropped rather
         # than pinning it for the lifetime of this accessor.
-        # polygon_collection owns no resources itself, but keeps coord_buf alive.
-        for attr in ("polygon_collection", "coord_buf", "coord_file"):
+        # The offset table is plain integers owning their own storage - it references
+        # nothing and is dropped only so a cleaned-up accessor has no usable state left.
+        for attr in (
+            "word_offsets",
+            "word_lengths",
+            "coord_buf",
+            "coord_file",
+        ):
             if hasattr(self, attr):
                 delattr(self, attr)
 
 
 class MemoryCoordAccessor(AbstractCoordAccessor):
-    """Accessor that preloads all polygon coordinates into memory."""
+    """Accessor that keeps the whole payload on the heap instead of mapping it."""
 
     def __init__(self, coordinate_file_path: Path):
         """
@@ -163,44 +214,31 @@ class MemoryCoordAccessor(AbstractCoordAccessor):
         # Initialize polygon collection
         polygon_collection = get_polygon_collection(coord_buf, coordinate_file_path)
 
-        # Get number of polygons
-        num_polygons = polygon_collection.PolygonsLength()
-
-        # Preload all polygons. The key type mirrors __getitem__: numpy integers
-        # hash and compare equal to the plain ints stored here, so a np.int64
-        # lookup hits the same entry without a conversion.
-        self.polygons: dict[IntegerLike, np.ndarray] = {}
-        for idx in range(num_polygons):
-            self.polygons[idx] = read_polygon_array_from_binary(polygon_collection, idx)
-
-        # Once polygons are loaded, we don't need to keep polygon_collection or coord_buf references
-        # They'll be garbage collected
-
-    def __getitem__(self, idx: IntegerLike) -> np.ndarray:
-        """
-        Get the polygon coordinates for the given index.
-
-        Args:
-            idx: The polygon index
-
-        Returns:
-            A numpy array containing the polygon coordinates
-        """
-        return self.polygons[idx]
-
-    def __len__(self) -> int:
-        return len(self.polygons)
+        # Resolve every ring's position in one pass. Going through the generated
+        # accessors per polygon reads the same bytes but rebuilds the vtable walk 1300
+        # times, which is most of this loop's cost.
+        self.word_offsets, self.word_lengths = derive_payload_offset_table(
+            polygon_collection
+        )
+        self.word_offsets.flags.writeable = False
+        self.word_lengths.flags.writeable = False
+        # A view onto the copy above, which is what keeps this alive; no polygon is
+        # decoded here. Preloading decoded rings would hold 63 MB where the packed
+        # payload holds 38 - and would decode every ring in the collection to serve the
+        # handful a query reaches. Read only by construction, since a `bytes` is.
+        self.words = np.frombuffer(coord_buf, dtype=PAYLOAD_WORD_DTYPE)
 
     def cleanup(self) -> None:
-        """Drop the preloaded polygons. Unlike the file-backed sibling, nothing to close.
+        """Drop the payload. Unlike the file-backed sibling, nothing to close.
 
-        Not safe to call twice, and not safe on a partially initialised instance: both
-        raise ``AttributeError``, which ``__del__`` turns into an ignored-exception
-        message on stderr. ``FileCoordAccessor.cleanup`` tolerates both (see
-        ``test_repeated_cleanup_with_live_view_does_not_raise``); aligning this one is a
-        behaviour change, so it is left as is until something actually needs it.
+        Safe to call repeatedly and on a partially initialised instance, as
+        ``FileCoordAccessor.cleanup`` is. It used to raise ``AttributeError`` on both,
+        which ``__del__`` turned into an ignored-exception message on stderr; that
+        became reachable when the finder started releasing its arrays explicitly, since
+        an accessor is then cleaned up once by the caller and again by ``__del__``.
         """
-        del self.polygons
+        if hasattr(self, "words"):
+            del self.words
 
 
 def create_coord_accessor(

@@ -37,6 +37,9 @@ packages/matrx-ai/tests``) runs in CI as the ``host-seam-isolation`` suite in
 
 from __future__ import annotations
 
+import importlib
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -132,7 +135,138 @@ def test_d_a_test_that_configures_a_seam_is_restored_for_its_neighbours():
     assert _seam_state()["durable_vfs"]
 
 
+def test_seam_baseline_loads_an_arbitrary_unloaded_module(tmp_path, monkeypatch):
+    """A plugin seam remains lazy and generic, rather than becoming a fixed list."""
+    from matrx_ai.testing import host_isolation
+
+    module_name = "host_seam_extension"
+    (tmp_path / f"{module_name}.py").write_text("value = {'pristine': True}\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.setattr(host_isolation, "_SEAMS", ((module_name, ("value",)),))
+
+    assert module_name not in sys.modules
+    baseline = host_isolation.capture_baseline()
+    module = sys.modules[module_name]
+    module.value["polluted"] = True
+
+    host_isolation.restore_baseline(baseline)
+
+    assert module.value == {"pristine": True}
+
+
+def test_seam_baseline_never_duplicates_a_module_its_parent_already_imported(
+    tmp_path, monkeypatch
+):
+    """A seam is PROCESS-GLOBAL state, so two module objects for it is the bug.
+
+    Every real seam lives inside a package whose ``__init__`` re-exports it
+    (``matrx_ai.persistence`` does ``from .registry import register_table``).
+    ``importlib.util.find_spec()`` imports that parent, which imports the child
+    — so a loader that only checks ``sys.modules`` BEFORE ``find_spec`` then
+    executes the spec anyway installs a SECOND copy over the real one. The
+    coordinator then reads an empty table registry while the tests populate the
+    original, and every queued write is dropped as ``unregistered_table``.
+    """
+    from matrx_ai.testing import host_isolation
+
+    pkg = tmp_path / "host_seam_pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("from . import child\n")
+    (pkg / "child.py").write_text("value = {'pristine': True}\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    importlib.invalidate_caches()
+    monkeypatch.setattr(host_isolation, "_SEAMS", (("host_seam_pkg.child", ("value",)),))
+
+    for name in ("host_seam_pkg", "host_seam_pkg.child"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+        assert name not in sys.modules
+
+    host_isolation.capture_baseline()
+
+    parent = sys.modules["host_seam_pkg"]
+    child = sys.modules["host_seam_pkg.child"]
+    assert child is parent.child, (
+        "capture_baseline() loaded a second copy of the seam module — the "
+        "process now has two sets of that module's globals"
+    )
+
+
+def test_host_seam_loader_has_no_unresolved_dynamic_import():
+    """The canonical scanner must see the entire host-isolation import graph."""
+    from matrx_mandate_scan.adapters.python import scan_source
+
+    source_path = Path(__file__).parents[1] / "matrx_ai/testing/host_isolation.py"
+    result = scan_source(source_path.read_text(encoding="utf-8"), source_path.as_posix())
+
+    assert [finding for finding in result.findings if finding.code == "UNRESOLVED_IMPORT"] == []
+
+
 @pytest.mark.parametrize("_repeat", [1, 2])
 def test_e_still_pristine_after_repeated_pollution(_repeat: int):
     """Every test gets the same pristine start, not just the one after a leak."""
     assert _seam_state() == {"durable_vfs": False, "tracker": False}
+
+
+# ---------------------------------------------------------------------------
+# Seam drift, the direction capture_baseline() cannot see
+# ---------------------------------------------------------------------------
+
+
+def test_every_seam_configure_wires_is_declared():
+    """A new host seam cannot reach main undeclared.
+
+    ``capture_baseline()`` raises when a DECLARED seam disappears. The way the
+    ordering bug actually comes back is the opposite move: wiring a NEW
+    process-global into ``matrx_ai.configure`` and forgetting ``_SEAMS``.
+    Nothing would restore it, matrx-ai's tests would silently go
+    order-dependent again, and the next cross-suite run would be red for a
+    reason nobody can find. This reads the real ``configure()`` and says so at
+    the commit that adds the seam instead.
+    """
+    from matrx_ai.testing.host_isolation import undeclared_seam_modules
+
+    source_path = Path(__file__).parents[1] / "matrx_ai/__init__.py"
+    undeclared = undeclared_seam_modules(source_path.read_text(encoding="utf-8"))
+
+    assert not undeclared, (
+        "matrx_ai.configure() wires these modules, but nothing declares or "
+        "waives them, so the test isolation would NOT restore them:\n  "
+        + "\n  ".join(undeclared)
+        + "\n\nAdd each to _SEAMS in matrx_ai/testing/host_isolation.py with the "
+        "globals it writes — or, if it truly holds no process-global state, to "
+        "_NO_PROCESS_GLOBAL_STATE with the reason."
+    )
+
+
+def test_undeclared_seam_detector_catches_a_planted_seam():
+    """The detector above must be able to FAIL — plant a seam and prove it.
+
+    A guard that cannot be shown failing is not a guard: without this leg,
+    ``test_every_seam_configure_wires_is_declared`` would pass identically if
+    the scanner silently measured nothing.
+    """
+    from matrx_ai.testing.host_isolation import undeclared_seam_modules
+
+    planted = (
+        "def _helper():\n"
+        "    from matrx_ai.brand_new.seam import set_thing\n"
+        "    set_thing(None)\n"
+        "\n"
+        "def configure(**kwargs):\n"
+        "    from matrx_ai._ext import configure_ext\n"
+        "    configure_ext(**kwargs)\n"
+        "    _helper()\n"
+    )
+
+    assert undeclared_seam_modules(planted) == ["matrx_ai.brand_new.seam"], (
+        "the detector missed a seam wired through a helper configure() calls"
+    )
+
+
+def test_undeclared_seam_detector_screams_when_it_measures_nothing():
+    """A scan that cannot find ``configure`` must raise, never return clean."""
+    from matrx_ai.testing.host_isolation import HostSeamDriftError, undeclared_seam_modules
+
+    with pytest.raises(HostSeamDriftError):
+        undeclared_seam_modules("def something_else():\n    pass\n")

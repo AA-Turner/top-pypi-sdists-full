@@ -14,8 +14,97 @@ from matrx_ai.tools.executor import (
     _capture_tool_result_size_unmanaged,
     _is_expected_domain_failure,
 )
-from matrx_ai.tools.implementations.shell import shell_python
+from matrx_ai.tools.implementations.shell import MAX_OUTPUT_SIZE, shell_execute, shell_python
 from matrx_ai.tools.models import ToolDefinition
+from matrx_ai.tools.output_caps import TOOL_RESULT_SOFT_CAP_CHARS
+from matrx_ai.tools.result_gate import apply_size_gate
+
+
+@pytest.mark.parametrize(
+    ("model", "payload"),
+    [
+        pytest.param(
+            "workflow_catalog_result",
+            {
+                "node_types": [
+                    {
+                        "type": "text.template",
+                        "display_name": "Template",
+                        "category": "text",
+                    }
+                ],
+                "total": 137,
+                "returned": 1,
+                "truncated": True,
+            },
+            id="workflow-catalog-list-node-types-page",
+        ),
+        pytest.param(
+            "workflow_catalog_result",
+            {
+                "models": [
+                    {
+                        "id": "catalog-id",
+                        "name": "claude-opus-5",
+                        "provider": "anthropic",
+                    }
+                ],
+                "total": 1,
+                "returned": 1,
+                "truncated": False,
+            },
+            id="workflow-catalog-list-models",
+        ),
+        pytest.param(
+            "workflow_catalog_result",
+            {
+                "workflows": [
+                    {"id": "workflow-id", "name": "Workflow", "version": 1}
+                ],
+                "total": 137,
+                "returned": 1,
+                "truncated": True,
+            },
+            id="workflow-catalog-list-workflows-page",
+        ),
+        pytest.param(
+            "workflow_author_result",
+            {
+                "saved": True,
+                "id": "catalog-id",
+                "changes": ["nodes added: summary."],
+            },
+            id="workflow-author-patch-receipt",
+        ),
+        pytest.param(
+            "workflow_plan_result",
+            {
+                "action": "emit",
+                "wiring_mode": "chain",
+                "chained_from": {"node_id": "previous-step"},
+            },
+            id="workflow-plan-emit-wiring-receipt",
+        ),
+    ],
+)
+def test_workflow_content_ir_kinds_accept_every_live_producer_field(
+    model: str, payload: dict[str, object]
+) -> None:
+    """The production Content IR incidents rejected these exact branch fields.
+
+    The wire schema is derived from the result KindModel, so checking the
+    model's JSON value against that schema catches a producer/model mismatch
+    before a closed stored tool contract can reject a successful result.
+    """
+    from matrx_graph.contract_kinds import check_schema
+
+    from matrx_ai.tools.kinds import TOOL_RESULT_KINDS
+
+    kind_model = next(value for value in TOOL_RESULT_KINDS.values() if value.kind_slug == model)
+    wire_value = kind_model(**payload).model_dump(mode="json")
+
+    verdict = check_schema(wire_value, kind_model.model_json_schema())
+    assert verdict.errors == []
 
 
 def test_tool_contract_uses_normalized_provider_input_schema() -> None:
@@ -502,6 +591,124 @@ def test_shell_nonzero_exit_is_expected_tool_feedback() -> None:
         tool_name="shell_execute",
         error_type="timeout",
     )
+
+
+@pytest.mark.asyncio
+async def test_blocked_shell_command_is_bounded_before_result_gate() -> None:
+    """The no-backend refusal has no transcript, so it must never echo raw input."""
+    command_sentinel = "blocked-command-sentinel-"
+    result = await shell_execute(
+        {"command": "rm -rf / # " + command_sentinel * 2_000},
+        SimpleNamespace(call_id="blocked-call", tool_name="shell_execute"),
+    )
+
+    assert result.success is False
+    assert result.output_self_capped is True
+    assert result.error is not None
+    assert command_sentinel not in result.error.message
+    content = result.to_tool_result_content()
+    assert len(content["content"]) < TOOL_RESULT_SOFT_CAP_CHARS
+    gated, truncated = apply_size_gate(
+        content,
+        output_self_capped=result.output_self_capped,
+        tool_name="shell_execute",
+        tool_kind="native",
+        conversation_id=None,
+        user_id=None,
+    )
+    assert truncated is False
+    assert gated["content"] == content["content"]
+
+
+@pytest.mark.asyncio
+async def test_sandbox_shell_failure_caps_error_and_output_before_result_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A nonzero sandbox command must not duplicate an unbounded stderr in its error."""
+    sentinel = "unbounded-stderr-sentinel-"
+    stderr = sentinel * 4_000
+
+    monkeypatch.setattr(
+        "matrx_ai.tools.implementations.shell.get_active_sandbox",
+        lambda: SimpleNamespace(root_path="/home/agent"),
+    )
+
+    async def fake_proxy(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"exit_code": 1, "stdout": "", "stderr": stderr, "cwd": "/home/agent"}
+
+    async def fake_log(**_kwargs: object) -> str:
+        return "/home/agent/.matrx/runtime/tool-calls/conv/call.md"
+
+    monkeypatch.setattr("matrx_ai.tools.implementations.shell._proxy_exec", fake_proxy)
+    monkeypatch.setattr("matrx_ai.tools.implementations.shell.write_tool_call_log", fake_log)
+
+    result = await shell_execute(
+        {"command": "false"},
+        SimpleNamespace(
+            call_id="call-1",
+            tool_name="shell_execute",
+            conversation_id="conv-1",
+            user_id="user-1",
+        ),
+    )
+
+    assert result.success is False
+    assert result.output_self_capped is True
+    assert result.error is not None
+    assert len(result.output["stderr"]) == MAX_OUTPUT_SIZE
+    assert len(result.error.message) < MAX_OUTPUT_SIZE + 1_000
+    assert len(result.to_tool_result_content()["content"]) < TOOL_RESULT_SOFT_CAP_CHARS
+
+
+@pytest.mark.asyncio
+async def test_sandbox_shell_failure_keeps_huge_command_only_in_durable_log(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An arbitrarily long failed command cannot bypass the claimed producer cap."""
+    command_sentinel = "private-command-sentinel-"
+    command = "false # " + command_sentinel * 4_000
+    logged_inputs: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        "matrx_ai.tools.implementations.shell.get_active_sandbox",
+        lambda: SimpleNamespace(root_path="/home/agent"),
+    )
+
+    async def fake_proxy(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"exit_code": 1, "stdout": "", "stderr": "failed", "cwd": "/home/agent"}
+
+    async def fake_log(**kwargs: object) -> str:
+        logged_inputs.update(kwargs["inputs"])
+        return "/home/agent/.matrx/runtime/tool-calls/conv/call.md"
+
+    monkeypatch.setattr("matrx_ai.tools.implementations.shell._proxy_exec", fake_proxy)
+    monkeypatch.setattr("matrx_ai.tools.implementations.shell.write_tool_call_log", fake_log)
+
+    result = await shell_execute(
+        {"command": command},
+        SimpleNamespace(
+            call_id="call-2",
+            tool_name="shell_execute",
+            conversation_id="conv-1",
+            user_id="user-1",
+        ),
+    )
+
+    assert result.error is not None
+    assert command_sentinel not in result.error.message
+    assert logged_inputs["command"] == command
+    content = result.to_tool_result_content()
+    assert len(content["content"]) < TOOL_RESULT_SOFT_CAP_CHARS
+    gated, truncated = apply_size_gate(
+        content,
+        output_self_capped=result.output_self_capped,
+        tool_name="shell_execute",
+        tool_kind="native",
+        conversation_id="conv-1",
+        user_id="user-1",
+    )
+    assert truncated is False
+    assert gated["content"] == content["content"]
 
 
 @pytest.mark.asyncio

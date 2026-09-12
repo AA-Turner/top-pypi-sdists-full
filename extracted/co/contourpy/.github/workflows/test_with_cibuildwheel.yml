@@ -1,0 +1,64 @@
+name: Test using cibuildwheel
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  cibuildwheel_test:
+    name: Test (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pyodide
+            os: ubuntu-24.04
+            arch: auto
+            platform: pyodide
+          - name: iOS-arm64
+            os: macos-latest
+            arch: arm64_iphonesimulator
+            platform: ios
+          - name: iOS-x86_64
+            os: macos-15-intel
+            arch: x86_64_iphonesimulator
+            platform: ios
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build and test wheels
+        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        env:
+          CIBW_PLATFORM: ${{ matrix.platform }}
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_TEST_REQUIRES: pytest pytest-rerunfailures<16
+          CIBW_TEST_SOURCES: tests
+          CIBW_TEST_COMMAND: python -m pytest -v ./tests --ignore=./tests/test_codebase.py -k "not image and not big"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ${{ matrix.name }}-wheels
+          path: ./wheelhouse/*.whl

@@ -1,6 +1,8 @@
 from importlib.util import find_spec
+from pathlib import Path
 import warnings
 
+import h3.api.numpy_int as h3
 import pytest
 
 from scripts.configs import THRES_DTYPE_H
@@ -19,9 +21,12 @@ from tests.locations import (
 )
 from timezonefinder.configs import (
     DEFAULT_DATA_DIR,
+    SHORTCUT_H3_RES,
 )
+from timezonefinder.shortcut_index import ABSENT, ShortcutIndex, slot_of
 from timezonefinder.zone_names import read_zone_names
 from timezonefinder.timezonefinder import (
+    AbstractTimezoneFinder,
     TimezoneFinder,
     TimezoneFinderL,
 )
@@ -39,36 +44,69 @@ all_timezone_names = read_zone_names(DEFAULT_DATA_DIR)
 RESULT_TEMPLATE = "{0:25s} | {1:20s} | {2:20s} | {3:2s}"
 
 
+def numba_binding_mismatch(numba_installed: bool) -> str:
+    """Explain a bound acceleration path that disagrees with what is installed.
+
+    ``timezonefinder/utils_numba.py`` falls back to the pure-Python replacements on
+    *any* ``ImportError``, so a numba that is installed but refuses to import reads
+    here as a bare ``False != True`` - indistinguishable from a regression in this
+    package. That is the shape a stale development environment takes: ``uv run``
+    syncs only the default dependency groups and leaves the ``numba`` group at
+    whatever version ``uv sync --all-groups`` last installed, so a lockfile bump
+    that moves NumPy past that numba's ceiling breaks the import while
+    ``find_spec`` still finds it.
+    """
+    if not numba_installed:
+        return "numba is not installed, yet the numba backend is bound"
+    try:
+        import numba  # noqa: F401
+    except ImportError as exc:
+        return (
+            f"numba is installed but does not import ({exc}) - the environment is "
+            "stale, not the code broken: re-run `make install` (`uv sync --all-groups`)"
+        )
+    return "numba imports, yet the pure-Python fallback is bound"
+
+
 # tests for both classes: TimezoneFinderL and TimezoneFinder
 class TestBaseTimezoneFinderClass:
-    class_under_test = TimezoneFinderL
-    # NOTE: setting memory mode does not make a difference for TimezoneFinderL (relevant only for polygon data)
-    in_memory_mode = False
-    bin_file_dir = None
-    on_land_pt_fct_name = "timezone_at"
-    test_locations = BASIC_TEST_LOCATIONS
+    # Annotated rather than left to inference: every one of these is a knob the
+    # subclasses below turn, so inferring each type from *this* class's value declares
+    # the base's choice to be the only allowed one - a subclass naming TimezoneFinder or
+    # listing a third keyword-only method then contradicts a type nobody wrote down.
+    class_under_test: type[AbstractTimezoneFinder] = TimezoneFinderL
+    # NOTE: only ``TimezoneFinder`` takes a memory mode - ``TimezoneFinderL`` loads no
+    # polygon data, so there is nothing for one to select and it accepts no such argument
+    in_memory_mode: bool = False
+    bin_file_dir: Path | None = None
+    on_land_pt_fct_name: str = "timezone_at"
+    test_locations: list = BASIC_TEST_LOCATIONS
     # the lookup methods this class exposes that take lng/lat keyword-only
-    keyword_only_methods = ("timezone_at", "timezone_at_land")
+    keyword_only_methods: tuple[str, ...] = ("timezone_at", "timezone_at_land")
+    # set on the class by the ``_init_test_instance`` fixture below, which is where the
+    # per-subclass construction lives; without the declaration the tests read an
+    # attribute the class does not admit to having
+    test_instance: AbstractTimezoneFinder
 
+    # a class-scoped fixture runs once per class while each test gets a fresh
+    # instance, so it must be a classmethod to set attributes the tests can see;
+    # pytest deprecated the instance-method form in 9.1 and removes it in 10
     @pytest.fixture(scope="class", autouse=True)
-    def _init_test_instance(
-        self, request, timezonefinder_in_memory, timezonefinder_disk
-    ):
-        cls = request.cls
+    @classmethod
+    def _init_test_instance(cls, timezonefinder_in_memory, timezonefinder_disk):
         cls.print_tf_class_props(cls)
         if cls.class_under_test is TimezoneFinder:
             cls.test_instance = (
                 timezonefinder_in_memory if cls.in_memory_mode else timezonefinder_disk
             )
         else:
-            cls.test_instance = cls.class_under_test(
-                bin_file_location=cls.bin_file_dir, in_memory=cls.in_memory_mode
-            )
+            cls.test_instance = cls.class_under_test(bin_file_location=cls.bin_file_dir)
 
     def test_using_numba(self):
-        spec = find_spec("numba")
-        numba_installed = spec is not None
-        assert self.test_instance.using_numba() == numba_installed
+        numba_installed = find_spec("numba") is not None
+        assert self.test_instance.using_numba() == numba_installed, (
+            numba_binding_mismatch(numba_installed)
+        )
 
     def test_using_clang_pip(self):
         res = self.test_instance.using_clang_pip()
@@ -80,7 +118,8 @@ class TestBaseTimezoneFinderClass:
         print(
             f"using_numba()=={self.class_under_test.using_numba()} (JIT compiled functions {'NOT ' if not self.class_under_test.using_numba() else ''}in use)"
         )
-        print(f"in_memory={self.in_memory_mode}")
+        if self.class_under_test is TimezoneFinder:
+            print(f"in_memory={self.in_memory_mode}")
         print(f"file location={self.bin_file_dir}\n")
 
     def check_timezone_at_results(self, lng, lat, expected: str | None = ""):
@@ -364,10 +403,15 @@ class TestTimezonefinderCleanup:
 
         class FailingCleanupTimezoneFinder(TimezoneFinder):
             # bound as a default argument, not captured from the enclosing
-            # scope: the instance is collected (re-entering __del__) after this
-            # call has returned, and a closure would raise whatever the name
-            # refers to by then
+            # scope: a closure would raise whatever the name refers to when a
+            # later finalizer runs. Raise only once so that the explicit call
+            # under test cannot leave a second warning for natural finalization;
+            # delayed collection otherwise lets one parametrized case leak into
+            # the next case's warning recorder.
             def cleanup(self, error=error):
+                if getattr(self, "_cleanup_failure_raised", False):
+                    return
+                self._cleanup_failure_raised = True
                 raise error
 
         return FailingCleanupTimezoneFinder()
@@ -416,3 +460,40 @@ class TestTimezonefinderCleanup:
                 f"__del__ raised {type(e).__name__} when cleanup raised "
                 f"{error_type.__name__}: {e}"
             )
+
+
+@pytest.mark.unit
+def test_certain_timezone_at_tests_exactly_the_shortcut_candidates():
+    """``certain_timezone_at`` enumerates candidates through one shared method.
+
+    It used to hold its own copy of the shortcut dispatch - the ``ABSENT`` case, the
+    single-zone case and the candidate-list case - which could drift from
+    ``_iter_boundaries_in_shortcut`` without any test noticing, since only tests called
+    that. Both ends are pinned here: the answer comes from the shared enumeration, and
+    an uncovered cell yields nothing and is therefore unanswered. The packaged ocean
+    zones cover every cell, so the second half is a branch only custom data reaches and
+    one slot is blanked to get to it.
+    """
+    lng, lat = 13.358, 52.5061
+    with TimezoneFinder() as tf:
+        candidate_zones = {
+            tf.zone_name_from_boundary_id(boundary_id)
+            for boundary_id in tf._iter_boundaries_in_shortcut(lng=lng, lat=lat)
+        }
+        assert tf.certain_timezone_at(lng=lng, lat=lat) in candidate_zones
+
+        slot = slot_of(h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES))
+        assert tf.shortcuts.table[slot] != ABSENT, "the cell is covered to begin with"
+        # loaded index state is immutable: replace it rather than mutate the dataset
+        table = tf.shortcuts.table.copy()
+        table[slot] = ABSENT
+        tf.shortcuts = ShortcutIndex(
+            table,
+            tf.shortcuts.starts,
+            tf.shortcuts.ends,
+            tf.shortcuts.last_change,
+            tf.shortcuts.payload,
+        )
+
+        assert list(tf._iter_boundaries_in_shortcut(lng=lng, lat=lat)) == []
+        assert tf.certain_timezone_at(lng=lng, lat=lat) is None

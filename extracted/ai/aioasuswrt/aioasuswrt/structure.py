@@ -174,6 +174,8 @@ class TempCommand(NamedTuple):
 class _Regex(NamedTuple):
     """Regex Mapped to a key."""
 
+    TRX_PART: Pattern[str] = re_compile(r"[\s:]+")
+
     MEMINFO: Pattern[str] = re_compile(
         r"(?P<label>(.+[a-zA-Z\(\)]))[:\s]+\s(?P<kb>([\d]+))"
     )
@@ -310,7 +312,7 @@ _LABEL_MAC = {"label_mac"}
 
 _VPN = {"vpnc_clientlist", "vpn_client"}
 
-Nvram = _Nvram(
+NVRAM = _Nvram(
     DHCP=_DHCP,
     MODEL=_MODEL,
     QOS=_QOS,
