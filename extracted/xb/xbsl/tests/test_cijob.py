@@ -6,6 +6,7 @@ knows nothing about them, and the difference shows up as a red job one push late
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -351,6 +352,72 @@ def test_a_file_without_includes_carries_nothing_new(tmp_path: Path):
     assert ci.source is None and ci.unread == () and ci.note() == ""
 
 
+# --- the root of the checkout: where an include path starts --------------------------------------
+
+
+def test_a_pipeline_kept_in_a_subfolder_reads_the_includes_of_the_repository(tmp_path: Path):
+    """`include: /ci/base.yml` is a path from the top of the repository, wherever the file lies.
+
+    The folder of the named file used to stand for that top, so this pipeline went looking in
+    `ci/sub/ci/` and answered that it runs no xbsl command.
+    """
+    (tmp_path / ".git").mkdir()
+    _write(tmp_path / "ci" / "sub" / "lint.yml", "include:\n  - local: /ci/base.yml\n")
+    _write(tmp_path / "ci" / "base.yml",
+           "xbsl-lint:\n  script:\n    - xbsl e1c --enable code/unused-method\n")
+
+    ci = cijob.read(tmp_path / "ci" / "sub" / "lint.yml")
+
+    assert ci.job == "xbsl-lint" and ci.enable == ("code/unused-method",)
+    assert ci.root == tmp_path and ci.source == tmp_path / "ci" / "base.yml"
+
+
+def test_a_linked_worktree_is_a_checkout_like_any_other(tmp_path: Path):
+    """`git worktree add` leaves a FILE named .git, and a check run there is an ordinary one."""
+    (tmp_path / ".git").write_text("gitdir: D:/repo/.git/worktrees/task\n", encoding="utf-8")
+    _write(tmp_path / "ci" / "lint.yml", "include: /ci/base.yml\n")
+    _write(tmp_path / "ci" / "base.yml", "lint:\n  script:\n    - xbsl e1c --select code\n")
+
+    ci = cijob.read(tmp_path / "ci" / "lint.yml")
+
+    assert ci.select == ("code",) and ci.root == tmp_path
+
+
+def test_the_baseline_of_a_pipeline_in_a_subfolder_lies_at_the_top(tmp_path: Path):
+    """The job runs from the top of the repository - its baseline is there, not next to it."""
+    (tmp_path / ".git").mkdir()
+    _write(tmp_path / "ci" / "lint.yml",
+           "lint:\n  script:\n    - xbsl e1c --baseline .xbsllint-baseline\n")
+
+    assert cijob.read(tmp_path / "ci" / "lint.yml").baseline_file() == \
+        str(tmp_path / ".xbsllint-baseline")
+
+
+def test_without_a_checkout_around_it_the_folder_of_the_file_stands(tmp_path: Path):
+    """A pipeline copied into a folder of its own still reads its neighbours."""
+    _write(tmp_path / "pipelines" / "lint.yml", "include: ci/base.yml\n")
+    _write(tmp_path / "pipelines" / "ci" / "base.yml", "lint:\n  script:\n    - xbsl e1c\n")
+
+    ci = cijob.read(tmp_path / "pipelines" / "lint.yml")
+
+    assert ci.job == "lint" and ci.root == tmp_path / "pipelines"
+
+
+def test_a_repository_inside_a_repository_takes_the_nearest_top(tmp_path: Path):
+    """A submodule has a checkout of its own, and its pipeline includes from that one."""
+    (tmp_path / ".git").mkdir()
+    _write(tmp_path / "ci" / "base.yml", "outer:\n  script:\n    - xbsl e1c --select outer\n")
+    inner = tmp_path / "vendor" / "tool"
+    (inner / ".git").parent.mkdir(parents=True, exist_ok=True)
+    (inner / ".git").write_text("gitdir: ../../.git/modules/tool\n", encoding="utf-8")
+    _write(inner / ".gitlab-ci.yml", "include: /ci/base.yml\n")
+    _write(inner / "ci" / "base.yml", "inner:\n  script:\n    - xbsl e1c --select inner\n")
+
+    ci = cijob.read(inner / ".gitlab-ci.yml")
+
+    assert ci.job == "inner" and ci.select == ("inner",) and ci.root == inner
+
+
 # --- the run itself: what the project checks and what a local pass used to miss ------------------
 
 _FORM = """\
@@ -471,6 +538,22 @@ def test_a_job_that_is_not_in_the_file_refuses_by_name(tmp_path: Path, capsys):
 
 
 @pytest.mark.needs_data
+def test_a_run_takes_a_pipeline_kept_in_a_subfolder_of_the_repository(tmp_path: Path, capsys):
+    """The whole road: the file is named, its include comes from the top, the rule fires."""
+    root = _project_with_a_copied_subtree(tmp_path)
+    (tmp_path / ".git").mkdir()
+    named = _write(tmp_path / "ci" / "sub" / "lint.yml", "include:\n  - local: /ci/base.yml\n")
+    _write(tmp_path / "ci" / "base.yml",
+           "xbsl-lint:\n  script:\n    - xbsl project --enable yaml/duplicate-subtree\n")
+
+    assert cli.main([str(root), "--no-baseline", "--as-ci", str(named)]) == 0
+
+    out = capsys.readouterr()
+    assert "yaml/duplicate-subtree" in out.out
+    assert "base.yml" in out.err  # the file the command stands in
+
+
+@pytest.mark.needs_data
 def test_the_named_file_wins_over_discovery(tmp_path: Path, capsys):
     root = _project_with_a_copied_subtree(tmp_path)
     other = _write(tmp_path / "other-ci.yml",
@@ -479,3 +562,96 @@ def test_the_named_file_wins_over_discovery(tmp_path: Path, capsys):
     out = capsys.readouterr()
     assert "yaml/duplicate-subtree" not in out.out  # that job enables nothing
     assert "другая" in out.err
+
+
+# --- the machine report: which set the verdict came from -----------------------------------------
+
+
+@pytest.mark.needs_data
+def test_the_json_report_names_the_job_the_verdict_came_from(tmp_path: Path, capsys):
+    """The adopted line goes to stderr in text mode, so a json reader learned nothing of it."""
+    root = _project_with_a_copied_subtree(tmp_path)
+
+    assert cli.main([str(root), "--no-baseline", "--format", "json"]) == 0
+    assert "as_ci" not in json.loads(capsys.readouterr().out)["summary"]
+
+    assert cli.main([str(root), "--no-baseline", "--as-ci", "--format", "json"]) == 0
+
+    taken = json.loads(capsys.readouterr().out)["summary"]["as_ci"]
+    assert taken["adopted"] is True and taken["job"] == "xbsl-lint"
+    assert taken["file"] == str(tmp_path / ".gitlab-ci.yml")
+    assert Path(taken["root"]) == tmp_path.resolve()
+    # The set as data, so a reader compares sets instead of parsing a sentence...
+    assert taken["enable"] == ["yaml/duplicate-subtree"]
+    assert taken["select"] == [] and taken["ignore"] == []
+    # ...and the sentence as well, because the same report is read by people.
+    assert "xbsl-lint" in taken["flags"]
+
+
+@pytest.mark.needs_data
+def test_the_json_report_says_why_the_job_set_was_not_taken(tmp_path: Path, capsys):
+    """The refusal used to reach stderr alone: on stdout a machine reader found nothing."""
+    root = tmp_path / "project"
+    _write(root / "ФормаОдин.yaml", _FORM.format(n=0, name="ФормаОдин", rows=_rows(3)))
+
+    assert cli.main([str(root), "--as-ci", "--format", "json"]) == 2
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["summary"]["as_ci"]["enabled"] is True
+    assert payload["summary"]["as_ci"]["adopted"] is False
+    assert ".gitlab-ci.yml" in payload["summary"]["as_ci"]["error"]
+    assert ".gitlab-ci.yml" in payload["error"]
+    # No findings and no counters: the run never happened, and an empty list of diagnostics
+    # would read as a clean tree.
+    assert "diagnostics" not in payload
+
+
+@pytest.mark.needs_data
+def test_the_refusal_reaches_the_file_the_report_was_asked_for(tmp_path: Path, capsys):
+    """`--out` is the whole answer for a caller who redirects nothing."""
+    root = tmp_path / "project"
+    _write(root / "ФормаОдин.yaml", _FORM.format(n=0, name="ФормаОдин", rows=_rows(3)))
+    target = tmp_path / "report.json"
+
+    assert cli.main([str(root), "--as-ci", "--format", "json", "--out", str(target)]) == 2
+    capsys.readouterr()
+
+    assert not json.loads(target.read_text(encoding="utf-8"))["summary"]["as_ci"]["adopted"]
+
+
+@pytest.mark.needs_data
+def test_the_json_report_names_the_jobs_the_run_did_not_take(tmp_path: Path, capsys):
+    """A second job judges a second tree, and a verdict compared with the wrong one is noise."""
+    root = _project_with_a_copied_subtree(tmp_path)
+    _write(tmp_path / ".gitlab-ci.yml",
+           "xbsl-lint:\n  script:\n    - xbsl project\n"
+           "English to S3:\n  script:\n    - xbsl project --enable yaml/duplicate-subtree\n")
+
+    assert cli.main([str(root), "--no-baseline", "--as-ci", "--format", "json"]) == 0
+    first = json.loads(capsys.readouterr().out)["summary"]["as_ci"]
+
+    assert first["jobs"] == ["English to S3"] and "--as-ci-job" in first["hint"]
+
+    assert cli.main([str(root), "--no-baseline", "--as-ci-job", "english",
+                     "--format", "json"]) == 0
+    named = json.loads(capsys.readouterr().out)["summary"]["as_ci"]
+
+    assert named["job"] == "English to S3" and named["jobs"] == ["xbsl-lint"]
+    assert named["hint"] == ""  # the job was named: there is nothing left to choose
+
+
+@pytest.mark.needs_data
+def test_the_json_report_carries_the_include_and_what_stayed_unread(tmp_path: Path, capsys):
+    """Where to open the command, and which templates nobody fetched - the same as in prose."""
+    root = _project_with_a_copied_subtree(tmp_path)
+    _write(tmp_path / ".gitlab-ci.yml",
+           "include:\n  - local: /ci/lint.yml\n  - template: Jobs/SAST.gitlab-ci.yml\n")
+    _write(tmp_path / "ci" / "lint.yml",
+           "xbsl-lint:\n  script:\n    - xbsl project --baseline .xbsllint-baseline\n")
+
+    assert cli.main([str(root), "--no-baseline", "--as-ci", "--format", "json"]) == 0
+
+    taken = json.loads(capsys.readouterr().out)["summary"]["as_ci"]
+    assert taken["source"] == str(tmp_path / "ci" / "lint.yml")
+    assert taken["unread_includes"] == ["template: Jobs/SAST.gitlab-ci.yml"]
+    assert taken["baseline"] == str(tmp_path / ".xbsllint-baseline")

@@ -27,6 +27,7 @@ from matrx_ai.config import (
     UnifiedResponse,
 )
 from matrx_ai.config.finish_reason import (
+    CONTINUABLE_METADATA_KEY,
     TRUNCATION_METADATA_KEY,
     interrupted_tool_names,
     truncation_marker,
@@ -155,31 +156,48 @@ async def _emit_provider_retry(
             "cancel": f"/ai/cancel/{request_id}",
             "retry_now": f"/ai/retry-now/{request_id}",
         }
-    await send_provider_retry(
-        ProviderRetryPayload(
-            state=state,
-            provider=_provider_name_for_event(error_info, provider),
-            error_type=error_info.error_type,
-            message=error_info.message,
-            user_message=error_info.user_message,
-            status_code=error_info.status_code,
-            model=current_request.config.model,
-            request_id=request_id,
-            conversation_id=current_request.conversation_id
-            or getattr(exec_ctx, "conversation_id", None),
-            iteration=iteration,
-            failed_attempt=failed_attempt,
-            next_attempt=next_attempt,
-            max_retries=max_retries,
-            retry_delay=retry_delay,
-            retry_at=retry_at,
-            discard_partial_output=state == "scheduled",
-            schedule=list(_retry_schedule(error_info) or ()),
-            can_cancel=True,
-            can_retry_now=state == "scheduled",
-            actions=actions,
+    # A RETRY ANNOUNCEMENT NEVER KILLS THE RETRY IT DESCRIBES.
+    #
+    # This whole function is narration: the phase, then the rich payload. It is
+    # called from five points INSIDE the provider retry loop, so letting a failed
+    # emit escape would abort the very recovery it exists to report — the
+    # operation-stream-journal class (2026-09-12), where a sink failure killed
+    # the work it was merely observing. Guarded here, at the one function every
+    # platform provider retry passes through, rather than at five call sites.
+    try:
+        await send_provider_retry(
+            ProviderRetryPayload(
+                state=state,
+                provider=_provider_name_for_event(error_info, provider),
+                error_type=error_info.error_type,
+                message=error_info.message,
+                user_message=error_info.user_message,
+                status_code=error_info.status_code,
+                model=current_request.config.model,
+                request_id=request_id,
+                conversation_id=current_request.conversation_id
+                or getattr(exec_ctx, "conversation_id", None),
+                iteration=iteration,
+                failed_attempt=failed_attempt,
+                next_attempt=next_attempt,
+                max_retries=max_retries,
+                retry_delay=retry_delay,
+                retry_at=retry_at,
+                discard_partial_output=state == "scheduled",
+                schedule=list(_retry_schedule(error_info) or ()),
+                can_cancel=True,
+                can_retry_now=state == "scheduled",
+                actions=actions,
+            )
         )
-    )
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - the retry itself must continue
+        vcprint(
+            f"[Executor] Could not announce the provider retry "
+            f"({type(exc).__name__}: {exc}); the retry proceeds regardless.",
+            color="yellow",
+        )
 
 
 async def _wait_for_retry_or_control(request_id: str | None, delay: float) -> str:
@@ -521,7 +539,6 @@ async def _exit_with_loop_guard(
     """
     skipped = _build_skipped_tool_results(response, health, current_request)
     if skipped:
-        from matrx_ai.config import UnifiedMessage
 
         current_request.config.messages.append(UnifiedMessage(role="tool", content=skipped))
 
@@ -2113,20 +2130,60 @@ async def _degrade_and_secure(*, reason: str) -> list[str]:
         return [f"degrade_drain:{type(exc).__name__}:{exc}"]
 
 
+def _standing_output_contract() -> dict[str, Any] | None:
+    """The run's STANDING structured contract, declared by the host (DD-135).
+
+    A run whose structured output is an ACTION (the output-directive seam) must be
+    able to act on ANY turn — but the one-answer relaxation drops its
+    ``response_format`` to text after the first answer, and forcing the schema back
+    on instead would leave the agent unable to answer a plain question in prose
+    (V-34, 2026-09-12: a "what is the difference between a project and a task?" turn
+    produced an empty directive and an Approve button for nothing). So the wire
+    format stays relaxed and the DISPATCH stops depending on it: the host puts the
+    run's contract — the same ``{"type":"json_schema","json_schema":{…}}`` envelope
+    it would have bound — on ``ctx.metadata['standing_output_contract']``, and a
+    relaxed turn is parsed against it. Parses ⇒ the turn acted. Does not ⇒ the turn
+    spoke, and prose is the honest answer. matrx-ai never learns what the action is.
+    """
+    try:
+        from matrx_connect import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001 — no context is not a contract
+        return None
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    if not isinstance(metadata, dict):
+        return None
+    contract = metadata.get("standing_output_contract")
+    if not isinstance(contract, dict) or contract.get("type") != "json_schema":
+        return None
+    return contract
+
+
 async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
     """Parse the final assistant text against config.response_format and emit.
 
-    Fires only when ``response_format`` is the OpenAI ``json_schema`` envelope
-    (``{type: "json_schema", json_schema: {...}}``). Other shapes (``json_object``,
-    None, etc.) skip emission — they're not contracts the frontend can render.
+    Fires when ``response_format`` is the OpenAI ``json_schema`` envelope
+    (``{type: "json_schema", json_schema: {...}}``), OR when the host declared a
+    STANDING contract for this run (``_standing_output_contract``) — the relaxed
+    later turn of an acting run. Other shapes (``json_object``, None, …) skip
+    emission — they're not contracts the frontend can render.
+
+    On the standing path a failed parse is NOT a failure: it means the turn was
+    prose, so nothing is emitted and nothing is dispatched. On the bound path a
+    failed parse is still reported, exactly as before.
 
     Returns the parsed structured-output object on success (so the caller can
     feed it to the output-apply dispatcher without re-parsing), else ``None``.
     """
     try:
         rf = getattr(completed.request.config, "response_format", None)
+        standing = False
         if not isinstance(rf, dict) or rf.get("type") != "json_schema":
-            return None
+            rf = _standing_output_contract()
+            if rf is None:
+                return None
+            standing = True
 
         envelope = rf.get("json_schema")
         if not isinstance(envelope, dict):
@@ -2157,6 +2214,19 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
 
         final_text = completed.request.config.get_last_output() or ""
         extraction = parse_agent_output(final_text, envelope)
+        if standing and not extraction.success:
+            # The turn SPOKE. An acting run is allowed to answer a question, and a
+            # "schema mismatch" event here would paint a failure over a perfectly
+            # good prose answer (and, through the dispatcher, an Approve button for
+            # nothing). Nothing emitted, nothing dispatched — the prose stands.
+            return None
+        if standing:
+            vcprint(
+                "[Orchestrator] standing contract: this turn's text parsed as the run's "
+                "declared structured output — emitting it and handing it to the output-apply "
+                "dispatcher even though the wire format had relaxed to text (DD-135).",
+                color="cyan",
+            )
         contract_meta = (
             (ctx.metadata or {}).get("structured_output_content_ir", {})
             if isinstance(getattr(ctx, "metadata", None), dict)
@@ -2520,6 +2590,21 @@ async def _capture_missing_provider_usage(
         error_type=type(exc).__name__,
         payload={"provider": provider, "model": current_request.config.model, "iteration": iteration},
     )
+
+
+def _caller_can_continue(current_request: AIMatrixRequest) -> bool:
+    """Is there somewhere the reader could actually say "keep going"?
+
+    A conversation: yes — and that is every historical caller, so an absent key
+    means ``True`` and nothing changes for chat. A workflow step, a batch job,
+    or any other headless call declares ``continuable: False`` on its request
+    metadata (``CONTINUABLE_METADATA_KEY``) and gets a truncation notice whose
+    remedy it can actually perform.
+    """
+    meta = getattr(current_request, "metadata", None)
+    if not isinstance(meta, dict):
+        return True
+    return meta.get(CONTINUABLE_METADATA_KEY, True) is not False
 
 
 async def _capture_truncated_response(
@@ -4029,10 +4114,18 @@ async def _execute_until_complete_inner(
                         max_output_tokens=max_tokens,
                         interrupted_tool_calls=interrupted,
                     )
+                    # A REMEDY NOBODY CAN PERFORM IS NOT HONESTY. A workflow
+                    # step has no conversation to say "keep going" in, so the
+                    # notice it gets names the step's limit instead of offering
+                    # a continuation that does not exist (live 2026-09-12, run
+                    # 2cf711eb…: a parent was told to ask for the rest of her
+                    # questions, inside a run with nobody to ask).
+                    continuable = _caller_can_continue(current_request)
                     notice = truncation_notice(
                         model=model,
                         max_output_tokens=max_tokens,
                         interrupted_tool_calls=interrupted,
+                        continuable=continuable,
                     )
                     _announce_truncation(api_response, notice, truncation)
                     try:
@@ -5277,7 +5370,6 @@ async def _execute_until_complete_inner(
                     current_request.config.custom_tools = []
                     current_request.config.tool_choice = "required"
 
-                    from matrx_ai.config import TextContent, UnifiedMessage
 
                     _rm_titles = ", ".join(m.display for m in _rm_report.missing)
                     _rm_notice = (
@@ -5530,7 +5622,6 @@ async def _execute_until_complete_inner(
             ):
                 # Approaching the failure ceiling — caution the model once.
                 state.loop_guard_warned = True
-                from matrx_ai.config import TextContent, UnifiedMessage
 
                 _remaining = max(1, DEFAULT_FAILURE_THRESHOLD - health.failures_in_window)
                 _caution = (
@@ -5580,7 +5671,6 @@ async def _execute_until_complete_inner(
                 current_request.config.tools = []
                 current_request.config.custom_tools = []
 
-                from matrx_ai.config import TextContent, UnifiedMessage
 
                 _directive = (
                     f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "

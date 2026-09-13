@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from flask import jsonify, request
+
 from test.apps.builders import build_schema, make_flask_app_from_schema
 from test.apps.fragments import handlers, schemas
 from test.apps.runtime import OpenAPIApp
@@ -455,4 +457,102 @@ def kitchen_sink() -> OpenAPIApp:
         register = getattr(handlers, f"register_{fragment}", None)
         if register is not None:
             register(app)
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def collection_with_planted_bug() -> OpenAPIApp:
+    """The listing carries the only token that reaches the planted 500; generated ones are rejected."""
+    token = "b7e2a41c9f3d4c8a92e51d6f0a7c3b58"
+    entry = {"type": "object", "properties": {"token": {"type": "string"}}}
+    spec = build_schema(
+        {
+            "/api/tokens": {
+                "get": {
+                    "responses": {
+                        "200": {"content": {"application/json": {"schema": {"type": "array", "items": entry}}}}
+                    }
+                }
+            },
+            "/api/verify": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {**entry, "required": ["token"]}}},
+                    },
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Unknown"}},
+                }
+            },
+        }
+    )
+    app = make_flask_app_from_schema(spec)
+
+    @app.route("/api/tokens", methods=["GET"])
+    def list_tokens() -> object:
+        return jsonify([{"token": token}])
+
+    @app.route("/api/verify", methods=["POST"])
+    def verify() -> object:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict) and body.get("token") == token:
+            raise RuntimeError("boom")
+        return jsonify({"detail": "unknown"}), 404
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def undocumented_collection_with_planted_bug() -> OpenAPIApp:
+    """The listing names the only tag the search accepts, and the spec declares no response shape."""
+    tag = "aurora-borealis-7"
+    spec = build_schema(
+        {
+            "/api/tags": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/api/search": {
+                "get": {
+                    "parameters": [{"name": "tag", "in": "query", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Unknown"}},
+                }
+            },
+        }
+    )
+    app = make_flask_app_from_schema(spec)
+
+    @app.route("/api/tags", methods=["GET"])
+    def list_tags() -> object:
+        return jsonify([{"tag": tag}])
+
+    @app.route("/api/search", methods=["GET"])
+    def search() -> object:
+        if request.args.get("tag") == tag:
+            raise RuntimeError("boom")
+        return jsonify({"detail": "unknown"}), 404
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def vocabulary_path_with_planted_bug() -> OpenAPIApp:
+    """The listing names the only genre the catalog accepts; the schema declares no response shape."""
+    genre = "post-bop"
+    spec = build_schema(
+        {
+            "/api/genres": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/api/catalog/{genre}": {
+                "get": {
+                    "parameters": [{"name": "genre", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Unknown"}},
+                }
+            },
+        }
+    )
+    app = make_flask_app_from_schema(spec)
+
+    @app.route("/api/genres", methods=["GET"])
+    def list_genres() -> object:
+        return jsonify([{"genre": genre}])
+
+    @app.route("/api/catalog/<value>", methods=["GET"])
+    def catalog(value: str) -> object:
+        if value == genre:
+            raise RuntimeError("boom")
+        return jsonify({"detail": "unknown"}), 404
+
     return OpenAPIApp(spec=spec, server=app, kind="flask")

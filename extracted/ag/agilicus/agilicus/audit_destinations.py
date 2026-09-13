@@ -10,6 +10,11 @@ from agilicus.agilicus_api import (
     AuditDestinationWebhookSettings,
     HTTPBasicAuth,
     HTTPBearerAuth,
+    ObjectCredential,
+    ObjectCredentialSpec,
+    ObjectCredentialSecrets,
+    ObjectType,
+    CredentialPurpose,
 )
 
 from .credentials_commands import get_oauth2_auth
@@ -28,11 +33,35 @@ from .output.table import (
     subtable,
 )
 
-DESTINATION_TYPES = ["file", "webhook", "graylog", "connector", "syslog"]
+DESTINATION_TYPES = [
+    "file",
+    "webhook",
+    "graylog",
+    "connector",
+    "syslog",
+    "google_secops",
+]
 FILTER_TYPES = ["subsystem", "audit_agent_type", "audit_agent_id", "hostname"]
-AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer", "oauth2"]
+AUTH_TYPES = [
+    "none",
+    "http_basic",
+    "http_bearer",
+    "agilicus_bearer",
+    "oauth2",
+    "google_service_account",
+]
 WEBHOOK_FORMATS = ["agilicus", "unified"]
 EVENT_TYPES = model_enum_to_list(AuditDestinationEventLevelFilter)
+
+# The CLI uses `--google-*` options; the API model uses these field names.
+GOOGLE_SECOPS_SETTINGS_FIELDS = {
+    "google_project_id": "project_id",
+    "google_location": "gcp_location",
+    "google_instance_id": "instance_id",
+}
+GOOGLE_SECOPS_AUTH_TYPE = "google_service_account"
+GOOGLE_SECOPS_OBJECT_TYPE = "audit_destination"
+GOOGLE_SECOPS_CREDENTIAL_PURPOSE = "audit_destination_auth"
 
 page_fields = ["id", "name", "org_id"]
 
@@ -166,6 +195,103 @@ def _update_webhook_settings(
     return result
 
 
+def _build_google_secops_settings(existing, properties):
+    if existing is None:
+        existing = {}
+    elif not isinstance(existing, dict):
+        existing = existing.to_dict()
+
+    for key, field in GOOGLE_SECOPS_SETTINGS_FIELDS.items():
+        value = properties.get(key)
+        if value is not None:
+            existing[field] = value
+
+    if not existing:
+        return None
+
+    return agilicus_api.AuditDestinationSpecGoogleSecopsSettings(**existing)
+
+
+def _destination_id_from_result(result) -> str | None:
+    if not isinstance(result, dict):
+        return None
+    metadata = result.get("metadata") or {}
+    return metadata.get("id")
+
+
+def _object_credential_id(credential) -> str | None:
+    metadata = credential.metadata
+    if metadata is None:
+        return None
+    return metadata.id
+
+
+def _store_google_service_account_credential(
+    ctx, destination_id, service_account_json, org_id=None, apiclient=None
+):
+    """Store a Google service-account JSON as an object credential for a destination.
+
+    The credential is stored as ``object_type=audit_destination`` and
+    ``purpose=audit_destination_auth``, matching what the auditor expects for a
+    ``google_secops`` destination authenticated with ``google_service_account``.
+    """
+    if apiclient is None:
+        apiclient = context.get_apiclient_from_ctx(ctx)
+
+    spec = ObjectCredentialSpec(
+        object_id=destination_id,
+        object_type=ObjectType(GOOGLE_SECOPS_OBJECT_TYPE),
+        purpose=CredentialPurpose(GOOGLE_SECOPS_CREDENTIAL_PURPOSE),
+        priority=0,
+        secrets=ObjectCredentialSecrets(service_account_json=service_account_json),
+    )
+    if org_id is not None:
+        spec.org_id = org_id
+
+    credential = ObjectCredential(spec=spec)
+    return apiclient.credentials_api.create_object_credential(credential).to_dict()
+
+
+def _upsert_google_service_account_credential(
+    ctx, destination_id, service_account_json, org_id=None, apiclient=None
+):
+    """Create or replace the service-account credential for a destination."""
+    if apiclient is None:
+        apiclient = context.get_apiclient_from_ctx(ctx)
+
+    list_kwargs = {
+        "object_type": GOOGLE_SECOPS_OBJECT_TYPE,
+        "object_id": destination_id,
+        "purpose": GOOGLE_SECOPS_CREDENTIAL_PURPOSE,
+    }
+    if org_id is not None:
+        list_kwargs["org_id"] = org_id
+
+    existing = apiclient.credentials_api.list_object_credentials(
+        **list_kwargs
+    ).object_credentials
+
+    if not existing:
+        return _store_google_service_account_credential(
+            ctx,
+            destination_id,
+            service_account_json,
+            org_id=org_id,
+            apiclient=apiclient,
+        )
+
+    credential_id = _object_credential_id(existing[0])
+    credential = apiclient.credentials_api.get_object_credential(
+        credential_id, org_id=org_id
+    )
+    credential.spec.secrets = ObjectCredentialSecrets(
+        service_account_json=service_account_json
+    )
+    return apiclient.credentials_api.replace_object_credential(
+        credential_id, object_credential=credential
+    ).to_dict()
+
+
 def list_audit_destinations(ctx, get_all=False, limit=None, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
@@ -196,12 +322,28 @@ def add_audit_destination(ctx, **kwargs):
     if webhook_settings:
         spec.webhook_settings = webhook_settings
 
+    google_secops_settings = _build_google_secops_settings(None, kwargs)
+    if google_secops_settings is not None:
+        spec.google_secops_settings = google_secops_settings
+
     routing = _build_routing({}, kwargs)
     if routing is not None:
         spec.routing = routing
 
     model = AuditDestination(spec=spec)
-    return apiclient.audits_api.create_audit_destination(model).to_dict()
+    result = apiclient.audits_api.create_audit_destination(model).to_dict()
+
+    service_account_json = kwargs.get("service_account_json")
+    if service_account_json:
+        _store_google_service_account_credential(
+            ctx,
+            _destination_id_from_result(result),
+            service_account_json,
+            org_id=kwargs.get("org_id"),
+            apiclient=apiclient,
+        )
+
+    return result
 
 
 def _get_audit_destination(ctx, apiclient, destination_id, **kwargs):
@@ -230,10 +372,13 @@ def update_audit_destination(ctx, destination_id, clear_extra_locations=False, *
     audit_properties = _get_audit_destination_properties(kwargs)
     auth = mapping.spec.authentication
     webhook_settings = mapping.spec.webhook_settings
+    google_secops_settings = mapping.spec.google_secops_settings
 
     # Clear out the old auth which failds with build_updated_model
     del mapping.spec["authentication"]
     del mapping.spec["webhook_settings"]
+    if "google_secops_settings" in mapping.spec:
+        del mapping.spec["google_secops_settings"]
     mapping.spec = build_updated_model_from_dict(
         AuditDestinationSpec, mapping.spec, audit_properties
     )
@@ -244,6 +389,12 @@ def update_audit_destination(ctx, destination_id, clear_extra_locations=False, *
     if auth is not None:
         mapping.spec.authentication = auth
 
+    google_secops_settings = _build_google_secops_settings(
+        google_secops_settings, kwargs
+    )
+    if google_secops_settings is not None:
+        mapping.spec.google_secops_settings = google_secops_settings
+
     if clear_extra_locations:
         kwargs["routing_extra_locations"] = []
     print(kwargs)
@@ -251,9 +402,21 @@ def update_audit_destination(ctx, destination_id, clear_extra_locations=False, *
     if routing is not None:
         mapping.spec.routing = routing
 
-    return apiclient.audits_api.replace_audit_destination(
+    result = apiclient.audits_api.replace_audit_destination(
         destination_id, audit_destination=mapping
     ).to_dict()
+
+    service_account_json = kwargs.get("service_account_json")
+    if service_account_json:
+        _upsert_google_service_account_credential(
+            ctx,
+            destination_id,
+            service_account_json,
+            org_id=get_args.get("org_id"),
+            apiclient=apiclient,
+        )
+
+    return result
 
 
 def add_audit_destination_filter(ctx, destination_id, filter_type, value, **kwargs):
@@ -313,6 +476,9 @@ def format_audit_destinations_as_text(ctx, resources):
         spec_column("comment"),
         spec_column("enabled"),
         spec_column("authentication.authentication_type", "authentication_type"),
+        spec_column("google_secops_settings.project_id", "secops_project"),
+        spec_column("google_secops_settings.gcp_location", "secops_location"),
+        spec_column("google_secops_settings.instance_id", "secops_instance"),
         subtable(ctx, "filters", filter_columns, subobject_name="spec"),
     ]
 

@@ -820,6 +820,13 @@ class OverusedStringViolation(MaybeASTViolation):
     single space `' '`, new line `'\n'`, `'\r\n'` and tabulator `'\t'`
     do not count against string literal overuse limit.
 
+    Docstrings are not counted as well,
+    because they document the code and cannot be deduplicated.
+    This includes attribute docstrings from PEP 258
+    and type alias docstrings, the ones placed right after
+    an attribute definition or a ``type`` statement.
+    Local variables are not attributes, so they are still counted.
+
     The violation points to the first occurrence of the overused string literal.
 
     Reasoning:
@@ -837,6 +844,9 @@ class OverusedStringViolation(MaybeASTViolation):
         :str:`wemake_python_styleguide.options.defaults.MAX_STRING_USAGES`
 
     .. versionadded:: 0.10.0
+    .. versionchanged:: 1.8.1
+        Now counts bytes and strings separately.
+        Do not count docstrings as repeated strings.
 
     """
 

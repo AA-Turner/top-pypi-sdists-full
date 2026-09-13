@@ -20,11 +20,20 @@ PROOF_PROFILE = "browser-proof-profile"
 
 
 def _build_proof_app():
-    if os.environ.get("MATRX_BROWSER_PROOF_SERVER") != "1":
-        raise RuntimeError("The browser stream proof server must be explicitly enabled")
+    # The interlock is the SIGNING KEY, not a boolean. `MATRX_BROWSER_PROOF_SERVER=1`
+    # was a second gate beside it until 2026-09-11; USD-5 (Arman, 2026-09-10) retired
+    # it — "Never an env var. Env values are only for secrets, not for controlling
+    # behavior." Nothing was lost: the private proof key is a SECRET, which env
+    # legitimately carries, and no one can stand this harness up without it. A knob
+    # would have been worse still: a private test harness is not an organization's
+    # setting, and it has no business in the product's settings registry.
     key_path = os.environ.get("MATRX_BROWSER_PROOF_SIGNING_KEY_FILE")
     if not key_path:
-        raise RuntimeError("MATRX_BROWSER_PROOF_SIGNING_KEY_FILE is required")
+        raise RuntimeError(
+            "MATRX_BROWSER_PROOF_SIGNING_KEY_FILE is required — this module is the "
+            "private stream-ticket proof harness and cannot run without its own "
+            "signing key. It must never be pointed at a production key."
+        )
 
     config = StreamingConfig(
         stream_signing_key_pem=Path(key_path).read_text(),

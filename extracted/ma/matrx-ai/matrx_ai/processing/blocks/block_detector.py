@@ -27,6 +27,8 @@ from matrx_graph.content_ir.directives import (
     is_reserved_directive_slug,
     parse_directive_slug,
 )
+
+from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 from matrx_graph.content_ir.envelope import KIND_KEY
 
 # ---------------------------------------------------------------------------
@@ -140,6 +142,12 @@ JSON_BLOCK_PATTERNS: dict[str, dict[str, Any]] = {
     },
 }
 
+#: The one block type every registered, user-authored kind arrives as. The SLUG lives in
+#: the body's ``__kind`` (one type, many kinds) rather than in the type, because the set of
+#: kinds is the product's own data and a block type is code — a type per kind would mean a
+#: code change every time a user creates one, which is the thing this ruling removes.
+KIND_BLOCK_TYPE = "kind"
+
 _FIRST_JSON_KEY_RE = re.compile(r'^\{\s*"([^"]+)"')
 
 
@@ -206,8 +214,23 @@ def detect_json_block_type(content: str) -> str | None:
     # closing quote has arrived and it is in the reserved namespace. An
     # ordinary kind keeps routing to the ordinary kind path.
     if first_key == KIND_KEY:
-        if is_reserved_directive_slug(root_kind_declaration(content)):
+        slug = root_kind_declaration(content)
+        if is_reserved_directive_slug(slug):
             return "matrx"
+        # DD-131 (chair ruling, 2026-09-12): an ordinary ``__kind`` body naming a
+        # REGISTERED, LIVE kind IS a kind block, exactly like the 19 platform block
+        # types — it is validated against that kind's emitted_json_schema and gets the
+        # same ``metadata.__ir`` envelope. Before this, only the hardcoded
+        # BLOCK_KIND_MAP could reach an envelope, so no user-authored kind could ever be
+        # verified server-side and "every output gets saved automatically" was
+        # unreachable for the whole class.
+        #
+        # The registry answer comes from a SYNC snapshot because this function runs
+        # inside the token loop. A cold snapshot says "no", which is exactly the
+        # behaviour that existed before this branch: a plain code block, rendered by the
+        # frontend's own parser. Declining is safe; guessing is not.
+        if slug and is_registered_kind(slug):
+            return KIND_BLOCK_TYPE
         return None
 
     if first_key == "matrx_version":  # LEGACY read path -- stored content only.

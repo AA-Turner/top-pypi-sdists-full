@@ -1888,6 +1888,38 @@ def test_array_constraints(ctx, schema, expected):
     assert_negative_coverage(build_schema(ctx, body=schema), expected)
 
 
+@pytest.mark.parametrize(
+    ("fmt", "min_length", "max_length"),
+    [("email", 200, 254), ("uri", 100, 2083), ("date-time", 26, 30)],
+)
+def test_format_value_built_for_a_length_floor_above_it(ctx, fmt, min_length, max_length):
+    # Without one, every length the window admits is out of reach and the operation gets no
+    # positive case at all.
+    operation = load_schema(
+        ctx,
+        [
+            {
+                "in": "query",
+                "name": "value",
+                "schema": {"type": "string", "format": fmt, "minLength": min_length, "maxLength": max_length},
+                "required": True,
+            },
+        ],
+    )["/foo"]["post"]
+    validator = jsonschema_rs.Draft202012Validator({"type": "string", "format": fmt}, validate_formats=True)
+    seen = []
+
+    def test(case):
+        seen.append(case.query["value"])
+
+    run_positive_test(operation, test)
+
+    assert seen
+    for value in seen:
+        assert min_length <= len(value) <= max_length, value
+        assert validator.is_valid(value), value
+
+
 def test_string_with_format(ctx):
     operation = load_schema(
         ctx,
@@ -2538,6 +2570,36 @@ def test_avoid_testing_unexpected_methods_in_cli(ctx, cli, snapshot_cli):
         )
         == snapshot_cli
     )
+
+
+@pytest.mark.parametrize(
+    ("flags", "expected"),
+    [
+        ([], {"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "TRACE", "QUERY"}),
+        (["--exclude-method=TRACE"], {"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "QUERY"}),
+        (["--exclude-method-regex=^TRA"], {"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "QUERY"}),
+        (["--exclude-name=TRACE /items"], {"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "QUERY"}),
+        (["--include-method=GET"], {"GET", "PUT", "DELETE", "OPTIONS", "PATCH", "TRACE", "QUERY"}),
+    ],
+    ids=["no-filters", "exclude-method", "exclude-method-regex", "exclude-name", "include-method"],
+)
+def test_unexpected_methods_respect_exclusion_filters(ctx, cli, flags, expected):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "post": {"responses": {"200": {"description": "OK"}}},
+            }
+        }
+    )
+
+    @app.route("/items", methods=["GET", "POST"])
+    def items():
+        return "", 200
+
+    cli.run_openapi_app(app, "--phases=coverage", "--max-examples=5", *flags)
+
+    assert {request.method for request in app.config["captured_requests"]} == expected
 
 
 def test_coverage_failure_shows_actual_method_in_header(ctx, cli, snapshot_cli):

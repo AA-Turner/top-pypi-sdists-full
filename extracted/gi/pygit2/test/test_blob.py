@@ -34,7 +34,7 @@ import pytest
 
 import pygit2
 from pygit2 import Repository
-from pygit2.enums import ObjectType
+from pygit2.enums import BlobFilter, ObjectType
 
 from . import utils
 
@@ -265,4 +265,57 @@ def test_blobio_filtered(testrepo: Repository) -> None:
     assert isinstance(blob, pygit2.Blob)
     with pygit2.BlobIO(blob, as_path='bye.txt') as reader:
         assert b'bye world\n' == reader.read()
+    assert not reader.raw._thread.is_alive()  # type: ignore[attr-defined]
+
+
+def test_blob_write_to_queue_invalid_commit_id_type(testrepo: Repository) -> None:
+    # Regression test (issue #1478): an invalid commit_id type must raise
+    # TypeError instead of being ignored and leaving an exception set.
+    queue: Queue[bytes] = Queue()
+    ready = Event()
+    done = Event()
+    blob_oid = testrepo.create_blob_fromworkdir('bye.txt')
+    blob = testrepo[blob_oid]
+    assert isinstance(blob, pygit2.Blob)
+    with pytest.raises(TypeError):
+        blob._write_to_queue(
+            queue,
+            ready,
+            done,
+            as_path='bye.txt',
+            flags=BlobFilter.ATTRIBUTES_FROM_COMMIT,
+            commit_id=1234,  # type: ignore
+        )
+
+
+def test_blob_write_to_queue_invalid_commit_id_str(testrepo: Repository) -> None:
+    # Regression test (issue #1478): a malformed commit_id string must raise
+    # InvalidError instead of being ignored and leaving an exception set.
+    queue: Queue[bytes] = Queue()
+    ready = Event()
+    done = Event()
+    blob_oid = testrepo.create_blob_fromworkdir('bye.txt')
+    blob = testrepo[blob_oid]
+    assert isinstance(blob, pygit2.Blob)
+    with pytest.raises(pygit2.InvalidError):
+        blob._write_to_queue(
+            queue,
+            ready,
+            done,
+            as_path='bye.txt',
+            flags=BlobFilter.ATTRIBUTES_FROM_COMMIT,
+            commit_id='not-a-valid-oid',  # type: ignore[arg-type]
+        )
+
+
+def test_blob_partial_read(bigrepo: Repository) -> None:
+    blob_oid = bigrepo.create_blob_fromworkdir('big.txt')
+    blob = bigrepo[blob_oid]
+    assert isinstance(blob, pygit2.Blob)
+    reader = pygit2.BlobIO(blob)
+    # Read only a few lines then break early
+    for i, line in enumerate(reader):
+        if i >= 3:
+            break
+    reader.close()
     assert not reader.raw._thread.is_alive()  # type: ignore[attr-defined]

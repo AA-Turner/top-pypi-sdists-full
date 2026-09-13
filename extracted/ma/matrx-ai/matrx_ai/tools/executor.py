@@ -1862,7 +1862,7 @@ class ToolExecutor:
             _trace_conv_id_full = None
 
         if result.success:
-            # Verbose mode (MATRX_TOOL_DEBUG_VERBOSE=1) adds args + a
+            # Verbose mode (the host's `verbose` trace switch) adds args + a
             # truncated result preview to OK events. Use this when chasing
             # a silent-success bug — the trace file grows much faster, but
             # you get forensic detail without joining cx_tool_call.

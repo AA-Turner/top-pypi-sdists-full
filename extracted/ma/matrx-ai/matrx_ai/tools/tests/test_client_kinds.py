@@ -94,3 +94,25 @@ class TestClientKindsForExecutor:
                 registry._bindings_by_tool.pop("__test_user_tool__", None)
             else:
                 registry._bindings_by_tool["__test_user_tool__"] = saved_binding
+
+    def test_server_declaration_beats_accidental_live_client_binding(self) -> None:
+        """A native tool must not suspend on a client that cannot execute it.
+
+        This is the exact red boundary from the Masterwork Scout incident:
+        ``rulebook`` has an ``aidream`` implementation, but a stale
+        ``matrx-user`` binding would previously classify it as delegated when
+        the Rulebook surface was active.  The server declaration owns routing.
+        """
+        import aidream.tools._generated_declarations  # noqa: F401
+
+        registry = self._registry()
+        name = "rulebook"
+        saved_binding = registry._bindings_by_tool.get(name)
+        registry._bindings_by_tool[name] = {"aidream", "matrx-user"}
+        try:
+            assert registry.resolve_executor_binding(name, {"matrx-user"}) == "server"
+        finally:
+            if saved_binding is None:
+                registry._bindings_by_tool.pop(name, None)
+            else:
+                registry._bindings_by_tool[name] = saved_binding

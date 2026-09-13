@@ -57,8 +57,11 @@ pub(crate) fn build_chrome_settings(
         http::HeaderValue::from_static(crate::imp::os_platform(os)),
     );
 
-    // Chrome 150 adds a `sec-purpose` header.
-    if matches!(chrome, Impersonate::ChromeV150) {
+    // Chrome 150+ adds a `sec-purpose` header (prefetch/prerender).
+    if matches!(
+        chrome,
+        Impersonate::ChromeV150 | Impersonate::ChromeV151 | Impersonate::ChromeV152
+    ) {
         headers.insert(
             "sec-purpose",
             http::HeaderValue::from_static("prefetch;prerender"),
@@ -156,6 +159,14 @@ fn build_user_agent(chrome: Impersonate, os: crate::imp::ImpersonateOS) -> &'sta
             crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/152.0.0.0 Mobile/15E148 Safari/604.1",
             _ => unreachable!(),
         },
+        Impersonate::ChromeV153 => match os {
+            crate::imp::ImpersonateOS::Windows => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::MacOS => "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::Linux => "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+            crate::imp::ImpersonateOS::Android => "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Mobile Safari/537.36",
+            crate::imp::ImpersonateOS::IOS => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/153.0.0.0 Mobile/15E148 Safari/604.1",
+            _ => unreachable!(),
+        },
         _ => unreachable!(),
     }
 }
@@ -190,6 +201,9 @@ fn build_sec_ch_ua(chrome: Impersonate, _os: crate::imp::ImpersonateOS) -> &'sta
         }
         Impersonate::ChromeV152 => {
             r#""Chromium";v="152", "Not?A_Brand";v="24", "Google Chrome";v="152""#
+        }
+        Impersonate::ChromeV153 => {
+            r#""Google Chrome";v="153", "Not_A Brand";v="8", "Chromium";v="153""#
         }
         _ => unreachable!(),
     }
@@ -242,6 +256,11 @@ fn chrome_emulator(chrome: Impersonate) -> Arc<BrowserEmulator> {
             EMU.get_or_init(|| Arc::new(new_chrome_emulator(152)))
                 .clone()
         }
+        Impersonate::ChromeV153 => {
+            static EMU: OnceLock<Arc<BrowserEmulator>> = OnceLock::new();
+            EMU.get_or_init(|| Arc::new(new_chrome_emulator(153)))
+                .clone()
+        }
         _ => unreachable!(),
     }
 }
@@ -279,16 +298,17 @@ fn base_chrome_headers() -> &'static http::HeaderMap {
 
 /// Builds HTTP/2 settings for a Chrome version.
 fn build_http2_settings(chrome: Impersonate) -> crate::imp::Http2Data {
-    // Chrome 148+ uses different header order (sec-ch-ua after sec-fetch-*),
-    // except Chrome 150 which reverts to sec-ch-ua first and adds `sec-purpose`,
-    // and 152 which again uses upgrade-first.
+    // 148-149 and 153 use upgrade-first. 150-152 use sec-ch-ua first.
     let headers_order = if matches!(
         chrome,
-        Impersonate::ChromeV148 | Impersonate::ChromeV149 | Impersonate::ChromeV152
+        Impersonate::ChromeV148 | Impersonate::ChromeV149 | Impersonate::ChromeV153
     ) {
         Some(crate::imp::header_order_upgrade_first_sec_chua_last().clone())
-    } else if matches!(chrome, Impersonate::ChromeV150) {
-        Some(chrome150_header_order().clone())
+    } else if matches!(
+        chrome,
+        Impersonate::ChromeV150 | Impersonate::ChromeV151 | Impersonate::ChromeV152
+    ) {
+        Some(header_order_chrome150().clone())
     } else {
         Some(crate::imp::header_order_sec_chua_first().clone())
     };
@@ -326,13 +346,12 @@ fn chrome_pseudo_order() -> &'static PseudoOrder {
             .push(PseudoId::Authority)
             .push(PseudoId::Scheme)
             .push(PseudoId::Path)
-            .build()
+            .build_without_extend()
     })
 }
 
-/// Chrome 150 header order, identical to `header_order_sec_chua_first` but with
-/// `sec-purpose` inserted right after `user-agent` (per real capture).
-fn chrome150_header_order() -> &'static Vec<http::HeaderName> {
+/// Chrome 150+ order + `sec-purpose` after `user-agent`.
+fn header_order_chrome150() -> &'static Vec<http::HeaderName> {
     static ORDER: OnceLock<Vec<http::HeaderName>> = OnceLock::new();
     ORDER.get_or_init(|| {
         vec![
@@ -537,6 +556,39 @@ mod tests {
             super::super::compute_akamai_hash(&text),
             CHROME_AKAMAI_HASH,
             "Chrome 152 akamai_hash mismatch"
+        );
+    }
+
+    const CHROME153_JA4: &str = "t13d1517h2_8daaf6152771_cb7bf5808d99";
+    const CHROME153_JA4_RO: &str = "t13d1517h2_1301,1302,1303,c02b,c02f,c02c,c030,cca9,cca8,c013,c014,009c,009d,002f,0035_0000,002d,ca34,fe0d,001b,000b,0023,44cd,002b,000a,0005,0033,0010,0017,0012,000d,ff01_0904,0905,0906,0403,0804,0401,0503,0805,0501,0806,0601";
+    const CHROME153_USER_AGENT: &str = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36";
+
+    #[test]
+    fn chrome153_offline() {
+        let (ja4, ja4_ro) = super::super::extract_ja4(Impersonate::ChromeV153);
+        assert_eq!(ja4, CHROME153_JA4, "Chrome 153 JA4 mismatch");
+        assert_eq!(ja4_ro, CHROME153_JA4_RO, "Chrome 153 JA4_ro mismatch");
+        let settings = get_browser_settings(Impersonate::ChromeV153, Some(ImpersonateOS::Linux));
+        assert_eq!(
+            settings
+                .headers
+                .get("user-agent")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            CHROME153_USER_AGENT
+        );
+        assert_eq!(
+            settings.headers.get("sec-ch-ua").unwrap().to_str().unwrap(),
+            "\"Google Chrome\";v=\"153\", \"Not_A Brand\";v=\"8\", \"Chromium\";v=\"153\"",
+            "Chrome 153 sec-ch-ua mismatch vs capture"
+        );
+        let text = super::super::compute_akamai_text(&settings.http2);
+        assert_eq!(text, CHROME_AKAMAI_TEXT, "Chrome 153 akamai_text mismatch");
+        assert_eq!(
+            super::super::compute_akamai_hash(&text),
+            CHROME_AKAMAI_HASH,
+            "Chrome 153 akamai_hash mismatch"
         );
     }
 }

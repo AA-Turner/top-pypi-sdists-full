@@ -73,6 +73,9 @@ def wfc_login_plain() -> OpenAPIApp:
 
 WFC_ROLES = ("viewer", "editor", "admin")
 
+# Enough 404s that a run which stops learning after the first one can never reach the denial.
+_MISSING_BEFORE_DENIAL = 3
+
 _ROLE_GATED = {
     "/api/open": {"get": {"responses": {"200": {"description": "OK"}}}},
     "/api/editor-only/{itemId}": {
@@ -102,6 +105,16 @@ _ROLE_GATED = {
                 "204": {"description": "Deleted"},
                 "401": {"description": "Unauthorized"},
                 "403": {"description": "Forbidden"},
+            },
+        }
+    },
+    "/api/missing-first/{itemId}": {
+        "delete": {
+            "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+            "responses": {
+                "204": {"description": "Deleted"},
+                "403": {"description": "Forbidden"},
+                "404": {"description": "Not found"},
             },
         }
     },
@@ -144,6 +157,8 @@ def wfc_role_gated(deny_status: int = 403) -> OpenAPIApp:
     spec = build_schema(_ROLE_GATED)
     app = make_flask_app_from_schema(spec)
 
+    seen: list[str] = []
+
     def role() -> str:
         return (request.headers.get("Authorization") or "").removeprefix("ApiKey ").strip()
 
@@ -168,6 +183,16 @@ def wfc_role_gated(deny_status: int = 403) -> OpenAPIApp:
         if role() != "admin":
             return jsonify({"detail": "denied"}), deny_status
         raise RuntimeError("boom")
+
+    @app.route("/api/missing-first/<item_id>", methods=["DELETE"])
+    def missing_first(item_id: str) -> object:
+        # The id is checked before the role, so the first denial arrives only after several 404s.
+        seen.append(item_id)
+        if len(seen) <= _MISSING_BEFORE_DENIAL:
+            return jsonify({"detail": "not found"}), 404
+        if role() != "admin":
+            return jsonify({"detail": "denied"}), deny_status
+        return "", 204
 
     @app.route("/api/nobody/<item_id>", methods=["DELETE"])
     def nobody(item_id: str) -> object:
@@ -231,5 +256,60 @@ def wfc_expiring_token() -> OpenAPIApp:
             return jsonify({"detail": "token expired"}), 401
         issued[token] = used + 1
         return jsonify({"ok": True})
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def wfc_credentials_rejected() -> OpenAPIApp:
+    """Every credential is invalid; the endpoint serves anonymous callers and 401s any `Authorization`."""
+    spec = build_schema(
+        {
+            "/api/public/{itemId}": {
+                "get": {
+                    "parameters": [{"name": "itemId", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}, "401": {"description": "Unauthorized"}},
+                }
+            }
+        }
+    )
+    app = make_flask_app_from_schema(spec)
+
+    @app.route("/api/public/<item_id>", methods=["GET"])
+    def public(item_id: str) -> object:
+        if request.headers.get("Authorization"):
+            return jsonify({"detail": "Bad credentials"}), 401
+        return jsonify({"ok": True})
+
+    return OpenAPIApp(spec=spec, server=app, kind="flask")
+
+
+def wfc_role_gated_401_when_anonymous() -> OpenAPIApp:
+    """No identity is authorized, and dropping credentials only moves the refusal earlier."""
+    spec = build_schema(_ROLE_GATED)
+    app = make_flask_app_from_schema(spec)
+
+    def refuse() -> object:
+        if not request.headers.get("Authorization"):
+            return jsonify({"detail": "unauthenticated"}), 401
+        return jsonify({"detail": "denied"}), 403
+
+    @app.route("/api/open", methods=["GET"])
+    def open_endpoint() -> object:
+        return jsonify({"ok": True})
+
+    @app.route("/api/nobody/<item_id>", methods=["DELETE"])
+    def nobody(item_id: str) -> object:
+        return refuse()
+
+    for path, name in (
+        ("/api/editor-only/<item_id>", "editor_only"),
+        ("/api/admin-only/<item_id>", "admin_only"),
+        ("/api/admin-boom/<item_id>", "admin_boom"),
+    ):
+        app.add_url_rule(path, name, refuse, methods=["DELETE"])
+
+    @app.route("/api/validated", methods=["POST"])
+    def validated() -> object:
+        return refuse()
 
     return OpenAPIApp(spec=spec, server=app, kind="flask")

@@ -8056,8 +8056,27 @@ def list_audit_destinations(ctx, name=None, **kwargs):
     default=None,
     type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
 )
+@click.option("--google-project-id", default=None, type=str)
+@click.option("--google-location", default=None, type=str)
+@click.option("--google-instance-id", default=None, type=str)
+@click.option(
+    "--service-account-json",
+    default=None,
+    type=str,
+    help="Google service-account key JSON, inline (see --service-account-json-file)",
+)
+@click.option(
+    "--service-account-json-file",
+    default=None,
+    type=click.File("r"),
+    help="Path to a Google service-account key JSON file",
+)
 @click.pass_context
-def add_audit_destination(ctx, routing_extra_location=None, **kwargs):
+def add_audit_destination(
+    ctx, routing_extra_location=None, service_account_json_file=None, **kwargs
+):
+    if service_account_json_file is not None:
+        kwargs["service_account_json"] = service_account_json_file.read()
     result = audit_destinations.add_audit_destination(
         ctx, routing_extra_locations=routing_extra_location, **kwargs
     )
@@ -8102,8 +8121,31 @@ def add_audit_destination(ctx, routing_extra_location=None, **kwargs):
     default=None,
     type=click.Choice(audit_destinations.WEBHOOK_FORMATS),
 )
+@click.option("--google-project-id", default=None, type=str)
+@click.option("--google-location", default=None, type=str)
+@click.option("--google-instance-id", default=None, type=str)
+@click.option(
+    "--service-account-json",
+    default=None,
+    type=str,
+    help="Google service-account key JSON, inline (see --service-account-json-file)",
+)
+@click.option(
+    "--service-account-json-file",
+    default=None,
+    type=click.File("r"),
+    help="Path to a Google service-account key JSON file",
+)
 @click.pass_context
-def update_audit_destination(ctx, destination_id, routing_extra_location=None, **kwargs):
+def update_audit_destination(
+    ctx,
+    destination_id,
+    routing_extra_location=None,
+    service_account_json_file=None,
+    **kwargs,
+):
+    if service_account_json_file is not None:
+        kwargs["service_account_json"] = service_account_json_file.read()
     result = audit_destinations.update_audit_destination(
         ctx, destination_id, routing_extra_locations=routing_extra_location, **kwargs
     )

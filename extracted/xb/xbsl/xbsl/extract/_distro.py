@@ -137,7 +137,9 @@ def _read_index(idx: Path) -> dict:
 
 
 def _write_index(idx: Path, data: dict) -> None:
-    idx.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    idx.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def update_index(version: str, make_default: bool = True) -> None:
@@ -198,7 +200,7 @@ def keep_previous(version: str, build: str) -> str:
     previous = str((data.get("builds") or {}).get(version, ""))
     if not previous:
         return ("прежний каталог не несёт номера сборки - снимок не назван и не сделан; "
-                "номер записывается начиная с этого прогона")
+                "номер записывается начиная с этого запуска")
     if build and previous == build:
         return f"в каталоге уже сборка +{previous} - снимок не нужен"
     snapshot = f"{version}+{previous}"

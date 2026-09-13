@@ -50,7 +50,7 @@ class ScrapedPage(BaseModel):
     content_type: str | None = None
     text: str = Field(
         default="",
-        description="Best-available readable text. Falls back across ai_research_content → markdown_renderable → text_data → raw_text.",
+        description="Best-available readable text: the article body (main content) when the page is article-like, else the full page (ai_research_content \u2192 markdown_renderable \u2192 text_data \u2192 raw_text).",
     )
     markdown: str | None = None
     scraped_at: str | None = None
@@ -274,7 +274,10 @@ def _scrape_result_to_page(result: Any) -> ScrapedPageItem:
     """
     get = _getter(result)
     text = (
-        get("ai_research_content")
+        # THE MAIN-CONTENT LAW (parser/main_content.py): the article body first
+        # — an LLM node handed the whole page learns the site's furniture.
+        get("main_content_text")
+        or get("ai_research_content")
         or get("ai_content")
         or get("markdown_renderable")
         or get("text_data")

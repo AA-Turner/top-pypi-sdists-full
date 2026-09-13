@@ -48,11 +48,22 @@ class ExpressStubSession(Session):
 
         self.bookmark = BookmarkExpressStub(self)
 
+    @property
+    def user(self) -> str | None:
+        return None
+
+    @property
+    def groups(self) -> list[str] | None:
+        return None
+
     def is_stub_session(self) -> Literal[True]:
         return True
 
     async def close(self, code: int = 1001) -> None:
         return
+
+    def _is_closed(self) -> bool:
+        return False
 
     # This is needed so that Outputs don't throw an error.
     def _is_hidden(self, name: str) -> bool:

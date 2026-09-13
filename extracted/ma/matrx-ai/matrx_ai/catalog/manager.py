@@ -173,6 +173,16 @@ class AiCatalogManager:
                     "common_name": getattr(row, "common_name", "") or "",
                     "is_deprecated": bool(getattr(row, "is_deprecated", False) or False),
                     "is_primary": bool(getattr(row, "is_primary", False) or False),
+                    # The model's CONTEXT WINDOW (ai.model_definition.context_window)
+                    # — what a prompt is measured against BEFORE the provider is
+                    # called (send-boundary pre-flight). NULL is honest: a model row
+                    # that never declared one is not measurable, and the pre-flight
+                    # says so rather than guessing a window.
+                    "context_window": (
+                        int(getattr(row, "context_window", None))
+                        if getattr(row, "context_window", None)
+                        else None
+                    ),
                     # Lifecycle (ai_075): retired_at = the DEAD state (null = alive);
                     # successor_id = the explicit replacement. provider_id +
                     # capabilities feed the same-class replacement fallback.
@@ -533,6 +543,22 @@ class AiCatalogManager:
 
     def model_state(self, model_id: str) -> dict[str, Any]:
         return dict(self._model_state.get(str(model_id), {}))
+
+    def context_window(self, model_ref: str | None) -> int | None:
+        """The declared context window for a model NAME, id or alias.
+
+        ``None`` when the catalog is not loaded, the ref does not resolve, or
+        the model row declares no window — never a guessed default: the
+        send-boundary pre-flight announces an unmeasurable model instead of
+        inventing a ceiling for it.
+        """
+        if not model_ref:
+            return None
+        state = self._model_state.get(self.resolve_model_ref(str(model_ref)))
+        if not state:
+            return None
+        window = state.get("context_window")
+        return int(window) if isinstance(window, int) and window > 0 else None
 
     def model_states(self) -> dict[str, dict[str, Any]]:
         """Every live model's state row (id -> dict) — the input to

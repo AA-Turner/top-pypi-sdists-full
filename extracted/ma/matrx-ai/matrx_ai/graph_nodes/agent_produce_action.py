@@ -47,6 +47,7 @@ carried through instead of dropped.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -66,7 +67,11 @@ from matrx_ai.graph_nodes.agent_action import (
     resolve_step_agent_full,
     run_step_agent,
 )
-from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed_result
+from matrx_ai.graph_nodes.shared import (
+    AiExecutionResult,
+    ai_output_failure,
+    normalize_completed_result,
+)
 from matrx_ai.kinds import is_bindable_kind, response_format_for_kind
 
 logger = logging.getLogger(__name__)
@@ -228,7 +233,9 @@ def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> N
     tags=("ai", "agent", "llm", "kinds"),
 )
 async def agent_produce(
-    ctx: NodeExecutionContext, inputs: AgentProduceInput
+    ctx: NodeExecutionContext,
+    inputs: AgentProduceInput,
+    config: AgentStartConfig | None = None,
 ) -> NodeResult[AgentProducedOutput]:
     require_agent_host(_NODE_TYPE)
     node_id = getattr(ctx, "node_id", None) or "?"
@@ -245,6 +252,7 @@ async def agent_produce(
         # ABOVE every other layer: the declaration is this node's contract, and
         # an authored config_overrides must never be able to unbind it.
         top_config_overrides={"response_format": await _response_format_for(ctx, kind)},
+        declared_variables=list(getattr(config, "exposed_variables", None) or []),
     )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 
@@ -253,7 +261,7 @@ async def agent_produce(
     if isinstance(completed, AiExecutionResult):
         outcome: NodeResult[AiExecutionResult] = success(completed)
     else:
-        outcome = normalize_completed_result(completed)
+        outcome = await asyncio.to_thread(normalize_completed_result, completed)
     if outcome.status == "error":
         # A failed paid turn already carries its billed usage in
         # error.details['usage'] — the scheduler settles cost from there.
@@ -264,9 +272,13 @@ async def agent_produce(
 
     payload = normalized.structured_output
     if not isinstance(payload, dict):
-        return failure(
-            "kind_output_missing",
-            (
+        # The richer source wins: a CompletedRequest still knows the request's
+        # configured ceiling even when no truncation marker was stamped.
+        return ai_output_failure(
+            normalized if isinstance(completed, AiExecutionResult) else completed,
+            code="kind_output_missing",
+            what="the structured answer",
+            message=(
                 f"The agent was bound to answer in '{kind}' but returned "
                 f"{'a list' if isinstance(payload, list) else 'no structured result'}. "
                 "A kind-bound step has nothing to hand downstream without one."

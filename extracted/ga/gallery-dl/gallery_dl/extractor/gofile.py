@@ -36,8 +36,11 @@ class GofileFolderExtractor(Extractor):
         if not folder.get("canAccess"):
             raise self.exc.AuthorizationError("Password required")
 
-        contents = (folder.pop("children").values()
-                    if "children" in folder else (folder,))
+        if "children" in folder:
+            contents = folder.pop("children").values()
+        else:
+            contents = (folder,)
+            folder = None
 
         num = 0
         for content in contents:

@@ -35,7 +35,7 @@ class ClientTransaction():
 
     def initialize(self, extractor, homepage=None):
         if homepage is None:
-            homepage = extractor.request("https://x.com/").text
+            homepage = extractor.request("https://x.com/home").text
 
         key = self._extract_verification_key(homepage)
         if not key:
@@ -46,6 +46,8 @@ class ClientTransaction():
         ondemand_key = text.rextr(homepage, ",", ':', ondemand_pos)
         ondemand_s = text.extract(
             homepage, ondemand_key + ':"', '"', ondemand_pos)[0]
+        if not ondemand_s:
+            extractor.log.error("Failed to extract 'ondemand.s.…a.js' key")
 
         indices = extractor.cache(
             self._extract_indices, ondemand_s, extractor, _mem=False)

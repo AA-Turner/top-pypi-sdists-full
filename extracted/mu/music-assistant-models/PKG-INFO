@@ -1,16 +1,14 @@
 Metadata-Version: 2.4
 Name: music_assistant_models
-Version: 1.1.210
+Version: 1.1.212
 Summary: Music Assistant Base Models
 Author-email: The Music Assistant Authors <music_assistant@users.noreply.github.com>
 License: Apache-2.0
 Platform: any
 Classifier: Environment :: Console
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.11
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: orjson>=3.9

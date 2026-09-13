@@ -989,6 +989,7 @@ def _expr201(gen0: TypeInfo) -> TypeInfo:
 
 @dataclass(eq=False, repr=False, slots=True)
 class SetTreeModule_SetIterator_1[T](Record):
+    __fable_field_names__ = ("stack", "started")
     stack_: FSharpList[SetTreeLeaf_1[Any] | None]
     started_: bool
 
@@ -1848,7 +1849,7 @@ def SetTreeModule_ofSeq[T](comparer: IComparer_1[T], c: IEnumerable_1[T]) -> Set
             return erase(SetTreeModule_mkFromEnumerator(comparer, SetTreeModule_empty(), ie))
 
 
-def _expr207(gen0: TypeInfo) -> TypeInfo:
+def _expr209(gen0: TypeInfo) -> TypeInfo:
     return class_type("Set.FSharpSet", Array([gen0]), FSharpSet)
 
 
@@ -1956,7 +1957,7 @@ class FSharpSet[T](Set[Any], StringableBase, ComparableBase, EquatableBase, Enum
         return to_iterator(self.GetEnumerator())
 
 
-FSharpSet_reflection = _expr207
+FSharpSet_reflection = _expr209
 
 
 def FSharpSet__ctor[T](comparer: IComparer_1[T], tree: SetTreeLeaf_1[T] | None = None) -> FSharpSet[T]:
@@ -2002,10 +2003,10 @@ def FSharpSet__Iterate[T](s: FSharpSet[T], x: Callable[[T], None]) -> None:
 def FSharpSet__Fold[_A, T](s: FSharpSet[T], f: Callable[[T, _A], _A], z: _A) -> _A:
     f_1: Any = f
 
-    def _arrow208(x: _A, z_1: T) -> _A:
+    def _arrow217(x: _A, z_1: T) -> _A:
         return f_1(z_1, x)
 
-    return SetTreeModule_fold(_arrow208, z, FSharpSet__get_Tree(s))
+    return SetTreeModule_fold(_arrow217, z, FSharpSet__get_Tree(s))
 
 
 def FSharpSet__get_IsEmpty[T](s: FSharpSet[T]) -> bool:
@@ -2037,10 +2038,10 @@ def FSharpSet__Filter[T](s: FSharpSet[T], f: Callable[[T], bool]) -> FSharpSet[T
 
 
 def FSharpSet__Map[U, T](s: FSharpSet[T], f: Callable[[T], U], comparer: IComparer_1[U]) -> FSharpSet[U]:
-    def _arrow209(acc: SetTreeLeaf_1[U] | None, k: T, f: Any = f, comparer: Any = comparer) -> SetTreeLeaf_1[U] | None:
+    def _arrow219(acc: SetTreeLeaf_1[U] | None, k: T, f: Any = f, comparer: Any = comparer) -> SetTreeLeaf_1[U] | None:
         return erase(SetTreeModule_add(comparer, f(k), acc))
 
-    return FSharpSet__ctor(comparer, SetTreeModule_fold(_arrow209, SetTreeModule_empty(), FSharpSet__get_Tree(s)))
+    return FSharpSet__ctor(comparer, SetTreeModule_fold(_arrow219, SetTreeModule_empty(), FSharpSet__get_Tree(s)))
 
 
 def FSharpSet__Exists[T](s: FSharpSet[T], f: Callable[[T], bool]) -> bool:

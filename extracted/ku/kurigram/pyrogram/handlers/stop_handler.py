@@ -16,13 +16,15 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import TYPE_CHECKING, Any, Callable
+from __future__ import annotations as _annotations
+
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from .handler import Handler
 
 if TYPE_CHECKING:
     import pyrogram
-    from pyrogram import types
 
 
 class StopHandler(Handler):
@@ -43,5 +45,5 @@ class StopHandler(Handler):
             is established.
     """
 
-    def __init__(self, callback: Callable[["pyrogram.Client"], Any]):
+    def __init__(self, callback: Callable[[pyrogram.Client], Any]):
         super().__init__(callback)

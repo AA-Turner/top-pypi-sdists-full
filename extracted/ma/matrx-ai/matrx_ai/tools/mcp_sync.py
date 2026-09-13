@@ -66,6 +66,21 @@ class SyncResult:
 
 
 async def sync_server(slug: str, *, force: bool = False) -> SyncResult:
+    """Synchronize one remote catalog as the named ``mcp_sync`` code actor.
+
+    Every entry point — manual refresh, background sweep, bundle discovery,
+    and direct inclusion — reaches this boundary.  The catalog reconciliation
+    RPC writes ``tool.definition`` rows, so leaving its provenance to the
+    database's unnamed-code fallback is invalid and must never be caller
+    dependent.
+    """
+    from matrx_orm import declared_actor
+
+    async with declared_actor("code", "mcp_sync"):
+        return await _sync_server(slug, force=force)
+
+
+async def _sync_server(slug: str, *, force: bool = False) -> SyncResult:
     """Sync a single MCP server's tool catalog into ``public.tool_def`` +
     ``tool_binding``.
 
@@ -388,7 +403,7 @@ async def _register_mcp_discovered(
     (Previously the delta was always empty: the old code expected a dict from
     an integer-returning function, so every sync report showed "0 changes".)
     """
-    from matrx_orm import call_function
+    from matrx_orm import call_function, transaction
     from matrx_orm.core.config import get_all_database_project_names
 
     names = get_all_database_project_names()
@@ -399,14 +414,18 @@ async def _register_mcp_discovered(
         )
     database = names[0]
     before = await _snapshot_managed_tools(server_id)
-    await call_function(
-        database,
-        "public",
-        "tool_register_mcp_discovered",
-        server_id,
-        specs,
-        mode="scalar",
-    )
+    # Discovery has already completed above; only the atomic reconciliation
+    # belongs in a transaction.  This makes the outer ``declared_actor`` reach
+    # the same connection that invokes the write RPC via the ORM session GUCs.
+    async with transaction(database):
+        await call_function(
+            database,
+            "public",
+            "tool_register_mcp_discovered",
+            server_id,
+            specs,
+            mode="scalar",
+        )
     if before is None:
         return {"inserted": [], "updated": [], "deactivated": []}
     after = await _snapshot_managed_tools(server_id) or {}

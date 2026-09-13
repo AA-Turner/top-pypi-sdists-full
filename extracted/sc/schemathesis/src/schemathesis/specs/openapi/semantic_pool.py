@@ -19,7 +19,7 @@ from schemathesis.core.jsonschema import get_type, maybe_resolve_bundled, schema
 from schemathesis.core.jsonschema.types import JsonSchemaObject
 from schemathesis.specs.openapi.formats import HEADER_FORMAT
 from schemathesis.specs.openapi.headers import KNOWN_HEADER_FORMATS
-from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_for_matching
+from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_for_matching, to_singular
 
 # Format tokens injected by the parameter adapter rather than declared by users. Slots tagged with these bypass
 # wire-level filters, so the consumer walker drops them and the ingestion walker treats them as "no format".
@@ -133,12 +133,18 @@ class SemanticValueIndex:
         format_token: str | None,
         pattern_hash: str | None,
         normalized_name: str | None,
+        name_only: bool = False,
     ) -> tuple[SemanticCandidate, ...]:
         # Short-circuit excluded formats so pattern/name fallbacks can't smuggle in an identity-shaped value
         # (e.g. a UUID stored under a name bucket because the producer omitted `format`).
         if format_token is not None and not is_pool_eligible(type_token=type_token, format_token=format_token):
             return ()
         with self._lock:
+            if name_only:
+                if not normalized_name:
+                    return ()
+                bucket = self.by_name.get((type_token, normalized_name))
+                return bucket.entries() if bucket is not None and len(bucket) > 0 else ()
             if format_token is not None:
                 bucket = self.by_format.get((type_token, format_token))
                 if bucket is not None and len(bucket) > 0:
@@ -205,6 +211,8 @@ def _is_numeric_bounded(schema: JsonSchemaObject) -> bool:
 
 DEFAULT_MAX_DEPTH = 8
 DEFAULT_MAX_NODES = 10_000
+# Items sampled per array: enough for value diversity without one long list draining the walk budget.
+MAX_ARRAY_ITEMS = 10
 
 
 # Order matters: more-specific patterns first so a date-time string is not classified as a date.
@@ -380,6 +388,30 @@ def _walk_ingestion(
                     root=root,
                 )
             return
+        if type_token == "array" or (type_token is None and isinstance(body, list)):
+            items = schema.get("items")
+            if not isinstance(items, dict) or not isinstance(body, list):
+                return
+            items = _resolve_combinator(_resolve_ref(items, root), root)
+            if _normalize_type(items) == "object" or "properties" in items:
+                element_name = name
+            elif name is not None:
+                # A list of scalars is named for its collection; consumers spell it in the singular.
+                element_name = to_singular(name)
+            else:
+                return
+            for element in body[:MAX_ARRAY_ITEMS]:
+                yield from _walk_ingestion(
+                    items,
+                    element,
+                    name=element_name,
+                    depth=depth + 1,
+                    excluded=excluded,
+                    budget=budget,
+                    max_depth=max_depth,
+                    root=root,
+                )
+            return
         if type_token in ("string", "integer", "number"):
             if name is None or not _is_primitive_value(body, type_token):
                 return
@@ -428,6 +460,15 @@ def _walk_ingestion_schemaless(
             )
         return
     if isinstance(body, list):
+        # Items are unnamed, so a list of scalars borrows its collection's name in the singular.
+        element_name = to_singular(name) if name is not None else None
+        for element in body[:MAX_ARRAY_ITEMS]:
+            budget.nodes_left -= 1
+            if budget.nodes_left < 0:
+                return
+            yield from _walk_ingestion_schemaless(
+                element, name=element_name, depth=depth + 1, excluded=excluded, budget=budget, max_depth=max_depth
+            )
         return
     if name is None:
         return

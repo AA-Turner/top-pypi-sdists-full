@@ -1,0 +1,101 @@
+requires = ['tox>=4.21', 'tox-uv>=1']
+
+env_list = [
+    'py310', 'py311', 'py312', 'py313', 'py314',
+    'pypy310', 'pypy311',
+    'ruff', 'mypy', 'basedpyright', 'pyrefly', 'ty',
+    'codespell', 'repo-review', 'zizmor', 'docs', 'distribution',
+]
+skip_missing_interpreters = true
+
+[env_run_base]
+labels = ['test']
+pass_env = ['FORCE_COLOR', 'REDIS_HOST', 'REDIS_PORT']
+extras = ['tests']
+commands = [['pytest', { replace = 'posargs', extend = true }]]
+
+[env.redis-live]
+labels = ['test']
+description = 'RedisLock tests against a required live Redis server'
+pass_env = ['FORCE_COLOR', 'REDIS_HOST', 'REDIS_PORT']
+set_env = { PORTALOCKER_REDIS_TESTS_REQUIRED = '1' }
+extras = ['tests']
+commands = [
+    [
+        'pytest',
+        '--no-cov',
+        'portalocker_tests/test_redis.py',
+        'portalocker_tests/test_redis_random_sleep.py',
+        { replace = 'posargs', extend = true },
+    ],
+]
+
+[env.win32]
+labels = ['test']
+description = 'windows tests with the pywin32 extra installed'
+extras = ['tests', 'win32']
+commands = [['pytest', { replace = 'posargs', extend = true }]]
+
+[env.ruff]
+labels = ['check']
+skip_install = true
+deps = ['ruff']
+commands = [['ruff', 'check'], ['ruff', 'format', '--check']]
+
+[env.mypy]
+labels = ['check']
+extras = ['tests']
+deps = ['mypy']
+commands = [['mypy']]
+
+[env.basedpyright]
+labels = ['check']
+extras = ['tests']
+deps = ['basedpyright']
+commands = [['basedpyright']]
+
+[env.pyrefly]
+labels = ['check']
+extras = ['tests']
+deps = ['pyrefly']
+commands = [['pyrefly', 'check']]
+
+[env.ty]
+labels = ['check']
+extras = ['tests']
+deps = ['ty']
+commands = [['ty', 'check']]
+
+[env.codespell]
+labels = ['check']
+skip_install = true
+deps = ['codespell', 'tomli']
+commands = [['codespell']]
+
+[env.repo-review]
+labels = ['check']
+skip_install = true
+deps = ['sp-repo-review[cli]', 'validate-pyproject']
+commands = [['repo-review', '.']]
+
+[env.docs]
+labels = ['docs']
+extras = ['docs']
+commands = [
+    ['sphinx-build', '-W', '-b', 'html', 'docs', 'docs/_build/html'],
+]
+
+[env.zizmor]
+labels = ['check']
+skip_install = true
+deps = ['zizmor']
+commands = [['zizmor', '--offline', '.github/workflows']]
+
+[env.distribution]
+labels = ['package']
+skip_install = true
+deps = ['uv', 'twine', 'readme-renderer[md]']
+commands = [
+    ['uv', 'build', '--out-dir', '{env_tmp_dir}/dist'],
+    ['python', 'scripts/check_distribution.py', '{env_tmp_dir}/dist'],
+]

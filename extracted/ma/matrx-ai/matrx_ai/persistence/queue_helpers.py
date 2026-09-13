@@ -24,8 +24,8 @@ provides its own synchronous commit barrier without requiring a RequestLane.
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Iterator, Sequence
+from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
 from typing import Any
 
@@ -682,23 +682,59 @@ def queue_user_request_update(id: str, **fields: Any) -> str:
 
 # ---------- cx_message ----------------------------------------------------
 
+# WHO AUTHORED THIS ROW — declared here, PER ROW, because one chat turn writes
+# two rows with two different authors: the person's typed message and the
+# model's answer. A declaration wrapped around the whole turn could only tell
+# one of those truths, and would lie about the other.
+#
+# The declaration rides on the queued op (matrx_orm.session.op captures the
+# ContextVar at queue time) and the flush re-declares it per row before that
+# row's statement, because the commit happens inside the coordinator's flush —
+# long after this function returned.
+#
+# A row whose role we don't recognise (system/tool rows) declares NOTHING, and
+# the DB resolver applies its documented default exactly as before.
+_ROLE_ACTORS: dict[str, tuple[str, str]] = {
+    "user": ("human", "chat_user_turn"),
+    "assistant": ("ai", "chat_assistant_turn"),
+}
+
+
+@contextmanager
+def _declaring_role_actor(role: Any) -> Iterator[None]:
+    """Declare the author implied by a chat row's ``role``, if we know it."""
+    declared = _ROLE_ACTORS.get(role) if isinstance(role, str) else None
+    if declared is None:
+        yield
+        return
+    from matrx_orm import declaring_actor
+
+    tier, system = declared
+    with declaring_actor(tier, system):  # type: ignore[arg-type]
+        yield
+
 
 def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str:
-    return _queue_or_drop(
-        "chat.message",
-        {"id": id, "conversation_id": conversation_id, **fields},
-        op_type="insert",
-        depends_on=(("chat.conversation", conversation_id),),
-    )
+    with _declaring_role_actor(fields.get("role")):
+        return _queue_or_drop(
+            "chat.message",
+            {"id": id, "conversation_id": conversation_id, **fields},
+            op_type="insert",
+            depends_on=(("chat.conversation", conversation_id),),
+        )
 
 
 def queue_message_update(id: str, **fields: Any) -> str:
-    return _queue_or_drop(
-        "chat.message",
-        fields,
-        op_type="update",
-        primary_key=("id", id),
-    )
+    # An UPDATE that names the role re-declares the row's author; one that
+    # doesn't stays silent and keeps whatever the INSERT declared (coalescing
+    # preserves the last DECLARED author for the row).
+    with _declaring_role_actor(fields.get("role")):
+        return _queue_or_drop(
+            "chat.message",
+            fields,
+            op_type="update",
+            primary_key=("id", id),
+        )
 
 
 # ---------- cx_request ----------------------------------------------------

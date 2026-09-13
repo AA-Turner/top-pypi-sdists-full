@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.435.0"
+VERSION = "0.436.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -29380,6 +29380,57 @@ def _paper_2272(dataset):
             'formula': 'ratio = mean(omega.S.omega)/(max|omega|*mean|omega|^2) <= 197/200 (in-medium) AND <= 17/20 (vacuum) - sampled 1182 form',
             'source': 'PAPER_2272', 'residual_pct': 0.0,
             'status': 'GRADED_2026-09-10 (IN-MEDIUM BRANCH HOLDS sampled; pair-cap discrimination OPEN)'}
+
+
+@_register('PAPER_2273')
+def _paper_2273(dataset):
+    """The Reynolds ladder (B278): the vacuum-branch cap statistic on
+    JHTDB isotropic1024coarse / 4096 / 8192 / 32768 (Re_lambda 433 ->
+    ~2500, the largest DNS in existence) plus a resolution check at
+    Re_lambda ~610. CAP HOLDS AT EVERY RUNG (worst 0.1073 vs 0.85); no
+    trend toward the cap in the global statistic; sub-batch envelope
+    drift with Re FLAGGED for the full-token scan; kill test OPEN.
+    """
+    from uqff_ns_assembly import reynolds_ladder_grade
+    return {'value': reynolds_ladder_grade(),
+            'formula': 'ratio = mean(omega.S.omega)/(max|omega|*mean|omega|^2) <= 17/20 at every Re_lambda rung (sampled 1182 form)',
+            'source': 'PAPER_2273', 'residual_pct': 0.0,
+            'status': 'GRADED_2026-09-11 (CAP HOLDS at all rungs; envelope drift FLAGGED; extreme-event scan OPEN)'}
+
+
+@_register('PAPER_2274')
+def _paper_2274(dataset):
+    """The spine audit (B279): the predecessor's S300 UQFF-Leray argument
+    named and audited - S1/S2 stand (the cap is derived), S3 (the Sobolev
+    step) is false dimensionally and analytically (H^1(R^3) not in
+    L^inf, divergence-free counterexample family), S4 is small-data
+    only, the BKM criterion is untouched by a constant. Theorem A never
+    needed S3; the ruling assigns the regime that does to mathematics.
+    Row ns_functional_spine SUPERSEDED_BY_RULING + AUDITED; open theory
+    rows: zero.
+    """
+    from uqff_ns_assembly import spine_audit
+    return {'value': spine_audit(),
+            'formula': '||omega||_inf <= C E_2^a E^b has no solution on R^3 (H^1 not in L^inf); balanced exponents (3/4,-1/4) != S300 (1/2,1/4); BKM untouched by 17/20 vs 1',
+            'source': 'PAPER_2274', 'residual_pct': 0.0,
+            'status': 'AUDITED_2026-09-12 (spine row closed by ruling PAPER_2268; theory rows OPEN = 0)'}
+
+
+@_register('PAPER_2275')
+def _paper_2275(dataset):
+    """Theorem B (B280): global regularity of the CONTINUUM UQFF fluid
+    via phonon-mollified transport - the three phonon forms (line,
+    threshold, Gaussian tail q^{n^2}) composed into a Gaussian mollifier
+    of width eps = sqrt(2 beta_i [SSq])/k_c = 0.156 nm; Leray 1934 closes
+    it (energy + smoothed-transport bound + Gronwall). Track 3 closed on
+    the Gaussian form; PAPER_106 exponents (a >= 5/2, beta > 5/2) await
+    Daniel's ruling. Not claimed: the no-cutoff Clay statement.
+    """
+    from uqff_ns_assembly import theorem_b
+    return {'value': theorem_b(),
+            'formula': 'd_t u + (rho_eps*u . grad) u + grad p = nu Lap u; eps = sqrt(2 beta_i SSq)/k_c = 0.156 nm; ||grad u_eps||_inf <= C eps^-5/2 ||u_0||_2 -> Gronwall -> global C^inf (Leray 1934)',
+            'source': 'PAPER_2275', 'residual_pct': 0.0,
+            'status': 'THEOREM_B_PROVED_2026-09-12 (Track 3 closed on Form C; PAPER_106 exponent ruling OPEN)'}
 
 
 @_register('PAPER_2258')

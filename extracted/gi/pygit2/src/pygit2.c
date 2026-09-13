@@ -40,6 +40,11 @@
 PyObject *GitError;
 PyObject *AlreadyExistsError;
 PyObject *InvalidSpecError;
+PyObject *InvalidError;
+PyObject *NotFoundError;
+PyObject *AmbiguousError;
+PyObject *AuthError;
+PyObject *CertificateError;
 
 PyObject *DeltaStatusEnum;
 PyObject *DiffFlagEnum;
@@ -402,6 +407,7 @@ _cache_enums(PyObject *self, PyObject *args)
 
 #undef CACHE_PYGIT2_ENUM
 
+    Py_DECREF(enums);
     Py_RETURN_NONE;
 
 fail:
@@ -461,8 +467,13 @@ PyInit__pygit2(void)
 
     /* Exceptions */
     ADD_EXC(m, GitError, NULL);
-    ADD_EXC(m, AlreadyExistsError, PyExc_ValueError);
-    ADD_EXC(m, InvalidSpecError, PyExc_ValueError);
+    ADD_EXC2(m, AlreadyExistsError, GitError, PyExc_ValueError);
+    ADD_EXC2(m, InvalidSpecError, GitError, PyExc_ValueError);
+    ADD_EXC2(m, InvalidError, GitError, PyExc_ValueError);
+    ADD_EXC2(m, NotFoundError, GitError, PyExc_KeyError);
+    ADD_EXC2(m, AmbiguousError, GitError, PyExc_ValueError);
+    ADD_EXC(m, AuthError, GitError);
+    ADD_EXC(m, CertificateError, GitError);
 
     /* Repository */
     INIT_TYPE(RepositoryType, NULL, PyType_GenericNew)

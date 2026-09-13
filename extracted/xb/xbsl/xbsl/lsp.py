@@ -364,7 +364,7 @@ def _resolve_templates_path(arg: Optional[str], folder: Optional[Path]) -> Optio
 
 
 def project_sources(root: Path) -> list[Path]:
-    """The files of a whole-project pass: modules, element descriptions and query files.
+    """The files of a whole-project pass: modules, element descriptions, queries, resources.
 
     The same set the CLI collects (`discover` in cli.py). A set of its own would make one and
     the same finding visible or not depending on who asks - the CLI has been reading the query
@@ -372,7 +372,8 @@ def project_sources(root: Path) -> list[Path]:
     """
     return (engine.find_sources(root, "*.xbsl")
             + engine.find_sources(root, "*.yaml")
-            + engine.find_sources(root, f"*{engine.QUERY_SUFFIX}"))
+            + engine.find_sources(root, f"*{engine.QUERY_SUFFIX}")
+            + engine.find_resources(root))
 
 
 def _make_server() -> "LanguageServer":
@@ -423,7 +424,7 @@ def _make_server() -> "LanguageServer":
                                    enable=STATE.enable, scopes=("file",))
         diags, problem = apply_baseline_file(diags, STATE.baseline)
         if problem:
-            server.show_message_log(f"xbsl-lsp: базлайн не применён: {problem}")
+            server.show_message_log(f"xbsl-lsp: список принятых не применён: {problem}")
         # The project findings of this file survive the per-file pass: they come from the
         # last whole-project run (already baselined there) and are refreshed on save.
         # Their positions may lag behind an edited buffer - that beats losing them.
@@ -478,7 +479,7 @@ def _make_server() -> "LanguageServer":
             diags = engine.run_sources(sources, select=STATE.select, ignore=STATE.ignore, enable=STATE.enable)
             diags, problem = apply_baseline_file(diags, STATE.baseline)
             if problem:
-                server.show_message_log(f"xbsl-lsp: базлайн не применён: {problem}")
+                server.show_message_log(f"xbsl-lsp: список принятых не применён: {problem}")
             # Everything is collected by the canonical key; the uri is carried alongside,
             # because publishing needs a uri and the key is not one.
             by_key: dict[str, list] = {}
@@ -1933,7 +1934,7 @@ def _adopt_ci(args: argparse.Namespace) -> None:
         job = cijob.find(where, args.as_ci or None, args.as_ci_job)
     except cijob.CiLintError as exc:
         print(str(exc), file=sys.stderr)
-        STATE.ci["error"] = str(exc)
+        STATE.ci = cijob.refused(str(exc))
         return
     # Merged, not replaced, exactly as in the CLI: the settings' own rules stay on top of
     # the job's set, so a rule being tried out in the editor is not lost to the pipeline.
@@ -1949,23 +1950,13 @@ def _adopt_ci(args: argparse.Namespace) -> None:
         print(job.hint(), file=sys.stderr)
     if job.note():
         print(job.note(), file=sys.stderr)
-    STATE.ci = {
-        "enabled": True,
-        "adopted": True,
-        "file": str(job.path),
-        # The include the command actually stands in, when one brought it - what to open.
-        "source": str(job.source) if job.source else None,
-        "job": job.job,
-        "baseline": job.baseline_file(),
-        "no_baseline": job.no_baseline,
-        "jobs": list(job.alternatives),
-        "unread_includes": list(job.unread),
-        # The ready-made lines, in the server's own language: the client shows them as they
-        # are instead of assembling a second wording of the same facts.
-        "line": job.describe(),
-        "hint": "" if args.as_ci_job else job.hint(),
-        "note": job.note(),
-    }
+    # The same record the CLI report and the MCP answer carry, so one adoption is described
+    # in one wording everywhere. The sentences come ready-made, in the language the server
+    # was started with, and the client shows them instead of assembling its own.
+    STATE.ci = job.as_dict(hint=not args.as_ci_job)
+    # `line` is what `flags` is called here. An extension already published reads that name,
+    # and losing the tooltip over a rename is a poor trade for one key.
+    STATE.ci["line"] = STATE.ci["flags"]
 
 
 def main() -> None:

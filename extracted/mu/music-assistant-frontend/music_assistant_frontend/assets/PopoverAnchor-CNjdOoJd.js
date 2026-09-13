@@ -1,0 +1,1 @@
+import{Gi as e,Oi as t,da as n,ji as r,li as i,ri as a,vi as o}from"./lucide-qiAdUB7g.js";import{ct as s}from"./reka-ui-BYA12g27.js";var c=i({__name:`PopoverAnchor`,props:{reference:{},asChild:{type:Boolean},as:{}},setup(i){let c=i;return(i,l)=>(t(),a(n(s),o({"data-slot":`popover-anchor`},c),{default:e(()=>[r(i.$slots,`default`)]),_:3},16))}});export{c as t};

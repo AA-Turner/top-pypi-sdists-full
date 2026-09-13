@@ -160,8 +160,7 @@ mod py_string_cache;
 mod python;
 #[cfg(feature = "serde")]
 pub mod serde;
-#[cfg(target_arch = "aarch64")]
-mod simd_aarch64;
+mod simd;
 mod string_decoder;
 mod value;
 
@@ -169,7 +168,7 @@ pub use errors::{JiterError, JiterErrorType, JsonError, JsonErrorType, JsonResul
 pub use jiter::{Jiter, JiterResult};
 pub use number_decoder::{NumberAny, NumberFloat, NumberInt};
 pub use parse::Peek;
-pub use value::{JsonArray, JsonObject, JsonValue};
+pub use value::{JsonArray, JsonObject, JsonValue, JsonValueScratch};
 
 #[cfg(feature = "python")]
 pub use py_lossless_float::{FloatMode, LosslessFloat};

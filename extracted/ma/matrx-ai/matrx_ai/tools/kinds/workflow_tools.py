@@ -66,6 +66,12 @@ class WorkflowCatalogResult(KindModel):
     #: page was shortened before the universal result gate could damage it.
     returned: int | None = None
     truncated: bool | None = None
+    #: The offset that returns the NEXT page, or None when the list ended here.
+    #: A capped page with no way to reach the rest hides capabilities from the
+    #: only reader the catalog has: 2026-09-12 the node catalog answered with
+    #: 100 of 236 types and no offset, and a Conductor concluded the platform
+    #: could not pause a run to ask a question.
+    next_offset: int | None = None
     #: ``get_node_type`` — the full palette entry (schemas included), wrapped.
     node_type: dict | None = None
     #: ``definition_shape`` — the worked example + its notes.
@@ -109,10 +115,24 @@ class WorkflowAuthorResult(KindModel):
     plans: list[dict] | None = None
     #: Rulebook provenance-stamp notes (what the platform normalized).
     provenance: list[str] | None = None
+    #: What each step in this definition actually RECEIVES, read off the
+    #: upstream node's declared output kind (``matrx_graph.shape_probe``):
+    #: emitted fields with their descriptions, the paths the edges read, and for
+    #: a list-shaping step the shape of ONE element its ``$item`` template runs
+    #: over — or an explicit statement that the element shape is undeclared.
+    #: Added 2026-09-12: an author wiring an edge or a template had no way to
+    #: see the shape it was wiring from, so the Conductor templated
+    #: ``$item.entries`` over raw ``gather_result.values`` elements and the
+    #: Newsroom Desk died at step 5 after four paid agents.
+    upstream_shapes: list[dict] | None = None
     #: ``patch`` only — what the merge ACTUALLY changed, read off the stored
     #: definition before and after (a removed node takes its edges with it, so
     #: the request and the result are not the same story).
     changes: list[str] | None = None
+    #: A successful save can retain non-blocking definition warnings.  They are
+    #: actionable author feedback, so they remain structured rather than being
+    #: folded into the prose hint.
+    warnings: list[dict] | None = None
     hint: str | None = None
 
 
@@ -167,6 +187,15 @@ class WorkflowNodeResult(KindModel):
     updated: bool | None = None
     agent_id: str | None = None
     version: int | None = None
+    #: ``create_agent`` / ``fork_agent`` receipts: a NEW agent plus the repoint
+    #: of this node onto it (the repoint rides the shared applied/issues keys,
+    #: and `repointed` says whether it stuck — the agent exists either way).
+    created: bool | None = None
+    forked: bool | None = None
+    agent_name: str | None = None
+    source_agent_id: str | None = None
+    version_id: str | None = None
+    repointed: bool | None = None
     hint: str | None = None
 
 

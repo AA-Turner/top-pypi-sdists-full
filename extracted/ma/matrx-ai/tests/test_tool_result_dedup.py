@@ -388,9 +388,19 @@ def test_sanitize_fixes_nonadjacent_duplicate_tool_uses_bcc588b6():
     assert all_results == ["A", "B", "C", "D", "E", "F"]
 
 
-def test_sanitize_drops_true_orphan_tool_use_no_result_anywhere():
-    """A tool_use with NO result anywhere (delegated timeout) is a true orphan —
-    dropped quietly, never a loud duplicate alarm."""
+def test_sanitize_repairs_true_orphan_tool_use_no_result_anywhere():
+    """A tool_use with NO result anywhere (a delegated call nobody answered) is
+    REPAIRED, not erased.
+
+    This test used to assert the opposite — that the orphan was dropped quietly.
+    Wall W49 (2026-09-12) proved that contract wrong: dropping it erased the
+    assistant message that carried only that call, the turn ended with nothing
+    on screen, and the next turn's model could not see that its write had never
+    happened. The invariants that remain true are the ones that always
+    mattered — pairing still holds, and this is not the duplicate class. What
+    changed is that the platform now ANSWERS the call it failed to answer.
+    See packages/matrx-ai/tests/test_orphan_tool_use_repair.py.
+    """
     ml = MessageList(
         _messages=[
             UnifiedMessage(role="assistant", content=[ToolCallContent(id="ORPH", name="t", arguments={})]),
@@ -399,8 +409,9 @@ def test_sanitize_drops_true_orphan_tool_use_no_result_anywhere():
     )
     ml.sanitize()
     assert _windowed_pairing_ok(ml)
-    assert all(
-        not isinstance(c, ToolCallContent)
-        for m in ml._messages
-        for c in m.content
-    ), "the orphan tool_use must be gone"
+    calls = [c for m in ml._messages for c in m.content if isinstance(c, ToolCallContent)]
+    assert [c.id for c in calls] == ["ORPH"], "the call must survive, not vanish"
+    results = [c for m in ml._messages for c in m.content if isinstance(c, ToolResultContent)]
+    assert len(results) == 1
+    assert results[0].tool_use_id == "ORPH"
+    assert results[0].is_error is True

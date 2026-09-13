@@ -16,15 +16,15 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import pyrogram
 
 
 class Restart:
     async def restart(
-        self: "pyrogram.Client",
-        block: bool = True,
-        clear_handlers: bool = False
-    ):
+        self: pyrogram.Client, block: bool = True, clear_handlers: bool = False
+    ) -> pyrogram.Client:
         """Restart the Client.
 
         This method will first call :meth:`~pyrogram.Client.stop` and then :meth:`~pyrogram.Client.start` in a row in

@@ -83,9 +83,12 @@ def test_sanitize_keeps_visible_with_content() -> None:
 
 # --- tool_use / tool_result coherence (the dangling-tool_use 400 guard) ---
 
-def test_sanitize_drops_orphan_tool_use_keeps_text() -> None:
-    # Assistant called a tool that never returned a result (delegated timeout).
-    # The orphan tool_use must be stripped, the assistant's text kept.
+def test_sanitize_repairs_orphan_tool_use_keeps_text() -> None:
+    # Assistant called a tool that never returned a result (a client-delegated
+    # call nobody answered). Until wall W49 (2026-09-12) the orphan tool_use was
+    # STRIPPED and the model was left with no idea the call had failed. It is
+    # now repaired: the call stays, and the platform synthesizes the is_error
+    # result it owes — and the assistant's own text is still kept.
     asst = UnifiedMessage(
         role="assistant",
         content=[TextContent(text="let me check"), ToolCallContent(id="toolu_1", name="storage")],
@@ -94,9 +97,13 @@ def test_sanitize_drops_orphan_tool_use_keeps_text() -> None:
     ml = MessageList([asst])
     ml.sanitize()
     msgs = list(ml)
-    assert len(msgs) == 1
+    assert len(msgs) == 2
     assert any(isinstance(c, TextContent) for c in msgs[0].content)
-    assert not any(isinstance(c, ToolCallContent) for c in msgs[0].content)
+    assert any(isinstance(c, ToolCallContent) for c in msgs[0].content)
+    answer = msgs[1].content[0]
+    assert isinstance(answer, ToolResultContent)
+    assert answer.tool_use_id == "toolu_1"
+    assert answer.is_error is True
 
 
 def test_sanitize_keeps_paired_tool_use_and_result() -> None:
@@ -110,12 +117,25 @@ def test_sanitize_keeps_paired_tool_use_and_result() -> None:
     assert any(isinstance(c, ToolResultContent) for c in msgs[1].content)
 
 
-def test_sanitize_drops_orphan_tool_use_only_message() -> None:
-    # Assistant message whose ONLY content is a dangling tool_use → dropped.
+def test_sanitize_repairs_orphan_tool_use_only_message() -> None:
+    """THE W49 SHAPE: an assistant turn whose ONLY content is a dangling call.
+
+    This used to empty the conversation and raise. That is exactly what the
+    Masterwork Conductor hit on 2026-09-12: its `apply_surface_write` call was
+    delegated to a tab with no surface handlers, the answer never came, the
+    lone tool_use was dropped, the message went with it — and the turn ended
+    with nothing on screen. The turn must survive and carry the truth instead.
+    """
     asst = UnifiedMessage(role="assistant", content=[ToolCallContent(id="toolu_1", name="storage")], id="a")
     ml = MessageList([asst])
-    with pytest.raises(MessageSanitizationError, match="emptying_pass=tool_pairing"):
-        ml.sanitize()
+    ml.sanitize()
+    msgs = list(ml)
+    assert len(msgs) == 2
+    assert any(isinstance(c, ToolCallContent) for c in msgs[0].content)
+    answer = msgs[1].content[0]
+    assert isinstance(answer, ToolResultContent)
+    assert answer.is_error is True
+    assert "storage" in str(answer.content)
 
 
 def test_sanitize_drops_orphan_tool_result() -> None:

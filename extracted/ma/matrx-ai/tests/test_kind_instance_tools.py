@@ -71,6 +71,52 @@ class _FakeModel:
         self.updates.append((where, updates))
 
 
+@pytest.mark.asyncio
+async def test_instance_create_declares_the_agent_tool_actor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The durable write must carry the tool's AI authorship into its transaction."""
+    from matrx_orm import current_actor
+
+    user = str(uuid4())
+    kind_row = SimpleNamespace(
+        id=uuid4(),
+        kind="test_kind",
+        created_by=user,
+        organization_id=uuid4(),
+        deleted_at=None,
+        version=1,
+        emitted_json_schema=None,
+        metadata=None,
+    )
+
+    async def _resolve(_ref: str, _ctx: ToolContext):
+        return kind_row, None
+
+    async def _allow(_row: Any, _ctx: ToolContext):
+        return None
+
+    class _CreateRecorder:
+        async def create_item(self, **payload: Any) -> Any:
+            actor = current_actor()
+            assert actor is not None
+            assert actor.tier == "ai"
+            assert actor.system == "tool:instance_create"
+            return SimpleNamespace(id=uuid4())
+
+        async def get_or_none(self, **_kwargs: Any) -> Any:
+            return SimpleNamespace(validation_status="passed", title="Saved")
+
+    monkeypatch.setattr(ki, "resolve_kind", _resolve)
+    monkeypatch.setattr(ki, "ensure_can_view_kind", _allow)
+    monkeypatch.setattr(ki, "ctx_user_id", lambda _ctx: user)
+    monkeypatch.setattr(ki, "ctx_org_id", lambda _ctx: str(kind_row.organization_id))
+    monkeypatch.setattr(ki, "get_db_model", lambda _name: _CreateRecorder())
+
+    result = await ki.instance_create({"kind": "test_kind", "data": {"value": 1}}, make_ctx())
+    assert result.success is True
+
+
 # ---------------------------------------------------------------------------
 # Token + summaries + title derivation
 # ---------------------------------------------------------------------------

@@ -76,7 +76,7 @@ PyObject *
 Patch_delta__get__(Patch *self)
 {
     assert(self->patch);
-    return wrap_diff_delta(git_patch_get_delta(self->patch));
+    return wrap_diff_delta(git_patch_get_delta(self->patch), NULL, 0);
 }
 
 PyDoc_STRVAR(Patch_line_stats__doc__,
@@ -223,10 +223,15 @@ Patch_hunks__get__(Patch *self)
 
     hunk_amounts = git_patch_num_hunks(self->patch);
     py_hunks = PyList_New(hunk_amounts);
+    if (py_hunks == NULL)
+        return NULL;
+
     for (i = 0; i < hunk_amounts; i++) {
         py_hunk = wrap_diff_hunk(self, i);
-        if (py_hunk == NULL)
+        if (py_hunk == NULL) {
+            Py_DECREF(py_hunks);
             return NULL;
+        }
 
         PyList_SET_ITEM((PyObject*) py_hunks, i, py_hunk);
     }

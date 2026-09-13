@@ -1,0 +1,1 @@
+import{i as e,r as t}from"./schemas-Dhntvyt3.js";var n=n=>t({url:e().trim().min(1,n(`auth.field_required`)),name:e().trim().min(1,n(`auth.field_required`)),image:e()});export{n as t};

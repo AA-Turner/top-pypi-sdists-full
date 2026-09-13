@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -146,13 +145,18 @@ REPOSITORIES: Dict[str, Repository] = {
     ),
     "flexiv_description": Repository(
         url="https://github.com/flexivrobotics/flexiv_description.git",
-        commit="edb01274caf7eaf2ba722bbfdf2f23d717fee38e",
+        commit="f33331a7f75b9a25ec903674595ddfebbe1fb998",
         cache_path="flexiv_description",
     ),
     "franka_description": Repository(
         url="https://github.com/frankarobotics/franka_description.git",
         commit="72baf5bf4e88eaec27f0eb61be1b20a001abf2ab",
         cache_path="franka_description",
+    ),
+    "GalaxeaManipSim": Repository(
+        url="https://github.com/OpenGalaxea/GalaxeaManipSim.git",
+        commit="abe7f5161eeaa150e6eaffdf443af5df7f23f356",
+        cache_path="galaxea_sim",  # match package name
     ),
     "gb_robot_models": Repository(
         url="https://github.com/gbionics/gb-robot-models.git",
@@ -170,8 +174,8 @@ REPOSITORIES: Dict[str, Repository] = {
         cache_path="gym-pybullet-drones",
     ),
     "halodi-robot-models": Repository(
-        url="https://github.com/Halodi/halodi-robot-models.git",
-        commit="ba9e7c8cdbd63e20fc6526dbbea1b91c102fb820",
+        url="https://github.com/robot-descriptions/halodi-robot-models.git",
+        commit="5d1d5eb3c15c9979f94b9611142158b9d80127ba",
         cache_path="halodi-robot-models",
     ),
     "hsrb_common": Repository(
@@ -256,6 +260,11 @@ REPOSITORIES: Dict[str, Repository] = {
         url="https://github.com/Rhoban/onshape-to-robot-examples.git",
         commit="911abb069c781e4c717c10643b975f55f7a64fe8",
         cache_path="onshape-to-robot-examples",
+    ),
+    "openarm_description": Repository(
+        url="https://github.com/enactic/openarm_description.git",
+        commit="1daa95b71565a6696242013a42c4d3af689cbdb3",
+        cache_path="openarm_description",
     ),
     "openarm_mujoco": Repository(
         url="https://github.com/enactic/openarm_mujoco.git",

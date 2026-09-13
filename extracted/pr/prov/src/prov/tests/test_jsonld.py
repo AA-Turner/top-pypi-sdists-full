@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 import prov
-from prov.model import Literal, ProvDocument
+from prov.constants import PROV
+from prov.model import Literal, ProvDocument, ProvMembership, ProvWarning
 from prov.serializers.provjsonld import (
     JSONLD_CONTEXT_URL,
     ProvJSONLDException,
@@ -313,6 +314,83 @@ def test_roundtrip_context_embed_registers_no_extra_namespaces():
 def test_deserialize_malformed(payload, match):
     with pytest.raises(ProvJSONLDException, match=match):
         ProvDocument.deserialize(content=json.dumps(payload), format="jsonld")
+
+
+def _membership_payload(entities) -> str:
+    return json.dumps(
+        {
+            "@context": [{"ex": EX_URI}, JSONLD_CONTEXT_URL],
+            "@graph": [
+                {"@type": "Entity", "@id": "ex:c"},
+                {"@type": "Membership", "collection": "ex:c", "entity": entities},
+            ],
+        }
+    )
+
+
+def test_deserialize_membership_entity_array_gives_one_record_per_member():
+    # Submission 4.18: "a single entity or an array of them"; PROV-DM's
+    # hadMember is binary, so the array fans out.
+    doc = ProvDocument.deserialize(
+        content=_membership_payload(["ex:e1", "ex:e2"]), format="jsonld"
+    )
+    expected = _new_doc()
+    expected.entity("ex:c")
+    expected.hadMember("ex:c", "ex:e1")
+    expected.hadMember("ex:c", "ex:e2")
+    assert doc == expected
+
+
+def test_deserialize_membership_single_element_array():
+    # ProvToolbox writes the array form even for one member.
+    doc = ProvDocument.deserialize(
+        content=_membership_payload(["ex:e1"]), format="jsonld"
+    )
+    expected = _new_doc()
+    expected.entity("ex:c")
+    expected.hadMember("ex:c", "ex:e1")
+    assert doc == expected
+
+
+def test_deserialize_membership_empty_entity_array_raises():
+    with pytest.raises(ProvJSONLDException, match="empty"):
+        ProvDocument.deserialize(content=_membership_payload([]), format="jsonld")
+
+
+def _identified_membership_payload(entities) -> str:
+    return json.dumps(
+        {
+            "@context": [{"ex": EX_URI}, JSONLD_CONTEXT_URL],
+            "@graph": [
+                {"@type": "Entity", "@id": "ex:c"},
+                {
+                    "@type": "Membership",
+                    "@id": "ex:m",
+                    "collection": "ex:c",
+                    "entity": entities,
+                    "label": [{"@value": "members"}],
+                },
+            ],
+        }
+    )
+
+
+def test_deserialize_identified_membership_array_drops_the_id_with_a_warning():
+    payload = _identified_membership_payload(["ex:e1", "ex:e2"])
+    with pytest.warns(ProvWarning, match="ex:m"):
+        doc = ProvDocument.deserialize(content=payload, format="jsonld")
+    memberships = sorted(doc.get_records(ProvMembership), key=lambda r: str(r.args[1]))
+    assert [r.identifier for r in memberships] == [None, None]
+    assert [str(r.args[1]) for r in memberships] == ["ex:e1", "ex:e2"]
+    assert all(list(r.get_attribute(PROV["label"])) == ["members"] for r in memberships)
+    assert doc.unified() is not None  # unification accepts the unidentified records
+
+
+def test_deserialize_identified_membership_with_one_member_keeps_the_id():
+    payload = _identified_membership_payload(["ex:e1"])
+    doc = ProvDocument.deserialize(content=payload, format="jsonld")
+    (membership,) = doc.get_records(ProvMembership)
+    assert str(membership.identifier) == "ex:m"
 
 
 def _expected_primer_document() -> ProvDocument:

@@ -16,13 +16,13 @@ quartodoc:
       contents:
         - ui.page_sidebar
         - ui.page_navbar
-        - ui.page_sidebar
         - ui.page_fillable
         - ui.page_fluid
         - ui.page_fixed
         - ui.page_bootstrap
         - ui.page_auto
         - ui.page_output
+        - ui.page_html
     - title: UI Layouts
       desc: Control the layout of multiple UI components.
       contents:
@@ -208,7 +208,6 @@ quartodoc:
         - ui.output_data_frame
         - ui.output_text
         - ui.output_code
-        - ui.output_text_verbatim
         - ui.output_ui
         - render.plot
         - render.image
@@ -217,7 +216,6 @@ quartodoc:
         - render.code
         - render.ui
         - render.express
-        - render.download
         - render.download_button
         - render.download_link
         - render.data_frame
@@ -299,6 +297,7 @@ quartodoc:
             - session.Session.on_flushed
             - session.Session.on_ended
             - session.Session.dynamic_route
+            - session.Session.allow_reconnect
             - session.Session.close
             - input_handler.input_handlers
         - kind: page
@@ -411,8 +410,13 @@ quartodoc:
     - title: Deprecated
       desc: ""
       contents:
+        - ui.output_text_verbatim
+        - render.download
         - render.transformer.output_transformer
         - render.transformer.resolve_value_fn
+        # `ui.update_navs()` is deprecated (superseded by `ui.update_navset()`) but
+        # still exists. It is deliberately left undocumented; uncomment to publish it.
+        # - ui.update_navs
     - title: Experimental
       desc: >
         These methods are under consideration and are considered unstable.

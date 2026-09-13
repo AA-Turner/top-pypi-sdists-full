@@ -43,7 +43,8 @@ from nameparser._policy import Script
 # assert_normalized touches -- looser in the dangerous direction, and a
 # hand copy of a constant with a source of truth, inside the module
 # written to forbid exactly that.
-from nameparser._lexicon import _PHRASE_FIELDS, _normalize
+from nameparser._lexicon import FULL_STOPS, _PHRASE_FIELDS, _normalize
+from nameparser.config.bound_given_names import BOUND_GIVEN_NAMES
 from nameparser.config.conjunctions import CONJUNCTIONS
 from nameparser.config.maiden_markers import MAIDEN_MARKERS
 from nameparser.config.particles import PARTICLES
@@ -54,7 +55,7 @@ from nameparser.config.suffixes import (
 
 from ._differential_fixtures import (
     _CORPUS_NAMES, _LEDGERS, _TOOLS, _UNCLASSIFIED_NAMES, _claimed,
-    _exclusions, _rules, _unclassified_names, load_tool)
+    _entry_name, _exclusions, _rules, _unclassified_names, load_tool)
 
 
 # The one sanctioned divergence between the differential rules'
@@ -352,7 +353,10 @@ _SPAN_BEARING_RULES: dict[str, frozenset[str]] = {
         "fix(#271/#272/#298)",              # the canonical class
         "fix(#298)",                        # the 间隔号 lookahead
     }),
-    "expected_since_2.1.0.toml": frozenset(),   # open cycle, no rules yet
+    "expected_since_2.1.0.toml": frozenset(),   # 2.2 cycle: no span-bearing rule
+    # open cycle: its one rule, fix(#462), is a Latin letter shape and
+    # copies no script range
+    "expected_since_2.2.0.toml": frozenset(),
 }
 
 #: The leading `fix(...)`/`feat(...)` tag of a rule's `issue`, which is
@@ -441,9 +445,10 @@ def test_every_span_bearing_rule_matches_the_script_ranges(
         # written in none of them -- and unlike a depth test, this does
         # not care how the widening is spelled. "(?:CJK|[A-Za-z])"
         # hides the pipe at depth 1 where the check above stops
-        # looking, and claims 644 of the 654 unclassified corpus names;
-        # this sees
-        # it. Both are kept: the depth test gives the clearer message
+        # looking, and its Latin half claims all but a handful of
+        # _UNCLASSIFIED_NAMES -- the whole population this assertion is
+        # over, whatever that population's size that day; this sees it.
+        # Both are kept: the depth test gives the clearer message
         # for the naive spelling, and catches a widening toward a
         # script the corpora happen not to contain.
         unclassified = _UNCLASSIFIED_NAMES.intersection(_claimed(regex))
@@ -594,12 +599,14 @@ def test_the_emoji_boundary_rule_copies_the_dividing_ranges() -> None:
 def test_cjk_corpus_matches_the_case_table() -> None:
     """corpus_cjk.jsonl is GENERATED, not curated (#295): every
     distinct case-table text bearing a codepoint the script table
-    classifies, sorted -- see build_cjk_corpus.py for why the other
-    two corpora cannot carry these names. The checked-in file must
-    equal what the generator would write, so a CJK case row added
-    without regenerating fails HERE instead of silently narrowing
-    the differential gate back toward the blind spot #295 closed.
-    Same promise as the toml pin above, aimed at a generated artifact
+    classifies -- minus the rows that declare `tolerated` (the
+    2026-09-01 demotion; they are the twin test below) -- sorted.
+    See build_cjk_corpus.py for why the other two corpora cannot
+    carry these names. The checked-in file must equal what the
+    generator would write, so a CJK case row added without
+    regenerating fails HERE instead of silently narrowing the
+    differential gate back toward the blind spot #295 closed. Same
+    promise as the toml pin above, aimed at a generated artifact
     instead of a hand copy.
     """
     module = load_tool("build_cjk_corpus")
@@ -611,18 +618,123 @@ def test_cjk_corpus_matches_the_case_table() -> None:
         "`uv run python tools/differential/build_cjk_corpus.py`")
 
 
+def test_tolerated_cjk_corpus_matches_the_case_table() -> None:
+    """The radar half of the same generated projection: the texts
+    whose case rows declare `tolerated`. Pinned for the same reason
+    as the contract half one function up -- one command writes both
+    files, so a row marked without regenerating leaves the demoted
+    name in NEITHER file and its diffs invisible at every baseline,
+    which is the failure the radar tier exists to prevent."""
+    module = load_tool("build_cjk_corpus")
+    checked_in = [json.loads(line) for line in
+                  (_TOOLS / "corpus_cjk_tolerated.jsonl")
+                  .read_text(encoding="utf-8").splitlines()]
+    assert checked_in == module.tolerated_names(), (
+        "corpus_cjk_tolerated.jsonl is stale: regenerate with "
+        "`uv run python tools/differential/build_cjk_corpus.py`")
+
+
+def test_a_text_tolerated_on_one_row_only_is_a_hard_error(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The two pins above compare files to a selection; neither can
+    see the one input that has no right answer. A corpus carries name
+    STRINGS, so a text on two rows -- a default row and a
+    policy/locale fork of it, which several CJK texts have -- is one
+    line in one file, and marking one of those rows and not the other
+    declares both tiers for it.
+
+    What makes the raise load-bearing rather than tidy is the
+    consequence with it removed, which the negative control below
+    measures instead of asserting in prose: the two halves select
+    `flags == {False}` and `flags == {True}`, so a split text matches
+    NEITHER and would be dropped from both files -- gone from the
+    harness, watched at no baseline, and invisible to every guard
+    here (the pins would agree with the degraded selection, and the
+    floors bound the loss to a few names). The message must name the
+    offending text for the same reason: an author who has to go
+    hunting for which row is split is an author who marks the other
+    one at random.
+    """
+    from tests.v2.cases import Case
+    module = load_tool("build_cjk_corpus")
+    split = [
+        Case(id="split_a", text="田中さん, PhD", expect={"family": "田中"},
+             tolerated=True),
+        Case(id="split_b", text="田中さん, PhD", expect={"family": "田中"}),
+        Case(id="pure", text="김민준", expect={"family": "김"}),
+    ]
+    monkeypatch.setattr(module, "CASES", split)
+    with pytest.raises(SystemExit, match=r"'田中さん, PhD' on \['split_a', "
+                                          r"'split_b'\]"):
+        module._partition()
+
+    # The negative control: the same selections the generator runs,
+    # with the raise conceptually deleted. The split text is in
+    # neither half -- which is the dropped-name failure the docstring
+    # above describes, reproduced rather than asserted from reading.
+    by_text: dict[str, set[bool]] = {}
+    for case in split:
+        by_text.setdefault(case.text, set()).add(case.tolerated)
+    contract = {t for t, f in by_text.items() if f == {False}}
+    tolerated = {t for t, f in by_text.items() if f == {True}}
+    assert "田中さん, PhD" not in contract | tolerated
+    assert contract | tolerated == {"김민준"}
+
+
+def test_shapes_corpus_matches_the_case_table() -> None:
+    """corpus_shapes.jsonl is GENERATED from the shape-tagged case
+    rows -- the same promise test_cjk_corpus_matches_the_case_table
+    makes above, for the tag predicate instead of the
+    codepoint one: a row tagged without regenerating fails HERE
+    instead of silently keeping the contract tier narrower than the
+    table says it is."""
+    module = load_tool("build_shapes_corpus")
+    checked_in = [json.loads(line) for line in
+                  (_TOOLS / "corpus_shapes.jsonl")
+                  .read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert checked_in == module.selected(), (
+        "corpus_shapes.jsonl is stale: regenerate with "
+        "`uv run python tools/differential/build_shapes_corpus.py`")
+
+
+def test_case_shape_ids_exist_in_the_inventory() -> None:
+    """cases.py cannot import tools/, so Case.__post_init__ validates
+    every shape tag against its own hand copy of the inventory's id
+    set (cases._SHAPE_IDS). This is the cross-file half, in two parts.
+    The equality holds the copy itself honest: a shape added to or
+    removed from shapes.py without updating cases._SHAPE_IDS fails
+    here, whichever side changed. The subset check catches a
+    different drift -- a row tagged under a stale _SHAPE_IDS before
+    this test last ran -- so it stays even though __post_init__ would
+    refuse the same tag today."""
+    from tests.v2 import cases
+    shapes = load_tool("shapes")
+    tagged = {c.shape for c in cases.CASES if c.shape is not None}
+    assert tagged <= set(shapes.SHAPES), (
+        f"tests/v2/cases.py tags shape id(s) "
+        f"{sorted(tagged - set(shapes.SHAPES))} that are not in "
+        f"tools/differential/shapes.py's SHAPES; add the shape there "
+        f"or fix the tag in cases.py")
+    assert cases._SHAPE_IDS == set(shapes.SHAPES), (
+        f"cases._SHAPE_IDS {sorted(cases._SHAPE_IDS)} != shapes.py's "
+        f"{sorted(shapes.SHAPES)}; they are hand copies of one "
+        f"inventory -- update whichever side is stale")
+
+
 #: Names each rule MUST NOT match, keyed by a substring of its `issue`.
 #:
 #: A wall, not a change detector, and that is the point. _CORPUS_CLAIMS
 #: catches a widening that changes corpus reach or roles -- but a rule
 #: whose regex is literal-anchored and claims exactly ONE corpus name
 #: can be widened with the count unmoved, because the names it newly
-#: reaches are not in the corpora. Six such widenings were demonstrated
-#: on this file's own rules with the whole suite green: `^mc\s+\S+$`
+#: reaches are not in the corpora. Such widenings were demonstrated on
+#: this file's own rules with the whole suite green: `^mc\s+\S+$`
 #: to `^mc` (every leading Mc*), the vd rule to a bare `\bvd\b`,
 #: `^sir\s+de\b` without its anchor, and the nakaguro rule to `·.*씨`.
 #: Each of those then stood ready to explain exactly what its own
-#: comment promises will arrive UNEXPLAINED.
+#: comment promises will arrive UNEXPLAINED. The list is the evidence;
+#: a count here said six over four items and was the only part anyone
+#: could get wrong, since the widenings themselves are named.
 #:
 #: The probes are taken from the names those comments already argue
 #: about, so this roster records an answer someone already wrote in
@@ -652,8 +764,11 @@ _MUST_NOT_MATCH: dict[str, tuple[str, ...]] = {
     "fix(#400/#274)": ("abd Berg née Jones", "abd Allah Smith",
                        "Jane Smith née Jones"),
     # The literal-anchored rules #413 added. Each claims exactly one
-    # corpus name, so _CORPUS_CLAIMS cannot see a widening that reaches
-    # only names the corpora lack -- these probes are the only wall.
+    # corpus name -- _CORPUS_CLAIMS carries that reach for both, so the
+    # number is pinned there rather than asserted here -- and a reach
+    # that small is one _CORPUS_CLAIMS cannot use: a widening reaching
+    # only names the corpora lack leaves it unmoved. These probes are
+    # the only wall.
     "fix(#399) a maiden marker bounds the particle chain: the geb. spelling":
         ("Berg, Ursula von der geb. Albrecht",),
     "fix(credential-pair-order) a split credential and a suffix render in written order":
@@ -693,14 +808,39 @@ _MUST_NOT_MATCH: dict[str, tuple[str, ...]] = {
     # has no third token for the regex to require.
     "fix(N3) a nickname-led name with a trailing suffix keeps the suffix in `suffix`":
         ("'Smitty' Jones", "Jones Jr.", "'Smitty' Dr. Jones"),
-    # #451's two NOT-WANTED rules, literal-anchored to one corpus name
-    # apiece: a three-token name with a rootname before or after is a
+    # #451's remaining NOT-WANTED rule, literal-anchored to one corpus
+    # name: a three-token name with a rootname before or after is a
     # different diff shape (or, for 'Carod i Rovira' and 'Lluis Carod
     # i', no diff at all -- #397's still-open enhancement, not a
-    # 1.4-to-2.x regression), and 'Rai'/'Jane Rai Smith' have no
-    # 'aishwarya' to anchor on.
-    "fix(#342)": ("Aishwarya Rai Bachchan", "Rai", "Jane Rai Smith"),
+    # 1.4-to-2.x regression).
     "fix(#397)": ("Carod i Rovira", "Josep Carod i Rovira", "Lluis Carod i"),
+    # #342's rule is a literal alternation of five names, so a
+    # widening reaching only names the corpora lack would leave
+    # _CORPUS_CLAIMS unmoved. These probes are the wall, and every one
+    # of them is a name MEASURED not to move under the removal (which
+    # is the roster's actual condition -- a name the rule has no
+    # business claiming, not merely one outside the corpus). Three
+    # test the right anchor, where a third word or a re-ordered comma
+    # leaves 'Rai' with a family name beside it and nothing to take;
+    # 'Ahmad Jayadi', 'Ahmad Jayadi,', 'John Smith' and 'John Smith,'
+    # test the ALTERNATIVES' trailing words, each being a mover with
+    # its last word dropped -- with the comma and without it, so an
+    # alternative TRUNCATED to its leading tokens is caught wherever
+    # the truncation falls. No probe
+    # tests the left anchor and none can: dropping the '^' widens the
+    # rule to names ENDING in an alternative, and every such name is
+    # itself a mover -- 'Mr Aishwarya Rai' moves -- so no name that
+    # widening reaches can satisfy the roster's condition.
+    # 'Sejal Chaturvedi, CSM' is the wall against a SHAPE widening
+    # instead: the trailing-acronym shape "^.+\s[A-Z]{2,}$" reaches
+    # three of the five above and would look like a faithful
+    # generalization, but it also reaches this corpus name
+    # (corpus_issues.jsonl), which parses identically with and without
+    # 'rai'/'cha' in SUFFIX_ACRONYMS -- so the widening is caught.
+    "fix(#342)": ("Aishwarya Rai Bachchan", "Rai, Aishwarya",
+                  "Jane Rai Smith", "Ahmad Jayadi", "Ahmad Jayadi,",
+                  "John Smith", "John Smith,",
+                  "Sejal Chaturvedi, CSM"),
     # #451's four replacements for the fields-only catch-all. Each is
     # anchored to a two-token name, so the probes are a third token and
     # each other's vocabulary: the four exist BECAUSE one rule could not
@@ -710,8 +850,9 @@ _MUST_NOT_MATCH: dict[str, tuple[str, ...]] = {
     # 'Carod i' and '田中さん II' are deliberately NOT probes for the
     # numeral rule: its regex really does reach both, and rules above it
     # win them -- 'Carod i' on file order, '田中さん II' on the subset
-    # test, its diff moving {given, suffix} where the numeral rule
-    # declares {family, suffix}. _CROSS_RULE_WINNERS pins both instead;
+    # test, its diff moving {family, given, suffix} where the numeral
+    # rule declares {family, suffix} and so cannot admit the `given`
+    # move. _CROSS_RULE_WINNERS pins both instead;
     # this roster tests the regex, not classify().
     "fix(suffix-routing) a two-token name ending in a roman numeral keeps it in `suffix`":
         ("Mohamad X Surname", "Smith Jr.", "Donald mc", "Aishwarya Rai"),
@@ -729,6 +870,166 @@ _MUST_NOT_MATCH: dict[str, tuple[str, ...]] = {
     # acronym rule above as well, since 'ma' is acronym vocabulary too.
     "fix(suffix-routing) the dotted M.A. spelling reads as a credential (ma-do)":
         ("Jack Ma", "Jack MA", "John Smith M.A."),
+    # #484: the connective rule is case-sensitive on the single letters
+    # so that the #462 shapes -- a capital or dotted E that is an
+    # INITIAL the facade drops -- are never claimed as the per-word
+    # grouping change. Since the facade fix these names AGREE with
+    # 1.4.0 and diff only against the 2.x baselines, where fix(#462)
+    # claims them, so a #462 REGRESSION is the only way they can diff
+    # at this baseline again -- and it must surface as UNEXPLAINED
+    # rather than be absorbed as per-word grouping. That is what the
+    # case-sensitivity buys, and it is why this roster keeps probing
+    # for it after the bug is gone.
+    "a connective run initials": ("Jose E Maria Santos",
+                                  "JOSE E MARIA SANTOS",
+                                  "Scott E. Werner", "Amy E Maid"),
+    # fix(#462)'s boundary: lowercase bare e/y is the connective;
+    # 'E.T.' is a run of initials the rule has no view on; a bare I
+    # is not conjunction vocabulary at all.
+    "fix(#462)": ("john e smith", "maria y lopez", "E.T. Smith",
+                  "Maier, Amy I, Jr."),
+    # #436/#437's rules are literal-anchored, so _CORPUS_CLAIMS'
+    # reach cannot move under a widening that only reaches names the
+    # corpora lack. These probes are the wall. Each rule's boundary
+    # is a WRITING of the same name: the comma forms and the
+    # delimiter forms render exactly as they did and must arrive
+    # UNEXPLAINED if they ever stop doing so.
+    "fix(#436/#437) a space-separated post-nominal run renders with spaces, not commas":
+        ("Smith, MD PhD", "John Smith, MD PhD", "Smith, MD, PhD",
+         "Smith, MD - PhD - FACS", "John Doe, MD - PhD - FACS"),
+    "fix(#436/#437) the glued honorific and the roman numeral are one post-nominal run":
+        ("田中さん V.", "田中さん 様.", "田中さん, Dr."),
+    "fix(#436/#437) the glued honorific and the polite address are one post-nominal run":
+        ("田中さん II", "田中さん, 様.", "田中さん 様"),
+    "fix(#436/#437) the spaced doctorate and the honorific after it are one post-nominal run":
+        ("김민준 박사", "김민준 박사님", "김민준 씨"),
+    "fix(#436/#437) the glued honorific and the generational suffix are one post-nominal run":
+        ("김민준씨", "Dr 김민준씨, Jr.", "김민준씨 (Jimmy)"),
+    "fix(#436/#437) the space-separated post-nominal run compounds with the bound-given reserve":
+        ("abdul Smith V", "abdul Smith Jr Ma", "abdul Smith Jr",
+         "Smith Jr V"),
+    # #346's rule is a literal alternation of four names, so a
+    # widening reaching only names the corpora lack would leave
+    # _CORPUS_CLAIMS unmoved. These probes are the wall, and each is a
+    # name that must not move: two name words after the title (H1 does
+    # not fold), a surname-retaining title, and the bare renunciate
+    # title standing alone -- and 'Mr Guru Nanak', which the anchored
+    # regex rejects but an alternation that lost its left anchor would
+    # claim (the guard uses re.search).
+    "fix(#346) a renunciate title and one name word leave the name a given name":
+        ("Swami Vivekananda Saraswati", "Guru Gobind Singh",
+         "Rabbi Cohen", "Swami", "Mr Guru Nanak"),
+    # #519's rule is a literal alternation, so a widening reaching
+    # only names the corpora lack would leave _CORPUS_CLAIMS unmoved.
+    # These probes are the wall: two name words behind the title (H1
+    # does not fold), the joined run that addresses by its last word
+    # `wales`, the word standing last as an ordinary surname, a
+    # surname-addressing title that stayed out, the bare title, and
+    # 'Mr Prince Charles', which the anchored regex rejects but an
+    # alternation that lost its left anchor would claim.
+    "fix(#519) prince and princess join the given-name titles":
+        ("Prince Harry Windsor", "Prince of Wales Jr", "Robert Prince",
+         "Lord Byron", "Prince", "Mr Prince Charles"),
+    # #449's six rules. The five CJK ones are literal-anchored on one
+    # corpus name each, so _CORPUS_CLAIMS cannot move under a widening
+    # that reaches only names the corpora lack; these probes are the
+    # wall. Each rule's boundary is the same name with something
+    # DECIDING it -- a title, a second name word, a comma -- because
+    # that is the widening the rule invites. A SUFFIX beside the word
+    # is deliberately not such a probe: it decides nothing, and
+    # 'Smith Jr.' is a member of the alternation rather than a wall
+    # against it.
+    "feat(#449) a lone name word reports given-or-family":
+        ("Dr. Andrew", "Andrew Smith", "Smith, Andrew", "abdul", "de",
+         "Dr. Smith Jr.", "J"),
+    "feat(#449) a wholly-katakana name keeps the declared order, so the convention decides it":
+        ("マイケル ジャクソン", "マイケル・ジャクソン", "Dr. マイケル"),
+    "feat(#449) an interpunct transcription declines the script order, so the convention decides it":
+        ("王·Smith Jones", "王 Smith", "Dr. 王·Smith"),
+    "feat(#449) an ideographic comma leaves one name word, and the convention decides it":
+        ("田中、太郎、次郎", "田中 太郎", "Dr. 田中、太郎"),
+    "feat(#449) a glued Japanese honorific leaves a Latin name word the script cannot order":
+        ("Anderson Smithさん", "Dr. Andersonさん", "Anderson, さん"),
+    "feat(#449) a glued Korean honorific leaves a Latin name word the script cannot order":
+        ("Anderson Smith선생님", "Dr. Anderson선생님", "Anderson, 선생님"),
+    # #491's two rules. Each boundary is a name the vocabulary reaches
+    # and the SHAPE does not: a title with an ordinary surname behind
+    # it, a credential with a name word beside it, and the lone title
+    # word the peel takes whole, leaving nothing to read as a name.
+    "feat(#491) an all-titles input reports title-or-name for the word the title peel left as the name":
+        ("Dr. Smith", "Rabbi Cohen", "Mrs. Garcia", "Dr.", "King, Dr Jr",
+         "Lord Chancellor Smith", "The Rt Hon Jane Smith"),
+    "feat(#491) an all-suffix input reports suffix-or-name for the word it made the name":
+        ("John Smith QC MP", "Lama Zopa Rinpoche", "Smith Jr.", "Jr.",
+         "Rinpoche Tenzin"),
+    # The join clause's own rule, added by the #518 review round when
+    # hoisting it out from under O5's field-deciding clauses reached
+    # two corpus names. Literal-anchored on the two, so the probes are
+    # the wall: each member with a name word behind it (the join stops
+    # being the only unit), the join LED by a title word that H3
+    # chains into a title run instead, and a join whose members are no
+    # title vocabulary at all, which is O5's report and not this one.
+    "feat(#491) a joined unit carrying title vocabulary reports title-or-name":
+        ("Attorney General of Minnesota Smith",
+         "Deputy Secretary of State Jones", "Prince of Wales",
+         "Duke of Edinburgh"),
+    # The 2.3 title-run bundle's four rules, all literal-anchored, so
+    # these probes are the wall _CORPUS_CLAIMS cannot be: a reach this
+    # small can be widened into names the corpora lack without moving
+    # a claim count.
+    #
+    # The run rule's boundary is the vocabulary the SHAPE needs: a
+    # one-word run addresses nobody by given name, and a run whose
+    # last word is title vocabulary that is NOT given-name vocabulary
+    # keeps its family name. 'Her Royal Highness Princess Anne' was
+    # that shape when this wall was built and stopped being it on
+    # 2026-09-10, when #519 made `princess` given-name vocabulary: it
+    # now MOVES, under fix(#519)'s rule and not this one, and it stays
+    # here because #489's regex must still not reach it.
+    "fix(#489) a title run addresses by its last title":
+        ("Sir John Smith", "His Excellency Lord Duncan",
+         "Her Royal Highness Princess Anne", "Dr. Smith"),
+    # The floor's boundary is the word it gives back having to be a
+    # NAME candidate: 'MD DDS' and 'Jr. Ph. D.' are the two all-suffix
+    # rests it declines, 'Marquess of Bath' the all-title input with
+    # no rest to read at all, and 'Dr Smith Jr' the ordinary titled
+    # name where the piece behind the run was never a suffix.
+    "fix(#489) the title peel leaves a name word a suffix cannot be":
+        ("Dr Smith Jr", "MD DDS", "Marquess of Bath", "Prince of Wales Jr"),
+    # The trailing rule's boundaries are the three readings that did
+    # NOT move -- an unlisted abbreviation, a bare title word, a
+    # post-nominal -- plus the comma shape whose segment holds no name
+    # word and which segment_suffix_reading has always routed by a
+    # different gate.
+    "fix(#316) a trailing period-marked title word reads as a title":
+        ("John Smith Xyz.", "John Smith Sir", "Mary Jane King",
+         "John Smith Esq.", "Smith, Prof."),
+    # The CJK member of the same argument is its own literal rule --
+    # an UNDECLARED alternation holding a script-classified member
+    # belongs to the honorific pin, which until #322/#323 was every
+    # such alternation -- so a reach of 1 is one _CORPUS_CLAIMS cannot
+    # police on its own, and these are the wall. All three are
+    # tolerated CJK corpus names the rule must not take: a Latin
+    # post-nominal behind a comma, the comma spelling of this very
+    # shape (routed by the segment gate), and a spaced Latin
+    # post-nominal that is not title vocabulary.
+    "fix(#316) a trailing Latin title on a native-script name is a title":
+        ("王先生, V.", "田中さん, Dr.", "田中さん II"),
+    # The esq boundary is every spelling SUFFIX_WORDS still carries,
+    # in each of the three positions the corpora write it in.
+    "change(suffix-acronym-collisions) esq leaves the acronym set":
+        ("John Smith Esq", "John Smith Esq.", "Esq. Smith", "Smith, Esq.",
+         "Esq. van Gogh"),
+    # The #322/#323 rule is a literal alternation of seventeen names at
+    # most, so _CORPUS_CLAIMS cannot see a widening into names the
+    # corpora lack and these probes are the wall. Each is a reading
+    # the bundle deliberately left where it was: the ASCII spelling
+    # that reached the suffix entry before #322 ever ran, a stop on a
+    # SEPARATE post-nominal word (rules.md#W3's unchanged case), the
+    # comma listing form routed by the segment gate, and the Latin H2
+    # abbreviation the initialless-script veto never touches.
+    "fix(#322/#323)": ("김민준 씨.", "田中さん 様.", "김민준, 씨.",
+                       "Smith. John"),
 }
 
 
@@ -826,6 +1127,198 @@ def test_rules_corpus_matches_the_rules_doc() -> None:
         f"that never had any")
 
 
+def _tolerated_only_texts(rules: list) -> set[str]:
+    """Example texts a `tolerated:` rule carries and no normative rule
+    does -- the subtraction the demotion guards below both scope by.
+
+    Shared rather than written twice because the two guards must agree
+    on WHICH texts a demotion is about: one asserts they left the
+    contract corpus, the other that they are still watched somewhere,
+    and a pair disagreeing about the set would leave a text neither
+    enforced nor watched while both stayed green. An example some
+    normative rule also carries is in the contract on that rule's
+    account -- demoting one rule cannot take another's name away.
+    """
+    normative = {e.text for r in rules if r.tolerated is None
+                 for e in r.examples if e.text}
+    return {e.text for r in rules if r.tolerated is not None
+            for e in r.examples if e.text} - normative
+
+
+def test_a_tolerated_rule_puts_no_name_in_the_rules_corpus() -> None:
+    """A rule marked `tolerated:` in rules.md contributes no example
+    to the CONTRACT corpus (2026-09-01, the CJK comma demotion).
+
+    The equality above would pass with the skip deleted -- regenerate
+    and the file agrees with whatever the generator now selects. This
+    reads the doc's marker directly and asks the file. Scoped to the
+    marked rule's OWN texts: an example some normative rule also
+    carries is in the corpus on that rule's account, and demoting one
+    rule cannot take another's name away, so the check subtracts them
+    rather than failing on them.
+
+    What it does NOT check: that the demoted names are still watched
+    somewhere. That is the opposite promise and it has its own guard,
+    the next one down -- this pair is a floor and a ceiling on the
+    same set of texts, and each is vacuous without the other. Deleting
+    an example satisfies this one; adding an unwatched one satisfies
+    that one; only together do they say what a demotion is.
+    """
+    from .rules_doc import parse_rules_doc
+    rules = parse_rules_doc(
+        (_TOOLS.parents[1] / "docs" / "design" / "rules.md")
+        .read_text(encoding="utf-8"))
+    tolerated = [r for r in rules if r.tolerated is not None]
+    assert tolerated, (
+        "no rule in rules.md carries a `tolerated:` marker; W3 has "
+        "carried one since 2026-09-01. If a demotion was reversed, "
+        "delete this guard in that commit rather than leaving it "
+        "asserting nothing")
+    in_corpus = {json.loads(line) for line in
+                 (_TOOLS / "corpus_rules.jsonl")
+                 .read_text(encoding="utf-8").splitlines()}
+    leaked = sorted(_tolerated_only_texts(rules) & in_corpus)
+    assert not leaked, (
+        f"corpus_rules.jsonl carries example texts belonging only to "
+        f"tolerated rules {[r.rule_id for r in tolerated]}: {leaked}. "
+        f"A tolerated rule's examples illustrate current behavior; "
+        f"enforcing them against released baselines is the promise "
+        f"the marker withdrew")
+
+
+def test_a_tolerated_rules_examples_are_still_watched_somewhere() -> None:
+    """Every text a tolerated rule alone carries is in SOME corpus the
+    harness loads, so it is still compared at every released baseline
+    -- the half of the demotion the marker did not withdraw.
+
+    The failure this closes, verified by injection rather than
+    reasoned about (the negative control below runs it): a sixth comma
+    example added to W3 with no `tolerated` row in tests/v2/cases.py.
+    Nothing in the suite notices. The doc parses, test_rules_doc.py
+    executes the example and it passes, build_rules_corpus.py skips
+    the whole rule so the contract pin above stays equal, and
+    build_cjk_corpus.py projects the CASE TABLE -- it never sees a
+    name nobody wrote a row for. The text is executed at HEAD and
+    compared at no baseline, with every suite green. That is exactly
+    the state the demotion was written to avoid: "we still watch it,
+    we no longer enforce it" costs the watching, or it costs nothing
+    and means nothing.
+
+    Membership is asked of the UNION of the corpora rather than of
+    corpus_cjk_tolerated.jsonl by name, because the union is what this
+    can honestly promise: the requirement is that the name reaches the
+    comparison, and which file carries it is the projection's business
+    (a future tolerated rule outside the CJK sections would have no
+    business in a CJK file at all). Today every one of them arrives
+    through corpus_cjk_tolerated.jsonl -- W3's four comma texts and,
+    since 2026-09-05, the trailing-period one W2 handed over, its
+    remaining example being W1's normative one and subtracted here --
+    and
+    that file's equality with the case table is pinned separately by
+    test_tolerated_cjk_corpus_matches_the_case_table.
+    """
+    from .rules_doc import parse_rules_doc
+    doc = (_TOOLS.parents[1] / "docs" / "design" / "rules.md").read_text(
+        encoding="utf-8")
+    rules = parse_rules_doc(doc)
+    demoted = _tolerated_only_texts(rules)
+    # Anti-vacuity, the same shape the guard above carries: with no
+    # marked rule, or with the subtraction eating everything, the
+    # assertion below is a truth about the empty set.
+    assert demoted, (
+        "no rule in rules.md carries a `tolerated:` marker with an "
+        "example text of its own; W3 has carried at least four since "
+        "2026-09-01. If a demotion was reversed, delete this guard in "
+        "that commit rather than leaving it asserting nothing")
+    unwatched = sorted(demoted - set(_CORPUS_NAMES))
+    assert not unwatched, (
+        f"tolerated rules in rules.md carry example texts no corpus "
+        f"holds: {unwatched}. Each is executed at HEAD and compared "
+        f"at no baseline. Give it a `tolerated=True` row in "
+        f"tests/v2/cases.py and regenerate "
+        f"(`uv run python tools/differential/build_cjk_corpus.py`), or "
+        f"take the example out of the doc")
+
+    # The negative control, run rather than described: the doc with
+    # one extra example on the tolerated rule -- a text no case row
+    # produces -- and the same question asked again. It must find it.
+    # Without this, a subtraction that quietly emptied `demoted` would
+    # leave the assertion above green forever.
+    probe = "조, 은우"
+    assert probe not in _CORPUS_NAMES, (
+        f"{probe!r} was chosen because no corpus holds it; a row was "
+        f"added for it, so pick another string for the injection")
+    lines = doc.splitlines()
+    # Anchored on the marker line, not on one of the rule's example
+    # texts: W3's first example is a text W1 also carries, so a search
+    # by text lands in W1's block and injects a NORMATIVE example --
+    # which the subtraction then removes, and the control passes by
+    # doing nothing. The marker is in the tolerated rule's block by
+    # definition.
+    at = next(i for i, line in enumerate(lines)
+              if re.match(r"^\s*tolerated:", line))
+    lines.insert(at, f'      "{probe}"  →  family="조"')
+    injected = _tolerated_only_texts(parse_rules_doc("\n".join(lines)))
+    assert sorted(injected - set(_CORPUS_NAMES)) == [probe]
+
+
+def _corpus_texts(filename: str) -> set[str]:
+    """One corpus file's names, in whichever line format it uses."""
+    return {_entry_name(json.loads(line)) for line in
+            (_TOOLS / filename).read_text(encoding="utf-8").splitlines()
+            if line.strip()}
+
+
+def test_the_tolerated_corpus_is_disjoint_from_the_contract_ones() -> None:
+    """No text is in corpus_cjk_tolerated.jsonl and in a CONTRACT
+    corpus at the same time.
+
+    Overlap does not error anywhere -- it reads as a demotion that did
+    not happen. compare.py's dedup loads contract files first and
+    keeps the contract reading, so a text both tiers hold is still
+    enforced: an unmatched diff on it fails the run, exactly as before
+    the flag was set. Meanwhile everything that describes it says
+    otherwise -- the case row says `tolerated`, README's tier table
+    says radar, the release notes group it as watched-not-enforced.
+    The name is enforced and documented as demoted, which is the one
+    combination nobody is reading for.
+
+    _CORPUS_TIERS's own comment states the rule this asserts: a file
+    entry demotes the file, and a text some contract corpus also holds
+    reads contract no matter what the entry says. Five texts did on
+    the day the file was created; the same day's rules.md edits took
+    all five out of corpus_rules.jsonl. This keeps that true instead
+    of leaving it a fact about one afternoon.
+
+    Either resolution is deliberate and neither is this test's to
+    pick: clear the `tolerated` flag (the name was never demoted), or
+    take the text out of the contract corpus that still holds it (it
+    was). The tier list is read from compare.py rather than copied,
+    so a new contract corpus is covered by existing here, not by
+    someone remembering to add it.
+    """
+    tiers = load_tool("compare")._CORPUS_TIERS
+    contract = sorted(name for name, tier in tiers.items()
+                      if tier == "contract")
+    assert len(contract) >= 3, (
+        f"_CORPUS_TIERS lists {contract} as contract; corpus_cjk, "
+        f"corpus_rules and corpus_shapes have been contract since the "
+        f"#468 tier split. A shorter list means this guard is asking "
+        f"about fewer files than it reads as")
+    demoted = _corpus_texts("corpus_cjk_tolerated.jsonl")
+    assert demoted, "corpus_cjk_tolerated.jsonl is empty"
+    for filename in contract:
+        overlap = sorted(demoted & _corpus_texts(filename))
+        assert not overlap, (
+            f"{filename} (contract) and corpus_cjk_tolerated.jsonl "
+            f"(radar) both hold {overlap}. compare.py's dedup keeps "
+            f"the contract reading, so these names are still enforced "
+            f"at released baselines while their case rows, the README "
+            f"tier table and the release notes all call them demoted. "
+            f"Clear the `tolerated` flag, or take the text out of "
+            f"{filename}")
+
+
 #: Which vocabulary constant each ledger rule's alternation is a hand
 #: copy of. A roster rather than an inference: GLUED_HONORIFICS is a
 #: SUBSET of SUFFIX_WORDS (asserted at the bottom of
@@ -890,6 +1383,38 @@ def _cjk_alternations(name_regex: str) -> list[set[str]]:
             if any(has_classified(m) for m in members)]
 
 
+def _copies_honorific_vocabulary(members: set[str],
+                                 sources: frozenset[str]) -> bool:
+    """Whether a classified alternation is a hand copy of `sources`:
+    some member, read as the regex it IS, FOLDS into the vocabulary --
+    it fullmatches a classified entry, or that entry wearing exactly
+    one full stop.
+
+    The stop is half the criterion because #323 is what taught the
+    parser to read through one: a hand copy spelled '(?:씨\\.|님\\.)'
+    drifts from the config exactly as a bare one does, and only the
+    period distinguishes them. Classified entries only, the same
+    script derivation the pin's expected set makes -- over the whole
+    of SUFFIX_WORDS a Latin member would fold on 'i' or 'v' and every
+    list of names would read as a copy.
+    """
+    has_classified = _policy._script_matcher(*_policy._SCRIPT_RANGES)
+    entries = [entry for entry in sources if has_classified(entry)]
+    for member in members:
+        try:
+            pattern = re.compile(member)
+        except re.error as exc:
+            raise AssertionError(
+                f"CJK alternation member {member!r} is not a valid regex "
+                f"({exc}). A mis-split alternation can produce this -- "
+                f"see _ALTERNATION's notes") from None
+        if any(pattern.fullmatch(entry)
+               or any(pattern.fullmatch(entry + stop) for stop in FULL_STOPS)
+               for entry in entries):
+            return True
+    return False
+
+
 def test_differential_honorific_rules_match_their_vocabulary() -> None:
     """The honorific rules' alternations are hand copies of the CJK
     entries of SUFFIX_WORDS (#307) and of GLUED_HONORIFICS (#308) --
@@ -914,6 +1439,24 @@ def test_differential_honorific_rules_match_their_vocabulary() -> None:
     existing rather than by an author remembering to enroll it. A roster
     key matching no rule fails as STALE, catching an entry left behind
     after a rule was renamed or deleted.
+
+    Since #322/#323 a classified member no longer implies a hand copy:
+    an alternation may be a list of CJK NAMES. Which alternations this
+    pin owns is therefore DERIVED, not declared -- a copy is one whose
+    members FOLD into the vocabulary (_copies_honorific_vocabulary),
+    and a rule folding nowhere is skipped. Skipping is not silence: an
+    alternation that folds and names no source still fails as
+    undeclared, and _NOT_A_VOCABULARY_COPY remains the escape hatch
+    for the residual case the fold cannot tell apart.
+
+    The `assert found` below is non-vacuity over ALL the ledgers at
+    once, not per ledger: a baseline whose every CJK alternation folds
+    nowhere contributes nothing and the pin still passes on the
+    others. Today the count rests entirely on the 1.4.0 and 2.0.0
+    copies -- two rules each -- the 2.1.0 and 2.2.0 ledgers carrying
+    only #322/#323's list of names. Delete those four and this pin
+    goes quiet without failing, which is what the global scope buys
+    and what it costs.
     """
     has_classified = _policy._script_matcher(*_policy._SCRIPT_RANGES)
     used: set[str] = set()
@@ -924,12 +1467,26 @@ def test_differential_honorific_rules_match_their_vocabulary() -> None:
             if not isinstance(regex, str):
                 continue
             for declared in _cjk_alternations(regex):
+                # The escape hatch the Latin twin has had since #350,
+                # shared with this pin: the alternation of NAMES whose
+                # members the fold cannot tell from a copy. Consulted
+                # before the fold, and empty of CJK sets today.
+                if frozenset(declared) in _NOT_A_VOCABULARY_COPY:
+                    continue
                 keys = [k for k in _HONORIFIC_SOURCES if k in rule["issue"]]
+                # A rule naming no key is asked about the union: an
+                # undeclared copy has to be CAUGHT here and fail the
+                # assertion below, not skipped for want of a source.
+                sources = frozenset().union(*(
+                    _HONORIFIC_SOURCES[k] for k in keys or _HONORIFIC_SOURCES))
+                if not _copies_honorific_vocabulary(declared, sources):
+                    continue        # a list of CJK names (#322/#323)
                 assert len(keys) == 1, (
                     f"{ledger.name}: rule {rule['issue']!r} carries a CJK "
-                    f"alternation matching {len(keys)} roster keys "
-                    f"({keys}); every such hand copy must name exactly "
-                    f"one source in _HONORIFIC_SOURCES")
+                    f"alternation that folds into honorific vocabulary and "
+                    f"matches {len(keys)} roster keys ({keys}); every such "
+                    f"hand copy must name exactly one source in "
+                    f"_HONORIFIC_SOURCES")
                 used.add(keys[0])
                 found += 1
                 expected = {entry for entry in _HONORIFIC_SOURCES[keys[0]]
@@ -949,6 +1506,82 @@ def test_differential_honorific_rules_match_their_vocabulary() -> None:
         f"group, a paren inside a character class, or a lone member), "
         f"which is how a still-present hand copy silently leaves this "
         f"pin.")
+
+
+def test_a_period_suffixed_hand_copy_still_reads_as_a_copy() -> None:
+    """The criterion above, driven from both sides: the adversary it
+    exists to catch and the rule it must not catch.
+
+    The adversary is built FROM the config rather than spelled out, so
+    it cannot go stale the way a hand-written '(?:씨\\.|님\\.)' would
+    -- entries wearing a period are the shape a member-shape test
+    ("space or period means it is a name") would have waved through,
+    and the whole reason the criterion reads the fold instead."""
+    glued = _HONORIFIC_SOURCES["cjk-glued-honorific-peel"]
+    has_classified = _policy._script_matcher(*_policy._SCRIPT_RANGES)
+    entries = sorted(entry for entry in glued if has_classified(entry))[:3]
+    assert len(entries) == 3
+    assert _copies_honorific_vocabulary({rf"{e}\." for e in entries}, glued)
+
+    # and the bundle's own rule, a list of names carrying periods and
+    # spaces of its own, folds nowhere
+    ledger, = (p for p in _LEDGERS if p.name == "expected_since_2.2.0.toml")
+    rules = [r for r in _rules(ledger)
+             if r["issue"].startswith("fix(#322/#323)")]
+    assert len(rules) == 1
+    alternations = _cjk_alternations(rules[0]["name_regex"])
+    assert len(alternations) == 1
+    sources = frozenset().union(*_HONORIFIC_SOURCES.values())
+    assert not _copies_honorific_vocabulary(alternations[0], sources)
+
+
+@pytest.mark.parametrize(("ledger_name", "issue"), [
+    ("expected_since_1.4.0.toml",
+     "fix(cjk-glued-honorific-peel) glued honorific peels into suffix"),
+    ("expected_since_2.0.0.toml",
+     "fix(#308/#312/#319/#320) glued CJK honorific peeled off the name "
+     "into suffix"),
+])
+@pytest.mark.parametrize(("name", "glued"), [
+    ("김민준씨", True),
+    ("김민준 박사님", False),
+    ("선생님", False),
+])
+def test_the_glued_peel_rules_decline_an_interior_honorific(
+        ledger_name: str, issue: str, name: str, glued: bool) -> None:
+    """The 2026-09-05 narrowing, stated as the property rather than as
+    a regex both ledgers happen to spell the same way.
+
+    A rule titled "glued honorific peeled off the name" may claim a
+    name whose honorific is GLUED and no other. 박사님, 선생님 and 교수님
+    are the only listed entries containing another listed one, so a
+    match on the interior 님 was the one way a spaced form could reach
+    these rules -- and it reached two corpus names, '김민준 박사님' where
+    the honorific stands as its own whole word (rules.md#W2's second
+    sentence, witnessed there by suffix="박사님") and '선생님' where no
+    `suffix` moves at all. The three negative lookbehinds refuse the
+    interior position; '김민준씨' is the glued form they must leave
+    alone, and is here so a narrowing that went too far fails rather
+    than passing as a tightening.
+
+    Hermetic on purpose: the shipped ledgers are read off disk and
+    _entry_matches is asked directly, so this holds at pytest speed
+    with no baseline wheel. _CORPUS_CLAIMS records the reach the same
+    narrowing produced (37 -> 35 in both), and the gate is what checks
+    where the name that changed hands landed.
+    """
+    compare = load_tool("compare")
+    ledger = next(led for led in _LEDGERS if led.name == ledger_name)
+    rule = next(r for r in _rules(ledger) if r["issue"] == issue)
+    # the roles the rule declares, so `fields` cannot be what decides
+    # the answer: the question here is the name_regex alone
+    shape = set(rule["fields"])
+    assert compare._entry_matches(rule, name, shape, None) is glued, (
+        f"{ledger_name}: {issue!r} "
+        f"{'no longer claims' if glued else 'claims'} {name!r}. The "
+        f"rule's title says a GLUED honorific was peeled off the name; "
+        f"a spaced one reaching it is a false label, and a glued one "
+        f"escaping it is a narrowing that overshot")
 
 
 class _LatinCopy(NamedTuple):
@@ -1055,6 +1688,27 @@ _LATIN_ALTERNATION_SOURCES: dict[str, _LatinCopy] = {
     "fix(suffix-routing) a two-token name ending in a credential acronym keeps it in `suffix`":
         _LatinCopy(vocabulary=SUFFIX_ACRONYMS,
                    covers=frozenset({"mc", "mp"})),
+    # #484's per-word rules copy one vocabulary EACH, which is why the
+    # 98 names take three rules: the roster keys a rule to a single
+    # source. B1 is case-sensitive on purpose (its comment says why),
+    # so both spellings of `and` are members and cover one entry.
+    "a connective run initials": _LatinCopy(
+        vocabulary=CONJUNCTIONS,
+        covers=frozenset({"y", "e", "&", "and", "of", "the"})),
+    "a bound-given run initials": _LatinCopy(
+        vocabulary=BOUND_GIVEN_NAMES,
+        covers=frozenset({"abdul", "abu"})),
+    # Three entries, not the five the chain names: this roster keys ONE
+    # vocabulary per rule, and the rule's first draft carried a second
+    # alternation (`(?:\s+(?:der|la))?`) that this test would have had
+    # to pin against the same entry. It could not: `covers` is one set,
+    # and the two alternations cover disjoint halves of it. The draft
+    # group was inert -- same 107 names, same digest, with and without
+    # it -- so the ledger dropped it rather than the roster growing a
+    # second shape. The rule's comment records the measurement.
+    "a particle chain inside": _LatinCopy(
+        vocabulary=PARTICLES,
+        covers=frozenset({"van", "von", "de"})),
 }
 
 #: Alternations that copy no vocabulary, so discovery must not demand a
@@ -1075,6 +1729,95 @@ _NOT_A_VOCABULARY_COPY = frozenset({
     # _vocab.D are fixed regexes, so there is no wordlist here for the
     # alternation to drift from.
     frozenset({" John Smith", " Van Johnson", ", Jr\\."}),
+    # #436/#437's Latin movers, one corpus name per alternative -- a
+    # list of names, not a copy of any wordlist, so there is no
+    # vocabulary for it to drift from. The rule's subject is the
+    # SEPARATOR between two post-nominals rather than which words are
+    # post-nominals, so the vocabularies it would otherwise be
+    # suspected of copying (SUFFIX_WORDS, SUFFIX_ACRONYMS) are not
+    # what selects these names: 'John Smith Mc V' is here on a
+    # particle that is also suffix vocabulary and 'Kenneth Clarke QC
+    # MP' on two acronyms, and a member matching either set would
+    # reach names that do not move. One set, identical in all four
+    # ledgers.
+    frozenset({"JOHN DOE PHD MD", "John Doe MD PhD",
+               "John Smith MD PhD", "John Smith Mc V",
+               "Kenneth Clarke QC MP", "Smith, John PhD I\\.",
+               "The Rt Hon Kenneth Clarke QC MP, HMG",
+               "Washington Jr\\. MD, Franklin", "abdul Smith Jr Ma",
+               "abdul Smith Jr V"}),
+    # #346's movers, one corpus name per alternative -- a list of
+    # names, not a copy of any wordlist, so there is no vocabulary for
+    # it to drift from. The rule's subject is a SHAPE the vocabulary
+    # participates in (a renunciate title plus exactly one name word),
+    # and a member copying GIVEN_NAME_TITLES would reach 'Swami
+    # Vivekananda Saraswati' and 'Guru Gobind Singh', which do not
+    # move. One set, identical in all four ledgers.
+    frozenset({"Baba Ramdev", "Guru Nanak", "Lama Zopa",
+               "Swami Vivekananda"}),
+    # #519's movers, one corpus name per alternative -- a list of
+    # names, not a copy of any wordlist. The rule's subject is a
+    # SHAPE the vocabulary participates in (a royal title plus
+    # exactly one name word), and a member copying GIVEN_NAME_TITLES
+    # would reach 'Prince Harry Windsor', which does not move. One
+    # set, identical in all four ledgers.
+    frozenset({"Her Royal Highness Princess Anne", "Prince Charles",
+               "Prince Fielder"}),
+    # #342's movers, one corpus name per alternative -- a list of
+    # names, not a copy of any wordlist, so there is no vocabulary
+    # for it to drift from. The rule's subject is what two REMOVED
+    # entries stop doing, and the vocabulary it would be suspected of
+    # copying (SUFFIX_ACRONYMS) no longer holds either word, so a
+    # member drawn from it could not name these names at all. A
+    # member spelled as the shape -- a trailing all-caps token --
+    # would reach 'John Smith XYZ' and every future acronym
+    # regression. One set, identical in all four ledgers.
+    frozenset({"Ahmad Jayadi, CHA", "Aishwarya Rai", "John Smith RAI",
+               "John Smith, RAI", "Lala Lajpat Rai"}),
+    # #449's movers, one corpus name per alternative -- a list of
+    # names, not a copy of any wordlist, so there is no vocabulary for
+    # it to drift from. What selects these names is a SHAPE the
+    # vocabulary only participates in negatively (a lone name word NO
+    # vocabulary claimed), and a member copying any wordlist would
+    # reach names that report nothing: 'abdul' is bound-given
+    # vocabulary and 'de' a particle, and neither moves. Seven members
+    # carry a trailing suffix -- 'Smith Jr.', "'Smitty' Jones Jr.",
+    # 'John V', 'Jack M.A.', 'Carod i', 'Donald mc', 'Mohamad X' --
+    # where the peel took the suffix and the convention placed the ONE
+    # name word left, so a suffix wordlist is not what this list copies
+    # either. One set, identical in all three 2.x ledgers.
+    frozenset({r"'Smitty' Jones Jr\.", "Andrew", "Carod i",
+               "Dean of Chemistry", "Donald mc", "Duke of Edinburgh",
+               "Duke of Wellington", "Garcia", r"Jack M\.A\.",
+               "John & Jane", "John V", "John of the Doe",
+               "Juan & Garcia", "Juan and Garcia", "Mohamad X",
+               "Smith", r"Smith Jr\.", "e and e",
+               "part1 of The part2 of the part3 and part4",
+               "part1 of and The part2 of the part3 And part4",
+               "test", "سلمان،"}),
+    # #491's title movers, one corpus name per alternative. A list of
+    # names, not a copy of TITLES: the rule's subject is a SHAPE the
+    # vocabulary participates in (the title peel leaves one name word
+    # and that word is in it), and a member copying the wordlist
+    # would reach 'Dr. Smith', 'Rabbi Cohen' and 'Mrs. Garcia', which
+    # do not move. One set, identical in all three 2.x ledgers.
+    frozenset({"Dr\\. King", "His Holiness", "His Holiness the Dalai Lama",
+               "Lord Chancellor",
+               "The Right Hon\\. the President of the Queen's Bench Division",
+               "The Rt Hon"}),
+    # #491's suffix movers. A list of names, not a copy of SUFFIX_WORDS
+    # or SUFFIX_ACRONYMS: a member copying either would reach every
+    # credential-bearing name in the corpus, and what selects these two
+    # is that no name word stood beside the credential.
+    frozenset({"QC MP", "Rinpoche"}),
+    # #491's join movers, reached by the #518 review round's hoist. A
+    # list of two names, not a copy of TITLES: a member copying the
+    # wordlist would reach 'Prince of Wales', which H3 chains into a
+    # title run, and every title-plus-surname name besides. What
+    # selects these two is a SHAPE -- a peeled title, then a joined
+    # unit standing last with title vocabulary inside it.
+    frozenset({"Attorney General of Minnesota",
+               "Deputy Secretary of State"}),
     # fix(#445)'s movers, one corpus name per alternative -- a list of
     # names, not a copy of any wordlist, so there is no vocabulary for
     # it to drift from. Two sets because the ledgers group the nine
@@ -1082,10 +1825,11 @@ _NOT_A_VOCABULARY_COPY = frozenset({
     # fields and share the first set; the eighth ('John née Jones
     # Smith Ma') moves those plus `suffix`, and the ninth ('Smith
     # (née Jones)') keeps the rule it already had. At 2.0.0/2.1.0 the
-    # second set holds six that move two fields: five of the 1.4
-    # seven, plus that acronym name, whose acronym is no part of the
-    # diff at those baselines. The two the second set drops are the
-    # compounds with #412 and #424, each with a rule of its own.
+    # second set holds the ones that move two fields: the first set
+    # less the two compounds it drops -- with #412 and with #424, each
+    # with a rule of its own -- plus that acronym name, whose acronym
+    # is no part of the diff at those baselines. Read the composition
+    # off the two literals below rather than off a count here.
     #
     # Spelled out rather than written as the shape -- one word, then a
     # marker -- because that shape also matches rules.md#M4's two
@@ -1120,6 +1864,111 @@ _NOT_A_VOCABULARY_COPY = frozenset({
     # here stands behind. This roster records only that a wordlist is
     # not what is copied.
     frozenset({"X", "IX", "IV", "V?I{1,3}", "V"}),
+    # #484: the anchor groups of the `_initials` rules -- start-of-name
+    # or whitespace, start-of-name or whitespace-or-comma. Anchors, not
+    # words; the same reason as fix(#400)'s pair above.
+    frozenset({"^", "\\s"}),
+    frozenset({"^", "[\\s,]"}),
+    # fix(#385/#402)'s 24 spellings: the 27 corpus names whose
+    # all-particle part moved, listed because "a part of nothing but
+    # particles" is not a property a regex over the raw string can
+    # state. A list of names, the fix(#445) precedent -- that rule and
+    # fix(#410) and fix(#335) are the 1.4.0 ledger's literal lists.
+    frozenset({"anh do", "smith van der", "yin le", "yin a le", "vai la",
+               "jong van der", "jong, van der", "juan van der",
+               "mesnil garcia de", "mesnil garcia van", "mesnil de",
+               "sander van", "van ma van", "anh van do",
+               "beethoven ludwig van", "berg jan de jr\\.", "john van mc",
+               "jong anke de", "juan de", "ménil christophe de",
+               "ménil de", "nguyen thi van", "nguyen, van le",
+               "van berg jan de"}),
+    # fix(#462)'s letter shape: a bare capital E/Y or a dotted E./Y.
+    # It is the initial SHAPE (v1's `initial` regex, _render._INITIAL)
+    # intersected with the single-letter conjunctions, not a copy of
+    # CONJUNCTIONS -- "e." is no entry, and matching it against the
+    # vocabulary would be a false claim of correspondence.
+    frozenset({"[EY]", "[EeYy]\\."}),
+    # #489's run movers, one corpus name per alternative -- a list of
+    # names, not a copy of GIVEN_NAME_TITLES. The rule's subject is a
+    # SHAPE the vocabulary participates in (a multi-word title run
+    # whose LAST word is a given-name title), and a member copying the
+    # wordlist would reach 'Sir John Smith' and 'Dr. Smith', which do
+    # not move -- the run has to be multi-word before the last word is
+    # asked about at all. One set, identical in all four ledgers.
+    frozenset({r"Dr\. Sir John", "Her Majesty Queen Elizabeth"}),
+    # #489's peel-floor movers, one corpus name per alternative -- a
+    # list of names, and NOT a copy of either wordlist the floor
+    # consults. A member copying TITLES would reach 'Marquess of Bath'
+    # and every titled name besides; a member copying SUFFIX_WORDS
+    # would reach 'MD DDS' and 'Jr. Ph. D.', which are the inputs the
+    # floor DECLINES. What selects these four is the shape: a title
+    # run with nothing but post-nominal pieces behind it, whose own
+    # last word is not one of those. One set, identical in all four
+    # ledgers.
+    frozenset({"Dr Jr", "Dr King Jr", r"Dr\. King MD", "Sir Jr"}),
+    # #316's trailing-title movers, one corpus name per alternative --
+    # a list of names, not a copy of TITLES. The rule's subject is a
+    # SHAPE the vocabulary participates in (a trailing run of
+    # period-marked LISTED title words), and a member copying the
+    # wordlist would reach the BARE 'Mary Jane King' and 'John Smith
+    # Sir', which do not move, while a member spelled as the shape --
+    # a trailing dotted word -- would reach 'John Smith Xyz.', the
+    # unlisted abbreviation this slot deliberately does not infer
+    # from. 'Mary Jane King\.' and 'Smith Sir\.' joined in the
+    # 2026-09-09 review of the docs commit, as rules.md examples: the
+    # first is the period-marked spelling of the very name the
+    # wordlist test above uses, which is the point of it -- the bare
+    # word is protected and the abbreviated one is not, and the member
+    # says so by carrying the period. 'Sir John Prof\.' and
+    # 'Dr\. Smith Sir\.' joined in the SECOND review round the same
+    # day, as the rules.md examples of H1's leading-run clause: both
+    # move `title` -- the walk takes the trailing word out of the name
+    # -- which is what puts them here rather than on the #489 run
+    # rule, whose `fields` reach no title role at all. 'Andrew Perkins \x28Mgr\.\x29'
+    # carries the ledger's \x28/\x29 spelling of the parentheses,
+    # without which this whole alternation would be invisible to
+    # _alternations above. One set, identical in all four ledgers.
+    frozenset({r"Andrew Perkins \x28Mgr\.\x29", r"Dr\. John Smith Prof\.",
+               r"Dr\. Smith Sir\.", r"John Prof\. MA", r"John Smith Dr\.",
+               r"John Smith Jr\. Prof\.", r"John Smith Mr\.",
+               r"John Smith Prof\.", r"John Smith Prof\. Dr\.",
+               r"John Smith Prof\. Jr\.", r"John Smith Rev\.",
+               r"Mary Jane King\.", r"Sir John Prof\.", r"Smith Prof\.",
+               r"Smith Sir\.", r"Smith, John Prof\."}),
+    # NO CJK SET HERE TODAY, and the hatch is kept open for one
+    # residual: an alternation of NAMES in which some member happens
+    # to BE a shipped word -- a bare '양\.' would fold, 양 being
+    # SUFFIX_WORDS, where #322/#323's '양 지훈\.' and '양\. 지훈' do
+    # not. Nothing in the tree needs that today; which classified
+    # alternations the honorific pin owns is DERIVED instead, by
+    # _copies_honorific_vocabulary.
+    #
+    # WHY NOT A MEMBER-SHAPE TEST, which is what the derived criterion
+    # replaced an enumeration with. The obvious cheaper spelling is "a
+    # member carrying a space or a period is a literal name, so let it
+    # through" -- and it would equally have exempted
+    # '(?:씨\.|님\.|선생\.)', a period-suffixed hand copy of
+    # GLUED_HONORIFICS, from the pin that exists to keep such a copy
+    # in step with the config. That is the silent unpinning this
+    # module is written to prevent, and a shape test cannot tell the
+    # two apart, because the period is exactly what the bundle taught
+    # the parser to read THROUGH. The fold test can, which is what
+    # makes it stronger than either: the period-suffixed copy folds
+    # into the vocabulary and is caught (two of that adversary's three
+    # members fold, 선생 being no entry), while every member of
+    # #322/#323's own lists folds nowhere -- 0 of 11 and 0 of 17,
+    # measured 2026-09-10.
+    #
+    # WHAT A SKIP FORGOES, so nobody reads it as free, derived or
+    # declared. Both pins pass over the alternation, so its rule is
+    # checked by neither _unjustified_reach nor _top_level_alternation
+    # -- the #350 precedent, where the Latin twin's escape was
+    # introduced on the same terms. What stands in for them is
+    # per-rule and stronger for a list of names than a reach bound
+    # would be: _CORPUS_CLAIMS pins the exact set of corpus names the
+    # whole rule claims, with a digest, so a widened regex fails on
+    # the count or the digest, and _MUST_NOT_MATCH names the readings
+    # the bundle deliberately left alone.
 })
 
 def _unjustified_reach(name_regex: str, members: set[str]) -> list[str]:
@@ -1154,15 +2003,23 @@ def _reaches_non_vocabulary(member: str, vocabulary: frozenset[str]) -> list[str
     fullmatch against the vocabulary bounds what a member matches
     WITHIN those entries and says nothing about what it matches in a
     NAME. That gap was first filled with a tuple of eight hand-picked
-    probe strings, and the tuple was defeated by a wider rule than the
-    one it was added to stop: every entry this rule needs is three
-    characters, so a member must accept some 3-character string and is
-    unconstrained everywhere else -- "[acdf-uw-z]{3,}" covers `roz`,
-    dodges all eight probes, and reaches 634 of the 751 corpus names
-    as a fourth alternative (the rule carrying it claims 542).
-    Measured with the IGNORECASE this function applies; the
-    case-sensitive figure, 592, is not what runs. Counts here and below are
-    against _CORPUS_NAMES, which deduplicates the 783 corpus lines.
+    probe strings, and the tuple WAS DEFEATED by a wider rule than the
+    one it was added to stop: every entry fix(#274) needs is three
+    characters (`geb`, `nee`, `née`), so a member must accept some
+    3-character string and is unconstrained everywhere else --
+    "[acdf-uw-z]{3,}" covers `roz`, dodged all eight probes, and as a
+    fourth alternative reached most of the corpus, far past what the
+    rule carrying it claimed. The figures that stood here were taken
+    against a corpus of 751 names and are not restated: the corpus has
+    since grown by half, the eight-string tuple this replaced is gone,
+    and the finding is the SHAPE -- a member unconstrained outside one
+    3-character window walks past every probe anyone hand-picks --
+    which is what the paragraph below acts on and which no count
+    strengthens. If a number is wanted, drive the member over
+    _CORPUS_NAMES with the IGNORECASE this function applies; the
+    case-sensitive figure is smaller and is not what runs. Counts here
+    and below are against _CORPUS_NAMES, which deduplicates the corpus
+    lines rather than counting them.
 
     Eight strings could never be more than a spot check. The corpus is
     the whole population the rule will ever be asked about, so ask it
@@ -1219,7 +2076,12 @@ def test_latin_alternations_mean_something_the_vocabulary_ships() -> None:
                 continue
             for members in _alternations(regex):
                 if any(has_classified(m) for m in members):
-                    continue        # the honorific pin owns these
+                    # An UNDECLARED classified alternation is the
+                    # honorific pin's; a DECLARED one is skipped by
+                    # both pins, and the roster is where its answer is
+                    # written. Either way it is not this pin's, so the
+                    # order of these two tests does not matter.
+                    continue
                 if frozenset(members) in _NOT_A_VOCABULARY_COPY:
                     continue
                 found += 1
@@ -1322,8 +2184,11 @@ def _carries(name: str, vocabulary: frozenset[str]) -> bool:
     marker like 旧姓 is written against the name it marks rather than
     spaced off it.
 
-    Note what the isascii() split actually covers: 12 of the 16
-    entries, not only the CJK one. `né` is two characters, so the
+    Note what the isascii() split actually covers: EVERY non-ASCII
+    entry, not only the CJK one -- the great majority of
+    MAIDEN_MARKERS, and the predicate below is the enumeration, so
+    read it there rather than from a count here, which said 12 of 16
+    while the vocabulary shipped 17. `né` is two characters, so the
     substring branch reads `René` as carrying a marker. Every
     over-match here SHRINKS the set of unexplained names and so
     weakens the guard -- the direction this module exists to close --
@@ -1344,7 +2209,8 @@ import glob, json
 from nameparser import DEFAULT_NICKNAME_DELIMITERS as D
 from nameparser.config.maiden_markers import MAIDEN_MARKERS as V
 from nameparser._lexicon import _normalize
-names = {json.loads(l) for f in glob.glob('tools/differential/corpus*.jsonl') for l in open(f, encoding='utf-8') if l.strip()}
+def _n(x): return x if isinstance(x, str) else x['name']
+names = {_n(json.loads(l)) for f in glob.glob('tools/differential/corpus*.jsonl') for l in open(f, encoding='utf-8') if l.strip()}
 strip = ''.join({c for p in D for c in p})
 sub = lambda n: any(e in n for e in V if not e.isascii())
 print(sum(not {_normalize(t.strip(strip)) for t in n.split()} & V and sub(n) for n in names),
@@ -1445,17 +2311,26 @@ class _Claim(NamedTuple):
     #: still fails. Unreadable by design -- the count above is what a
     #: reviewer reads, and the failure message prints what moved.
     digest: str
+    #: the comparison orders it narrows by, sorted; None when it carries
+    #: no `orders` key at all. The three above are all blind to the
+    #: third narrowing: deleting `orders` from a shipped rule widens it
+    #: to every order while its regex reaches the same names, narrows by
+    #: the same roles, and digests identically. No default, so a new
+    #: entry has to state which one it is.
+    orders: tuple[str, ...] | None
 
 
 def _claim(rule: dict) -> _Claim:
     regex = rule.get("name_regex")
     names = (_claimed(regex) if isinstance(regex, str) else list(_CORPUS_NAMES))
     fields = rule.get("fields")
+    orders = rule.get("orders")
     return _Claim(
         names=len(names),
         roles=tuple(sorted(fields)) if isinstance(fields, list) else (),
         digest=hashlib.sha256(
-            "\n".join(names).encode("utf-8")).hexdigest()[:12])
+            "\n".join(names).encode("utf-8")).hexdigest()[:12],
+        orders=tuple(sorted(orders)) if isinstance(orders, list) else None)
 
 
 #: How many corpus names each rule's name_regex matches, per ledger.
@@ -1466,9 +2341,13 @@ def _claim(rule: dict) -> _Claim:
 #: a rule outside whichever category the last fix had covered. The
 #: categories are the test's, not the ledger's. What every rule shares
 #: is what it claims: how much corpus its regex reaches, which roles
-#: it narrows by, and WHICH names those are. Scoped to the corpus --
+#: it narrows by, which comparison ORDERS it admits, and WHICH names
+#: those are. The orders entry closes a widening none of the other
+#: three can see: deleting `orders` from a shipped rule returns it to
+#: claiming every order while its reach, its roles and its digest all
+#: stand still. Scoped to the corpus --
 #: and only there -- a widening cannot change what a rule explains
-#: without moving one of the three. Restoring 'born' moves none of
+#: without moving one of the four. Restoring 'born' moves none of
 #: them, because no corpus name contains it; the member guards catch
 #: that, which is why this does not replace them.
 #:
@@ -1505,141 +2384,216 @@ def _claim(rule: dict) -> _Claim:
 #: both is growth into names the rule genuinely describes.
 _CORPUS_CLAIMS: dict[str, dict[str, _Claim]] = {
     "expected_since_1.4.0.toml": {
+        # #436/#437's Latin alternation, first in every ledger.
+        # Ten corpus names, `suffix` alone: the rule moves the
+        # SEPARATOR and no role, so a widening that took a role would
+        # change the row here before it reached the gate.
+        "fix(#436/#437) a space-separated post-nominal run renders with spaces, not commas":
+            _Claim(10, ('suffix',), "30f5314a2662", None),
+        # #346's alternation. Four corpus names, `family` and
+        # `given` together: the fold moves both roles at once, so a
+        # widening taking one alone would change the roles here
+        # before it reached the gate.
+        "fix(#346) a renunciate title and one name word leave the name a given name":
+            _Claim(4, ('family', 'given'), "a3399ee7b21e", None),
+        # #519's alternation. Three corpus names, `family` and `given`
+        # together: the fold moves both roles at once, so a widening
+        # taking one alone would change the roles here before it
+        # reached the gate.
+        "fix(#519) prince and princess join the given-name titles":
+            _Claim(3, ('family', 'given'), "ca37331f9803", None),
+        # #342's alternation. Five corpus names and four roles: the
+        # comma forms move `given` where the bare forms move `middle`,
+        # so a widening taking one shape alone would change the roles
+        # here before it reached the gate. Reach, not explanation --
+        # at this baseline 'Aishwarya Rai' reaches the rule and is
+        # explained by parity instead, so the gate heading reads 4.
+        "fix(#342) rai and cha left the credential acronyms, so a trailing Rai or CHA is a name word":
+            _Claim(5, ('family', 'given', 'middle', 'suffix'), "c3d76812da97", None),
         "fix(A2) content-free input names nobody, so every role empties":
-            _Claim(5, ('given',), "1af8d718688b"),
+            _Claim(5, ('given',), "1af8d718688b", None),
         "fix(#335) a marker-led clause leaves the one name word its bare reading":
-            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b"),
+            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b", None),
         "fix(#434) a multi-word maiden marker takes the maiden name":
-            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef"),
+            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef", None),
         "fix(#434) a multi-word marker leads a bracketed clause to the maiden name":
-            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283"),
+            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283", None),
         "fix(#335) a marker-led bracketed clause reads as the maiden name whatever pair encloses it":
-            _Claim(5, ('maiden', 'nickname'), "a419f74143e3"),
+            _Claim(5, ('maiden', 'nickname'), "a419f74143e3", None),
         "fix(#410) a title and one name word name the family, whatever annotation stands beside it":
-            _Claim(3, ('family', 'given'), "24d6223e472f"),
+            _Claim(3, ('family', 'given'), "24d6223e472f", None),
         "fix(#410) the maiden flavor, where 1.4.0 read the marker as a middle name":
-            _Claim(1, ('family', 'given', 'maiden', 'middle'), "309e39fc2475"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle'), "309e39fc2475", None),
         "fix(#432) a dotted numeral behind a name is a middle initial, not the generation":
-            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f"),
+            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f", None),
         "fix(#271/#272/#298) native-script CJK: family-first order, hangul segmentation, the kana license and the dots":
-            _Claim(108, ('family', 'given', 'middle'), "9a814f70c2dc"),
+            _Claim(126, ('family', 'given', 'middle'), "a3053e6567fb", None),
         "fix(#274) maiden markers consumed":
-            _Claim(31, ('family', 'maiden', 'middle'), "67e2280be79d"),
+            _Claim(33, ('family', 'maiden', 'middle'), "6f8bf7136b09", None),
         "fix(cjk-maiden-marker) maiden marker consumed, compounding with the CJK order flip":
-            _Claim(5, ('family', 'given', 'maiden', 'middle'), "bc0e10dd7ec8"),
+            _Claim(5, ('family', 'given', 'maiden', 'middle'), "bc0e10dd7ec8", None),
         "fix(#379) a tussenvoegsel after a family comma attaches to the family":
-            _Claim(13, ('family', 'middle'), "973617235cda"),
+            _Claim(13, ('family', 'middle'), "973617235cda", None),
         "fix(#380) a trailing vd after a family comma is the tussenvoegsel, not a post-nominal":
-            _Claim(2, ('family', 'suffix'), "ec0d45289dc1"),
+            _Claim(2, ('family', 'suffix'), "ec0d45289dc1", None),
         # 279 -> 280 with #371, and the growth is corpus, not behavior:
         # that PR added `Ph. D., John` as a rules.md example, so the
         # regex matches one more corpus name. The name does not diff at
         # this baseline (v1 and HEAD both read first 'John', last
         # 'Ph. D.'), so nothing was absorbed.
+        #
+        # 284 -> 286 with the shape 1-3 variation matrix (#486), and
+        # the growth is corpus again: 'Smith, John Jr.' and
+        # 'Smith, John, Extra, Jr.' were case-table rows in no corpus
+        # until their shape tags put them in corpus_shapes.jsonl. Both
+        # are parity rows, so neither diffs at this baseline and this
+        # rule absorbs nothing new -- the same reach-not-behavior
+        # growth the paragraph above records, from the other source.
+        # It moves this rule and fix(comma-precomma-family) below by
+        # the same two names, both matching on the bare comma. 286 ->
+        # 288 in the commit after it, for the two comma-bearing rows
+        # #486 had to AUTHOR -- 'John Smith Jr., PhD' and
+        # 'Kennedy, John (Jack)' -- and neither diffs at this baseline
+        # either, so all four names are reach without absorption.
+        # 288 -> 289 on 2026-09-08: 'Smith, John Prof.' joined the
+        # rules corpus with the 2.3 title-run bundle and matches on
+        # the bare comma, like the 288 before it. It does not diff
+        # on this rule's roles at any baseline -- {title, middle} --
+        # so this is reach without absorption, as the paragraph
+        # above records for the four names before it.
         "fix(comma-family) lone post-comma piece routes to suffix/title, not first":
-            _Claim(280, ('given', 'suffix', 'title'), "c85e12fa5d66"),
+            _Claim(289, ('given', 'suffix', 'title'), "837dc1177415", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split":
-            _Claim(2, ('family', 'given'), "5bd9c6d96c38"),
+            _Claim(2, ('family', 'given'), "5bd9c6d96c38", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split, the C1 example":
-            _Claim(2, ('family', 'given', 'suffix'), "a3cfff4e78f4"),
+            _Claim(2, ('family', 'given', 'suffix'), "a3cfff4e78f4", None),
         "fix(#296) a dropped prenominal takes the name position it occupies":
-            _Claim(3, ('given', 'middle', 'title'), "263d5957cfc1"),
+            _Claim(3, ('given', 'middle', 'title'), "263d5957cfc1", None),
+        # `middle` left the ROLES in the same edit, at the gate's
+        # own OVER-DECLARED insistence: with 'John Smith Dr.' gone,
+        # no name the rule still explains moves a middle name.
+        # 11 -> 12 on 2026-09-08: the 2.3 title-run bundle put
+        # 'John Smith Prof. Dr.' in the rules corpus, and the
+        # trailing-`dr` regex reaches any name ending in " Dr.".
+        # Reach, not explanation -- the rule explains NEITHER of
+        # the two 'Dr.' names now, both having moved to the #316
+        # rule at the end of the ledger, and the comment there
+        # records the handover.
         "fix(#296) dr is not postnominal vocabulary, so a trailing Dr. is a name word":
-            _Claim(9, ('family', 'middle', 'suffix'), "8d6e9a1b43c0"),
+            _Claim(13, ('family', 'suffix'), "fb9c68f36d0b", None),
         "fix(#296) a credential-only comma string reads a name and its postnominal":
-            _Claim(2, ('family', 'given', 'suffix', 'title'), "3f983ff71dee"),
+            _Claim(2, ('family', 'given', 'suffix', 'title'), "3f983ff71dee", None),
         "fix(#296) a lone post-comma credential is a suffix":
-            _Claim(18, ('family', 'given', 'suffix', 'title'), "1f79efa10444"),
+            _Claim(18, ('family', 'given', 'suffix', 'title'), "1f79efa10444", None),
         "fix(#325) a split credential followed by another suffix after a one-word family comma reads as suffixes":
-            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337"),
+            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337", None),
         "fix(#325) a credential run across a second comma reads as suffixes":
-            _Claim(1, ('suffix', 'title'), "f025c5f70a4e"),
+            _Claim(1, ('suffix', 'title'), "f025c5f70a4e", None),
         "fix(#367) an inferred title no longer displaces a leading particle either":
-            _Claim(1, ('family', 'given'), "d8ee9cd5da5f"),
+            _Claim(1, ('family', 'given'), "d8ee9cd5da5f", None),
+        # 288 -> 289 with fix(comma-family) above and for the same
+        # one name, both rules matching on the bare comma.
         "fix(comma-precomma-family) pre-comma run reads as family, not given":
-            _Claim(280, ('family', 'given'), "c85e12fa5d66"),
-        "fix(#342) NOT WANTED: a bare trailing 'Rai' is read as a post-nominal suffix and the family is lost":
-            _Claim(1, ('family', 'suffix'), "694fd06a2e9a"),
+            _Claim(289, ('family', 'given'), "837dc1177415", None),
         "fix(#397) NOT WANTED: a trailing Catalan/Polish linking 'i' is read as a generation marker and the family is lost":
-            _Claim(1, ('family', 'suffix'), "498602f3cfd0"),
+            _Claim(1, ('family', 'suffix'), "498602f3cfd0", None),
         "fix(suffix-delimiter-rendering) no-space delimiter core token kept whole":
-            _Claim(0, ('suffix',), "e3b0c44298fc"),
+            _Claim(0, ('suffix',), "e3b0c44298fc", None),
         "ambiguous-surname-acronym data change: parenthesized (MA)/(DO) now stays nickname":
-            _Claim(0, ('nickname', 'suffix'), "e3b0c44298fc"),
+            _Claim(0, ('nickname', 'suffix'), "e3b0c44298fc", None),
         "feat(#269) Arabic بن prefix chains onto family (non-Latin new-recognition)":
-            _Claim(2, ('family', 'middle'), "3e2b5c6d1f4d"),
+            _Claim(2, ('family', 'middle'), "3e2b5c6d1f4d", None),
         "feat(#273) typographic nickname delimiters recognized by default":
-            _Claim(8, ('middle', 'nickname'), "968bd4162257"),
+            _Claim(8, ('middle', 'nickname'), "968bd4162257", None),
         "fix(cjk-delimited-nickname) delimiter recognition compounds with the CJK order flip":
-            _Claim(6, ('family', 'given', 'nickname'), "ae1dffa01608"),
+            _Claim(6, ('family', 'given', 'nickname'), "ae1dffa01608", None),
         "fix(cjk-fullwidth-paren-nickname) fullwidth-parenthesis recognition compounds with the CJK order flip":
-            _Claim(1, ('family', 'given', 'middle', 'nickname'), "cf370e856ae7"),
+            _Claim(1, ('family', 'given', 'middle', 'nickname'), "cf370e856ae7", None),
         "fix(cjk-comma-honorific-peel) glued honorific peels off a post-comma given name":
-            _Claim(23, ('given', 'suffix'), "344de804e2c6"),
+            _Claim(26, ('given', 'suffix'), "7145d3aa16ca", None),
         "fix(cjk-comma-compound) comma routing compounds with the CJK order flip":
-            _Claim(23, ('family', 'given', 'suffix', 'title'), "344de804e2c6"),
+            _Claim(26, ('family', 'given', 'suffix', 'title'), "7145d3aa16ca", None),
+        # 37 -> 35 with the 2026-09-05 narrowing, which is a rule
+        # NARROWING and not corpus movement: the three negative
+        # lookbehinds stop the regex matching a listed honorific
+        # interior to a longer one, so '김민준 박사님' and '선생님' left
+        # the reach and nothing else did. The 2.0 twin below carries
+        # the identical regex and moves by the same two names, to the
+        # same digest. Only '김민준 박사님' changed hands -- it goes to
+        # fix(cjk-honorific-suffix) here -- '선생님' having been the
+        # order rule's all along.
+        # 40 since #323, which is 35 + 2 + 3: '김민준씨.' and '田中さん.'
+        # entered the corpus, and the review round after them added the
+        # three stop-bearing FAMILY_COMMA rows ('田中さん., V.',
+        # '김민준씨., J.씨', '이, J.씨.'). The regex already carried the
+        # optional stop, so all five move the REACH on membership, not
+        # on the fix. None of the five is a diff this rule explains:
+        # the first two carry a title role its fields do not admit, so
+        # the #322/#323 rule at the foot of the ledger explains them
+        # instead, and the three comma rows produce no diff at this
+        # baseline at all. `radar unclassified` stays 0.
         "fix(cjk-glued-honorific-peel) glued honorific peels into suffix":
-            _Claim(37, ('family', 'given', 'suffix'), "719c31233502"),
+            _Claim(40, ('family', 'given', 'suffix'), "4d7bacfc28a4", None),
         "fix(cjk-honorific-suffix) postnominal honorifics recognized, compounding with the CJK order flip":
-            _Claim(19, ('family', 'given', 'middle', 'suffix'), "aa475ddd4745"),
+            _Claim(19, ('family', 'given', 'middle', 'suffix'), "aa475ddd4745", None),
         "feat(#269) non-Latin titles/conjunctions recognized":
-            _Claim(4, ('given', 'middle', 'title'), "e86eeb13eeb2"),
+            _Claim(4, ('given', 'middle', 'title'), "e86eeb13eeb2", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle":
-            _Claim(1, ('family', 'given'), "ca7b37af6cf8"),
+            _Claim(1, ('family', 'given'), "ca7b37af6cf8", None),
         "fix(#367) a title no longer displaces a leading particle out of the leading position":
-            _Claim(3, ('family', 'given'), "724967a4a117"),
+            _Claim(3, ('family', 'given'), "724967a4a117", None),
         "fix(#400) abd joins the word after it as one given name":
-            _Claim(11, ('given', 'middle'), "1eaed91fc574"),
+            _Claim(11, ('given', 'middle'), "1eaed91fc574", None),
         "fix(#272/#308) nakaguro division and a glued hangul honorific in one name":
-            _Claim(1, ('family', 'given', 'middle', 'suffix'), "2fbf1a94f122"),
+            _Claim(1, ('family', 'given', 'middle', 'suffix'), "2fbf1a94f122", None),
         "fix(emoji-boundary) an emoji inside a token divides it":
-            _Claim(1, ('family', 'given'), "efa60ca42d4a"),
+            _Claim(1, ('family', 'given'), "efa60ca42d4a", None),
         "fix(nickname-typographic-pairs) two typographic quote spans read as one nickname set":
-            _Claim(1, ('family', 'given', 'middle', 'nickname'), "3cf566c78800"),
+            _Claim(1, ('family', 'given', 'middle', 'nickname'), "3cf566c78800", None),
         "fix(#411) the bound-given reserve stops counting words the maiden name takes":
-            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613"),
+            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613", None),
         "fix(#400/#274) bound-given join and maiden consumption in one name":
-            _Claim(1, ('family', 'given', 'maiden', 'middle'), "6bed6d349342"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle'), "6bed6d349342", None),
         "fix(#411/S2) a declining bound-given join leaves the suffix reading after a family comma":
-            _Claim(1, ('given', 'maiden', 'middle', 'suffix'), "0f8ed9db0a32"),
+            _Claim(1, ('given', 'maiden', 'middle', 'suffix'), "0f8ed9db0a32", None),
         "fix(#418) the connective carve-out counts the name the maiden clause leaves behind":
-            _Claim(1, ('family', 'given', 'maiden', 'middle'), "7923e6d3c5a7"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle'), "7923e6d3c5a7", None),
         "fix(credential-pair-order) a split credential and a suffix render in written order":
-            _Claim(1, ('suffix',), "6f6eef764248"),
+            _Claim(1, ('suffix',), "6f6eef764248", None),
         "fix(#369) a given-name title licenses the bound given-name join with one word to spare":
-            _Claim(3, ('family', 'given'), "724be3e6b926"),
+            _Claim(3, ('family', 'given'), "724be3e6b926", None),
         "fix(#401) the bound-given reserve counts the trailing numeral assign reads as the suffix":
-            _Claim(2, ('family', 'given', 'suffix'), "5713d4c0bd68"),
+            _Claim(2, ('family', 'given', 'suffix'), "5713d4c0bd68", None),
         "fix(#421) the bound-given join never absorbs a suffix piece":
-            _Claim(1, ('given', 'middle'), "9523e518e6ec"),
+            _Claim(1, ('given', 'middle'), "9523e518e6ec", None),
         "fix(#421) the bound-given join never absorbs a split credential":
-            _Claim(1, ('given', 'middle'), "228abe0f32ef"),
+            _Claim(1, ('given', 'middle'), "228abe0f32ef", None),
         "fix(#425) accepted: a bare ambiguous acronym the peel does not take joins as a name word":
-            _Claim(1, ('given', 'middle'), "2010cc79a34d"),
+            _Claim(1, ('given', 'middle'), "2010cc79a34d", None),
         "fix(#424) the particle chain stops before the trailing numeral":
-            _Claim(1, ('family', 'suffix'), "2c99162bc9cf"),
+            _Claim(1, ('family', 'suffix'), "2c99162bc9cf", None),
         "fix(#424/#445) accepted: the maiden walk keeps a bare acronym, and the lone name word is the family":
-            _Claim(1, ('family', 'given', 'maiden', 'middle', 'suffix'), "f2c6cd2e3001"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle', 'suffix'), "f2c6cd2e3001", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle, the P4 example":
-            _Claim(1, ('family', 'given'), "42b69cf1b320"),
+            _Claim(1, ('family', 'given'), "42b69cf1b320", None),
         "fix(#424) accepted: the maiden walk keeps the numeral an initial before the marker vetoes":
-            _Claim(1, ('family', 'maiden', 'middle', 'suffix'), "08c0158c8d3f"),
+            _Claim(1, ('family', 'maiden', 'middle', 'suffix'), "08c0158c8d3f", None),
         "fix(#424) accepted: the chain keeps an acronym assign will not peel behind a title-and-particle word":
-            _Claim(1, ('family', 'given'), "faa4bedda537"),
+            _Claim(1, ('family', 'given'), "faa4bedda537", None),
         "fix(#424) a title-led chain before the numeral is the one name piece":
-            _Claim(1, ('family', 'suffix'), "5b3a743f9e35"),
+            _Claim(1, ('family', 'suffix'), "5b3a743f9e35", None),
         "fix(#424) accepted: a particle of the suffix vocabulary opening the trailing run is a suffix piece":
-            _Claim(1, ('family', 'middle', 'suffix'), "a564b97f7162"),
+            _Claim(1, ('family', 'middle', 'suffix'), "a564b97f7162", None),
         "fix(#360) ste moved into the never-given particles with mc":
-            _Claim(1, ('family', 'given'), "e62caedec864"),
+            _Claim(1, ('family', 'given'), "e62caedec864", None),
         "fix(#360) mc moved into the never-given particles, so it folds into the family":
-            _Claim(1, ('family', 'given'), "ee4339908f4d"),
+            _Claim(1, ('family', 'given'), "ee4339908f4d", None),
         "fix(#367) a title no longer displaces a leading never-given particle":
-            _Claim(1, ('family', 'given'), "db724fb9c779"),
+            _Claim(1, ('family', 'given'), "db724fb9c779", None),
         "fix(#445) a maiden marker makes the lone name word the family":
-            _Claim(7, ('family', 'given', 'maiden', 'middle'), "3de9ef12b4a8"),
+            _Claim(7, ('family', 'given', 'maiden', 'middle'), "3de9ef12b4a8", None),
         "fix(N3) a nickname-led name with a trailing suffix keeps the suffix in `suffix`":
-            _Claim(1, ('family', 'suffix'), "570f265a2f46"),
+            _Claim(1, ('family', 'suffix'), "570f265a2f46", None),
         # #451's four replacements for the fields-only catch-all, whose
         # own entry recorded the whole 1090-name corpus -- a rule with no
         # name_regex reaches everything, so its reach could never move and
@@ -1648,239 +2602,770 @@ _CORPUS_CLAIMS: dict[str, dict[str, _Claim]] = {
         # take the surplus, which is why the four are last in the file;
         # the acronym and M.A. rules reach exactly what they explain.
         "fix(suffix-routing) a two-token name ending in a roman numeral keeps it in `suffix`":
-            _Claim(4, ('family', 'suffix'), "fc52089dfa8e"),
+            _Claim(4, ('family', 'suffix'), "fc52089dfa8e", None),
+        # 5 -> 7 on 2026-09-08: 'Dr Jr' and 'Sir Jr' joined the
+        # rules corpus with the 2.3 title-run bundle. Both are
+        # two-token names ending in `jr`, so the regex reaches
+        # them; neither diff fits {family, suffix} -- each moves
+        # `title` and `given` too -- so both fall through to the
+        # peel-floor rule at the end of the ledger, and the surplus
+        # is the one the paragraph above says these four carry.
+        # 7 -> 6 on 2026-09-09, in the /simplify round: `Sir Jr` left
+        # rules.md and so left the corpus; `Dr Jr` reads the same way
+        # and pins the shape alone.
         "fix(suffix-routing) a two-token name ending in the suffix word jr keeps it in `suffix`":
-            _Claim(5, ('family', 'suffix'), "602e2d83a23b"),
+            _Claim(6, ('family', 'suffix'), "dd3fc23d90a1", None),
         "fix(suffix-routing) a two-token name ending in a credential acronym keeps it in `suffix`":
-            _Claim(2, ('family', 'suffix'), "ed72c9672214"),
+            _Claim(2, ('family', 'suffix'), "ed72c9672214", None),
         "fix(suffix-routing) the dotted M.A. spelling reads as a credential (ma-do)":
-            _Claim(1, ('family', 'suffix'), "17379620526b"),
+            _Claim(1, ('family', 'suffix'), "17379620526b", None),
+        # #484's six `_initials` rules. Four of them reach far more
+        # than they explain, and the gap is the pseudo-field's own
+        # doing rather than a widening: `_initials` enters a diff ONLY
+        # when the seven roles and the ambiguity kinds all agree, so a
+        # name whose regex the rule matches contributes nothing unless
+        # its parse is otherwise identical across the two surfaces.
+        # Reach against explained, measured 2026-09-02 at baseline
+        # 1.4.0 -- a snapshot of that run, not a standing count:
+        # 27/27, 1/1, 96/66, 41/19, 107/11, 18/2 -- the particle chain's
+        # reach is 108 since 2026-09-07, when rules.md#P1's `de la Torre
+        # Vega` example joined the contract corpus (#471). The reach half is
+        # what this roster holds; the explained half moves with the
+        # corpus and is re-read from the gate. The phd rule's 18 is the widest
+        # gap and the most literal regex -- `\bph\. d\.` matches every
+        # spelling of the fragment the corpora carry, and the trailing
+        # ones are protected by the [[never]] entry above, which is
+        # what _EXCLUSION_EFFECT's grown `absorbed_by` records.
+        "fix(#385/#402) an all-particle name part initials its words (R2)":
+            _Claim(27, ('_initials',), "6b242c287db8", ('DEFAULT',)),
+        "fix(#360) los joined the particles, so it no longer initials":
+            _Claim(1, ('_initials',), "cd721215f463", ('DEFAULT',)),
+        # 96 -> 97 on 2026-09-08: 'Prince of Wales Jr' joined the
+        # rules corpus with the 2.3 title-run bundle -- a parity
+        # row, kept as the boundary the peel floor declines -- and
+        # `of` is a connective. Reach, not explanation.
+        "fix(initials-per-word) a connective run initials each word (facade, since 2.0.0)":
+            _Claim(97, ('_initials',), "6af5338ad4d5", ('DEFAULT',)),
+        "fix(initials-per-word) a bound-given run initials each word (facade, since 2.0.0)":
+            _Claim(41, ('_initials',), "e99f56c955d5", ('DEFAULT',)),
+        "fix(initials-per-word) a particle chain inside a name part initials each word (facade, since 2.0.0)":
+            _Claim(109, ('_initials',), "ae9c8f674e0c", ('DEFAULT',)),
+        "fix(initials-per-word) the Ph. D. merge initials each word (facade, since 2.0.0)":
+            _Claim(18, ('_initials',), "f67d8ebddd56", ('DEFAULT',)),
+        # The 2.3 title-run bundle's five rules, last in every
+        # ledger. All five are anchored on NAMES, so the reach IS the
+        # mover list: 2 names for the run keying, 1 for the esq drop,
+        # 3 for the peel floor, 16 for the trailing title and 1 for
+        # the trailing title on a native-script name, which is the
+        # same argument on the one name a script-classified
+        # alternation may not hold. Twenty-three in all, and every one
+        # of them is explained by the rule that names it -- these are
+        # the rare rows where reach and explanation coincide, which is
+        # what an anchored name list buys. A widening past those names
+        # moves the digest here before it can reach the gate.
+        # 24 -> 23 on 2026-09-09, in the /simplify round: `Sir Jr`
+        # left rules.md, where it pinned nothing `Dr Jr` does not,
+        # and so left the rules corpus and the peel floor's reach.
+        "fix(#489) a title run addresses by its last title":
+            _Claim(2, ('family', 'given'), "e14159a4d48f", None),
+        "change(suffix-acronym-collisions) esq leaves the acronym set":
+            _Claim(1, ('family', 'middle', 'suffix'), "ef9c8cfc56d8", None),
+        # `_ambiguities` is in the ROLES at the three 2.x baselines and
+        # not at 1.4.0, which has no ambiguity surface to compare
+        # (compare.py's _RULE_FIELDS). Same regex, so the reach and the
+        # digest are identical in all four ledgers and only the roles
+        # move.
+        "fix(#489) the title peel leaves a name word a suffix cannot be":
+            _Claim(3, ('family', 'given', 'suffix', 'title'), "07b02286cd81", None),
+        "fix(#316) a trailing period-marked title word reads as a title":
+            _Claim(16, ('family', 'given', 'middle', 'suffix', 'title'),
+                   "562e0e82a22b", None),
+        # The CJK member of the same argument, its own literal rule
+        # (an alternation holding a script-classified member belongs
+        # to the honorific pin above -- until #322/#323 that was every
+        # such alternation, and what the pin owns is derived from the
+        # fold now, not declared).
+        # ONE corpus name, and the roles are the one thing that
+        # differs by ledger here: this baseline read the Latin word as
+        # a post-nominal and the Han words given-first, so all four
+        # move.
+        "fix(#316) a trailing Latin title on a native-script name is a title":
+            _Claim(1, ('family', 'given', 'suffix', 'title'),
+                   "567f09dc9b45", None),
+        # #322/#323, last in every ledger. ELEVEN corpus names here
+        # and at 2.0.0, SEVENTEEN at the two 2.x ledgers below (nine
+        # CJK movers, the katakana 'マイケル.', and the bracketed '(김민준.)
+        # John Smith', the last two added 2026-09-10 in the
+        # whole-branch and follow-up review rounds): '김. 민준', '양 지훈.'
+        # and '양. 지훈' move within {given, middle, family} at this
+        # baseline -- {family, given}, as it happens -- which
+        # fix(#271/#272/#298) above declares, and the three
+        # stop-bearing FAMILY_COMMA rows the same later review round
+        # added produce no diff at this baseline at all -- so none of
+        # the six are members of this rule's regex here, and the reach
+        # is smaller by six. Five roles, the union over the eleven: a
+        # widening that took a sixth would change the row here before
+        # it reached the gate.
+        "fix(#322/#323) a full stop on a CJK token is read as punctuation and stays on its token":
+            _Claim(11, ('family', 'given', 'middle', 'suffix', 'title'),
+                   "671c6c89cf61", None),
     },
     "expected_since_2.0.0.toml": {
+        # #436/#437's Latin alternation, first in every ledger.
+        # Ten corpus names, `suffix` alone: the rule moves the
+        # SEPARATOR and no role, so a widening that took a role would
+        # change the row here before it reached the gate.
+        "fix(#436/#437) a space-separated post-nominal run renders with spaces, not commas":
+            _Claim(10, ('suffix',), "30f5314a2662", None),
+        # #449's six rules, second in every 2.x ledger. The
+        # alternation reaches twenty-two corpus names and
+        # `_ambiguities` alone: no role moves anywhere in this change,
+        # so a widening that took a role would change the row here
+        # before it reached the gate, and a member reaching a name
+        # something DECIDED ('abdul', 'de', 'Dr. Smith') would move
+        # the count. The five CJK rules are literal-anchored on one
+        # corpus name each, a reach _CORPUS_CLAIMS cannot police on
+        # its own -- a widening into names the corpora lack leaves it
+        # unmoved -- so _MUST_NOT_MATCH carries the boundary probes
+        # beside them. The digests are the same in all three 2.x
+        # ledgers because the regexes are the same strings and the
+        # corpora are one set; the ROLES are not, and the two glued
+        # honorific rules are why -- only at this baseline is #308's
+        # peel still in the diff beside the report, and the gate
+        # refuses a rule declaring a role no diff it explains moves.
+        "feat(#449) a lone name word reports given-or-family":
+            _Claim(22, ('_ambiguities',), "0ef8cf9a9272", None),
+        "feat(#449) a wholly-katakana name keeps the declared order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "80777383a11a", None),
+        "feat(#449) an interpunct transcription declines the script order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "ba9a4258c864", None),
+        "feat(#449) an ideographic comma leaves one name word, and the convention decides it":
+            _Claim(1, ('_ambiguities',), "4b2858642238", None),
+        "feat(#449) a glued Japanese honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities', 'given', 'suffix'), "528858346d14",
+                   None),
+        "feat(#449) a glued Korean honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities', 'given', 'suffix'), "30ec95e25f05",
+                   None),
+        # #491's two rules, beside #449's for the same reason: both
+        # classify on `_ambiguities` alone, and no role moves anywhere
+        # in this change, so a widening that took a role would change
+        # the row here before it reached the gate. Six title names and
+        # two suffix names, one alternative each; a member reaching a
+        # name the SHAPE does not select ('Dr. Smith', 'Rabbi Cohen',
+        # 'Smith Jr.', the lone 'Dr.' the peel takes whole) would move
+        # the count, and _MUST_NOT_MATCH carries those probes. Same
+        # digests in all three 2.x ledgers: the regexes are the same
+        # strings and the corpora are one set.
+        "feat(#491) an all-titles input reports title-or-name for the word the title peel left as the name":
+            _Claim(6, ('_ambiguities',), "9ee2a07d96c8", None),
+        "feat(#491) an all-suffix input reports suffix-or-name for the word it made the name":
+            _Claim(2, ('_ambiguities',), "e0756e2e1cd4", None),
+        # The join clause's own rule, added by the #518 review round:
+        # hoisting the clause out from under O5's field-deciding
+        # guards reached two corpus names, both a peeled title in
+        # front of a joined unit standing last. Literal-anchored on
+        # the two, so _MUST_NOT_MATCH carries the boundary probes.
+        "feat(#491) a joined unit carrying title vocabulary reports title-or-name":
+            _Claim(2, ('_ambiguities',), "7af3fec03ccc", None),
+        # #346's alternation. Four corpus names, `family` and
+        # `given` together: the fold moves both roles at once, so a
+        # widening taking one alone would change the roles here
+        # before it reached the gate.
+        "fix(#346) a renunciate title and one name word leave the name a given name":
+            _Claim(4, ('family', 'given'), "a3399ee7b21e", None),
+        # #519's alternation. Three corpus names, `family` and `given`
+        # together: the fold moves both roles at once, so a widening
+        # taking one alone would change the roles here before it
+        # reached the gate.
+        "fix(#519) prince and princess join the given-name titles":
+            _Claim(3, ('family', 'given'), "ca37331f9803", None),
+        # #342's alternation. Five corpus names and four roles: the
+        # comma forms move `given` where the bare forms move `middle`,
+        # so a widening taking one shape alone would change the roles
+        # here before it reached the gate.
+        "fix(#342) rai and cha left the credential acronyms, so a trailing Rai or CHA is a name word":
+            _Claim(5, ('family', 'given', 'middle', 'suffix'), "c3d76812da97", None),
+        # The compound rule, at the two baselines where 'abdul Smith
+        # Jr V' already diffs {family, given} under fix(#401) and the
+        # widened diff leaves that rule's `fields`. Three roles here
+        # because the diff it explains carries all three.
+        "fix(#436/#437) the space-separated post-nominal run compounds with the bound-given reserve":
+            _Claim(1, ('family', 'given', 'suffix'), "8152bc33f8da", None),
         "fix(#335) a marker-led clause leaves the one name word its bare reading":
-            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b"),
+            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b", None),
         "fix(#434) a multi-word maiden marker takes the maiden name":
-            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef"),
+            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef", None),
         "fix(#434) a multi-word marker leads a bracketed clause to the maiden name":
-            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283"),
+            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283", None),
         "fix(#335) a marker-led bracketed clause reads as the maiden name whatever pair encloses it":
-            _Claim(5, ('maiden', 'nickname'), "a419f74143e3"),
+            _Claim(5, ('maiden', 'nickname'), "a419f74143e3", None),
         "fix(#335) a marker-led bracketed clause reads as the maiden name, compounding with the CJK order flip":
-            _Claim(1, ('family', 'given', 'maiden', 'nickname'), "cf370e856ae7"),
+            _Claim(1, ('family', 'given', 'maiden', 'nickname'), "cf370e856ae7", None),
         "fix(#410) a title and one name word name the family, whatever annotation stands beside it":
-            _Claim(4, ('family', 'given'), "da1dd1473145"),
+            _Claim(4, ('family', 'given'), "da1dd1473145", None),
         "fix(#430) a credential run does not end at the roman numeral describing it":
-            _Claim(2, ('given', 'suffix'), "3c8fa6bc827a"),
+            _Claim(2, ('given', 'suffix'), "3c8fa6bc827a", None),
         "fix(#432) a dotted numeral behind a name is a middle initial, not the generation":
-            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f"),
+            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f", None),
         "fix(#429) a wholly-credential segment after a one-word family renders as one entry":
-            _Claim(1, ('suffix', 'title'), "9e0b9e8d5cbe"),
+            _Claim(1, ('suffix', 'title'), "9e0b9e8d5cbe", None),
         "fix(#379) a tussenvoegsel after a family comma attaches to the family":
-            _Claim(13, ('_ambiguities', 'family', 'middle'), "973617235cda"),
+            _Claim(13, ('_ambiguities', 'family', 'middle'), "973617235cda", None),
         "fix(#271/#272/#298) native-script CJK: family-first order, hangul segmentation, the kana license and the dots":
-            _Claim(108, ('_ambiguities', 'family', 'given', 'middle'), "9a814f70c2dc"),
+            _Claim(126, ('_ambiguities', 'family', 'given', 'middle'), "a3053e6567fb", None),
+        # 37 -> 35 with the same 2026-09-05 narrowing as the 1.4 twin,
+        # whose entry carries the reason. Here the one name that
+        # changed hands, '김민준 박사님', goes to the spaced rule
+        # fix(#307/#308/#320) -- the label its title states.
+        # 35 -> 40 since #323 by the same five names, the 1.4 twin's
+        # entry carrying the arithmetic.
         "fix(#308/#312/#319/#320) glued CJK honorific peeled off the name into suffix":
-            _Claim(37, ('family', 'given', 'suffix'), "719c31233502"),
+            _Claim(40, ('family', 'given', 'suffix'), "4d7bacfc28a4", None),
         "fix(#307/#308/#320) spaced CJK postnominal honorific routed to suffix":
-            _Claim(16, ('family', 'given', 'middle', 'suffix'), "6d390e518bd2"),
+            _Claim(16, ('family', 'given', 'middle', 'suffix'), "6d390e518bd2", None),
         "fix(#309) 旧姓 maiden marker consumed, compounding with the CJK order flip":
-            _Claim(5, ('family', 'given', 'maiden', 'middle'), "bc0e10dd7ec8"),
+            _Claim(5, ('family', 'given', 'maiden', 'middle'), "bc0e10dd7ec8", None),
         "fix(#272) nakaguro inside delimited content renders as a space, compounding with the CJK order flip":
-            _Claim(1, ('family', 'given', 'nickname'), "d4069d459f23"),
+            _Claim(1, ('family', 'given', 'nickname'), "d4069d459f23", None),
         "fix(#298) 间隔号 division changes the comma reading, sending the credential from title to suffix":
-            _Claim(1, ('family', 'given', 'suffix', 'title'), "1d45596e6fdb"),
+            _Claim(1, ('family', 'given', 'suffix', 'title'), "1d45596e6fdb", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "ca7b37af6cf8"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "ca7b37af6cf8", None),
         "fix(#367) a title no longer displaces a leading particle out of the leading position":
-            _Claim(3, ('family', 'given'), "724967a4a117"),
+            _Claim(3, ('family', 'given'), "724967a4a117", None),
         "fix(#380) a trailing vd after a family comma is the tussenvoegsel, not a post-nominal":
-            _Claim(2, ('_ambiguities', 'family', 'suffix'), "ec0d45289dc1"),
+            _Claim(2, ('_ambiguities', 'family', 'suffix'), "ec0d45289dc1", None),
         "fix(#399) a maiden marker bounds the particle chain that swallowed it":
-            _Claim(5, ('family', 'maiden'), "15ec75a89f07"),
+            _Claim(6, ('family', 'maiden'), "89e1f4afdd2a", ('DEFAULT',)),
         "fix(#360) mc moved into the never-given particles, so it folds into the family":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "ee4339908f4d"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "ee4339908f4d", None),
         "fix(#400) abd joins the word after it as one given name":
-            _Claim(11, ('given', 'middle'), "1eaed91fc574"),
+            _Claim(11, ('given', 'middle'), "1eaed91fc574", None),
         "fix(#367) a title no longer displaces a leading never-given particle":
-            _Claim(1, ('family', 'given'), "db724fb9c779"),
+            _Claim(1, ('family', 'given'), "db724fb9c779", None),
         "fix(#272/#308) nakaguro division and a glued hangul honorific in one name":
-            _Claim(1, ('family', 'given', 'middle', 'suffix'), "2fbf1a94f122"),
+            _Claim(1, ('family', 'given', 'middle', 'suffix'), "2fbf1a94f122", None),
         "fix(#411) the bound-given reserve stops counting words the maiden name takes":
-            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613"),
+            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613", None),
         "fix(#412) a connective join no longer absorbs the maiden marker beside it":
-            _Claim(2, ('family', 'maiden'), "51c0eb36b5c5"),
+            _Claim(2, ('family', 'maiden'), "51c0eb36b5c5", None),
         "fix(#418) the connective carve-out counts the name the maiden clause leaves behind":
-            _Claim(1, ('family', 'given', 'middle'), "7923e6d3c5a7"),
+            _Claim(1, ('family', 'given', 'middle'), "7923e6d3c5a7", None),
         "fix(#418) accepted: a suffix word inside the maiden name ends it, connective or not":
-            _Claim(1, ('family', 'maiden', 'middle'), "bedc18423d2a"),
+            _Claim(1, ('family', 'maiden', 'middle'), "bedc18423d2a", None),
         "fix(#369) a given-name title licenses the bound given-name join with one word to spare":
-            _Claim(3, ('family', 'given'), "724be3e6b926"),
+            _Claim(3, ('family', 'given'), "724be3e6b926", None),
         "fix(#401) the bound-given reserve counts the trailing numeral assign reads as the suffix":
-            _Claim(2, ('family', 'given'), "5713d4c0bd68"),
+            _Claim(2, ('family', 'given'), "5713d4c0bd68", None),
         "fix(#421) the bound-given join never absorbs a suffix piece":
-            _Claim(1, ('given', 'middle'), "9523e518e6ec"),
+            _Claim(1, ('given', 'middle'), "9523e518e6ec", None),
         "fix(#421) the bound-given join never absorbs a split credential":
-            _Claim(1, ('given', 'middle', 'suffix'), "228abe0f32ef"),
+            _Claim(1, ('given', 'middle', 'suffix'), "228abe0f32ef", None),
         "fix(#425) the bound-given reserve runs assign's peel over the joined view":
-            _Claim(2, ('family', 'given', 'suffix'), "ef1ab03b617e"),
+            _Claim(2, ('family', 'given', 'suffix'), "ef1ab03b617e", None),
         "fix(#424) the particle chain stops before the trailing numeral":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "2c99162bc9cf"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "2c99162bc9cf", None),
         "fix(#424) the particle chain stops before a bare acronym with words to spare":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "3e3aae6a5b4b"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "3e3aae6a5b4b", None),
         "fix(#424) a title-led chain before the numeral is the one name piece":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "5b3a743f9e35"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "5b3a743f9e35", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split":
-            _Claim(2, ('family', 'given'), "5bd9c6d96c38"),
+            _Claim(2, ('family', 'given'), "5bd9c6d96c38", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split, the C1 example":
-            _Claim(2, ('family', 'given'), "a3cfff4e78f4"),
+            _Claim(2, ('family', 'given'), "a3cfff4e78f4", None),
         "fix(#296) a dropped prenominal takes the name position it occupies":
-            _Claim(3, ('_ambiguities', 'given', 'middle', 'title'), "263d5957cfc1"),
+            _Claim(3, ('_ambiguities', 'given', 'middle', 'title'), "263d5957cfc1", None),
+        # `middle` left the ROLES in the same edit, and the reach
+        # grew with the rules corpus; the 1.4.0 roster above carries
+        # both, and says the same at the other two baselines.
         "fix(#296) dr is not postnominal vocabulary, so a trailing Dr. is a name word":
-            _Claim(9, ('family', 'middle', 'suffix'), "8d6e9a1b43c0"),
+            _Claim(13, ('family', 'suffix'), "fb9c68f36d0b", None),
         "fix(#296) a credential-only comma string reads a name and its postnominal":
-            _Claim(2, ('suffix', 'title'), "3f983ff71dee"),
+            _Claim(2, ('suffix', 'title'), "3f983ff71dee", None),
         "fix(#296) a lone post-comma credential is a suffix":
-            _Claim(18, ('suffix', 'title'), "1f79efa10444"),
+            _Claim(18, ('suffix', 'title'), "1f79efa10444", None),
         "fix(#325) a split credential followed by another suffix after a one-word family comma reads as suffixes":
-            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337"),
+            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337", None),
         "fix(#325) a credential run across a second comma reads as suffixes":
-            _Claim(1, ('suffix', 'title'), "f025c5f70a4e"),
+            _Claim(1, ('suffix', 'title'), "f025c5f70a4e", None),
         "fix(#296) a glued honorific before a lone credential: the credential is the postnominal":
-            _Claim(1, ('family', 'suffix', 'title'), "01bf2bd3f895"),
+            _Claim(1, ('family', 'suffix', 'title'), "01bf2bd3f895", None),
         "fix(#296) do is a name, so it no longer stops the leading-particle scan as a title":
-            _Claim(1, ('family', 'given'), "faa2c70fc49e"),
+            _Claim(1, ('family', 'given'), "faa2c70fc49e", None),
         "fix(#296) dr is not postnominal vocabulary, so 'John Smith, Dr.' keeps its split and its title":
-            _Claim(2, ('_ambiguities', 'suffix', 'title'), "34d3d96adb65"),
+            _Claim(2, ('_ambiguities', 'suffix', 'title'), "34d3d96adb65", ('DEFAULT', 'FAMILY_FIRST')),
         "fix(#296) an ambiguous acronym counts as a suffix only when written with its periods":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "e13b3c769de4"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "e13b3c769de4", None),
         "fix(#367) an inferred title no longer displaces a leading particle either":
-            _Claim(1, ('family', 'given'), "d8ee9cd5da5f"),
+            _Claim(1, ('family', 'given'), "d8ee9cd5da5f", None),
         "fix(#424) accepted: a particle of the suffix vocabulary opening the trailing run is a suffix piece":
-            _Claim(1, ('_ambiguities', 'family', 'middle', 'suffix'), "a564b97f7162"),
+            _Claim(1, ('_ambiguities', 'family', 'middle', 'suffix'), "a564b97f7162", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle, the P4 example":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "42b69cf1b320"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "42b69cf1b320", None),
         "fix(#424/#445) the maiden walk stops before the trailing numeral, and the lone name word is the family":
-            _Claim(1, ('_ambiguities', 'family', 'given', 'maiden', 'suffix'), "cbe5bdd97317"),
+            _Claim(1, ('_ambiguities', 'family', 'given', 'maiden', 'suffix'), "cbe5bdd97317", None),
         "fix(#445) a maiden marker makes the lone name word the family":
-            _Claim(6, ('family', 'given'), "f521c94c79fc"),
+            _Claim(6, ('family', 'given'), "f521c94c79fc", None),
         "fix(#445) the lone name word beside a marker a connective join no longer absorbs":
-            _Claim(1, ('family', 'given', 'maiden', 'middle'), "52544a41dd62"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle'), "52544a41dd62", None),
         "fix(#424) a marker followed only by the numeral is just a word":
-            _Claim(1, ('_ambiguities', 'family', 'maiden', 'middle', 'suffix'), "aaf53040b071"),
+            _Claim(1, ('_ambiguities', 'family', 'maiden', 'middle', 'suffix'), "aaf53040b071", None),
         "fix(#369) the bound given-name join takes a particle-and-bound word, so no fork is reported":
-            _Claim(1, ('_ambiguities',), "81cf02ffdb33"),
+            _Claim(1, ('_ambiguities',), "81cf02ffdb33", None),
         "fix(#360) ste moved into the never-given particles with mc":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "e62caedec864"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "e62caedec864", None),
         "fix(#399) a maiden marker bounds the particle chain: the geb. spelling":
-            _Claim(1, ('family', 'maiden'), "2150936a8c55"),
+            _Claim(1, ('family', 'maiden'), "2150936a8c55", None),
         "fix(#371) a suffix never begins a name: the Ph./D. merge declines at the head":
-            _Claim(4, ('family', 'given', 'middle', 'suffix', 'title'), "1425d85a2d86"),
+            _Claim(4, ('family', 'given', 'middle', 'suffix', 'title'), "1425d85a2d86", None),
+        "feat(#395) a leading never-given particle bounds the family under a declared family-first order":
+            _Claim(1, ('family', 'given', 'middle'), "47dcff268731", ('FAMILY_FIRST', 'FAMILY_FIRST_GIVEN_LAST')),
+        "fix(#399)/feat(#395) a consumed maiden marker leaves the family-first fold no given name":
+            _Claim(1, ('family', 'given', 'maiden'), "504eb466e347", ('FAMILY_FIRST', 'FAMILY_FIRST_GIVEN_LAST')),
+        "feat(#395)/fix(#296) a comma followed only by a title leaves the pre-comma name to the declared order's fold":
+            _Claim(1, ('family', 'given', 'middle', 'suffix', 'title'), "fc6bc9e605e1", ('FAMILY_FIRST',)),
+        "feat(#395)/fix(#296) a comma followed only by a title leaves the pre-comma name to the declared order's fold, the given-last spelling":
+            _Claim(1, ('family', 'given', 'middle', 'suffix', 'title'), "3e43a2be022e", ('FAMILY_FIRST_GIVEN_LAST',)),
+        # #484's two `_initials` rules. Both are literal name lists, so
+        # reach equals what they explain here -- 27 and 1 -- and both
+        # digests match the 1.4.0 ledger's, which is the point of
+        # copying the list verbatim rather than restating it.
+        "fix(#385/#402) an all-particle name part initials its words (R2)":
+            _Claim(27, ('_initials',), "6b242c287db8", ('DEFAULT',)),
+        "fix(#360) los joined the particles, so it no longer initials":
+            _Claim(1, ('_initials',), "cd721215f463", ('DEFAULT',)),
+        # fix(#462) reaches more than it explains -- the reach is the
+        # _Claim below, and the gap is the names named here. Its regex
+        # is a letter SHAPE rather than a name list, and the extra --
+        # 'E Anne D', 'E Jones', 'E Maria', 'Y. L.' -- carry the E/Y in
+        # the GIVEN group, which has always initialed every word it
+        # holds whatever the vocabulary says, so the fix does not move
+        # them. The discriminator is the GROUP and not the position:
+        # 'E Anne D,Leonardo' also leads with the E, but its comma
+        # re-roles the whole run into the FAMILY group, and it moves.
+        # The digest is the same in all three 2.x ledgers because the
+        # regex is the same string in each.
+        "fix(#462) the facade keeps an initial-shaped conjunction letter":
+            _Claim(18, ('_initials',), "3dd0e0276be6", ('DEFAULT',)),
+        # The 2.3 title-run bundle's five rules, last in every
+        # ledger, and the same reach at all four: the 1.4.0 roster
+        # above carries the argument.
+        "fix(#489) a title run addresses by its last title":
+            _Claim(2, ('family', 'given'), "e14159a4d48f", None),
+        "change(suffix-acronym-collisions) esq leaves the acronym set":
+            _Claim(1, ('family', 'middle', 'suffix'), "ef9c8cfc56d8", None),
+        # `_ambiguities` is in the ROLES at the three 2.x baselines and
+        # not at 1.4.0, which has no ambiguity surface to compare
+        # (compare.py's _RULE_FIELDS). Same regex, so the reach and the
+        # digest are identical in all four ledgers and only the roles
+        # move.
+        "fix(#489) the title peel leaves a name word a suffix cannot be":
+            _Claim(3, ('_ambiguities', 'family', 'given', 'suffix', 'title'), "07b02286cd81", None),
+        "fix(#316) a trailing period-marked title word reads as a title":
+            _Claim(16, ('family', 'given', 'middle', 'suffix', 'title'),
+                   "562e0e82a22b", None),
+        # The CJK member of the same argument, its own literal rule
+        # (an UNDECLARED alternation holding a script-classified
+        # member belongs to the honorific pin above -- see the 1.4.0
+        # mapping's note on what #322/#323 changed there). ONE corpus
+        # name; this baseline reads as 1.4.0 does, so the roles are
+        # the same four.
+        "fix(#316) a trailing Latin title on a native-script name is a title":
+            _Claim(1, ('family', 'given', 'suffix', 'title'),
+                   "567f09dc9b45", None),
+        # #322/#323. Reach and digest as in the 1.4.0 mapping, the
+        # same eleven-member regex over the same corpus; that entry
+        # carries why six of the bundle's seventeen movers are absent
+        # here (all seventeen are members at 2.1.0/2.2.0).
+        # `_ambiguities` joins the roles here and not at 1.4.0: the
+        # katakana mover carries a GIVEN_OR_FAMILY ambiguity that only
+        # a v2-surface comparison sees.
+        "fix(#322/#323) a full stop on a CJK token is read as punctuation and stays on its token":
+            _Claim(11, ('_ambiguities', 'family', 'given', 'middle',
+                        'suffix', 'title'), "671c6c89cf61", None),
+    },
+    # The 2.3 cycle's first rule, and a facade-only render fix: every
+    # role is identical, so `_initials` alone. Reach and digest as in
+    # the 2.0.0 mapping above, the same regex classifying the same
+    # names.
+    "expected_since_2.2.0.toml": {
+        # #436/#437's Latin alternation, first in every ledger.
+        # Ten corpus names, `suffix` alone: the rule moves the
+        # SEPARATOR and no role, so a widening that took a role would
+        # change the row here before it reached the gate.
+        "fix(#436/#437) a space-separated post-nominal run renders with spaces, not commas":
+            _Claim(10, ('suffix',), "30f5314a2662", None),
+        # #449's six rules, second in every 2.x ledger. The
+        # alternation reaches twenty-two corpus names and
+        # `_ambiguities` alone: no role moves anywhere in this change,
+        # so a widening that took a role would change the row here
+        # before it reached the gate, and a member reaching a name
+        # something DECIDED ('abdul', 'de', 'Dr. Smith') would move
+        # the count. The five CJK rules are literal-anchored on one
+        # corpus name each, a reach _CORPUS_CLAIMS cannot police on
+        # its own -- a widening into names the corpora lack leaves it
+        # unmoved -- so _MUST_NOT_MATCH carries the boundary probes
+        # beside them. The digests are the same in all three 2.x
+        # ledgers because the regexes are the same strings and the
+        # corpora are one set.
+        "feat(#449) a lone name word reports given-or-family":
+            _Claim(22, ('_ambiguities',), "0ef8cf9a9272", None),
+        "feat(#449) a wholly-katakana name keeps the declared order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "80777383a11a", None),
+        "feat(#449) an interpunct transcription declines the script order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "ba9a4258c864", None),
+        "feat(#449) an ideographic comma leaves one name word, and the convention decides it":
+            _Claim(1, ('_ambiguities',), "4b2858642238", None),
+        "feat(#449) a glued Japanese honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities',), "528858346d14", None),
+        "feat(#449) a glued Korean honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities',), "30ec95e25f05", None),
+        # #491's two rules, beside #449's for the same reason: both
+        # classify on `_ambiguities` alone, and no role moves anywhere
+        # in this change, so a widening that took a role would change
+        # the row here before it reached the gate. Six title names and
+        # two suffix names, one alternative each; a member reaching a
+        # name the SHAPE does not select ('Dr. Smith', 'Rabbi Cohen',
+        # 'Smith Jr.', the lone 'Dr.' the peel takes whole) would move
+        # the count, and _MUST_NOT_MATCH carries those probes. Same
+        # digests in all three 2.x ledgers: the regexes are the same
+        # strings and the corpora are one set.
+        "feat(#491) an all-titles input reports title-or-name for the word the title peel left as the name":
+            _Claim(6, ('_ambiguities',), "9ee2a07d96c8", None),
+        "feat(#491) an all-suffix input reports suffix-or-name for the word it made the name":
+            _Claim(2, ('_ambiguities',), "e0756e2e1cd4", None),
+        # The join clause's own rule, added by the #518 review round:
+        # hoisting the clause out from under O5's field-deciding
+        # guards reached two corpus names, both a peeled title in
+        # front of a joined unit standing last. Literal-anchored on
+        # the two, so _MUST_NOT_MATCH carries the boundary probes.
+        "feat(#491) a joined unit carrying title vocabulary reports title-or-name":
+            _Claim(2, ('_ambiguities',), "7af3fec03ccc", None),
+        # #346's alternation. Four corpus names, `family` and
+        # `given` together: the fold moves both roles at once, so a
+        # widening taking one alone would change the roles here
+        # before it reached the gate.
+        "fix(#346) a renunciate title and one name word leave the name a given name":
+            _Claim(4, ('family', 'given'), "a3399ee7b21e", None),
+        # #519's alternation. Three corpus names, `family` and `given`
+        # together: the fold moves both roles at once, so a widening
+        # taking one alone would change the roles here before it
+        # reached the gate.
+        "fix(#519) prince and princess join the given-name titles":
+            _Claim(3, ('family', 'given'), "ca37331f9803", None),
+        # #342's alternation. Five corpus names and four roles: the
+        # comma forms move `given` where the bare forms move `middle`,
+        # so a widening taking one shape alone would change the roles
+        # here before it reached the gate.
+        "fix(#342) rai and cha left the credential acronyms, so a trailing Rai or CHA is a name word":
+            _Claim(5, ('family', 'given', 'middle', 'suffix'), "c3d76812da97", None),
+        # The four one-name CJK rules, literal-anchored, at the two
+        # baselines where the render is the whole of what moved. A
+        # reach of 1 is one _CORPUS_CLAIMS cannot police on its own --
+        # a widening into names the corpora lack leaves it unmoved --
+        # so _MUST_NOT_MATCH carries the boundary probes beside it.
+        "fix(#436/#437) the glued honorific and the roman numeral are one post-nominal run":
+            _Claim(1, ('suffix',), "7afc1a7f6b7b", None),
+        "fix(#436/#437) the glued honorific and the polite address are one post-nominal run":
+            _Claim(1, ('suffix',), "4fc52f5a60f2", None),
+        "fix(#436/#437) the spaced doctorate and the honorific after it are one post-nominal run":
+            _Claim(1, ('suffix',), "6edfa4394c33", None),
+        "fix(#436/#437) the glued honorific and the generational suffix are one post-nominal run":
+            _Claim(1, ('suffix',), "1b67339cf744", None),
+        "fix(#462) the facade keeps an initial-shaped conjunction letter":
+            _Claim(18, ('_initials',), "3dd0e0276be6", ('DEFAULT',)),
+        # The 2.3 title-run bundle's five rules, last in every
+        # ledger, and the same reach at all four: the 1.4.0 roster
+        # above carries the argument.
+        "fix(#489) a title run addresses by its last title":
+            _Claim(2, ('family', 'given'), "e14159a4d48f", None),
+        "change(suffix-acronym-collisions) esq leaves the acronym set":
+            _Claim(1, ('family', 'middle', 'suffix'), "ef9c8cfc56d8", None),
+        # `_ambiguities` is in the ROLES at the three 2.x baselines and
+        # not at 1.4.0, which has no ambiguity surface to compare
+        # (compare.py's _RULE_FIELDS). Same regex, so the reach and the
+        # digest are identical in all four ledgers and only the roles
+        # move.
+        "fix(#489) the title peel leaves a name word a suffix cannot be":
+            _Claim(3, ('_ambiguities', 'family', 'given', 'suffix', 'title'), "07b02286cd81", None),
+        "fix(#316) a trailing period-marked title word reads as a title":
+            _Claim(16, ('family', 'given', 'middle', 'suffix', 'title'),
+                   "562e0e82a22b", None),
+        # The CJK member of the same argument, its own literal rule
+        # (an UNDECLARED alternation holding a script-classified
+        # member belongs to the honorific pin above -- see the 1.4.0
+        # mapping's note on what #322/#323 changed there). ONE corpus
+        # name; 2.2.0 took `dr` out of the post-nominal vocabulary, so
+        # the Latin word was a name word there and `suffix` is empty
+        # on both sides while `middle` moves instead.
+        "fix(#316) a trailing Latin title on a native-script name is a title":
+            _Claim(1, ('family', 'given', 'middle', 'title'),
+                   "567f09dc9b45", None),
+        # #322/#323, and SEVENTEEN names rather than the eleven the
+        # 1.4.0 and 2.0.0 mappings record: 2.1.0 shipped the hangul
+        # segmentation and the script order rule, so from that
+        # baseline on '김. 민준', '양 지훈.' and '양. 지훈' are this bundle's
+        # diffs and no older rule declares them, and the three
+        # stop-bearing FAMILY_COMMA rows the review round added diff
+        # from 2.1.0 on too -- six more members, not three.
+        # `_ambiguities` joins the roles here as it does at 2.0.0, for
+        # the same katakana mover.
+        "fix(#322/#323) a full stop on a CJK token is read as punctuation and stays on its token":
+            _Claim(17, ('_ambiguities', 'family', 'given', 'middle',
+                        'suffix', 'title'), "ef4a7afe791a", None),
     },
     "expected_since_2.1.0.toml": {
+        # #436/#437's Latin alternation, first in every ledger.
+        # Ten corpus names, `suffix` alone: the rule moves the
+        # SEPARATOR and no role, so a widening that took a role would
+        # change the row here before it reached the gate.
+        "fix(#436/#437) a space-separated post-nominal run renders with spaces, not commas":
+            _Claim(10, ('suffix',), "30f5314a2662", None),
+        # #449's six rules, second in every 2.x ledger. The
+        # alternation reaches twenty-two corpus names and
+        # `_ambiguities` alone: no role moves anywhere in this change,
+        # so a widening that took a role would change the row here
+        # before it reached the gate, and a member reaching a name
+        # something DECIDED ('abdul', 'de', 'Dr. Smith') would move
+        # the count. The five CJK rules are literal-anchored on one
+        # corpus name each, a reach _CORPUS_CLAIMS cannot police on
+        # its own -- a widening into names the corpora lack leaves it
+        # unmoved -- so _MUST_NOT_MATCH carries the boundary probes
+        # beside them. The digests are the same in all three 2.x
+        # ledgers because the regexes are the same strings and the
+        # corpora are one set.
+        "feat(#449) a lone name word reports given-or-family":
+            _Claim(22, ('_ambiguities',), "0ef8cf9a9272", None),
+        "feat(#449) a wholly-katakana name keeps the declared order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "80777383a11a", None),
+        "feat(#449) an interpunct transcription declines the script order, so the convention decides it":
+            _Claim(1, ('_ambiguities',), "ba9a4258c864", None),
+        "feat(#449) an ideographic comma leaves one name word, and the convention decides it":
+            _Claim(1, ('_ambiguities',), "4b2858642238", None),
+        "feat(#449) a glued Japanese honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities',), "528858346d14", None),
+        "feat(#449) a glued Korean honorific leaves a Latin name word the script cannot order":
+            _Claim(1, ('_ambiguities',), "30ec95e25f05", None),
+        # #491's two rules, beside #449's for the same reason: both
+        # classify on `_ambiguities` alone, and no role moves anywhere
+        # in this change, so a widening that took a role would change
+        # the row here before it reached the gate. Six title names and
+        # two suffix names, one alternative each; a member reaching a
+        # name the SHAPE does not select ('Dr. Smith', 'Rabbi Cohen',
+        # 'Smith Jr.', the lone 'Dr.' the peel takes whole) would move
+        # the count, and _MUST_NOT_MATCH carries those probes. Same
+        # digests in all three 2.x ledgers: the regexes are the same
+        # strings and the corpora are one set.
+        "feat(#491) an all-titles input reports title-or-name for the word the title peel left as the name":
+            _Claim(6, ('_ambiguities',), "9ee2a07d96c8", None),
+        "feat(#491) an all-suffix input reports suffix-or-name for the word it made the name":
+            _Claim(2, ('_ambiguities',), "e0756e2e1cd4", None),
+        # The join clause's own rule, added by the #518 review round:
+        # hoisting the clause out from under O5's field-deciding
+        # guards reached two corpus names, both a peeled title in
+        # front of a joined unit standing last. Literal-anchored on
+        # the two, so _MUST_NOT_MATCH carries the boundary probes.
+        "feat(#491) a joined unit carrying title vocabulary reports title-or-name":
+            _Claim(2, ('_ambiguities',), "7af3fec03ccc", None),
+        # #346's alternation. Four corpus names, `family` and
+        # `given` together: the fold moves both roles at once, so a
+        # widening taking one alone would change the roles here
+        # before it reached the gate.
+        "fix(#346) a renunciate title and one name word leave the name a given name":
+            _Claim(4, ('family', 'given'), "a3399ee7b21e", None),
+        # #519's alternation. Three corpus names, `family` and `given`
+        # together: the fold moves both roles at once, so a widening
+        # taking one alone would change the roles here before it
+        # reached the gate.
+        "fix(#519) prince and princess join the given-name titles":
+            _Claim(3, ('family', 'given'), "ca37331f9803", None),
+        # #342's alternation. Five corpus names and four roles: the
+        # comma forms move `given` where the bare forms move `middle`,
+        # so a widening taking one shape alone would change the roles
+        # here before it reached the gate.
+        "fix(#342) rai and cha left the credential acronyms, so a trailing Rai or CHA is a name word":
+            _Claim(5, ('family', 'given', 'middle', 'suffix'), "c3d76812da97", None),
+        # The four one-name CJK rules, literal-anchored, at the two
+        # baselines where the render is the whole of what moved. A
+        # reach of 1 is one _CORPUS_CLAIMS cannot police on its own --
+        # a widening into names the corpora lack leaves it unmoved --
+        # so _MUST_NOT_MATCH carries the boundary probes beside it.
+        "fix(#436/#437) the glued honorific and the roman numeral are one post-nominal run":
+            _Claim(1, ('suffix',), "7afc1a7f6b7b", None),
+        "fix(#436/#437) the glued honorific and the polite address are one post-nominal run":
+            _Claim(1, ('suffix',), "4fc52f5a60f2", None),
+        "fix(#436/#437) the spaced doctorate and the honorific after it are one post-nominal run":
+            _Claim(1, ('suffix',), "6edfa4394c33", None),
+        "fix(#436/#437) the glued honorific and the generational suffix are one post-nominal run":
+            _Claim(1, ('suffix',), "1b67339cf744", None),
+        # The compound rule, at the two baselines where 'abdul Smith
+        # Jr V' already diffs {family, given} under fix(#401) and the
+        # widened diff leaves that rule's `fields`. Three roles here
+        # because the diff it explains carries all three.
+        "fix(#436/#437) the space-separated post-nominal run compounds with the bound-given reserve":
+            _Claim(1, ('family', 'given', 'suffix'), "8152bc33f8da", None),
         "fix(#371) a suffix never begins a name: the Ph./D. merge declines at the head":
-            _Claim(4, ('family', 'given', 'middle', 'suffix', 'title'), "1425d85a2d86"),
+            _Claim(4, ('family', 'given', 'middle', 'suffix', 'title'), "1425d85a2d86", None),
         "fix(#335) a marker-led clause leaves the one name word its bare reading":
-            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b"),
+            _Claim(1, ('maiden', 'nickname'), "c09cc7dba88b", None),
         "fix(#434) a multi-word maiden marker takes the maiden name":
-            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef"),
+            _Claim(1, ('family', 'maiden', 'middle'), "c428798fc6ef", None),
         "fix(#434) a multi-word marker leads a bracketed clause to the maiden name":
-            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283"),
+            _Claim(1, ('maiden', 'nickname'), "0b3ef183f283", None),
         "fix(#335) a marker-led bracketed clause reads as the maiden name whatever pair encloses it":
-            _Claim(6, ('maiden', 'nickname'), "d0e857deddb2"),
+            _Claim(6, ('maiden', 'nickname'), "d0e857deddb2", None),
         "fix(#410) a title and one name word name the family, whatever annotation stands beside it":
-            _Claim(4, ('family', 'given'), "da1dd1473145"),
+            _Claim(4, ('family', 'given'), "da1dd1473145", None),
         "fix(#430) a credential run does not end at the roman numeral describing it":
-            _Claim(2, ('given', 'suffix'), "3c8fa6bc827a"),
+            _Claim(2, ('given', 'suffix'), "3c8fa6bc827a", None),
         "fix(#432) a dotted numeral behind a name is a middle initial, not the generation":
-            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f"),
+            _Claim(1, ('middle', 'suffix'), "e9f282da0d0f", None),
         "fix(#429) a wholly-credential segment after a one-word family renders as one entry":
-            _Claim(1, ('suffix', 'title'), "9e0b9e8d5cbe"),
+            _Claim(1, ('suffix', 'title'), "9e0b9e8d5cbe", None),
         "fix(#379) a tussenvoegsel after a family comma attaches to the family":
-            _Claim(13, ('_ambiguities', 'family', 'middle'), "973617235cda"),
+            _Claim(13, ('_ambiguities', 'family', 'middle'), "973617235cda", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "ca7b37af6cf8"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "ca7b37af6cf8", None),
         "fix(#367) a title no longer displaces a leading particle out of the leading position":
-            _Claim(3, ('family', 'given'), "724967a4a117"),
+            _Claim(3, ('family', 'given'), "724967a4a117", None),
         "fix(#380) a trailing vd after a family comma is the tussenvoegsel, not a post-nominal":
-            _Claim(2, ('_ambiguities', 'family', 'suffix'), "ec0d45289dc1"),
+            _Claim(2, ('_ambiguities', 'family', 'suffix'), "ec0d45289dc1", None),
         "fix(#399) a maiden marker bounds the particle chain that swallowed it":
-            _Claim(5, ('family', 'maiden'), "15ec75a89f07"),
+            _Claim(6, ('family', 'maiden'), "89e1f4afdd2a", ('DEFAULT',)),
         "fix(#360) mc moved into the never-given particles, so it folds into the family":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "ee4339908f4d"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "ee4339908f4d", None),
         "fix(#400) abd joins the word after it as one given name":
-            _Claim(11, ('given', 'middle'), "1eaed91fc574"),
+            _Claim(11, ('given', 'middle'), "1eaed91fc574", None),
         "fix(#367) a title no longer displaces a leading never-given particle":
-            _Claim(1, ('family', 'given'), "db724fb9c779"),
+            _Claim(1, ('family', 'given'), "db724fb9c779", None),
         "fix(#411) the bound-given reserve stops counting words the maiden name takes":
-            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613"),
+            _Claim(1, ('given', 'maiden', 'middle'), "7515923c9613", None),
         "fix(#412) a connective join no longer absorbs the maiden marker beside it":
-            _Claim(2, ('family', 'maiden'), "51c0eb36b5c5"),
+            _Claim(2, ('family', 'maiden'), "51c0eb36b5c5", None),
         "fix(#418) the connective carve-out counts the name the maiden clause leaves behind":
-            _Claim(1, ('family', 'given', 'middle'), "7923e6d3c5a7"),
+            _Claim(1, ('family', 'given', 'middle'), "7923e6d3c5a7", None),
         "fix(#418) accepted: a suffix word inside the maiden name ends it, connective or not":
-            _Claim(1, ('family', 'maiden', 'middle'), "bedc18423d2a"),
+            _Claim(1, ('family', 'maiden', 'middle'), "bedc18423d2a", None),
         "fix(#369) a given-name title licenses the bound given-name join with one word to spare":
-            _Claim(3, ('family', 'given'), "724be3e6b926"),
+            _Claim(3, ('family', 'given'), "724be3e6b926", None),
         "fix(#401) the bound-given reserve counts the trailing numeral assign reads as the suffix":
-            _Claim(2, ('family', 'given'), "5713d4c0bd68"),
+            _Claim(2, ('family', 'given'), "5713d4c0bd68", None),
         "fix(#421) the bound-given join never absorbs a suffix piece":
-            _Claim(1, ('given', 'middle'), "9523e518e6ec"),
+            _Claim(1, ('given', 'middle'), "9523e518e6ec", None),
         "fix(#421) the bound-given join never absorbs a split credential":
-            _Claim(1, ('given', 'middle', 'suffix'), "228abe0f32ef"),
+            _Claim(1, ('given', 'middle', 'suffix'), "228abe0f32ef", None),
         "fix(#425) the bound-given reserve runs assign's peel over the joined view":
-            _Claim(2, ('family', 'given', 'suffix'), "ef1ab03b617e"),
+            _Claim(2, ('family', 'given', 'suffix'), "ef1ab03b617e", None),
         "fix(#424) the particle chain stops before the trailing numeral":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "2c99162bc9cf"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "2c99162bc9cf", None),
         "fix(#424) the particle chain stops before a bare acronym with words to spare":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "3e3aae6a5b4b"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "3e3aae6a5b4b", None),
         "fix(#424) a title-led chain before the numeral is the one name piece":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "5b3a743f9e35"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "5b3a743f9e35", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split":
-            _Claim(2, ('family', 'given'), "5bd9c6d96c38"),
+            _Claim(2, ('family', 'given'), "5bd9c6d96c38", None),
         "fix(comma-family) a comma followed only by titles keeps the given/family split, the C1 example":
-            _Claim(2, ('family', 'given'), "a3cfff4e78f4"),
+            _Claim(2, ('family', 'given'), "a3cfff4e78f4", None),
         "fix(#296) a dropped prenominal takes the name position it occupies":
-            _Claim(3, ('_ambiguities', 'given', 'middle', 'title'), "263d5957cfc1"),
+            _Claim(3, ('_ambiguities', 'given', 'middle', 'title'), "263d5957cfc1", None),
+        # `middle` left the ROLES in the same edit, and the reach
+        # grew with the rules corpus; the 1.4.0 roster above carries
+        # both, and says the same at the other two baselines.
         "fix(#296) dr is not postnominal vocabulary, so a trailing Dr. is a name word":
-            _Claim(9, ('family', 'middle', 'suffix'), "8d6e9a1b43c0"),
+            _Claim(13, ('family', 'suffix'), "fb9c68f36d0b", None),
         "fix(#296) a credential-only comma string reads a name and its postnominal":
-            _Claim(2, ('suffix', 'title'), "3f983ff71dee"),
+            _Claim(2, ('suffix', 'title'), "3f983ff71dee", None),
         "fix(#296) a lone post-comma credential is a suffix":
-            _Claim(18, ('suffix', 'title'), "1f79efa10444"),
+            _Claim(18, ('suffix', 'title'), "1f79efa10444", None),
         "fix(#325) a split credential followed by another suffix after a one-word family comma reads as suffixes":
-            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337"),
+            _Claim(6, ('given', 'suffix', 'title'), "7911e0158337", None),
         "fix(#325) a credential run across a second comma reads as suffixes":
-            _Claim(1, ('suffix', 'title'), "f025c5f70a4e"),
+            _Claim(1, ('suffix', 'title'), "f025c5f70a4e", None),
         "fix(#296) a glued honorific before a lone credential: the credential is the postnominal":
-            _Claim(1, ('suffix', 'title'), "01bf2bd3f895"),
+            _Claim(1, ('suffix', 'title'), "01bf2bd3f895", None),
         "fix(#296) do is a name, so it no longer stops the leading-particle scan as a title":
-            _Claim(1, ('family', 'given'), "faa2c70fc49e"),
+            _Claim(1, ('family', 'given'), "faa2c70fc49e", None),
         "fix(#296) dr is not postnominal vocabulary, so 'John Smith, Dr.' keeps its split and its title":
-            _Claim(2, ('_ambiguities', 'suffix', 'title'), "34d3d96adb65"),
+            _Claim(2, ('_ambiguities', 'suffix', 'title'), "34d3d96adb65", ('DEFAULT', 'FAMILY_FIRST')),
         "fix(#296) an ambiguous acronym counts as a suffix only when written with its periods":
-            _Claim(1, ('_ambiguities', 'family', 'suffix'), "e13b3c769de4"),
+            _Claim(1, ('_ambiguities', 'family', 'suffix'), "e13b3c769de4", None),
         "fix(#367) an inferred title no longer displaces a leading particle either":
-            _Claim(1, ('family', 'given'), "d8ee9cd5da5f"),
+            _Claim(1, ('family', 'given'), "d8ee9cd5da5f", None),
         "fix(#424) accepted: a particle of the suffix vocabulary opening the trailing run is a suffix piece":
-            _Claim(1, ('_ambiguities', 'family', 'middle', 'suffix'), "a564b97f7162"),
+            _Claim(1, ('_ambiguities', 'family', 'middle', 'suffix'), "a564b97f7162", None),
         "fix(#424) an unlisted abbreviation is as transparent as a listed title to the leading particle, the P4 example":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "42b69cf1b320"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "42b69cf1b320", None),
         "fix(#424/#445) the maiden walk stops before the trailing numeral, and the lone name word is the family":
-            _Claim(1, ('_ambiguities', 'family', 'given', 'maiden', 'suffix'), "cbe5bdd97317"),
+            _Claim(1, ('_ambiguities', 'family', 'given', 'maiden', 'suffix'), "cbe5bdd97317", None),
         "fix(#445) a maiden marker makes the lone name word the family":
-            _Claim(6, ('family', 'given'), "f521c94c79fc"),
+            _Claim(6, ('family', 'given'), "f521c94c79fc", None),
         "fix(#445) the lone name word beside a marker a connective join no longer absorbs":
-            _Claim(1, ('family', 'given', 'maiden', 'middle'), "52544a41dd62"),
+            _Claim(1, ('family', 'given', 'maiden', 'middle'), "52544a41dd62", None),
         "fix(#424) a marker followed only by the numeral is just a word":
-            _Claim(1, ('_ambiguities', 'family', 'maiden', 'middle', 'suffix'), "aaf53040b071"),
+            _Claim(1, ('_ambiguities', 'family', 'maiden', 'middle', 'suffix'), "aaf53040b071", None),
         "fix(#369) the bound given-name join takes a particle-and-bound word, so no fork is reported":
-            _Claim(1, ('_ambiguities',), "81cf02ffdb33"),
+            _Claim(1, ('_ambiguities',), "81cf02ffdb33", None),
         "fix(#360) ste moved into the never-given particles with mc":
-            _Claim(1, ('_ambiguities', 'family', 'given'), "e62caedec864"),
+            _Claim(1, ('_ambiguities', 'family', 'given'), "e62caedec864", None),
         "fix(#399) a maiden marker bounds the particle chain: the geb. spelling":
-            _Claim(1, ('family', 'maiden'), "2150936a8c55"),
+            _Claim(1, ('family', 'maiden'), "2150936a8c55", None),
         "fix(#399) a maiden marker bounds the particle chain: a native-script marker":
-            _Claim(1, ('family', 'maiden'), "f016cc61ca43"),
+            _Claim(1, ('family', 'maiden'), "f016cc61ca43", None),
+        "feat(#395) a leading never-given particle bounds the family under a declared family-first order":
+            _Claim(1, ('family', 'given', 'middle'), "47dcff268731", ('FAMILY_FIRST', 'FAMILY_FIRST_GIVEN_LAST')),
+        "fix(#399)/feat(#395) a consumed maiden marker leaves the family-first fold no given name":
+            _Claim(1, ('family', 'given', 'maiden'), "504eb466e347", ('FAMILY_FIRST', 'FAMILY_FIRST_GIVEN_LAST')),
+        "feat(#395)/fix(#296) a comma followed only by a title leaves the pre-comma name to the declared order's fold":
+            _Claim(1, ('family', 'given', 'middle', 'suffix', 'title'), "fc6bc9e605e1", ('FAMILY_FIRST',)),
+        "feat(#395)/fix(#296) a comma followed only by a title leaves the pre-comma name to the declared order's fold, the given-last spelling":
+            _Claim(1, ('family', 'given', 'middle', 'suffix', 'title'), "3e43a2be022e", ('FAMILY_FIRST_GIVEN_LAST',)),
+        # #484's two, the same pair as the 2.0.0 ledger's: the change
+        # shipped in 2.2.0, so it is equally visible from either 2.x
+        # baseline, and the reaches and digests agree because the two
+        # files carry the same literal list.
+        "fix(#385/#402) an all-particle name part initials its words (R2)":
+            _Claim(27, ('_initials',), "6b242c287db8", ('DEFAULT',)),
+        "fix(#360) los joined the particles, so it no longer initials":
+            _Claim(1, ('_initials',), "cd721215f463", ('DEFAULT',)),
+        # fix(#462), reach and digest as in the 2.0.0 mapping: the same
+        # regex over the same corpora, and the facade bug it fixes is
+        # in every 2.x wheel, so the baseline makes no difference.
+        "fix(#462) the facade keeps an initial-shaped conjunction letter":
+            _Claim(18, ('_initials',), "3dd0e0276be6", ('DEFAULT',)),
+        # The 2.3 title-run bundle's five rules, last in every
+        # ledger, and the same reach at all four: the 1.4.0 roster
+        # above carries the argument.
+        "fix(#489) a title run addresses by its last title":
+            _Claim(2, ('family', 'given'), "e14159a4d48f", None),
+        "change(suffix-acronym-collisions) esq leaves the acronym set":
+            _Claim(1, ('family', 'middle', 'suffix'), "ef9c8cfc56d8", None),
+        # `_ambiguities` is in the ROLES at the three 2.x baselines and
+        # not at 1.4.0, which has no ambiguity surface to compare
+        # (compare.py's _RULE_FIELDS). Same regex, so the reach and the
+        # digest are identical in all four ledgers and only the roles
+        # move.
+        "fix(#489) the title peel leaves a name word a suffix cannot be":
+            _Claim(3, ('_ambiguities', 'family', 'given', 'suffix', 'title'), "07b02286cd81", None),
+        "fix(#316) a trailing period-marked title word reads as a title":
+            _Claim(16, ('family', 'given', 'middle', 'suffix', 'title'),
+                   "562e0e82a22b", None),
+        # The CJK member of the same argument, its own literal rule
+        # (an UNDECLARED alternation holding a script-classified
+        # member belongs to the honorific pin above -- see the 1.4.0
+        # mapping's note on what #322/#323 changed there). ONE corpus
+        # name, and the FEWEST roles of any ledger: 2.1.0 shipped the
+        # Han family-first order, so only the Latin word moves, out of
+        # `suffix` and into `title`.
+        "fix(#316) a trailing Latin title on a native-script name is a title":
+            _Claim(1, ('suffix', 'title'),
+                   "567f09dc9b45", None),
+        # #322/#323. Reach, roles and digest as in the 2.2.0 mapping
+        # above -- the same seventeen-member regex, nothing between
+        # 2.1.0 and 2.2.0 having touched any of these readings.
+        "fix(#322/#323) a full stop on a CJK token is read as punctuation and stays on its token":
+            _Claim(17, ('_ambiguities', 'family', 'given', 'middle',
+                        'suffix', 'title'), "ef4a7afe791a", None),
     },
 }
 
@@ -1948,7 +3433,8 @@ def test_every_rule_claims_the_recorded_share_of_the_corpus() -> None:
 
 
 #: Which rule classify() actually picks, for names several rules could
-#: claim. Keyed by (name, the diff it produces against that baseline).
+#: claim. Keyed by name; the diff shape each one produces against that
+#: baseline is compare._RECORDED_DIFFS' half (#497).
 #:
 #: Every other guard here measures a rule ALONE: _CORPUS_CLAIMS records
 #: what a regex reaches, and the gate's total counts names. Neither can
@@ -1962,34 +3448,51 @@ def test_every_rule_claims_the_recorded_share_of_the_corpus() -> None:
 #: same tier -- 301 in the 1.4 tier as of the rules-doc corpus (#414),
 #: up from 42, which is why the count is described rather than pinned:
 #: it moves with every corpus addition and pinning it would only ever
-#: be re-recorded. The rows below are the ones whose boundaries this
-#: file argues about, and pinning the argument is cheaper than
-#: re-deriving it. Note
+#: be re-recorded. The rows below are the ones whose boundaries
+#: somebody has ARGUED -- in the comment beside the row, or in a
+#: ledger's own comment on the rule, which #501 established counts the
+#: same and why (the 2.x sections' comment) -- and pinning the argument
+#: is cheaper than re-deriving it. Note
 #: 'Andrews, M.D.' diffs on the SAME {given, suffix} shape as the seven
 #: peels -- only the CJK lookahead separates them, so it is the row
 #: that fails if that lookahead is ever dropped.
 #:
-#: The diff shapes are measured against the 1.4.0 wheel, not guessed.
-#: Re-measure rather than adjust them if a parser change moves one:
-#: a diff shape that shifted is a finding, not a number to update.
-_CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
+#: The shapes these rows are classified with used to sit in the keys
+#: here and moved to compare._RECORDED_DIFFS (#497), because a shape is
+#: something only a RUN can measure: fed to classify() as an input and
+#: checked by nothing, a guessed one agreed with itself forever. That
+#: comment carries what this one used to say about them -- how each was
+#: measured and where the claim did not hold, that a shifted shape is a
+#: finding rather than a number to update, and that they are
+#: default-order only, the blind spot `orders` (#468) opened. One copy
+#: of each fact, since two means one of them goes quietly stale.
+_CROSS_RULE_WINNERS: dict[str, dict[str, str]] = {
+    # open cycle: one rule, so nothing for a second one to contest
+    "expected_since_2.2.0.toml": {},
     "expected_since_1.4.0.toml": {
-        ("Andrews, M.D.", ("given", "suffix")): "fix(comma-family)",
-        ("田中, 太郎さん", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("김, 민준씨", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("김, 민준씨 (Jimmy)", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("김민준, 씨", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("김민준, 씨.", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("선생님, J.씨", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
-        ("이, J.씨", ("given", "suffix")): "fix(cjk-comma-honorific-peel)",
+        # Spelled out since #508: the bare `fix(comma-family)` this row
+        # carried is a prefix of THREE rules in this ledger (measured
+        # 2026-09-05 with tomllib over the [[change]] issues), and the
+        # guard now refuses a pin that names anything other than
+        # exactly one. The
+        # lone-post-comma rule is the one that wins the name and the
+        # only one that admits its recorded {given, suffix} shape.
+        "Andrews, M.D.":
+            "fix(comma-family) lone post-comma piece routes to "
+            "suffix/title, not first",
+        "田中, 太郎さん": "fix(cjk-comma-honorific-peel)",
+        "김, 민준씨": "fix(cjk-comma-honorific-peel)",
+        "김, 민준씨 (Jimmy)": "fix(cjk-comma-honorific-peel)",
+        "김민준, 씨": "fix(cjk-comma-honorific-peel)",
+        "김민준, 씨.": "fix(cjk-comma-honorific-peel)",
+        "선생님, J.씨": "fix(cjk-comma-honorific-peel)",
+        "이, J.씨": "fix(cjk-comma-honorific-peel)",
         # the union rows: they move `family`, so the peel rule's fields
         # exclude them and they must stay on the compound rule
-        ("Dr 김민준씨, V.", ("family", "given", "suffix")):
-            "fix(cjk-comma-compound)",
+        "Dr 김민준씨, V.": "fix(cjk-comma-compound)",
         # since #296's audit the title moves too (PhD is the postnominal)
-        ("田中さん, PhD", ("family", "given", "suffix", "title")):
-            "fix(cjk-comma-compound)",
-        ("田中さん, V.", ("family", "suffix")): "fix(cjk-comma-compound)",
+        "田中さん, PhD": "fix(cjk-comma-compound)",
+        "田中さん, V.": "fix(cjk-comma-compound)",
         # #372's suffix-routing split. 'Bob Jones, author' moves NO
         # suffix, which is what disqualifies it from the routing rule;
         # 'Smith Jr.' is the Latin shape that rule is named for; the two
@@ -2000,16 +3503,16 @@ _CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
         # keeps its split here, and the rule written for that shape is
         # ahead of the precomma merge in the file; 'MD, PHD' has one
         # pre-comma piece, no split to keep, and stays merged
-        ("Bob Jones, author", ("family", "given")):
+        "Bob Jones, author":
             "fix(comma-family) a comma followed only by titles keeps "
             "the given/family split",
         # since #296's audit 'PHD' is a postnominal here and the string
         # is credentials only; the rule written for that shape is ahead
         # of the precomma merge in the file
-        ("MD, PHD", ("family", "given", "suffix", "title")):
+        "MD, PHD":
             "fix(#296) a credential-only comma string reads a name and "
             "its postnominal",
-        ("Smith Jr.", ("family", "suffix")):
+        "Smith Jr.":
             "fix(suffix-routing) a two-token name ending in the suffix "
             "word jr keeps it in `suffix`",
         # #451's two contests with the numeral rule, whose regex reaches
@@ -2017,17 +3520,34 @@ _CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
         # first is decided by order: 'Carod i' diffs {family, suffix},
         # which both rules declare, so nothing but _sorted_rules'
         # stability inside the name_regex tier keeps it with fix(#397).
-        # '田中さん II' diffs {given, suffix}, which the numeral rule's
+        # '田中さん II' diffs {family, given, suffix} -- 1.4 read it
+        # 'first 田中さん / last II', 2.x reads 'last 田中 / suffix
+        # さん, II' -- and `given` is the field the numeral rule's
         # `fields` cannot admit at any position. Both are recorded
         # because a later edit that moves either rule, or widens the
         # numeral rule's `fields`, would take one silently -- exactly the
         # absorption #451 exists to end.
-        ("Carod i", ("family", "suffix")):
+        "Carod i":
             "fix(#397) NOT WANTED: a trailing Catalan/Polish linking "
             "'i' is read as a generation marker and the family is lost",
-        ("田中さん II", ("given", "suffix")):
+        "田中さん II":
             "fix(cjk-glued-honorific-peel) glued honorific peels into "
             "suffix",
+        # #484's three `_initials` contests with a literal rule on one
+        # side. fix(initials-per-word)'s particle-chain rule reaches all
+        # three, declares the same lone `_initials` field, and loses
+        # only because both literal rules are written ahead of it --
+        # file order, which _sorted_rules leaves untouched now that
+        # every rule carries a name_regex. Each of the three really does
+        # diff on initials, so narrowing or deleting a literal rule
+        # would hand its name to the per-word rule rather than surface
+        # it: the handover this row exists to catch.
+        "de los Santos":
+            "fix(#360) los joined the particles, so it no longer initials",
+        "van Berg Jan de":
+            "fix(#385/#402) an all-particle name part initials its words (R2)",
+        "van ma van":
+            "fix(#385/#402) an all-particle name part initials its words (R2)",
         # the glued/spaced boundary. 'Andersonさん' and '김민준씨' left
         # suffix-routing for a rule that names them; '김민준 씨.' is
         # spaced and stays on the spaced rule, which #372 taught to
@@ -2044,19 +3564,16 @@ _CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
         # that catch-all, so there is no last-resort tier left in any
         # ledger and the residual cost went with it: all four rules that
         # replaced it carry a name_regex.
-        ("Andersonさん", ("given", "suffix")):
-            "fix(cjk-glued-honorific-peel)",
-        ("김민준씨", ("family", "given", "suffix")):
-            "fix(cjk-glued-honorific-peel)",
-        ("김민준 씨.", ("family", "given", "suffix")):
-            "fix(cjk-honorific-suffix)",
+        "Andersonさん": "fix(cjk-glued-honorific-peel)",
+        "김민준씨": "fix(cjk-glued-honorific-peel)",
+        "김민준 씨.": "fix(cjk-honorific-suffix)",
         # '.,' moved off `fix(comma-family) lone post-comma piece
         # routes to suffix/title, not first`, whose Latin-range comma
         # regex reaches it, onto the A2 rule that describes it (#451).
         # Recorded because only file order separates the two rules --
         # they are in the same tier and both reach the name -- and a
         # later edit that moves either one silently hands it back.
-        (".,", ("given",)): "fix(A2) content-free input names nobody, so every role empties",
+        ".,": "fix(A2) content-free input names nobody, so every role empties",
         # The one exception the cjk-comma-compound rule's `middle`
         # argument turns on, added by #452's review. That comment says
         # ten of the eleven names it explains have a single-token
@@ -2069,7 +3586,7 @@ _CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
         # saying so. Shape measured against the 1.4.0 tag: v1 reads
         # first '田中さん', suffix 'Ph. D.'; the tree reads family
         # '田中', suffix 'さん, Ph. D.'.
-        ("田中さん, Ph. D.", ("family", "given", "suffix")):
+        "田中さん, Ph. D.":
             "fix(cjk-comma-compound) comma routing compounds with the CJK order flip",
         # The jr rule's surplus, added by the #453 review. Its regex
         # reaches these three and does not explain them; `fields` is
@@ -2083,47 +3600,608 @@ _CROSS_RULE_WINNERS: dict[str, dict[tuple[str, tuple[str, ...]], str]] = {
         # 1.4.0 wheel, not guessed. 'Doe,, Jr.' is the fourth name the
         # regex reaches and has no row: it does not diff at this
         # baseline, so there is no winner to pin.
-        ("Kim, Jr.", ("family", "given", "suffix", "title")):
+        "Kim, Jr.":
             "fix(#296) a lone post-comma credential is a suffix",
-        ("Smith, Jr.", ("family", "given", "suffix", "title")):
+        "Smith, Jr.":
             "fix(#296) a lone post-comma credential is a suffix",
-        ("김민준씨 Jr.", ("family", "given", "suffix")):
+        "김민준씨 Jr.":
             "fix(cjk-glued-honorific-peel) glued honorific peels into suffix",
+        # #484's per-word rules. Measured over the corpus, exactly ONE
+        # name is reached by two of them AND diffs on `_initials`:
+        # 'de la Vega y Santos Juan' carries both a connective and a
+        # particle chain, and the connective rule wins it on file
+        # order alone -- the two declare the same single field, so
+        # `fields` cannot separate them and only position does. Five
+        # more names are reached by two ('Jane van der Berg née y
+        # Jones', 'Maria Luisa y de la Cruz', 'Sir abdul van der
+        # Berg', 'abdul Ph. D. Smith Berg', 'van der Berg, abdul née
+        # Jones') and none of them has an `_initials` diff to pin:
+        # three move ROLES, so the pseudo-field never enters, and two
+        # do not diff at all.
+        "de la Vega y Santos Juan":
+            "fix(initials-per-word) a connective run",
+        # Not contested today -- the bound-given rule is the only one
+        # of the four whose regex reaches these three -- and recorded
+        # anyway, because the bound rule sits BEHIND the connective
+        # one in file order and the two vocabularies are one widened
+        # alternation apart. A connective rule grown to reach 'Abu'
+        # or a particle rule grown to reach a trailing 'van' takes
+        # these names silently: reach is per-rule and the gate's total
+        # is per-corpus, so nothing else here would say so.
+        "Abu Bakr Al Baghdadi, MD":
+            "fix(initials-per-word) a bound-given run",
+        "abu bakr al baghdadi":
+            "fix(initials-per-word) a bound-given run",
+        "Berg, abdul van": "fix(initials-per-word) a bound-given run",
+        # #498's fourteen, adjudicated 2026-09-05. Every one is a
+        # contest the static predicates are silent on by construction:
+        # the two rules' `fields` are EQUAL or merely INTERSECT, so
+        # neither is narrower -- `order_contests` asks for nesting and
+        # finds none in either arrangement, and `precedes_narrower`
+        # has no narrower rule to name. What a row here adds is the
+        # ARGUMENT, which rule should explain the name and why.
+        # Grouped by (winner, loser) pair, so a reader editing one
+        # rule sees its whole cost.
+        #
+        # The "moves N of the 352" figures below were measured
+        # 2026-09-05, not reasoned. RECOMPUTE: drive compare.main() at
+        # --baseline 1.4.0 with classify() spied, move the loser above
+        # the winner in a COPY of the run's own sorted rule list, and
+        # re-classify the run's own 352 classified calls against that
+        # copy; N is how many change label. Nothing on disk moves. The
+        # `fields` readings below are the same recipe with one role
+        # dropped from the winner instead of a rule moved.
+        #
+        # PAIR A, six names, EQUAL `fields`. `fix(#325)` and
+        # `fix(comma-family) lone post-comma piece routes to
+        # suffix/title, not first` declare the same roles, so `fields`
+        # separates them not at all and file order is the whole
+        # decision. The distinguishing clause is a property of the
+        # STRING and the #325 rule names it: a credential run after a
+        # one-word family comma, followed by ANOTHER suffix, collapsing
+        # whole into `suffix` -- measured at the 1.4.0 wheel, whatever
+        # the wheel held in `title` or `given` empties into it
+        # ('Smith, Ph. D. Jr.': title 'Jr.' -> '', suffix 'Ph. D.' ->
+        # 'Ph. D. Jr.'). The lone-post-comma rule's prose describes a
+        # SINGLE post-comma piece, which none of the six is. Five hold
+        # the split credential the winner is named for ('Ph. D.',
+        # 'Ph.D.'); 'Smith, PhD Jr.' is a REACH rather than a fit --
+        # 'PhD' is not split -- and the winning rule's own comment
+        # names it separately as one "which the regex reaches too". A
+        # documented reach whose alternative describes nothing is not
+        # the regex accident #372 refuses. Measured 2026-09-05, that
+        # name reads title 'PhD' -> '', given 'Jr.' -> '', suffix '' ->
+        # 'PhD Jr.', and TWO halves of the clause that names it in the
+        # winning rule's own comment disagree with that: it renders
+        # the new suffix 'PhD, Jr.', with a comma no run produces,
+        # and it says "title 'PhD' at every baseline", where the 1.4.0
+        # title MOVES, 'PhD' -> '', the whole run going to `suffix`.
+        # The ledger's prose was a separate concern and was not
+        # touched by #498; this row is where the discrepancy went on
+        # the record. HALF of it is repaired since 2026-09-06: #436/
+        # #437 had to touch that comment anyway, and corrected the
+        # 'PhD, Jr.' half to 'PhD Jr.' in all three ledgers carrying
+        # it, the line naming the date and saying it had been stale
+        # since #429 made the run one entry. The "title 'PhD' at every
+        # baseline" half stands as written and is still live --
+        # re-measured 2026-09-06, the tree reads 'Smith, PhD Jr.' as
+        # family 'Smith', suffix 'PhD Jr.', title '' -- so this row
+        # goes on carrying that half.
+        # 'Smith, Ph. D. Jr.' is contract tier; the other five are
+        # radar and are pinned on the same terms, the argument
+        # being the row's subject and not the tier. Moving the loser
+        # ahead hands all six to it and moves 7 of the 352
+        # classifications -- the six, plus 'Smith, Jr., PhD' as
+        # collateral.
+        "Smith, Ph. D. III":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        "Smith, Ph. D. Jr.":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        "Smith, Ph. D. Jr. MD":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        "Smith, Ph. D. MD":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        "Smith, Ph.D. Jr.":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        "Smith, PhD Jr.":
+            "fix(#325) a split credential followed by another suffix "
+            "after a one-word family comma reads as suffixes",
+        # PAIR B, three names, OVERLAPPING `fields`. This is the pair
+        # #498 was filed on: `fix(#271/#272/#298)` declares
+        # {family, given, middle} and `fix(cjk-delimited-nickname)`
+        # {family, given, nickname}, intersecting in {family, given}
+        # with neither containing the other. All three names diff
+        # exactly {family, given} -- the 2.1 family-first order flip on
+        # a nakaguro-delimited native-script string, given
+        # 'マイケル・ジャクソン' -> 'マイケル' with family '' ->
+        # 'ジャクソン' -- and `nickname` is EMPTY on both sides of all
+        # three, so the nickname rule's prose, whose subject is a name
+        # doing two things at once, describes none of this diff while
+        # the order rule describes the whole of it and names one of the
+        # three among its own examples. All three are contract tier.
+        # Swapping the two rules reattributes all three and nothing
+        # else (3 of the 352, no collateral), and the pair nests in
+        # neither arrangement, so `order_contests` has nothing to
+        # report about it and `precedes_narrower` has no narrower rule
+        # to name -- the blind spot this row's argument fills.
+        "マイケル・ジャクソン":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        "威廉・莎士比亚":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        "高橋・一郎":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        # PAIR C and PAIR D, two names, OVERLAPPING `fields`. Both diff
+        # {family, given} alone, the order flip and nothing else:
+        # `title` and `suffix` are byte-identical on both sides of both
+        # names, so no comma routing moved a role, and '田中さん, Dr.'
+        # keeps its glued さん whole (family '' -> '田中さん' entire,
+        # `suffix` empty on both sides), so nothing was peeled. So
+        # `fix(cjk-comma-compound)` and `fix(cjk-glued-honorific-peel)`
+        # -- which reach the strings through the comma and the glued
+        # さん respectively -- each describe a mechanism that did not
+        # fire, and the order rule describes what did; the peel rule's
+        # stated scope, a name with "no comma anywhere", excludes the
+        # string outright. 'Dr 김민준, Jr.' contests the comma rule
+        # alone, and its whole diff is the hangul segmentation the
+        # order rule names: given '김민준' -> '민준', family '' -> '김'.
+        # '田中さん, Dr.' contests BOTH, and is one name carrying two
+        # unowned pairs. The comma rule's own disposition table -- the
+        # four `shape -> rule` rows in `fix(cjk-comma-compound)`'s
+        # comment -- does not concede this shape to the winner BY
+        # NAME: its one row naming '田中さん, Dr.' hands the name to
+        # `fix(#296)` under {middle, suffix}, a different shape
+        # from the {family, given} measured here, and the row that
+        # does concede to the winner names no name -- it is
+        # `{given, middle, family} all 23`, which carries `middle`.
+        # The measurement is what settles the pair: the winner
+        # describes the whole of a {family, given} diff, and the comma
+        # rule's own `title` and `suffix` are byte-identical on both
+        # sides, so its comma routing moved nothing. Moving the
+        # comma rule ahead moves 9 of the 352 and the peel rule ahead
+        # 15, the widest of the seven; and for the peel pair a `fields`
+        # narrowing does NOT hand the name over, since
+        # `fix(cjk-comma-compound)` takes it instead, so a reorder is
+        # the only single edit that does.
+        "Dr 김민준, Jr.":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        "田中さん, Dr.":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        # PAIR E, one name, OVERLAPPING `fields`. '田中さん, 様.' moves
+        # {family, given, suffix} through TWO mechanisms at once, both
+        # legible in the measured values: the glued さん peels off
+        # (family '田中さん' -> '田中') while the post-comma 様. leaves
+        # `given` for `suffix`, the two arriving there together as
+        # suffix '' -> 'さん, 様.'. The winner is named for the comma
+        # half. The peel half belongs to the name's OTHER admitter,
+        # `fix(cjk-glued-honorific-peel)`, which is nested and DECLARED
+        # over by a `precedes_narrower` block, so that half of the
+        # contest is justified where it stands and only the
+        # honorific-suffix pair is owed a row. That loser disclaims the
+        # glued diffs outright and is written for a SPACED honorific on
+        # a name that also takes an order flip -- and measured, no
+        # `middle` moves and no flip occurs, `given` going to empty
+        # rather than gaining a name. The honorific-suffix rule's
+        # `fields` and the comma rule's intersect without nesting, so
+        # nothing else can see it. Moving the loser ahead moves 2 of
+        # the 352; a `fields` narrowing does not buy this pair either,
+        # since dropping any of the three shared roles sends the name
+        # to the glued rule instead. (The 2.0.0 section below pins this
+        # same string to the GLUED rule: a different ledger, where that
+        # pair nests narrow-first.)
+        "田中さん, 様.":
+            "fix(cjk-comma-compound) comma routing compounds with the "
+            "CJK order flip",
+        # PAIR F, one name, EQUAL `fields`. The all-titles rule and
+        # fix(comma-precomma-family) both declare {given, family} and
+        # both reach the string; the
+        # all-titles rule is the one whose prose is true of it, to the
+        # value -- measured, given 'Bob Jones' -> 'Bob', family '' ->
+        # 'Jones', with `title` 'compositeur' unmoved on both sides,
+        # which is what that rule says happens -- where the
+        # precomma-merge rule's prose says the pre-comma RUN reads as
+        # family, and the run does not move whole. That rule's own
+        # comment already concedes the sibling 'Bob Jones, author' to
+        # the winner on this reasoning, and the winner's regex reaches
+        # 'compositeur' by the same literal. Moving the loser ahead
+        # moves 3 of the 352 -- this name, 'Bob Jones, author' and
+        # 'John Smith, Mr.'. The pin is the winner's FULL issue string,
+        # and since #508 that is what the guard compares EXACTLY: three
+        # rules in this ledger begin `fix(comma-family)` (measured
+        # 2026-09-05 with tomllib over the ledger's `[[change]]`
+        # issues), and this winner's issue is itself a strict PREFIX of
+        # `... keeps the given/family split, the C1 example`, so no
+        # prefix comparison could tell those two apart -- _pinned_rule
+        # resolves a pin that IS an issue string to that rule and to no
+        # other. The C1 rule cannot reach this string in any case: its
+        # name_regex is (?i)^john\s+smith,\s*mr\.?(\s+jr\.?)?$ whole,
+        # anchored at both ends on a literal this name shares no prefix
+        # with (measured 2026-09-05).
+        "Bob Jones, compositeur":
+            "fix(comma-family) a comma followed only by titles keeps "
+            "the given/family split",
+        # PAIR G, one name, OVERLAPPING `fields`. 'MD, DO, DDS' holds
+        # no name at all -- every piece is a credential -- and the
+        # dropped-prenominal rule names the string and states its diff
+        # verbatim, title 'DO' -> given 'DO', which is the whole of
+        # what moved: `family` 'MD' and `suffix` 'DDS' are identical on
+        # both sides. The lone-post-comma rule's prose is about a
+        # one-word NAME followed by a comma and a lone credential; this
+        # string has neither, and the rule routes a piece OUT of
+        # `given` where this name routes one IN, so it is true of no
+        # part of the diff. Neither single edit that would hand the
+        # name over is free. A reorder ahead of the winner necessarily
+        # passes `fix(#325)` as well and drags all six of PAIR A with
+        # it: 8 of the 352 in all, this name plus PAIR A's six plus
+        # PAIR A's own collateral 'Smith, Jr., PhD'. The `fields`
+        # narrowing is smaller and NOT surgical -- dropping `given` or
+        # `title` from the winner moves 2, handing this name over and
+        # sending 'Do Quang Minh', a radar-tier corpus_issues.jsonl
+        # name the winner is the sole explainer of, to no rule at all,
+        # so radar unclassified goes 0 -> 1. The pin costs neither.
+        "MD, DO, DDS":
+            "fix(#296) a dropped prenominal takes the name position it "
+            "occupies",
     },
     # The two 2.x ledgers had NO section here until #452, and the
     # coverage assertion below was `<=`, so their absence read as "no
-    # contest to pin" rather than "nobody looked". The #452 narrowings
-    # are what made that expensive: shrinking a rule's `fields` hands
-    # every shape it no longer admits to whatever claims it next, and
-    # measured across the fourteen, that moved shapes in both files.
-    # Neither _CORPUS_CLAIMS nor the gate's totals can see a handover --
-    # reach is regex-only and the total is per-corpus -- so these rows
-    # are the only thing that would.
+    # contest to pin" rather than "nobody looked". #452 gave each two
+    # rows -- 'Nguyen, Van' and 'Jane née and Jones Smith', the
+    # handovers its narrowings caused -- and #497 deleted all four
+    # rather than correct them. Each recorded a diff shape a run
+    # contradicts (compare._RECORDED_DIFFS' provenance note has the
+    # measurements and the recompute, in one copy, including why the one
+    # correctable shape was not corrected), and at the shape each name
+    # really produces, exactly one rule admits it. That is the defect
+    # under the wrong shapes rather than beside them: a row pinning a
+    # race with one runner is never exercised as a contest, so its shape
+    # only ever had to agree with itself. Those four are not coming
+    # back, and the six rows below are not them: every one is a shape a
+    # run measured, carried in from compare._WATCHED_DIFFS where a run
+    # had been re-measuring it since 2026-09-03.
+    #
+    # WHAT #501 DECIDED, 2026-09-05. The sections stood empty on a
+    # position, not an omission: 5 of the 247 diffs at 2.0.0 and 1 of
+    # the 155 at 2.1.0 were measured to move a shape two or more rules
+    # admit, file order picking the winner ('MD, PHD' is the one both
+    # baselines have), and the position was that a row is owed when
+    # somebody ARGUES a boundary, not when one is merely measured.
+    # That 5 is the PRE-NARROWING figure (measured 2026-09-03,
+    # re-measured 2026-09-05 before the narrowing landed). The same
+    # recipe over THIS tree gives 3 at 2.0.0 and the same 1 at 2.1.0
+    # (measured 2026-09-05). 2.1.0 does not move because the narrowing
+    # reaches no name it counts; 2.0.0 falls by two because the
+    # narrowing DISSOLVED two of the six contests -- '김민준 박사님' and
+    # '선생님' have one admitter each now, which the paragraph below
+    # says as well. Both figures are the same recipe on different
+    # trees, not two recipes. RECOMPUTE (either one): drive
+    # compare.main() at the baseline, capture its `diffing` by
+    # wrapping dormant_rules, and count the names for which more than
+    # one rule satisfies compare._entry_matches at the measured shape.
+    #
+    # What the position got wrong was WHERE an argument counts. Three
+    # of the six boundaries were already argued -- in the 2.0.0
+    # ledger's own comment on fix(#308/#312/#319/#320), which named
+    # '田中さん 様.', '田中さん, 様.' and '김민준 박사님' one by one and
+    # said for each why the glued rule should win it. "Argued in THIS
+    # file" is the wrong criterion, and the reason is not tidiness: a
+    # ledger comment's claim about which rule wins a name is checked by
+    # nothing at all, and this roster is the only thing in the tree
+    # that CAN check it. The proof is the third of those three. Its
+    # argument was FALSE -- '김민준 박사님' has no glued honorific,
+    # matching that rule on the 님 interior to a spaced 박사님 -- and it
+    # sat in the ledger for a month with every guard green, because no
+    # row here made classify() answer for it. The narrowing that closed
+    # it is the 2026-09-05 narrowing of the glued-peel `name_regex`
+    # (both ledgers); the winner pinned for that name below is the
+    # SPACED rule, which only wins after it.
+    #
+    # So the criterion is ARGUED SOMEWHERE. A boundary argued in a
+    # ledger comment earns a row here exactly as one argued in this
+    # file does, and the row is what turns the argument into something
+    # a run can contradict.
+    #
+    # Nor is "only one rule admits it" grounds on its own to delete a
+    # row: 13 of the 45 at 1.4.0 are in that position too, and two of
+    # the six below joined them with the narrowing -- '김민준 박사님'
+    # and '선생님' have one admitter each now, the glued rule's regex
+    # having stopped reaching them. None of #498's fourteen joins the
+    # 13: every one has two or more admitters at its recorded shape by
+    # the definition of the sweep that found it, so the numerator held
+    # while the denominator grew (measured 2026-09-05). SIX of the 13
+    # say so where they sit -- the jr rule's surplus and the
+    # bound-given trio, three rows each -- and the other seven do not,
+    # so take the count from the recompute rather than from the
+    # comments. RECOMPUTE (measured 2026-09-05): count the rows of
+    # compare._RECORDED_DIFFS['expected_since_1.4.0.toml'] for which
+    # exactly one rule of compare._sorted_rules over this ledger
+    # satisfies compare._entry_matches at the recorded shape. They
+    # stay because the shapes they pin are shapes runs actually make,
+    # so widening a `fields` or moving a rule hands the name over and
+    # this test says so -- and 11 of the 13 route to a DIFFERENT rule
+    # under some other shape, so the assertion is doing work on them.
+    # mechanisms.md#RECORDED-ROSTERS carries that measurement and the
+    # reason counting admitters is the wrong instrument for the
+    # question. The four deleted rows could not do that work at any
+    # edit.
     "expected_since_2.0.0.toml": {
-        # fix(#296) lost `family` and `given`; {family} on this name is
-        # one of the shapes it stopped admitting, and fix(#379) takes it.
-        # The right home -- a tussenvoegsel attaching to the family is
-        # exactly what that rule is about -- which is not the point: the
-        # point is that a later edit sends it somewhere else in silence.
-        ("Nguyen, Van", ("family",)):
-            "fix(#379) a tussenvoegsel after a family comma attaches to the family",
-        # fix(#412) lost `middle`; this shape went to fix(#445), which
-        # sits BEHIND it in file order, so the handover was decided by
-        # the narrowing rather than by position.
-        ("Jane née and Jones Smith", ("family", "maiden", "middle")):
-            "fix(#445) the lone name word beside a marker a connective join no longer absorbs",
+        # The '様.' pair, and the one boundary of the six that is a
+        # live two-runner contest decided by nothing but file order.
+        # Both names move {family, given, suffix} through TWO
+        # mechanisms at once: the glued さん peels off 田中さん (#308,
+        # and #320 is what stops the trailing ASCII period vetoing it)
+        # while the spaced 様 routes to `suffix`. One rule per half,
+        # and the two sit in the same name_regex tier with fields that
+        # DO nest: the glued rule's {given, family, suffix} is a
+        # STRICT SUBSET of the spaced rule's {given, middle, family,
+        # suffix}, so the glued rule is the narrower of the two -- and
+        # it is the one written first. The pair is therefore nested
+        # NARROW-FIRST, #382's declaration-free default, and no
+        # `precedes_narrower` block is owed for the plain reason that
+        # the narrower rule already wins: that block sits on the
+        # earlier rule only where the earlier rule is the wider one.
+        # Measured 2026-09-05 over the corpus*.jsonl union,
+        # order_contests reports nothing for this ledger as it stands
+        # and reports this pair -- both names -- only with the two
+        # rules swapped, where undeclared_contests refuses the ledger
+        # too. The check can see the arrangement that would be wrong
+        # and not the one shipped.
+        #
+        # The prose test lands on the glued rule and the file order
+        # already does: #312/#319/#320 are the glued rule's clauses,
+        # they name both strings outright, and no clause of the spaced
+        # rule mentions either. It is a PARTIAL label in #382's
+        # accepted sense -- the glued rule describes the peel and not
+        # the routing -- and what makes the pair unusual is that
+        # narrow-first's JUSTIFICATION does not apply to it. That
+        # justification is that the narrower rule describes the name
+        # more precisely; here both mechanisms fire at once and each
+        # rule describes one half, so neither describes the whole and
+        # the label is partial whichever rule wins. The default picks
+        # the right rule for a reason that is not available, and this
+        # row is where an unjustified-but-correct default is pinned.
+        #
+        # What the pin buys, measured 2026-09-05: swapping the two
+        # rules in memory hands BOTH names to the spaced rule and
+        # touches nothing else -- 2 of the 247 classifications move,
+        # `unexplained` stays 0, so the gate's summary line does not
+        # move, and neither rule's _CORPUS_CLAIMS reach can see a
+        # reorder at all.
+        "田中さん 様.":
+            "fix(#308/#312/#319/#320) glued CJK honorific peeled off "
+            "the name into suffix",
+        "田中さん, 様.":
+            "fix(#308/#312/#319/#320) glued CJK honorific peeled off "
+            "the name into suffix",
+        # The name the glued rule should never have had. '김민준 박사님'
+        # is SPACED: 박사님 stands as its own word and nothing is peeled
+        # off the name at all, which rules.md#W2's second sentence
+        # states and its witness line for this very string shows
+        # (suffix="박사님", the honorific whole). The glued rule reached
+        # it on the 님 interior to 박사님 and, sitting first, took it --
+        # a false label on a contract-tier name, green everywhere. The
+        # 2026-09-05 narrowing (`(?<!박사)(?<!선생)(?<!교수)`, in both
+        # ledgers that ship that regex) is what makes the spaced rule
+        # the winner here, so this row does not hold WITHOUT that
+        # commit; it is not a reordering.
+        #
+        # One admitter today, which is the 13-of-45 position above and
+        # not a reason to drop the row. Measured 2026-09-05: restoring
+        # the pre-narrowing regex alone -- one edit, no reorder, since
+        # the glued rule still sits ahead of the spaced one -- hands
+        # the name straight back, and this row is what says so.
+        # _CORPUS_CLAIMS would report the widened reach and not the
+        # handover; the gate's totals would report neither, the name
+        # being explained by whichever rule takes it.
+        "김민준 박사님":
+            "fix(#307/#308/#320) spaced CJK postnominal honorific "
+            "routed to suffix",
+        # '선생님' alone: the whole diff is {given, family}, the 2.1
+        # family-first order flip on a hangul string, and the CJK order
+        # rule describes exactly that. The glued rule's claim on it was
+        # the same regex accident -- the interior 님 -- and worse than
+        # a partial label, since it declares `suffix` and no `suffix`
+        # moves here at all. It never won, the order rule being written
+        # first, and the narrowing has since taken its admission away.
+        #
+        # Recorded because this pair is the #498 class and nothing else
+        # can see it: the two rules' `fields` INTERSECT on
+        # {given, family} and neither nests inside the other, so
+        # undeclared_contests looks past them and no
+        # `precedes_narrower` block is available to declare them.
+        # Measured 2026-09-05, it takes TWO edits to move this name --
+        # restore the wide regex AND put the glued rule ahead of the
+        # order rule -- where '김민준 박사님' above needs only the
+        # first. A reorder alone moves nothing here now (0 of the 247
+        # classifications), so this row's whole work is against a
+        # re-widening; with both edits applied 2 classifications move,
+        # `unexplained` stays 0, and this test is what names them.
+        "선생님":
+            "fix(#271/#272/#298) native-script CJK: family-first "
+            "order, hangul segmentation, the kana license and the dots",
+        # 'MD, PHD', the same pair and the same winner as the 1.4.0 row
+        # above, re-argued at this baseline rather than carried over --
+        # the shapes differ ({suffix, title} here against
+        # {family, given, suffix, title} at 1.4.0, the comma-family
+        # move having already landed by 2.0.0), so the 1.4.0 row's
+        # argument is about a different measurement.
+        #
+        # Both #296 rules reach the string and declare EQUAL `fields`,
+        # ["title", "suffix"], so `fields` cannot separate them at all
+        # and file order is the whole decision. The distinguishing
+        # clause is a property of the STRING: the credential-only rule
+        # is written for a string that is nothing but credentials, and
+        # the lone-post-comma rule for a one-word NAME, a comma and a
+        # credential run. 'MD, PHD' holds no name, so the first rule's
+        # prose is true of it and the second's is not.
+        "MD, PHD":
+            "fix(#296) a credential-only comma string reads a name and "
+            "its postnominal",
     },
     "expected_since_2.1.0.toml": {
-        # The same two handovers, measured against this baseline's own
-        # run rather than copied from the 2.0.0 rows -- the ledgers
-        # differ, and #452's own lesson is that a claim true in one file
-        # is not thereby true in its siblings.
-        ("Nguyen, Van", ("family",)):
-            "fix(#379) a tussenvoegsel after a family comma attaches to the family",
-        ("Jane née and Jones Smith", ("family", "maiden", "middle")):
-            "fix(#445) the lone name word beside a marker a connective join no longer absorbs",
+        # The same contest, the same equal-`fields` pair and the same
+        # winner as the 2.0.0 row, on the same {suffix, title} shape.
+        # A second row rather than a shared one because the roster is
+        # keyed per ledger and a shape is baseline-relative: the two
+        # 2.x measurements agree, which is a fact a run re-checks, not
+        # one to collapse into a single row.
+        "MD, PHD":
+            "fix(#296) a credential-only comma string reads a name and "
+            "its postnominal",
     },
 }
+
+
+def _pinned_rule(pin: str, issues: list[str], where: str) -> str:
+    """The one rule a _CROSS_RULE_WINNERS pin names, or a refusal.
+
+    A pin is a rule's issue string, or a prefix of exactly one. Exact
+    wins where a rule's issue IS the pin, because a full issue string
+    can be a strict prefix of a sibling's -- measured 2026-09-05 in
+    expected_since_1.4.0.toml, `fix(comma-family) a comma followed only
+    by titles keeps the given/family split` is a prefix of
+    `... split, the C1 example` -- and a prefix comparison alone could
+    not tell those two apart. The exact branch cannot itself be
+    ambiguous: a ledger holding two rules with the same `issue` string
+    is already refused by
+    test_every_rule_claims_the_recorded_share_of_the_corpus, which is
+    where that uniqueness is stated. A prefix that reaches no rule, or
+    more than one, is refused here rather than left for classify() to
+    answer: a pin that names a FAMILY of rules pins nothing, since the
+    roster's whole job is to say which rule wins (mechanisms.md
+    #CROSS-RULE-OUTCOME-PINS), and the #498 completeness check reads a
+    _RECORDED_DIFFS key as "a winner is pinned" on the strength of it.
+
+    `issues` are the ledger's [[change]] issue strings -- file order
+    from `_rules`, classify()'s sorted order from the winner guard,
+    and the answer is the same either way, being exact-or-unique.
+    """
+    # An empty pin is a prefix of every rule, so on a one-rule ledger
+    # -- expected_since_2.2.0.toml today -- it would resolve uniquely
+    # and pin nothing. Refused before either branch sees it.
+    assert pin, f"{where}: an empty pin names every rule"
+    if pin in issues:
+        return pin
+    hits = [issue for issue in issues if issue.startswith(pin)]
+    assert hits, (
+        f"{where}: the pin {pin!r} names 0 rules. It reaches no rule in "
+        f"this ledger, so the rule it was written for has been reworded "
+        f"or removed. Re-pin the row to the current issue string of the "
+        f"rule that wins this name, or drop the row -- together with "
+        f"its shape in compare._RECORDED_DIFFS -- if the contest is "
+        f"gone with it.")
+    assert len(hits) == 1, (
+        f"{where}: the pin {pin!r} names {len(hits)} rules: {hits}. A "
+        f"pin must name exactly one rule -- spell it out to the issue "
+        f"string of the rule that wins the name. Three rules in "
+        f"expected_since_1.4.0.toml begin `fix(comma-family)` (measured "
+        f"2026-09-05), which is the shape this refuses.")
+    return hits[0]
+
+
+def test_every_pinned_winner_names_exactly_one_rule() -> None:
+    """A pin resolves to one rule before any shape is asked (#508).
+
+    test_the_recorded_rule_still_wins_each_contested_name resolves the
+    pin through the same _pinned_rule, before it asks classify()
+    anything, so it would refuse an ambiguous pin identically -- but
+    only after loading compare and walking as far as that row. This
+    guard refuses it from the roster and the ledger's issue strings
+    alone, with compare never loaded, at pytest speed.
+    """
+    by_name = {led.name: led for led in _LEDGERS}
+    resolved = 0
+    for ledger_name, winners in _CROSS_RULE_WINNERS.items():
+        issues = [r["issue"] for r in _rules(by_name[ledger_name])]
+        for name, pin in winners.items():
+            _pinned_rule(pin, issues, f"{ledger_name}: {name!r}")
+            resolved += 1
+    assert resolved, "no pin was resolved, so this guard is vacuous"
+
+
+def test_a_pin_resolves_exactly_or_by_unique_prefix_or_is_refused() -> None:
+    """The whole of _pinned_rule's table, on hand-built issues.
+
+    Both halves: the two that resolve -- an exact issue string wins
+    over the sibling it is a prefix of, and a family prefix reaching
+    exactly one rule resolves to that rule -- and the two that refuse,
+    a prefix reaching several and a prefix reaching none. Matching is
+    literal, so case is part of the pin and a miscased pin reaches
+    nothing rather than the rule it was aimed at.
+    """
+    issues = [
+        "fix(x) the first",
+        "fix(x) the first, extended",
+        "fix(x) the second",
+        "fix(y) alone",
+    ]
+    # a family prefix reaching one rule resolves to it
+    assert _pinned_rule("fix(y)", issues, "t") == "fix(y) alone"
+    # an exact issue that is also a prefix of a sibling resolves exactly
+    assert _pinned_rule("fix(x) the first", issues, "t") == "fix(x) the first"
+    # a prefix reaching several is refused, naming them
+    with pytest.raises(AssertionError) as several:
+        _pinned_rule("fix(x)", issues, "t")
+    assert "names 3 rules" in str(several.value)
+    assert "fix(x) the second" in str(several.value)
+    # a prefix reaching none is refused
+    with pytest.raises(AssertionError) as none:
+        _pinned_rule("fix(z)", issues, "t")
+    assert "names 0 rules" in str(none.value)
+    # a pin quotes the issue string literally, so case is not folded
+    with pytest.raises(AssertionError, match="names 0 rule"):
+        _pinned_rule("FIX(y)", issues, "t")
+
+
+def test_the_winner_guard_refuses_a_longer_sibling_of_the_pin(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The regression #508 was opened for, run rather than described.
+
+    'Bob Jones, compositeur' is pinned to the all-titles rule, whose
+    full issue string is a strict PREFIX of the C1 rule's. Under the
+    `startswith` comparison the winner guard used before #508, a run in
+    which the C1 rule answered for that name satisfied the pin, and the
+    handover passed unseen; here classify() is made to answer exactly
+    that, and the guard must refuse it. Measured 2026-09-05: with `==`
+    put back to `startswith`, this test does not raise and so fails.
+    """
+    compare = load_tool("compare")
+    ledger = {led.name: led for led in _LEDGERS}["expected_since_1.4.0.toml"]
+    sibling = ("fix(comma-family) a comma followed only by titles keeps "
+               "the given/family split, the C1 example")
+    assert sibling in [rule["issue"] for rule in _rules(ledger)], (
+        f"{sibling!r} is no longer a rule in expected_since_1.4.0.toml, "
+        f"so this test impersonates an answer no run could produce. "
+        f"Re-pick a rule whose issue string extends another rule's")
+
+    def _answer_the_longer_sibling(
+            name: str, diff_fields: set[str],
+            rules: list[dict[str, object]],
+            exclusions: list[dict[str, object]] | None = None,
+            order: str | None = None) -> str | None:
+        got: str | None = compare_classify(
+            name, diff_fields, rules, exclusions, order)
+        if name == "Bob Jones, compositeur" and got is not None:
+            return got + ", the C1 example"
+        return got
+
+    compare_classify = compare.classify
+    monkeypatch.setattr(compare, "classify", _answer_the_longer_sibling)
+    # load_tool builds a FRESH module every call, so the guard under
+    # test would otherwise load an unpatched compare; hand it this one.
+    # It loads no other tool, so answering every stem with it is safe.
+    monkeypatch.setitem(globals(), "load_tool", lambda stem: compare)
+    with pytest.raises(AssertionError, match="is now explained by"):
+        test_the_recorded_rule_still_wins_each_contested_name()
 
 
 def test_the_recorded_rule_still_wins_each_contested_name() -> None:
@@ -2143,6 +4221,12 @@ def test_the_recorded_rule_still_wins_each_contested_name() -> None:
     A failure here is not necessarily a regression: it can equally mean
     a rule was narrowed correctly and its names found a better home. It
     means someone has to look, which is the point.
+
+    Since #508 the pin is resolved to one rule and compared exactly,
+    not by prefix: `startswith` was satisfied by any rule whose issue
+    extended the pin, and for three rows at 1.4.0 (measured
+    2026-09-05) that was more than one rule, so the row pinned a family
+    where it claimed to pin a winner.
     """
     compare = load_tool("compare")
     by_name = {led.name: led for led in _LEDGERS}
@@ -2150,15 +4234,42 @@ def test_the_recorded_rule_still_wins_each_contested_name() -> None:
     for ledger_name, winners in _CROSS_RULE_WINNERS.items():
         ledger = by_name[ledger_name]
         rules = compare._sorted_rules(_rules(ledger))
+        issues = [r["issue"] for r in rules]
         never = _exclusions(ledger)
-        for (name, fields), expected in winners.items():
+        shapes = compare._RECORDED_DIFFS[ledger_name]
+        for name, expected in winners.items():
+            # explicit, because a bare KeyError here names a dict and a
+            # string and nothing else. The readable half-recorded-pin
+            # message lives in test_every_pinned_winner_has_a_recorded_shape,
+            # which a `-k` selection or a first failure may not have run.
+            assert name in shapes, (
+                f"{ledger_name}: {name!r} is pinned a winner in "
+                f"_CROSS_RULE_WINNERS with no shape in "
+                f"compare._RECORDED_DIFFS, so there is nothing to ask "
+                f"classify() about. Record the shape a run measures for "
+                f"it, or drop the pin -- "
+                f"test_every_pinned_winner_has_a_recorded_shape is the "
+                f"guard that states this as its own subject")
+            # Resolved before classify() is asked, so a pin naming a
+            # family of rules fails as a PIN defect with the family
+            # listed (test_every_pinned_winner_names_exactly_one_rule
+            # states that as its own subject); and compared EXACTLY,
+            # because a full issue string can be a strict prefix of a
+            # sibling's and `startswith` could not tell them apart
+            # (#508; the PAIR F rows above are the case).
+            pinned = _pinned_rule(expected, issues, f"{ledger_name}: {name!r}")
+            fields = shapes[name]
             got = compare.classify(name, set(fields), rules, never)
-            assert got is not None and got.startswith(expected), (
+            assert got == pinned, (
                 f"{ledger_name}: {name!r} diffing {list(fields)} is now "
-                f"explained by {got!r}, not {expected!r}. Check the new "
-                f"rule's prose actually describes this name before "
-                f"recording it -- a rule claiming a diff it does not "
-                f"describe is #372, and it stays green everywhere else")
+                f"explained by {got!r}, not {pinned!r}"
+                # a prefix pin: the roster holds `expected`, not the
+                # resolved issue string, so name the text to edit.
+                + (f" (pinned as {expected!r})" if pinned != expected else "")
+                + ". Check the new "
+                "rule's prose actually describes this name before "
+                "recording it -- a rule claiming a diff it does not "
+                "describe is #372, and it stays green everywhere else")
             checked += 1
     assert checked, "no contested name was checked, so this pin is vacuous"
     assert set(_CROSS_RULE_WINNERS) == {led.name for led in _LEDGERS}, (
@@ -2172,6 +4283,303 @@ def test_the_recorded_rule_still_wins_each_contested_name() -> None:
         f"that had no section at all. Both sibling rosters "
         f"(_CORPUS_CLAIMS, _SPAN_BEARING_RULES) use equality; this one "
         f"was the odd one out.")
+
+
+def _check_shape_rows(compare: ModuleType, roster: str, ledger_name: str,
+                      shapes: dict[str, tuple[str, ...]]) -> None:
+    """The per-row checks both shape rosters are held to. A contest
+    row is fed to classify() as the same kind of input a rule's
+    `fields` is; a watched row is fed to nothing -- the run compares
+    it against a diff classify() explained -- and the two are held to
+    one vocabulary for that reason, since a shape spelled outside it
+    is one no run can produce and so one no run can contradict. A
+    departed name agrees with itself forever in either, so the checks
+    are one function applied twice rather than two copies that drift.
+    `roster` is the dict's name, for the messages.
+    test_every_pinned_winner_has_a_recorded_shape's docstring carries
+    why each assertion is here rather than left to the gate;
+    test_the_shape_row_checks_refuse_each_illegal_row pins that each
+    one fires.
+    """
+    # For the message below: which live rows carry '_ambiguities',
+    # read from the dicts rather than named, so the example cannot
+    # go stale as rows move.
+    ambiguity_rows = sorted(
+        (ledger, name)
+        for roster_dict in (compare._RECORDED_DIFFS, compare._WATCHED_DIFFS)
+        for ledger, section in roster_dict.items()
+        for name, row in section.items() if "_ambiguities" in row)
+    # `gone`'s question, at pytest speed and against every ledger
+    # rather than only the one a run was pointed at. The gate asks
+    # it over the corpora a full run loaded; _CORPUS_NAMES is every
+    # name in every corpus*.jsonl, which is the same population.
+    departed = sorted(set(shapes) - set(_CORPUS_NAMES))
+    assert not departed, (
+        f"{ledger_name}: {departed} carry a recorded shape in {roster} "
+        f"and sit in no corpus. Nothing measures such a row, so it "
+        f"agrees with itself forever. Settle whether the name left "
+        f"DELIBERATELY before editing either roster -- "
+        f"compare.py's own refusal over the full corpus carries the "
+        f"question and both repairs")
+    for name, shape in shapes.items():
+        where = f"{ledger_name}: the {roster} shape for {name!r}"
+        bad = sorted(set(shape) - compare._RULE_FIELDS)
+        assert not bad, (
+            f"{where} names {bad}, which are not roles; expected "
+            f"from {sorted(compare._RULE_FIELDS)}. classify() is "
+            f"asked about the shape as a SET, so a misspelled role "
+            f"is simply a role the diff does not carry: it never "
+            f"reports as a typo, only as a rule handover or a "
+            f"MOVED SHAPE finding blaming the parser. Checked "
+            f"against _RULE_FIELDS -- the set validate_rules checks "
+            f"a rule's 'fields' against, since a shape is the same "
+            f"kind of input -- and not against V2_FIELDS, because "
+            f"'_ambiguities' is legal in a 2.x row (it cannot "
+            f"appear below 2.0), and {len(ambiguity_rows)} live "
+            f"row(s) carry it today"
+            + (f", e.g. {ambiguity_rows[0][1]!r} at "
+               f"{ambiguity_rows[0][0]}" if ambiguity_rows else ""))
+        dups = sorted({f for f in shape if shape.count(f) > 1})
+        assert not dups, (
+            f"{where} repeats {dups}. It is read as a set, so the "
+            f"repeat changes nothing classify() matches -- it is a "
+            f"copy-paste slip that would otherwise pass every check "
+            f"here silently, and the '_initials' check below would "
+            f"read ('_initials', '_initials') as '_initials' alone")
+        others = sorted(set(shape) - {"_initials"})
+        assert not ("_initials" in shape and others), (
+            f"{where} lists '_initials' beside {others}. "
+            f"'_initials' enters a diff only when every role and "
+            f"the ambiguity kinds agree (#484), so no diff can "
+            f"carry it with another field: this shape is one no run "
+            f"can measure, and the row is unfalsifiable rather than "
+            f"merely wrong")
+        assert shape, (
+            f"{where} is empty. main() appends to `diffing` only "
+            f"where a comparison DIFFED, so no run produces an "
+            f"empty shape and the row can never be contradicted")
+
+
+def test_every_pinned_winner_has_a_recorded_shape() -> None:
+    """The roster names a contested name; _RECORDED_DIFFS says what it
+    diffs. A name in one and not the other is a half-recorded pin --
+    the winner cannot be checked without the shape, and a shape nothing
+    pins a winner for is unverified by the run for no purpose.
+
+    EQUALITY, in both directions, and the second is the one to defend
+    now that a shape CAN legally stand without a winner. It stands in
+    compare._WATCHED_DIFFS, not here: a shape with no winner is not an
+    orphan this roster tolerates but a row in the wrong dict, since
+    the two dicts carry different contracts (a shape beside a winner
+    adjudicates a contest; a shape alone watches a name no winner is
+    pinned for) and compare.py reads the severity and the repair text off
+    which dict a row sits in. So a shape here with no winner is a
+    deleted-winner slip -- the pin went and the shape was forgotten --
+    and relaxing this to `<=` would make that slip indistinguishable
+    from a deliberate watched row. The watched roster's own guard is
+    test_the_watched_roster_is_disjoint_and_names_every_ledger.
+
+    The row VALUES are checked here too, against the three illegal
+    states compare.validate_rules already refuses for a rule's `fields`
+    (a name outside the role vocabulary, '_initials' beside a role, a
+    repeated role) plus the empty one. A recorded shape is fed to
+    classify() as the same kind of input a rule's `fields` is, so the
+    wording mirrors those refusals deliberately -- the two should
+    read as one check written in two places. _check_shape_rows holds
+    them, and the watched roster's guard applies the same function.
+
+    WHY HERE. What each illegal row does WITHOUT these assertions,
+    measured 2026-09-03 by injecting one into the shipped 1.4.0 section
+    and running this file: a repeated role and an empty shape pass the
+    whole suite silently, and surface only as a MOVED SHAPE finding
+    from a gate run -- whose message says the winner beside the shape
+    "was recorded for the OLD shape", telling a contributor with a
+    copy-paste slip that the parser moved. A misspelled role and an
+    '_initials' beside a role happened to fail the sibling test above
+    as well, because on the rows they were injected into the corrupted
+    shape changed which rule classify() picks -- but that is a property
+    of those rows, not of the defect: a shape a second rule admits at
+    both spellings changes no winner and says nothing. Either way the
+    message names a rule handover rather than the typo, and the loop
+    that does catch these needs a baseline wheel and a full corpus
+    pass, so the row ships green through CI. At pytest speed the answer
+    is a sentence naming the typo. The `departed` assertion asks
+    compare.py's `gone` question the same way and for the same reason.
+    """
+    compare = load_tool("compare")
+    for ledger_name, winners in _CROSS_RULE_WINNERS.items():
+        shapes = compare._RECORDED_DIFFS.get(ledger_name, {})
+        assert set(winners) == set(shapes), (
+            f"{ledger_name}: winners without a recorded shape "
+            f"{sorted(set(winners) - set(shapes))}; shapes with no "
+            f"pinned winner {sorted(set(shapes) - set(winners))} -- a "
+            f"shape that is meant to stand without a winner belongs in "
+            f"compare._WATCHED_DIFFS, not here")
+        _check_shape_rows(compare, "_RECORDED_DIFFS", ledger_name, shapes)
+    # Per-ledger equality above iterates the ROSTER's keys, so a
+    # _RECORDED_DIFFS section for a ledger the roster does not name is
+    # invisible to it -- and to the run, which reads shapes per ledger
+    # too. The sibling test asserts the ROSTER's keys are exactly the
+    # ledgers on disk; this carries that to _RECORDED_DIFFS, which has
+    # no such check of its own.
+    assert set(compare._RECORDED_DIFFS) == set(_CROSS_RULE_WINNERS), (
+        f"_RECORDED_DIFFS and _CROSS_RULE_WINNERS name different "
+        f"ledgers: only in _RECORDED_DIFFS "
+        f"{sorted(set(compare._RECORDED_DIFFS) - set(_CROSS_RULE_WINNERS))}; "
+        f"only in _CROSS_RULE_WINNERS "
+        f"{sorted(set(_CROSS_RULE_WINNERS) - set(compare._RECORDED_DIFFS))}")
+
+
+def test_the_watched_roster_is_disjoint_and_names_every_ledger() -> None:
+    """compare._WATCHED_DIFFS holds the shape of a name no winner is
+    pinned for -- every row sole-watched again since #501 took the
+    five contested ones to _RECORDED_DIFFS, which is a fact about
+    today's rows and not a second contract the checks below enforce.
+    Three things are checked here, at pytest speed, because
+    the gate checks them only for the one ledger a run was pointed
+    at: the first is the sibling rosters' key convention, applied to
+    this dict; the second and third are what the dict's header
+    promises.
+
+    Every ledger on disk is a key -- the same equality the other two
+    rosters use, and for the same reason: an empty section is a
+    statement (this ledger has no watched name) where a missing one is
+    nobody having looked; compare.py's main() refuses a ledger missing
+    from either shape roster pre-worker on the same ground, so the
+    guard and the run agree. Per ledger, no name sits in both shape
+    rosters, since a row is one kind or the other and compare.py reads
+    a row's severity and its repair text off the dict it is in. And,
+    stated on its own rather than left to follow from the first two:
+    no watched row has a winner in _CROSS_RULE_WINNERS. It DOES follow
+    -- every winner has a _RECORDED_DIFFS row, and no watched name has
+    one -- but "no watched row has a winner" is the sentence the dict
+    exists on, and a reader should find it as its own assertion rather
+    than derive it.
+
+    The row values are held to _check_shape_rows, as the contest
+    roster's are: a watched shape is fed to classify() by nothing
+    today, but the gate compares it against a run's diff, and a shape
+    no run can produce is a row that can never be contradicted.
+
+    And the dict must hold SOME row, the sibling `assert checked`
+    idiom: every check above is per row, so an all-empty roster passes
+    all of them vacuously, and a ledger with no watched name is an
+    empty section beside filled ones, not an all-empty dict.
+    """
+    compare = load_tool("compare")
+    on_disk = {led.name for led in _LEDGERS}
+    assert set(compare._WATCHED_DIFFS) == on_disk, (
+        f"_WATCHED_DIFFS must name every ledger on disk, with an "
+        f"explicit empty mapping for one that has no watched name. "
+        f"Missing: {sorted(on_disk - set(compare._WATCHED_DIFFS))}; "
+        f"unknown: {sorted(set(compare._WATCHED_DIFFS) - on_disk)}")
+    for ledger_name, watched in compare._WATCHED_DIFFS.items():
+        # `.get`, both here and for the winners below: a ledger this
+        # dict names that either sibling lacks is the every-ledger
+        # equality's finding, in its own words, not a bare KeyError.
+        recorded = compare._RECORDED_DIFFS.get(ledger_name, {})
+        both = sorted(set(watched) & set(recorded))
+        assert not both, (
+            f"{ledger_name}: {both} sit in both _RECORDED_DIFFS and "
+            f"_WATCHED_DIFFS. A row is one kind or the other: a name "
+            f"with an argument behind it belongs in _RECORDED_DIFFS "
+            f"alone, since the argument is the stronger claim -- "
+            f"delete the _WATCHED_DIFFS row")
+        pinned = sorted(set(watched)
+                        & set(_CROSS_RULE_WINNERS.get(ledger_name, {})))
+        assert not pinned, (
+            f"{ledger_name}: {pinned} carry a watched shape AND a "
+            f"pinned winner. A winner pin asserts an argument, and the "
+            f"day one is argued the row moves to _RECORDED_DIFFS -- it "
+            f"does not keep a _WATCHED_DIFFS row beside the pin")
+        _check_shape_rows(compare, "_WATCHED_DIFFS", ledger_name, watched)
+    assert any(compare._WATCHED_DIFFS.values()), (
+        "every section of _WATCHED_DIFFS is empty, so every per-row "
+        "check above was vacuous. A ledger with no watched name is an "
+        "empty section beside filled ones; an all-empty dict is the "
+        "roster deleted, and its header's population says which rows "
+        "belong")
+
+
+@pytest.mark.parametrize(("row", "sentence"), [
+    ({"John Smith": ("famly",)}, "are not roles"),
+    ({"John Smith": ("family", "family")}, "repeats"),
+    ({"John Smith": ("_initials", "family")}, "beside"),
+    ({"John Smith": ()}, "is empty"),
+    ({"Nobody Here, Esq.": ("family",)}, "sit in no corpus"),
+])
+def test_the_shape_row_checks_refuse_each_illegal_row(
+        row: dict[str, tuple[str, ...]], sentence: str) -> None:
+    """The negative control for _check_shape_rows, one case per
+    illegal row kind, under the _WATCHED_DIFFS label. Its sensitivity
+    was previously a hand measurement cited in
+    test_every_pinned_winner_has_a_recorded_shape's docstring -- an
+    injected row and a suite run -- which nothing re-ran; a helper
+    that stopped firing on one of these would have left both rosters'
+    guards green and said nothing."""
+    compare = load_tool("compare")
+    with pytest.raises(AssertionError, match=sentence) as exc:
+        _check_shape_rows(compare, "_WATCHED_DIFFS",
+                          "expected_since_1.4.0.toml", row)
+    assert "_WATCHED_DIFFS" in str(exc.value)
+
+
+def test_the_family_first_fold_is_not_explained_under_the_default_order(
+        ) -> None:
+    """The hazard the `orders` key exists for, pinned against the
+    shipped 2.x ledgers rather than a fixture.
+
+    'de la Cruz Juan Carlos' is compared three times: twice from
+    corpus_shapes.jsonl under the two family-first orders, where #395's
+    fold is the intended reading, and once from corpus_rules.jsonl
+    under the DEFAULT order, where rules.md#P1 says the whole string is
+    the family. If the fold ever leaked into the default order it would
+    move {family, given, middle} -- the same three roles, on the same
+    string -- so an order-blind rule would claim the leak, label it
+    feat(#395), and exit 0. That is #372's failure mode aimed at the
+    most plausible regression of the very change the rule describes.
+
+    Both directions again: declining the default-order diff is the
+    point, but a rule that declined its OWN orders too would be
+    silently dormant and this pin would pass on a broken ledger.
+
+    The default-order assertion runs on EVERY ledger, before the
+    scoped-rule search decides whether there is anything else to check.
+    Guarding it behind that search is what made an earlier draft weak:
+    dropping `orders` from one 2.x ledger takes that ledger through the
+    `continue` while the other keeps `checked` above zero, and the
+    suite stays green with one ledger absorbing the leak. On a ledger
+    whose rules do not reach this name at all -- 1.4.0, the open cycle
+    -- the assertion is trivially true, which costs nothing.
+    """
+    compare = load_tool("compare")
+    name, moved = "de la Cruz Juan Carlos", {"family", "given", "middle"}
+    checked = 0
+    for ledger in _LEDGERS:
+        rules = compare._sorted_rules(_rules(ledger))
+        never = _exclusions(ledger)
+        assert compare.classify(name, moved, rules, never) is None, (
+            f"{ledger.name}: a DEFAULT-order diff moving {sorted(moved)} "
+            f"on {name!r} is explained by "
+            f"{compare.classify(name, moved, rules, never)!r}. That is "
+            f"the family-first fold firing where P1 forbids it, and the "
+            f"rule describing the fold must not absorb it -- scope it "
+            f"with `orders`")
+        scoped = [r for r in rules
+                  if isinstance(r.get("orders"), list)
+                  and re.search(str(r["name_regex"]), name)
+                  and moved <= set(r["fields"])]
+        for rule in scoped:
+            for order in rule["orders"]:
+                assert compare.classify(
+                    name, moved, rules, never, order) == rule["issue"], (
+                    f"{ledger.name}: {rule['issue']!r} declares order "
+                    f"{order} and does not explain its own diff under "
+                    f"it; the rule is dormant and the pin above is "
+                    f"passing for the wrong reason")
+                checked += 1
+    assert checked, ("no orders-scoped rule reaches this name in any "
+                     "ledger, so this pin is vacuous")
 
 
 class _Excluded(NamedTuple):
@@ -2217,6 +4625,12 @@ class _Excluded(NamedTuple):
 #: answers those subsets is invisible here. A rule reaching a
 #: protected READING is caught; a rule shadowed by an existing one on
 #: every subset it claims is not.
+#:
+#: A second, newer limit: `absorbed_by` is recomputed at comparison
+#: order None, so an absorption that happens only under a declared
+#: order is invisible to it -- true today because no exclusion
+#: protects a shape that reads differently under one, and something to
+#: revisit the day one does.
 _EXCLUSION_EFFECT: dict[str, _Excluded] = {
     "(?i)^(?!\\s*ph\\.)(?![^\\s,]+\\s*,\\s*ph\\.\\s*d\\.\\s*$)(?![\\u0000-\\u024f]*\\b(?:jr|sr|ii|iii|iv)\\.?\\s+ph\\.\\s*d\\.\\s*$)[\\u0000-\\u024f]*\\bph\\.\\s*d\\.\\s*$":
         _Excluded(3, "5a12a8117651",
@@ -2243,10 +4657,37 @@ _EXCLUSION_EFFECT: dict[str, _Excluded] = {
                   # -- any of the siblings could widen onto a protected
                   # reading and this roster would stay green. The same
                   # identity-free weakness _SPAN_BEARING_RULES records.
+                  #
+                  # #484's phd-merge initials rule JOINED the tuple,
+                  # and it is the first entrant that reaches a
+                  # protected shape through the `_initials`
+                  # pseudo-field rather than through a role: its
+                  # `fields` is exactly ["_initials"], so the only
+                  # subset it can claim is the singleton, and
+                  # _protectable_fields builds that subset because it
+                  # reads compare._RULE_FIELDS rather than Role.
+                  #
+                  # Decided rather than absorbed. The rule's regex is
+                  # the bare fragment `\bph\. d\.`, which reaches all
+                  # 18 corpus spellings while explaining the two
+                  # LEADING ones it is named for; a trailing 'Ph. D.'
+                  # is what this entry protects, and the exclusion
+                  # refuses those names before any rule is consulted,
+                  # so the rule claims nothing there in a real run.
+                  # What the growth records is that it now STANDS
+                  # READY to -- delete this entry and the initials
+                  # reading of a trailing 'Ph. D.' would classify
+                  # under a rule whose prose is about the merge at
+                  # the front of a name. Narrowing the regex to the
+                  # leading spelling would empty this tuple again and
+                  # is the alternative on the table if the exclusion
+                  # is ever retired.
                   ("fix(comma-family) lone post-comma piece routes to "
                    "suffix/title, not first",
                    "fix(comma-precomma-family) pre-comma run reads as "
-                   "family, not given")),
+                   "family, not given",
+                   "fix(initials-per-word) the Ph. D. merge initials "
+                   "each word (facade, since 2.0.0)")),
     '(^|[\\w.]\\s+)[("\'][^)"\']+[)"\'](\\s+\\w|\\s*$)':
         # 51 -> 54 as rules.md gained the bracketed Polish examples
         # (#434): 'Maria Kowalska (z domu Nowak)', 'Maria Kowalska
@@ -2259,7 +4700,27 @@ _EXCLUSION_EFFECT: dict[str, _Excluded] = {
         # no diff to silence. Growth in the corpus, not in the
         # exclusion -- its regex is untouched -- and `absorbed_by`
         # stayed empty, so no rule reaches the protected shape.
-        _Excluded(55, "7ad8ff289eb2", ()),
+        # 55 -> 56 for the shape-1 variation matrix (#486): tagging
+        # 'John "Jack" Kennedy' put this entry's own FIRST `examples`
+        # string into a corpus for the first time. It was in none
+        # before -- the radar corpora hold the smart-quote spelling
+        # 'John “Jack” Kennedy' and not this one, which is why the
+        # two read differently at 1.4.0 (feat(#273) classifies the
+        # typographic pair; the ASCII pair is what this entry promises
+        # was already recognized). It costs the entry nothing either --
+        # 1.4.0 reads the quoted clause as a nickname exactly as the
+        # tree does, so there is no diff to silence. 56 -> 57 for the
+        # shape-2 slot the same matrix opened, 'Kennedy, John (Jack)',
+        # which is the paren spelling of that clause after a family
+        # comma and costs the entry nothing for the same reason.
+        # 57 -> 58 on 2026-09-10 for the tolerated
+        # '(김민준.) John Smith', whose bracketed clause this shape
+        # matches -- and which costs the entry nothing again, the
+        # clause reading as a CREDENTIAL rather than a nickname at
+        # every baseline (rules.md#S1's escape unwraps it), so the
+        # #322/#323 rule carries the name's diff and this exclusion
+        # silences none of it.
+        _Excluded(58, "57618fbebc6b", ()),
 }
 
 
@@ -2369,7 +4830,9 @@ def test_a_fields_narrowing_actually_narrows_something() -> None:
 
     Measured: deleting `fields = ["nickname", "middle"]` from the
     ASCII-pairs entry passes every other check in this tree. The entry
-    then refuses ANY diff on the 46 corpus names it captures --
+    then refuses ANY diff on every corpus name it captures -- the
+    count is _EXCLUSION_EFFECT's `captures` for that pattern, above,
+    which is where it is checked and where it stays current --
     including 'Jenny (Johnson) Baker' and 'Lon (Jr.) Williams', whose
     parens are a maiden name and a suffix, both under active
     development. Nothing failed, because none of those names diffs
@@ -2450,3 +4913,165 @@ def test_a_rule_reaching_no_corpus_name_says_why_it_is_kept() -> None:
         "no rule was examined, so this guard is passing vacuously -- "
         "every rule declares `dormant`, or (impossible since #451) "
         "narrows by `fields` alone")
+
+
+#: Every order-decided contest in every shipped ledger, measured with
+#: exemptions IGNORED: the earlier rule's issue, the later rule's, and
+#: how many corpus names their regexes both reach.
+#:
+#: The recorded negative control for the guard below (the
+#: _EXCLUSION_EFFECT shape AGENTS.md asks of every guard): it is the
+#: answer with the mechanism switched off, stored as data. Without it,
+#: `precedes_narrower` could be deleted from every rule and the live
+#: guard would keep passing if the predicate had quietly stopped
+#: finding anything.
+#:
+#: 11 pairs, all in the 1.4 ledger. They divide by the tier of the
+#: names they are contested over -- some reach contract-tier names,
+#: the rest only radar -- and #495 argues from that division, which
+#: survives a name changing tier even though its two counts there do
+#: not. Read a name's tier off `_CORPUS_TIERS` and not off any one
+#: demotion: the five radar-only pairs get there by two different
+#: warrants, #488's `corpus_cjk_tolerated.jsonl` demotion for most of
+#: the CJK names and #468's tier split for every `corpus_issues.jsonl`
+#: one -- which is both 'Jr., PhD'/'MD, PHD' pairs whole, and one name
+#: of the seventeen the compound/peel pair is contested over. Measured
+#: 2026-09-02. A row that MOVES is a finding, not a number to update:
+#: re-measure before editing it.
+_ORDER_EXEMPTION_EFFECT: dict[str, list[tuple[str, str, int]]] = {
+    "expected_since_1.4.0.toml": [
+        ("fix(comma-family) a comma followed only by titles keeps the given/family split, the C1 example",
+         "fix(comma-precomma-family) pre-comma run reads as family, not given", 2),
+        ("fix(#296) a credential-only comma string reads a name and its postnominal",
+         "fix(comma-family) lone post-comma piece routes to suffix/title, not first", 2),
+        ("fix(#296) a credential-only comma string reads a name and its postnominal",
+         "fix(comma-precomma-family) pre-comma run reads as family, not given", 2),
+        ("fix(#296) a lone post-comma credential is a suffix",
+         "fix(suffix-routing) a two-token name ending in the suffix word jr keeps it in `suffix`", 2),
+        ("fix(#400/#274) bound-given join and maiden consumption in one name",
+         "fix(#400) abd joins the word after it as one given name", 1),
+        ("fix(#411/S2) a declining bound-given join leaves the suffix reading after a family comma",
+         "fix(#400) abd joins the word after it as one given name", 1),
+        ("fix(#272/#308) nakaguro division and a glued hangul honorific in one name",
+         "fix(cjk-glued-honorific-peel) glued honorific peels into suffix", 1),
+        ("fix(nickname-typographic-pairs) two typographic quote spans read as one nickname set",
+         "feat(#273) typographic nickname delimiters recognized by default", 1),
+        ("fix(cjk-comma-compound) comma routing compounds with the CJK order flip",
+         "fix(cjk-glued-honorific-peel) glued honorific peels into suffix", 20),
+        ("fix(cjk-glued-honorific-peel) glued honorific peels into suffix",
+         "fix(suffix-routing) a two-token name ending in a roman numeral keeps it in `suffix`", 1),
+        ("fix(cjk-glued-honorific-peel) glued honorific peels into suffix",
+         "fix(suffix-routing) a two-token name ending in the suffix word jr keeps it in `suffix`", 1),
+    ],
+    # The 2.0.0 list was EMPTY until 2026-09-08, and what put a row in
+    # it was a narrowing rather than a widening: #316 took 'John Smith
+    # Dr.' off the dr rule, the gate's OVER-DECLARED check then took
+    # `middle` out of that rule's `fields`, and {family, suffix} is a
+    # strict subset of the glued-honorific rule's three roles where
+    # {middle, family, suffix} was not. The one contested name,
+    # '田中さん, Dr.', produces no diff at this baseline at all, so the
+    # pair is latent; the ledger's [[change.precedes_narrower]] block
+    # carries the argument.
+    "expected_since_2.0.0.toml": [
+        ("fix(#308/#312/#319/#320) glued CJK honorific peeled off the name into suffix",
+         "fix(#296) dr is not postnominal vocabulary, so a trailing Dr. is a name word", 1),
+    ],
+    "expected_since_2.1.0.toml": [],
+    "expected_since_2.2.0.toml": [],
+}
+
+
+def test_the_recorded_order_contests_are_what_the_ledgers_hold() -> None:
+    """The negative control: every contest, exemptions ignored.
+
+    A contest is two same-tier rules that overlap on all three of the
+    keys classify() narrows by: the LATER one's `fields` are a strict
+    subset of the earlier one's, both regexes reach a common corpus
+    name, and neither scopes itself to `orders` the other excludes.
+    There are then diffs both rules admit, and file order alone picks
+    the winner.
+
+    This roster is deliberately blind to `precedes_narrower`: it
+    records the hazard, not whether it has been declared away.
+    """
+    compare = load_tool("compare")
+    assert any(_ORDER_EXEMPTION_EFFECT.values()), (
+        "every ledger's contest list is empty, so this control measures "
+        "nothing: a predicate that had stopped finding anything at all "
+        "would read exactly the same. That is the inert-measurement "
+        "class mechanisms.md#RECORDED-ROSTERS is written against. If "
+        "the last contest genuinely went away, delete this guard and "
+        "its roster together -- do not leave four empty lists standing "
+        "in for a measurement.")
+    assert set(_ORDER_EXEMPTION_EFFECT) == {led.name for led in _LEDGERS}, (
+        f"_ORDER_EXEMPTION_EFFECT must name every ledger on disk, with "
+        f"an explicit empty list for one that genuinely has no contest. "
+        f"Missing: {sorted({L.name for L in _LEDGERS} - set(_ORDER_EXEMPTION_EFFECT))}; "
+        f"unknown: {sorted(set(_ORDER_EXEMPTION_EFFECT) - {L.name for L in _LEDGERS})}")
+    for ledger in _LEDGERS:
+        rules = _rules(ledger)
+        # order_contests' shape leniency (see _rule_reach) is a
+        # BORROWED guarantee: it trusts validate_rules to have run, and
+        # `_rules()` does not run it. Calling it here turns the borrowed
+        # guarantee into a local one, so this guard is not measuring a
+        # ledger nothing has validated. It costs nothing on the shipped
+        # files -- they already validate -- and fires first on a
+        # hand-edit that would otherwise be scanned as if well-formed.
+        compare.validate_rules(rules, ledger.name)
+        found = [(c.earlier, c.later, len(c.names))
+                 for c in compare.order_contests(rules, _CORPUS_NAMES)]
+        assert found == _ORDER_EXEMPTION_EFFECT[ledger.name], (
+            f"{ledger.name}: the order-decided contests are no longer "
+            f"what this roster records.\n  found:    {found}\n"
+            f"  recorded: {_ORDER_EXEMPTION_EFFECT[ledger.name]}\n"
+            f"A contest that appeared is a new rule pair whose winner "
+            f"file order is deciding; one that vanished means a rule "
+            f"was narrowed or a corpus name left. Re-measure and read "
+            f"the pair before editing this roster.")
+
+
+def test_every_order_decided_contest_is_declared() -> None:
+    """Narrow-first is the declaration-free default; wide-first says why.
+
+    Where the later rule's `fields` are a strict subset of the earlier
+    one's and both regexes reach a common corpus name, file order alone
+    decides who classifies the diff. That is legal -- a wider rule can
+    genuinely be the better description, and `马丁·路德·金씨` is the
+    worked case: it divides on the nakaguro AND peels its honorific, so
+    `fix(#272/#308)` describes it and `fix(cjk-glued-honorific-peel)`
+    describes half of it. What is not legal is leaving it unsaid,
+    because nothing else in the suite can see it: _CORPUS_CLAIMS
+    measures each rule alone, the gate total is per-corpus, and
+    _CROSS_RULE_WINNERS pins only names somebody hand-added.
+
+    Do NOT satisfy this by reordering rules -- that moves which rule
+    classifies a name and breaks _CROSS_RULE_WINNERS. Declare it.
+    """
+    compare = load_tool("compare")
+    for ledger in _LEDGERS:
+        rules = _rules(ledger)
+        # Both scanners below read `precedes_narrower` through
+        # _declared_over, whose docstring says outright that its shape
+        # guarantee is BORROWED from validate_rules -- and `_rules()`
+        # does not validate. Without this call a whitespace-only `why`
+        # on a real exemption passes here, because _declared_over reads
+        # the entry as a perfectly good declaration and retires the
+        # pair. One line converts the borrowed guarantee into a local
+        # one; the shipped ledgers already validate, so it costs
+        # nothing.
+        compare.validate_rules(rules, ledger.name)
+        undeclared = compare.undeclared_contests(rules, _CORPUS_NAMES)
+        assert not undeclared, "\n".join(
+            [f"{ledger.name}: {len(undeclared)} order-decided contest(s) "
+             f"nobody declared. The EARLIER rule must carry a "
+             f"[[change.precedes_narrower]] block naming the later one "
+             f"and saying what it describes that the later one does not:"]
+            + [f"  {c.earlier!r}\n  outranks {c.later!r}\n"
+               f"  on {len(c.names)} name(s), e.g. {list(c.names[:3])}"
+               for c in undeclared])
+        vacant = compare.vacant_exemptions(rules, _CORPUS_NAMES)
+        assert not vacant, (
+            f"{ledger.name}: {vacant} declare precedence over a pair "
+            f"that is no longer contested. A rule was narrowed or a "
+            f"corpus name left; delete the exemption rather than "
+            f"leaving a justification for a hazard that is gone")

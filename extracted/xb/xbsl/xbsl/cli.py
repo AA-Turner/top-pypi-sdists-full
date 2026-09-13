@@ -18,23 +18,30 @@ from xbsl.templates import DEFAULT_FILE as DEFAULT_TEMPLATES_FILE
 
 
 def discover(paths: list[str]) -> list[Path]:
-    """Collect source files (.xbsl, .yaml and .xbql) under the given paths.
+    """Collect source files (.xbsl, .yaml, .xbql and the resources) under the given paths.
 
     The query file of a virtual table is collected too: it is the only place where the
     query language lives outside a `Запрос{ ... }` block, and until it was collected the
     query rules had nothing to look at there - an unknown table in such a file was found by
     nobody but the server compiler.
+
+    The `.css`, `.js`, `.svg` and `.html` files of a `Resources` folder are collected as well:
+    a project ships them to the browser as they are, so the prose in them is read by the
+    same people and holds to the same typography. Only the typography rules look at such a
+    file; the rest of the checks are about a module and an element description.
     """
     out: list[Path] = []
     for raw in paths:
         p = Path(raw)
         if p.is_file():
-            if p.suffix in (".xbsl", ".yaml") or engine.is_query_file(p):
+            if (p.suffix in (".xbsl", ".yaml") or engine.is_query_file(p)
+                    or engine.is_resource_file(p)):
                 out.append(p)
         elif p.is_dir():
             out.extend(engine.find_sources(p, "*.xbsl"))
             out.extend(engine.find_sources(p, "*.yaml"))
             out.extend(engine.find_sources(p, f"*{engine.QUERY_SUFFIX}"))
+            out.extend(engine.find_resources(p))
     # Uniquify, preserving order
     seen: set[Path] = set()
     uniq: list[Path] = []
@@ -536,7 +543,7 @@ def _templates_main(argv: list[str]) -> int:
 
         if args.action == "export":
             chosen = custom if args.custom_only else merged
-            Path(args.output).write_text(tpl.dumps(chosen), encoding="utf-8")
+            Path(args.output).write_text(tpl.dumps(chosen), encoding="utf-8", newline="")
             print(json.dumps({"exported": len(chosen), "output": args.output}, ensure_ascii=False))
             return 0
 
@@ -548,7 +555,7 @@ def _templates_main(argv: list[str]) -> int:
             builtin_by_name = {t.name: t for t in builtin}
             fresh = [t for t in incoming if builtin_by_name.get(t.name) != t]
             saved = tpl.merge(custom, fresh)
-            path.write_text(tpl.dumps(saved), encoding="utf-8")
+            path.write_text(tpl.dumps(saved), encoding="utf-8", newline="")
             print(json.dumps(
                 {"imported": len(fresh), "skipped": len(incoming) - len(fresh),
                  "total": len(saved), "file": str(path)},
@@ -561,7 +568,7 @@ def _templates_main(argv: list[str]) -> int:
         builtin_by_name = {t.name: t for t in builtin}
         fresh = [t for t in incoming if builtin_by_name.get(t.name) != t]
         if fresh:
-            path.write_text(tpl.dumps(fresh), encoding="utf-8")
+            path.write_text(tpl.dumps(fresh), encoding="utf-8", newline="")
         elif path.exists():
             path.unlink()  # nothing but the builtin set left - the file has no reason to exist
         print(json.dumps({"saved": len(fresh), "file": str(path)}, ensure_ascii=False))
@@ -1117,6 +1124,7 @@ def _check_main(argv: list[str]) -> int:
 
     from xbsl.engine import RULES, active_rules, load, make_source, run_sources
 
+    adopted: cijob.CiLint | None = None
     if args.as_ci is not None or args.as_ci_job:
         # "As in CI" is read from the pipeline file itself, never from a second list of rules
         # kept in step by hand: the job's --enable flags are what a local pass was missing,
@@ -1125,7 +1133,16 @@ def _check_main(argv: list[str]) -> int:
             job = cijob.find(args.paths, args.as_ci or None, args.as_ci_job)
         except cijob.CiLintError as exc:
             print(str(exc), file=sys.stderr)
+            if args.format == "json":
+                # A refusal is where a machine reader needs the reason most, and stderr is
+                # not where it looks. The payload carries no `diagnostics` on purpose: the
+                # run never happened, and an empty list of findings reads like a clean tree.
+                _emit_report(json.dumps(
+                    {"error": str(exc), "summary": {"as_ci": cijob.refused(str(exc))}},
+                    ensure_ascii=False,
+                ), args.out)
             return 2
+        adopted = job
         # Merged, not replaced: `--as-ci --enable style/line-length` is "the job's set plus
         # this one", which is how a rule is tried out before it goes into the pipeline.
         args.select = (args.select or []) + list(job.select)
@@ -1313,6 +1330,12 @@ def _check_main(argv: list[str]) -> int:
         # Machine-readable: the whole payload on stdout (or in --out), nothing on stderr.
         payload = report.report(diagnostics, len(files))
         payload["summary"].update(environment.provenance(active))
+        if adopted is not None:
+            # The record the MCP server already answered with, now in the terminal's report
+            # too: which job of which file this verdict was judged by. Without it a reader
+            # comparing a local run with a red pipeline had nothing to compare THE SETS by,
+            # and the flag's whole promise is that the two agree.
+            payload["summary"]["as_ci"] = adopted.as_dict(hint=not args.as_ci_job)
         if suppressed is not None:
             payload["summary"]["baselined"] = suppressed
             # Two different units, both useful: `unused` counts the suppressions nobody

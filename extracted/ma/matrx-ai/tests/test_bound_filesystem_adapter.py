@@ -253,6 +253,42 @@ async def test_bound_fs_list_legacy_target_keeps_client_pattern_fallback(monkeyp
 
 
 @pytest.mark.asyncio
+async def test_bound_fs_search_projects_ripgrep_rows_to_public_contract(monkeypatch) -> None:
+    """Daemon diagnostic fields must not make a successful search fail."""
+    binding = SandboxBinding("target", "https://target.invalid", "token")
+
+    async def proxy_search(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "results": [
+                {
+                    "path": "/home/agent/src/main.py",
+                    "lines": "needle in a line\\n",
+                    "line_number": 39,
+                    "submatches": [{"match": {"text": "needle", "start": 0, "end": 6}}],
+                }
+            ]
+        }
+
+    monkeypatch.setattr(filesystem, "get_active_sandbox", lambda: binding)
+    monkeypatch.setattr(filesystem, "_proxy_fs_search", proxy_search)
+
+    result = await filesystem.fs_search(
+        {"path": ".", "pattern": "needle", "content_search": True},
+        ToolContext(call_id="search-1", tool_name="fs_search"),
+    )
+
+    assert result.success is True
+    assert result.output["results"] == [
+        {
+            "__kind": "file_search_match",
+            "path": "/home/agent/src/main.py",
+            "matches": ["needle in a line\\n"],
+            "size": None,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_proxy_read_uses_daemon_bounds_without_client_slicing(monkeypatch) -> None:
     binding = SandboxBinding("target", "https://target.invalid", "token")
     received: dict[str, Any] = {}

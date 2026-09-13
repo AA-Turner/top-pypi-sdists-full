@@ -249,3 +249,47 @@ def test_partial_terminal_outcomes_cannot_consume_contract(status: str) -> None:
 @pytest.mark.parametrize("metadata", [{}, {"status": "completed"}])
 def test_clean_terminal_outcome_can_consume_contract(metadata: dict) -> None:
     assert is_clean_structured_output_completion(metadata) is True
+
+
+# --------------------------------------------------------------------------- #
+# DD-135 — a STANDING contract does NOT stop the relaxation (round 2).          #
+# --------------------------------------------------------------------------- #
+#
+# Round 1 of DD-135 made a standing contract refuse to relax, so an acting agent
+# could act on every turn. V-34 proved live that this costs the user their answer:
+# with the schema forced back on, "what is the difference between a project and a
+# task?" produced an empty directive, an empty card, and an Approve button reading
+# "confirm to run 0 create project with taskses" — a control that would write
+# nothing. The relaxation is RIGHT; it is what lets an acting agent speak. The
+# dispatch was the thing keyed on the wrong fact, and it now reads the host's
+# declared standing contract instead (see test_standing_output_contract_dispatch.py).
+#
+# This test pins the reversal so nobody re-introduces the suppression.
+
+
+@pytest.mark.asyncio
+async def test_a_standing_declaration_does_not_block_the_relaxation(monkeypatch) -> None:
+    from matrx_connect.context.app_context import AppContext, set_app_context
+
+    set_app_context(
+        AppContext(
+            emitter=None,
+            user_id="dd135-test",
+            metadata={
+                "response_format_standing": True,
+                "standing_output_contract": deepcopy(SCHEMA_FORMAT),
+            },
+        )
+    )
+    try:
+        resolved = await _resolve(
+            monkeypatch,
+            _config(_assistant('{"answer":"generated result"}')),
+        )
+    finally:
+        set_app_context(AppContext(emitter=None, user_id="dd135-test", metadata={}))
+
+    assert resolved.response_format == {"type": "text"}, (
+        "an acting run must still be able to answer in prose — forcing its schema "
+        "back on turns a plain question into an empty directive with a live Approve"
+    )

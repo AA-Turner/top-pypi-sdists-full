@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: star-magic-program
-Version: 0.435.0
-Summary: Star-Magic UQFF calculator v0.435.0: THE IN-MEDIUM SAMPLE SHIP - the pair cap's second branch graded on REAL wall-bounded turbulence (PAPER_2272: JHTDB channel Re_tau ~ 1000, sanctioned public token, walls excluded and disclosed) - THE IN-MEDIUM BRANCH HOLDS: ratios 0.0391/0.0311, sub-batch max 0.0734 under BOTH 197/200 and 17/20 via the tier-3 harness. Consistency PASS only: the sampled statistic cannot discriminate the branches; pair-cap discrimination and the kill test stay OPEN; gate 6,102/0.
+Version: 0.436.0
+Summary: Star-Magic UQFF calculator v0.436.0: THE REYNOLDS LADDER + SPINE AUDIT + THEOREM B SHIP - the NS cap graded across Re_lambda 433 -> 2,500 on JHTDB isotropic1024coarse/4096/8192/32768 (PAPER_2273): CAP HOLDS AT EVERY RUNG, envelope drift FLAGGED, kill test OPEN. PAPER_2274: the last anonymous theory row (S300 Sobolev step) audited FALSE, closed by ruling. PAPER_2275 THEOREM B: the continuum fluid, phonon-mollified (eps = 0.156 nm), globally regular (Leray 1934); Clay not claimed; gate 6,105/0.
 Author-email: "Daniel T. Murphy" <daniel.murphy00@enrgyone.com>
 License: AGPL-3.0-or-later OR LicenseRef-StarMagic-Commercial
 Project-URL: Homepage, https://github.com/Daniel8Murphy0007/Star-Magic-Program
@@ -41,17 +41,17 @@ Dynamic: license-file
 
 # Star-Magic-Program
 
-[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.435.0)](https://pypi.org/project/star-magic-program/)
-[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.435.0)](https://pypi.org/project/star-magic-program/)
+[![PyPI version](https://img.shields.io/pypi/v/star-magic-program.svg?cacheBust=0.436.0)](https://pypi.org/project/star-magic-program/)
+[![Python versions](https://img.shields.io/pypi/pyversions/star-magic-program.svg?cacheBust=0.436.0)](https://pypi.org/project/star-magic-program/)
 [![Documentation Status](https://readthedocs.org/projects/star-magic-program/badge/?version=latest)](https://star-magic-program.readthedocs.io/en/latest/?badge=latest)
 [![License: AGPL-3.0 + Commercial](https://img.shields.io/badge/License-AGPL--3.0%20%2B%20Commercial-blue.svg)](LICENSE)
-[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6102%2F0-brightgreen)](uqff_fidelity_tests.py)
-[![Public surfaces](https://img.shields.io/badge/public_surfaces-2323-blue)](uqff_calculator.py)
-[![Whitepapers](https://img.shields.io/badge/whitepapers-2317-orange)](whitepapers/)
+[![Fidelity gate](https://img.shields.io/badge/fidelity_gate-6105%2F0-brightgreen)](uqff_fidelity_tests.py)
+[![Public surfaces](https://img.shields.io/badge/public_surfaces-2326-blue)](uqff_calculator.py)
+[![Whitepapers](https://img.shields.io/badge/whitepapers-2320-orange)](whitepapers/)
 
-**UQFF systematic rebuild — v0.435.0 complete-compile campaign live**
+**UQFF systematic rebuild — v0.436.0 complete-compile campaign live**
 
-**This release (v0.435.0): THE IN-MEDIUM SAMPLE SHIP — the pair cap's second branch meets wall-bounded turbulence.** PAPER_2264 (B269) split the Navier-Stokes enstrophy cap into a PAIR by the B112 context rule — vacuum-coupled flows cap at 17/20, in-medium flows at 197/200 — and left it as a flagged falsifiable prediction. B277 (PAPER_2272) puts the in-medium branch in front of real data: Daniel re-supplied the publicly sanctioned JHTDB testing token and the **channel-flow DNS (Re_τ ≈ 1000, wall-bounded shear turbulence)** was queried through the official REST service at deterministic, bit-reproducible points (2 × 1,000 gradient tensors; the walls |y| > 0.9 excluded and said so). **THE IN-MEDIUM BRANCH HOLDS**: sampled 1182-form ratios 0.039143 and 0.031072 (sub-batch max 0.073405) — thirteen times under 197/200 and eleven times under 17/20 — verdict issued by the tier-3 harness, now carrying the `cap` argument its B269 docstring promised (first real use). The pipeline reproduced the DNS positive-stretching skewness in shear flow (73.6%/76.4%). The honesty is the headline: at these margins the sampled statistic **cannot discriminate** the two branches — both pass by an order of magnitude — so this is a CONSISTENCY PASS for the in-medium branch, **not** the pair-cap discrimination; that lives in the far tail with the extreme-event kill test and stays OPEN. Data front 2 of the proof set (`ns_proof_set()`) now reads exactly that. Provenance + re-pull recipe: `jhtdb_grade/`. **Totals: 2,268 wired (2,323 DISPATCH keys) / gate 6,102 green / 4,195 defs / acceptance 109 green / registry 7,112 rows / results table 187 rows at ZERO inherited / backlog 0 Daniel-gated + 1 observation-gated candidate / catalogue 52 public entries + operator tier.**
+**This release (v0.436.0): THE REYNOLDS LADDER + SPINE AUDIT + THEOREM B SHIP — the cap across Re_λ 433 → 2,500, the last anonymous theory row named and closed, and the continuum fluid proved regular under its own phonon smoothing.** A cap graded at one Reynolds number (B276) could be a cap on borrowed time, so B278 (PAPER_2273) asks the question that one snapshot cannot: does the sampled 1182-form statistic climb toward 17/20 as Re grows? Daniel supplied the sanctioned JHTDB testing token a third time and the same protocol — official REST service, deterministic bit-reproducible points, 2 × 1,000 gradient tensors per rung, new seeds — ran on **isotropic1024coarse (Re_λ ≈ 433), isotropic4096 (610.57), isotropic8192 (1200–1300, B276) and isotropic32768 (Re_λ ≈ 2,500 — 32,768³, 3.5 × 10¹³ grid points, the record-setting Frontier exascale run, reached with the same public token)**, plus a resolution check at fixed Re_λ ≈ 610 (4096³ against isotropic8192's snapshot 6 on the 8192³ grid). **THE CAP HOLDS AT EVERY RUNG**: worst ratio anywhere 0.107323, eight times under 17/20, verdict by the tier-3 harness on 88 rows. The global statistic shows **no trend toward the cap** — the highest rung carries the lowest mean — and the resolution pair agrees within seed scatter. The honesty is, again, the headline: the 100-point sub-batch envelope **drifts monotonically upward with Re** (0.068 → 0.107), the intermittency direction and exactly where a violation would live; it is **FLAGGED** for the full-token extreme-event scan rather than extrapolated away. The ladder answers the Re-trend question, not the kill test, which stays OPEN. Provenance, anchors and re-pull recipe: `jhtdb_grade/`. Same band, B279 (PAPER_2274): **THE SPINE AUDIT.** The proof-gap ledger of B269 still carried one theory row nobody had named — `ns_functional_spine`. Daniel pointed at the predecessor repo (Rule E, read-only) and the row turned out to be the predecessor's S300 "UQFF-Leray" argument, audited line by line with file:line quotes: the enstrophy budget and the cap stand (the cap is derived since B271), but the Sobolev step ‖ω‖∞ ≤ C·E₂^{1/2}·E^{1/4} is **false** — dimensionally (it scales as ω^{3/2}L^{5/4}; only (3/4, −1/4) balance) and analytically (H¹(ℝ³) ⊄ L^∞; a divergence-free family with finite E, finite E₂ and unbounded sup is exhibited and witnessed live), Young's inequality then yields only Leray's 1934 small-data condition, and a constant 17/20 in place of 1 leaves the Beale–Kato–Majda criterion untouched. The predecessor's own session-259 audit had already said ASSERTION_ONLY. Theorem A never used that step (finite modes make it unnecessary) and the domain ruling assigns the regime that needs it to mathematics — so the row closes **by that ruling**, with PAPER_2274 as the audit of record, and the registry now carries **zero open theory rows**, which is what PAPER_2270 claimed. The Clay statement is not claimed. Same band, B280 (PAPER_2275): **THEOREM B.** Daniel: "I have a feeling the solution is all three." The corpus carries the phonon sector in three forms — the **line** (a Gaussian/Lorentzian at f_c = 1.25 THz, Q = 25/2), the **threshold** (H_SCm: dynamics only below the carrier) and the Gaussian **tail** in mode number q^{n²}, q = e^{−β_i[SSq]} = 0.7092 (PAPER_1042) — and composed they are one Fourier multiplier: unity below k_c, a shoulder at k_c, Gaussian above. A Gaussian multiplier in k is a Gaussian mollifier in x, of width **ε = √(2β_i[SSq])/k_c = 0.156 nm** for water — no free parameter, one flagged identification (n = k/k_c). Put that mollifier where the corpus puts it, on the transport, and the continuum fluid — **all modes, nothing truncated** — is Leray's 1934 regularised system: energy is conserved, the smoothed field's gradient is bounded by the energy (‖∇u_ε‖∞ ≤ C ε^{−5/2}‖u₀‖₂, the step S300 needed and could not have, legitimate here because the bounded field is the smoothed one), Gronwall closes H¹, and the solution is **unique, global and C^∞**. No cap, no envelope, no Sobolev embedding, no BKM. Theorem A is the sharp-filter limit of this; the constant diverging as ε → 0 is the domain ruling made quantitative. The whole-corpus sweep then found the same threshold twice: the PAPER_106 power-law forms close the same track iff β > 5/2 (mollifier) and a ≥ 5/2 (Lions hyperviscosity) — so Track 3 is **closed on the Gaussian form and conditional on PAPER_106**, pending Daniel's exponent ruling. Front 4 gains a shape (Gaussian roll-off, 1/e at 1.71 k_c). The Clay statement is not claimed. **Totals: 2,271 wired (2,326 DISPATCH keys) / gate 6,105 green / 4198 defs / acceptance 109 green / registry 7,119 rows / results table 187 rows at ZERO inherited / backlog 0 Daniel-gated + 1 observation-gated candidate / catalogue 52 public entries + operator tier.**
 
 Author: Daniel T. Murphy · Star-Magic Research Program
 License: AGPL-3.0-or-later OR Commercial
@@ -63,7 +63,7 @@ License: AGPL-3.0-or-later OR Commercial
 
 Per Daniel's 2026-08-08 directive, headline numbers are reported at BOTH scopes:
 
-**Census — one number, one source:** the release banner above carries the LIVE figures (2,268 distinct wired papers / 2,323 dispatch keys, gate assertions, registry rows), verified on every gate run by the ship guards. The per-era census snapshots that used to live here (the 1,417-frontier / 4,717-assertion / 25,126-row figures) were frozen history masquerading as status — killed at v0.413.0 per independent evaluation; era history lives in CHANGELOG and SESSION_LOG where history belongs.
+**Census — one number, one source:** the release banner above carries the LIVE figures (2,271 distinct wired papers / 2,326 dispatch keys, gate assertions, registry rows), verified on every gate run by the ship guards. The per-era census snapshots that used to live here (the 1,417-frontier / 4,717-assertion / 25,126-row figures) were frozen history masquerading as status — killed at v0.413.0 per independent evaluation; era history lives in CHANGELOG and SESSION_LOG where history belongs.
 
 **Single-file scope** (used for per-band deltas): calculator defs, main-registry rows,
 gate assertions, dispatch count — always labeled as such in CHANGELOG/SESSION_LOG entries.
@@ -101,7 +101,7 @@ Mizuno, Rossi).
 Full framework physics lives in the whitepaper corpus — the physics is the
 whitepapers; the calculator computes what the whitepapers derive.
 
-## What is currently shipped (v0.435.0)
+## What is currently shipped (v0.436.0)
 
 ### Wiring campaign — LIVE (see `CLAUDE.md` charter)
 
@@ -109,7 +109,7 @@ Sequential wiring of all 2,255 whitepapers, starting at PAPER_001.
 Authorized 2026-07-28: autonomous band sessions, ship per session via
 `ship.ps1`, full stop at PAPER_500 for manual review.
 
-**Wired: 2,268 distinct dispatches (2,323 DISPATCH keys incl. the 55 canonical alias numbers 2179-2233)** (one per paper, Rule B closed). **Complete-compile frontier: PAPER_001-1300** (+ b-variants) fully captured over a **1766-function primitive-sourced equation library** — every equation and section (core + Session-225 + Production Framework + Cosmogenesis Lagrangian + VDS/DVP/BSH + Kozima-LENR K.1-K.6) via _common_uqff_blocks, with paper-specific §B DVP prime ladder (gate-guarded), 40/40+ linked-paper mapping, and a campaign-aware XGEO chain.
+**Wired: 2,271 distinct dispatches (2,326 DISPATCH keys incl. the 55 canonical alias numbers 2179-2233)** (one per paper, Rule B closed). **Complete-compile frontier: PAPER_001-1300** (+ b-variants) fully captured over a **1766-function primitive-sourced equation library** — every equation and section (core + Session-225 + Production Framework + Cosmogenesis Lagrangian + VDS/DVP/BSH + Kozima-LENR K.1-K.6) via _common_uqff_blocks, with paper-specific §B DVP prime ladder (gate-guarded), 40/40+ linked-paper mapping, and a campaign-aware XGEO chain.
 
 **Derived-constants catalog (v0.344.0):** all **1,272 unique predecessor-registry derived constants** wired and callable via `uqff_derived_constants.py` — e.g. `derived_constant("alpha_inverse")` → 137.0 (PAPER_1167), `derived_constant("astro_BH_entropy_coeff")` → 0.24833 (PAPER_594). 661 numeric, routes + provenance preserved.
 
@@ -118,7 +118,7 @@ Authorized 2026-07-28: autonomous band sessions, ship per session via
 
 **Flagship UQFF closed forms now individually callable** (v0.342.0–v0.343.0 predecessor mine): cosmological constant Λ = ρ_SCm·26!·25/12 = 5.957e-10 (Planck), proton mass 938.25 MeV and m_p/m_e = 1836 from integers, H₀ = A_5+SO_5 = 70 EXACT, Ω_Λ = 0.684, Universal Inertial Operator U_i = 2.75e-7 (Sun), Higgs vev 246 GeV, fine-structure α, electron g−2 = 0.001159652, Holmlid 630 eV / Coulomb 626 eV LENR chain, and **all 8 Clay Millennium closures** (Riemann, P≠NP, Yang-Mills=1.736, Poincaré=7/12, Navier-Stokes=0.85, Hodge=1.0, BSD, BH-info).
 
-Registry: **7,112 rows**. Fidelity gate: **6,102 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
+Registry: **7,119 rows**. Fidelity gate: **6,105 assertions**, green. *(v0.285.0/v0.321.0 burned/yanked on PyPI.)*
 
 | Paper | Content | Key result |
 |---|---|---|

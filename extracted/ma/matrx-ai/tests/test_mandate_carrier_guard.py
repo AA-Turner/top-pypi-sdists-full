@@ -21,6 +21,8 @@ from matrx_ai import _ext
 from matrx_ai.orchestrator import mandate_carrier
 from matrx_ai.orchestrator.mandate_carrier import (
     MANDATE_BYPASS_KIND,
+    MANDATE_CARRIED_UNRESOLVED_KIND,
+    MANDATE_HOLDER_METADATA_KEY,
     MANDATE_SCAN_SOURCE_APP,
     carrier_for,
     mandate_carrier_passthrough,
@@ -80,8 +82,50 @@ def test_bypass_is_recorded(recorded: list[dict[str, Any]]) -> None:
     assert "test_mandate_carrier_guard.py" in row["route"]
 
 
-def test_explicit_mandate_key_records_nothing(recorded: list[dict[str, Any]]) -> None:
-    assert note_mandate_carrier(_Config("gpt-4o-mini"), mandate_key="workflow.step_intelligence") is None
+def test_explicit_mandate_key_with_a_resolved_holder_records_nothing(
+    recorded: list[dict[str, Any]],
+) -> None:
+    """The workflow-step shape: the key AND the Holder that resolved it."""
+    stamped = {MANDATE_HOLDER_METADATA_KEY: {"agent_id": "a1", "holder_type": "agent"}}
+    assert (
+        note_mandate_carrier(
+            _Config("gpt-4o-mini"), stamped, mandate_key="workflow.step_intelligence"
+        )
+        is None
+    )
+    assert recorded == []
+
+
+def test_explicit_mandate_key_without_a_resolved_holder_is_a_label(
+    recorded: list[dict[str, Any]],
+) -> None:
+    """THE SECOND HALF OF THE GATE (2026-09-12). A key named at the executor
+    with nothing resolved is a label: the Holder an admin bound never ran.
+    Recorded as its own kind, stamped on the request, never raised.
+
+    Proven failing: deleting the `carrier[0] == "mandate_key"` branch in
+    ``note_mandate_carrier`` turns this red."""
+    record = note_mandate_carrier(_Config("gpt-4o-mini"), mandate_key="workflow.step_intelligence")
+
+    assert record is not None
+    assert record["reason"] == MANDATE_CARRIED_UNRESOLVED_KIND
+    assert record["mandate_key"] == "workflow.step_intelligence"
+    assert len(recorded) == 1
+    row = recorded[0]
+    assert row["kind"] == MANDATE_CARRIED_UNRESOLVED_KIND
+    assert row["source_app"] == MANDATE_SCAN_SOURCE_APP
+    assert row["payload"]["mandate_key"] == "workflow.step_intelligence"
+    assert "test_mandate_carrier_guard.py" in row["route"]
+
+    # One row per code path, like the bypass.
+    note_mandate_carrier(_Config("gpt-4o-mini"), mandate_key="workflow.step_intelligence")
+    assert len(recorded) == 1
+
+
+def test_explicit_mandate_key_with_a_context_agent_is_held(monkeypatch, recorded) -> None:
+    """A loaded Holder executing under run_agent stamps agent_id on the context."""
+    monkeypatch.setattr(mandate_carrier, "_context", lambda: _Ctx(agent_id="a1"))
+    assert note_mandate_carrier(_Config("x"), mandate_key="workflow.step_intelligence") is None
     assert recorded == []
 
 

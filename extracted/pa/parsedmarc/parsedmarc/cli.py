@@ -17,7 +17,7 @@ from argparse import ArgumentParser, Namespace
 from configparser import ConfigParser
 from glob import escape as glob_escape, glob
 from ssl import CERT_NONE, create_default_context
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import yaml
@@ -121,8 +121,10 @@ from parsedmarc.mail import (
 )
 from parsedmarc.parallel import _parse_report_file_job, parallel_map
 from parsedmarc.types import ParsedReport, ParsingResults
+import parsedmarc.utils
 from parsedmarc.utils import (
     InvalidIPinfoAPIKey,
+    ReverseDNSMap,
     configure_ipinfo_api,
     get_base_domain,
     get_reverse_dns,
@@ -231,7 +233,7 @@ def _log_msgraph_failure(
     fetch, send, or watch failure, identifying the mailbox/tenant/auth
     method and the Graph request-id/client-request-id when available.
     The full traceback is preserved at --debug via a follow-up DEBUG
-    record. Never calls exit() - the call site keeps its own exit(1)."""
+    record. Never calls sys.exit() - the call site keeps its own sys.exit(1)."""
     if isinstance(error, APIError):
         detail = getattr(error, "primary_message", None) or error.message or str(error)
         detail = " ".join(str(detail).split())
@@ -1516,34 +1518,80 @@ def _parse_config(config: ConfigParser, opts):
 
 
 class _ElasticsearchHandle:
-    """Sentinel so Elasticsearch participates in _close_output_clients."""
+    """Owns the Elasticsearch client so it participates in _close_output_clients.
+
+    Holds the client that ``elastic.set_hosts()`` registered under the
+    ``default`` connection alias, rather than re-resolving that alias when
+    it is closed. _close_output_clients is not only a shutdown path: the
+    SIGHUP reload in _main deliberately builds the replacement clients
+    *before* closing the old ones, and building them re-registers the
+    ``default`` alias, so by close time the alias names the new client.
+
+    Args:
+        connection: The client returned by ``elastic.set_hosts()``.
+    """
+
+    def __init__(self, connection: Any):
+        self._connection = connection
 
     def close(self):
         try:
-            conn = elastic.connections.get_connection()
-            if not isinstance(conn, str):
-                conn.close()
+            self._connection.close()
         except Exception:
+            # Best-effort, and deliberately silent: this is the first of
+            # two independent teardown steps, and swallowing here is what
+            # lets the second one still run. Nothing reports this error --
+            # _close_output_clients logs a warning only if close() itself
+            # raises, which it cannot while this handler swallows.
             pass
         try:
-            elastic.connections.remove_connection("default")
+            # Give up the alias only while it still names our own client.
+            # elasticsearch.dsl's Connections.remove_connection() deletes
+            # the alias outright, so removing it after a reload had pointed
+            # it at a new client would leave that client unreachable, with
+            # every later save raising KeyError.
+            if elastic.connections.get_connection("default") is self._connection:
+                elastic.connections.remove_connection("default")
         except Exception:
+            # Best-effort and silent for the same reason as above: a
+            # failure to give up the alias is not actionable during
+            # teardown, and it is not reported anywhere either.
             pass
 
 
 class _OpenSearchHandle:
-    """Sentinel so OpenSearch participates in _close_output_clients."""
+    """Owns the OpenSearch client so it participates in _close_output_clients.
+
+    Holds the client that ``opensearch.set_hosts()`` registered under the
+    ``default`` connection alias; see _ElasticsearchHandle for why the
+    alias is not re-resolved at close time.
+
+    Args:
+        connection: The client returned by ``opensearch.set_hosts()``.
+    """
+
+    def __init__(self, connection: Any):
+        self._connection = connection
 
     def close(self):
         try:
-            conn = opensearch.connections.get_connection()
-            if not isinstance(conn, str):
-                conn.close()
+            self._connection.close()
         except Exception:
+            # Best-effort, and deliberately silent: this is the first of
+            # two independent teardown steps, and swallowing here is what
+            # lets the second one still run. Nothing reports this error --
+            # _close_output_clients logs a warning only if close() itself
+            # raises, which it cannot while this handler swallows.
             pass
         try:
-            opensearch.connections.remove_connection("default")
+            # Only while the alias still names our own client; see
+            # _ElasticsearchHandle.close().
+            if opensearch.connections.get_connection("default") is self._connection:
+                opensearch.connections.remove_connection("default")
         except Exception:
+            # Best-effort and silent for the same reason as above: a
+            # failure to give up the alias is not actionable during
+            # teardown, and it is not reported anywhere either.
             pass
 
 
@@ -1652,11 +1700,190 @@ def _migration_index_names(
     return names
 
 
-def _init_output_clients(opts, index_prefix_domain_map=None):
-    """Create output clients based on current opts.
+def _search_alias_snapshot() -> list[tuple[Any, Any, Any]]:
+    """Record the module-level state each search backend's set_hosts() writes.
+
+    ``elastic.set_hosts()`` and ``opensearch.set_hosts()`` register the client
+    they build under their SDK's process-wide ``default`` connection alias,
+    and the save path resolves that alias on every write.
+    :func:`_init_output_clients` takes this snapshot before it touches either
+    registry, so that a failure part-way through can put back exactly what it
+    found.
+
+    Returns:
+        list: One ``(module, client, serverless)`` triple per backend.
+        ``client`` is what that backend's ``default`` alias names, or ``None``
+        when the alias is unset. ``serverless`` is ``elastic._SERVERLESS`` for
+        the Elasticsearch backend and ``None`` for OpenSearch, which has no
+        equivalent. Carrying the module itself, rather than a name to look it
+        up by, is what lets :func:`_restore_search_aliases` put each client
+        back into the registry it came from without a second lookup to
+        disagree with. A backend whose module is ``None`` -- its optional
+        extra is not installed, see the guarded imports at the top of this
+        module -- has no state to snapshot and is left out of the list
+        entirely.
+    """
+    snapshot: list[tuple[Any, Any, Any]] = []
+    for module in (elastic, opensearch):
+        if module is None:
+            continue
+        try:
+            # get_connection() does not only look the alias up: it also
+            # *constructs* a client from kwargs stashed by an earlier
+            # connections.configure() call. parsedmarc never calls
+            # configure() -- both set_hosts() implementations register their
+            # client with create_connection() -- so each registry's
+            # ``_kwargs`` stays empty and this can only return an
+            # already-registered client or raise KeyError. Taking the
+            # snapshot can never itself open a connection.
+            connection = module.connections.get_connection("default")
+        except KeyError:
+            connection = None
+        # The alias is not the only module-level state set_hosts() writes:
+        # elastic.set_hosts() also assigns elastic._SERVERLESS, which
+        # elastic.create_indexes() consults to decide whether to strip the
+        # shard settings Serverless rejects. Reaching into a sibling module's
+        # private is the same liberty this function already takes with
+        # ``connections``; without it, a failed reload that flipped
+        # ``[elasticsearch] serverless`` would pair the restored old client
+        # with the new config's flag. opensearch.py declares no module
+        # globals at all (no ``global`` statement in the file), so there is
+        # nothing to pair with it.
+        serverless = elastic._SERVERLESS if module is elastic else None
+        snapshot.append((module, connection, serverless))
+    return snapshot
+
+
+def _restore_search_aliases(snapshot: list[tuple[Any, Any, Any]]) -> None:
+    """Put the state in *snapshot* back the way it was when it was taken.
+
+    ``elastic._SERVERLESS`` is put back first and unconditionally; the alias
+    then has three cases per backend. The alias still names the client it
+    named before, so there is nothing to do. A different client has taken it
+    over -- that client is
+    closed, and the previous client is registered again, or the alias is
+    removed outright when there was no previous client. Or the alias is unset
+    because a fully built handle released it during the teardown that runs
+    first -- nothing left to close, and the previous client is simply
+    registered again; this is the ordinary path when the failure came after a
+    search backend was fully built.
+
+    Closing is best-effort and silent: the client being closed here is the
+    half-built one for the configuration that just failed, it is being
+    discarded either way, and a teardown error is not actionable -- while
+    handing the alias back is what keeps the still-running configuration
+    writing where it thinks it is, so it must happen either way. Closing the
+    same client twice is safe -- ``_close_output_clients`` may already have
+    closed it through its handle -- because both SDKs' ``close()`` are
+    idempotent: ``Elasticsearch.close()`` closes each node's urllib3 pool,
+    whose ``close()`` is a no-op once cleared, and ``OpenSearch.close()``
+    guards on ``if self.pool``.
+
+    Args:
+        snapshot (list): The return value of :func:`_search_alias_snapshot`.
+    """
+    for module, previous, previous_serverless in snapshot:
+        if elastic is not None and module is elastic:
+            # Unconditionally, and before the alias: set_hosts() assigns
+            # _SERVERLESS before it constructs the client, so it can be stale
+            # even on a failure that never reached the registry.
+            elastic._SERVERLESS = previous_serverless
+        try:
+            current = module.connections.get_connection("default")
+        except KeyError:
+            current = None
+        if current is previous:
+            # Nothing took the alias over, including the common case of
+            # both being None. Leave it alone.
+            continue
+        if current is not None:
+            try:
+                current.close()
+            except BaseException:
+                # Best-effort; see the docstring. BaseException, not
+                # Exception, for the same reason the caller's teardown is
+                # wrapped in try/finally: a Ctrl-C landing in close() must
+                # not cost the alias its hand-back, and the exception the
+                # caller re-raises afterwards still reports the failure.
+                pass
+        if previous is None:
+            # Cannot raise KeyError: the alias was just resolved out of this
+            # registry's own ``_conns``, and closing a client does not touch
+            # the registry, so it is still there.
+            module.connections.remove_connection("default")
+        else:
+            module.connections.add_connection("default", previous)
+
+
+def _utils_globals_snapshot() -> dict[str, Any]:
+    """Record the ``parsedmarc.utils`` module-level state the config loaders
+    write, so a failed SIGHUP reload can put it back.
+
+    Three globals, enumerated from the loaders' bodies rather than from
+    their docstrings:
+
+    * ``psl_overrides`` -- ``load_psl_overrides()`` clears the list and
+      repopulates it in place. It declares no ``global``: the list object
+      itself is the shared state, which is why this is snapshotted by value.
+      ``load_reverse_dns_map()`` calls that loader before it reads anything
+      of its own, so staging the map into a fresh dict does *not* keep the
+      overrides list out of the reload's blast radius.
+      ``get_base_domain()`` reads it on every lookup.
+    * ``_IP_DB_PATH`` -- the only global ``load_ip_db()`` assigns.
+      ``_get_ip_database_path()`` falls back to it whenever the caller's
+      own ``ip_db_path`` is unset or names a file that is not there, which
+      is every MMDB lookup in the common case of no ``ip_db_path``.
+    * ``_IPINFO_API_TOKEN`` -- the only global ``configure_ipinfo_api()``
+      assigns, and it is assigned *before* the token probe that can fail,
+      so a rejected probe leaves the new token behind.
+
+    ``_LAST_LOGGED_IP_DB_PATH`` is deliberately not covered: it is assigned
+    by ``_get_ip_database_path()``, which none of the loaders the reload
+    calls reach, and it only decides whether the selected database path is
+    logged again.
+
+    Returns:
+        dict: The values, to be handed to :func:`_restore_utils_globals`.
+    """
+    return {
+        "psl_overrides": list(parsedmarc.utils.psl_overrides),
+        "_IP_DB_PATH": parsedmarc.utils._IP_DB_PATH,
+        "_IPINFO_API_TOKEN": parsedmarc.utils._IPINFO_API_TOKEN,
+    }
+
+
+def _restore_utils_globals(snapshot: dict[str, Any]) -> None:
+    """Put the state in *snapshot* back the way it was when it was taken.
+
+    ``psl_overrides`` is restored in place, not rebound, for the same reason
+    it is snapshotted by value: ``load_psl_overrides()`` mutates that one
+    list object, and rebinding ``parsedmarc.utils.psl_overrides`` would
+    leave any already-bound reference to the old object holding the failed
+    reload's contents.
+
+    Args:
+        snapshot (dict): The return value of :func:`_utils_globals_snapshot`.
+    """
+    parsedmarc.utils.psl_overrides[:] = snapshot["psl_overrides"]
+    parsedmarc.utils._IP_DB_PATH = snapshot["_IP_DB_PATH"]
+    parsedmarc.utils._IPINFO_API_TOKEN = snapshot["_IPINFO_API_TOKEN"]
+
+
+def _build_output_clients(opts, clients, index_prefix_domain_map=None):
+    """Create output clients based on current opts, into *clients*.
+
+    Deliberately not transactional: it fills *clients* as it goes and, when a
+    step fails, leaves behind both the clients it had already built and any
+    change ``elastic.set_hosts()``/``opensearch.set_hosts()`` made to their
+    SDKs' module-level state. Undoing that is :func:`_init_output_clients`'s
+    job, which is why *clients* is a parameter -- the caller owns the dict on
+    the failure path too, and can close what is in it. Call
+    :func:`_init_output_clients`, not this.
 
     Args:
         opts: Namespace of parsed configuration values.
+        clients (dict): The dict to fill, keyed by client name. Filled in
+            place, and also returned.
         index_prefix_domain_map (dict | None): The parsed
             ``general.index_prefix_domain_map``. ``None`` -- the default --
             means multi-tenant prefixing is not configured, so Elasticsearch
@@ -1664,13 +1891,13 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
             from ``index_prefix``/``index_suffix``.
 
     Returns:
-        dict of client instances keyed by name.
+        dict: *clients*, filled.
 
     Raises:
         ConfigurationError: If a required output client cannot be created.
+        RuntimeError: If constructing an output client fails, chained to the
+            error the SDK raised.
     """
-    clients = {}
-
     # Each check below is deliberately outside the try/except that wraps
     # its constructor: those handlers re-raise everything as RuntimeError,
     # which would bury the install hint.
@@ -1819,11 +2046,12 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
     if opts.la_dce and loganalytics is None:
         raise ConfigurationError(_missing_extra_hint("log_analytics", "loganalytics"))
 
-    # Elasticsearch and OpenSearch mutate module-level global state via
-    # connections.create_connection(), which cannot be rolled back if a later
-    # step fails.  Initialise them last so that all other clients are created
-    # successfully first; this minimizes the window for partial-init problems
-    # during config reload.
+    # Elasticsearch and OpenSearch mutate module-level global state, in two
+    # places rather than one: connections.create_connection() registers the
+    # new client under the ``default`` alias, and elastic.set_hosts() also
+    # assigns elastic._SERVERLESS. _init_output_clients() rolls both back if
+    # a later step fails. They are still initialized last, so that a failure
+    # in any other output happens before either registry has been touched.
     if opts.save_aggregate or opts.save_failure or opts.save_smtp_tls:
         # Scoped to the same condition as the constructors below, which is
         # also the condition under which process_reports() dereferences
@@ -1873,7 +2101,7 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
                     if opts.elasticsearch_timeout is not None
                     else 60.0
                 )
-                elastic.set_hosts(
+                elasticsearch_connection = elastic.set_hosts(
                     opts.elasticsearch_hosts,
                     use_ssl=opts.elasticsearch_ssl,
                     ssl_cert_path=opts.elasticsearch_ssl_cert_path,
@@ -1898,7 +2126,9 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
                     smtp_tls_indexes=es_smtp_tls_indexes,
                     legacy_fo_indexes=es_legacy_fo_indexes,
                 )
-                clients["elasticsearch"] = _ElasticsearchHandle()
+                clients["elasticsearch"] = _ElasticsearchHandle(
+                    elasticsearch_connection
+                )
         except Exception as e:
             raise RuntimeError(f"Elasticsearch: {e}") from e
 
@@ -1942,7 +2172,7 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
                     if opts.opensearch_timeout is not None
                     else 60.0
                 )
-                opensearch.set_hosts(
+                opensearch_connection = opensearch.set_hosts(
                     opts.opensearch_hosts,
                     use_ssl=opts.opensearch_ssl,
                     ssl_cert_path=opts.opensearch_ssl_cert_path,
@@ -1969,11 +2199,92 @@ def _init_output_clients(opts, index_prefix_domain_map=None):
                     smtp_tls_indexes=os_smtp_tls_indexes,
                     legacy_fo_indexes=os_legacy_fo_indexes,
                 )
-                clients["opensearch"] = _OpenSearchHandle()
+                clients["opensearch"] = _OpenSearchHandle(opensearch_connection)
         except Exception as e:
             raise RuntimeError(f"OpenSearch: {e}") from e
 
     return clients
+
+
+def _init_output_clients(opts, index_prefix_domain_map=None):
+    """Create output clients based on current opts, all-or-nothing.
+
+    Either every configured client is built and returned, or the clients built
+    so far are closed and the module-level state that
+    ``elastic.set_hosts()``/``opensearch.set_hosts()`` mutate -- each
+    backend's ``default`` connection alias, and ``elastic._SERVERLESS`` -- is
+    left exactly as it was on entry.
+
+    That guarantee is what the SIGHUP reload in :func:`_main` needs. It builds
+    the replacement clients before closing the old ones and keeps running with
+    the old ``opts`` if the build fails. But ``set_hosts()`` registers its
+    client under the ``default`` alias as soon as it is constructed, well
+    before the rest of the initialization can fail -- on an output configured
+    later failing to build, or on a Ctrl-C landing in the index migration.
+    Without the rollback, such a reload left every subsequent save resolving
+    that alias to the *new* cluster while ``opts`` stayed old, and leaked the
+    half-built client.
+
+    Args:
+        opts: Namespace of parsed configuration values.
+        index_prefix_domain_map (dict | None): The parsed
+            ``general.index_prefix_domain_map``; see
+            :func:`_build_output_clients`.
+
+    Returns:
+        dict of client instances keyed by name.
+
+    Raises:
+        ConfigurationError: If a required output client cannot be created.
+        RuntimeError: If constructing an output client fails, chained to the
+            error the SDK raised.
+    """
+    previous_search_state = _search_alias_snapshot()
+    clients: dict[str, Any] = {}
+
+    try:
+        return _build_output_clients(
+            opts, clients, index_prefix_domain_map=index_prefix_domain_map
+        )
+    except BaseException:
+        # Teardown first, then restore. The order is deliberate, and the two
+        # steps are not interchangeable. Tracing the two points at which a
+        # failure can leave a ``default`` alias pointing at a new client:
+        #
+        # (1) Inside the Elasticsearch block after set_hosts(), before the
+        #     handle exists. Teardown closes the outputs built earlier and
+        #     leaves the alias alone -- nothing in ``clients`` owns it -- and
+        #     the restore then closes the new client and re-registers the old
+        #     one. Either order reaches that state.
+        #
+        # (2) In a later step, with _ElasticsearchHandle already in
+        #     ``clients`` owning the new client that holds the alias.
+        #     Teardown first: the handle closes its client and, seeing the
+        #     alias still name that client, releases the alias; the restore
+        #     then finds the alias unset and re-registers the old client,
+        #     which was never closed. Restoring first would instead put the
+        #     old client back and only then close the handle -- leaving the
+        #     whole rollback resting on the handle declining to touch an
+        #     alias that no longer names its own client. It does decline
+        #     today, but that is a property of _ElasticsearchHandle.close(),
+        #     not of this function: before #902 the handle re-resolved the
+        #     alias at close time and would have deleted the registration
+        #     restored a moment earlier, leaving every later save raising
+        #     KeyError. Tearing down first keeps this guarantee local.
+        #
+        # BaseException, not Exception: elastic.migrate_indexes() catches
+        # Exception around every cluster call and logs a warning, so the
+        # failure that escapes the Elasticsearch block after set_hosts() is,
+        # in practice, a KeyboardInterrupt landing in one of them. And try/finally,
+        # because a second Ctrl-C arriving during the teardown propagates
+        # straight through _close_output_clients, which swallows only
+        # Exception; a plain statement sequence would then skip the restore
+        # and leave behind exactly the state this function exists to prevent.
+        try:
+            _close_output_clients(clients)
+        finally:
+            _restore_search_aliases(previous_search_state)
+        raise
 
 
 def _close_output_clients(clients):
@@ -2766,7 +3077,7 @@ def _main():
             index_prefix_domain_map = _parse_config(config, opts)
         except ConfigurationError as e:
             logger.critical(str(e))
-            exit(-1)
+            sys.exit(-1)
 
     logger.setLevel(logging.ERROR)
 
@@ -2776,6 +3087,12 @@ def _main():
         logger.setLevel(logging.INFO)
     if opts.debug:
         logger.setLevel(logging.DEBUG)
+    # The log file currently being written -- what a SIGHUP reload compares
+    # the new config's log_file against. None when no file is attached,
+    # including when the configured one could not be opened, so that a
+    # reload naming the same path tries again once the operator has fixed
+    # it.
+    opts.active_log_file = None
     if opts.log_file:
         try:
             fh = logging.FileHandler(opts.log_file, "a")
@@ -2784,10 +3101,9 @@ def _main():
             )
             fh.setFormatter(formatter)
             logger.addHandler(fh)
+            opts.active_log_file = opts.log_file
         except Exception as error:
             logger.warning(f"Unable to write to log file: {error}")
-
-    opts.active_log_file = opts.log_file
     _configure_dependency_logging(logger.level)
 
     if (
@@ -2798,7 +3114,7 @@ def _main():
         and len(opts.file_path) == 0
     ):
         logger.error("You must supply input files or a mailbox connection")
-        exit(1)
+        sys.exit(1)
 
     logger.info("Starting parsedmarc")
 
@@ -2814,7 +3130,7 @@ def _main():
             configure_ipinfo_api(opts.ipinfo_api_token)
         except InvalidIPinfoAPIKey as e:
             logger.critical(str(e))
-            exit(1)
+            sys.exit(1)
 
     load_psl_overrides(
         always_use_local_file=opts.always_use_local_files,
@@ -2835,7 +3151,7 @@ def _main():
             break
         except ConfigurationError as e:
             logger.critical(str(e))
-            exit(1)
+            sys.exit(1)
         except Exception as error_:
             if attempt < max_retries:
                 logger.warning(
@@ -2849,10 +3165,10 @@ def _main():
                 retry_delay *= 2
             else:
                 logger.error(f"Output client error: {error_}")
-                exit(1)
+                sys.exit(1)
 
     # Always close output clients on the way out (normal return,
-    # exit(N), uncaught exception, or SystemExit from a signal-driven
+    # sys.exit(N), uncaught exception, or SystemExit from a signal-driven
     # shutdown). atexit does NOT fire on os._exit(130) — that's
     # intentional for the SIGINT double-tap. The lambda closes whatever
     # `clients` currently points at, so a SIGHUP reload that swaps the
@@ -2992,7 +3308,7 @@ def _main():
                 logger.error(
                     "IMAP user and password must be specified if host is specified"
                 )
-                exit(1)
+                sys.exit(1)
 
             ssl = True
             verify = True
@@ -3022,7 +3338,7 @@ def _main():
 
         except Exception:
             logger.exception("IMAP Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.graph_client_id:
         try:
@@ -3088,10 +3404,10 @@ def _main():
                 tenant_id=opts.graph_tenant_id,
                 auth_method=opts.graph_auth_method,
             )
-            exit(1)
+            sys.exit(1)
         except Exception:
             logger.exception("MS Graph Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.gmail_api_credentials_file:
         # Any effective delete flag needs the deletion scope: the per-report-type
@@ -3135,7 +3451,7 @@ def _main():
 
         except Exception:
             logger.exception("Gmail API Error")
-            exit(1)
+            sys.exit(1)
 
     if opts.maildir_path:
         try:
@@ -3145,7 +3461,7 @@ def _main():
             )
         except Exception:
             logger.exception("Maildir Error")
-            exit(1)
+            sys.exit(1)
 
     if mailbox_connection:
         mailbox_batch_size_value = (
@@ -3219,10 +3535,10 @@ def _main():
                     tenant_id=opts.graph_tenant_id,
                     auth_method=opts.graph_auth_method,
                 )
-            exit(1)
+            sys.exit(1)
         except Exception:
             logger.exception("Mailbox Error")
-            exit(1)
+            sys.exit(1)
 
     # Filtered here rather than relying on process_reports()'s in-place
     # filtering: the dicts it filters are the file snapshot and the mailbox
@@ -3286,7 +3602,7 @@ def _main():
             )
         except Exception:
             logger.exception("Failed to email results")
-            exit(1)
+            sys.exit(1)
     elif msgraph_connection is not None and smtp_to_value:
         try:
             email_results_via_msgraph(
@@ -3305,10 +3621,10 @@ def _main():
                 tenant_id=opts.graph_tenant_id,
                 auth_method=opts.graph_auth_method,
             )
-            exit(1)
+            sys.exit(1)
         except Exception:
             logger.exception("Failed to email results via Microsoft Graph")
-            exit(1)
+            sys.exit(1)
 
     if mailbox_connection and opts.mailbox_watch:
         logger.info("Watching for email - Ctrl-C once to quit, twice to force")
@@ -3346,10 +3662,10 @@ def _main():
                 )
             except FileExistsError as error:
                 logger.error(f"{error.__str__()}")
-                exit(1)
+                sys.exit(1)
             except ParserError as error:
                 logger.error(error.__str__())
-                exit(1)
+                sys.exit(1)
             except (ClientAuthenticationError, APIError, httpx.HTTPError) as error:
                 if msgraph_connection is None:
                     logger.exception("Mailbox Error")
@@ -3361,7 +3677,7 @@ def _main():
                         tenant_id=opts.graph_tenant_id,
                         auth_method=opts.graph_auth_method,
                     )
-                exit(1)
+                sys.exit(1)
 
             # Prioritize shutdown over reload if both flags are set (e.g.
             # SIGHUP followed by SIGTERM). atexit closes output clients.
@@ -3379,7 +3695,26 @@ def _main():
             logger.info("SIGHUP received, config will reload after current batch")
             _reload_requested = False
             logger.info("Reloading configuration...")
+            # Both snapshots are taken before the try, because the rollback
+            # in the handler needs them and neither can fail: taking the
+            # search snapshot only resolves an alias (KeyError caught) and
+            # reads elastic._SERVERLESS, and taking the utils snapshot only
+            # copies three module attributes.
+            previous_search_state = _search_alias_snapshot()
+            previous_utils_state = _utils_globals_snapshot()
+            # Also bound before the try: the rollback closes whatever was
+            # built, and an empty dict makes that a no-op when the failure
+            # came before (or from inside) _init_output_clients().
+            new_clients: dict[str, Any] = {}
+            # Bound before the try for the same reason: the rollback closes
+            # the replacement log file handler if phase 1 opened one, and
+            # ``None`` means there is nothing to close.
+            staged_log_handler: logging.FileHandler | None = None
             try:
+                # Phase 1 -- stage every fallible step off to the side.
+                # Nothing the running configuration reads is written here,
+                # so any failure below is recoverable by the handler.
+                #
                 # Build a fresh opts starting from CLI-only defaults so that
                 # sections removed from the config file actually take effect.
                 new_opts = Namespace(**vars(opts_from_cli))
@@ -3389,17 +3724,78 @@ def _main():
                     new_opts, index_prefix_domain_map=new_index_prefix_domain_map
                 )
 
-                # All steps succeeded — commit the changes atomically.
-                _close_output_clients(clients)
-                clients = new_clients
-                index_prefix_domain_map = new_index_prefix_domain_map
+                # Derived values first, because they are the cheapest steps
+                # to fail and the only ones that write nothing at all: they
+                # read new_opts and nothing else. int() raises on a
+                # non-numeric value, and running that before the loaders
+                # keeps such a failure from reaching load_ip_db(), whose
+                # download is the one part of phase 1 with a side effect
+                # outside this process (see the rollback comment).
+                new_parser_config = _build_parser_config(new_opts)
+                new_batch_size = (
+                    int(new_opts.mailbox_batch_size)
+                    if new_opts.mailbox_batch_size is not None
+                    else 10
+                )
+                new_check_timeout = (
+                    int(new_opts.mailbox_check_timeout)
+                    if new_opts.mailbox_check_timeout is not None
+                    else 30
+                )
+                new_max_unsaved_retries = (
+                    int(new_opts.mailbox_max_unsaved_retries)
+                    if new_opts.mailbox_max_unsaved_retries is not None
+                    else 2
+                )
+
+                # Open the replacement log file, if the config names a
+                # different one. Opening it is the one thing in the logging
+                # refresh that can fail on a bad path, and constructing the
+                # handler opens the file immediately (FileHandler's default
+                # ``delay=False``), so opening it here is what leaves phase
+                # 2 with nothing fallible to do but the close. Nothing in
+                # the running configuration is touched: the handler is not
+                # attached to the logger until the commit. It sits before
+                # the loaders because its only side effect outside this
+                # process is opening the new log file for append, which is
+                # smaller than load_ip_db()'s download.
+                #
+                # ``opts`` is still the pre-reload namespace here -- phase 2
+                # is what copies new_opts onto it -- which is deliberate:
+                # the comparison is between the file being written now and
+                # the one the new config names.
+                #
+                # Note the asymmetry with startup, where an unwritable log
+                # file is only a warning: there is no previous configuration
+                # to keep there. Here there is, so it is a reload failure --
+                # and the traceback lands in the old log file, which is
+                # still attached.
+                old_log_file = getattr(opts, "active_log_file", None)
+                new_log_file = new_opts.log_file
+                if old_log_file != new_log_file and new_log_file:
+                    staged_log_handler = logging.FileHandler(new_log_file, "a")
+                    staged_log_handler.setFormatter(
+                        logging.Formatter(
+                            "%(asctime)s - %(levelname)s"
+                            " - [%(filename)s:%(lineno)d] - %(message)s"
+                        )
+                    )
 
                 # Reload the reverse DNS map so changes to the
                 # map path/URL in the config take effect. PSL overrides
                 # are reloaded alongside it so map entries that depend on
                 # a folded base domain keep working.
+                #
+                # Into a fresh dict, not REVERSE_DNS_MAP: load_reverse_dns_map()
+                # clears the dict it is handed before it has read anything, so
+                # loading straight into the live map would empty it and leave
+                # it empty if the read then failed. The overrides list has no
+                # such seam -- load_psl_overrides() clears and repopulates one
+                # module-level list in place -- which is what the utils
+                # snapshot above is for.
+                staged_reverse_dns_map: ReverseDNSMap = {}
                 load_reverse_dns_map(
-                    REVERSE_DNS_MAP,
+                    staged_reverse_dns_map,
                     always_use_local_file=new_opts.always_use_local_files,
                     local_file_path=new_opts.reverse_dns_map_path,
                     url=new_opts.reverse_dns_map_url,
@@ -3409,7 +3805,11 @@ def _main():
                 )
 
                 # Reload the IP database so changes to the
-                # db path/URL in the config take effect.
+                # db path/URL in the config take effect. Assigns
+                # parsedmarc.utils._IP_DB_PATH, which the utils snapshot
+                # covers, and -- when the download succeeds -- rewrites the
+                # shared cache file, which nothing can cover. Last but one
+                # for that reason.
                 load_ip_db(
                     always_use_local_file=new_opts.always_use_local_files,
                     local_file_path=new_opts.ip_db_path,
@@ -3417,38 +3817,160 @@ def _main():
                     offline=new_opts.offline,
                 )
 
-                # Re-apply IPinfo API settings. Passing a falsy token disables
-                # the API; a rotated token picks up here too. An invalid token
-                # is fatal even on reload — the operator asked for it.
+                # Re-apply IPinfo API settings, last, because an invalid
+                # token is fatal even on reload -- the operator asked for it
+                # -- and nothing should have to be unwound behind it.
+                # Passing a falsy token disables the API; a rotated token
+                # picks up here too. The exit is a SystemExit, not an
+                # Exception: it deliberately skips the rollback below,
+                # because the process is leaving.
                 try:
                     configure_ipinfo_api(
                         new_opts.ipinfo_api_token if not new_opts.offline else None,
                     )
                 except InvalidIPinfoAPIKey as e:
                     logger.critical(str(e))
-                    exit(1)
+                    sys.exit(1)
+            except Exception:
+                # Rollback. Everything phase 1 wrote in this process is
+                # covered by the two snapshots -- the search backends'
+                # ``default`` alias and ``elastic._SERVERLESS`` (both
+                # through _init_output_clients), and the three
+                # parsedmarc.utils globals the loaders assign -- and all of
+                # it is put back here, in that order.
+                #
+                # One side effect is outside them and cannot be undone: a
+                # load_ip_db() whose download succeeds rewrites the shared
+                # cache file at <tmp>/parsedmarc/ipinfo_lite.mmdb before it
+                # assigns _IP_DB_PATH. Phase 1 runs that step last but one
+                # so that as little as possible can fail behind it, and the
+                # file it leaves is the same refresh startup performs on
+                # every launch -- the configured URL's current database --
+                # so the cost of not undoing it is bounded to that.
+                #
+                # ``Exception``, where _init_output_clients catches
+                # ``BaseException`` (#906): that function also runs at
+                # startup, before the signal handlers exist, so a Ctrl-C can
+                # land inside it. Here it cannot -- watch mode has replaced
+                # SIGINT with a handler that sets a flag and, on a second
+                # press, calls os._exit(130) -- and the one BaseException
+                # that does reach this point, the SystemExit from an invalid
+                # IPinfo token, must not be rolled back.
+                #
+                # The staged log file handler, if one was opened, is closed
+                # here too, best-effort: it was never attached to the
+                # logger, so no record ever reached it and there is
+                # nothing buffered to lose, but the close itself can still
+                # raise (a full disk, a stale network mount), and that
+                # error is logged and swallowed so it cannot skip the two
+                # restores below it.
+                #
+                # Close the new clients *before* restoring the alias, never
+                # after: a fully built _ElasticsearchHandle owns the new
+                # client and releases the alias as it closes, so closing
+                # first leaves the alias unset for the restore to re-register
+                # the old client into. Restoring first would hand the alias
+                # back and then close the handle, which would be safe only
+                # because of how _ElasticsearchHandle.close() happens to
+                # behave today (see _init_output_clients, and #902).
+                #
+                # Per-step end state, reading down phase 1 -- in every case
+                # `clients` is still the old dict with every old client open,
+                # REVERSE_DNS_MAP still holds the pre-reload entries (it was
+                # never handed to the loader), and opts, parser_config and
+                # the three watch parameters are untouched, because all of
+                # those are written in phase 2:
+                #
+                # _load_config / _parse_config: no state written yet.
+                #   new_clients is still {}, so the close is a no-op; the
+                #   alias and the utils globals still hold what the snapshots
+                #   recorded, so both restores are no-ops too.
+                # _init_output_clients: rolled itself back before re-raising
+                #   (#906), and never assigned new_clients, so this is the
+                #   same no-op pair -- restoring an unchanged snapshot twice
+                #   is harmless.
+                # _build_parser_config / the int() conversions: the new
+                #   clients hold the alias, so they are closed and the old
+                #   client is registered again. The utils globals were not
+                #   reached, so their restore is still a no-op.
+                # The log file open: as above, and the handler was never
+                #   attached to the logger, so it has nothing buffered to
+                #   lose -- the logger still holds the old FileHandler,
+                #   which phase 2 never got to remove. The close itself is
+                #   best-effort (logged and swallowed), so a close that
+                #   fails cannot skip the two restores below it.
+                # load_reverse_dns_map: as above, plus psl_overrides, which
+                #   load_psl_overrides() cleared and may have refilled from
+                #   the new config; restoring it by value is load-bearing
+                #   here, and the staged map dict is simply dropped.
+                # load_ip_db: as above. Each of its four assignments to
+                #   _IP_DB_PATH is the last thing on its path -- three are
+                #   followed by a return and the fourth, the bundled
+                #   fallback, by a log line and the end of the function --
+                #   so a raise from this loader leaves it unchanged.
+                # configure_ipinfo_api: the last step, so a _IP_DB_PATH or
+                #   _IPINFO_API_TOKEN that differs from the snapshot can
+                #   only be rolled back from here. In practice this may be
+                #   unreachable: the documented failure is
+                #   InvalidIPinfoAPIKey, which exits above without rolling
+                #   back, and _ipinfo_api_lookup() swallows every network
+                #   and decoding error. Those two restores are therefore
+                #   defensive -- a rollback's job is to leave state as it
+                #   found it, and whatever step is added after this one
+                #   makes them load-bearing again. _utils_globals_snapshot's
+                #   own tests are what guard them.
+                _close_output_clients(new_clients)
+                if staged_log_handler is not None:
+                    try:
+                        staged_log_handler.close()
+                    except Exception as close_error:
+                        logger.warning(
+                            "Unable to close the log file opened for the "
+                            f"reload: {close_error}"
+                        )
+                _restore_search_aliases(previous_search_state)
+                _restore_utils_globals(previous_utils_state)
+                logger.exception(
+                    "Config reload failed, continuing with previous config"
+                )
+            else:
+                # Phase 2 -- all steps succeeded; commit the changes
+                # atomically. Nothing from here to the end of this block may
+                # raise, since there is no going back once the first
+                # statement lands: the commit itself is assignments only, and
+                # the logging refresh that follows it guards the one call
+                # that can fail, closing the replaced log file -- the
+                # replacement was opened back in phase 1. That is also why
+                # this is an ``else`` and not the tail of the ``try`` -- a
+                # rollback running over committed state would close the
+                # clients that are now live.
+                # In place, never rebound. Rebinding would only move this
+                # module's own name -- cli.py imports REVERSE_DNS_MAP from
+                # parsedmarc, so `REVERSE_DNS_MAP = staged` here would
+                # desync it from parsedmarc.REVERSE_DNS_MAP and from
+                # config.REVERSE_DNS_MAP, which is the object
+                # ParserConfig.__setstate__ rebinds to when a worker
+                # unpickles a config. The configs that name this dict are
+                # built elsewhere and keep whichever object they were given:
+                # _build_parser_config() and parsedmarc._resolve_config()
+                # pass it explicitly (the dataclass field's own default is a
+                # fresh dict, via default_factory), and new_parser_config
+                # was built back in phase 1 holding the pre-reload object.
+                REVERSE_DNS_MAP.clear()
+                REVERSE_DNS_MAP.update(staged_reverse_dns_map)
 
                 for k, v in vars(new_opts).items():
                     setattr(opts, k, v)
 
-                parser_config = _build_parser_config(opts)
+                old_clients = clients
+                clients = new_clients
+                index_prefix_domain_map = new_index_prefix_domain_map
+                parser_config = new_parser_config
 
                 # Update watch parameters from reloaded config
-                mailbox_batch_size_value = (
-                    int(opts.mailbox_batch_size)
-                    if opts.mailbox_batch_size is not None
-                    else 10
-                )
-                mailbox_check_timeout_value = (
-                    int(opts.mailbox_check_timeout)
-                    if opts.mailbox_check_timeout is not None
-                    else 30
-                )
-                mailbox_max_unsaved_retries_value = (
-                    int(opts.mailbox_max_unsaved_retries)
-                    if opts.mailbox_max_unsaved_retries is not None
-                    else 2
-                )
+                mailbox_batch_size_value = new_batch_size
+                mailbox_check_timeout_value = new_check_timeout
+                mailbox_max_unsaved_retries_value = new_max_unsaved_retries
 
                 # Update log level
                 logger.setLevel(logging.ERROR)
@@ -3459,40 +3981,52 @@ def _main():
                 if opts.debug:
                     logger.setLevel(logging.DEBUG)
 
-                # Refresh FileHandler if log_file changed
-                old_log_file = getattr(opts, "active_log_file", None)
-                new_log_file = opts.log_file
+                # Refresh FileHandler if log_file changed. Both names were
+                # computed in phase 1, against the configuration that was
+                # running then.
                 if old_log_file != new_log_file:
                     # Remove old FileHandlers
                     for h in list(logger.handlers):
                         if isinstance(h, logging.FileHandler):
-                            h.close()
+                            close_error = None
+                            try:
+                                h.close()
+                            except Exception as error_:
+                                # Flushing the replaced log file can fail --
+                                # a full disk, a stale network mount. The
+                                # reloaded configuration is already live by
+                                # this point, so raising would kill the
+                                # watcher over a log file, and rolling back
+                                # to report a failed reload would be a lie.
+                                close_error = error_
+                            # Detach first, then report: the handler that
+                            # just failed to close is no place to send the
+                            # record describing that failure.
                             logger.removeHandler(h)
-                    # Add new FileHandler if configured
-                    if new_log_file:
-                        try:
-                            fh = logging.FileHandler(new_log_file, "a")
-                            file_formatter = logging.Formatter(
-                                "%(asctime)s - %(levelname)s"
-                                " - [%(filename)s:%(lineno)d] - %(message)s"
-                            )
-                            fh.setFormatter(file_formatter)
-                            logger.addHandler(fh)
-                        except Exception as log_error:
-                            logger.warning(f"Unable to write to log file: {log_error}")
+                            if close_error is not None:
+                                logger.warning(
+                                    f"Unable to close the log file: {close_error}"
+                                )
+                    # Attach the handler phase 1 opened, if the new
+                    # configuration names a log file at all.
+                    if staged_log_handler is not None:
+                        logger.addHandler(staged_log_handler)
                     opts.active_log_file = new_log_file
 
                 _configure_dependency_logging(logger.level)
 
+                # Phase 3 -- the new configuration is live and correct, so
+                # the clients it replaced can go. Last, and best effort:
+                # _close_output_clients() logs close errors and swallows
+                # them, so a dying connection on the way out cannot undo
+                # the commit above.
+                _close_output_clients(old_clients)
+
                 logger.info("Configuration reloaded successfully")
-            except Exception:
-                logger.exception(
-                    "Config reload failed, continuing with previous config"
-                )
 
     # Close output clients on the success path (one-shot or graceful
     # watch-loop exit). atexit-registered above is the safety net for
-    # exit(1) / uncaught-exception paths.
+    # sys.exit(1) / uncaught-exception paths.
     _close_output_clients(clients)
 
 

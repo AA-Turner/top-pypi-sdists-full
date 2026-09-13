@@ -600,6 +600,17 @@ def _persist_single_var(profile_path: Path, var_name: str, var_value: str, shell
             pass  # persist_env_var already printed a warning
 
 
+def _seed_commit_issue_type_defaults(config: dict[str, Any]) -> dict[str, Any]:
+    """Populate commit-issue defaults when neither canonical key nor alias exists."""
+    from agentic_devtools.cli.config.commit_type_resolution import STANDARD_COMMIT_TYPES
+
+    if "defaultCommitIssueType" not in config and "default_commit_issue_type" not in config:
+        config["defaultCommitIssueType"] = "feat"
+    if "availableCommitIssueTypes" not in config and "available_commit_issue_types" not in config:
+        config["availableCommitIssueTypes"] = list(STANDARD_COMMIT_TYPES)
+    return config
+
+
 def _prompt_project_config(*, force_prompt: bool = False, persist: bool = True) -> dict[str, Any]:
     """Prompt the user for project-specific configuration values.
 
@@ -637,6 +648,8 @@ def _prompt_project_config(*, force_prompt: bool = False, persist: bool = True) 
         suffix = f" [{current}]" if current else ""
         try:
             answer = input(f"  {prompt}{suffix}: ").strip()
+        except KeyboardInterrupt:
+            raise
         except (EOFError, OSError):
             return current
         if allow_clear and answer.lower() in {"-", "clear"}:
@@ -670,14 +683,7 @@ def _prompt_project_config(*, force_prompt: bool = False, persist: bool = True) 
     ]:
         config[key] = value
 
-    # Per-field idempotency: write commit type defaults only when both
-    # camelCase canonical and snake_case alias are absent (FR-007).
-    from agentic_devtools.cli.config.commit_type_resolution import STANDARD_COMMIT_TYPES
-
-    if "defaultCommitIssueType" not in config and "default_commit_issue_type" not in config:
-        config["defaultCommitIssueType"] = "feat"
-    if "availableCommitIssueTypes" not in config and "available_commit_issue_types" not in config:
-        config["availableCommitIssueTypes"] = list(STANDARD_COMMIT_TYPES)
+    _seed_commit_issue_type_defaults(config)
 
     if persist:
         path = save_project_config(config)
@@ -720,7 +726,7 @@ def _populate_available_models(
     refresh_models: bool = True,
     config: dict[str, Any] | None = None,
     persist: bool = True,
-    records: list[Any] | None = None,
+    model_records: list[Any] | None = None,
 ) -> dict[str, Any]:
     """Populate or refresh the top-level ``availableModels`` inventory in project.json.
 
@@ -769,8 +775,11 @@ def _populate_available_models(
                     normalized_cached_model_id = cached_model_id.strip()
                     cached_records_by_model_id.setdefault(normalized_cached_model_id, cached_record)
 
-    if records is None:
-        records = _query_copilot_model_records(refresh=refresh_models, allow_stale=not refresh_models)
+    records = (
+        list(model_records)
+        if isinstance(model_records, list)
+        else _query_copilot_model_records(refresh=refresh_models, allow_stale=not refresh_models)
+    )
     if not records:
         if has_valid_cache:
             print("  ⚠ Model discovery returned nothing — keeping the cached availableModels inventory")
@@ -889,7 +898,10 @@ def _prompt_copilot_model(
 
     try:
         answer = input(f"  Default Copilot model [{default_selection}]: ").strip()
-    except (EOFError, KeyboardInterrupt, OSError):
+    except KeyboardInterrupt:
+        print()
+        raise
+    except (EOFError, OSError):
         print()
         return None
 
@@ -1204,7 +1216,7 @@ def _cleanup_stale_specialization_artifact_when_live(
     startup_fingerprint: tuple[int, int, int] | None | object,
     dry_run: bool,
 ) -> None:
-    """Run stale-specialization cleanup only for live setup paths."""
+    """Skip stale-specialization cleanup during dry-run setup previews."""
     if dry_run:
         return
     _cleanup_stale_specialization_artifact(reason, startup_fingerprint=startup_fingerprint)
@@ -1862,7 +1874,17 @@ def setup_cmd() -> None:
             else:
                 project_config = load_project_config(git_root=git_root)
                 available_models = project_config.get("availableModels")
-                if not args.no_refresh_models and not (
+                if args.defaults:
+                    defaults_config = _populate_available_models(
+                        refresh_models=not args.no_refresh_models and not dry_run,
+                        config=project_config,
+                        persist=False,
+                    )
+                    if isinstance(defaults_config, dict):
+                        available_models = defaults_config.get("availableModels")
+                    else:  # pragma: no cover - _populate_available_models always returns dict
+                        available_models = project_config.get("availableModels")
+                elif not args.no_refresh_models and not (
                     isinstance(available_models, list)
                     and available_models
                     and all(isinstance(model, str) and model.strip() for model in available_models)
@@ -2029,14 +2051,53 @@ def setup_cmd() -> None:
         # branch's worktree, not the restored one.
         resolved_platform_config: dict[str, Any] | None = None
         provider_plan = None
-        project_config_updates: dict[str, Any] = {}
+        pending_project_config: dict[str, Any] | None = None
+        pending_models_require_checked_out_pruning = False
+        project_config_before_preflight: dict[str, Any] | None = None
+        available_models = None
 
         # ── LangChain provider preflight (read-only) ─────────────────────
         # This is deliberately outside the repository callback.  A failed
         # explicit reconfiguration must not create a branch or mutate files.
         from agentic_devtools.cli.config.project_config import load_project_config
 
-        from .provider_configuration import plan_provider_configuration
+        from .provider_configuration import (
+            COPILOT_PROVIDER_ID,
+            COPILOT_PROVIDER_TYPE,
+            PROVIDER_CONFIG_RELATIVE_PATH,
+            ProviderConfigurationPlan,
+            _parse_document,
+            _resolve_review_provider,
+            _resolve_review_providers,
+            plan_provider_configuration,
+        )
+
+        def _active_managed_copilot_model(document: object) -> str | None:
+            if not isinstance(document, Mapping):
+                return None
+            (
+                mapping_error,
+                default_provider_id,
+                _default_provider,
+                review_provider_id,
+                _review_provider,
+            ) = _resolve_review_providers(document)
+            if mapping_error is not None or COPILOT_PROVIDER_ID not in {default_provider_id, review_provider_id}:
+                return None
+            providers = document.get("providers")
+            managed_provider = providers.get(COPILOT_PROVIDER_ID) if isinstance(providers, Mapping) else None
+            managed_model = managed_provider.get("model") if isinstance(managed_provider, Mapping) else None
+            return managed_model.strip() if isinstance(managed_model, str) and managed_model.strip() else None
+
+        def _planned_copilot_model(plan: ProviderConfigurationPlan) -> str | None:
+            managed_model = _active_managed_copilot_model(plan.document)
+            if managed_model is not None:
+                return managed_model
+            return (
+                plan.model.strip()
+                if plan.provider_type == COPILOT_PROVIDER_TYPE and isinstance(plan.model, str) and plan.model.strip()
+                else None
+            )
 
         if args.system_only or skip_repo_steps:
             provider_plan = plan_provider_configuration(
@@ -2049,6 +2110,7 @@ def setup_cmd() -> None:
             provider_plan = plan_provider_configuration(None, dry_run=dry_run, reconfigure=args.reconfigure)
         else:
             provider_project_config: dict[str, Any] | None
+            prefetched_model_records: list[Any] | None = None
             try:
                 provider_project_config = load_project_config(git_root=git_root)
             except Exception as exc:  # noqa: BLE001
@@ -2058,29 +2120,59 @@ def setup_cmd() -> None:
                     f"  ⚠ LangChain provider configuration skipped: {type(exc).__name__}",
                     file=sys.stderr,
                 )
-                provider_plan = plan_provider_configuration(
-                    git_root,
+                provider_plan = ProviderConfigurationPlan(
+                    path=git_root / PROVIDER_CONFIG_RELATIVE_PATH,
+                    status="skipped",
+                    document=None,
+                    rendered=None,
+                    provider_id=COPILOT_PROVIDER_ID,
+                    provider_type=COPILOT_PROVIDER_TYPE,
+                    model=None,
+                    model_source=None,
+                    mappings=("pr_review.default_provider", "pr_review.nodes.review_files"),
+                    auth_status="not_checked",
+                    credential_status="not_required",
+                    source="none",
+                    reason="project_config_unavailable",
                     dry_run=dry_run,
                     reconfigure=bool(args.reconfigure and not args.defaults),
-                    skip_reason="model_unavailable",
+                    template_version=None,
                 )
                 provider_project_config = None
+            else:
+                project_config_before_preflight = dict(provider_project_config)
             if provider_project_config is None:
                 available_models = None
+            elif args.defaults:
+                defaults_config = _populate_available_models(
+                    refresh_models=not args.no_refresh_models,
+                    config=provider_project_config,
+                    persist=False,
+                )
+                if isinstance(defaults_config, dict):
+                    pending_project_config = defaults_config
+                    available_models = defaults_config.get("availableModels")
+                else:  # pragma: no cover - _populate_available_models always returns dict
+                    available_models = provider_project_config.get("availableModels")
             else:
                 available_models = provider_project_config.get("availableModels")
-            if provider_project_config is not None and not (
-                isinstance(available_models, list)
-                and available_models
-                and all(isinstance(model, str) and model.strip() for model in available_models)
-            ):
-                discovered_model_records = _query_copilot_model_records(
-                    refresh=not args.no_refresh_models and not dry_run,
-                    allow_stale=args.no_refresh_models,
+            if (
+                provider_project_config is not None
+                and not args.defaults
+                and not args.no_refresh_models
+                and not (
+                    isinstance(available_models, list)
+                    and available_models
+                    and all(isinstance(model, str) and model.strip() for model in available_models)
                 )
-                available_models = [record.model_id for record in discovered_model_records]
-            else:
-                discovered_model_records = None
+            ):
+                prefetched_model_records = _query_copilot_model_records(refresh=not dry_run)
+                prefetched_available_models = [
+                    record.model_id.strip()
+                    for record in prefetched_model_records
+                    if isinstance(getattr(record, "model_id", None), str) and record.model_id.strip()
+                ]
+                available_models = prefetched_available_models
             if provider_project_config is not None:
                 try:
                     is_interactive = bool(sys.stdin.isatty()) if hasattr(sys.stdin, "isatty") else False
@@ -2098,39 +2190,38 @@ def setup_cmd() -> None:
                     skip_model_refresh=args.no_refresh_models,
                 )
                 if not args.defaults:
-
-                    def _record_project_config_updates(config: dict[str, Any] | None) -> None:
-                        if config is None:
-                            return
-                        for key, value in config.items():
-                            if provider_project_config.get(key) != value:
-                                project_config_updates[key] = value
-
-                    prompted_config = _prompt_project_config(
-                        force_prompt=args.reconfigure,
-                        persist=False,
-                    )
-                    _record_project_config_updates(prompted_config)
-                    prompt_config = prompted_config if isinstance(prompted_config, dict) else None
-                    pending_config = _populate_available_models(
-                        refresh_models=not args.no_refresh_models,
-                        config=prompt_config,
-                        persist=False,
-                        records=discovered_model_records,
-                    )
-                    _record_project_config_updates(pending_config)
-                    model_config = pending_config if isinstance(pending_config, dict) else None
-                    selected_model = _prompt_copilot_model(
-                        force_prompt=args.reconfigure,
-                        refresh_models=False,
-                        config=model_config,
-                        persist=False,
-                    )
+                    if is_interactive:
+                        prompted_config = _prompt_project_config(
+                            force_prompt=args.reconfigure,
+                            persist=False,
+                        )
+                        if isinstance(prompted_config, dict):
+                            pending_project_config = prompted_config
+                    populate_kwargs: dict[str, Any] = {
+                        "refresh_models": not args.no_refresh_models,
+                        "config": pending_project_config,
+                        "persist": False,
+                    }
+                    if prefetched_model_records is not None:
+                        populate_kwargs["model_records"] = prefetched_model_records
+                    pending_config = _populate_available_models(**populate_kwargs)
+                    if isinstance(pending_config, dict):
+                        pending_project_config = pending_config
+                    selected_model = None
+                    if is_interactive:
+                        selected_model = _prompt_copilot_model(
+                            force_prompt=args.reconfigure,
+                            refresh_models=False,
+                            config=pending_project_config,
+                            persist=False,
+                        )
                     if isinstance(selected_model, str) and selected_model.strip():
-                        project_config_updates["default_copilot_model"] = selected_model.strip()
+                        selected_model = selected_model.strip()
+                        pending_project_config = dict(pending_project_config or {})
+                        pending_project_config["default_copilot_model"] = selected_model
                         provider_plan = plan_provider_configuration(
                             git_root,
-                            explicit_model=selected_model.strip(),
+                            explicit_model=selected_model,
                             available_models=None,
                             defaults=False,
                             reconfigure=bool(args.reconfigure),
@@ -2141,7 +2232,70 @@ def setup_cmd() -> None:
                             ),
                             skip_model_refresh=args.no_refresh_models,
                         )
+                    elif isinstance(pending_project_config, dict):
+                        refreshed_available_models = pending_project_config.get("availableModels")
+                        refreshed_model = pending_project_config.get("default_copilot_model")
+                        if isinstance(refreshed_available_models, list):  # pragma: no branch
+                            provider_plan = plan_provider_configuration(
+                                git_root,
+                                existing_model=refreshed_model if isinstance(refreshed_model, str) else None,
+                                available_models=refreshed_available_models,
+                                defaults=False,
+                                reconfigure=bool(args.reconfigure),
+                                dry_run=dry_run,
+                                interactive=False,
+                                readiness=(
+                                    (lambda _document: ("unknown", "model_not_checked"))
+                                    if args.no_refresh_models
+                                    else None
+                                ),
+                                skip_model_refresh=args.no_refresh_models,
+                            )
         assert provider_plan is not None
+        provider_plan_copilot_model = _planned_copilot_model(provider_plan)
+        if (
+            provider_plan_copilot_model is not None
+            and provider_project_config is not None
+            and provider_plan.reason != "model_unavailable_without_refresh"
+        ):
+            pending_project_config = dict(pending_project_config or provider_project_config)
+            pending_project_config["default_copilot_model"] = provider_plan_copilot_model
+        provider_replan_model: str | None = None
+        pending_default_model = pending_project_config.get("default_copilot_model") if pending_project_config else None
+        if isinstance(pending_default_model, str) and pending_default_model.strip():
+            provider_replan_model = pending_default_model.strip()
+
+        provider_replan_inventory: list[str] | None = None
+        pending_inventory = pending_project_config.get("availableModels") if pending_project_config else None
+        if isinstance(pending_inventory, list):
+            provider_replan_inventory = [
+                model.strip() for model in pending_inventory if isinstance(model, str) and model.strip()
+            ]
+        elif isinstance(available_models, list):
+            provider_replan_inventory = [
+                model.strip() for model in available_models if isinstance(model, str) and model.strip()
+            ]
+        if pending_project_config is not None and not args.defaults:
+            pending_project_config = _seed_commit_issue_type_defaults(dict(pending_project_config))
+
+        if pending_project_config is not None and project_config_before_preflight is not None:
+            missing = object()
+            pending_project_config = {
+                key: value
+                for key, value in pending_project_config.items()
+                if project_config_before_preflight.get(key, missing) != value
+            }
+            pending_models = pending_project_config.get("models")
+            before_models = project_config_before_preflight.get("models")
+            if isinstance(pending_models, Mapping):
+                pending_project_config = dict(pending_project_config)
+                if isinstance(before_models, Mapping):
+                    changed_models = {
+                        key: value for key, value in pending_models.items() if before_models.get(key, missing) != value
+                    }
+                    pending_project_config["models"] = changed_models
+                else:
+                    pending_models_require_checked_out_pruning = True
         fatal_provider_plan_reasons = {
             "invalid_yaml",
             "invalid_root",
@@ -2192,16 +2346,106 @@ def setup_cmd() -> None:
 
         # ── File-modifying steps (may be wrapped by the PR workflow) ───
         def _run_file_modifying_steps(git_root: Path) -> None:
-            nonlocal provider_plan, resolved_platform_config, specialization_version_pin
+            nonlocal pending_models_require_checked_out_pruning
+            nonlocal pending_project_config, provider_plan, resolved_platform_config, specialization_version_pin
+
+            def _merge_project_config_values(existing: Any, pending: Any) -> Any:
+                if isinstance(existing, Mapping) and isinstance(pending, Mapping):
+                    merged = dict(existing)
+                    for key, value in pending.items():
+                        if key == "models" and isinstance(value, Mapping):
+                            existing_models = existing.get(key)
+                            merged_models = dict(existing_models) if isinstance(existing_models, Mapping) else {}
+                            merged_models.update(value)
+                            merged[key] = merged_models
+                        else:
+                            merged[key] = value
+                    return merged
+                return pending
+
             if provider_plan is not None and provider_plan.reason not in {
                 "system_only",
                 "no_git_root",
                 "force_old_version",
             }:
+                current_default_model: Any | None = provider_replan_model
+                current_available_models: Any | None = provider_replan_inventory
+                current_provider_type: str | None = None
+                pending_default_model = (
+                    pending_project_config.get("default_copilot_model") if pending_project_config is not None else None
+                )
+                pending_available_models = (
+                    pending_project_config.get("availableModels") if pending_project_config is not None else None
+                )
+                try:
+                    current_project_config = load_project_config(git_root=git_root)
+                except Exception:  # noqa: BLE001
+                    current_project_config = None
+                if isinstance(current_project_config, dict):
+                    if pending_models_require_checked_out_pruning:
+                        current_models = current_project_config.get("models")
+                        pending_models = (
+                            pending_project_config.get("models") if pending_project_config is not None else None
+                        )
+                        if (
+                            pending_project_config is not None
+                            and isinstance(current_models, Mapping)
+                            and isinstance(pending_models, Mapping)
+                        ):
+                            pending_project_config = dict(pending_project_config)
+                            pending_project_config["models"] = {
+                                key: value for key, value in pending_models.items() if key not in current_models
+                            }
+                    current_default_model = current_project_config.get("default_copilot_model")
+                    current_available_models = current_project_config.get("availableModels")
+                if isinstance(pending_default_model, str) and pending_default_model.strip():
+                    current_default_model = pending_default_model
+                if isinstance(pending_available_models, list):
+                    current_available_models = pending_available_models
+                current_provider_document, _provider_parse_reason = _parse_document(
+                    git_root / PROVIDER_CONFIG_RELATIVE_PATH
+                )
+                current_default_provider_id: str | None = None
+                current_review_provider_id: str | None = None
+                if isinstance(current_provider_document, dict):
+                    (
+                        _mapping_error,
+                        current_default_provider_id,
+                        _current_default_provider,
+                        current_review_provider_id,
+                        _current_review_provider,
+                    ) = _resolve_review_providers(current_provider_document)
+                    _mapping_error, _provider_id, current_provider = _resolve_review_provider(current_provider_document)
+                    if isinstance(current_provider, Mapping):
+                        resolved_current_provider_type = current_provider.get("type")
+                        if isinstance(resolved_current_provider_type, str) and resolved_current_provider_type.strip():
+                            current_provider_type = resolved_current_provider_type.strip()
+                use_copilot_fallback = current_provider_type in {
+                    None,
+                    COPILOT_PROVIDER_TYPE,
+                } or COPILOT_PROVIDER_ID in {
+                    current_default_provider_id,
+                    current_review_provider_id,
+                }
+                normalized_current_available_models = (
+                    [model.strip() for model in current_available_models if isinstance(model, str) and model.strip()]
+                    if isinstance(current_available_models, list)
+                    else None
+                )
                 provider_plan = plan_provider_configuration(
                     git_root,
-                    existing_model=provider_plan.model,
-                    available_models=[provider_plan.model] if provider_plan.model else None,
+                    existing_model=(
+                        current_default_model
+                        if isinstance(current_default_model, str) and current_default_model.strip()
+                        else provider_replan_model
+                        if use_copilot_fallback
+                        else None
+                    ),
+                    available_models=(
+                        normalized_current_available_models or provider_replan_inventory
+                        if use_copilot_fallback
+                        else normalized_current_available_models
+                    ),
                     reconfigure=bool(args.reconfigure and not args.defaults),
                     interactive=False,
                     readiness=(
@@ -2209,6 +2453,27 @@ def setup_cmd() -> None:
                     ),
                     skip_model_refresh=args.no_refresh_models,
                 )
+                if (
+                    pending_project_config is not None
+                    and (resolved_model := _planned_copilot_model(provider_plan)) is not None
+                ):
+                    checked_out_default_model = (
+                        current_project_config.get("default_copilot_model")
+                        if isinstance(current_project_config, dict)
+                        else None
+                    )
+                    normalized_checked_out_default = (
+                        checked_out_default_model.strip()
+                        if isinstance(checked_out_default_model, str) and checked_out_default_model.strip()
+                        else None
+                    )
+                    if normalized_checked_out_default == resolved_model:
+                        if "default_copilot_model" in pending_project_config:
+                            pending_project_config = dict(pending_project_config)
+                            pending_project_config.pop("default_copilot_model", None)
+                    else:
+                        pending_project_config = dict(pending_project_config)
+                        pending_project_config["default_copilot_model"] = resolved_model
                 report.details["provider_configuration"] = provider_plan.report_details()
                 report.record(
                     PhaseResult(
@@ -2234,14 +2499,6 @@ def setup_cmd() -> None:
                     file=sys.stderr,
                 )
 
-            if project_config_updates:
-                from agentic_devtools.cli.config.project_config import load_project_config, save_project_config
-
-                base_project_config = load_project_config(git_root=git_root)
-                base_project_config.update(project_config_updates)
-                path = save_project_config(base_project_config, git_root=git_root)
-                print(f"\n  ✓ Project configuration saved to {path}")
-
             if provider_plan is not None:  # pragma: no branch - planning always returns a decision
                 from .provider_configuration import apply_provider_configuration
 
@@ -2261,6 +2518,15 @@ def setup_cmd() -> None:
                         "reason": "write_failed",
                     }
                     raise
+
+            if pending_project_config:
+                from agentic_devtools.cli.config.project_config import save_project_config
+
+                current_project_config = load_project_config(git_root=git_root)
+                merged_project_config = _merge_project_config_values(current_project_config, pending_project_config)
+                path = save_project_config(dict(merged_project_config), git_root=git_root)
+                print(f"\n  ✓ Project configuration saved to {path}")
+                repo_mutations_succeeded = True
             # ────────────────────────────────────────────────────────────────
 
             # ── Platform & Workflow Setup (before injection) ──────────
@@ -3387,6 +3653,7 @@ def setup_check_cmd() -> None:
     from .provider_configuration import check_provider_configuration
 
     provider_check = check_provider_configuration(git_root)
+    provider_remediation = _provider_check_remediation(provider_check)
     provider_status = DependencyStatus(
         name="langchain-provider-config",
         found=provider_check.valid,
@@ -3453,6 +3720,8 @@ def setup_check_cmd() -> None:
                 else:
                     label = f"failed ({outcome.error_message})" if outcome.error_message else "failed"
                 print(f"  {name}: {label}")
+            if not provider_check.valid:
+                print(f"\nLangChain provider configuration: {provider_check.reason} ({provider_remediation})")
             if report.exit_code == 0:
                 print("OK")
 
@@ -3477,18 +3746,6 @@ def setup_check_cmd() -> None:
 
     print_dependency_report(statuses)
     if not provider_check.valid:
-        if provider_check.reason == "authentication_unavailable":
-            provider_remediation = (
-                "authenticate GitHub CLI/Copilot first (for example with `gh auth login`), "
-                "then run `agdt-setup --reconfigure`."
-            )
-        elif provider_check.reason == "model_unavailable":
-            provider_remediation = (
-                "make the configured Copilot model available to this account, "
-                "then run `agdt-setup --reconfigure` to pick a supported model."
-            )
-        else:
-            provider_remediation = "run `agdt-setup --reconfigure` after completing the prerequisite."
         print(f"\nLangChain provider configuration: {provider_check.reason} ({provider_remediation})")
 
     any_required_missing = any(s.required and not s.found for s in statuses)
@@ -3496,3 +3753,45 @@ def setup_check_cmd() -> None:
         from .exit_codes import ExitCode as _CheckExitCode
 
         sys.exit(_CheckExitCode.MISSING_REQUIRED_DEP)
+
+
+def _provider_check_remediation(provider_check: Any) -> str:
+    """Return actionable remediation for ``agdt-setup-check`` provider failures."""
+    if provider_check.reason == "authentication_unavailable":
+        return (
+            "authenticate GitHub CLI/Copilot first (for example with `gh auth login`), "
+            "then run `agdt-setup --reconfigure`."
+        )
+    if provider_check.reason == "model_unavailable":
+        return (
+            "make the configured Copilot model available to this account, "
+            "then run `agdt-setup --reconfigure` to pick a supported model."
+        )
+    if provider_check.reason == "missing_file":
+        return "run `agdt-setup --reconfigure` to create `.agdt/config/llm-providers.yml`."
+    if provider_check.reason == "credential_missing":
+        return (
+            "set the environment variable referenced by `.agdt/config/llm-providers.yml`, "
+            "or edit/remove that file if the custom provider mapping is wrong."
+        )
+    if provider_check.reason in {
+        "invalid_yaml",
+        "invalid_root",
+        "configuration_invalid",
+        "workflow_mapping_missing",
+        "default_provider_missing",
+        "review_files_mapping_missing",
+        "provider_missing",
+        "provider_type_invalid",
+        "model_missing",
+        "endpoint_missing",
+        "endpoint_invalid",
+        "credential_reference_missing",
+        "copilot_api_key_env_forbidden",
+        "duplicate_node_mapping",
+    }:
+        return (
+            "edit `.agdt/config/llm-providers.yml` to fix the provider configuration, "
+            "or remove it and run `agdt-setup --reconfigure` to regenerate the managed Copilot mapping."
+        )
+    return "run `agdt-setup --reconfigure` after completing the prerequisite."

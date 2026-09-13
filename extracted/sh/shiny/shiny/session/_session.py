@@ -169,6 +169,25 @@ class OutBoundMessageQueues:
         self._record_test_values = record_test_values
         self.test_values: dict[str, Any] = {}
         self.test_errors: dict[str, Any] = {}
+        self.test_tracebacks: dict[str, str] = {}
+        """
+        Formatted traceback of the last error for each output, in test mode only.
+
+        Deliberately kept out of the outbound error message and out of
+        `_build_test_snapshot()`: the former is sent to the browser and the latter
+        is served over HTTP, and neither should carry a stack trace. Read
+        in-process by `shiny.pytest.test_server`.
+        """
+        self.test_silent: set[str] = set()
+        """
+        Outputs whose most recent render produced nothing (a `req()` failure), in
+        test mode only.
+
+        `test_values`/`test_errors` keep the *last* value an output computed, so
+        without this there is no way to tell that the latest render sent `None`
+        to the client and blanked the output. Cleared for an output as soon as it
+        computes a value or errors again.
+        """
 
     def reset(self) -> None:
         self.values.clear()
@@ -183,28 +202,35 @@ class OutBoundMessageQueues:
         if self._record_test_values:
             self.test_values[id] = value
             self.test_errors.pop(id, None)
+            self.test_tracebacks.pop(id, None)
+            self.test_silent.discard(id)
 
     def set_silent(self, id: str) -> None:
         """
         Record that computing `id`'s value was silently suppressed (e.g. via
-        `req()`), without touching the persistent test-mode record.
+        `req()`).
 
         Unlike `set_value(id, None)`, this leaves `test_values`/`test_errors`
         untouched, so the test-mode snapshot retains the output's last
         computed value or error (matching Shiny for R) instead of reporting
-        `None`.
+        `None`. The suppression itself is recorded in `test_silent`, which is
+        what tells a test that the latest render produced nothing.
         """
         self.values[id] = None
         self.errors.pop(id, None)
+        if self._record_test_values:
+            self.test_silent.add(id)
 
-    def set_error(self, id: str, error: Any) -> None:
+    def set_error(self, id: str, error: Any, traceback_text: str = "") -> None:
         self.errors[id] = error
         # remove from self.values
         if id in self.values:
             del self.values[id]
         if self._record_test_values:
             self.test_errors[id] = error
+            self.test_tracebacks[id] = traceback_text
             self.test_values.pop(id, None)
+            self.test_silent.discard(id)
 
     def add_input_message(self, id: str, message: dict[str, Any]) -> None:
         self.input_messages.append({"id": id, "message": message})
@@ -230,8 +256,14 @@ class Session(ABC):
     # iterate over all modules and check the `.bookmark_exclude` list of each proxy
     # session.
     bookmark: Bookmark
-    user: str | None
-    groups: list[str] | None
+
+    @property
+    @abstractmethod
+    def user(self) -> str | None: ...
+
+    @property
+    @abstractmethod
+    def groups(self) -> list[str] | None: ...
 
     # TODO: not sure these should be directly exposed
     _outbound_message_queues: OutBoundMessageQueues
@@ -252,6 +284,58 @@ class Session(ABC):
     async def close(self, code: int = 1001) -> None:
         """
         Close the session.
+        """
+
+    @add_example(example_name="session_allow_reconnect")
+    def allow_reconnect(self, value: bool | Literal["force"]) -> None:
+        """
+        Allow the client to reconnect to a session after a disconnect.
+
+        By default, when the websocket connection between the browser and the server
+        drops, Shiny displays the "Disconnected from server" overlay and the client
+        gives up. Calling this method with ``True`` tells the client to instead show a
+        countdown dialog and attempt to reconnect to its session.
+
+        On a successful reconnect, the browser sends all of its current input values to
+        the session on the server, and the server recalculates any outputs and sends
+        them back to the client.
+
+        Parameters
+        ----------
+        value
+            One of the following:
+
+            * ``True``: allow the client to reconnect after a disconnect, but only when
+              running in a hosting environment (such as Posit Connect or Shiny Server)
+              that has reconnections enabled.
+            * ``False``: do not allow the client to reconnect. This is the default.
+            * ``"force"``: always attempt to reconnect, regardless of what the hosting
+              environment reports.
+
+        Note
+        ----
+        Reconnecting requires the server to keep the session alive after the client
+        disconnects, which is a feature of the hosting environment rather than of Shiny
+        itself. ``"force"`` exists for testing on a local connection: the client will
+        try to reconnect anywhere, but on a plain ``shiny run`` server the attempt
+        starts a brand new session rather than resuming the old one.
+        """
+        if value is not True and value is not False and value != "force":
+            raise ValueError(
+                f'`value` must be `True`, `False`, or `"force"`, not {value!r}.'
+            )
+        self._send_message_sync({"allowReconnect": value})
+
+    @abstractmethod
+    def _is_closed(self) -> bool:
+        """
+        Whether the session is being (or has been) torn down because its client
+        went away.
+
+        Distinguishes a whole-session close from an explicit
+        :meth:`~shiny.Session.destroy` call on a still-running session: on close
+        the reactives in the session are left intact, while an explicit
+        ``destroy()`` tears them down.
         """
 
     @abstractmethod
@@ -289,6 +373,14 @@ class Session(ABC):
         sessions), destroy callbacks fire automatically at session end, after
         all ``on_ended`` callbacks have run.
 
+        Note that closing a session is not the same as destroying a scope. An
+        explicit ``destroy()`` tears down the scope's reactive values, calcs,
+        and effects, so reading one afterwards raises
+        ``DestroyedReactiveError``. When the session closes, values and calcs
+        are instead left readable at their last value and reclaimed by ordinary
+        garbage collection, so async work that outlives the connection does not
+        error.
+
         Parameters
         ----------
         fn
@@ -323,7 +415,9 @@ class Session(ABC):
             await session.destroy("editor")
         ```
 
-        The following categories of state are cleaned up:
+        An explicit ``destroy()`` call cleans up the following categories of
+        state. (Session *close* is deliberately gentler with reactives — see
+        "Close is not destroy" below.)
 
         - **Reactive objects** — Effects are stopped, calcs and values are
           invalidated. After destruction, ``get()``/``set()`` on a destroyed
@@ -338,9 +432,26 @@ class Session(ABC):
 
         For ``SessionProxy``, this must be called explicitly (typically after
         removing dynamic module UI). For ``AppSession``, this is called
-        automatically at session end, after all ``on_ended`` callbacks.
+        automatically at session end, after all ``on_ended`` callbacks — but
+        that path skips the reactive teardown above, per "Close is not destroy".
 
         Idempotent: calling destroy() more than once has no effect.
+
+        Close is not destroy
+        --------------------
+        The teardown above describes an explicit ``destroy()`` call on a running
+        session. When the session itself closes (the browser tab is closed or
+        refreshed), reactive values and calcs are **not** destroyed: they are
+        left readable at their last value and reclaimed by ordinary garbage
+        collection. Effects are still destroyed, since the session can no longer
+        flush.
+
+        Without this, any async work that outlives the connection — an
+        :class:`~shiny.reactive.ExtendedTask` that settles after the user
+        refreshes the page, an ``asyncio`` task, a callback scheduled with
+        ``loop.call_later()`` — would raise ``DestroyedReactiveError`` on its
+        first reactive access. Writes after close are already inert: the
+        session's effects are gone and outbound messages are dropped.
 
         Composability
         -------------
@@ -716,6 +827,15 @@ def _new_destroy_callbacks() -> _utils.AsyncCallbacks:
     return _utils.AsyncCallbacks(on_error=_print_exception)
 
 
+def _ns_depth(ns_key: str) -> int:
+    """
+    Nesting depth of a namespace key, measured by its dash count.
+
+    Used as a sort key so that deeper (more nested) namespaces sort first.
+    """
+    return ns_key.count("-")
+
+
 async def _invoke_destroy_callbacks(
     callbacks_by_ns: dict[str, _utils.AsyncCallbacks],
     ns: str,
@@ -747,7 +867,7 @@ async def _invoke_destroy_callbacks(
     # Sort deepest namespaces first (most dashes → most nested) so that
     # children are destroyed before parents, mirroring the reverse of
     # construction order.
-    matching_keys.sort(key=lambda k: k.count("-"), reverse=True)
+    matching_keys.sort(key=_ns_depth, reverse=True)
 
     for ns_key in matching_keys:
         callbacks = callbacks_by_ns.pop(ns_key, None)
@@ -817,8 +937,8 @@ class AppSession(Session):
 
         self.bookmark: Bookmark = BookmarkApp(self)
 
-        self.user: str | None = None
-        self.groups: list[str] | None = None
+        self._user: str | None = None
+        self._groups: list[str] | None = None
 
         credentials_json: str = ""
         if "shiny-server-credentials" in self.http_conn.headers:
@@ -832,8 +952,8 @@ class AppSession(Session):
         if credentials_json:
             try:
                 creds = json.loads(credentials_json)
-                self.user = creds["user"]
-                self.groups = creds["groups"]
+                self._user = creds["user"]
+                self._groups = creds["groups"]
             except Exception as e:
                 print("Error parsing credentials header: " + str(e), file=sys.stderr)
 
@@ -868,9 +988,17 @@ class AppSession(Session):
         # Clear file upload directories, if present
         self.on_ended(self._file_upload_manager.rm_upload_dir)
 
+    def _is_closed(self) -> bool:
+        # `_has_run_session_ended_tasks` is set before any teardown callback
+        # runs, so teardown itself can tell a close from an explicit destroy().
+        return self._has_run_session_ended_tasks
+
     async def _run_session_ended_tasks(self) -> None:
         if self._has_run_session_ended_tasks:
             return
+        # Mark the session closed before running any teardown, so that the
+        # destroy callbacks registered by reactive values and calcs can skip
+        # tearing themselves down (see `_weak_destroy_callback`).
         self._has_run_session_ended_tasks = True
 
         # Wrap session cleanup in session_end span (or no-op if not collecting)
@@ -891,6 +1019,14 @@ class AppSession(Session):
 
     def is_stub_session(self) -> Literal[False]:
         return False
+
+    @property
+    def user(self) -> str | None:
+        return self._user
+
+    @property
+    def groups(self) -> list[str] | None:
+        return self._groups
 
     async def close(self, code: int = 1001) -> None:
         await self._conn.close(code, None)
@@ -1372,30 +1508,37 @@ class AppSession(Session):
         # returns all three blocks as a convenience. R instead responds 400
         # ("None of export, input, or output requested.").
         want = {block: request.query_params.get(block) for block in _SNAPSHOT_BLOCKS}
-        select_all = all(spec is None for spec in want.values())
+        payload = await self._build_test_snapshot(
+            want_input=want["input"],
+            want_output=want["output"],
+            want_export=want["export"],
+        )
+        body = orjson.dumps(payload, option=orjson.OPT_SORT_KEYS)
+        return Response(content=body, media_type="application/json")
 
-        payload: dict[str, Any] = {}
+    async def _build_test_snapshot(
+        self,
+        want_input: str | None = None,
+        want_output: str | None = None,
+        want_export: str | None = None,
+    ) -> dict[str, dict[str, Any]]:
+        select_all = want_input is None and want_output is None and want_export is None
+        payload: dict[str, dict[str, Any]] = {}
         with session_context(self):
             with isolate():
-                if select_all or want["input"] is not None:
+                if select_all or want_input is not None:
                     inputs = {
                         str(key): _snapshot_safe_value(val)
                         for key, val in (
                             await self.input._serialize_test_mode()
                         ).items()
                     }
-                    payload["input"] = _filter_snapshot_block(inputs, want["input"])
+                    payload["input"] = _filter_snapshot_block(inputs, want_input)
 
-                if select_all or want["output"] is not None:
+                if select_all or want_output is not None:
                     omq = self._outbound_message_queues
                     outputs: dict[str, Any] = {}
-                    # Materialize the items: an async preprocessor may yield to
-                    # the event loop mid-iteration, during which a rendering
-                    # output can mutate `test_values`.
                     for key, val in list(omq.test_values.items()):
-                        # Apply the renderer's snapshot preprocessor, if any.
-                        # (`_outputs` and `test_values` are both keyed by the
-                        # namespaced output name.)
                         info = self.output._outputs.get(key)
                         preprocess = (
                             info.renderer._snapshot_preprocess_fn
@@ -1414,19 +1557,18 @@ class AppSession(Session):
                         else:
                             message = str(err)
                         outputs[str(key)] = {"__shiny_output_error__": message}
-                    payload["output"] = _filter_snapshot_block(outputs, want["output"])
+                    payload["output"] = _filter_snapshot_block(outputs, want_output)
 
-                if select_all or want["export"] is not None:
+                if select_all or want_export is not None:
                     exports: dict[str, Any] = {}
                     for name, fn in self._test_value_exports.items():
                         try:
                             exports[name] = _snapshot_safe_value(fn())
                         except Exception as e:
                             exports[name] = {"__shiny_serialization_error__": str(e)}
-                    payload["export"] = _filter_snapshot_block(exports, want["export"])
+                    payload["export"] = _filter_snapshot_block(exports, want_export)
 
-        body = orjson.dumps(payload, option=orjson.OPT_SORT_KEYS)
-        return Response(content=body, media_type="application/json")
+        return payload
 
     def send_input_message(self, id: str, message: dict[str, object]) -> None:
         self._outbound_message_queues.add_input_message(id, message)
@@ -1711,6 +1853,17 @@ class SessionProxy(Session):
 
         self.bookmark = BookmarkProxy(self)
 
+    @property
+    def user(self) -> str | None:
+        return self._root_session.user
+
+    @property
+    def groups(self) -> list[str] | None:
+        return self._root_session.groups
+
+    def _is_closed(self) -> bool:
+        return self._root_session._is_closed()
+
     def on_destroy(
         self, fn: Callable[[], None] | Callable[[], Awaitable[None]]
     ) -> None:
@@ -1718,7 +1871,10 @@ class SessionProxy(Session):
         Register a callback to run when this module scope is destroyed.
 
         Destroy callbacks fire when ``destroy()`` is explicitly called, or
-        automatically at session end (after ``on_ended`` callbacks).
+        automatically at session end (after ``on_ended`` callbacks). Note that
+        the session-end path leaves the scope's reactive values and calcs
+        readable; only an explicit ``destroy()`` tears them down. See
+        :meth:`~shiny.Session.destroy`.
 
         Parameters
         ----------
@@ -2607,7 +2763,12 @@ class Outputs:
                         # TODO: I don't think we actually use this for anything client-side
                         "type": None,
                     }
-                    session._outbound_message_queues.set_error(output_name, err_message)
+                    session._outbound_message_queues.set_error(
+                        output_name,
+                        err_message,
+                        # Recorded only in test mode; never sent to the client.
+                        traceback_text=traceback.format_exc(),
+                    )
 
                 await session._send_message(
                     {

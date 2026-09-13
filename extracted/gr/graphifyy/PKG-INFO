@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.58
+Version: 0.9.61
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/Graphify-Labs/graphify
@@ -50,7 +50,7 @@ Requires-Dist: neo4j; extra == "neo4j"
 Provides-Extra: falkordb
 Requires-Dist: falkordb; extra == "falkordb"
 Provides-Extra: pdf
-Requires-Dist: pypdf>=6.12.0; extra == "pdf"
+Requires-Dist: pypdf>=6.16.1; extra == "pdf"
 Requires-Dist: markdownify; extra == "pdf"
 Provides-Extra: watch
 Requires-Dist: watchdog; extra == "watch"
@@ -59,6 +59,7 @@ Requires-Dist: matplotlib; extra == "svg"
 Requires-Dist: numpy>=2.0; python_version >= "3.13" and extra == "svg"
 Provides-Extra: leiden
 Requires-Dist: graspologic; python_version < "3.13" and extra == "leiden"
+Requires-Dist: graspologic-native<2,>=1.3.1; python_version >= "3.13" and extra == "leiden"
 Provides-Extra: office
 Requires-Dist: python-docx; extra == "office"
 Requires-Dist: openpyxl; extra == "office"
@@ -69,7 +70,7 @@ Requires-Dist: psycopg[binary]; extra == "postgres"
 Requires-Dist: tree-sitter-sql; extra == "postgres"
 Provides-Extra: video
 Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "video"
-Requires-Dist: yt-dlp>=2026.6.9; extra == "video"
+Requires-Dist: yt-dlp>=2026.7.4; extra == "video"
 Provides-Extra: kimi
 Requires-Dist: openai; extra == "kimi"
 Requires-Dist: tiktoken; extra == "kimi"
@@ -86,7 +87,8 @@ Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
 Requires-Dist: tiktoken; extra == "openai"
 Provides-Extra: chinese
-Requires-Dist: jieba; extra == "chinese"
+Requires-Dist: jieba; python_version < "3.12" and extra == "chinese"
+Requires-Dist: jieba-py<1,>=0.46.12; python_version >= "3.12" and extra == "chinese"
 Provides-Extra: sql
 Requires-Dist: tree-sitter-sql; extra == "sql"
 Provides-Extra: pascal
@@ -106,23 +108,25 @@ Requires-Dist: mcp<3,>=1; extra == "all"
 Requires-Dist: starlette<2,>=1.3.1; extra == "all"
 Requires-Dist: neo4j; extra == "all"
 Requires-Dist: falkordb; extra == "all"
-Requires-Dist: pypdf>=6.12.0; extra == "all"
+Requires-Dist: pypdf>=6.16.1; extra == "all"
 Requires-Dist: markdownify; extra == "all"
 Requires-Dist: watchdog; extra == "all"
 Requires-Dist: graspologic; python_version < "3.13" and extra == "all"
+Requires-Dist: graspologic-native<2,>=1.3.1; python_version >= "3.13" and extra == "all"
 Requires-Dist: python-docx; extra == "all"
 Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: psycopg[binary]; extra == "all"
 Requires-Dist: faster-whisper; python_version >= "3.11" and extra == "all"
-Requires-Dist: yt-dlp>=2026.6.9; extra == "all"
+Requires-Dist: yt-dlp>=2026.7.4; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: numpy>=2.0; python_version >= "3.13" and extra == "all"
 Requires-Dist: openai; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: boto3; extra == "all"
 Requires-Dist: anthropic; extra == "all"
-Requires-Dist: psycopg[binary]; extra == "all"
 Requires-Dist: tree-sitter-sql; extra == "all"
-Requires-Dist: jieba; extra == "all"
+Requires-Dist: jieba; python_version < "3.12" and extra == "all"
+Requires-Dist: jieba-py<1,>=0.46.12; python_version >= "3.12" and extra == "all"
 Requires-Dist: tree-sitter-dm; extra == "all"
 Requires-Dist: tree-sitter-hcl; extra == "all"
 Requires-Dist: tree-sitter-pascal; extra == "all"
@@ -388,7 +392,7 @@ Codex users also need `multi_agent = true` under `[features]` in `~/.codex/confi
 | `neo4j` | Neo4j push support | `uv tool install "graphifyy[neo4j]"` |
 | `falkordb` | FalkorDB push support | `uv tool install "graphifyy[falkordb]"` |
 | `svg` | SVG graph export | `uv tool install "graphifyy[svg]"` |
-| `leiden` | Leiden community detection (Python < 3.13 only) | `uv tool install "graphifyy[leiden]"` |
+| `leiden` | Leiden community detection (graspologic on Python < 3.13; native backend on 3.13+) | `uv tool install "graphifyy[leiden]"` |
 | `ollama` | Ollama local inference | `uv tool install "graphifyy[ollama]"` |
 | `openai` | OpenAI / OpenAI-compatible APIs | `uv tool install "graphifyy[openai]"` |
 | `gemini` | Google Gemini API | `uv tool install "graphifyy[gemini]"` |
@@ -1010,7 +1014,7 @@ uv run pytest tests/ -q -k "python"    # filter by name
 ### CI parity checks
 
 The authoritative CI commands live in [`.github/workflows/`](.github/workflows/).
-For local CI-style verification, use Python 3.10 or 3.12 and run:
+For local CI-style verification, use Python 3.10, 3.12, 3.13, or 3.14 and run:
 
 ```bash
 uv sync --all-extras --frozen
@@ -1038,7 +1042,7 @@ is added to CI later. The Bandit and pip-audit CI steps currently use
 > policy before relying on long-path tests. Restart affected shells or applications
 > after changing either setting. For exact parity with the blocking GitHub Actions
 > test matrix, run the suite in WSL or Linux; CI currently runs on Ubuntu with
-> Python 3.10 and 3.12. Pyright is available as a local advisory check, but it is
+> Python 3.10, 3.12, 3.13, and 3.14. Pyright is available as a local advisory check, but it is
 > not currently a blocking CI job.
 
 ### Git workflow

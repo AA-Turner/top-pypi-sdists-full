@@ -55,9 +55,9 @@ def _stream_plane(ctx) -> tuple[str, list[str]]:
             return "none", [
                 f"P6_SELKIES_IMAGE={ctx.selkies_image} is set but docker is not on PATH"
             ]
-        if os.environ.get("P6_IMAGE_BENCHMARK_CONTRACT") != "1":
+        if not getattr(ctx, "image_benchmark_contract", False):
             return "none", [
-                "P6_SELKIES_IMAGE is set, but P6_IMAGE_BENCHMARK_CONTRACT=1 is not. "
+                "P6_SELKIES_IMAGE is set, but --image-benchmark-contract was not passed. "
                 "The image must consume P6_BASE_URL/P6_DURATION and emit the harness "
                 "JSONL ready/action/encoder events; the production browser-worker image "
                 "does not currently implement that benchmark entrypoint. Refusing a "

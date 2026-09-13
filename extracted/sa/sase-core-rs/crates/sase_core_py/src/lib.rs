@@ -73,6 +73,8 @@
 //! - `derive_git_workspace_name(remote_url: str | None, root_path: str | None) -> str | None`
 //! - `parse_git_conflicted_files(stdout: str) -> list[str]`
 //! - `parse_git_local_changes(stdout: str) -> str | None`
+//! - `retryability_wire_schema_version() -> int`
+//! - `classify_failure_retryability(operation_kind: str, exit_status: int | None = None, stdout: str = "", stderr: str = "") -> dict`
 //! - `decide_sidecar_publication_after_push(returncode: int, stdout: str, stderr: str, attempt: int) -> dict`
 //! - `vcs_log_wire_schema_version() -> int`
 //! - `parse_git_log(stdout: str) -> list[dict]`
@@ -262,6 +264,8 @@
 //! - `provider_routing_context_from_parts(disables: list[dict], priority: dict | None, captured_at: float) -> dict`
 //! - `provider_availability_classify(context: dict, facts: dict) -> dict`
 //! - `provider_availability_classify_many(context: dict, facts: list[dict]) -> list[dict]`
+//! - `provider_pool_eligibility_mask(records: list[dict]) -> list[bool]`
+//! - `provider_pool_reservation_eligible(records: list[dict], reserved_index: int) -> bool`
 //! - `provider_usage_observation_schema_version() -> int`
 //! - `provider_usage_public_schema_version() -> int`
 //! - `provider_usage_indicator_schema_version() -> int`
@@ -319,9 +323,13 @@
 //! - `continuation_validate_monitor_result(result: dict) -> dict`
 //! - `continuation_validate_diagnostic_manifest(manifest: dict) -> dict`
 //! - `continuation_validate_delivery_record(record: dict) -> dict`
+//! - `continuation_new_delivery_record(request: dict) -> dict`
+//! - `continuation_transition_delivery(request: dict) -> dict`
 //! - `continuation_plan_replay(request: dict) -> dict`
 //! - `continuation_select_evidence(request: dict) -> dict`
 //! - `continuation_resolve_policy(request: dict) -> dict`
+//! - `continuation_validate_policy(policy: dict) -> dict`
+//! - `continuation_freeze_policy(request: dict) -> dict`
 //! - `continuation_plan_budget(request: dict) -> dict`
 //! - `continuation_validate_conditional_completion(intent: dict) -> dict`
 //! - `continuation_seal_conditional_completion(request: dict) -> dict`
@@ -418,9 +426,9 @@
 //! - `substitute_raw_placeholders(text: str, values: dict[str, str]) -> str`
 //! - `placeholder_input_names(texts: list[str]) -> list[str]`
 //! - `directive_contract() -> list[dict]`
-//! - `collect_queue_fields(occurrences: list[dict]) -> dict`
+//! - `collect_queue_fields(occurrences: list[dict], enabled_feature_flags: list[str] | None = None) -> dict`
 //! - `format_queue_directive(fields: dict) -> str | None`
-//! - `parse_queue_capacity(raw: str) -> int`
+//! - `parse_queue_capacity(raw: str, enabled_feature_flags: list[str] | None = None) -> int`
 //! - `queue_directive_flag_key() -> str`
 //! - `runner_capacity_policy_schema_version() -> int`
 //! - `runner_capacity_snapshot(request: dict) -> dict`
@@ -497,6 +505,11 @@
 //! - `validate_finalizer_submission(plan: dict, context: dict, submission: dict) -> dict`
 //! - `finalizer_json_digest(value: Any) -> str`
 //! - `aggregate_finalizer_outcomes(results: list[dict]) -> dict`
+//! - `bead_action_wire_schema_version() -> int`
+//! - `parse_bead_action_field(payload: dict) -> str | None`
+//! - `decide_bead_action(request: dict) -> dict`
+//! - `validate_finalizer_bead_decision(context: dict, decision: dict) -> dict`
+//! - `validate_finalizer_assigned_bead_binding(context: dict, expected: dict | None) -> None`
 //! - `validate_task_type_spec(spec: dict) -> None`
 //! - `task_type_spec_digest(spec: dict) -> str`
 //! - `validate_task_type_field_values(spec: dict, values: dict[str, str]) -> list[dict]`
@@ -997,6 +1010,13 @@ use sase_core::bead::{
     BeadPreclaimAssignmentWire, BeadResolutionWire, BeadUpdateFieldsWire,
     IssueWire,
 };
+use sase_core::bead_action::{
+    decide_bead_action_from_json as core_decide_bead_action_from_json,
+    parse_bead_action_field as core_parse_bead_action_field,
+    validate_finalizer_assigned_bead_binding as core_validate_finalizer_assigned_bead_binding,
+    validate_finalizer_bead_decision_from_json as core_validate_finalizer_bead_decision_from_json,
+    BeadActionError, BEAD_ACTION_WIRE_SCHEMA_VERSION,
+};
 use sase_core::commit_footer::{
     parse_commit_footer as core_parse_commit_footer,
     update_commit_footer as core_update_commit_footer, CommitFooterUpdateWire,
@@ -1034,7 +1054,9 @@ use sase_core::continuation::{
     bind_conditional_completion as core_bind_conditional_completion,
     consume_conditional_completion_request as core_consume_conditional_completion,
     evaluate_conditional_completion as core_evaluate_conditional_completion,
+    freeze_continuation_policy as core_freeze_continuation_policy,
     invalidate_conditional_completion_request as core_invalidate_conditional_completion,
+    new_continuation_delivery_record as core_new_continuation_delivery_record,
     plan_continuation_budget as core_plan_continuation_budget,
     plan_continuation_replay as core_plan_continuation_replay,
     preview_conditional_completion as core_preview_conditional_completion,
@@ -1043,12 +1065,14 @@ use sase_core::continuation::{
     rollback_conditional_completion_binding as core_rollback_conditional_completion_binding,
     seal_conditional_completion as core_seal_conditional_completion,
     select_continuation_evidence as core_select_continuation_evidence,
+    transition_continuation_delivery as core_transition_continuation_delivery,
     validate_agent_delta as core_validate_agent_delta,
     validate_conditional_completion_intent as core_validate_conditional_completion_intent,
     validate_continuation_delivery_record as core_validate_continuation_delivery_record,
     validate_continuation_graph as core_validate_continuation_graph,
     validate_continuation_intent as core_validate_continuation_intent,
     validate_continuation_node_value as core_validate_continuation_node_value,
+    validate_continuation_policy as core_validate_continuation_policy,
     validate_diagnostic_manifest as core_validate_diagnostic_manifest,
     validate_launch_requester_continuation as core_validate_launch_requester_continuation,
     validate_monitor_result as core_validate_monitor_result, AgentDeltaWire,
@@ -1058,11 +1082,13 @@ use sase_core::continuation::{
     ConditionalCompletionMessageRequestWire,
     ConditionalCompletionPrepareRequestWire,
     ConditionalCompletionRollbackRequestWire, ContinuationBudgetRequestWire,
-    ContinuationDeliveryRecordWire, ContinuationError,
+    ContinuationDeliveryNewRequestWire, ContinuationDeliveryRecordWire,
+    ContinuationDeliveryTransitionRequestWire, ContinuationError,
     ContinuationEvidenceSelectionRequestWire, ContinuationIntentWire,
-    ContinuationNodeWire, ContinuationPolicyResolutionRequestWire,
-    ContinuationReplayPlanRequestWire, DiagnosticManifestWire,
-    LaunchRequesterContinuationWire, MonitorResultWire,
+    ContinuationNodeWire, ContinuationOutcomePolicyWire,
+    ContinuationPolicyFreezeRequestWire,
+    ContinuationPolicyResolutionRequestWire, ContinuationReplayPlanRequestWire,
+    DiagnosticManifestWire, LaunchRequesterContinuationWire, MonitorResultWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::effort::resolve_effective_effort as core_resolve_effective_effort;
@@ -1100,10 +1126,10 @@ use sase_core::finalizer::{
     validate_finalizer_plan as core_validate_finalizer_plan,
     validate_finalizer_provider_spec as core_validate_finalizer_provider_spec,
     validate_finalizer_submission as core_validate_finalizer_submission,
-    FinalizerContextWire, FinalizerError, FinalizerInstanceResultWire,
-    FinalizerInstanceSpecWire, FinalizerPlanInputWire, FinalizerPlanWire,
-    FinalizerProviderSpecWire, FinalizerSubmissionEnvelopeWire,
-    FINALIZER_WIRE_SCHEMA_VERSION,
+    FinalizerAssignedBeadWire, FinalizerContextWire, FinalizerError,
+    FinalizerInstanceResultWire, FinalizerInstanceSpecWire,
+    FinalizerPlanInputWire, FinalizerPlanWire, FinalizerProviderSpecWire,
+    FinalizerSubmissionEnvelopeWire, FINALIZER_WIRE_SCHEMA_VERSION,
 };
 use sase_core::fleet_attention::{
     self as core_fleet_attention, FleetAttentionEntryWire,
@@ -1314,10 +1340,12 @@ use sase_core::provider_priority::{
     get_provider_priority as core_get_provider_priority,
     get_provider_routing_context as core_get_provider_routing_context,
     peek_provider_priority as core_peek_provider_priority,
+    pool_eligibility_mask as core_pool_eligibility_mask,
+    pool_reservation_eligible as core_pool_reservation_eligible,
     provider_routing_context_from_parts as core_provider_routing_context_from_parts,
     set_provider_priority_relative as core_set_provider_priority_relative,
     set_provider_priority_until as core_set_provider_priority_until,
-    ProviderAvailabilityFactsWire,
+    ProviderAvailabilityFactsWire, ProviderAvailabilityWire,
     ProviderPriorityError as ProviderPriorityDomainError,
     ProviderPriorityTargetFactsWire, ProviderPriorityWire,
     ProviderRoutingContextWire,
@@ -1380,6 +1408,11 @@ use sase_core::repository_resolution::{
     repository_resolution_wire_schema_version as core_repository_resolution_wire_schema_version,
     resolve_repository_reference as core_resolve_repository_reference,
     RepositoryResolutionRequestWire,
+};
+use sase_core::retryability::{
+    classify_failure_retryability as core_classify_failure_retryability,
+    retryability_wire_schema_version as core_retryability_wire_schema_version,
+    FailureObservationWire, RetryabilityVerdictWire,
 };
 use sase_core::runner_limit_override::{
     clear_runner_limit_override as core_clear_runner_limit_override,
@@ -1445,9 +1478,9 @@ use sase_core::wire::ChangeSpecWire;
 use sase_core::wire::{CommentWire, HookWire, MentorWire};
 use sase_core::CODE_VALUE_WIRE_SCHEMA_VERSION;
 use sase_core::{
-    collect_queue_fields as core_collect_queue_fields,
+    collect_queue_fields_with_flags as core_collect_queue_fields_with_flags,
     format_queue_directive as core_format_queue_directive,
-    parse_queue_capacity as core_parse_queue_capacity,
+    parse_queue_capacity_with_flags as core_parse_queue_capacity_with_flags,
     queue_directive_flag_key as core_queue_directive_flag_key, QueueFieldsWire,
     QueueOccurrenceWire,
 };
@@ -4523,6 +4556,50 @@ fn py_parse_git_local_changes(py: Python<'_>, stdout: &str) -> PyObject {
     }
 }
 
+// --- GitHub transport retryability bindings -------------------------------
+
+#[pyfunction]
+#[pyo3(name = "retryability_wire_schema_version")]
+fn py_retryability_wire_schema_version() -> u32 {
+    core_retryability_wire_schema_version()
+}
+
+/// Classify observed git/gh process output into a retryability verdict.
+#[pyfunction]
+#[pyo3(
+    name = "classify_failure_retryability",
+    signature = (operation_kind, exit_status=None, stdout="", stderr="")
+)]
+fn py_classify_failure_retryability<'py>(
+    py: Python<'py>,
+    operation_kind: &str,
+    exit_status: Option<i32>,
+    stdout: &str,
+    stderr: &str,
+) -> PyResult<Bound<'py, PyDict>> {
+    let observation = FailureObservationWire {
+        operation_kind: operation_kind.to_string(),
+        exit_status,
+        stdout: stdout.to_string(),
+        stderr: stderr.to_string(),
+    };
+    let verdict = core_classify_failure_retryability(&observation);
+    retryability_verdict_to_py(py, &verdict)
+}
+
+fn retryability_verdict_to_py<'py>(
+    py: Python<'py>,
+    verdict: &RetryabilityVerdictWire,
+) -> PyResult<Bound<'py, PyDict>> {
+    let dict = PyDict::new_bound(py);
+    dict.set_item("schema_version", verdict.schema_version)?;
+    dict.set_item("verdict", &verdict.verdict)?;
+    dict.set_item("reason", &verdict.reason)?;
+    dict.set_item("retryable", verdict.retryable)?;
+    dict.set_item("retry_after_seconds", verdict.retry_after_seconds)?;
+    Ok(dict)
+}
+
 /// Decide the next launch-time sidecar publication action after one push.
 #[pyfunction]
 #[pyo3(name = "decide_sidecar_publication_after_push")]
@@ -5885,6 +5962,104 @@ fn py_aggregate_finalizer_outcomes<'py>(
         core_aggregate_finalizer_outcomes(results),
         "outcome aggregation",
     )
+}
+
+fn bead_action_error_to_pyerr(error: BeadActionError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn bead_action_result_to_py<'py, T>(
+    py: Python<'py>,
+    result: Result<T, BeadActionError>,
+    operation: &str,
+) -> PyResult<PyObject>
+where
+    T: serde::Serialize,
+{
+    let value =
+        serde_json::to_value(result.map_err(bead_action_error_to_pyerr)?)
+            .map_err(|error| {
+                PyValueError::new_err(format!(
+                    "internal bead-action {operation} serialize error: {error}"
+                ))
+            })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the bead-action policy wire schema version.
+#[pyfunction]
+#[pyo3(name = "bead_action_wire_schema_version")]
+fn py_bead_action_wire_schema_version() -> u64 {
+    BEAD_ACTION_WIRE_SCHEMA_VERSION
+}
+
+/// Parse `bead_action` from a payload, preserving omitted vs explicit.
+#[pyfunction]
+#[pyo3(name = "parse_bead_action_field")]
+fn py_parse_bead_action_field(
+    payload: &Bound<'_, PyDict>,
+) -> PyResult<Option<String>> {
+    let value = py_to_json_value(payload.as_any())?;
+    match core_parse_bead_action_field(&value)
+        .map_err(bead_action_error_to_pyerr)?
+    {
+        Some(action) => Ok(Some(action.as_str().to_string())),
+        None => Ok(None),
+    }
+}
+
+/// Decide stitch/commit bead-action disposition from host-collected facts.
+#[pyfunction]
+#[pyo3(name = "decide_bead_action")]
+fn py_decide_bead_action<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    bead_action_result_to_py(
+        py,
+        core_decide_bead_action_from_json(&value),
+        "policy",
+    )
+}
+
+/// Validate one repository decision against authenticated bead context.
+#[pyfunction]
+#[pyo3(name = "validate_finalizer_bead_decision")]
+fn py_validate_finalizer_bead_decision<'py>(
+    py: Python<'py>,
+    context: &Bound<'_, PyDict>,
+    decision: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let context = py_to_json_value(context.as_any())?;
+    let decision = py_to_json_value(decision.as_any())?;
+    bead_action_result_to_py(
+        py,
+        core_validate_finalizer_bead_decision_from_json(&context, &decision),
+        "finalizer decision",
+    )
+}
+
+/// Reject a declaration bound to a different assigned bead.
+#[pyfunction]
+#[pyo3(
+    name = "validate_finalizer_assigned_bead_binding",
+    signature = (context, expected=None)
+)]
+fn py_validate_finalizer_assigned_bead_binding(
+    context: &Bound<'_, PyDict>,
+    expected: Option<&Bound<'_, PyDict>>,
+) -> PyResult<()> {
+    let context: FinalizerContextWire =
+        finalizer_wire_from_pydict(context, "context")?;
+    let expected = match expected {
+        Some(expected) => Some(finalizer_wire_from_pydict::<
+            FinalizerAssignedBeadWire,
+        >(expected, "assigned bead")?),
+        None => None,
+    };
+    core_validate_finalizer_assigned_bead_binding(&context, expected.as_ref())
+        .map_err(bead_action_error_to_pyerr)
 }
 
 fn task_type_spec_from_pydict(
@@ -13000,6 +13175,34 @@ fn provider_availability_classify_many<'py>(
     provider_priority_wire_to_py(py, &availability)
 }
 
+#[pyfunction]
+fn provider_pool_eligibility_mask<'py>(
+    py: Python<'py>,
+    records: &Bound<'_, PyList>,
+) -> PyResult<PyObject> {
+    let records: Vec<ProviderAvailabilityWire> =
+        provider_priority_dict_from_py(records.as_any(), "records")?;
+    let mask = core_pool_eligibility_mask(&records)
+        .map_err(provider_priority_error_to_pyerr)?;
+    provider_priority_wire_to_py(py, &mask)
+}
+
+#[pyfunction]
+fn provider_pool_reservation_eligible(
+    records: &Bound<'_, PyList>,
+    reserved_index: i64,
+) -> PyResult<bool> {
+    if reserved_index < 0 {
+        return Err(PyValueError::new_err(
+            "reserved member index must be non-negative",
+        ));
+    }
+    let records: Vec<ProviderAvailabilityWire> =
+        provider_priority_dict_from_py(records.as_any(), "records")?;
+    core_pool_reservation_eligible(&records, reserved_index as usize)
+        .map_err(provider_priority_error_to_pyerr)
+}
+
 fn provider_usage_error_to_pyerr(err: ProviderUsageDomainError) -> PyErr {
     PyValueError::new_err(err.to_string())
 }
@@ -14517,6 +14720,38 @@ fn py_continuation_validate_delivery_record<'py>(
     )
 }
 
+/// Create a pending continuation delivery record.
+#[pyfunction]
+#[pyo3(name = "continuation_new_delivery_record")]
+fn py_continuation_new_delivery_record<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationDeliveryNewRequestWire =
+        continuation_wire_from_pydict(request, "delivery new request")?;
+    continuation_result_to_py(
+        py,
+        core_new_continuation_delivery_record(request),
+        "delivery new record",
+    )
+}
+
+/// Apply one pure continuation delivery transition.
+#[pyfunction]
+#[pyo3(name = "continuation_transition_delivery")]
+fn py_continuation_transition_delivery<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationDeliveryTransitionRequestWire =
+        continuation_wire_from_pydict(request, "delivery transition")?;
+    continuation_result_to_py(
+        py,
+        core_transition_continuation_delivery(request),
+        "delivery transition",
+    )
+}
+
 /// Validate one LaunchApproval requester-continuation contract.
 #[pyfunction]
 #[pyo3(name = "continuation_validate_launch_requester_continuation")]
@@ -14578,6 +14813,38 @@ fn py_continuation_resolve_policy<'py>(
         py,
         core_resolve_continuation_policy(request),
         "policy resolution",
+    )
+}
+
+/// Validate and normalize a versioned outcome-policy object.
+#[pyfunction]
+#[pyo3(name = "continuation_validate_policy")]
+fn py_continuation_validate_policy<'py>(
+    py: Python<'py>,
+    policy: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let policy: ContinuationOutcomePolicyWire =
+        continuation_wire_from_pydict(policy, "outcome policy")?;
+    continuation_result_to_py(
+        py,
+        core_validate_continuation_policy(policy),
+        "policy validation",
+    )
+}
+
+/// Freeze every outcome branch before monitor claim changes.
+#[pyfunction]
+#[pyo3(name = "continuation_freeze_policy")]
+fn py_continuation_freeze_policy<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationPolicyFreezeRequestWire =
+        continuation_wire_from_pydict(request, "policy freeze request")?;
+    continuation_result_to_py(
+        py,
+        core_freeze_continuation_policy(request),
+        "policy freeze",
     )
 }
 
@@ -15268,9 +15535,11 @@ fn py_prompt_has_identity_directive(prompt: &str) -> bool {
 
 #[pyfunction]
 #[pyo3(name = "collect_queue_fields")]
+#[pyo3(signature = (occurrences, enabled_feature_flags = None))]
 fn py_collect_queue_fields<'py>(
     py: Python<'py>,
     occurrences: &Bound<'_, PyAny>,
+    enabled_feature_flags: Option<Vec<String>>,
 ) -> PyResult<PyObject> {
     let occurrences: Vec<QueueOccurrenceWire> = serde_json::from_value(
         py_to_json_value(occurrences)?,
@@ -15278,7 +15547,8 @@ fn py_collect_queue_fields<'py>(
     .map_err(|err| {
         PyValueError::new_err(format!("invalid queue occurrences: {err}"))
     })?;
-    let result = core_collect_queue_fields(&occurrences);
+    let flags = enabled_feature_flags.unwrap_or_default();
+    let result = core_collect_queue_fields_with_flags(&occurrences, &flags);
     let value = serde_json::to_value(&result).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -15299,8 +15569,13 @@ fn py_format_queue_directive(
 
 #[pyfunction]
 #[pyo3(name = "parse_queue_capacity")]
-fn py_parse_queue_capacity(raw: &str) -> PyResult<u32> {
-    core_parse_queue_capacity(raw)
+#[pyo3(signature = (raw, enabled_feature_flags = None))]
+fn py_parse_queue_capacity(
+    raw: &str,
+    enabled_feature_flags: Option<Vec<String>>,
+) -> PyResult<u32> {
+    let flags = enabled_feature_flags.unwrap_or_default();
+    core_parse_queue_capacity_with_flags(raw, &flags)
         .map_err(|error| PyValueError::new_err(error.message))
 }
 
@@ -17170,6 +17445,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_derive_git_workspace_name, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_conflicted_files, m)?)?;
     m.add_function(wrap_pyfunction!(py_parse_git_local_changes, m)?)?;
+    m.add_function(wrap_pyfunction!(py_retryability_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_classify_failure_retryability, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_decide_sidecar_publication_after_push,
         m
@@ -17326,6 +17603,14 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_validate_finalizer_submission, m)?)?;
     m.add_function(wrap_pyfunction!(py_finalizer_json_digest, m)?)?;
     m.add_function(wrap_pyfunction!(py_aggregate_finalizer_outcomes, m)?)?;
+    m.add_function(wrap_pyfunction!(py_bead_action_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_parse_bead_action_field, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_bead_action, m)?)?;
+    m.add_function(wrap_pyfunction!(py_validate_finalizer_bead_decision, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_validate_finalizer_assigned_bead_binding,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_spec, m)?)?;
     m.add_function(wrap_pyfunction!(py_task_type_spec_digest, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_field_values, m)?)?;
@@ -17774,6 +18059,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(provider_routing_context_from_parts, m)?)?;
     m.add_function(wrap_pyfunction!(provider_availability_classify, m)?)?;
     m.add_function(wrap_pyfunction!(provider_availability_classify_many, m)?)?;
+    m.add_function(wrap_pyfunction!(provider_pool_eligibility_mask, m)?)?;
+    m.add_function(wrap_pyfunction!(provider_pool_reservation_eligible, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_provider_usage_observation_schema_version,
         m
@@ -17961,6 +18248,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_continuation_validate_delivery_record,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_new_delivery_record, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_transition_delivery, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_continuation_validate_launch_requester_continuation,
         m
@@ -17968,6 +18257,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_continuation_plan_replay, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_select_evidence, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_resolve_policy, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_validate_policy, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_freeze_policy, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_plan_budget, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_continuation_validate_conditional_completion,
@@ -21300,9 +21591,13 @@ COMMITS:
                 "continuation_validate_monitor_result",
                 "continuation_validate_diagnostic_manifest",
                 "continuation_validate_delivery_record",
+                "continuation_new_delivery_record",
+                "continuation_transition_delivery",
                 "continuation_plan_replay",
                 "continuation_select_evidence",
                 "continuation_resolve_policy",
+                "continuation_validate_policy",
+                "continuation_freeze_policy",
                 "continuation_plan_budget",
                 "continuation_validate_conditional_completion",
                 "continuation_seal_conditional_completion",
@@ -22106,6 +22401,78 @@ COMMITS:
                 Some(1.0),
             )
             .unwrap_err();
+            assert!(error.is_instance_of::<PyValueError>(py));
+        });
+    }
+
+    #[test]
+    fn provider_pool_eligibility_bindings_cover_soft_vs_backup() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let disable = PyDict::new_bound(py);
+            disable.set_item("version", 2).unwrap();
+            disable.set_item("provider", "claude").unwrap();
+            disable.set_item("created_at", 1_800_000_000.0).unwrap();
+            disable.set_item("expires_at", py.None()).unwrap();
+            disable.set_item("source", "ace").unwrap();
+            disable.set_item("mode", "soft").unwrap();
+            let disables = PyList::empty_bound(py);
+            disables.append(disable.as_any()).unwrap();
+
+            let priority = PyDict::new_bound(py);
+            priority.set_item("version", 1).unwrap();
+            priority.set_item("provider", "grok").unwrap();
+            priority.set_item("created_at", 1_800_000_000.0).unwrap();
+            priority.set_item("expires_at", py.None()).unwrap();
+            priority.set_item("source", "ace").unwrap();
+
+            let context = provider_routing_context_from_parts(
+                py,
+                &disables,
+                priority.as_any(),
+                1_800_000_000.0,
+            )
+            .unwrap();
+            let context_dict = context.bind(py).downcast::<PyDict>().unwrap();
+
+            let mut records = Vec::new();
+            for provider in ["claude", "codex"] {
+                let facts = PyDict::new_bound(py);
+                facts.set_item("provider", provider).unwrap();
+                facts.set_item("registered", true).unwrap();
+                facts.set_item("user_facing", true).unwrap();
+                facts.set_item("cli_available", true).unwrap();
+                records.push(
+                    provider_availability_classify(py, context_dict, &facts)
+                        .unwrap(),
+                );
+            }
+            let record_list = PyList::empty_bound(py);
+            for record in &records {
+                record_list.append(record.bind(py).as_any()).unwrap();
+            }
+
+            let mask =
+                provider_pool_eligibility_mask(py, &record_list).unwrap();
+            assert_eq!(
+                py_to_json_value(mask.bind(py)).unwrap(),
+                json!([false, true])
+            );
+            assert!(
+                !provider_pool_reservation_eligible(&record_list, 0).unwrap()
+            );
+            assert!(
+                provider_pool_reservation_eligible(&record_list, 1).unwrap()
+            );
+
+            let empty = PyList::empty_bound(py);
+            let error = provider_pool_eligibility_mask(py, &empty).unwrap_err();
+            assert!(error.is_instance_of::<PyValueError>(py));
+            let error = provider_pool_reservation_eligible(&record_list, -1)
+                .unwrap_err();
+            assert!(error.is_instance_of::<PyValueError>(py));
+            let error = provider_pool_reservation_eligible(&record_list, 2)
+                .unwrap_err();
             assert!(error.is_instance_of::<PyValueError>(py));
         });
     }
@@ -24461,6 +24828,151 @@ MENTORS:
             .unwrap();
             let aggregate = py_to_json_value(aggregate.bind(py)).unwrap();
             assert_eq!(aggregate["status"], json!("success"));
+
+            let without_bead = context_digest.clone();
+            context_value["assigned_bead"] = json!({
+                "bead_id": "sase-zq.1",
+                "primary_repo_obligation_id": "repo:primary"
+            });
+            let associated_obj = json_value_to_py(py, &context_value).unwrap();
+            let associated =
+                associated_obj.bind(py).downcast::<PyDict>().unwrap();
+            let associated_digest =
+                py_finalizer_context_digest(associated).unwrap();
+            assert_ne!(without_bead, associated_digest);
+        });
+    }
+
+    #[test]
+    fn bead_action_bindings_round_trip_json_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            for name in [
+                "bead_action_wire_schema_version",
+                "parse_bead_action_field",
+                "decide_bead_action",
+                "validate_finalizer_bead_decision",
+                "validate_finalizer_assigned_bead_binding",
+            ] {
+                assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+            assert_eq!(py_bead_action_wire_schema_version(), 1);
+
+            let omitted = json_value_to_py(py, &json!({})).unwrap();
+            assert_eq!(
+                py_parse_bead_action_field(
+                    omitted.bind(py).downcast::<PyDict>().unwrap()
+                )
+                .unwrap(),
+                None
+            );
+            let keep =
+                json_value_to_py(py, &json!({"bead_action": "keep"})).unwrap();
+            assert_eq!(
+                py_parse_bead_action_field(
+                    keep.bind(py).downcast::<PyDict>().unwrap()
+                )
+                .unwrap()
+                .as_deref(),
+                Some("keep")
+            );
+            let invalid =
+                json_value_to_py(py, &json!({"bead_action": true})).unwrap();
+            assert!(py_parse_bead_action_field(
+                invalid.bind(py).downcast::<PyDict>().unwrap()
+            )
+            .is_err());
+
+            let request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "assigned_bead_id": "sase-zq.1",
+                    "commit_method": "create_commit",
+                    "repository_scope": "primary",
+                    "primary_repository_identified": true,
+                    "bead_action": "keep"
+                }),
+            )
+            .unwrap();
+            let decision = py_decide_bead_action(
+                py,
+                request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let decision = py_to_json_value(decision.bind(py)).unwrap();
+            assert_eq!(decision["disposition"], json!("keep"));
+            assert_eq!(decision["close_bead"], json!(false));
+
+            let context = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 2,
+                    "run_id": "run-1",
+                    "agent_id": "agent-1",
+                    "turn_nonce": "nonce-1",
+                    "plan_digest": "d".repeat(64),
+                    "requirements": [],
+                    "obligations": [{
+                        "obligation_id": "repo:primary",
+                        "kind": "repository",
+                        "paths": ["."]
+                    }],
+                    "assigned_bead": {
+                        "bead_id": "sase-zq.1",
+                        "primary_repo_obligation_id": "repo:primary"
+                    }
+                }),
+            )
+            .unwrap();
+            let close_decision = json_value_to_py(
+                py,
+                &json!({
+                    "repo_id": "repo:primary",
+                    "commit_method": "create_commit",
+                    "bead_action": "close",
+                    "bead_status": "in_progress"
+                }),
+            )
+            .unwrap();
+            let close = py_validate_finalizer_bead_decision(
+                py,
+                context.bind(py).downcast::<PyDict>().unwrap(),
+                close_decision.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let close = py_to_json_value(close.bind(py)).unwrap();
+            assert_eq!(close["disposition"], json!("close"));
+            assert_eq!(close["close_bead"], json!(true));
+
+            let expected = json_value_to_py(
+                py,
+                &json!({
+                    "bead_id": "sase-other",
+                    "primary_repo_obligation_id": "repo:primary"
+                }),
+            )
+            .unwrap();
+            assert!(py_validate_finalizer_assigned_bead_binding(
+                context.bind(py).downcast::<PyDict>().unwrap(),
+                Some(expected.bind(py).downcast::<PyDict>().unwrap()),
+            )
+            .is_err());
+            let matching = json_value_to_py(
+                py,
+                &json!({
+                    "bead_id": "sase-zq.1",
+                    "primary_repo_obligation_id": "repo:primary"
+                }),
+            )
+            .unwrap();
+            py_validate_finalizer_assigned_bead_binding(
+                context.bind(py).downcast::<PyDict>().unwrap(),
+                Some(matching.bind(py).downcast::<PyDict>().unwrap()),
+            )
+            .unwrap();
         });
     }
 
@@ -28208,9 +28720,10 @@ MENTORS:
             )
             .unwrap();
             let collected =
-                py_collect_queue_fields(py, occurrences.bind(py)).unwrap();
+                py_collect_queue_fields(py, occurrences.bind(py), None)
+                    .unwrap();
             let collected = py_to_json_value(collected.bind(py)).unwrap();
-            assert_eq!(collected["fields"]["capacity"], json!(5));
+            assert_eq!(collected["fields"]["queue_capacity"], json!(5));
             assert_eq!(collected["fields"]["weight"], json!(0.25));
             assert!(collected["errors"].as_array().unwrap().is_empty());
             let formatted = py_format_queue_directive(
@@ -28226,10 +28739,15 @@ MENTORS:
                 formatted.as_deref(),
                 Some("%queue(capacity=5, priority=20, weight=2)")
             );
-            assert_eq!(py_parse_queue_capacity("0").unwrap(), 0);
-            assert_eq!(py_parse_queue_capacity("3").unwrap(), 3);
-            assert!(py_parse_queue_capacity("true").is_err());
-            assert_eq!(py_runner_capacity_policy_schema_version(), 3);
+            assert_eq!(py_parse_queue_capacity("0", None).unwrap(), 0);
+            assert_eq!(py_parse_queue_capacity("3", None).unwrap(), 3);
+            assert!(py_parse_queue_capacity(
+                "0",
+                Some(vec!["queue_capacity_budget".to_string()])
+            )
+            .is_err());
+            assert!(py_parse_queue_capacity("true", None).is_err());
+            assert_eq!(py_runner_capacity_policy_schema_version(), 4);
             let capacity_request = json_value_to_py(
                 py,
                 &json!({
@@ -28257,7 +28775,7 @@ MENTORS:
                 py_runner_capacity_snapshot(py, capacity_request.bind(py))
                     .unwrap();
             let capacity = py_to_json_value(capacity.bind(py)).unwrap();
-            assert_eq!(capacity["schema_version"], json!(3));
+            assert_eq!(capacity["schema_version"], json!(4));
             assert_eq!(capacity["occupied_capacity"], json!(0.75));
             assert_eq!(
                 capacity["first_eligible_artifact_dir"],

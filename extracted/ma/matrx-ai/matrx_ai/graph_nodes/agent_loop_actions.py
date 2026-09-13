@@ -25,6 +25,7 @@ These are distinct from:
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from matrx_graph.actions import register_node
@@ -36,7 +37,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
-    step_metadata,
+    hold_step,
 )
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
@@ -116,11 +117,11 @@ async def agent_tool_calling(
     ctx: NodeExecutionContext, inputs: AgentLoopInput
 ) -> NodeResult[AiExecutionResult]:
     _ = ctx
-    config = _build_config(inputs, system_instruction=inputs.system_instruction)
-    completed = await _execute(config, inputs)
+    config, metadata = await _build_config(inputs, system_instruction=inputs.system_instruction)
+    completed = await _execute(config, inputs, metadata)
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return normalize_completed_result(completed)
+    return await asyncio.to_thread(normalize_completed_result, completed)
 
 
 # ============================================================================
@@ -209,11 +210,11 @@ async def agent_react(
     if inputs.system_instruction:
         system = f"{system}\n\nAdditional context:\n{inputs.system_instruction}"
 
-    config = _build_config(inputs, system_instruction=system)
-    completed = await _execute(config, inputs)
+    config, metadata = await _build_config(inputs, system_instruction=system)
+    completed = await _execute(config, inputs, metadata)
     # Node Result System: a failed turn is a structured Failure carrying the
     # billed usage in details — propagate it unchanged (no trace to build).
-    normalized = normalize_completed_result(completed)
+    normalized = await asyncio.to_thread(normalize_completed_result, completed)
     if isinstance(normalized, Failure):
         return normalized
     underlying = normalized.result
@@ -235,7 +236,14 @@ async def agent_react(
 # ============================================================================
 
 
-def _build_config(inputs: AgentLoopInput, system_instruction: str | None) -> Any:
+async def _build_config(
+    inputs: AgentLoopInput, system_instruction: str | None
+) -> tuple[Any, dict[str, Any]]:
+    """The step's config with its Holder resolved, and the metadata naming it.
+
+    The Holder of workflow.step_intelligence is resolved on EVERY run and
+    fills only what the author left unset; an unbound mandate REFUSES here.
+    """
     from matrx_ai.config import UnifiedConfig
 
     overrides: dict[str, Any] = {}
@@ -244,25 +252,29 @@ def _build_config(inputs: AgentLoopInput, system_instruction: str | None) -> Any
     if inputs.max_tokens is not None:
         overrides["max_tokens"] = inputs.max_tokens
 
-    return UnifiedConfig.from_dict(
+    held = await hold_step(
         {
             "model": inputs.model,
             "messages": [{"role": "user", "content": inputs.user_input}],
             "system_instruction": system_instruction,
             "tools": inputs.tools,
             **overrides,
-        }
+        },
+        spec_type="ai.agent_loop",
+        consumer="ai.agent.tool_calling",
+        metadata=inputs.metadata,
     )
+    return UnifiedConfig.from_dict(held.config), held.metadata
 
 
-async def _execute(config: Any, inputs: AgentLoopInput) -> Any:
+async def _execute(config: Any, inputs: AgentLoopInput, metadata: dict[str, Any]) -> Any:
     from matrx_ai.orchestrator.executor import execute_ai_request
 
     return await execute_ai_request(
         config,
         max_iterations=inputs.max_iterations,
         max_retries_per_iteration=inputs.max_retries_per_iteration,
-        metadata=step_metadata(inputs.metadata, spec_type="ai.agent_loop"),
+        metadata=metadata,
         mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
 

@@ -63,7 +63,6 @@ def _bare_chat() -> OpenAIChat:
     chat = object.__new__(OpenAIChat)
     chat.debug = False
     chat._event_samples = {}
-    chat._reasoning_started = {}
     return chat
 
 

@@ -16,8 +16,9 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import inspect
-from typing import List
 
 import pyrogram
 from pyrogram.methods.utilities.idle import idle
@@ -25,9 +26,10 @@ from pyrogram.methods.utilities.idle import idle
 
 class Run:
     def run(
-        self: "pyrogram.Client", *,
+        self: pyrogram.Client,
+        *,
         use_qr: bool = False,
-        except_ids: List[int] = [],
+        except_ids: list[int] | None = None,
     ):
         """Start the client, idle the main script and finally stop the client.
 
@@ -48,6 +50,7 @@ class Run:
 
         Raises:
             ConnectionError: In case you try to run an already started client.
+            ImportError: In case ``use_qr`` is True and the ``qrcode`` extra is not installed.
 
         Example:
             .. code-block:: python
@@ -65,6 +68,10 @@ class Run:
             run(idle())
             run(self.stop())
         else:
-            self.start(use_qr=use_qr, except_ids=except_ids)
+            # `self.start`/`self.stop` are declared `async def`, so `ty` sees a plain
+            #  coroutine function here: it can't know `pyrogram.sync` (pyrogram/sync.py)
+            #  may have patched them into blocking sync wrappers, which is exactly what
+            #  the `iscoroutinefunction` check above is testing for.
+            self.start(use_qr=use_qr, except_ids=except_ids)  # ty: ignore[unused-awaitable]
             run(idle())
-            self.stop()
+            self.stop()  # ty: ignore[unused-awaitable]

@@ -307,6 +307,7 @@ class Coordinator:
         "_pending_commits",
         "_slot_reserved",
         "_late_one_shot_tail",
+        "_late_one_shots",
         "_late_boundary_captured",
     )
 
@@ -353,6 +354,12 @@ class Coordinator:
         # Sessions must therefore execute in queue order rather than racing as
         # unrelated detached tasks.
         self._late_one_shot_tail: asyncio.Task[Any] | None = None
+        # EVERY fired one-shot, tracked until it finishes. A late write is
+        # fire-and-forget only until the request's terminal drain: the drain
+        # awaits this set, so no late write can still be in flight when the turn
+        # tears down and cancels its stragglers. (Untracked one-shots are what
+        # left `sql` tool_call rows 'pending' until the watchdog.)
+        self._late_one_shots: set[asyncio.Task[Any]] = set()
 
         # True while this Coordinator holds a background-commit slot reserved by
         # ``acquire_commit_slot`` at a barrier and not yet consumed by
@@ -719,9 +726,10 @@ class Coordinator:
         try:
             from matrx_utils import detached_task
 
-            self._late_one_shot_tail = detached_task(
-                _runner(), name=f"coord_one_shot_{table}"
-            )
+            task = detached_task(_runner(), name=f"coord_one_shot_{table}")
+            self._late_one_shot_tail = task
+            self._late_one_shots.add(task)
+            task.add_done_callback(self._late_one_shots.discard)
         except RuntimeError:
             # No running loop — we cannot schedule the async one-shot OR an
             # async capture. This is process teardown; scream with the exact op.
@@ -1303,6 +1311,11 @@ class Coordinator:
                     color="red",
                 )
 
+        # The seal is the LAST thing the lane does, so it is the last chance any
+        # late one-shot has to finish before teardown reclaims it. Failures are
+        # already captured to system_write_failure by the one-shot itself.
+        await self.drain_late_writes()
+
     async def drain_and_confirm(self, *, reason: str = "degrade") -> list[str]:
         """DEGRADE to synchronous — DATA FIRST, never raises. On ANY anomaly the
         caller invokes this BEFORE error-handling/unwinding: it flushes the cache
@@ -1319,6 +1332,58 @@ class Coordinator:
             vcprint(
                 f"[Coordinator] DEGRADE drain({reason}) had {len(failures)} "
                 f"failure(s): {report.error}. See system_write_failure.",
+                color="red",
+            )
+        return failures
+
+    async def drain_late_writes(
+        self, *, timeout: float = _DRAIN_TIMEOUT_SECONDS
+    ) -> list[str]:
+        """Await every late one-shot write this Coordinator fired.
+
+        ``queue()`` past FLUSHING/FLUSHED cannot use the request's Session, so it
+        fires a durable one-shot on its own fresh Session (``_fire_one_shot``).
+        That task is detached — nothing in the caller's stack holds it — so
+        without this drain it can still be mid-round-trip when the turn's
+        finalizers return, and the task-group/loop teardown that follows cancels
+        it with its write unmade. ``CancelledError`` bypasses the one-shot's own
+        ``except Exception`` capture, so the row vanishes silently: the observed
+        ``sql`` tool_call rows stuck ``status='pending'`` (output_chars=0) until
+        the watchdog flipped them to ``watchdog_timeout``, while the tool_trace
+        recorded a 14ms OK.
+
+        Every terminal path funnels here — ``finalize`` and ``drain_and_confirm``
+        via ``_flush_current_and_drain``, plus ``seal`` — so EVERY late caller
+        (tool completion logs, workflow rows, any cx_ table) inherits the
+        guarantee, not just the tool executor. Never raises: a one-shot that
+        fails records its own op to ``system_write_failure``; failures are
+        returned so the caller's barrier can surface them.
+        """
+        failures: list[str] = []
+        # A one-shot can queue a follow-up late write while we drain (FK-ordered
+        # chains do exactly this), so keep sweeping until the set settles.
+        for _ in range(5):
+            pending = [t for t in self._late_one_shots if not t.done()]
+            if not pending:
+                break
+            for task in pending:
+                try:
+                    # shield: cancelling a one-shot mid-flush is the data loss we
+                    # are here to prevent. It self-bounds; we only stop WAITING.
+                    await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+                except TimeoutError:
+                    failures.append(f"late_write:{task.get_name()}:overdue>{timeout:.0f}s")
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 — already captured durably
+                    failures.append(
+                        f"late_write:{task.get_name()}:{type(exc).__name__}:{exc}"
+                    )
+        self._late_one_shots = {t for t in self._late_one_shots if not t.done()}
+        if failures:
+            vcprint(
+                f"[Coordinator] late one-shot drain had {len(failures)} "
+                f"failure(s): {'; '.join(failures)}. See system_write_failure.",
                 color="red",
             )
         return failures
@@ -1394,6 +1459,11 @@ class Coordinator:
             if srep.error is not None:
                 failures.append(f"current:{srep.error}")
                 report.ops_lost += srep.ops_lost
+
+        # 3) Await every late one-shot this coordinator fired. They are detached
+        # tasks, so a drain that returns without them is a drain that lies: the
+        # teardown right behind it cancels whatever is still in flight.
+        failures.extend(await self.drain_late_writes(timeout=timeout))
 
         if dropped:
             failures.append(f"dropped_ops:{dropped}")

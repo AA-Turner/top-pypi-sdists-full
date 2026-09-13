@@ -80,6 +80,14 @@ class ScrapeResult:
     # Full-pipeline additions
     overview: dict[str, Any] | None = None
     text_data: str | None = None
+    # THE MAIN-CONTENT LAW (parser/main_content.py): the article body with the
+    # site's furniture (nav, sponsor lines, staff bios, tag lists, donate and
+    # newsletter CTAs, related rails) stripped. None/empty when the page is not
+    # article-like — a consumer then keeps the full page, knowingly.
+    main_content_text: str | None = None
+    #: Which root selector produced `main_content_text` (evidence, never silent).
+    main_content_selector: str | None = None
+    main_content_removal_details: list[dict] | None = None
     main_image: str | None = None
     structured_data: Any | None = None
     # URL buckets — internal/external/images/documents/audio/videos/archives/
@@ -263,6 +271,9 @@ def _build_result_from_response(response: Response, fast: bool = False) -> Scrap
         # zero text is the kind of "successful" empty result that poisons
         # everything downstream.
         result.text_data = pipeline.get("text_data") or extracted.get("markdown_renderable")
+        result.main_content_text = pipeline.get("main_content_text") or None
+        result.main_content_selector = pipeline.get("main_content_selector")
+        result.main_content_removal_details = pipeline.get("main_content_removal_details")
         result.main_image = pipeline.get("main_image")
         result.structured_data = pipeline.get("structured_data")
         result.hashes = pipeline.get("hashes")

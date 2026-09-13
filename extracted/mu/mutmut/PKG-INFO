@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mutmut
-Version: 3.7.0
+Version: 3.8.0
 Summary: mutation testing for Python 3
 Keywords: mutmut,mutant,mutation,test,testing
 Author: Anders Hovmöller
@@ -16,19 +16,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: click>=8.0.0
+Classifier: Programming Language :: Python :: 3.15
+Requires-Dist: click>=8.4.2
 Requires-Dist: coverage>=7.3.0
-Requires-Dist: libcst>=1.8.5
+Requires-Dist: libcst>=1.9.0
 Requires-Dist: pytest>=6.2.5
-Requires-Dist: setproctitle>=1.1.0
+Requires-Dist: setproctitle>=1.3.7
 Requires-Dist: textual>=1.0.0
 Requires-Dist: toml>=0.10.2 ; python_full_version < '3.11'
 Requires-Python: >=3.10
-Project-URL: Changelog, https://github.com/boxed/mutmut/blob/main/HISTORY.rst
-Project-URL: Documentation, https://mutmut.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/boxed/mutmut
-Project-URL: Issues, https://github.com/boxed/mutmut/issues
+Project-URL: Documentation, https://mutmut.readthedocs.io/en/latest/
 Project-URL: Repository, https://github.com/boxed/mutmut
+Project-URL: Issues, https://github.com/boxed/mutmut/issues
+Project-URL: Changelog, https://github.com/boxed/mutmut/blob/main/HISTORY.rst
 Description-Content-Type: text/x-rst
 
 mutmut - python mutation tester
@@ -202,6 +203,11 @@ If you only want to mutate lines that are called (according to coverage.py), you
 
     mutate_only_covered_lines=true
 
+This also honours the lines coverage.py is told to leave out of its measurement, so code
+marked with `# pragma: no cover`, or matched by your `exclude_lines`/`exclude_also`
+settings, is not mutated either. Such code is not held to your test suite, so mutants
+there could only ever show up as survivors.
+
 
 Filter generated mutants with type checker
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -262,6 +268,108 @@ macOS at your own risk, or to disable it on other platforms), set ``use_setproct
     # pyproject.toml
     [tool.mutmut]
     use_setproctitle = false
+
+
+Process isolation (``fork`` vs ``forkserver``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: toml
+
+    # pyproject.toml
+    [tool.mutmut]
+    process_isolation = "fork"  # or "forkserver"
+
+Both strategies require ``os.fork``, so they are POSIX-only.
+
+``fork`` (default)
+    Mutmut's main process imports pytest and runs your test suite to collect
+    stats, then forks one child per mutant. This is fast and needs no
+    configuration, but every mutant worker inherits whatever your test setup
+    left behind in that process: monkey-patched sockets, running event loops,
+    background threads, open database connections, CUDA contexts. If any of
+    that is not fork-safe, the workers can hang, segfault, or report nonsense.
+
+``forkserver``
+    Mutmut's main process never imports pytest or your ``conftest.py``. It forks
+    a dedicated *fork server* child, and that child does the importing once and
+    forks a worker per mutant::
+
+        main process (clean) -> fork server (imports pytest) -> N mutant workers
+
+    Because the fork server only imports and forks, and never runs a test
+    itself, every worker starts from the same predictable state. This is the
+    same design as the ``forkserver`` start method in Python's
+    ``multiprocessing``, and it is still only one pytest import for the whole
+    run, so it is not slower than ``fork`` in the normal case.
+
+**Which one should you use?** Start with ``fork``. Switch to ``forkserver`` if
+your run hangs, crashes, or gives results you cannot reproduce by running the
+tests by hand, and your test setup touches something known to be fork-unsafe,
+such as ``gevent.monkey.patch_all()``, ``grpc``, or ``torch``. It is also the
+better choice if you simply do not want your session-scoped setup living in the
+process that forks mutants.
+
+
+Tuning what the fork server preloads
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``forkserver_warmup`` controls how much the fork server imports before it starts
+forking workers. It only applies when ``process_isolation = "forkserver"``.
+Anything imported in the fork server is inherited by every  worker, and anything
+left out is imported in each worker.
+
+.. code-block:: toml
+
+    # pyproject.toml
+    [tool.mutmut]
+    process_isolation = "forkserver"
+    forkserver_warmup = "collect"  # "collect" (default), "import" or "none"
+
+``collect`` (default)
+    Run ``pytest --collect-only``, which imports your ``conftest.py``, your
+    plugins and your test modules. This is the right default for most projects
+    and usually the fastest.
+
+``import``
+    Import only the modules listed in ``preload_modules_file`` (one dotted
+    module name per line; blank lines and ``#`` comments are ignored, and
+    modules that fail to import are skipped). Use this when test *collection*
+    itself has side effects you do not want every worker to share, but you still
+    want your slow imports warmed up.
+
+``none``
+    Import nothing beyond what running a single test requires. This is the
+    slowest option, and the most isolated. It is mostly useful for working out
+    whether a warmup side effect is what is breaking your run.
+
+.. code-block:: toml
+
+    # pyproject.toml
+    [tool.mutmut]
+    process_isolation = "forkserver"
+    forkserver_warmup = "import"
+    preload_modules_file = "mutmut_preload.txt"
+
+If the fork server itself crashes, mutmut starts a new one and re-submits the
+mutants that were in flight, up to ``max_forkserver_restarts`` times (default
+``3``) before giving up with a ``ForkServerCrashError``:
+
+.. code-block:: toml
+
+    # pyproject.toml
+    [tool.mutmut]
+    max_forkserver_restarts = 3
+
+The fork server and its workers cannot write to the console without mangling
+mutmut's progress output, so they log to a file instead. Logging is off unless
+you ask for it with ``log_to_file`` (or ``debug``):
+
+.. code-block:: toml
+
+    # pyproject.toml
+    [tool.mutmut]
+    log_to_file = true
+    log_file_path = "mutants/mutmut-debug.log"
 
 
 Disabling mutation on specific code
@@ -546,6 +654,21 @@ This section describes how to work with mutmut to enhance your test suite.
 Mutmut keeps the data of what it has done and the mutants in the `mutants/`
 directory. If you want to make sure you run a full mutmut run you can delete
 this directory to start from scratch.
+
+
+Mutation score badges
+---------------------
+
+`mutmut badge` turns `mutmut export-cicd-stats` output into `Shields endpoint JSON <https://shields.io/badges/endpoint-badge>`_:
+
+.. code-block:: console
+
+    mutmut export-cicd-stats
+    mutmut badge --output mutation-score.json
+
+.. code-block:: md
+
+    ![mutation](https://img.shields.io/endpoint?url=https://example.com/mutation-score.json)
 
 Contributing to Mutmut
 ----------------------

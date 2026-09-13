@@ -73,6 +73,181 @@ class TestGarminClient:
         params = mock_req.call_args.kwargs.get("params") or mock_req.call_args[0][2]
         assert params == {"start": 0, "limit": 10}
 
+    async def test_get_scheduled_workouts_month_is_zero_indexed(self):
+        """Garmin's calendar endpoint is 0-indexed for month; the public API isn't."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        captured = {}
+
+        async def fake_request(method, url):
+            captured["url"] = url
+            return {}
+
+        with patch.object(client, "_request", side_effect=fake_request):
+            await client.get_scheduled_workouts(2026, 1)
+            assert captured["url"].endswith("/year/2026/month/0")
+
+            await client.get_scheduled_workouts(2026, 12)
+            assert captured["url"].endswith("/year/2026/month/11")
+
+    async def test_get_scheduled_workouts_rejects_invalid_month(self):
+        auth = _make_auth()
+        client = GarminClient(auth)
+        with pytest.raises(ValueError, match="month must be between 1 and 12"):
+            await client.get_scheduled_workouts(2026, 13)
+        with pytest.raises(ValueError, match="month must be between 1 and 12"):
+            await client.get_scheduled_workouts(2026, 0)
+
+    async def test_get_training_plans_hits_plans_url(self):
+        from ha_garmin.const import TRAINING_PLANS_URL
+
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch.object(client, "_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = {"plans": []}
+            result = await client.get_training_plans()
+
+        assert result == {"plans": []}
+        mock_req.assert_awaited_once_with("GET", TRAINING_PLANS_URL)
+
+    async def test_get_adaptive_training_plan_by_id_builds_url(self):
+        from ha_garmin.const import ADAPTIVE_TRAINING_PLAN_URL
+
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        with patch.object(client, "_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = {"planId": 1789148356}
+            result = await client.get_adaptive_training_plan_by_id(1789148356)
+
+        assert result == {"planId": 1789148356}
+        mock_req.assert_awaited_once_with(
+            "GET", f"{ADAPTIVE_TRAINING_PLAN_URL}/1789148356"
+        )
+
+    async def test_get_adaptive_training_plan_by_id_rejects_non_positive(self):
+        auth = _make_auth()
+        client = GarminClient(auth)
+        with pytest.raises(ValueError):
+            await client.get_adaptive_training_plan_by_id(0)
+
+    async def test_get_calendar_events_for_plan_passes_training_plan_id(self):
+        from ha_garmin.const import CALENDAR_EVENTS_URL
+
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        payload = [{"id": 29937926, "eventName": "5K Plan"}]
+        with patch.object(client, "_request", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = payload
+            result = await client.get_calendar_events_for_plan(1789148356)
+
+        assert result == payload
+        mock_req.assert_awaited_once_with(
+            "GET", CALENDAR_EVENTS_URL, params={"trainingPlanId": 1789148356}
+        )
+
+    async def test_fetch_activity_data_includes_scheduled_workouts(self):
+        """fetch_activity_data surfaces workout-type calendar items only,
+        across this month and next (home-assistant-garmin_connect#521).
+
+        Real calendarItems mix several unrelated event types under
+        `itemType` (weigh-ins, naps, workouts); only "workout" is a Coach /
+        adaptive-plan session or self-scheduled workout. Past items and
+        other item types must not leak through.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        today = date.today()
+        yesterday = (today - timedelta(days=1)).isoformat()
+        today_str = today.isoformat()
+        next_month = today.month + 1 if today.month < 12 else 1
+        next_month_year = today.year if today.month < 12 else today.year + 1
+        next_month_date = date(next_month_year, next_month, 1).isoformat()
+
+        this_month_payload = {
+            "calendarItems": [
+                {"itemType": "workout", "date": yesterday, "title": "Old Run"},
+                {"itemType": "weight", "date": today_str, "weight": 80000.0},
+                {
+                    "itemType": "workout",
+                    "date": today_str,
+                    "title": "Benchmark Run",
+                    "sportTypeKey": "running",
+                    "workoutId": 111,
+                    "atpPlanId": 222,
+                    "protectedWorkoutSchedule": True,
+                },
+            ]
+        }
+        next_month_payload = {
+            "calendarItems": [
+                {"itemType": "workout", "date": next_month_date, "title": "Long Run"},
+            ]
+        }
+
+        async def fake_get_scheduled_workouts(year, month):
+            if (year, month) == (today.year, today.month):
+                return this_month_payload
+            if (year, month) == (next_month_year, next_month):
+                return next_month_payload
+            raise AssertionError(f"unexpected month requested: {year}-{month}")
+
+        goal_event_payload = [
+            {
+                "eventName": "5K Plan",
+                "date": "2026-11-21",
+                "eventType": "running",
+                "completionTarget": {"value": 5.0, "unit": "kilometer"},
+                "eventCustomization": {
+                    "trainingPlanType": "COACH_ATP",
+                    "projectedRaceTimeDurationSeconds": 1829,
+                    "predictedRaceTimeDurationSeconds": 2101,
+                    "enrollmentTime": "2026-09-11T12:39:16.350",
+                },
+            }
+        ]
+
+        with (
+            patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
+            patch.object(
+                client, "get_workouts", new_callable=AsyncMock
+            ) as mock_workouts,
+            patch.object(
+                client, "get_activity_hr_in_timezones", new_callable=AsyncMock
+            ) as mock_hr,
+            patch.object(
+                client,
+                "get_scheduled_workouts",
+                side_effect=fake_get_scheduled_workouts,
+            ) as mock_calendar,
+            patch.object(
+                client, "get_calendar_events_for_plan", new_callable=AsyncMock
+            ) as mock_goal,
+        ):
+            mock_acts.return_value = []
+            mock_workouts.return_value = []
+            mock_hr.return_value = []
+            mock_goal.return_value = goal_event_payload
+            data = await client.fetch_activity_data()
+
+        assert mock_calendar.await_count == 2
+        dates = [w["date"] for w in data["scheduledWorkouts"]]
+        assert dates == [today_str, next_month_date]
+        assert data["todayScheduledWorkout"]["title"] == "Benchmark Run"
+        assert data["nextScheduledWorkout"]["title"] == "Benchmark Run"
+        assert data["nextScheduledWorkout"]["atpPlanId"] == 222
+
+        mock_goal.assert_awaited_once_with(222)
+        assert data["trainingPlanGoalEvent"]["eventName"] == "5K Plan"
+        assert data["trainingPlanGoalEvent"]["targetDistance"] == 5.0
+        assert data["trainingPlanGoalEvent"]["targetDistanceUnit"] == "kilometer"
+        assert data["trainingPlanGoalEvent"]["trainingPlanType"] == "COACH_ATP"
+        assert data["trainingPlanGoalEvent"]["projectedRaceTimeDurationSeconds"] == 1829
+
     async def test_fetch_activity_data_uses_recency_not_window(self):
         """Test fetch_activity_data returns lastActivity even for old activities (#519)."""
         auth = _make_auth()
@@ -94,10 +269,14 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = [old_activity]
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
             data = await client.fetch_activity_data()
 
         mock_acts.assert_awaited_once_with(0, GarminClient._RECENT_ACTIVITIES_LIMIT)
@@ -134,10 +313,14 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = activities
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
             data = await client.fetch_activity_data()
 
         assert len(data["lastActivities"]) == 15
@@ -172,11 +355,15 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = [ride]
             mock_summary.return_value = summary
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
             data = await client.fetch_activity_data()
 
         mock_summary.assert_awaited_once_with(7)
@@ -222,10 +409,14 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = [ride]
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
 
             mock_summary.return_value = empty_summary
             first_poll = await client.fetch_activity_data()
@@ -268,11 +459,15 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = [ride]
             mock_summary.return_value = {"activityId": 10}
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
 
             retry_limit = client._EBIKE_FIELDS_EMPTY_RETRY_LIMIT
             for _ in range(retry_limit + 3):
@@ -347,10 +542,14 @@ class TestGarminClient:
             patch.object(
                 client, "get_activity_hr_in_timezones", new_callable=AsyncMock
             ) as mock_hr,
+            patch.object(
+                client, "get_scheduled_workouts", new_callable=AsyncMock
+            ) as mock_calendar,
         ):
             mock_acts.return_value = [run]
             mock_workouts.return_value = []
             mock_hr.return_value = []
+            mock_calendar.return_value = {}
             data = await client.fetch_activity_data()
 
         mock_summary.assert_not_awaited()
@@ -660,7 +859,7 @@ class TestGarminClient:
                     "optimalSleepWindowEndMins": 20,
                 },
                 "sleepScores": {"overall": {"value": 85}},
-                "avgRespirationValue": 14.2,
+                "averageRespirationValue": 14.2,
             }
         }
 
@@ -1173,6 +1372,46 @@ class TestGarminClient:
             await client.set_hydration(10001)
 
         client._put_request.assert_not_called()
+
+    async def test_set_blood_pressure_includes_pulse_when_given(self):
+        """set_blood_pressure includes pulse in the payload when provided."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        post_payloads = []
+
+        async def fake_post(url, payload):
+            post_payloads.append((url, payload))
+            return {"success": True}
+
+        client._post_request = fake_post
+
+        await client.set_blood_pressure(120, 80, pulse=65)
+
+        assert len(post_payloads) == 1
+        _, payload = post_payloads[0]
+        assert payload["systolic"] == 120
+        assert payload["diastolic"] == 80
+        assert payload["pulse"] == 65
+
+    async def test_set_blood_pressure_omits_pulse_when_not_given(self):
+        """set_blood_pressure works without a pulse, matching Garmin Connect's own UI."""
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        post_payloads = []
+
+        async def fake_post(url, payload):
+            post_payloads.append((url, payload))
+            return {"success": True}
+
+        client._post_request = fake_post
+
+        result = await client.set_blood_pressure(120, 80)
+
+        assert result == {"success": True}
+        _, payload = post_payloads[0]
+        assert "pulse" not in payload
 
     async def test_get_nutrition_log_returns_dict(self):
         """Test get_nutrition_log returns dict from API response."""

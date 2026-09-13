@@ -22,7 +22,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from typing_extensions import Self
 
 from .const import ODF_PROPERTIES
 from .datatype import Boolean
@@ -34,7 +36,6 @@ from .element import (
     register_element_class_list,
 )
 from .image import DrawImage
-from .style_base import StyleBase
 from .style_defaults import (
     default_boolean_style,
     default_currency_style,
@@ -57,6 +58,9 @@ from .utils import (
     to_str,
 )
 from .utils.css3_colormap import CSS3_COLORMAP
+
+if TYPE_CHECKING:
+    from .style_base import StyleBase
 
 __all__ = [  # noqa: RUF022
     "BackgroundImage",
@@ -322,7 +326,7 @@ class Style(StyleProps):
         PropDef("style_num_format", "style:num-format"),
     )
 
-    def __new__(cls, *args: Any, **kwargs: Any) -> Style:
+    def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         """Create a new Style instance, delegating to specialized classes for
         'master-page' or 'page-layout' families.
 
@@ -338,10 +342,9 @@ class Style(StyleProps):
             family = args[0]
         if family == "master-page":
             return _new_master_page(*args, **kwargs)  # ty: ignore[invalid-return-type]
-        elif family == "page-layout":
+        if family == "page-layout":
             return _new_page_layout(*args, **kwargs)  # ty: ignore[invalid-return-type]
-        else:
-            return super().__new__(cls)
+        return super().__new__(cls)
 
     def __init__(
         self,

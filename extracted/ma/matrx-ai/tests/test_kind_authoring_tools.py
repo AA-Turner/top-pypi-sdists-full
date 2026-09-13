@@ -33,6 +33,12 @@ def make_ctx() -> ToolContext:
     return ToolContext(call_id=str(uuid4()), tool_name="test")
 
 
+async def _staff(_ctx):
+    """The B-23 platform-staff door, answered YES. Never a silent bypass: a
+    test that wants the door itself asserts on the real helper instead."""
+    return None
+
+
 @pytest.mark.asyncio
 async def test_content_block_category_uses_manifest_model_key(monkeypatch) -> None:
     """The host injects platform.categories as ``SklCategories``.
@@ -307,6 +313,11 @@ async def test_kindcomp_create_component_replaces_existing_default(monkeypatch) 
 
     monkeypatch.setattr(kind_component, "resolve_kind", fake_resolve)
     monkeypatch.setattr(kind_component, "ensure_can_edit_kind", fake_allow)
+    # B-23: authoring a component body is platform-staff-only. These tests
+    # exercise the mechanics AFTER that door; the door itself is proved
+    # (refused / admitted, real identities, live DB) by
+    # tests/test_shape_authoring_platform_only_live.py.
+    monkeypatch.setattr(kind_component, "ensure_platform_shape_author", _staff)
     monkeypatch.setattr(kind_component, "_refuse_broken_source", fake_source)
     monkeypatch.setattr(kind_component, "get_db_model", lambda _name: FakeKindComponent)
     monkeypatch.setattr(kind_component, "ctx_user_id", lambda _ctx: "user-1")
@@ -365,6 +376,11 @@ async def test_kindcomp_create_component_captures_unexpected_failure(monkeypatch
     monkeypatch.setattr(error_capture, "_allow_in_tests", True)
     monkeypatch.setattr(kind_component, "resolve_kind", fake_resolve)
     monkeypatch.setattr(kind_component, "ensure_can_edit_kind", fake_allow)
+    # B-23: authoring a component body is platform-staff-only. These tests
+    # exercise the mechanics AFTER that door; the door itself is proved
+    # (refused / admitted, real identities, live DB) by
+    # tests/test_shape_authoring_platform_only_live.py.
+    monkeypatch.setattr(kind_component, "ensure_platform_shape_author", _staff)
     monkeypatch.setattr(kind_component, "_refuse_broken_source", fake_source)
     monkeypatch.setattr(kind_component, "get_db_model", lambda _name: FakeKindComponent)
     monkeypatch.setattr(kind_component, "ctx_user_id", lambda _ctx: "user-1")
@@ -835,6 +851,7 @@ async def test_kindcomp_patch_code_accepts_find_replace_aliases(monkeypatch) -> 
             return SimpleNamespace(semver="1.0.0", version=2)
 
     monkeypatch.setattr(kind_component, "_load_editable_component", fake_load)
+    monkeypatch.setattr(kind_component, "ensure_platform_shape_author", _staff)
     monkeypatch.setattr(kind_component, "_apply_patch", fake_apply)
     monkeypatch.setattr(kind_component, "_refuse_broken_source", fake_refuse)
     monkeypatch.setattr(kind_component, "get_db_model", lambda name: FakeKindComponent)
@@ -1334,3 +1351,67 @@ async def test_content_block_visibility_defaults_internal_when_unset(
     assert result.success, result.error and result.error.message
     [row] = created["render_definition"]
     assert row["visibility"] == "internal"
+
+
+# --------------------------------------------------------------------------- #
+# B-23 / DD-123 — every code-writing kindcomp_* tool asks the platform-staff
+# door. The door's own verdict is proved against the live database in
+# aidream/tests/test_shape_authoring_platform_only_live.py; what THIS proves is
+# the wiring — that removing the call from any of the three tools fails a test
+# rather than silently reopening the authoring path for every organization.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_every_code_writing_component_tool_asks_the_platform_staff_door(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from matrx_ai.tools.implementations import kind_component
+
+    asked: list[str] = []
+
+    async def refuse(_ctx):
+        asked.append("asked")
+        return kind_component.err("forbidden", "no")
+
+    async def fake_allow(*_a, **_k):
+        return None
+
+    async def fake_resolve(_ref, _ctx):
+        return SimpleNamespace(id=uuid4(), kind="k", organization_id=uuid4()), None
+
+    async def fake_source(_src):
+        return None, True
+
+    async def fake_load(_cid, _ctx):
+        return SimpleNamespace(semver="1.0.0", component_source="x", source="db"), None, None
+
+    monkeypatch.setattr(kind_component, "ensure_platform_shape_author", refuse)
+    monkeypatch.setattr(kind_component, "ensure_can_edit_kind", fake_allow)
+    monkeypatch.setattr(kind_component, "resolve_kind", fake_resolve)
+    monkeypatch.setattr(kind_component, "_refuse_broken_source", fake_source)
+    monkeypatch.setattr(kind_component, "_load_editable_component", fake_load)
+
+    cid = str(uuid4())
+    calls = (
+        (
+            kind_component.kindcomp_create_component,
+            {"kind": "k", "component_key": "c", "component_source": "export default function C({data}){return null}"},
+        ),
+        (
+            kind_component.kindcomp_update_code,
+            {"component_id": cid, "updates": {"props_transform": "(d)=>d"}},
+        ),
+        (
+            kind_component.kindcomp_patch_code,
+            {
+                "component_id": cid,
+                "patches": [{"old_string": "x", "new_string": "y"}],
+            },
+        ),
+    )
+    for fn, args in calls:
+        result = await fn(args, make_ctx())
+        assert result.success is False, f"{fn.__name__} wrote without asking the door"
+        assert result.error.error_type == "forbidden", fn.__name__
+    assert len(asked) == 3, f"only {len(asked)} of 3 tools asked the door"

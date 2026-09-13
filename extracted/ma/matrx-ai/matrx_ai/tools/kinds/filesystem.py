@@ -23,6 +23,8 @@ later than a second slug is to justify now.
 
 from __future__ import annotations
 
+from typing import Any
+
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
 
@@ -137,6 +139,16 @@ class FileSearchMatch(KindModel):
     size: int | None = None
     #: Content-search only — the matching snippets.
     matches: list[str] = []
+    #: Content-search (sandbox/ripgrep branch only) — the 1-based line number
+    #: of the match. Absent on the local branch and on name searches.
+    line_number: int | None = None
+    #: Content-search (sandbox/ripgrep branch only) — the raw matching line
+    #: text as returned by ripgrep. May be a string or ripgrep's ``{"text": ...}``
+    #: shape depending on the proxy; declared permissively so neither crashes.
+    lines: Any = None
+    #: Content-search (sandbox/ripgrep branch only) — ripgrep submatch spans,
+    #: each like ``{"match": {"text": ...}, "start": int, "end": int}``.
+    submatches: list[Any] = []
 
 
 @kind(

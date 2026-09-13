@@ -37,9 +37,12 @@ file behind the caller's back is a surprise, not a feature. What was left unread
 (`unread`, the `note()` line, the "runs no xbsl command" refusal), so a job that stays
 invisible has a reason next to it instead of being a mystery.
 
-Local includes are resolved against the ROOT of the checkout - the directory of the pipeline
-file the run started from - as GitLab resolves them, and a nested include repeats that rather
-than resolving against the file that writes it.
+Local includes are resolved against the ROOT of the checkout, as GitLab resolves them, and a
+nested include repeats that rather than resolving against the file that writes it. The root is
+the folder above the pipeline file that carries `.git` - a folder in an ordinary clone, a file
+in a linked worktree. Taking the folder of the named file instead was wrong for every pipeline
+kept outside the top of the repository: `--as-ci ci/sub/lint.yml` looked for `include: /ci/base.yml`
+in `ci/sub/ci/` and reported a pipeline that runs no xbsl command.
 """
 
 from __future__ import annotations
@@ -62,8 +65,8 @@ MESSAGES = {
         "en": "Cannot read {path}: {error}",
     },
     "ci.named-directory": {
-        "ru": "--as-ci берёт ФАЙЛ пайплайна, а {path} – каталог. Проверить его набором из CI:"
-              " xbsl {path} --as-ci (ключ пишется ПОСЛЕ путей); файл пайплайна внутри каталога"
+        "ru": "--as-ci берёт файл конвейера, а {path} – каталог. Проверить его набором из CI:"
+              " xbsl {path} --as-ci (ключ пишется после путей); файл конвейера внутри каталога"
               " называют полным именем",
         "en": "--as-ci takes the pipeline FILE, and {path} is a directory. To check it with"
               " the CI rule set: xbsl {path} --as-ci (the flag goes AFTER the paths); a"
@@ -82,23 +85,23 @@ MESSAGES = {
         "en": "{path} (include {source})",
     },
     "ci.adopted": {
-        "ru": "Набор правил как в CI: {path}, джоба {job} – {flags}",
+        "ru": "Набор правил как в CI: {path}, задача {job} – {flags}",
         "en": "Rule set as in CI: {path}, job {job} - {flags}",
     },
     "ci.adopted-nothing": {
-        "ru": "Набор правил как в CI: {path}, джоба {job} – своих ключей у команды нет",
+        "ru": "Набор правил как в CI: {path}, задача {job} – своих ключей у команды нет",
         "en": "Rule set as in CI: {path}, job {job} - the command carries no flags of its own",
     },
     "ci.other-jobs": {
-        "ru": "Линтер в этом файле гоняет ещё: {jobs} – выбрать: --as-ci-job <имя>",
+        "ru": "Линтер в этом файле запускают ещё задачи: {jobs} – выбрать: --as-ci-job <имя>",
         "en": "The linter also runs in: {jobs} - choose one with --as-ci-job <name>",
     },
     "ci.no-job": {
-        "ru": "В {path} нет джобы {job} с командой xbsl; есть: {jobs}",
+        "ru": "В {path} нет задачи {job} с командой xbsl; есть: {jobs}",
         "en": "{path} has no job {job} running xbsl; it has: {jobs}",
     },
     "ci.ambiguous-job": {
-        "ru": "В {path} под '{job}' подходит несколько джоб: {jobs} – назовите одну целиком",
+        "ru": "В {path} под '{job}' подходит несколько задач: {jobs} – назовите одну целиком",
         "en": "In {path} '{job}' fits several jobs: {jobs} - name one in full",
     },
 }
@@ -125,6 +128,8 @@ class CiLint:
     path: Path
     job: str
     argv: tuple[str, ...]
+    #: The checkout the job runs in: where its `include:` paths and its baseline start.
+    root: Path
     select: tuple[str, ...] = ()
     ignore: tuple[str, ...] = ()
     enable: tuple[str, ...] = ()
@@ -150,17 +155,16 @@ class CiLint:
     def baseline_file(self) -> str | None:
         """The job's baseline as a path a local run can open.
 
-        The job says `--baseline .xbsllint-baseline` relative to the checkout root, which is
-        where the pipeline file lies - so a run started from a subdirectory (or from another
-        drive) resolves it against that file, not against its own working directory. An
-        included file does not move that origin: the job runs in the checkout of the ROOT
-        file, and its baseline is relative to that checkout however deep the `include:` chain
-        went.
+        The job says `--baseline .xbsllint-baseline` relative to the root of the checkout - so
+        a run started from a subdirectory (or from another drive) resolves it against that
+        root, not against its own working directory. Neither an include nor a pipeline file
+        kept in a subfolder moves that origin: the job runs from the top of the repository
+        however deep the `include:` chain went and wherever the file itself lies.
         """
         if not self.baseline:
             return None
         named = Path(self.baseline)
-        return str(named if named.is_absolute() else self.path.parent / named)
+        return str(named if named.is_absolute() else self.root / named)
 
     def describe(self) -> str:
         """The line a run prints about itself: what was adopted and where from."""
@@ -197,6 +201,43 @@ class CiLint:
         if not self.unread:
             return ""
         return i18n.t("ci.unread-includes", items=_listed(self.unread))
+
+    def as_dict(self, hint: bool = True) -> dict:
+        """The adoption as one record: what was taken, from where, and by which rules.
+
+        Every surface answers with THIS, so a report, an agent and a status bar cannot start
+        describing one adoption differently. The rule set travels as data (`select`, `ignore`,
+        `enable`) and as the sentence a terminal prints (`flags`), because a report is read by
+        both. `hint` is False once the caller named the job: there is nothing left to choose.
+        """
+        return {
+            "enabled": True,
+            "adopted": True,
+            "file": str(self.path),
+            "source": str(self.source) if self.source else None,
+            "root": str(self.root),
+            "job": self.job,
+            "select": list(self.select),
+            "ignore": list(self.ignore),
+            "enable": list(self.enable),
+            "baseline": self.baseline_file(),
+            "no_baseline": self.no_baseline,
+            "flags": self.describe(),
+            "jobs": list(self.alternatives),
+            "hint": self.hint() if hint else "",
+            "note": self.note(),
+            "unread_includes": list(self.unread),
+        }
+
+
+def refused(error: str) -> dict:
+    """The same record when the job's set could NOT be taken, with the reason in it.
+
+    A reader of a machine report has to tell "judged as the job does" from "judged by the
+    defaults", and the second one is the dangerous half: the verdict looks like an answer
+    about the pipeline while it is an answer about something else.
+    """
+    return {"enabled": True, "adopted": False, "error": error}
 
 
 def discover(start: Path | str) -> Path | None:
@@ -238,7 +279,8 @@ def read(path: Path | str, job: str | None = None) -> CiLint:
     path = Path(path)
     if path.is_dir():
         raise CiLintError(i18n.t("ci.named-directory", path=path))
-    documents, unread = _documents(path)
+    root = _checkout_root(path)
+    documents, unread = _documents(path, root)
     found: list[tuple[str, list[str], Path]] = [
         (name, argv, where)
         for where, document in documents
@@ -258,7 +300,7 @@ def read(path: Path | str, job: str | None = None) -> CiLint:
             names.append(entry[0])
     chosen = _pick(path, found, names, job)
     name, argv, where = found[chosen]
-    return _flags(path, name, argv,
+    return _flags(path, name, argv, root,
                   alternatives=tuple(n for n in names if n != name),
                   source=None if where == path else where,
                   unread=tuple(unread))
@@ -331,7 +373,28 @@ _INCLUDE_DEPTH = 10
 _UNREAD_SHOWN = 3
 
 
-def _documents(path: Path) -> tuple[list[tuple[Path, object]], list[str]]:
+def _checkout_root(path: Path) -> Path:
+    """The root of the checkout the pipeline file belongs to - where its include paths start.
+
+    GitLab reads `/ci/base.yml` from the top of the repository, not from the folder of the file
+    that writes it. The folder of the named file stood for that root, which holds for a
+    `.gitlab-ci.yml` lying at the top and for nothing else: a pipeline kept in `ci/sub/` looked
+    for its includes one level too deep and found none of them.
+
+    The root is the nearest folder above the file carrying `.git`. Its KIND is not checked on
+    purpose: an ordinary clone keeps a folder there, and `git worktree add` writes a file with
+    the path of the real one. Nothing above the file means no checkout around it - a pipeline
+    copied into a temporary folder - and the folder of the file stands as before.
+    """
+    here = Path(path).resolve()
+    directory = here if here.is_dir() else here.parent
+    for candidate in (directory, *directory.parents):
+        if (candidate / ".git").exists():
+            return candidate
+    return directory
+
+
+def _documents(path: Path, root: Path) -> tuple[list[tuple[Path, object]], list[str]]:
     """The pipeline file with every LOCAL file its `include:` pulls in, and what stayed unread.
 
     The root file comes first, and that is GitLab's own precedence: a job defined both in the
@@ -341,7 +404,7 @@ def _documents(path: Path) -> tuple[list[tuple[Path, object]], list[str]]:
     document = _load(path)
     documents: list[tuple[Path, object]] = [(path, document)]
     unread: list[str] = []
-    _follow(document, path.parent, {path.resolve()}, documents, unread, 0)
+    _follow(document, root, {path.resolve()}, documents, unread, 0)
     return documents, unread
 
 
@@ -496,7 +559,7 @@ def _is_check(argv: list[str]) -> bool:
     return first not in {command.name for command in COMMANDS}
 
 
-def _flags(path: Path, job: str, argv: list[str],
+def _flags(path: Path, job: str, argv: list[str], root: Path,
            alternatives: tuple[str, ...] = (),
            source: Path | None = None,
            unread: tuple[str, ...] = ()) -> CiLint:
@@ -525,7 +588,7 @@ def _flags(path: Path, job: str, argv: list[str],
         else:
             paths.append(token)
     return CiLint(
-        path=path, job=job, argv=tuple(argv),
+        path=path, job=job, argv=tuple(argv), root=root,
         select=tuple(lists["--select"]), ignore=tuple(lists["--ignore"]),
         enable=tuple(lists["--enable"]), baseline=baseline or None,
         no_baseline=no_baseline, paths=tuple(paths), alternatives=alternatives,

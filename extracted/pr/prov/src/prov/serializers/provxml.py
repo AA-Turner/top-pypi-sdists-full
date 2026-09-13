@@ -11,13 +11,16 @@ from lxml import etree
 
 import prov.identifier
 import prov.model
+from prov._warnings import external_stacklevel
 from prov.constants import *
+from prov.identifier import _NCNAME_CHARS, _NCNAME_START_CHARS
 from prov.model import (
     DEFAULT_NAMESPACES,
     NameValuePair,
     canonical_xsd_datatype,
     sorted_attributes,
 )
+from prov.model.records import _xsd_datetime_text
 from prov.serializers import Serializer, _is_text_stream
 
 __author__ = "Lion Krischer"
@@ -51,8 +54,7 @@ XML_XSD_URI = "http://www.w3.org/2001/XMLSchema"
 # a safe lxml release, any other library sharing the process can repoint the
 # *global* default parser via `etree.set_default_parser(...)`, which is what
 # a bare `etree.parse(...)` call (no `parser=`) silently inherits; and prov
-# is consumed by other applications (e.g. ProvStore) that may load such
-# libraries. Passing this parser explicitly at both parse sites closes all
+# is embedded in other applications that may load such libraries. Passing this parser explicitly at both parse sites closes all
 # three regardless of the installed lxml version or what else is loaded in
 # the process. `huge_tree` is left at its lxml default of `False`: raising it
 # disables libxml2's own hard limits on tree depth/text length/entity
@@ -63,8 +65,8 @@ XML_XSD_URI = "http://www.w3.org/2001/XMLSchema"
 # "is not harmful", only less efficient than per-thread instances under
 # heavy concurrent load (access is internally serialized). PROV-XML
 # deserialization is not expected to be a high-frequency, highly concurrent
-# hot path even in a web service such as ProvStore, so the simplicity of a
-# single shared parser wins over per-parse allocation; if profiling ever
+# hot path even in a web service, so the simplicity of a single shared
+# parser wins over per-parse allocation; if profiling ever
 # shows lock contention here, switch to constructing a parser per call.
 _XML_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
@@ -300,7 +302,7 @@ class ProvXMLSerializer(Serializer):
                     "Document contains non-PROV information in "
                     "<prov:other>. It will be ignored in this package.",
                     UserWarning,
-                    stacklevel=2,
+                    stacklevel=external_stacklevel(),
                 )
                 continue
 
@@ -455,7 +457,7 @@ def _encode_attribute_value(
             subelem.attrib[_ns_xsi("type")] = "xsd:QName"
         return str(value)
     elif isinstance(value, datetime.datetime):
-        return value.isoformat()
+        return _xsd_datetime_text(value)
     else:
         return str(value)
 
@@ -583,11 +585,14 @@ def _extract_attributes(
     Warns:
         UserWarning: For any child attribute that is none of ``prov:ref``,
             ``xsi:type``, or ``xml:lang``; such attributes are ignored.
+        ProvWarning: When a reference-valued attribute's prov:ref sits on a
+            nested child element (see ``_nested_reference``).
 
     Raises:
         ProvXMLException: If a child element carries XML attributes but
             none of them is ``prov:ref``, ``xsi:type``, or ``xml:lang``, so
-            no attribute value can be determined.
+            no attribute value can be determined, or if a reference-valued
+            attribute element carries neither a prov:ref nor text.
     """
     attributes: list[NameValuePair] = []
     _unassigned = object()
@@ -625,18 +630,21 @@ def _extract_attributes(
                     "which is not representable in the prov module's "
                     "internal data model and will thus be ignored.",
                     UserWarning,
-                    stacklevel=2,
+                    stacklevel=external_stacklevel(),
                 )
 
         if not subel.attrib:
-            # A plain-text attribute value (no xsi:type/xml:lang/prov:ref):
-            # lxml reports an empty element's .text as None rather than ""
-            # (e.g. <ex:k0></ex:k0>), which would otherwise make the
-            # attribute vanish entirely once None reaches record
-            # construction. Coalesce back to the empty string (#224). This
-            # does not affect optional formal attributes that are absent
-            # from the XML altogether: those never enter this loop.
-            _v = subel.text if subel.text is not None else ""
+            if _t in PROV_ATTRIBUTE_QNAMES:
+                _v = _nested_reference(subel, _t)
+            else:
+                # A plain-text attribute value (no xsi:type/xml:lang/prov:ref):
+                # lxml reports an empty element's .text as None rather than ""
+                # (e.g. <ex:k0></ex:k0>), which would otherwise make the
+                # attribute vanish entirely once None reaches record
+                # construction. Coalesce back to the empty string (#224). This
+                # does not affect optional formal attributes that are absent
+                # from the XML altogether: those never enter this loop.
+                _v = subel.text if subel.text is not None else ""
 
         if _v is _unassigned:
             raise ProvXMLException(
@@ -647,6 +655,48 @@ def _extract_attributes(
         attributes.append((_t, _v))
 
     return attributes
+
+
+def _nested_reference(
+    subel: etree._Element, attr: prov.identifier.QualifiedName
+) -> prov.identifier.QualifiedName | str:
+    """Value of a reference-valued formal attribute element with no ``prov:ref``.
+
+    PROV-XML puts the reference on the element itself
+    (``<prov:entity prov:ref="ex:e1"/>``). ProvToolbox 2.0.4 writes a
+    ``hadMember`` member inside a wrapper,
+    ``<entity><entity prov:ref="ex:e1"/></entity>``; the single child's
+    reference is taken, with a warning. Non-blank text is returned as the
+    reference. A blank element with no reference anywhere has no value.
+
+    Returns:
+        The referenced qualified name, or the element's non-blank text.
+
+    Raises:
+        ProvXMLException: If ``subel`` has neither a ``prov:ref`` child nor
+            text.
+
+    Warns:
+        ProvWarning: When the reference is taken from a nested child.
+    """
+    ref = _ns_prov("ref")
+    children = list(subel)
+    if len(children) == 1 and ref in children[0].attrib:
+        warnings.warn(
+            f"The element '{attr}' carries its prov:ref on a nested "
+            f"<{etree.QName(children[0]).localname}> child rather than on "
+            "itself; the nested reference is used. The shape is not "
+            "PROV-XML schema-valid (ProvToolbox writes it for hadMember).",
+            prov.model.ProvWarning,
+            stacklevel=external_stacklevel(),
+        )
+        return xml_qname_to_QualifiedName(children[0], str(children[0].attrib[ref]))
+    if subel.text is not None and subel.text.strip():
+        return subel.text
+    raise ProvXMLException(
+        f"The reference element '{attr}' has no prov:ref attribute and no "
+        "reference text."
+    )
 
 
 def xml_qname_to_QualifiedName(
@@ -719,40 +769,10 @@ def _ns_xml(tag: str) -> str:
     return _ns(NS_XML, tag)
 
 
-# Character classes for the XML 1.0 5th-edition Name productions, minus ':'
-# (NCName), used to detect/escape attribute-name local parts that are not
-# legal NCNames when used as PROV-XML element tags (#289).
-#
-# Every range boundary is spelled as a \xHH/\uHHHH/\UHHHHHHHH escape (never
-# a literal glyph) and annotated with the spec clause it implements, so a
-# mangled/look-alike codepoint (as happened once with the CJK-compatibility
-# range below, which briefly read U+8C48 instead of U+F900) is visible on
-# inspection rather than hiding in the source as an indistinguishable glyph.
-_NCNAME_START_CHARS = (
-    "\x41-\x5a"  # NameStartChar: [A-Z]
-    "\x5f"  # NameStartChar: "_"
-    "\x61-\x7a"  # NameStartChar: [a-z]
-    "\xc0-\xd6"  # NameStartChar: [#xC0-#xD6]
-    "\xd8-\xf6"  # NameStartChar: [#xD8-#xF6]
-    "\xf8-\u02ff"  # NameStartChar: [#xF8-#x2FF]
-    "\u0370-\u037d"  # NameStartChar: [#x370-#x37D]
-    "\u037f-\u1fff"  # NameStartChar: [#x37F-#x1FFF]
-    "\u200c-\u200d"  # NameStartChar: [#x200C-#x200D]
-    "\u2070-\u218f"  # NameStartChar: [#x2070-#x218F]
-    "\u2c00-\u2fef"  # NameStartChar: [#x2C00-#x2FEF]
-    "\u3001-\ud7ff"  # NameStartChar: [#x3001-#xD7FF]
-    "\uf900-\ufdcf"  # NameStartChar: [#xF900-#xFDCF]
-    "\ufdf0-\ufffd"  # NameStartChar: [#xFDF0-#xFFFD]
-    "\U00010000-\U000effff"  # NameStartChar: [#x10000-#xEFFFF]
-)
-_NCNAME_CHARS = _NCNAME_START_CHARS + (
-    "\\-"  # NameChar: "-" (escaped: literal, not a range operator)
-    "\x2e"  # NameChar: "."
-    "\x30-\x39"  # NameChar: [0-9]
-    "\xb7"  # NameChar: #xB7
-    "\u0300-\u036f"  # NameChar: [#x0300-#x036F]
-    "\u203f-\u2040"  # NameChar: [#x203F-#x2040]
-)
+# NCName character classes (XML 1.0 5th-edition Name productions, minus ':')
+# live in prov.identifier, shared with the PROV-N lexer's PN_CHARS classes.
+# Used here to detect/escape attribute-name local parts that are not legal
+# NCNames when used as PROV-XML element tags (#289).
 _NCNAME_START_RE = re.compile(f"[{_NCNAME_START_CHARS}]")
 _NCNAME_CHAR_RE = re.compile(f"[{_NCNAME_CHARS}]")
 _NCNAME_RE = re.compile(f"[{_NCNAME_START_CHARS}][{_NCNAME_CHARS}]*")

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
@@ -172,6 +173,20 @@ class FinishReason(StrEnum):
 #: int | None, "interrupted_tool_calls": list[str]}.
 TRUNCATION_METADATA_KEY = "truncation"
 
+#: Request-metadata key a caller sets to ``False`` when there is NOWHERE to
+#: continue — a workflow step, a batch job, any call with no conversation a
+#: person can prompt again. Absent means ``True`` (a conversation), which is
+#: every historical caller, so the default behaviour is unchanged.
+#:
+#: THE DEFECT THIS CLOSES (live 2026-09-12, workflow run
+#: 2cf711eb-1a15-49ed-baf7-ddb166dba129, step "Montessori asks"): a prose step
+#: was cut at 1,200 tokens and the platform honestly said so — then offered
+#: *"Ask me to continue and I'll pick up where it cut off"* to a parent sitting
+#: inside a workflow run, where there is no me to ask and no way to ask it. A
+#: remedy nobody can perform is not honesty; it is a dead control wearing a
+#: helpful sentence (root CLAUDE.md: *a screen never lies*).
+CONTINUABLE_METADATA_KEY = "continuable"
+
 
 def interrupted_tool_names(raw_response: Any = None, messages: Any = None) -> list[str]:
     """Names of tool calls that were in flight when the turn was cut off.
@@ -220,22 +235,41 @@ def truncation_notice(
     model: str | None = None,
     max_output_tokens: int | None = None,
     interrupted_tool_calls: list[str] | None = None,
+    continuable: bool = True,
 ) -> str:
     """The honest sentence a person reads when a turn ran out of room.
 
     Plain language, no codes, no paths — it is addressed to the person in the
     conversation, and it always says what happened to the work.
+
+    ``continuable`` is whether the reader can actually do the thing the remedy
+    names. In a conversation they can: "ask me to continue" is a real control.
+    In a workflow run there is no conversation and no next turn, so offering it
+    is a lie — the honest remedy there names the step's limit and who can raise
+    it. See ``CONTINUABLE_METADATA_KEY``.
     """
     tools = [t for t in (interrupted_tool_calls or []) if t]
     if tools:
         named = tools[0] if len(tools) == 1 else ", ".join(tools)
+        retry = (
+            "Nothing on your side is broken — I just need to do it in smaller pieces. "
+            "Let me try again with a smaller change."
+            if continuable
+            else "Nothing on your side is broken, and this step cannot retry itself — "
+            "whoever built this workflow needs to raise the step's output limit."
+        )
         return (
             f"My reply ran out of room before I finished calling `{named}`, so that "
-            "call never went through and nothing was saved. Nothing on your side is "
-            "broken — I just need to do it in smaller pieces. Let me try again with "
-            "a smaller change."
+            f"call never went through and nothing was saved. {retry}"
         )
     limit = f" (the limit is {max_output_tokens:,} tokens)" if max_output_tokens else ""
+    if not continuable:
+        return (
+            f"This step's reply was cut off at its output limit{limit} and stopped "
+            "part-way, so what you see above is incomplete. There is no way to ask it "
+            "to continue from inside a workflow run — whoever built this workflow "
+            "needs to raise this step's output limit."
+        )
     return (
         f"My reply ran out of room{limit} and stopped part-way, so what you see above "
         "is incomplete. Ask me to continue and I'll pick up where it cut off."
@@ -256,3 +290,187 @@ def truncation_marker(
         "max_output_tokens": max_output_tokens,
         "interrupted_tool_calls": [t for t in (interrupted_tool_calls or []) if t],
     }
+
+
+# ---------------------------------------------------------------------------
+# THE OUTPUT-CEILING CLASSIFIER — one place that answers "was this cut off?"
+#
+# THE DEFECT THIS CLOSES (live, 2026-09-12, workflow run
+# 23e72bf5-8b41-496e-a475-428f880d219f, step "The evidence ledger"): a saved
+# agent with a declared structured output hit exactly 32,000 output tokens
+# (claude-sonnet-5, finish_reason=max_tokens). The JSON was therefore
+# incomplete, and the workflow node reported
+# ``structured_output_invalid: "AI completed, but its declared structured
+# output could not be parsed and validated."`` — a sentence that names the
+# wrong cause and offers no remedy. Same masking class as night-1 walls W9
+# ("the model returned no output text") and W17 (a provider parameter
+# rejection reported as "no output"): the node had the truth in hand and
+# reported something else.
+#
+# So: every post-call parse/validate failure asks THIS first. If the
+# completion ran out of room, the failure is a truncation with the ceiling and
+# the token count in it; the parse-failure wording is kept for genuinely
+# malformed output.
+# ---------------------------------------------------------------------------
+
+#: Every spelling of "the model ran out of output room" across providers.
+TRUNCATION_FINISH_REASONS: frozenset[str] = frozenset(
+    {"max_tokens", "length", "max_completion_tokens", "model_max_tokens"}
+)
+
+
+@dataclass(frozen=True)
+class OutputCeiling:
+    """The facts about a reply cut short at its output limit."""
+
+    finish_reason: str
+    model: str | None = None
+    max_output_tokens: int | None = None
+    output_tokens: int | None = None
+    interrupted_tool_calls: tuple[str, ...] = ()
+
+    def as_details(self) -> dict[str, Any]:
+        """The structured half a node failure carries in ``details``."""
+        return {
+            "finish_reason": self.finish_reason,
+            "model": self.model or "",
+            "max_output_tokens": self.max_output_tokens,
+            "output_tokens": self.output_tokens,
+            "interrupted_tool_calls": list(self.interrupted_tool_calls),
+        }
+
+
+def _is_truncation_reason(value: Any) -> bool:
+    if value is None:
+        return False
+    text = str(value).strip().lower()
+    if not text:
+        return False
+    if "." in text:  # FinishReason.MAX_TOKENS / enum reprs
+        text = text.rsplit(".", 1)[-1]
+    return text in TRUNCATION_FINISH_REASONS
+
+
+def completion_truncation(source: Any) -> OutputCeiling | None:
+    """Was this completion cut off at the model's output ceiling?
+
+    Accepts anything that carries the facts — a ``CompletedRequest`` (the
+    orchestrator's own return), a normalized ``AiExecutionResult``, or a bare
+    response object — and reads them defensively, by attribute, in the same
+    spirit as ``graph_nodes.shared``: a classifier that raises while
+    describing a failure would be worse than the silence it replaces.
+
+    Returns ``None`` when the turn was NOT truncated (including when nothing
+    in the object says either way — absence of evidence is never a truncation
+    claim).
+    """
+    try:
+        meta = getattr(source, "metadata", None)
+        meta = dict(meta) if isinstance(meta, dict) else {}
+        marker = meta.get(TRUNCATION_METADATA_KEY)
+        marker = marker if isinstance(marker, dict) else {}
+
+        final_response = getattr(source, "final_response", None)
+        finish_candidates = [
+            getattr(source, "finish_reason", None),
+            getattr(final_response, "finish_reason", None) if final_response is not None else None,
+            meta.get("finish_reason"),
+            marker.get("reason"),
+        ]
+        finish = next((c for c in finish_candidates if _is_truncation_reason(c)), None)
+        status_says = str(meta.get("status") or "").lower() == "truncated"
+        type_says = str(meta.get("error_type") or "").lower() == "truncated_response"
+
+        # THE SECOND, INDEPENDENT LAYER (PRINCIPLES.md: a class is not dead
+        # until two layers each stop it alone). Every leg above believes the
+        # provider's own finish_reason. When NOTHING says either way — the
+        # provider was silent, or the reason was lost crossing a seam —
+        # ARITHMETIC still knows: a completion that produced exactly (or more
+        # than) the tokens it was permitted did not stop because it was
+        # finished. Live 2026-09-12, run 2cf711eb…, step `read_case`:
+        # output_tokens 2500, max_output_tokens 2500, reported to a parent as
+        # "its declared structured output could not be parsed" — the wrong
+        # cause, with no remedy in it.
+        #
+        # IT NEVER OVERRULES A PROVIDER THAT SPOKE. A model asked for 32,000
+        # tokens may legitimately finish on its own at exactly 32,000, and a
+        # declared `stop` / `end_turn` / `tool_calls` says so; calling that
+        # truncated would invent a failure, which is the mirror of the defect
+        # this closes. So the leg fires ONLY when no finish reason was declared
+        # at all.
+        declared_finish = next((c for c in finish_candidates if c not in (None, "")), None)
+        request = getattr(source, "request", None)
+        config = getattr(request, "config", None) if request is not None else None
+        permitted = marker.get("max_output_tokens")
+        if permitted is None:
+            permitted = getattr(config, "max_output_tokens", None)
+        produced = _output_tokens_of(source)
+        spent_it_all = (
+            declared_finish is None
+            and isinstance(permitted, int | float)
+            and isinstance(produced, int | float)
+            and permitted > 0
+            and produced >= permitted
+        )
+
+        if finish is None and not (status_says or type_says or marker or spent_it_all):
+            return None
+        finish_text = str(finish or marker.get("reason") or FinishReason.MAX_TOKENS)
+        if "." in finish_text:
+            finish_text = finish_text.rsplit(".", 1)[-1]
+
+        model = marker.get("model") or getattr(config, "model", None) or meta.get("model")
+        ceiling = permitted
+
+        tools = marker.get("interrupted_tool_calls")
+        tools = tuple(t for t in tools if isinstance(t, str) and t) if isinstance(tools, list) else ()
+
+        return OutputCeiling(
+            finish_reason=finish_text.lower(),
+            model=str(model) if model else None,
+            max_output_tokens=int(ceiling) if isinstance(ceiling, int | float) else None,
+            output_tokens=_output_tokens_of(source),
+            interrupted_tool_calls=tools,
+        )
+    except Exception:  # noqa: BLE001 — by contract: never fail the failure
+        return None
+
+
+def _output_tokens_of(source: Any) -> int | None:
+    """Billed output tokens, from either usage shape (aggregate or normalized)."""
+    for holder in (
+        getattr(source, "total_usage", None),
+        getattr(source, "usage", None),
+    ):
+        if holder is None:
+            continue
+        total = getattr(holder, "total", None)
+        for candidate in (total, holder):
+            value = getattr(candidate, "output_tokens", None) if candidate is not None else None
+            if isinstance(value, int | float) and value:
+                return int(value)
+        if isinstance(holder, dict) and isinstance(holder.get("output_tokens"), int | float):
+            return int(holder["output_tokens"])
+    return None
+
+
+def output_ceiling_message(ceiling: OutputCeiling, *, what: str = "the answer") -> str:
+    """The sentence a person reads, with the remedy in it.
+
+    Names the limit when we know it, the tokens actually produced when we
+    don't, and always says what to do next — this is the half the masked
+    parse-failure wording never had.
+    """
+    if ceiling.max_output_tokens:
+        limit = f" ({ceiling.max_output_tokens:,} tokens)"
+    elif ceiling.output_tokens:
+        limit = f" (it produced {ceiling.output_tokens:,} tokens)"
+    else:
+        limit = ""
+    tools = ", ".join(ceiling.interrupted_tool_calls)
+    dropped = f" The in-flight call to {tools} was dropped and never ran." if tools else ""
+    return (
+        f"The AI's reply was cut off at its output limit{limit} before it finished "
+        f"{what}.{dropped} Split the input into smaller pieces or raise the step's "
+        "output limit."
+    )

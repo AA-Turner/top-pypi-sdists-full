@@ -68,6 +68,25 @@ def test_lookup_missing_submodule(repo: Repository) -> None:
     assert repo.submodules.get('does-not-exist') is None
 
 
+def test_lookup_nested_repo_that_is_not_a_submodule(tmp_path: Path) -> None:
+    """A plain repository inside another is not a submodule.
+
+    libgit2 reports GIT_EEXISTS for this case rather than GIT_ENOTFOUND, which
+    reaches Python as AlreadyExistsError. get() and __contains__ must still
+    describe it as absent, per their documented contracts.
+    """
+    outer = pygit2.init_repository(tmp_path / 'outer')
+    pygit2.init_repository(tmp_path / 'outer' / 'nested')
+
+    assert outer.submodules.get('nested') is None
+    assert 'nested' not in outer.submodules
+
+    # __getitem__ keeps reporting the distinction, so callers that care can
+    # still tell "there is a repository there" from "there is nothing there".
+    with pytest.raises(pygit2.AlreadyExistsError):
+        outer.submodules['nested']
+
+
 def test_listall_submodules(repo: Repository) -> None:
     submodules = repo.listall_submodules()
     assert len(submodules) == 1

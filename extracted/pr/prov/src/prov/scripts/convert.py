@@ -1,34 +1,34 @@
 #!/usr/bin/env python
 """
-convert -- Convert PROV-JSON to RDF, PROV-N, PROV-XML, or graphical formats (SVG, PDF, PNG)
+convert -- Convert a PROV document between PROV-JSON, PROV-N, PROV-XML, PROV-O, PROV-JSONLD and graphical formats
 
 @author:     Trung Dong Huynh
 
-@copyright:  2025 Trung Dong Huynh
+@copyright:  2026 Trung Dong Huynh
 
 @license:    MIT License
 
 @contact:    trungdong@donggiang.com
-@deffield    updated: 2025-06-07
+@deffield    updated: 2026-09-12
 """
 
-import io
 import logging
 import os
 import sys
 import traceback
-from argparse import ArgumentParser, FileType, RawDescriptionHelpFormatter
-from typing import cast
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from typing import BinaryIO, cast
 
 from prov import serializers
 from prov.model import ProvDocument
+from prov.scripts import _open_binary
 
 logger = logging.getLogger(__name__)
 
 __all__: list[str] = []
 __version__ = 0.1
 __date__ = "2014-03-14"
-__updated__ = "2025-06-07"
+__updated__ = "2026-09-12"
 
 DEBUG = 0
 TESTRUN = 0
@@ -84,30 +84,41 @@ class CLIError(Exception):
         return self.msg
 
 
-def convert_file(infile: io.FileIO, outfile: io.FileIO, output_format: str) -> None:
+def convert_file(
+    infile: BinaryIO,
+    outfile: BinaryIO,
+    output_format: str,
+    input_format: str = "json",
+) -> None:
     """Read a PROV document from ``infile`` and write it to ``outfile`` in ``output_format``.
 
-    ``infile`` is auto-detected across all registered deserialization
-    formats (see :meth:`~prov.model.ProvDocument.deserialize`). For
-    ``output_format``, ``"provn"`` is written directly via
+    ``infile`` is read in ``input_format`` (default PROV-JSON) through
+    :meth:`~prov.model.ProvDocument.deserialize`. For ``output_format``,
+    ``"provn"`` is written directly via
     :meth:`~prov.model.ProvDocument.get_provn`, a name in
     :data:`GRAPHVIZ_SUPPORTED_FORMATS` is rendered through
     :func:`~prov.dot.prov_to_dot` and Graphviz, and any other format is
     delegated to :meth:`~prov.model.ProvDocument.serialize`.
 
     Args:
-        infile: File-like object to read the source document from.
+        infile: File-like object (opened in binary mode) to read the source
+            document from.
         outfile: File-like object (opened in binary mode) to write the
             converted output to.
         output_format: Target format name (e.g. ``"json"``, ``"xml"``,
-            ``"rdf"``, ``"provn"``, or a Graphviz output format such as
+            ``"rdf"``, ``"jsonld"``, ``"provn"``, or a Graphviz output format such as
             ``"svg"``/``"pdf"``/``"png"``).
+        input_format: Source format name, any registered serializer format.
 
     Raises:
-        CLIError: If ``output_format`` is not ``"provn"``, not a Graphviz
+        CLIError: If ``input_format`` is not a registered serializer format,
+            or if ``output_format`` is not ``"provn"``, not a Graphviz
             format, and not a registered serializer format.
     """
-    prov_doc = ProvDocument.deserialize(infile)
+    try:
+        prov_doc = ProvDocument.deserialize(infile, format=input_format)
+    except serializers.DoNotExist as e:
+        raise CLIError(f'Input format "{input_format}" is not supported.') from e
 
     # Formats not supported by prov.serializers
     if output_format == "provn":
@@ -132,9 +143,10 @@ def convert_file(infile: io.FileIO, outfile: io.FileIO, output_format: str) -> N
 def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
     """Run the ``prov-convert`` command-line tool.
 
-    Parses ``-f/--format``, an optional input file (default stdin), and an
-    optional output file (default stdout), then converts between them via
-    :func:`convert_file`.
+    Parses ``-f/--format``, ``-i/--input-format``, an optional input file
+    (default stdin), and an optional output file (default stdout), then
+    converts between them via :func:`convert_file`. Files are opened after
+    parsing; the standard streams are used for ``-`` and are not closed.
 
     Args:
         argv: Extra command-line arguments. If not ``None``, they are
@@ -161,10 +173,10 @@ def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
     program_shortdesc = __doc__.split("\n")[1]
     program_license = f"""{program_shortdesc}
 
-  Copyright 2025 Trung Dong Huynh.
+  Copyright 2026 Trung Dong Huynh.
 
   Licensed under the MIT License
-  https://github.com/trungdong/prov/blob/master/LICENSE
+  https://github.com/trungdong/prov/blob/main/LICENSE
 
   Distributed on an "AS IS" basis without warranties
   or conditions of any kind, either express or implied.
@@ -178,32 +190,47 @@ USAGE
             description=program_license, formatter_class=RawDescriptionHelpFormatter
         )
         parser.add_argument(
+            "-i",
+            "--input-format",
+            dest="input_format",
+            action="store",
+            default="json",
+            help="input format: json, xml, rdf, jsonld or provn",
+        )
+        parser.add_argument(
             "-f",
             "--format",
             dest="format",
             action="store",
             default="json",
-            help="output format: json, xml, provn, or one supported by GraphViz (e.g. svg, pdf)",
+            help="output format: json, xml, rdf, jsonld, provn, or a Graphviz output format (e.g. svg, pdf, png)",
         )
-        parser.add_argument("infile", nargs="?", type=FileType("r"), default=sys.stdin)
         parser.add_argument(
-            "outfile", nargs="?", type=FileType("wb"), default=sys.stdout
+            "infile", nargs="?", default="-", help="input file (default: stdin)"
+        )
+        parser.add_argument(
+            "outfile", nargs="?", default="-", help="output file (default: stdout)"
         )
         parser.add_argument(
             "-V", "--version", action="version", version=program_version_message
         )
 
-        args = None
+        args = parser.parse_args()
+        owned: list[BinaryIO] = []
         try:
-            # Process arguments
-            args = parser.parse_args()
-            convert_file(args.infile, args.outfile, args.format.lower())
+            infile, owns_infile = _open_binary(parser, args.infile, "rb", "stdin")
+            if owns_infile:
+                owned.append(infile)
+            outfile, owns_outfile = _open_binary(parser, args.outfile, "wb", "stdout")
+            if owns_outfile:
+                owned.append(outfile)
+            convert_file(
+                infile, outfile, args.format.lower(), args.input_format.lower()
+            )
+            outfile.flush()
         finally:
-            if args:
-                if args.infile:
-                    args.infile.close()
-                if args.outfile:
-                    args.outfile.close()
+            for stream in owned:
+                stream.close()
 
         return 0
     except KeyboardInterrupt:

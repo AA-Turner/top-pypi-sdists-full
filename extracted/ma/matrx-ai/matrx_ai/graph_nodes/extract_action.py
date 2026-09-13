@@ -7,6 +7,7 @@ and returns a structured, predictable payload that downstream nodes can natively
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from matrx_graph.actions import register_node
@@ -18,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
-    step_metadata,
+    hold_step,
 )
 
 
@@ -88,7 +89,11 @@ class ExtractOutput(BaseModel):
 async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeResult[ExtractOutput]:
     from matrx_ai.catalog.host_catalog import get_model_catalog
     from matrx_ai.config import UnifiedConfig
-    from matrx_ai.graph_nodes.shared import _extract_usage, normalize_completed_result
+    from matrx_ai.graph_nodes.shared import (
+        _extract_usage,
+        ai_output_failure,
+        normalize_completed_result,
+    )
     from matrx_ai.orchestrator.executor import execute_ai_request
 
     # Pre-flight: an unknown model is a NAMED failure, never an empty answer.
@@ -134,13 +139,16 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
             },
         }
 
-    config = UnifiedConfig.from_dict(overrides)
+    # The Holder of workflow.step_intelligence is resolved on EVERY run and
+    # fills only what the author left unset; an unbound mandate REFUSES here.
+    held = await hold_step(overrides, spec_type="ai.extract", consumer="ai.extract")
+    config = UnifiedConfig.from_dict(held.config)
 
     completed = await execute_ai_request(
         config,
         max_iterations=1,
         max_retries_per_iteration=2,
-        metadata=step_metadata(None, spec_type="ai.extract"),
+        metadata=held.metadata,
         mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
 
@@ -151,15 +159,19 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
 
     # A failed turn (provider error, routing error, loop guard) fails the node
     # with the orchestrator's own reason — never "no output text to parse".
-    normalized = normalize_completed_result(completed)
+    normalized = await asyncio.to_thread(normalize_completed_result, completed)
     if normalized.status == "error":
         return normalized  # type: ignore[return-value]
 
     final_text = completed.request.config.get_last_output()
     if not final_text:
-        return failure(
-            "extract_parse_failed",
-            "ai.extract: the model returned no output text to parse.",
+        # Truncation first: a reply cut off at the output ceiling is not
+        # "no output" and not malformed JSON — see ai_output_failure.
+        return ai_output_failure(
+            completed,
+            code="extract_parse_failed",
+            message="ai.extract: the model returned no output text to parse.",
+            what="the extraction",
             details={"raw_response": "", "usage": usage},
         )
 
@@ -179,16 +191,23 @@ async def ai_extract(ctx: NodeExecutionContext, inputs: ExtractInput) -> NodeRes
         # A node that cannot produce its artifact FAILS — never a payload with
         # a false flag. The raw snippet lets an ERROR-edge handler (or a human)
         # see what the model actually said.
-        return failure(
-            "extract_parse_failed",
-            f"ai.extract: model output is not valid JSON ({e}).",
+        return ai_output_failure(
+            completed,
+            code="extract_parse_failed",
+            message=f"ai.extract: model output is not valid JSON ({e}).",
+            what="the extraction",
             details={"raw_response": final_text[:2000], "usage": usage},
         )
 
     if not isinstance(data, dict):
-        return failure(
-            "extract_parse_failed",
-            f"ai.extract: model output parsed to {type(data).__name__}, expected a JSON object.",
+        return ai_output_failure(
+            completed,
+            code="extract_parse_failed",
+            message=(
+                f"ai.extract: model output parsed to {type(data).__name__}, "
+                "expected a JSON object."
+            ),
+            what="the extraction",
             details={"raw_response": final_text[:2000], "usage": usage},
         )
 

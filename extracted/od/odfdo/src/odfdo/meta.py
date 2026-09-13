@@ -850,7 +850,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         return {
             data.name: data.value
             for data in cast(
-                list[MetaUserDefined], self.get_elements("//meta:user-defined")
+                "list[MetaUserDefined]", self.get_elements("//meta:user-defined")
             )
         }
 
@@ -866,7 +866,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         user_defined = [
             data.as_dict()
             for data in cast(
-                list[MetaUserDefined], self.get_elements("//meta:user-defined")
+                "list[MetaUserDefined]", self.get_elements("//meta:user-defined")
             )
         ]
         return sorted(user_defined, key=itemgetter("meta:name"))
@@ -912,7 +912,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
                 otherwise `None`.
         """
         for item in cast(
-            list[MetaUserDefined], self.get_elements("//meta:user-defined")
+            "list[MetaUserDefined]", self.get_elements("//meta:user-defined")
         ):
             if item.name == name:
                 return item
@@ -1170,9 +1170,9 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         else:
             msg = f" {no_user_defined_msg}"
         result.append(f"User defined metadata:{msg}")
-        for item in user_metadata:
-            result.append(f"  - {item['meta:name']}: {item['value']}")
-
+        result.extend(
+            [f"  - {item['meta:name']}: {item['value']}" for item in user_metadata]
+        )
         return "\n".join(result)
 
     @staticmethod

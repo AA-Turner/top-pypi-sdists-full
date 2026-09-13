@@ -108,6 +108,8 @@ class TestSetupCheckCmd:
         [
             ("authentication_unavailable", "gh auth login"),
             ("model_unavailable", "pick a supported model"),
+            ("invalid_yaml", "edit `.agdt/config/llm-providers.yml`"),
+            ("credential_missing", "set the environment variable referenced by `.agdt/config/llm-providers.yml`"),
         ],
     )
     def test_reports_actionable_provider_remediation(
@@ -159,6 +161,45 @@ class TestSetupCheckCmdFixFlag:
             with pytest.raises(SystemExit) as exc_info:
                 commands.setup_check_cmd()
         assert exc_info.value.code == 2
+
+    @pytest.mark.parametrize(
+        ("reason", "expected"),
+        [
+            ("authentication_unavailable", "gh auth login"),
+            ("model_unavailable", "pick a supported model"),
+            ("invalid_yaml", "edit `.agdt/config/llm-providers.yml`"),
+            ("credential_missing", "set the environment variable referenced by `.agdt/config/llm-providers.yml`"),
+        ],
+    )
+    def test_fix_reports_actionable_provider_remediation(
+        self, monkeypatch, capsys, tmp_path: Path, reason: str, expected: str
+    ):
+        """--fix prints the prerequisite-specific provider remediation message."""
+        monkeypatch.setattr(sys, "argv", ["agdt-setup-check", "--fix"])
+        from agentic_devtools.cli.setup.provider_configuration import ProviderConfigurationCheck
+
+        provider_result = ProviderConfigurationCheck(
+            found=True,
+            valid=False,
+            reason=reason,
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            auth_status="unavailable",
+            credential_status="not_required",
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+        )
+
+        with patch.object(commands, "check_all_dependencies", return_value=_statuses(True)):
+            with patch(
+                "agentic_devtools.cli.setup.provider_configuration.check_provider_configuration",
+                return_value=provider_result,
+            ):
+                with pytest.raises(SystemExit) as exc_info:
+                    commands.setup_check_cmd()
+
+        assert exc_info.value.code == ExitCode.MISSING_REQUIRED_DEP
+        assert expected in capsys.readouterr().out
 
     def test_fix_prints_ok_when_repair_succeeds(self, monkeypatch, capsys):
         """--fix prints OK when exit_code is 0 even if problems list is non-empty."""

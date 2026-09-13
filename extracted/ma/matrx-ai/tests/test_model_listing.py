@@ -135,6 +135,41 @@ def test_google_strips_the_models_prefix_and_maps_the_limits():
     assert entries[0]["inputTokenLimit"] == 1_048_576
 
 
+def test_cerebras_created_zero_means_unknown_not_1970():
+    """Cerebras serves ``created: 0`` for every model. 1970-01-01 would put every
+    Cerebras model before any sync cutoff and hide it as before_cutoff."""
+    entries = ml.normalize_cerebras_page({"data": [{"id": "gemma-4-31b", "created": 0, "owned_by": "Cerebras"}]})
+    assert entries[0]["display_name"] == "gemma-4-31b"
+    assert "created_at" not in entries[0]
+    assert ml.iso_from_epoch(0) is None
+    assert ml.iso_from_epoch(-5) is None
+
+
+def test_together_serves_a_bare_array_with_type_and_pricing():
+    page = [
+        {"id": "zai-org/GLM-5.3", "created": 1_787_957_543, "type": "chat", "display_name": "GLM 5.3",
+         "context_length": 1048575, "pricing": {"input": 1.4, "output": 4.4, "cached_input": 0.26}},
+        {"id": "google/veo-3.0", "created": 1_760_000_000, "type": "video", "display_name": "Veo 3.0"},
+        "not-a-model",
+    ]
+    entries = ml.normalize_together_page(page)
+    assert [e["id"] for e in entries] == ["zai-org/GLM-5.3", "google/veo-3.0"]
+    assert entries[0]["display_name"] == "GLM 5.3"
+    assert entries[0]["type"] == "chat"
+    assert entries[0]["pricing"]["input"] == 1.4
+    assert entries[0]["created_at"].endswith("Z")
+    # an object-wrapped page is tolerated too, should Together ever switch
+    assert ml.normalize_together_page({"data": page[:1]})[0]["id"] == "zai-org/GLM-5.3"
+    assert ml.normalize_together_page("nope") == []
+
+
+async def test_together_fetch_accepts_the_array_payload():
+    http = _StubClient([[{"id": "a", "created": 1_787_957_543, "type": "chat"}]])
+    entries = await ml.fetch_together(http, "secret")
+    assert entries[0]["id"] == "a"
+    assert http.calls[0]["headers"] == {"Authorization": "Bearer secret"}
+
+
 def test_normalizers_ignore_a_payload_with_no_models():
     assert ml.normalize_openai_page({"object": "list"}) == []
     assert ml.normalize_anthropic_page({"data": None}) == []
@@ -226,14 +261,14 @@ async def test_a_non_object_payload_is_refused():
 
 
 async def test_openai_shaped_fetchers_send_a_bearer_token():
-    for fetch in (ml.fetch_openai, ml.fetch_groq, ml.fetch_xai):
+    for fetch in (ml.fetch_openai, ml.fetch_groq, ml.fetch_xai, ml.fetch_cerebras, ml.fetch_moonshot):
         http = _StubClient([OPENAI_PAGE])
         await fetch(http, "secret")
         assert http.calls[0]["headers"] == {"Authorization": "Bearer secret"}
 
 
 def test_the_fetcher_table_is_keyed_on_provider_slug():
-    assert set(ml.FETCHERS_BY_SLUG) == {"openai", "anthropic", "groq", "google", "xai"}
+    assert set(ml.FETCHERS_BY_SLUG) == {"openai", "anthropic", "groq", "google", "xai", "cerebras", "together", "moonshot-ai"}
     for fetcher in ml.PROVIDER_FETCHERS:
         assert fetcher.env_names, fetcher.slug
         assert ml.FETCHERS_BY_SLUG[fetcher.slug] is fetcher

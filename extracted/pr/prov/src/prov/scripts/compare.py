@@ -1,31 +1,33 @@
 #!/usr/bin/env python
 """
-prov-compare -- Compare two PROV-JSON, PROV-XML, or RDF (PROV-O) files for equivalence
+prov-compare -- Compare two PROV documents (PROV-JSON, PROV-XML, PROV-O or PROV-JSONLD) for equivalence
 
 @author:     Trung Dong Huynh
 
-@copyright:  2025 Trung Dong Huynh
+@copyright:  2026 Trung Dong Huynh
 
 @license:    MIT Licence
 
 @contact:    trungdong@donggiang.com
-@deffield    updated: 2025-06-07
+@deffield    updated: 2026-09-12
 """
 
 import logging
 import os
 import sys
 import traceback
-from argparse import ArgumentParser, FileType, RawDescriptionHelpFormatter
+from argparse import ArgumentParser, RawDescriptionHelpFormatter
+from typing import BinaryIO
 
 from prov.model import ProvDocument
+from prov.scripts import _open_binary
 
 logger = logging.getLogger(__name__)
 
 __all__: list[str] = []
 __version__ = 0.1
 __date__ = "2015-06-16"
-__updated__ = "2025-06-07"
+__updated__ = "2026-09-12"
 
 DEBUG = 0
 TESTRUN = 0
@@ -48,7 +50,10 @@ def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
 
     Parses two positional file arguments plus ``-f/--format1`` and
     ``-F/--format2`` (each defaulting to ``"json"``), deserializes both
-    files, and compares the resulting documents for equality.
+    files, and compares the resulting documents for equality. Files are
+    opened after parsing; ``-`` stands for standard input for at most one
+    of them and is not closed; an unopenable path is a usage error
+    (exit 2).
 
     Args:
         argv: Extra command-line arguments. If not ``None``, they are
@@ -77,10 +82,10 @@ def main(argv: list[str] | None = None) -> int:  # IGNORE:C0111
     program_shortdesc = __doc__.split("\n")[1]
     program_license = f"""{program_shortdesc}
 
-  Copyright 2025 Trung Dong Huynh.
+  Copyright 2026 Trung Dong Huynh.
 
   Licensed under the MIT License
-  https://github.com/trungdong/prov/blob/master/LICENSE
+  https://github.com/trungdong/prov/blob/main/LICENSE
 
   Distributed on an "AS IS" basis without warranties
   or conditions of any kind, either express or implied.
@@ -93,15 +98,15 @@ USAGE
         parser = ArgumentParser(
             description=program_license, formatter_class=RawDescriptionHelpFormatter
         )
-        parser.add_argument("file1", nargs="?", type=FileType("r"))
-        parser.add_argument("file2", nargs="?", type=FileType("r"))
+        parser.add_argument("file1", help="first document ('-' reads standard input)")
+        parser.add_argument("file2", help="second document ('-' reads standard input)")
         parser.add_argument(
             "-f",
             "--format1",
             dest="format1",
             action="store",
             default="json",
-            help="File 1's format: json or xml",
+            help="File 1's format: json, xml, rdf, jsonld or provn",
         )
         parser.add_argument(
             "-F",
@@ -109,26 +114,29 @@ USAGE
             dest="format2",
             action="store",
             default="json",
-            help="File 2's format: json or xml",
+            help="File 2's format: json, xml, rdf, jsonld or provn",
         )
         parser.add_argument(
             "-V", "--version", action="version", version=program_version_message
         )
 
-        args = None
+        args = parser.parse_args()
+        if args.file1 == "-" and args.file2 == "-":
+            parser.error("only one of file1 and file2 may be '-' (standard input)")
+        owned: list[BinaryIO] = []
         try:
-            # Process arguments
-            args = parser.parse_args()
-            doc1 = ProvDocument.deserialize(args.file1, format=args.format1.lower())
-            doc2 = ProvDocument.deserialize(args.file2, format=args.format2.lower())
+            streams: list[BinaryIO] = []
+            for path in (args.file1, args.file2):
+                stream, owns = _open_binary(parser, path, "rb", "stdin")
+                if owns:
+                    owned.append(stream)
+                streams.append(stream)
+            doc1 = ProvDocument.deserialize(streams[0], format=args.format1.lower())
+            doc2 = ProvDocument.deserialize(streams[1], format=args.format2.lower())
             return doc1 != doc2
-
         finally:
-            if args:
-                if args.file1:
-                    args.file1.close()
-                if args.file2:
-                    args.file2.close()
+            for stream in owned:
+                stream.close()
 
     except Exception as e:
         if DEBUG or TESTRUN:

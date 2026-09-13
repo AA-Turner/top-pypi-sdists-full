@@ -22,7 +22,6 @@ there so the four action wrappers stay thin.
 from __future__ import annotations
 
 import logging
-
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
@@ -175,7 +174,57 @@ class AiExecutionResult(BaseModel):
     content: list[dict[str, JsonValue]] = Field(default_factory=list)
 
 
-def normalize_completed_result(completed: CompletedRequest) -> NodeResult[AiExecutionResult]:
+#: Node-config field an AUTHOR sets on a step that may legitimately answer
+#: with nothing ("no issues found"). Default refuse — see
+#: :func:`normalize_completed_result`.
+ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY = "allow_empty_structured_output"
+
+#: THE PLATFORM DEFAULT for an all-zero structured answer: REFUSE. A row, not
+#: a taste — ``platform.feature_knob`` ``ai_structured_output.allow_empty``
+#: (org-overridable, ``propagation = next_load``) injected by the host through
+#: :func:`configure_empty_structured_output`, exactly like the prompt
+#: pre-flight tolerance. The package cannot read our database, so this is what
+#: applies until the host injects; a step's own
+#: ``allow_empty_structured_output`` always wins over both.
+DEFAULT_ALLOW_EMPTY_STRUCTURED_OUTPUT = False
+
+_ALLOW_EMPTY_STRUCTURED_OUTPUT = DEFAULT_ALLOW_EMPTY_STRUCTURED_OUTPUT
+
+
+def configure_empty_structured_output(*, allow_empty: bool | None = None) -> None:
+    """Host seam for the org knob — injection, never a DB read in the package."""
+    global _ALLOW_EMPTY_STRUCTURED_OUTPUT
+    if allow_empty is not None:
+        _ALLOW_EMPTY_STRUCTURED_OUTPUT = bool(allow_empty)
+
+
+def empty_structured_output_allowed(step_config: Any = None) -> bool:
+    """Whether THIS step may answer with an all-zero object.
+
+    Precedence is the platform's everywhere: what the AUTHOR said on the node
+    wins; the organization's knob (injected at boot) is the floor underneath.
+    """
+    declared: Any = None
+    if isinstance(step_config, dict):
+        declared = step_config.get(ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY)
+    elif step_config is not None:
+        declared = getattr(step_config, ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY, None)
+    if declared is not None:
+        return bool(declared)
+    return _ALLOW_EMPTY_STRUCTURED_OUTPUT
+
+
+def _declared_response_schema(completed: CompletedRequest) -> Any:
+    request = getattr(completed, "request", None)
+    config = getattr(request, "config", None)
+    return getattr(config, "response_format", None)
+
+
+def normalize_completed_result(
+    completed: CompletedRequest,
+    *,
+    step_config: Any = None,
+) -> NodeResult[AiExecutionResult]:
     """Node Result System wrapper over :func:`normalize_completed`.
 
     Returns ``Success[AiExecutionResult]`` for a completed turn, or a
@@ -185,6 +234,10 @@ def normalize_completed_result(completed: CompletedRequest) -> NodeResult[AiExec
     is billed in full). Migrated ai.* graph nodes use THIS; legacy nodes keep
     calling ``normalize_completed`` (its raise goes through the scheduler's
     same failure ladder) until their Wave-1 migration.
+
+    ``step_config`` is the node's own config object (or dict) — read ONLY for
+    ``allow_empty_structured_output``; a step that legitimately answers with
+    nothing says so there.
     """
     from matrx_graph.types.result import NodeResult, failure, success  # noqa: F401
 
@@ -205,17 +258,131 @@ def normalize_completed_result(completed: CompletedRequest) -> NodeResult[AiExec
                 "request_id": getattr(request, "request_id", "") or "",
             },
         )
-    if _requires_structured_output(completed) and normalized.structured_output is None:
-        return failure(
-            "structured_output_invalid",
-            "AI completed, but its declared structured output could not be parsed and validated.",
-            details={
+    if _requires_structured_output(completed):
+        from matrx_ai.config.finish_reason import completion_truncation
+
+        # A SALVAGED PARTIAL IS NOT AN ANSWER. The parse funnel's json-repair
+        # pass can close a JSON object the model never finished, so a turn cut
+        # off at the output ceiling could come back "successful" carrying a
+        # silently incomplete payload — half a ledger handed downstream as the
+        # whole one. A declared schema plus a truncated turn fails, whether or
+        # not repair produced something; the salvage travels in
+        # ``details['partial_structured_output']`` so the run box and a human
+        # can see exactly how far the model got. There is no accept-partial
+        # opt-in anywhere in the engine today; if one is ever added, it belongs
+        # HERE, as a flag on the result — never as a silent success.
+        was_truncated = completion_truncation(completed) is not None
+        if normalized.structured_output is None or was_truncated:
+            details: dict[str, Any] = {
                 "usage": normalized.usage.model_dump(mode="json"),
                 "conversation_id": normalized.conversation_id,
                 "request_id": normalized.request_id,
-            },
+            }
+            if was_truncated and normalized.structured_output is not None:
+                details["partial_structured_output"] = normalized.structured_output
+                details["structured_output_partial"] = True
+            return ai_output_failure(
+                completed,
+                code="structured_output_invalid",
+                message=(
+                    "AI completed, but its declared structured output could not be parsed "
+                    "and validated."
+                ),
+                what="the structured answer",
+                details=details,
+            )
+
+        # AN EMPTY BUT VALID ANSWER IS NOT AN ANSWER. A schema says what SHAPE
+        # a reply has; it cannot say the reply has CONTENT, so a model that
+        # declines the task returns every field at its zero value and passes
+        # every contract check ever written. Live 2026-09-12, run 9347de24…:
+        # the Watson prescriber received a complete case reading and answered
+        # `{"instructions": [], "headline_finding": "", …}` in 93 tokens with
+        # `structured_output_contract_satisfied: true`; the step succeeded, the
+        # run completed, and a parent was shown that hollow object as her
+        # regimen. Refused here, at the ONE place every AI graph node's answer
+        # is accepted. It is a plain Failure, so the node's existing retry
+        # ladder applies unchanged (the class is not in
+        # `_NON_RETRYABLE_ERROR_TYPES`: a second sample of a non-deterministic
+        # model is exactly the right response). A step that legitimately
+        # answers with nothing sets `allow_empty_structured_output` on the
+        # node — org default in `platform.feature_knob`, refuse until changed.
+        from matrx_graph.emptiness import empty_structured_output
+
+        verdict = empty_structured_output(
+            normalized.structured_output, schema=_declared_response_schema(completed)
         )
+        if verdict is not None and not empty_structured_output_allowed(step_config):
+            return ai_output_failure(
+                completed,
+                code="structured_output_empty",
+                message=verdict.sentence(what=_structured_output_noun(completed)),
+                what="the structured answer",
+                details={
+                    "usage": normalized.usage.model_dump(mode="json"),
+                    "conversation_id": normalized.conversation_id,
+                    "request_id": normalized.request_id,
+                    "empty_fields": list(verdict.fields),
+                    "fields_considered": verdict.considered,
+                    "remedy": (
+                        "The model had the input and declined to fill it. Re-run the step; "
+                        "if it empties again, the step's instructions or its schema are "
+                        "asking for something the model will not produce. If this step is "
+                        "MEANT to be able to answer with nothing, set "
+                        "allow_empty_structured_output on the node."
+                    ),
+                },
+            )
     return success(normalized)
+
+
+def _structured_output_noun(completed: CompletedRequest) -> str:
+    """What to CALL the empty thing in the sentence a human reads — the
+    declared schema's own name when it has one, else a plain 'object'."""
+    fmt = _declared_response_schema(completed)
+    if isinstance(fmt, dict):
+        inner = fmt.get("json_schema")
+        if isinstance(inner, dict):
+            name = inner.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return "object"
+
+
+def ai_output_failure(
+    source: Any,
+    *,
+    code: str,
+    message: str,
+    what: str = "the answer",
+    details: dict[str, Any] | None = None,
+) -> NodeResult[Any]:
+    """THE ONE CLASSIFIER for "the model answered, but we can't use the answer".
+
+    Every post-call parse/validate failure in the AI graph nodes goes through
+    here. It asks ``completion_truncation`` first: a reply cut off at the
+    model's output ceiling is NOT malformed output, and reporting it as a
+    parse failure names the wrong cause and hides the remedy (live 2026-09-12,
+    run 23e72bf5…: 32,000 output tokens exactly, finish_reason=max_tokens,
+    surfaced as ``structured_output_invalid``). Truncated ⇒ ``output_truncated``
+    with the ceiling, the token count and what to do about it; anything else
+    keeps the caller's own parse-failure wording, which is right for genuinely
+    malformed output.
+
+    ``source`` is anything carrying the completion's facts — a
+    ``CompletedRequest`` or an ``AiExecutionResult``.
+    """
+    from matrx_graph.types.result import failure
+
+    from matrx_ai.config.finish_reason import completion_truncation, output_ceiling_message
+
+    payload = dict(details or {})
+    ceiling = completion_truncation(source)
+    if ceiling is None:
+        return failure(code, message, details=payload)
+    payload.update(ceiling.as_details())
+    payload["masked_code"] = code
+    return failure("output_truncated", output_ceiling_message(ceiling, what=what), details=payload)
 
 
 def _requires_structured_output(completed: CompletedRequest) -> bool:

@@ -17,6 +17,7 @@ from __future__ import annotations
 import errno
 import logging
 import os
+import stat
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -95,10 +96,15 @@ class ProfileLock:
         for name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
             artifact = self._udd / name
             try:
-                artifact.lstat()
+                artifact_info = artifact.lstat()
             except FileNotFoundError:
                 continue
-            if artifact.is_dir() and not artifact.is_symlink():
+            # Use the already-fetched lstat mode.  Path.is_dir() follows
+            # symlinks, which can block on a vanished Chromium socket target on
+            # EFS or raise PermissionError when that target belonged to a
+            # previous container.  Singleton symlinks are precisely the stale
+            # process markers this method is responsible for removing.
+            if stat.S_ISDIR(artifact_info.st_mode):
                 raise ProfileLockError(
                     f"refusing to remove Chromium singleton directory: {artifact}"
                 )

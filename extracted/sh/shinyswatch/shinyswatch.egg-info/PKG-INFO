@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shinyswatch
-Version: 0.12.0
+Version: 0.13.1
 Summary: Bootswatch + Bootstrap 5 themes for Shiny.
 Home-page: https://github.com/rstudio/py-shinyswatch
 Author: Barret Schloerke
@@ -28,7 +28,7 @@ License-File: LICENSE
 Requires-Dist: typing-extensions>=3.10.0.0
 Requires-Dist: packaging>=20.9
 Requires-Dist: htmltools>=0.2.0
-Requires-Dist: shiny>=1.7.0
+Requires-Dist: shiny>=1.8.0
 Provides-Extra: test
 Requires-Dist: pytest>=6.2.4; extra == "test"
 Provides-Extra: dev

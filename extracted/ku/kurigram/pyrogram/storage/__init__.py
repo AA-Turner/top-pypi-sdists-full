@@ -17,4 +17,6 @@
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
 from .sqlite_storage import SQLiteStorage
-from .storage import Storage
+from .storage import Storage, UpdateState
+
+__all__ = ["SQLiteStorage", "Storage", "UpdateState"]

@@ -21,6 +21,7 @@ from coord.models import (
 )
 
 if TYPE_CHECKING:
+    from coord.failure_class import FailureClassification
     from coord.merge_queue import QueuedMerge
 
 # #2639: bounds the per-row file-content fetch count in sweep (h)'s
@@ -920,11 +921,46 @@ def reconcile_late_agent_reports(
     return corrected
 
 
+def _environmental_cause_phrase(classification: "FailureClassification") -> str:
+    """A human phrase naming *classification*'s actual cause for the #3315
+    park message — never the fixed "rate limit" string the message used to
+    print unconditionally (#3315 review).
+
+    ``classify_failure`` already tells a usage-limit kill apart from a bare
+    API error and, within an API error, carries the HTTP status when the
+    worker's own output named one — but the park message ignored all of that
+    and always said "an exhausted account usage limit (HTTP 429/5xx rate
+    limit)", even for a genuine ``overloaded_error``/``internal_server_error``
+    5xx that has nothing to do with rate limiting. An operator diagnosing a
+    real provider outage from that wording goes looking for a rate limit that
+    was never there.
+    """
+    from coord.failure_class import (  # noqa: PLC0415
+        KIND_API_ERROR,
+        KIND_NETWORK,
+        KIND_USAGE_LIMIT,
+    )
+
+    if classification.kind == KIND_USAGE_LIMIT:
+        return "an exhausted account usage limit"
+    if classification.kind == KIND_API_ERROR:
+        status = classification.api_status
+        if status == 429:
+            return "a sustained provider rate limit (HTTP 429)"
+        if status is not None and 500 <= status < 600:
+            return f"a sustained provider server error (HTTP {status})"
+        return "a sustained provider API error"
+    if classification.kind == KIND_NETWORK:
+        return "a sustained network/transport failure"
+    return "a sustained environmental failure"  # pragma: no cover — defensive
+
+
 def propagate_smoke_terminal_failure(
     *,
     parent_assignment_id: str | None,
     failure_reason: str | None,
     environmental: bool | None = None,
+    fanout_parent_id: str | None = None,
 ) -> None:
     """#1605: resolve a work row's ``test_state`` when its Test-stage
     (``type="smoke"``) child dies without ever reporting pass/fail.
@@ -950,7 +986,14 @@ def propagate_smoke_terminal_failure(
       :func:`coord.smoke.dispatch_pending_smoke` auto-queue picks the work
       row back up on its next tick and re-dispatches a fresh Test stage —
       never spending the bounded ``coord fix`` retry budget on a code defect
-      that never existed.
+      that never existed. #3315: that clear is bounded, not infinite — after
+      :data:`coord.smoke.ENVIRONMENTAL_SMOKE_RETRY_BUDGET` CONSECUTIVE
+      environmental deaths on the same row (tracked the same way #2272's
+      mute-leg budget is, a tally embedded in ``test_reason``) this instead
+      parks the row at :data:`coord.smoke.TEST_STATE_BLOCKED` naming the
+      cause, so a sustained provider outage (an exhausted weekly usage
+      limit, 542 zero-token legs observed on one issue over 12h18m) goes
+      quiet instead of re-dispatching against the wall forever.
     * **work** (an unclassifiable crash, a real defect) — records
       ``test_state="failed"`` exactly like a normal non-zero-exit smoke
       completion already does (`coord/notify.py`'s completion handler), so
@@ -970,11 +1013,44 @@ def propagate_smoke_terminal_failure(
     A no-op when *parent_assignment_id* is falsy (a smoke row somehow
     missing its ``review_of_assignment_id`` — should not happen in practice,
     but this must never raise on it).
+
+    *fanout_parent_id* (#3315 review): set this when *parent_assignment_id*
+    is a #3182 capability-partition FAN-OUT LEG's own row rather than the
+    persistent work parent — i.e. exactly the shape `coord.notify` uses for a
+    dead fan-out leg, which self-records onto the leg's own row (never
+    straight onto the shared parent — see the module note above
+    ``smoke_leg_issue_title`` for why concurrent sibling legs must not race
+    on one field) and folds the aggregate separately via
+    :func:`coord.smoke.finalize_smoke_fanout`.
+
+    A fan-out leg's own row is fresh every round (a brand-new
+    ``uuid.uuid4().hex[:12]`` id minted by `_dispatch_smoke_fanout` each
+    time a partition is re-dispatched), so reading the #3315 tally off
+    *parent_assignment_id* in that shape always finds an empty, history-less
+    row and the budget below could never fire — precisely the gap this
+    parameter closes. When given, the ENVIRONMENTAL branch tracks and
+    enforces the retry budget against *fanout_parent_id* (the one row that
+    persists for the row's whole Test-stage lifetime) instead, and parks
+    *that* row — never the leg — once it is exhausted, which is what stops
+    `dispatch_pending_smoke` from ever re-entering `_dispatch_smoke_fanout`
+    for this work item again (its own-row guard, `coord/smoke.py`'s
+    ``test_state in (TEST_STATE_BLOCKED, "running")`` skip). The leg's own
+    row is still cleared to ``None``/parked exactly as before so
+    `coord.smoke.finalize_smoke_fanout`'s per-leg fold keeps seeing a
+    coherent state for it.
     """
     if not parent_assignment_id:
         return
     from coord.failure_class import classify_failure  # noqa: PLC0415
-    from coord.smoke import mute_smoke_legs, mute_smoke_tally  # noqa: PLC0415
+    from coord.smoke import (  # noqa: PLC0415
+        ENVIRONMENTAL_SMOKE_RETRY_BUDGET,
+        TEST_STATE_BLOCKED,
+        environmental_smoke_legs,
+        environmental_smoke_tally,
+        environmental_smoke_tally_reset,
+        mute_smoke_legs,
+        mute_smoke_tally,
+    )
     from coord.state import (  # noqa: PLC0415
         load_assignment_test_reason,
         record_test_verdict,
@@ -988,6 +1064,85 @@ def propagate_smoke_terminal_failure(
         is_environmental = bool(environmental)
         cause = failure_reason or classification.reason
     if is_environmental:
+        if fanout_parent_id and fanout_parent_id != parent_assignment_id:
+            # #3315 review: track + enforce the shared retry budget on the
+            # PERSISTENT fan-out parent row, never on this leg's own
+            # transient one (see the docstring's `fanout_parent_id` section
+            # for why a leg-scoped tally can never reach the budget). The
+            # budget is shared across every partition of the fan-out, not
+            # tracked per-partition — a 429 window hits every in-flight leg
+            # alike, so consecutive deaths of ANY sibling leg are the same
+            # evidence of the same outage.
+            previous_parent_reason = load_assignment_test_reason(fanout_parent_id)
+            env_legs = environmental_smoke_legs(previous_parent_reason) + 1
+            if env_legs >= ENVIRONMENTAL_SMOKE_RETRY_BUDGET:
+                record_test_verdict(
+                    assignment_id=fanout_parent_id,
+                    test_state=TEST_STATE_BLOCKED,
+                    test_reason=(
+                        f"{environmental_smoke_tally(env_legs)}: the "
+                        f"Test-stage environmental retry budget "
+                        f"({ENVIRONMENTAL_SMOKE_RETRY_BUDGET}) is exhausted "
+                        f"after {env_legs} consecutive environmental deaths "
+                        f"across this fan-out's capability-partition legs "
+                        f"(#3182/#3315) — {cause}. This looks like "
+                        f"{_environmental_cause_phrase(classification)}, not "
+                        "a code defect, so the row is parked instead of "
+                        "re-dispatched — the fleet should go quiet, not "
+                        "keep spinning against the wall. Recover with "
+                        "`coord diagnose <repo> <issue> --stage test "
+                        "--reset` once the provider is healthy again, or "
+                        "record the verdict by hand with `coord test "
+                        f"--passed|--fail {fanout_parent_id}`."
+                    ),
+                )
+                # The dying leg's own row is parked too (rather than left at
+                # a plain "cleared for retry" `None`) so it reads
+                # consistently with the parent it just caused to park —
+                # `finalize_smoke_fanout` never revisits a row it finds
+                # already terminal either way.
+                record_test_verdict(
+                    assignment_id=parent_assignment_id,
+                    test_state=TEST_STATE_BLOCKED,
+                    test_reason=(
+                        f"Test-stage fan-out leg died environmentally "
+                        f"({cause}) — the fan-out's shared #3315 retry "
+                        f"budget (tracked on parent {fanout_parent_id}) is "
+                        "now exhausted; see the parent row for the full "
+                        "reason."
+                    ),
+                )
+                return
+            # Preserve — never replace — the parent's existing `test_reason`:
+            # it opens with the `[[smoke-fanout:...]]` manifest
+            # `finalize_smoke_fanout`/`_find_leg_for_partition` need to find
+            # every sibling leg again. `environmental_smoke_tally_reset`
+            # strips only a PRIOR tally marker (so repeated deaths update one
+            # running count instead of piling up duplicates); the manifest
+            # and running-summary text in front of it survive untouched.
+            record_test_verdict(
+                assignment_id=fanout_parent_id,
+                test_state="running",
+                test_reason=(
+                    f"{environmental_smoke_tally_reset(previous_parent_reason)}"
+                    f"\n{environmental_smoke_tally(env_legs)}: {env_legs} of "
+                    f"{ENVIRONMENTAL_SMOKE_RETRY_BUDGET} consecutive "
+                    "environmental fan-out-leg death(s) so far (#3315) — "
+                    f"{cause}."
+                ).strip(),
+            )
+            record_test_verdict(
+                assignment_id=parent_assignment_id,
+                test_state=None,
+                test_reason=(
+                    f"Test-stage fan-out leg died environmentally ({cause}) "
+                    "— cleared for automatic re-dispatch, not recorded as a "
+                    f"work failure (#1605); {env_legs} of "
+                    f"{ENVIRONMENTAL_SMOKE_RETRY_BUDGET} of the fan-out's "
+                    "shared #3315 retry budget spent so far."
+                ),
+            )
+            return
         # #2272: this clear must CARRY the mute-leg tally, for exactly the
         # reason `dispatch_smoke`'s `running` stamp must. `test_reason` is the
         # only field that survives between Test-stage legs, so any writer that
@@ -998,17 +1153,52 @@ def propagate_smoke_terminal_failure(
         # self-healing cause and #1605's unbounded re-dispatch of it is
         # deliberate) — it is only preserved, so mute legs keep counting
         # across it.
-        carried = mute_smoke_legs(
-            load_assignment_test_reason(parent_assignment_id)
-        )
+        previous_reason = load_assignment_test_reason(parent_assignment_id)
+        carried = mute_smoke_legs(previous_reason)
         prefix = f"{mute_smoke_tally(carried)} — " if carried else ""
+
+        # #3315: unlike the mute-leg tally, THIS one IS incremented here — a
+        # sustained environmental outage (an exhausted usage limit, a 429/5xx
+        # window) is exactly the case #1605's "unbounded re-dispatch is
+        # deliberate" reasoning above does not cover: 542 zero-token legs on
+        # one issue over 12h18m, stopped only when the provider's own window
+        # reset. Bounded at `ENVIRONMENTAL_SMOKE_RETRY_BUDGET` CONSECUTIVE
+        # environmental deaths (mirrors `coord/drive.py`'s WORK-stage
+        # `_ENVIRONMENTAL_WORK_RETRY_BUDGET`, #2360) — a genuine blip clears
+        # in one or two legs, well under budget; a sustained outage parks
+        # instead of spinning against the wall.
+        env_legs = environmental_smoke_legs(previous_reason) + 1
+        if env_legs >= ENVIRONMENTAL_SMOKE_RETRY_BUDGET:
+            record_test_verdict(
+                assignment_id=parent_assignment_id,
+                test_state=TEST_STATE_BLOCKED,
+                test_reason=(
+                    f"{prefix}{environmental_smoke_tally(env_legs)}: the "
+                    f"Test-stage environmental retry budget "
+                    f"({ENVIRONMENTAL_SMOKE_RETRY_BUDGET}) is exhausted "
+                    f"after {env_legs} consecutive environmental deaths — "
+                    f"{cause}. This looks like "
+                    f"{_environmental_cause_phrase(classification)}, not a "
+                    "code defect, so the row is parked instead of "
+                    "re-dispatched (#3315) — the fleet should go quiet, not "
+                    "keep spinning against the wall. Recover with `coord "
+                    "diagnose <repo> <issue> --stage test --reset` once the "
+                    "provider is healthy again, or record the verdict by "
+                    f"hand with `coord test --passed|--fail "
+                    f"{parent_assignment_id}`."
+                ),
+            )
+            return
         record_test_verdict(
             assignment_id=parent_assignment_id,
             test_state=None,
             test_reason=(
-                f"{prefix}Test stage worker died environmentally "
-                f"({cause}) — cleared for automatic "
-                "re-dispatch, not recorded as a work failure (#1605)"
+                f"{prefix}{environmental_smoke_tally(env_legs)}: Test stage "
+                f"worker died environmentally ({cause}) — cleared for "
+                "automatic re-dispatch, not recorded as a work failure "
+                f"(#1605); {ENVIRONMENTAL_SMOKE_RETRY_BUDGET - env_legs} of "
+                f"the {ENVIRONMENTAL_SMOKE_RETRY_BUDGET}-leg retry budget "
+                "left before the row parks instead (#3315)."
             ),
         )
     else:
@@ -2349,9 +2539,15 @@ def reconcile(board: Board, config: Config) -> list[str]:
     # #685 per-issue test-mode gate (test-mode:smoke skips auto-dispatch —
     # the TUI offers the interactive smoke agent instead), and the
     # has_active_followup dedupe.
+    #
+    # #3309: passes the real `github_ops` as *gh_ops* so a #1479-stale
+    # passed/failed/skipped verdict (a rebase moved the base or branch out
+    # from under it) is re-dispatched instead of skipped forever — without
+    # it, the staleness check inside `dispatch_pending_smoke` fails open.
+    from coord import github_ops  # noqa: PLC0415
     from coord.smoke import dispatch_pending_smoke
 
-    for smoke in dispatch_pending_smoke(board, config):
+    for smoke in dispatch_pending_smoke(board, config, gh_ops=github_ops):
         if smoke.assignment_id is not None:
             changed.append(smoke.assignment_id)
 

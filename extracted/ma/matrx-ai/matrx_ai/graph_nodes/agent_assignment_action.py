@@ -8,6 +8,7 @@ system therefore remains oblivious to planning, retries, and coordination.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
 from uuid import NAMESPACE_URL, uuid5
@@ -216,7 +217,7 @@ async def run_agent_assignment_batch(
             completed = await agent_runner(agent_id, agent_request, child_ctx)
         finally:
             clear_app_context(token)
-        result = normalize_completed(completed)
+        result = await asyncio.to_thread(normalize_completed, completed)
         return AssignmentExecutionOutput(
             value=result.model_dump(mode="json"),
             kind=_AGENT_OUTPUT_KIND,

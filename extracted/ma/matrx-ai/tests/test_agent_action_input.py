@@ -88,7 +88,7 @@ async def test_workflow_file_variable_reaches_canonical_agent_runner(
 
     monkeypatch.setitem(_ext._registry, "agent_runner", fake_agent_runner)
     monkeypatch.setitem(_ext._registry, "AgentStartRequest", FakeAgentStartRequest)
-    monkeypatch.setattr(agent_action, "normalize_completed_result", lambda value: value)
+    monkeypatch.setattr(agent_action, "normalize_completed_result", lambda value, **_kwargs: value)
 
     app_ctx = SimpleNamespace()
     inputs = AgentStartInput.model_validate(
@@ -135,7 +135,7 @@ def _capture_request(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
 
     monkeypatch.setitem(_ext._registry, "agent_runner", fake_agent_runner)
     monkeypatch.setitem(_ext._registry, "AgentStartRequest", FakeAgentStartRequest)
-    monkeypatch.setattr(agent_action, "normalize_completed_result", lambda value: value)
+    monkeypatch.setattr(agent_action, "normalize_completed_result", lambda value, **_kwargs: value)
     return captured
 
 

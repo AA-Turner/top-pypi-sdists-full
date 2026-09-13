@@ -439,6 +439,7 @@ class DownloadJob(Job):
         self.out = output.select()
         self.visited = set() if parent is None else parent.visited
         self._extractor_filter = None
+        self._children = True
         self._skipcnt = 0
 
     def handle_url(self, url, kwdict):
@@ -573,7 +574,10 @@ class DownloadJob(Job):
                 if not self._extractor_filter(extr):
                     extr = None
 
-        if extr:
+        if not extr:
+            self._write_unsupported(url)
+
+        elif self._children:
             job = self.__class__(extr, self)
             pfmt = self.pathfmt
             pextr = self.extractor
@@ -633,9 +637,6 @@ class DownloadJob(Job):
                     break
                 except exception.RestartExtraction:
                     pass
-
-        else:
-            self._write_unsupported(url)
 
         if "child-after" in self.hooks:
             pathfmt = self.pathfmt
@@ -735,6 +736,8 @@ class DownloadJob(Job):
         if not cfg("download", True):
             # monkey-patch method to do nothing and always return True
             self.download = pathfmt.fix_extension
+        if not cfg("children", True):
+            self._children = False
 
         if archive_path := cfg("archive"):
             archive_table = cfg("archive-table")

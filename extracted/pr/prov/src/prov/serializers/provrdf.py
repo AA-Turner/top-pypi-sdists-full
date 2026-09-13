@@ -17,6 +17,7 @@ from rdflib.term import BNode, Literal as RDFLiteral, Node, URIRef
 
 import prov.model as pm
 from prov import Error
+from prov._warnings import external_stacklevel
 from prov.constants import (
     PROV,
     PROV_ALTERNATE,
@@ -50,6 +51,7 @@ from prov.constants import (
     XSD_QNAME,
 )
 from prov.identifier import QualifiedName
+from prov.model.records import _xsd_datetime_text
 from prov.serializers import Serializer, _is_text_stream
 
 __author__ = "Satrajit S. Ghosh"
@@ -391,6 +393,10 @@ def attr2rdf(attr: QualifiedName) -> URIRef:
 class ProvRDFSerializer(Serializer):
     """PROV-O serializer for :class:`~prov.model.ProvDocument`."""
 
+    deserialize_options = frozenset(
+        {"rdf_format", "relation_mapper", "predicate_mapper"}
+    )
+
     def serialize(
         self,
         stream: io.IOBase,
@@ -522,7 +528,7 @@ class ProvRDFSerializer(Serializer):
         elif isinstance(value, pm.Literal):
             return literal_rdf_representation(value)
         elif isinstance(value, datetime.datetime):
-            return RDFLiteral(value.isoformat(), datatype=XSD["dateTime"])
+            return RDFLiteral(_xsd_datetime_text(value), datatype=XSD["dateTime"])
         elif isinstance(value, pm.QualifiedName):
             return URIRef(value.uri)
         elif isinstance(value, pm.Identifier):
@@ -545,6 +551,87 @@ class ProvRDFSerializer(Serializer):
         else:
             return RDFLiteral(value)
 
+    def _resolve_predicate_key(
+        self, pred: URIRef | pm.QualifiedName, graph: Graph
+    ) -> pm.QualifiedName:
+        """Resolve a PROV-O predicate to a QualifiedName key.
+
+        Three steps, tried in order: the document's own namespaces, then
+        the graph's declared namespace bindings (``_resolve_iri_via_graph``),
+        then ``_resolve_iri``'s minting fallback for a namespace declared
+        in neither. The minting step stays, rather than raising there as
+        3.1.1 did, because a metacharacter-suffixed local part (``= ' , :
+        ; [ ]``) under a namespace used nowhere else in the document is
+        never written to a compact ``prefix:local`` form, so rdflib's
+        writer never emits an ``@prefix`` for it either; without minting,
+        such a key could never decode (#341).
+
+        Unlike a value-side IRI (see ``_resolve_iri``), reaching the
+        minting step for a predicate emits a `ProvWarning` naming the
+        predicate and the prefix minted for it: 3.2.0 reached this step
+        silently, where 3.1.1 raised; the warning restores visibility of
+        an unexpected namespace without undoing #341's fix.
+
+        Args:
+            pred: The predicate term to resolve.
+            graph: Graph the predicate came from, for its namespace bindings.
+
+        Returns:
+            The resolved :class:`~prov.identifier.QualifiedName`.
+
+        Warns:
+            ProvWarning: When ``pred``'s namespace is declared in neither
+                the document nor the graph, naming the prefix minted for it.
+        """
+        pred_str = str(pred)
+        qname = self.document.valid_qualified_name(  # type: ignore[union-attr]
+            pred_str
+        ) or self._resolve_iri_via_graph(pred_str, graph)
+        if qname is None:
+            qname = self._resolve_iri(pred_str, graph)
+            warnings.warn(
+                f"The predicate {pred_str!r} is under a namespace declared "
+                f"neither in the document nor in the graph; prefix "
+                f"{qname.namespace.prefix!r} was minted for it.",
+                pm.ProvWarning,
+                stacklevel=external_stacklevel(),
+            )
+        return qname
+
+    def _resolve_iri_via_graph(self, iri: str, graph: Graph) -> pm.QualifiedName | None:
+        """Resolve ``iri`` against ``graph``'s own namespace bindings only.
+
+        Finds the longest namespace URI bound in ``graph`` that is a proper
+        prefix of ``iri`` and splits there, reusing that prefix. This
+        handles metacharacter local parts under a namespace the source
+        declared, which ``compute_qname`` refuses to split. Document
+        namespaces are not consulted here: callers only reach this method
+        after ``valid_identifier``/``valid_qualified_name`` returned
+        ``None``, which already scanned every document namespace for a
+        URI-prefix match, so any that applied would have resolved there.
+
+        Args:
+            iri: The IRI to resolve.
+            graph: Graph the IRI came from, for its namespace bindings.
+
+        Returns:
+            The resolved :class:`~prov.identifier.QualifiedName`, whose
+            namespace is now registered on ``self.document``, or ``None``
+            if no namespace bound in ``graph`` is a proper prefix of
+            ``iri``.
+        """
+        best_prefix, best_uri = None, ""
+        for prefix, uri_ref in graph.namespace_manager.namespaces():
+            uri = str(uri_ref)
+            if uri and len(uri) > len(best_uri) and iri.startswith(uri) and iri != uri:
+                best_prefix, best_uri = prefix, uri
+        if best_prefix is None:
+            return None
+        ns = self.document.add_namespace(  # type: ignore[union-attr]
+            best_prefix, best_uri
+        )
+        return pm.QualifiedName(ns, iri[len(ns.uri) :])
+
     def _resolve_iri(self, iri: str, graph: Graph) -> pm.QualifiedName:
         """Resolve an IRI to a QualifiedName, registering its namespace.
 
@@ -556,14 +643,9 @@ class ProvRDFSerializer(Serializer):
 
         Resolution, in order:
 
-        1. The longest namespace URI bound in ``graph`` that prefixes ``iri``
-           -- split there, reusing that prefix. This handles metacharacter
-           local parts under a namespace the source declared, which
-           ``compute_qname`` refuses to split. (Document namespaces are not
-           consulted here: both callers only reach this method after
-           ``valid_identifier`` returned ``None``, which already scanned every
-           document namespace for a URI-prefix match, so any that applied would
-           have resolved there.)
+        1. ``_resolve_iri_via_graph``: the longest namespace URI bound in
+           ``graph`` that prefixes ``iri`` -- split there, reusing that
+           prefix.
         2. Otherwise ``compute_qname``, preserving prefix-minting for ordinary
            IRIs under no registered namespace.
         3. If ``compute_qname`` itself raises (a trailing metacharacter under
@@ -587,14 +669,9 @@ class ProvRDFSerializer(Serializer):
         assert self.document is not None
         # 1. Longest namespace URI bound in the graph that is a proper prefix
         # of the IRI (see the docstring on why document namespaces are skipped).
-        best_prefix, best_uri = None, ""
-        for prefix, uri_ref in graph.namespace_manager.namespaces():
-            uri = str(uri_ref)
-            if uri and len(uri) > len(best_uri) and iri.startswith(uri) and iri != uri:
-                best_prefix, best_uri = prefix, uri
-        if best_prefix is not None:
-            ns = self.document.add_namespace(best_prefix, best_uri)
-            return pm.QualifiedName(ns, iri[len(ns.uri) :])
+        qname = self._resolve_iri_via_graph(iri, graph)
+        if qname is not None:
+            return qname
         # 2. compute_qname for ordinary IRIs (mints a fresh prefix).
         try:
             prefix, uri_ref, _local = graph.namespace_manager.compute_qname(iri)
@@ -1583,7 +1660,7 @@ class ProvRDFSerializer(Serializer):
         # not "prov:startTime"/"prov:endTime" -- the fall-through-then-
         # reconcile mechanism described here is otherwise unchanged.
         if str(pred_new) in [val.uri for val in state.formal_attributes[subj]]:
-            qname_key = self.document.mandatory_valid_qname(pred_new)  # type: ignore[union-attr]
+            qname_key = self._resolve_predicate_key(pred_new, graph)
             state.formal_attributes[subj][qname_key] = obj1
             state.unique_sets[subj][qname_key].append(obj1)
             if len(state.unique_sets[subj][qname_key]) > 1:
@@ -1591,7 +1668,13 @@ class ProvRDFSerializer(Serializer):
                 # by walking every combination in _emit_decoded_records().
                 state.formal_attributes[subj][qname_key] = None
         elif "qualified" not in str(pred_new) and "asInBundle" not in str(pred_new):
-            state.other_attributes.setdefault(subj, []).append((str(pred_new), obj1))
+            key: pm.QualifiedNameCandidate = pred_new
+            if isinstance(pred_new, URIRef):
+                # Resolve against the graph's bindings so a key under a
+                # namespace no identifier has registered yet still splits
+                # at the declared namespace, colon or not (#341).
+                key = self._resolve_predicate_key(pred_new, graph)
+            state.other_attributes.setdefault(subj, []).append((key, obj1))
 
     def _emit_decoded_records(
         self, bundle: pm.ProvBundle, state: "_DecodeState"
@@ -1663,7 +1746,7 @@ class ProvRDFSerializer(Serializer):
                     "same-identifier relations that disagree on a formal "
                     "attribute (e.g. two prov:atTime values) cannot both be "
                     "represented. See "
-                    "https://github.com/trungdong/prov/blob/master/docs/reference/conformance.md "
+                    "https://github.com/trungdong/prov/blob/main/docs/reference/conformance.md "
                     "for details."
                 ) from exc
 

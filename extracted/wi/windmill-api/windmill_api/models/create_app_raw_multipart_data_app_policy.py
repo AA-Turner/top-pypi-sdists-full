@@ -41,8 +41,11 @@ class CreateAppRawMultipartDataAppPolicy:
             executable, nor `guest`, which opens it to anyone the identity provider authenticates, is ever assumed. A guest
             is only admitted where the workspace also has `guest_access_enabled`, which is checked when the session is
             minted and again on every guest request
-        on_behalf_of (Union[Unset, str]):
-        on_behalf_of_email (Union[Unset, str]):
+        on_behalf_of (Union[Unset, str]): The user or group the app runs as in anonymous or publisher mode (e.g.
+            'u/admin' or 'g/mygroup'). The authority for the app's identity.
+        on_behalf_of_email (Union[Unset, str]): Address of `on_behalf_of`, written through from it on every save and
+            returned as stored. Optional; when absent it is derived from `on_behalf_of`. Sending it is optional too; it must
+            name the same account as `on_behalf_of`, and a pair that disagrees is rejected.
         sandbox (Union[Unset, bool]): Publisher opt-in to app sandbox isolation (alpha). When true the app is isolated
             from each viewer's Windmill session. When false/absent the app runs same-origin with the viewer's full session
             (the default, pre-isolation behavior).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cedarpy
-Version: 4.8.7
+Version: 4.12.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -11,7 +11,7 @@ Requires-Dist: pytest>=9.0.3 ; extra == 'dev'
 Requires-Dist: pytest-benchmark>=4.0.0 ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # Cedar Python
@@ -27,7 +27,8 @@ Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 <table>
 <thead><tr><th>Cedar Policy (engine) release</th><th>cedarpy release</th><th>cedarpy branch</th></tr></thead>
 <tbody>
-    <tr><td>v4.8.2</td><td>v4.8.7</td><td>main</td></tr>
+    <tr><td>v4.12.0</td><td>v4.12.0</td><td>main</td></tr>
+    <tr><td>v4.8.2</td><td>v4.8.7</td><td>release/4.8.x</td></tr>
     <tr><td>v4.7.2</td><td>v4.7.1</td><td>release/4.7.x</td></tr>
     <tr><td>v4.1.0</td><td>v4.1.0</td><td>release/4.1.x</td></tr>
     <tr><td>v2.2.0</td><td>v0.4.1</td><td>release/2.2.x</td></tr>
@@ -40,9 +41,9 @@ Beginning with v4.1.0, `cedarpy`'s version number indicates the Cedar Policy eng
 <table>
 <thead><tr><th>Operating System</th><th>Processor Architectures</th><th>Python</th></tr></thead>
 <tbody>
-    <tr><td>Linux</td><td>x86_64, aarch64</td><td>3.9 - 3.14</td></tr>
+    <tr><td>Linux</td><td>x86_64, aarch64</td><td>3.10 - 3.14</td></tr>
     <tr><td>Mac</td><td>x86_64, aarch64</td><td>3.11 - 3.14</td></tr>
-    <tr><td>Windows</td><td>x86_64</td><td>3.9 - 3.14</td></tr>
+    <tr><td>Windows</td><td>x86_64</td><td>3.10 - 3.14</td></tr>
 </tbody>
 </table>
 
@@ -342,6 +343,8 @@ Because an unlinked template is inert — the authorizer only ever evaluates lin
 
 Sometimes you can't fully evaluate a request up front. A resource entity may not be loaded from the database yet, the caller may not have picked a resource, or `context` may be filled in by a downstream service. `is_authorized_partial` evaluates whatever is known and returns residual policies for the parts that aren't.
 
+> **Experimental upstream feature.** `is_authorized_partial` is built on the `cedar-policy` crate's `partial-eval` feature, which Cedar ships outside its semver guarantee ([Cedar experimental features](https://github.com/cedar-policy/rfcs/blob/main/README.md#experimental-features)). Cedar may change or break it in any release, so a cedarpy minor release may carry breaking changes to this API.
+
 `is_authorized_partial` returns either:
 
 * `Decision.Allow` or `Decision.Deny` when the unknowns can't change the outcome, or
@@ -454,12 +457,37 @@ print(format_policies(policies))
 # when { resource.owner == principal };
 ```
 
+### Inspecting policies as a typed tree
+
+You can inspect policies as a typed tree by using `policies_to_pst` to parse policy text into typed nodes from `cedarpy.pst`, which mirrors `cedar_policy::pst`. Each node is a frozen dataclass, so structural pattern matching replaces walking a tree keyed by string operators. To rewrite a policy set, edit the nodes and hand them back to the engine with `PolicySet.from_pst`.
+
+```python
+from cedarpy import policies_to_pst
+from cedarpy.pst import BinaryOp, GetAttr, Var
+
+policies = """
+    permit(principal, action == Action::"view", resource)
+    when { resource.owner == principal };
+"""
+
+result = policies_to_pst(policies)
+clause = result.static_policies["policy0"].clauses[0]
+
+match clause.expr:
+    case BinaryOp(op="eq", left=GetAttr(attr="owner"), right=Var(name="principal")):
+        print("matched")
+```
+
+`cedarpy.pst` tracks the Cedar Policy engine. New `cedarpy.pst` node types or `Literal` members are introduced when upgrading the `cedar-policy` engine brings Cedar Policy syntax changes. Unmodelled syntax raises `ValueError` until then.
+
+See the [Policy Syntax Tree Guide](docs/guides/policy-syntax-tree-guide.md) for the type guarantees, finding the entities a policy names with `entity_uids`, and rewriting policy sets through `from_pst`.
+
 ## Developing
 
 
 You'll need a few things to get started:
 
-* Python +3.9
+* Python +3.10
 * Rust and `cargo`
 
 This project is built on the [PyO3](https://docs.rs/pyo3/latest/pyo3/index.html) and [maturin](https://www.maturin.rs/index.html) projects.  These projects are designed to enable Python to use Rust code and vice versa.
@@ -469,7 +497,16 @@ The most common development commands are in the `Makefile`
 ### Create virtual env
 
 First create a Python virtual environment for this project with:
-`make venv-dev`
+
+```shell
+make venv-dev
+```
+
+Then activate the virtual environment:
+
+```shell
+source venv-dev/bin/activate
+```
 
 In addition to creating a dedicated virtual environment, this will install `cedar-py`'s dependencies.
 
@@ -495,25 +532,25 @@ The `make quick` command will build the Rust source code with `maturin` and run 
 
 If all goes well, you should see output like:
 ```shell
-(venv-dev) swedish-chef:cedar-py skuenzli$ make quick
+(venv-dev) dev-machine:cedar-py $ make quick
 Performing quick build
 set -e ;\
 	maturin develop ;\
 	pytest
 📦 Including license file "/path/to/cedar-py/LICENSE"
 🔗 Found pyo3 bindings
-🐍 Found CPython 3.9 at /path/to/cedar-py/venv-dev/bin/python
+🐍 Found CPython 3.11 at /path/to/cedar-py/venv-dev/bin/python
 📡 Using build options features from pyproject.toml
 Ignoring maturin: markers 'extra == "dev"' don't match your environment
 Ignoring pip-tools: markers 'extra == "dev"' don't match your environment
 Ignoring pytest: markers 'extra == "dev"' don't match your environment
 💻 Using `MACOSX_DEPLOYMENT_TARGET=11.0` for aarch64-apple-darwin by default
-   Compiling cedarpy v0.1.0 (/path/to/cedar-py)
-    Finished dev [unoptimized + debuginfo] target(s) in 3.06s
-📦 Built wheel for CPython 3.9 to /var/folders/k2/tnw8n1c54tv8nt4557pfx3440000gp/T/.tmpO6aj6c/cedarpy-0.1.0-cp39-cp39-macosx_11_0_arm64.whl
-🛠 Installed cedarpy-0.1.0
-================================================================================================ test session starts ================================================================================================
-platform darwin -- Python 3.9.12, pytest-7.4.0, pluggy-1.2.0
+   Compiling cedarpy v4.8.7 (/path/to/cedar-py)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 21.76s
+📦 Built wheel for CPython 3.11 to /var/folders/k2/tnw8n1c54tv8nt4557pfx3440000gp/T/.tmpCUscpS/cedarpy-4.8.7-cp311-cp311-macosx_11_0_arm64.whl
+🛠 Installed cedarpy-4.8.7
+================== test session starts =============
+platform darwin -- Python 3.11.1, pytest-9.0.3, pluggy-1.6.0
 rootdir: /path/to/cedar-py
 configfile: pyproject.toml
 testpaths: tests/unit
@@ -525,7 +562,7 @@ tests/unit/test_authorize.py::AuthorizeTestCase::test_authorize_basic_DENY PASSE
 ... snip ... # a bunch of tests passing - please write more!
 tests/unit/test_import_module.py::InvokeModuleTestFunctionTestCase::test_invoke_parse_test_policy PASSED                                                                                                      [100%]
 
-================================================================================================ 10 passed in 0.51s =================================================================================================
+====== 218 passed, 2 subtests passed in 2.76s ======
 ```
 
 ### Integration tests

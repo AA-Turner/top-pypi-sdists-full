@@ -652,14 +652,15 @@ async def run_agent(
         # isolated task and awaits its terminal attempt so a short-lived host
         # cannot exit after metering but before completion.
         try:
-            meters: dict[str, Any] = {}
-            totals = getattr(execute_result.usage, "total", None)
-            if totals is not None:
-                meters = {
-                    "usd": getattr(totals, "total_cost", 0) or 0,
-                    "input_tokens": int(getattr(totals, "input_tokens", 0) or 0),
-                    "output_tokens": int(getattr(totals, "output_tokens", 0) or 0),
-                }
+            # `total_cost or 0` here used to turn an honestly-unknown bill into
+            # a silent $0 on the spend ledger (139 zero-cost internal_agent_run
+            # rows in 30 days, 2026-09-12). The shared builder records the
+            # catalog-known subtotal plus an explicit `unpriced_calls` meter.
+            from matrx_ai.config.usage_config import cost_meters_from_totals
+
+            meters: dict[str, Any] = cost_meters_from_totals(
+                getattr(execute_result.usage, "total", None), label=label
+            )
             await _spine_settle(
                 "failed" if execution_failed else "completed",
                 error=execution_error,

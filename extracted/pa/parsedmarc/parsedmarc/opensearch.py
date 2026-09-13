@@ -17,6 +17,7 @@ from opensearchpy import (
     Keyword,
     Nested,
     Object,
+    OpenSearch,
     Q,
     RequestsHttpConnection,
     Search,
@@ -508,7 +509,7 @@ def set_hosts(
     auth_type: str = "basic",
     aws_region: str | None = None,
     aws_service: str = "es",
-):
+) -> OpenSearch:
     """
     Sets the OpenSearch hosts to use
 
@@ -524,6 +525,11 @@ def set_hosts(
         auth_type (str): OpenSearch auth mode: basic (default) or awssigv4
         aws_region (str): AWS region for SigV4 auth (required for awssigv4)
         aws_service (str): AWS service for SigV4 signing (default: es)
+
+    Returns:
+        OpenSearch: The client registered under the ``default`` connection
+        alias. Callers that need to close this exact client later (rather than
+        whatever holds the alias at that point) should hold on to it.
     """
     if not isinstance(hosts, list):
         hosts = [hosts]
@@ -561,7 +567,7 @@ def set_hosts(
             f"Unsupported OpenSearch auth_type '{auth_type}'. "
             "Expected 'basic' or 'awssigv4'."
         )
-    connections.create_connection(**conn_params)
+    return connections.create_connection(**conn_params)
 
 
 def create_indexes(names: list[str], settings: dict[str, Any] | None = None):
@@ -871,11 +877,6 @@ def save_aggregate_report_to_opensearch(
     domain = aggregate_report["policy_published"]["domain"]
     begin_date = human_timestamp_to_datetime(metadata["begin_date"], to_utc=True)
     end_date = human_timestamp_to_datetime(metadata["end_date"], to_utc=True)
-
-    if monthly_indexes:
-        index_date = begin_date.strftime("%Y-%m")
-    else:
-        index_date = begin_date.strftime("%Y-%m-%d")
 
     org_name_query = Q(dict(match_phrase=dict(org_name=org_name)))
     report_id_query = Q(dict(match_phrase=dict(report_id=report_id)))

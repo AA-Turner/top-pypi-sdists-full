@@ -1,5 +1,3 @@
-import pytest
-
 from nameparser import HumanName
 
 from tests.base import HumanNameTestBase
@@ -23,16 +21,21 @@ class SuffixesTestCase(HumanNameTestBase):
         hn = HumanName("Kenneth Clarke QC MP")
         self.m(hn.first, "Kenneth", hn)
         self.m(hn.last, "Clarke", hn)
-        # NOTE: this adds a comma when the original format did not have one.
-        # not ideal but at least its in the right bucket
-        self.m(hn.suffix, "QC, MP", hn)
+        # The writer spaced "QC MP", so #436 renders it as written
+        # (rules.md#R1). A deliberate deviation from 1.4.0, which added a
+        # comma the original format did not have.
+        self.m(hn.suffix, "QC MP", hn)
 
     def test_two_suffixes_lastname_comma_format(self) -> None:
         hn = HumanName("Washington Jr. MD, Franklin")
         self.m(hn.first, "Franklin", hn)
         self.m(hn.last, "Washington", hn)
-        # NOTE: this adds a comma when the original format did not have one.
-        self.m(hn.suffix, "Jr., MD", hn)
+        # The writer spaced "Jr. MD", so #436 renders it as written
+        # (rules.md#R1). This name HAS a writer's comma, but it stands
+        # between MD and Franklin -- it parts the family from the run, not
+        # the run from itself. A deliberate deviation from 1.4.0, which
+        # added a comma the original format did not have.
+        self.m(hn.suffix, "Jr. MD", hn)
 
     def test_roman_numeral_v_suffix_comma_format(self) -> None:
         # suffix-comma position is unambiguous: 'V' must be a suffix, not a single-letter initial
@@ -141,9 +144,40 @@ class SuffixesTestCase(HumanNameTestBase):
         self.m(hn.suffix, "III, Jr", hn)
 
     # https://github.com/derek73/python-nameparser/issues/27
-    @pytest.mark.xfail
     def test_king(self) -> None:
+        # v1 aspired to read "Dr King Jr" as title 'Dr', family 'King',
+        # suffix 'Jr', and shipped this as an xfail.
+        # Two halves, and this pin means different things about each.
+        # DECIDED 2026-09-01 (v1-xfail triage, decisions.md#v1-xfail-triage):
+        # 'king' stays in the titles vocabulary, because removing it breaks
+        # the addressing forms it is there for ("King Charles").
+        # decisions.md#vocabulary-collisions cuts toward keeping it, so the
+        # title chain reaches 'King' at all. The comma format reads the
+        # surname without any of that, and is pinned below as the contrast.
+        # WHAT BECOMES OF THE LEFTOVER 'Jr': the improvement this pin
+        # anticipated, taken 2026-09-08 (#489, decisions.md#H3). The title
+        # chain used to eat two words and leave 'Jr' to be the name, against
+        # rules.md#S2, which reads a trailing suffix-vocabulary word as a
+        # suffix -- and against 'Dr Smith Jr', which reads family 'Smith',
+        # suffix 'Jr' exactly as S2 states. The leading peel now leaves a
+        # name word a suffix cannot be: everything behind the run is a
+        # suffix piece and 'King' is not one, so the run gives it back.
+        # Every field below is now what 'Dr Smith Jr' reads, so what
+        # 'king' being title vocabulary still buys this row is the
+        # 'title-or-name' report on the word left standing -- which is a
+        # 2.0 surface this v1 facade test does not assert.
         hn = HumanName("Dr King Jr")
+        self.m(hn.title, "Dr", hn)
+        self.m(hn.first, "", hn)
+        self.m(hn.middle, "", hn)
+        self.m(hn.last, "King", hn)
+        self.m(hn.suffix, "Jr", hn)
+
+    def test_king_as_a_family_name_via_the_comma_format(self) -> None:
+        # The contrast: writing the family first defeats the title chain
+        # outright, and reads 'King' as the family without needing the peel
+        # floor above. Unchanged by #489 -- both roads now arrive together.
+        hn = HumanName("King, Dr Jr")
         self.m(hn.title, "Dr", hn)
         self.m(hn.last, "King", hn)
         self.m(hn.suffix, "Jr", hn)
@@ -200,14 +234,28 @@ class SuffixesTestCase(HumanNameTestBase):
         self.m(hn.last, "Chang", hn)
         self.m(hn.suffix, "I", hn)
 
-    @pytest.mark.xfail
-    def test_roman_numeral_i_with_explicit_suffix_comma_known_limitation(self) -> None:
-        # When an explicit suffix comma is present (len(parts)==3), the trailing 'I'
-        # is conservatively left in middle to avoid misclassifying true initials.
-        # This is a known limitation of the lastname-comma lenient-suffix
-        # guard in parse_full_name (issue #144).
+    def test_roman_numeral_i_with_explicit_suffix_comma_stays_a_middle_initial(self) -> None:
+        # v1 aspired to read the trailing 'I' as an ordinal joining the explicit
+        # suffix ("I, Jr."), and shipped this as an xfail.
+        # NOT FIXED, decided 2026-09-01 (v1-xfail triage,
+        # decisions.md#v1-xfail-triage): a middle initial 'I' is far more common
+        # than an ordinal I borne without a Sr./Jr.-style companion, so when an
+        # explicit suffix comma has already named the suffix, the trailing 'I'
+        # stays a middle initial. The commonality reasoning is the
+        # vocabulary-collision criterion (decisions.md#vocabulary-collisions)
+        # applied to a shape rather than to a word.
+        # Contrast test_roman_numeral_i_after_single_initial_lastname_comma_format
+        # above, where no explicit suffix comma is present and the 'I' does go to
+        # suffix.
+        # rules.md#C1 gained a qualifier with this triage: where a further
+        # comma has already named the suffix, the trailing single letter has
+        # no generation left to be. C1 carries no example line for it (see the
+        # Accepted note there), so this pair of tests is its witness.
         hn = HumanName("Maier, Amy I, Jr.")
-        self.m(hn.suffix, "I, Jr.", hn)
+        self.m(hn.first, "Amy", hn)
+        self.m(hn.middle, "I", hn)
+        self.m(hn.last, "Maier", hn)
+        self.m(hn.suffix, "Jr.", hn)
 
     def test_suffix_delimiter_default_on_constants(self) -> None:
         from nameparser.config import CONSTANTS
@@ -231,11 +279,14 @@ class SuffixesTestCase(HumanNameTestBase):
 
     def test_suffix_delimiter_no_effect_without_comma(self) -> None:
         # suffix_delimiter only applies after the comma split; space-separated
-        # suffixes already work via the no-comma parse path
+        # suffixes already work via the no-comma parse path. Since #436 the
+        # run renders with the space the writer typed, so the row shows the
+        # knob is inert rather than showing a comma nobody asked for -- a
+        # deliberate deviation from 1.4.0, which added that comma.
         hn = HumanName("John Doe MD PhD", suffix_delimiter=" - ")
         self.m(hn.first, "John", hn)
         self.m(hn.last, "Doe", hn)
-        self.m(hn.suffix, "MD, PhD", hn)
+        self.m(hn.suffix, "MD PhD", hn)
 
     def test_suffix_delimiter_constants_level(self) -> None:
         # ran on the shared CONSTANTS in v1; 2.0 deprecates shared mutation,

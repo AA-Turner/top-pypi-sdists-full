@@ -1,6 +1,6 @@
 [project]
 name = "odfdo"
-version = "3.25.0"
+version = "3.26.0"
 description = "Python library for OpenDocument Format"
 license = "Apache-2.0"
 license-files = [
@@ -74,15 +74,22 @@ doc = [
     "mkdocs-include-markdown-plugin>=7.2.0",
 ]
 dev = [
+    "duckdb>=1.0.0",
     "iniconfig>=2.1.0",
+    "numpy>=1.24.0",
+    "openpyxl>=3.1.0",
+    "pandas>=2.0.0",
     "pillow>=12.1.1",
+    "polars>=1.0.0",
+    "pyexcel>=0.7.0",
     "pytest>=8.4.2",
     "pytest-xdist>=3.8.0",
     "coverage>=7.16.0",
     "pytest-cov>=7.0.0",
+    "tabulate>=0.9.0",
     "tox>=4.61.2",
-    "ruff>=0.16.6",
-    "ty>=0.0.78",
+    "ruff>=0.16.7",
+    "ty>=0.0.80",
 ]
 
 [tool.uv]
@@ -123,9 +130,15 @@ select = [
     "B",
     "A",
     "C4",
+    "ISC",
+    "PIE",
+    "PYI",
+    "RET",
     "T10",
     "SIM",
+    "TC",
     "I",
+    "PERF",
     "C90",
     "E",
     "W",
@@ -137,14 +150,13 @@ select = [
 ]
 ignore = [
     "E501",
-    "E731",
-    "PGH003",
-    "S603",
     "A003",
     "TRY003",
     "SIM108",
     "C901",
     "B904",
+    "D104",
+    "PYI041",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -156,6 +168,15 @@ ignore = [
     "UP017",
     "YTT204",
     "SIM117",
+    "S603",
+    "D103",
+    "D100",
+    "D101",
+    "D401",
+    "D205",
+    "D400",
+    "D415",
+    "PERF401",
 ]
 "tests/*/test_*" = [
     "S101",
@@ -165,11 +186,23 @@ ignore = [
     "UP017",
     "YTT204",
     "SIM117",
+    "S603",
+    "D103",
+    "D100",
+    "D101",
+    "D401",
+    "D205",
+    "D400",
+    "D415",
+    "PERF401",
 ]
 "recipes/*" = [
     "S101",
     "SIM102",
     "B903",
+    "D103",
+    "D100",
+    "PERF401",
 ]
 "recipes/accessing_a_single_element.py" = ["RUF001"]
 

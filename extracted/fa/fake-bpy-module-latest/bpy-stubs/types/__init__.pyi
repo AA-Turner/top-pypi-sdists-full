@@ -115087,6 +115087,20 @@ class UILayout(bpy_struct):
         :param max_lines: Maximum number of lines to display, 0 means all (in [0, inf], optional)
         """
 
+    def label_markdown(
+        self,
+        *,
+        text: str | None = "",
+        text_ctxt: str | None = "",
+        translate: bool | None = True,
+    ) -> None:
+        """Displays markdown-formatted text in the layout. Only a subset of markdown is supported including headers, lists, bold/italic/code text, links, quotes, horizontal rules.
+
+        :param text: Override automatic text of the item (optional)
+        :param text_ctxt: Override automatic translation context of the given text (optional)
+        :param translate: Translate the given text, when UI translation is enabled (optional)
+        """
+
     def link(
         self,
         *,

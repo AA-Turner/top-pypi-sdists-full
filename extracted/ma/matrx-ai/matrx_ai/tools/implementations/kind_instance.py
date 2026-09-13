@@ -260,7 +260,14 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         org_id = ctx_org_id(ctx)
         if org_id:
             payload["organization_id"] = org_id
-        created = await KindInstance.create_item(**payload)
+        # A tool invocation is an agent-authored persistence door.  The host
+        # emits this ContextVar declaration as transaction-local GUCs when the
+        # injected ORM opens the create transaction; without it an admitted
+        # row is correctly born unconfirmed, but the door is defective.
+        from matrx_orm import declared_actor
+
+        async with declared_actor("ai", "tool:instance_create"):
+            created = await KindInstance.create_item(**payload)
 
         fresh = await KindInstance.get_or_none(use_cache=False, id=str(created.id))
         verdict = fresh.validation_status if fresh else "unknown"

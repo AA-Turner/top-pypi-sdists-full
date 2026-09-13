@@ -95,6 +95,29 @@ class ProxyBackend(pygit2.OdbBackend):
         return iter(self.source)
 
 
+class RaisingOdbBackend(pygit2.OdbBackend):
+    """A backend whose callbacks always raise a configurable exception."""
+
+    def __init__(self, exc: Exception) -> None:
+        super().__init__()
+        self.exc = exc
+
+    def read_cb(self, oid: Oid | str) -> tuple[int, bytes]:
+        raise self.exc
+
+    def read_prefix_cb(self, oid: Oid | str) -> tuple[int, bytes, Oid]:
+        raise self.exc
+
+    def read_header_cb(self, oid: Oid | str) -> tuple[int, int]:
+        raise self.exc
+
+    def exists_cb(self, oid: Oid | str) -> bool:
+        raise self.exc
+
+    def exists_prefix_cb(self, oid: Oid | str) -> Oid:
+        raise self.exc
+
+
 #
 # Test a custom object backend alone (without adding it to an ODB)
 # This doesn't make much sense, but it's possible.
@@ -141,6 +164,44 @@ def test_exists_prefix(proxy: ProxyBackend) -> None:
     assert BLOB_HEX == proxy.exists_prefix(a_hex_prefix)
 
 
+@pytest.fixture
+def raising_backend() -> Generator[RaisingOdbBackend, None, None]:
+    yield RaisingOdbBackend(RuntimeError('boom'))
+
+
+def test_read_cb_raises_runtime_error(raising_backend: RaisingOdbBackend) -> None:
+    # Regression test: a RuntimeError in read_cb must propagate as RuntimeError,
+    # not be overwritten by a stale libgit2 error message.
+    with pytest.raises(RuntimeError, match='boom'):
+        pygit2.OdbBackend.read(raising_backend, BLOB_OID)
+
+
+def test_read_prefix_cb_raises_runtime_error(
+    raising_backend: RaisingOdbBackend,
+) -> None:
+    with pytest.raises(RuntimeError, match='boom'):
+        pygit2.OdbBackend.read_prefix(raising_backend, BLOB_HEX[:4])
+
+
+def test_read_header_cb_raises_runtime_error(
+    raising_backend: RaisingOdbBackend,
+) -> None:
+    with pytest.raises(RuntimeError, match='boom'):
+        pygit2.OdbBackend.read_header(raising_backend, BLOB_OID)
+
+
+def test_exists_cb_raises_runtime_error(raising_backend: RaisingOdbBackend) -> None:
+    with pytest.raises(RuntimeError, match='boom'):
+        pygit2.OdbBackend.exists(raising_backend, BLOB_OID)
+
+
+def test_exists_prefix_cb_raises_runtime_error(
+    raising_backend: RaisingOdbBackend,
+) -> None:
+    with pytest.raises(RuntimeError, match='boom'):
+        pygit2.OdbBackend.exists_prefix(raising_backend, BLOB_HEX[:4])
+
+
 #
 # Test a custom object backend, through a Repository.
 #
@@ -169,3 +230,50 @@ def test_repo_read(repo: Repository) -> None:
     ab = repo[BLOB_OID]
     a = repo[BLOB_HEX]
     assert ab == a
+
+
+class BadOidReadPrefixBackend(ProxyBackend):
+    def read_prefix_cb(self, oid: Oid | str) -> tuple[int, bytes, Oid | str]:  # type: ignore[override]
+        return (ObjectType.BLOB, b'bad', 'not-a-valid-oid')
+
+
+class BadOidExistsPrefixBackend(ProxyBackend):
+    def exists_prefix_cb(self, oid: Oid | str) -> Oid | str:  # type: ignore[override]
+        return 'not-a-valid-oid'
+
+
+class BadOidIterBackend(ProxyBackend):
+    def __iter__(self) -> Iterator[Oid | str]:  # type: ignore[override]
+        yield 'not-a-valid-oid'
+
+
+def test_read_prefix_cb_bad_oid(barerepo: Repository) -> None:
+    # Regression test (issue #1478): an ODB backend returning an invalid oid
+    # from read_prefix_cb must raise InvalidError instead of silently returning
+    # garbage data.
+    path = Path(barerepo.path) / 'objects'
+    backend = BadOidReadPrefixBackend(pygit2.OdbBackendPack(path))
+    with pytest.raises(pygit2.InvalidError):
+        backend.read_prefix(BLOB_HEX[:4])
+
+
+def test_exists_prefix_cb_bad_oid(barerepo: Repository) -> None:
+    # Regression test (issue #1478): an ODB backend returning an invalid oid
+    # from exists_prefix_cb must raise InvalidError instead of silently returning
+    # garbage data.
+    path = Path(barerepo.path) / 'objects'
+    backend = BadOidExistsPrefixBackend(pygit2.OdbBackendPack(path))
+    with pytest.raises(pygit2.InvalidError):
+        backend.exists_prefix(BLOB_HEX[:4])
+
+
+def test_foreach_cb_bad_oid(barerepo: Repository) -> None:
+    # Regression test (issue #1478): an ODB backend yielding an invalid oid
+    # during iteration must raise InvalidError instead of crashing or returning
+    # garbage data.
+    path = Path(barerepo.path) / 'objects'
+    backend = BadOidIterBackend(pygit2.OdbBackendPack(path))
+    odb = pygit2.Odb()
+    odb.add_backend(backend, 1)
+    with pytest.raises(pygit2.InvalidError):
+        next(iter(odb))

@@ -156,7 +156,7 @@ async def _run_completion(
         store=store,
         conversation_id=conversation_id,
     )
-    result = normalize_completed(completed)
+    result = await asyncio.to_thread(normalize_completed, completed)
     text = result.final_text or ""
 
     # When streaming, ``CompletedRequest.final_response`` is sometimes not

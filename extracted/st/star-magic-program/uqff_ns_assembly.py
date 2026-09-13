@@ -35,7 +35,7 @@ import math
 from typing import Dict, List
 
 from uqff_registry_primitives import (D_PHYS, D_BSFG, D_CRIT, SO_5, F_TRZ,
-                                      BETA_I, PHI_RES_COUNTING)
+                                      BETA_I, PHI_RES_COUNTING, SSQ)
 
 # ---- PAPER_1232 Taylor-Green anchors (canonical) --------------------------
 UA_CANONICAL = 0.4816            # PAPER_1724 Lambda-ledger normalization
@@ -952,10 +952,10 @@ def ns_proof_set() -> Dict:
         },
         'theory_open_rungs': 0,
         'awaiting_outside_data': [
-            'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85); extreme-event/trefoil scan still THE kill test, OPEN',
+            'isotropic DNS: SAMPLED GRADE PASSED (B276, JHTDB 8192^3, ratios <= 0.084 vs cap 0.85) and the REYNOLDS LADDER PASSED (B278, Re_lambda 433 -> 2500 incl. isotropic32768, no trend toward the cap; sub-batch envelope drifts up with Re - FLAGGED); extreme-event/trefoil scan still THE kill test, OPEN',
             'lab-vs-astro stretching -> pair cap 17/20 vs 197/200: IN-MEDIUM BRANCH SAMPLED CONSISTENCY PASS (B277, JHTDB channel Re_tau ~ 1000, ratios <= 0.0734 under BOTH caps); DISCRIMINATION between the branches still OPEN (far tail)',
             'THz bench dip -> profile FWHM 0.235 + 910-vs-896 discriminator',
-            'DNS spectra -> no dynamics above k_c (Theorem A mode count)',
+            'DNS spectra -> no dynamics above k_c (Theorem A mode count); SHAPE added by Theorem B (B280): roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law',
         ],
         'standing_flags': [
             'Lambda_TG vs alpha (0.004 pct) - no corpus chain',
@@ -967,6 +967,13 @@ def ns_proof_set() -> Dict:
                   'rigorous under the physical cutoff; the no-cutoff '
                   'idealization is outside the physical domain by ruling '
                   '(B273); NOT REPLACEMENT'),
+        'spine_row': ('ns_functional_spine: SUPERSEDED_BY_RULING (PAPER_2268) + AUDITED '
+                      '(PAPER_2274, B279) - the predecessor S300 Sobolev step is false; '
+                      'Theorem A never needed it; theory rows OPEN in the registry: zero'),
+        'theorem_b_row': ('THEOREM B (PAPER_2275, B280): the CONTINUUM fluid with phonon-mollified '
+                          'transport (all modes, eps = 0.156 nm from the three phonon forms) is globally '
+                          'regular - Leray 1934; Track 3 CLOSED on the Gaussian form; PAPER_106 exponent '
+                          'ruling OPEN (5/2 threshold, twice); Theorem A = its sharp-filter limit'),
         'status': 'THEORY_COMPLETE_AWAITING_DATA (B275)',
     }
 
@@ -1062,4 +1069,227 @@ def in_medium_sample_grade() -> Dict:
                         'prediction is CONFIRMED'),
         'status': ('IN_MEDIUM_HOLDS_SAMPLED_B277 (pair-cap discrimination OPEN; '
                    'extreme-event scan OPEN)'),
+    }
+
+
+# ---- B278 (PAPER_2273): THE REYNOLDS LADDER ------------------------------
+JHTDB_LADDER_GRADE_CSV = 'jhtdb_grade/jhtdb_ladder_grade_2026-09-11.csv'
+REYNOLDS_LADDER = (
+    # (dataset, snapshot t, Re_lambda per JHTDB page, seeds, global ratios, sub-batch max, frac positive)
+    ('isotropic1024coarse', 1.0, 433.0, (30, 31), (0.030460, 0.027190), 0.067520, (0.765, 0.750)),
+    ('isotropic4096', 1, 610.57, (32, 33), (0.026534, 0.038909), 0.070039, (0.769, 0.772)),
+    ('isotropic8192 snapshot 6 (8192^3 grid at Re_lambda ~610)', 6, 610.0, (36, 37), (0.020592, 0.025278), 0.081592, (0.750, 0.757)),
+    ('isotropic8192 snapshot 1 (B276)', 1, 1250.0, (26, 27), (0.028660, 0.024624), 0.084421, (0.778, 0.754)),
+    ('isotropic32768', 1, 2500.0, (34, 35), (0.024620, 0.019006), 0.107323, (0.764, 0.749)),
+)
+
+
+def reynolds_ladder_grade() -> Dict:
+    """B278: the vacuum-branch statistic across FOUR Reynolds numbers of
+    forced isotropic turbulence - JHTDB isotropic1024coarse (Re_lambda
+    ~433), isotropic4096 (610.57), isotropic8192 (1200-1300; B276) and
+    isotropic32768 (~2,500; the largest DNS in existence, 3.5e13 grid
+    points) - plus a resolution check at fixed Re_lambda ~610 (the
+    4096^3 grid against isotropic8192's snapshot 6 on the 8192^3 grid).
+    Same protocol as B276/B277 (official REST, sanctioned testing token,
+    1,000 deterministic-LCG points per seed, new seeds, fd4lag4
+    gradients). THE CAP HOLDS AT EVERY RUNG (worst ratio 0.107323, 8x
+    under 17/20). The GLOBAL statistic shows NO trend toward the cap with
+    Re; the 100-point sub-batch ENVELOPE drifts upward with Re (0.068 ->
+    0.107) - the intermittency direction, exactly where a violation would
+    live - and is FLAGGED for the full-token scan, not softened. The
+    resolution pair agrees within seed scatter. HONESTY: this answers
+    "does the sampled statistic climb toward the cap with Reynolds
+    number?" (no) and NOT "is there an extreme event above the cap?"
+    (OPEN). Provenance: jhtdb_grade/README_PROVENANCE.md (2026-09-11)."""
+    from uqff_paths import resolve
+    try:
+        path = str(resolve(JHTDB_LADDER_GRADE_CSV))
+    except Exception:
+        path = JHTDB_LADDER_GRADE_CSV
+    g = grade_cap_against_dns(path)
+    rungs = []
+    for ds, t, re_l, seeds, ratios, sub_max, fpos in REYNOLDS_LADDER:
+        rungs.append({'dataset': ds, 't': t, 're_lambda': re_l, 'seeds': seeds,
+                      'global_ratios': ratios, 'rung_mean': round(sum(ratios) / 2.0, 6),
+                      'sub_batch_max': sub_max, 'frac_positive_stretching': fpos})
+    means = [r['rung_mean'] for r in rungs]
+    envs = [r['sub_batch_max'] for r in rungs]
+    res_pair = (rungs[1]['global_ratios'], rungs[2]['global_ratios'])
+    return {
+        'rungs': rungs,
+        'n_rungs': len(rungs),
+        're_lambda_span': (rungs[0]['re_lambda'], rungs[-1]['re_lambda']),
+        'worst_ratio_any_rung': max(envs),
+        'harness_verdict': g.get('verdict', g.get('refusal', 'UNGRADED')),
+        'global_trend': ('NO TREND TOWARD THE CAP: per-rung means %s across Re_lambda 433 -> 2500 '
+                         '(highest rung is the lowest mean)' % (means,)),
+        'envelope_flag': ('FLAGGED: 100-point sub-batch envelope drifts upward with Re %s - the '
+                          'intermittency direction, where a violation would live; the full-token '
+                          'extreme-event scan must check whether the envelope keeps growing' % (envs,)),
+        'resolution_check': ('Re_lambda ~610 on 4096^3 %s vs 8192^3 %s - agree within seed-to-seed '
+                             'scatter (~0.01); no resolution dependence detected at n = 1000' % res_pair),
+        'power_limit': ('sampled global statistic; the far-tail power limit of B276/B277 is '
+                        'unchanged - this is the Re-trend question answered, not the kill test'),
+        'service_note': 'isotropic4096 returned transient backend faults before both seeds landed; every recorded number came from a 200 response',
+        'status': 'CAP_HOLDS_ALL_RUNGS_B278 (envelope drift FLAGGED; extreme-event scan OPEN)',
+    }
+
+
+# ---- B279 (PAPER_2274): THE SPINE AUDIT ----------------------------------
+S300_SOBOLEV_EXPONENTS = (0.5, 0.25)   # predecessor S300 L74: |omega|_max <= C * E_2^{1/2} * E^{1/4}
+
+
+def spine_audit(alpha: float = 0.4) -> Dict:
+    """B279: audit of the predecessor's UQFF-Leray argument (Star-Magic
+    _session300_millennium_navier_stokes.py, PAPER_1182 sec 3.5 era) -
+    the argument the `ns_functional_spine` gap row was silently about.
+    S1 (enstrophy budget) and S2 (the cap, now DERIVED) stand. S3 - the
+    Sobolev step ||omega||_inf <= C E_2^{1/2} E^{1/4} - is FALSE twice
+    over: (a) dimensionally (the only balanced exponents are (3/4,-1/4));
+    (b) analytically - H^1(R^3) does not embed in L^inf, witnessed by
+    the divergence-free family omega = grad g x e_z, g = r^{1-alpha},
+    0 < alpha < 1/2: finite E, finite E_2, UNBOUNDED sup. S4 (Young)
+    yields a small-data condition (Leray 1934), and the "nu_eff" line is
+    a non sequitur. The BKM criterion is untouched by a constant 17/20
+    in place of 1 - the cap feeds int ||omega||_inf dt, it does not
+    control it. Theorem A (PAPER_2267) never uses S3 (finite modes);
+    the ruling (PAPER_2268) assigns the regime that needs S3 to
+    mathematics. Disposition: row SUPERSEDED_BY_RULING + AUDITED; theory
+    rows OPEN: zero. Nothing derived in B267-B278 depended on S3."""
+    from fractions import Fraction as _F
+    # (a) dimensional balance: [E] = w^2 L^3, [E_2] = w^2 L; need E_2^a E^b ~ w
+    #     w: 2a + 2b = 1 ; L: a + 3b = 0  ->  a = 3/4, b = -1/4
+    a_bal, b_bal = _F(3, 4), _F(-1, 4)
+    a_s, b_s = _F(1, 2), _F(1, 4)
+    s300_w_power = 2 * a_s + 2 * b_s          # 3/2 (needs 1)
+    s300_L_power = a_s + 3 * b_s              # 5/4 (needs 0)
+    # (b) the H^1 counterexample family at the given alpha (0 < alpha < 1/2):
+    #     E_2 ~ int_0^1 r^{-2 alpha - 2} r^2 dr = 1/(1 - 2 alpha); E ~ int_0^1 r^{-2 alpha} r^2 dr = 1/(3 - 2 alpha)
+    assert 0.0 < alpha < 0.5
+    e2_integral = 1.0 / (1.0 - 2.0 * alpha)
+    e_integral = 1.0 / (3.0 - 2.0 * alpha)
+    sup_at_eps = [(eps, eps ** (-alpha)) for eps in (1e-2, 1e-4, 1e-8)]
+    return {
+        'source': 'Star-Magic/_session300_millennium_navier_stokes.py L64-96, L144 (Rule E read-only); PAPER_1182 sec 3.5',
+        'steps': {
+            'S1_budget': 'dE/dt = -nu E_2 + V_stretch - CORRECT (B267)',
+            'S2_cap': 'V_stretch <= (17/20) ||omega||_inf E - CORRECT, and DERIVED since B271 (constant changes, structure does not)',
+            'S3_sobolev': 'FALSE - see dimensional_failure and h1_not_in_linf',
+            'S4_young': 'SMALL-DATA ONLY (Leray 1934); the nu_eff = nu/0.85 line is a non sequitur',
+            'S5_conclusion': 'does not follow from S1-S4; the decay envelope stands as the STATED prediction (B267), not as a consequence',
+        },
+        'dimensional_failure': {
+            's300_exponents': (float(a_s), float(b_s)),
+            's300_rhs_scales_as': 'omega^%s L^%s (needs omega^1 L^0)' % (s300_w_power, s300_L_power),
+            'only_balanced_exponents': (float(a_bal), float(b_bal)),
+        },
+        'h1_not_in_linf': {
+            'family': 'omega = grad g x e_z, g = r^(1-alpha) chi(r), div omega = 0, |omega| ~ r^(-alpha)',
+            'alpha': alpha,
+            'E2_integral': e2_integral,
+            'E_integral': e_integral,
+            'sup_omega_at_eps': sup_at_eps,
+            'verdict': 'finite E, finite E_2, unbounded ||omega||_inf - no inequality ||omega||_inf <= C E_2^a E^b exists on R^3',
+        },
+        'bkm_point': ('BKM: continuation iff int ||omega||_inf dt < inf; the cap bounds stretching BY '
+                      '||omega||_inf E - it feeds the BKM integral, it does not control it; a constant '
+                      '17/20 in place of 1 leaves the criterion where it was'),
+        'why_the_proof_set_stands': ('Theorem A lives on the finite mode space X_K where ||omega||_inf ~ '
+                                     '||omega||_2 - S3 is unnecessary, not skipped; the regime that needs '
+                                     'S3 ([SCm] -> 0, infinitely many modes) is the regime PAPER_2268 '
+                                     'assigned to mathematics'),
+        'predecessor_own_audit': 'session-259 _millennium_prize_audit.json: ASSERTION_ONLY - "Global smoothness is the OPEN content"; formal/UQFF/Millennium.lean: True placeholder',
+        'disposition': 'ns_functional_spine -> SUPERSEDED_BY_RULING (PAPER_2268) + AUDITED (PAPER_2274); theory rows OPEN: 0',
+        'not_claimed': 'a proof that the cap implies int ||omega||_inf dt < inf without cutoff = the Clay statement; not claimed, not owed (ruling)',
+        'status': 'SPINE_AUDITED_B279 (row closed by ruling; nothing in B267-B278 depended on S3)',
+    }
+
+
+# ---- B280 (PAPER_2275): THEOREM B - the continuum fluid, phonon-mollified -
+C_S_WATER_M_S = 1480.0           # PAPER_2261 anchor (seawater Vp, K4 family; = galerkin_mode_count default)
+
+
+def theorem_b(beta_i: float = BETA_I, ssq: float = SSQ,
+              c_s_m_s: float = C_S_WATER_M_S, f_c_hz: float = OMEGA_CUTOFF_HZ) -> Dict:
+    """B280 (PAPER_2275): THEOREM B - global regularity of the CONTINUUM
+    UQFF fluid (all Fourier modes, no truncation, no ruling needed) via
+    phonon-mollified transport. The three phonon forms of the corpus -
+    the LINE (Form A, PAPER_2269 / PAPER_1907), the THRESHOLD (Form B,
+    H_SCm in PAPER_102/1072/893) and the Gaussian TAIL in mode number
+    q^{n^2}, q = exp(-beta_i [SSq]) (Form C, PAPER_1042) - compose into a
+    Fourier multiplier m(k) ~ exp(-beta_i [SSq] (k/k_c)^2) above k_c,
+    i.e. a Gaussian mollifier rho_eps of width eps = sqrt(2 beta_i [SSq])
+    / k_c = 0.156 nm (water) under ONE flagged identification n = k/k_c.
+    Leray 1934 (equations regularisees): for d_t u + (rho_eps * u . grad)
+    u + grad p = nu Lap u, ||grad u_eps||_inf <= ||grad rho_eps||_2 ||u||_2
+    = C eps^{-5/2} ||u_0||_2 =: M_eps is a CONSTANT, Gronwall closes the
+    H^1 bound, and the solution is unique, global and C^inf. M_eps
+    diverges as eps -> 0: that divergence IS the PAPER_2268 domain
+    boundary, now quantitative. Post-sweep (sec 8): the PAPER_106 forms
+    close the same track iff beta > 5/2 (mollifier) / a >= 5/2 (Lions
+    hyperviscosity) - the same threshold twice; RULING REQUESTED on the
+    PAPER_106 exponents. NOT claimed: the no-cutoff Clay statement;
+    uniformity as eps -> 0; that 0.156 nm is measured."""
+    from fractions import Fraction as _F
+    q = math.exp(-beta_i * ssq)                          # Form C base, 0.7092
+    lam_c = c_s_m_s / f_c_hz                             # 1.184 nm
+    k_c = 2.0 * math.pi / lam_c
+    eps = math.sqrt(2.0 * beta_i * ssq) / k_c            # Gaussian width
+    mult = {n: q ** (n * n) for n in (1, 2, 3, 5)}       # m(n k_c) = q^{n^2}
+    one_over_e = 1.0 / math.sqrt(beta_i * ssq)           # exp(-beta_i SSq n^2) = 1/e
+    # ||grad rho_eps||_2^2 = (3 / (16 pi^{3/2})) eps^{-5} EXACT for the unit-mass
+    # Gaussian rho_eps = (2 pi eps^2)^{-3/2} exp(-|x|^2 / 2 eps^2)
+    c_grad2 = 3.0 / (16.0 * math.pi ** 1.5)
+    c_grad = math.sqrt(c_grad2)
+    grad_rho_l2 = c_grad * eps ** (-2.5)
+    # the 5/2 threshold, twice: ||grad rho||_2^2 ~ int k^{4 - 2 beta} dk < inf iff beta > 5/2;
+    # Lions (1969): (-Lap)^{a/2} dissipation gives global regularity iff a >= 5/2
+    beta_min = _F(5, 2)
+    a_min = _F(5, 2)
+    converges = {b: (4 - 2 * b) < -1 for b in (2, _F(5, 2), 3)}   # {2: False, 5/2: False, 3: True}
+    return {
+        'forms': {
+            'A_line': 'Phi(f) = exp(-(f - f_c)^2 / 2 Gamma^2), Gamma = 0.1 THz, Q = 25/2 EXACT (PAPER_2269 sec 1; PAPER_1907 L78-81 Lorentzian variant)',
+            'B_threshold': 'H_SCm(k_c - k): dynamics only below the carrier (PAPER_102 L168; PAPER_1072 L19; PAPER_893 L36; the PAPER_2267 mode count)',
+            'C_tail': 'q^{n^2}, q = exp(-beta_i [SSq]) = %.4f (PAPER_1042 L21/26/32; PAPER_205 L147-149 exponential variant)' % q,
+        },
+        'q': q,
+        'lambda_c_nm': lam_c * 1e9,
+        'k_c_per_m': k_c,
+        'epsilon_nm': eps * 1e9,
+        'epsilon_over_lambda_c': eps / lam_c,
+        'sqrt_2_beta_ssq': math.sqrt(2.0 * beta_i * ssq),
+        'multiplier_at_n_kc': mult,
+        'one_over_e_point_k_over_kc': one_over_e,
+        'mollifier': 'rho_eps(x) = (2 pi eps^2)^{-3/2} exp(-|x|^2 / 2 eps^2); m(k) = exp(-eps^2 k^2 / 2) = q^{(k/k_c)^2} above k_c',
+        'grad_rho_l2_constant': c_grad,
+        'grad_rho_l2_constant_sq_exact': '3 / (16 pi^{3/2})',
+        'grad_rho_l2_at_eps': grad_rho_l2,
+        'M_eps_form': '||grad u_eps||_inf <= ||grad rho_eps||_2 ||u_0||_2 = C eps^{-5/2} ||u_0||_2 =: M_eps (CONSTANT for fixed eps)',
+        'proof_steps': {
+            'i_energy': 'div u_eps = 0 -> d/dt ||u||_2^2 = -2 nu ||grad u||_2^2 <= 0 - RIGOROUS',
+            'ii_transport_bounded': 'sup norm of the SMOOTHED field bounded by the L^2 norm (the step S300 needed and could not have) - RIGOROUS',
+            'iii_h1_gronwall': 'd/dt ||grad u||_2^2 <= 2 M_eps ||grad u||_2^2 -> ||grad u(t)||_2^2 <= ||grad u_0||_2^2 exp(2 M_eps t) - RIGOROUS',
+            'iv_global_unique_smooth': 'local H^1 well-posedness (Lipschitz nonlinearity) + a-priori bound at every order -> global, unique, C^inf - RIGOROUS (Leray 1934)',
+        },
+        'uses': 'energy conservation of divergence-free transport + smoothing of ONE field; NOT the cap, NOT the envelope, NOT Sobolev embedding, NOT BKM, NOT the truncation',
+        'beside_theorem_a': 'Theorem A (PAPER_2267) = the sharp filter (projection onto |k| <= k_c) limit of this mollifier; Theorem B keeps all modes and needs no ruling',
+        'domain_boundary': 'M_eps = C eps^{-5/2} ||u_0||_2 DIVERGES as eps -> 0: the PAPER_2268 boundary, now quantitative at eps = %.3f nm' % (eps * 1e9),
+        'five_halves_threshold': {
+            'mollifier_beta_min': float(beta_min),
+            'lions_a_min': float(a_min),
+            'convergence_of_grad_rho_by_beta': {str(k): v for k, v in converges.items()},
+            'note': 'PAPER_106 suppression 1/(1 + (k/k_Q)^beta): Theorem B iff beta > 5/2; PAPER_106 damping Gamma_0 (k/k_Q)^a: Lions iff a >= 5/2 - the same number gates both routes; the Gaussian tail is the beta -> inf member and satisfies both',
+        },
+        'three_readings': ('(i) structural nonexistence above k_c (PAPER_1383) = Theorem A; (ii) growing power-law damping (PAPER_106) = Lions iff a >= 5/2; '
+                           '(iii) suppression/mollification of the transported field (PAPER_1042 Gaussian = Theorem B as stated; PAPER_106 factor iff beta > 5/2) - '
+                           'not rivals: (i) is the sharp limit of (iii), (ii) is an independent second mechanism'),
+        'track_3': 'CLOSED on the Gaussian form (Form C); CONDITIONALLY closed on the PAPER_106 forms pending the exponent ruling',
+        'identification_flag': 'FLAGGED (Daniel-gated): mode index n of Form C read as k/k_c; the theorem holds for ANY smooth Gaussian/exponential tail - only the NUMBER 0.156 nm depends on it (PAPER_205 exponential variant: 0.004 nm)',
+        'ruling_requested': 'RULING REQUESTED: fix the PAPER_106 exponents a and beta, or canonize the PAPER_1042 Gaussian tail as the high-k form for fluid modes',
+        'front_4_shape': 'transfer above k_c should roll off as exp(-%.3f (k/k_c)^2), 1/e point at k = %.2f k_c - Gaussian, not power-law; a power-law tail in the phonon regime falsifies the placement of Form C' % (beta_i * ssq, one_over_e),
+        'coincidence_flag': 'q = 0.7092 vs rho_SCm 7.09 mantissa echo - disclosed, NOT canonized, no chain',
+        'not_claimed': 'the no-cutoff Clay statement; uniformity of any bound as eps -> 0; that 0.156 nm is a measured quantity (it is derived); Lions hyperviscosity is not in the corpus and not needed',
+        'status': 'THEOREM_B_PROVED_B280 (continuum fluid, phonon-mollified transport; Track 3 closed on Form C; PAPER_106 exponent ruling OPEN)',
     }

@@ -36,6 +36,7 @@
 
 #if defined(__linux__)
     #include <sys/prctl.h> /* prctl() */
+    #include <sys/xattr.h> /* getxattr() */
 #endif
 
 #if defined(__APPLE__) && defined(WINDOWED)
@@ -126,22 +127,73 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
     }
     PYI_DEBUG("LOADER: executable file: %s\n", pyi_ctx->executable_filename);
 
-    /* Check if executable set setuid bit set (POSIX platforms only). */
-#if !defined(_WIN32) && !defined(__APPLE__)
+    /* Check if executable is running with elevated privileges while
+     * inheriting environment variables set by unprivileged user. On
+     * POSIX platforms, this happens with executables that have setuid
+     * or setgid bit set.
+     * On Windows, it happens with UAC-elevated executables.
+     * In both cases, the OS sanitizes some of environment variables
+     * (e.g., PATH, or LD_LIBRARY_PATH or equivalent), but not the ones
+     * that are used by PyInstaller. Thus, we might need to perform
+     * additional security checks before inheriting the environment. */
     if (1) {
+#if defined(_WIN32)
+        HANDLE token;
+        TOKEN_ELEVATION_TYPE elevation_type;
+        DWORD ret_size;
+
+        if (OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token) == 0) {
+            PYI_WINERROR_W(L"OpenProcessToken", L"Security validation failure: could not obtain token information for current process!\n");
+            return -1;
+        }
+
+        if (GetTokenInformation(token, TokenElevationType, &elevation_type, sizeof(elevation_type), &ret_size) == 0) {
+            PYI_WINERROR_W(L"GetTokenInformation", L"Security validation failure: could not obtain token information for current process!\n");
+            CloseHandle(token);
+            return -1;
+        }
+
+        CloseHandle(token);
+
+        if (elevation_type == TokenElevationTypeFull) {
+            PYI_DEBUG_W(L"SECURITY: executable is running with TokenElevationTypeFull.\n");
+            pyi_ctx->has_elevated_privileges |= PYI_ELEVATED_PRIVILEGES_UAC;
+        }
+#else
         struct stat executable_stat;
 
+        /* Check for setuid/setgid bit */
         if (stat(pyi_ctx->executable_filename, &executable_stat) < 0) {
             PYI_ERROR("Security validation failure: could not stat() the executable!\n");
             return -1;
         }
-        pyi_ctx->has_setuid = (executable_stat.st_mode & S_ISUID) == S_ISUID;
 
-        if (pyi_ctx->has_setuid) {
+        if (executable_stat.st_mode & S_ISUID) {
             PYI_DEBUG("SECURITY: executable has setuid bit set.\n");
+            pyi_ctx->has_elevated_privileges |= PYI_ELEVATED_PRIVILEGES_SETUID;
         }
+
+        if (executable_stat.st_mode & S_ISGID) {
+            PYI_DEBUG("SECURITY: executable has setgid bit set.\n");
+            pyi_ctx->has_elevated_privileges |= PYI_ELEVATED_PRIVILEGES_SETGID;
+        }
+
+        /* Check for file capabilities (linux only) */
+#if defined(__linux__)
+        if (1) {
+            ssize_t ret = getxattr(pyi_ctx->executable_filename, "security.capability", NULL, 0);
+            if (ret > 0) {
+                PYI_DEBUG("SECURITY: executable has file capabilities set (security.capability xattr found).\n");
+                pyi_ctx->has_elevated_privileges |= PYI_ELEVATED_PRIVILEGES_FILE_CAPABILITIES;
+            } else if (ret < 0 && !(errno == E2BIG || errno == ENODATA || errno == ENOTSUP)) {
+                PYI_PERROR("getxattr", "Security validation failure: could not query extended attributes on the executable file!\n");
+                return -1;
+            }
+        }
+#endif /* defined(linux) */
+
+#endif /* defined(WIN32 */
     }
-#endif
 
     /* Resolve main PKG archive - embedded or side-loaded. */
     if (_pyi_main_resolve_pkg_archive(pyi_ctx) < 0) {
@@ -411,7 +463,19 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
      * and based on that, determine the application's top-level directory. */
     if (pyi_ctx->is_onefile) {
         bool create_temp_dir;
-        bool is_parent = true;
+
+        /* If process is running with elevated privileges (e.g., setuid
+         * bit on POSIX platforms), check that parent-process security
+         * validation is available on this platform/system. This ensures
+         * that on known unsupported platforms (such as AIX and OpenBSD),
+         * we exit with an early error in the parent onefile process,
+         * instead of trying to set up a child process that is doomed
+         * to fail... */
+        if (pyi_ctx->has_elevated_privileges || pyi_ctx->enable_onefile_parent_verification) {
+            if (pyi_security_onefile_parent_verification_available() != true) {
+                return -1;
+            }
+        }
 
         if (pyi_ctx->process_level == PYI_PROCESS_LEVEL_PARENT_NEEDS_RESTART) {
             /* POSIX build with splash screen enabled; before restart. */
@@ -432,7 +496,6 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
                 "main application process" : "spawned subprocess"
             );
             create_temp_dir = false; /* inherit */
-            is_parent = false; /* child process */
         }
 
         if (create_temp_dir) {
@@ -471,6 +534,8 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
                 return -1;
             }
         } else {
+            unsigned int onefile_parent_pid;
+
             /* The ephemeral application top-level directory should already
              * exist, and the path to it should be available in the
              * _PYI_APPLICATION_HOME_DIR environment variable. */
@@ -493,41 +558,74 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
              * from tricking us into using an arbitrary _PYI_APPLICATION_HOME_DIR
              * via spoofed _PYI_ARCHIVE_FILE and _PYI_PARENT_PROCESS_LEVEL.
              * See: https://github.com/pyinstaller/pyinstaller/security/advisories/GHSA-9fxf-4qw3-ghmr */
-            if (is_parent) {
+
+            /* Verify the name of the inherited top-level application
+             * directory, and extract the process ID of the onefile parent
+             * process from it. */
+            if (pyi_security_verify_onefile_application_home_dir_name(pyi_ctx, &onefile_parent_pid) != true) {
+                return -1;
+            }
+            PYI_DEBUG("SECURITY: process ID of the originating onefile parent process: %d\n", onefile_parent_pid);
+
+            /* Check owner and permissions on the inherited top-level application
+             * directory, if necessary (otherwise this call is no-op). */
+            if (pyi_security_verify_onefile_application_home_dir_permissions(pyi_ctx) != true) {
+                return -1;
+            }
+
+            /* Verify the originating onefile parent process */
+            if (pyi_ctx->process_level == PYI_PROCESS_LEVEL_PARENT && pyi_ctx->parent_process_level == PYI_PROCESS_LEVEL_PARENT_NEEDS_RESTART) {
                 /* This codepath should be reached only in onefile POSIX
                  * builds with splash screen, where the parent process
                  * needs to set LD_LIBRARY_PATH and restart itself before
-                 * running splash screen. In this case, we cannot verify
-                 * the parent process, but we can verify the inherited
-                 * top-level application directory; specifically, its
-                 * name should start with _MEI and should include the
-                 * PID of *this* process. If setuid bit is set on the
-                 * executable, also check owner/permissions on the directory. */
+                 * running splash screen. So this process effectively
+                 * inherited the application directory from itself, and
+                 * therefore, the PIDs should be identical.
+                 *
+                 * This check should be basic enough that we can enforce
+                 * it regardless of whether the executable is running in
+                 * privileged mode or not. */
 #if defined(_WIN32)
-                unsigned int prefix_pid = _getpid();
+                unsigned int current_pid = _getpid();
 #else
-                unsigned int prefix_pid = getpid();
+                unsigned int current_pid = getpid();
 #endif
-                if (pyi_security_verify_application_home_dir(pyi_ctx, prefix_pid) < 0) {
+                if (current_pid != onefile_parent_pid) {
+                    PYI_ERROR("Security validation failure: unexpected PID found in the name of application's home directory!\n");
                     return -1;
                 }
             } else {
-                /* This is supposed to be a onefile child process; therefore,
-                 * its parent should be a valid onefile process, and should
-                 * be using the same executable... */
-                if (pyi_security_verify_parent_proces(pyi_ctx) < 0) {
-                    return -1;
-                }
-                /* Verify the name of the application's home directory.
-                 * Its name should start with _MEI prefix; for now, skip
-                 * the PID part of the check (by passing 0), as that
-                 * would require us to find the parent onefile process
-                 * (which might be more than one level up the ancestry
-                 * tree for worker sub-processes). On POSIX, if setuid
-                 * bit is set on the executable, also check owner/permissions
-                 * on the directory. */
-                if (pyi_security_verify_application_home_dir(pyi_ctx, 0) < 0) {
-                    return -1;
+                /* This is supposed to be a onefile child process, so
+                 * there should be an originating onefile parent process
+                 * that uses the same executable, and its PID is supposed
+                 * to be embedded in the inherited application top-level
+                 * directory name.
+                 *
+                 * So first, ensure that we can find process with this ID
+                 * in our ancestor tree - either as direct parent (if this
+                 * is main application process), or grandparent or further
+                 * ancestor (if this is spawned worker sub-process)...
+                 *
+                 * ... and then check that the originating onefile parent
+                 * process is using the same executable as this process.
+                 *
+                 * In unprivileged mode, this check might fail due to
+                 * insufficient permissions (or lack of support on the
+                 * target platform). Therefore, we enforce it only when
+                 * the executable is running in privileged mode, or if
+                 * explicitly opted-in (which is mostly available to
+                 * allow testing with non-privileged executables). */
+                if (pyi_ctx->has_elevated_privileges || pyi_ctx->enable_onefile_parent_verification) {
+                    const bool search_process_tree = pyi_ctx->process_level != PYI_PROCESS_LEVEL_MAIN; /* = PYI_PROCESS_LEVEL_SUBPROCESS */
+                    PYI_DEBUG("SECURITY: verifying onefile parent process due to %s...\n", pyi_ctx->has_elevated_privileges ? "executable running in privileged mode" : "explicit opt-in");
+                    if (pyi_security_verify_onefile_parent_pid(pyi_ctx, onefile_parent_pid, search_process_tree) != true) {
+                        return -1;
+                    }
+                    if (pyi_security_verify_onefile_parent_executable(pyi_ctx, onefile_parent_pid) != true) {
+                        return -1;
+                    }
+                } else {
+                    PYI_DEBUG("SECURITY: onefile parent-process verification is disabled\n");
                 }
             }
         }
@@ -561,10 +659,10 @@ pyi_main(struct PYI_CONTEXT *pyi_ctx)
             }
         }
 
-        /* On POSIX platforms, if setuid bit is set on the executable,
-         * check owner/permissions on the top-level application's directory
-         * to ensure its contents are accessible only to the effective user. */
-        if (pyi_security_verify_application_home_dir(pyi_ctx, 0) < 0) {
+        /* Check owner and permissions on the application's top-level
+         * (contents) directory, if necessary (otherwise this call
+         * is no-op). */
+        if (pyi_security_verify_onedir_application_home_dir_permissions(pyi_ctx) != true) {
             return -1;
         }
     }
@@ -901,6 +999,14 @@ _pyi_main_read_runtime_options(struct PYI_CONTEXT *pyi_ctx)
             continue;
         }
 #endif
+
+        /* pyi-enable-onefile-parent-verification
+         *
+         * Explicitly enable (onefile parent-process validation */
+        if (strncmp(toc_entry->name, "pyi-enable-onefile-parent-verification", 38) == 0) {
+            pyi_ctx->enable_onefile_parent_verification = 1;
+            continue;
+        }
     }
 }
 
@@ -1245,29 +1351,57 @@ int pyi_main_onefile_parent_cleanup(struct PYI_CONTEXT *pyi_ctx)
 static int
 _pyi_resolve_executable_win32(char *executable_filename)
 {
-    HANDLE process_handle;
-    wchar_t executable_filename_w[PYI_PATH_MAX];
-    DWORD executable_filename_length;
+    wchar_t modulename_w[PYI_PATH_MAX];
 
-    process_handle = GetCurrentProcess(); /* Get pseudo-handle for current process */
-
-    /* Use QueryFullProcessImageNameW(), which fully resolves the executable
-     * (i.e, resolves the symbolic links / junctions). The same function
-     * is used to obtain parent process executable path in
-     * `_pyi_security_verify_parent_proces_win32()` in pyi_security.c */
-    executable_filename_length = PYI_PATH_MAX;
-    if (!QueryFullProcessImageNameW(process_handle, 0, executable_filename_w, &executable_filename_length)) {
-        PYI_WINERROR_W(L"QueryFullProcessImageNameW", L"Failed to obtain executable path.\n");
-        CloseHandle(process_handle);
+    /* GetModuleFileNameW() returns an absolute, fully qualified path.
+     * Symbolic links (at either file or directory/junction level) are
+     * NOT resolved!
+     *
+     * While we could use QueryFullProcessImageNameW() to obtain a
+     * fully resolved path (including all symlinks), that seems to
+     * be mis-behaving in certain corner cases, such as ImDisk RAMDISK
+     * (see #9510). Therefore, we use GetModuleFileNameW() and (if
+     * necessary) resolve file-level symlink ourselves, which is enough
+     * for the purpose of locating PKG archive and the contents directory
+     * (in onedir case). The security parent-process validation codepath
+     * in pyi_security.c, on the other hand, needs to use
+     * QueryFullProcessImageNameW() to look up the executable of both the
+     * current and the parent process and ensure consistent comparison. */
+    if (!GetModuleFileNameW(NULL, modulename_w, PYI_PATH_MAX)) {
+        PYI_WINERROR_W(L"GetModuleFileNameW", L"Failed to obtain executable path.\n");
         return -1;
     }
 
-    CloseHandle(process_handle);
+    /* If path is a symbolic link, resolve it */
+    if (pyi_win32_is_symlink(modulename_w)) {
+        wchar_t executable_filename_w[PYI_PATH_MAX];
+        int offset = 0;
 
-    /* Convert to UTF-8 */
-    if (!pyi_win32_wcs_to_utf8(executable_filename_w, executable_filename, PYI_PATH_MAX)) {
-        PYI_ERROR_W(L"Failed to convert executable path to UTF-8.\n");
-        return -1;
+        PYI_DEBUG_W(L"LOADER: executable file %ls is a symbolic link - resolving...\n", modulename_w);
+
+        /* Resolve */
+        if (pyi_win32_realpath(modulename_w, executable_filename_w) < 0) {
+            PYI_ERROR_W(L"Failed to resolve full path to executable %ls.\n", modulename_w);
+            return -1;
+        }
+
+        /* Remove the extended path indicator, to avoid potential issues due
+         * to its appearance in `sys.executable`, `sys._MEIPASS`, etc. */
+        if (wcsncmp(L"\\\\?\\", executable_filename_w, 4) == 0) {
+            offset = 4;
+        }
+
+        /* Convert to UTF-8 */
+        if (!pyi_win32_wcs_to_utf8(executable_filename_w + offset, executable_filename, PYI_PATH_MAX)) {
+            PYI_ERROR_W(L"Failed to convert executable path to UTF-8.\n");
+            return -1;
+        }
+    } else {
+        /* Convert to UTF-8 */
+        if (!pyi_win32_wcs_to_utf8(modulename_w, executable_filename, PYI_PATH_MAX)) {
+            PYI_ERROR_W(L"Failed to convert executable path to UTF-8.\n");
+            return -1;
+        }
     }
 
     return 0;

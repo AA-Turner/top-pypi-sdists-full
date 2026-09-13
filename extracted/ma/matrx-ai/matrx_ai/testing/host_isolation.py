@@ -175,6 +175,11 @@ _NO_PROCESS_GLOBAL_STATE: dict[str, str] = {
         "defines the ServerMandateSource class; the INSTANCE is stored by "
         "matrx_ai.mandates._MANDATE_RESOLVER, which is a declared seam"
     ),
+    "matrx_ai.db.turn_failure": (
+        "defines the failed-turn persister and registers it into "
+        "matrx_connect.streaming.turn_failure, whose own isolation owns that "
+        "global; this module stores nothing itself"
+    ),
     "matrx_ai.processing.vision": (
         "pure re-encode functions plus a constant table; the encoder is "
         "registered into matrx-files, whose own isolation owns that global"

@@ -39,8 +39,6 @@ async def test_anthropic_stream_request_setup_runs_off_event_loop() -> None:
 
     chat = object.__new__(AnthropicChat)
     chat.debug = False
-    chat._reasoning_open = False
-    chat._reasoning_signaled = False
     chat.client = SimpleNamespace(messages=SimpleNamespace(stream=_stream))
     chat.to_unified_response = lambda *_args: SimpleNamespace(usage=None)
 

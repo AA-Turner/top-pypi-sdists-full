@@ -3,6 +3,7 @@ ProvDocument.deserialize() with lazy format auto-detection."""
 
 import io
 import json
+import locale
 import logging
 import pathlib
 import warnings
@@ -11,6 +12,7 @@ from unittest import mock
 import pytest
 
 import prov
+from prov.model import ProvDocument
 from prov.serializers import DoNotExist
 from prov.serializers.provjson import ProvJSONSerializer
 from prov.serializers.provn import ProvNSerializer
@@ -276,3 +278,99 @@ def test_read_auto_detect_nonexistent_path_type_error_has_both_hints():
     message = str(ctx.value)
     assert "specify the format" in message
     assert "raw content" in message
+
+
+def test_read_auto_detects_provn():
+    text = "document\n  prefix ex <http://example.org/>\n  entity(ex:e1)\nendDocument"
+    document = prov.read(text)
+    assert [str(r.identifier) for r in document.get_records()] == ["ex:e1"]
+
+
+def test_read_passes_profile_through(tmp_path):
+    path = tmp_path / "doc.provn"
+    path.write_text(
+        "document\n  prefix ex <http://example.org/>\n"
+        "  mentionOf(ex:e1, ex:e0, ex:b)\nendDocument"
+    )
+    from prov.serializers.provn import ProvNSyntaxError
+
+    with pytest.raises(ProvNSyntaxError):
+        prov.read(str(path), format="provn", profile="strict")
+    assert prov.read(str(path), format="provn") is not None
+
+
+def test_read_auto_detect_forwards_kwargs_only_to_provn(document):
+    # profile= is provn-specific; json/xml/rdf/jsonld deserializers don't
+    # accept it and must not be broken by it during auto-detection.
+    json_text = document.serialize(format="json")
+    assert prov.read(json_text, profile="lenient") == document
+
+
+def test_read_auto_detect_provn_with_kwargs_still_warns_and_skips():
+    from prov.model import ProvWarning
+
+    text = (
+        "document\n  prefix ex <http://example.org/>\n"
+        "  foo(ex:e1)\n  entity(ex:e2)\nendDocument"
+    )
+    with pytest.warns(ProvWarning, match="unknown statement keyword 'foo'"):
+        document = prov.read(text, profile="lenient")
+    assert [str(r.identifier) for r in document.get_records()] == ["ex:e2"]
+
+
+def test_auto_detection_forwards_rdf_options(document):
+    text = document.serialize(format="rdf", rdf_format="xml")
+    assert prov.read(io.BytesIO(text.encode("utf-8")), rdf_format="xml") == document
+
+
+def test_unknown_option_for_an_explicit_format_is_a_clear_type_error(document):
+    text = document.serialize(format="json")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        with pytest.raises(
+            TypeError, match="'json' deserializer accepts no option 'profile'"
+        ):
+            prov.read(text, format="json", profile="strict")
+
+
+def test_declared_options_per_serializer():
+    from prov.serializers import Registry
+
+    Registry.load_serializers()
+    assert Registry.serializers["provn"].deserialize_options == frozenset({"profile"})
+    assert "parse_float" in Registry.serializers["json"].deserialize_options
+    assert "parse_float" in Registry.serializers["jsonld"].deserialize_options
+    if "rdf" in Registry.serializers:
+        assert "rdf_format" in Registry.serializers["rdf"].deserialize_options
+
+
+def test_read_forwards_json_load_options():
+    import decimal
+
+    text = primer_example().serialize(format="json")
+    doc = prov.read(text, format="json", parse_float=decimal.Decimal)
+    assert doc == primer_example()
+
+
+def test_deserialize_path_reads_utf8_regardless_of_locale(tmp_path):
+    # serialize(path) always writes UTF-8; deserialize(path) must read it
+    # back the same way, not through the C locale's encoding. The 'C'
+    # locale decodes as ASCII, so a pre-fix open(source) (text mode, no
+    # encoding=) fails on the non-ASCII label here.
+    document = primer_example()
+    document.entity("ex:accent", {"prov:label": "café"})
+    provn_path = tmp_path / "doc.provn"
+    json_path = tmp_path / "doc.json"
+    document.serialize(str(provn_path), format="provn")
+    document.serialize(str(json_path), format="json")
+
+    saved = locale.setlocale(locale.LC_ALL)
+    try:
+        locale.setlocale(locale.LC_ALL, "C")
+        provn_result = ProvDocument.deserialize(str(provn_path), format="provn")
+        json_result = ProvDocument.deserialize(str(json_path), format="json")
+    finally:
+        locale.setlocale(locale.LC_ALL, saved)
+
+    assert provn_result == document
+    assert json_result == document

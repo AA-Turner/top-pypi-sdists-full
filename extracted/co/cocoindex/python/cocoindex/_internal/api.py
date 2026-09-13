@@ -79,6 +79,7 @@ from cocoindex.connectorkits import default_subpath_name as _default_subpath_nam
 from .context_keys import ContextKey, ContextProvider
 
 from .target_state import (
+    ChildSlot,
     ChildTargetDef,
     TargetReconcileOutput,
     TargetActionSink,
@@ -804,9 +805,9 @@ def use_state(
 
     The value is serialized lazily, once, when the component commits — not at
     assignment. Two consequences: (1) if the value is not serializable, the
-    error surfaces at commit (identifying the state key) rather than at the
-    `handle.value = ...` line; (2) the persisted value reflects the object as it
-    is at commit, so mutating it in place after assignment is captured.
+    error surfaces at commit rather than at the `handle.value = ...` line;
+    (2) the persisted value reflects the object as it is at commit, so
+    mutating it in place after assignment is captured.
 
     Args:
         key: Unique StableKey within this component (None, bool, int, str,
@@ -914,6 +915,7 @@ __all__ = [
     "ContextKey",
     "ContextProvider",
     # .target_state
+    "ChildSlot",
     "ChildTargetDef",
     "TargetState",
     "TargetStateProvider",

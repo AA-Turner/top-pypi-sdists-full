@@ -16,7 +16,10 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import TYPE_CHECKING, Any, Callable
+from __future__ import annotations as _annotations
+
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
 
 from .handler import Handler
 
@@ -38,7 +41,7 @@ class PollHandler(Handler):
             Pass a function that will be called when a new poll update arrives. It takes *(client, poll)*
             as positional arguments (look at the section below for a detailed description).
 
-        filters (:obj:`Filters`):
+        filters (:obj:`~pyrogram.filters.Filter`):
             Pass one or more filters to allow only a subset of polls to be passed
             in your callback function.
 
@@ -50,5 +53,5 @@ class PollHandler(Handler):
             The received poll.
     """
 
-    def __init__(self, callback: Callable[["pyrogram.Client", "types.Poll"], Any], filters=None):
+    def __init__(self, callback: Callable[[pyrogram.Client, types.Poll], Any], filters=None):
         super().__init__(callback, filters)

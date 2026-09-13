@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.278"
+version = "0.5.292"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -65,22 +65,22 @@ dependencies = [
     "asyncpg>=0.31.0",
     # --- Matrx ecosystem ---
     # media/media_persistence.py imports VisibilityLiteral, first exported by 2.0.7.
-    "matrx-utils>=2.0.35",
-    "matrx-files>=0.2.143",
+    "matrx-utils>=2.0.38",
+    "matrx-files>=0.2.153",
     # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
     # the next matrx-connect release is the first tag that exports the new names).
-    "matrx-connect>=0.1.88",
+    "matrx-connect>=0.1.96",
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
-    "matrx-graph>=0.2.141",
+    "matrx-graph>=0.2.151",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser]>=0.2.181",
+    "matrx-scraper[browser]>=0.2.191",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.
-    "matrx-runtime>=0.0.86",
+    "matrx-runtime>=0.0.91",
     # Payload-agnostic coordinated assignment planner/coordinator. The agent
     # workflow action consumes it; the assignment package never imports AI.
-    "matrx-assignment>=0.1.13",
+    "matrx-assignment>=0.1.16",
     # --- Virtual Filesystem (matrx_ai.tools.vfs) ---
     "fsspec>=2026.4.0",
     "wcmatch>=10.0",
@@ -150,3 +150,6 @@ reportMissingTypeArgument = "none"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integration: tests that require the live platform database (skip when SUPABASE_MATRIX_* is unset)",
+]

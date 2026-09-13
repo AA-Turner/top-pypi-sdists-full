@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.18.19
+Version: 3.0.2
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: curl_cffi>=0.15.0
 Requires-Dist: requests<3,>=2.34.2
 Requires-Dist: PySocks<2,>=1.7.1
 Requires-Dist: pydantic==2.12.5; sys_platform == "android"
@@ -29,7 +30,6 @@ Requires-Dist: Pillow<13,>=12.2.0
 Requires-Dist: pycryptodomex<4,>=3.23.0
 Provides-Extra: curl
 Requires-Dist: curl-adapter>=1.2.1; extra == "curl"
-Requires-Dist: curl_cffi>=0.15.0; extra == "curl"
 Provides-Extra: video
 Requires-Dist: decorator<6.0,>=4.0.2; extra == "video"
 Requires-Dist: imageio<3.0,>=2.5; extra == "video"
@@ -90,7 +90,9 @@ Support **Python 3.10+**
 pip install instagrapi
 ```
 
-Optional public web TLS impersonation and private HTTP/2 transports are available as an extra:
+Private mobile requests use HTTP/2 through `curl_cffi`, included in the standard installation. `Client()` needs no transport argument, and `login()` uses CAA directly. The previous login remains available as `login_legacy()`. See the [login migration guide](docs/usage-guide/login-migration.md).
+
+Optional public web TLS impersonation is available as an extra:
 
 ```bash
 pip install "instagrapi[curl]"
@@ -104,7 +106,7 @@ cl = Client(public_transport="curl", public_transport_impersonate="chrome136")
 
 See the [public transport guide](docs/usage-guide/public-transport.md) for live comparison results and caveats.
 
-For private mobile API requests, select `Client(private_transport="curl")` separately. See the [private HTTP/2 transport guide](docs/usage-guide/interactions.md#private-http2-transport) for saved-session setup, requirements and limitations.
+Private mobile API requests use curl and HTTP/2 by default. See the [private HTTP/2 transport guide](docs/usage-guide/interactions.md#private-http2-transport) for saved-session setup, requirements and limitations.
 
 TLS certificate verification is enabled by default. For a trusted debugging MITM proxy, prefer `Client(tls_verify="/path/to/proxy-ca.pem")`; use `Client(tls_verify=False)` only for temporary local debugging because it allows session interception.
 

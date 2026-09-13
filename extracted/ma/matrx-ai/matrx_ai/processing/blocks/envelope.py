@@ -63,6 +63,11 @@ from matrx_graph.content_ir.envelope import (
 from matrx_graph.content_ir.envelope import IR_VERSION, KIND_KEY
 from matrx_graph.content_ir.fingerprint import fingerprint_text
 
+from matrx_ai.processing.blocks.kind_catalog import (
+    prime_registered_kinds,
+    registered_kind_schema,
+)
+
 logger = logging.getLogger(__name__)
 
 IR_ENGINE = "py-block-detector"
@@ -364,6 +369,7 @@ def discriminator_for_block(block_type: str, language: str | None) -> dict[str, 
     """
     from matrx_ai.processing.blocks.block_detector import (
         JSON_BLOCK_PATTERNS,
+        KIND_BLOCK_TYPE,
         SPECIAL_CODE_LANGUAGES,
         XML_TAG_BLOCKS,
     )
@@ -372,7 +378,10 @@ def discriminator_for_block(block_type: str, language: str | None) -> dict[str, 
         return {"format": "fence", "language": language}
     if block_type in XML_TAG_BLOCKS:
         return {"format": "xml", "tag": block_type}
-    if block_type in JSON_BLOCK_PATTERNS:
+    if block_type == KIND_BLOCK_TYPE or block_type in JSON_BLOCK_PATTERNS:
+        # For a `kind` block this is not a caveat but the literal truth: the body really
+        # does declare its kind in ``__kind``. The CAVEAT above applies only to the legacy
+        # wrapper-key families.
         return {"format": "json", "key": KIND_KEY}
     return {"format": "fence", "language": block_type}
 
@@ -706,7 +715,15 @@ def _log_once(cause: str, message: str) -> None:
 
 
 async def prime_kind_catalog() -> None:
-    """Resolve every mapped kind's schema into the sync snapshot. Idempotent."""
+    """Resolve every mapped kind's schema into the sync snapshot. Idempotent.
+
+    Since DD-131 this ALSO warms the registered-kind snapshot that types every
+    user-authored kind in the chat stream, so one call at stream start covers both the 19
+    platform block types and the whole registry. Priming the two separately would
+    guarantee that somebody eventually primes one and not the other.
+    """
+    await prime_registered_kinds()
+
     from matrx_graph.kinds import get_kind
 
     for block_type, slug in BLOCK_KIND_MAP.items():
@@ -779,22 +796,51 @@ def envelope_for_block(
     The caller MUST have already established that the block is complete (law 1);
     this function does not and cannot know that.
     """
-    slug = BLOCK_KIND_MAP.get(block_type)
-    if slug is None:
-        if block_type not in NON_ENVELOPE_BLOCK_TYPES:
-            _log_once(
-                f"unclassified:{block_type}",
-                f"block envelope: block type '{block_type}' is in NEITHER "
-                f"BLOCK_KIND_MAP nor NON_ENVELOPE_BLOCK_TYPES — an UNCLASSIFIED "
-                f"envelope bypass. Classify it: map it to a registered kind, or "
-                f"record the reviewed reason it gets no envelope.",
-            )
-        return None
-    if not isinstance(data, dict) or not data or not source_text:
-        return None
+    # DD-131 (chair ruling, 2026-09-12): a `kind` block carries its slug in the BODY,
+    # because the set of kinds is the product's own data. Every other block type names
+    # exactly one kind in code, and that stays true.
+    from matrx_ai.processing.blocks.block_detector import KIND_BLOCK_TYPE
 
-    schema = kind_schema(slug)
-    if schema is None:
+    if block_type == KIND_BLOCK_TYPE:
+        slug = data.get(KIND_KEY) if isinstance(data, dict) else None
+        if not isinstance(slug, str) or not slug:
+            # The detector only claims this type once it has READ a slug, so arriving
+            # here without one means the body changed between detection and completion.
+            _log_once(
+                "kindblock:noslug",
+                "block envelope: a 'kind' block completed with no __kind in its body. "
+                "The detector claimed it from a slug that is no longer there — NO "
+                "envelope stamped. This is parser/detector contract drift.",
+            )
+            return None
+        schema = registered_kind_schema(slug)
+        if schema is None:
+            # Registered enough for the detector (its slug is in the snapshot) but with
+            # no usable schema — a schemaless or malformed registration. matrx_graph.kinds
+            # has already named the reason once; stamping nothing is the documented posture.
+            _log_once(
+                f"kindblock:noschema:{slug}",
+                f"block envelope: registered kind '{slug}' has no usable "
+                f"emitted_json_schema — NO __ir envelope stamped (the block still renders "
+                f"via the frontend parser). Fix the kind's registration.",
+            )
+            return None
+    else:
+        slug = BLOCK_KIND_MAP.get(block_type)
+        if slug is None:
+            if block_type not in NON_ENVELOPE_BLOCK_TYPES:
+                _log_once(
+                    f"unclassified:{block_type}",
+                    f"block envelope: block type '{block_type}' is in NEITHER "
+                    f"BLOCK_KIND_MAP nor NON_ENVELOPE_BLOCK_TYPES — an UNCLASSIFIED "
+                    f"envelope bypass. Classify it: map it to a registered kind, or "
+                    f"record the reviewed reason it gets no envelope.",
+                )
+            return None
+        schema = kind_schema(slug)
+        if schema is None:
+            return None
+    if not isinstance(data, dict) or not data or not source_text:
         return None
 
     adapted = adapt_block_data(block_type, data)
@@ -815,6 +861,7 @@ def envelope_for_block(
         return None
 
     from matrx_graph.executor.schema_validation import validate_instance
+
 
     errors = validate_instance(schema, clean)
     if errors:

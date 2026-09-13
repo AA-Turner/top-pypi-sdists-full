@@ -9,10 +9,17 @@ never the historical always-empty lists.
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
 import pytest
+from matrx_orm import (
+    configure_session_context,
+    current_actor,
+    declared_actor,
+    declared_actor_gucs,
+)
 
 from matrx_ai.tools import mcp_sync
 from matrx_ai.tools.models import ToolDefinition
@@ -30,6 +37,83 @@ def _server_row(**overrides: Any) -> dict[str, Any]:
     }
     row.update(overrides)
     return row
+
+
+class _RecordingConnection:
+    """Minimal driver boundary: transaction + session GUCs + RPC are observable."""
+
+    def __init__(self, *, fetchval_error: Exception | None = None) -> None:
+        self.calls: list[tuple[str, str, tuple[Any, ...]]] = []
+        self.fetchval_error = fetchval_error
+
+    async def execute(self, sql: str, *args: Any, **_kwargs: Any) -> None:
+        self.calls.append(("execute", sql, args))
+
+    async def fetchval(self, sql: str, *args: Any, **_kwargs: Any) -> int:
+        self.calls.append(("fetchval", sql, args))
+        if self.fetchval_error is not None:
+            raise self.fetchval_error
+        return 1
+
+
+class _RecordingAdapter:
+    def __init__(self, connection: _RecordingConnection) -> None:
+        self.connection = connection
+
+    @asynccontextmanager
+    async def get_connection(self, timeout: float = 10.0):
+        yield self.connection
+
+
+@pytest.fixture
+def recording_connection(monkeypatch):
+    """Record both real transaction and bare call_function connection leases."""
+    from matrx_orm.adapters import AdapterRegistry
+    from matrx_orm.core.async_db_manager import AsyncDatabaseManager
+    from matrx_orm.core import session_context
+
+    connection = _RecordingConnection()
+    adapter = _RecordingAdapter(connection)
+    old_provider = session_context._provider
+    configure_session_context(declared_actor_gucs)
+    monkeypatch.setattr(AdapterRegistry, "get", lambda _database: adapter)
+    monkeypatch.setattr(
+        AsyncDatabaseManager,
+        "get_connection",
+        classmethod(lambda _cls, _database, timeout=10.0: adapter.get_connection(timeout)),
+    )
+    monkeypatch.setattr(
+        "matrx_orm.core.config.get_all_database_project_names", lambda: ["test"]
+    )
+    try:
+        yield connection
+    finally:
+        configure_session_context(old_provider)
+
+
+def _rpc_call_index(connection: _RecordingConnection) -> int:
+    rpc_index = next(
+        (
+            index
+            for index, (method, sql, _args) in enumerate(connection.calls)
+            if method == "fetchval" and '"tool_register_mcp_discovered"' in sql
+        ),
+        None,
+    )
+    assert rpc_index is not None, "catalog reconciliation must call its registration RPC"
+    return rpc_index
+
+
+def _assert_rpc_has_named_actor_gucs(connection: _RecordingConnection) -> int:
+    rpc_index = _rpc_call_index(connection)
+    assert connection.calls[rpc_index - 2 : rpc_index] == [
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "code")),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
+    ], (
+        "catalog reconciliation RPC must be preceded by named actor GUCs on the "
+        "same connection"
+    )
+    return rpc_index
 
 
 @pytest.mark.parametrize("transport", ["sse"])
@@ -83,6 +167,117 @@ async def test_http_transport_passes_the_gate(monkeypatch):
     result = await mcp_sync.sync_server("asana", force=True)
 
     assert result.error is None
+
+
+async def test_catalog_reconciliation_sets_named_actor_gucs_on_its_rpc_connection(
+    monkeypatch, recording_connection
+):
+    """Discovery is outside the transaction; reconciliation is not."""
+    discovery_observed_calls: list[tuple[str, str, tuple[Any, ...]]] = []
+
+    async def fake_fetch(slug: str):
+        return _server_row(slug=slug)
+
+    async def fake_discover(self, url, auth=None, **kwargs):
+        discovery_observed_calls.extend(recording_connection.calls)
+        return []
+
+    async def fake_snapshot(server_id: str):
+        return None
+
+    async def fake_stamp(slug: str):
+        return None
+
+    monkeypatch.setattr(mcp_sync, "_fetch_mcp_server", fake_fetch)
+    monkeypatch.setattr(mcp_sync.ExternalMCPClient, "discover_tools", fake_discover)
+    monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
+    monkeypatch.setattr(mcp_sync, "_stamp_synced", fake_stamp)
+
+    result = await mcp_sync.sync_server("public-docs", force=True)
+
+    assert result.error is None
+    assert discovery_observed_calls == []
+    rpc_index = _assert_rpc_has_named_actor_gucs(recording_connection)
+    assert recording_connection.calls == [
+        ("execute", "BEGIN", ()),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_tier", "code")),
+        ("execute", "SELECT set_config($1, $2, true)", ("app.actor_system", "mcp_sync")),
+        recording_connection.calls[rpc_index],
+        ("execute", "COMMIT", ()),
+    ]
+    method, sql, args = recording_connection.calls[rpc_index]
+    assert method == "fetchval"
+    assert sql == 'SELECT "public"."tool_register_mcp_discovered"($1, $2::jsonb)'
+    assert args == ("6a1f0000-0000-0000-0000-000000000001", "[]")
+
+
+async def test_catalog_reconciliation_rolls_back_when_rpc_fails(
+    monkeypatch, recording_connection
+):
+    recording_connection.fetchval_error = RuntimeError("catalog RPC refused")
+
+    async def fake_fetch(slug: str):
+        return _server_row(slug=slug)
+
+    async def fake_discover(self, url, auth=None, **kwargs):
+        return []
+
+    async def fake_snapshot(server_id: str):
+        return None
+
+    async def fake_record(slug: str, error: str):
+        return None
+
+    monkeypatch.setattr(mcp_sync, "_fetch_mcp_server", fake_fetch)
+    monkeypatch.setattr(mcp_sync.ExternalMCPClient, "discover_tools", fake_discover)
+    monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
+    monkeypatch.setattr(mcp_sync, "_record_sync_error", fake_record)
+
+    result = await mcp_sync.sync_server("public-docs", force=True)
+
+    assert "catalog RPC refused" in (result.error or "")
+    assert _assert_rpc_has_named_actor_gucs(recording_connection) == 3
+    assert recording_connection.calls[-1] == ("execute", "ROLLBACK", ())
+    assert ("execute", "COMMIT", ()) not in recording_connection.calls
+
+
+async def test_catalog_reconciliation_restores_outer_actor_declaration(
+    monkeypatch, recording_connection
+):
+    async def fake_fetch(slug: str):
+        return _server_row(slug=slug)
+
+    async def fake_discover(self, url, auth=None, **kwargs):
+        return []
+
+    async def fake_snapshot(server_id: str):
+        return None
+
+    async def fake_stamp(slug: str):
+        return None
+
+    monkeypatch.setattr(mcp_sync, "_fetch_mcp_server", fake_fetch)
+    monkeypatch.setattr(mcp_sync.ExternalMCPClient, "discover_tools", fake_discover)
+    monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
+    monkeypatch.setattr(mcp_sync, "_stamp_synced", fake_stamp)
+
+    async with declared_actor("human", "outer"):
+        result = await mcp_sync.sync_server("public-docs", force=True)
+        assert result.error is None
+        assert current_actor() is not None
+        assert current_actor().tier == "human"
+        assert current_actor().system == "outer"
+        assert declared_actor_gucs() == {
+            "app.actor_tier": "human",
+            "app.actor_system": "outer",
+        }
+
+    assert current_actor() is None
+    assert recording_connection.calls[2] == (
+        "execute",
+        "SELECT set_config($1, $2, true)",
+        ("app.actor_system", "mcp_sync"),
+    )
 
 
 async def test_remote_auth_rejection_preserves_upstream_status(monkeypatch):
@@ -158,7 +353,7 @@ async def test_stdio_uses_launch_recipe_and_filters_catalog_allowlist(monkeypatc
     ]
 
 
-async def test_register_reports_real_delta_from_row_diff(monkeypatch):
+async def test_register_reports_real_delta_from_row_diff(monkeypatch, recording_connection):
     before = {
         "mcp.asana.old_tool": {
             "is_active": True,
@@ -210,43 +405,23 @@ async def test_register_reports_real_delta_from_row_diff(monkeypatch):
     async def fake_snapshot(server_id: str):
         return snapshots.pop(0)
 
-    called: dict[str, Any] = {}
-
-    async def fake_call_function(database, schema, name, *args, **kwargs):
-        called["rpc"] = (schema, name)
-        return len(args)
-
     monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
-    monkeypatch.setattr(
-        "matrx_orm.core.config.get_all_database_project_names", lambda: ["main"]
-    )
-    import matrx_orm
-
-    monkeypatch.setattr(matrx_orm, "call_function", fake_call_function)
 
     delta = await mcp_sync._register_mcp_discovered("server-1", [])
 
-    assert called["rpc"] == ("public", "tool_register_mcp_discovered")
+    assert _rpc_call_index(recording_connection) == 1
     assert delta["inserted"] == ["mcp.asana.new_tool"]
     assert delta["updated"] == ["mcp.asana.changed_tool"]
     assert delta["deactivated"] == ["mcp.asana.old_tool"]
 
 
-async def test_register_degrades_to_empty_delta_without_model(monkeypatch):
+async def test_register_degrades_to_empty_delta_without_model(monkeypatch, recording_connection):
     async def fake_snapshot(server_id: str):
         return None
 
-    async def fake_call_function(database, schema, name, *args, **kwargs):
-        return 0
-
     monkeypatch.setattr(mcp_sync, "_snapshot_managed_tools", fake_snapshot)
-    monkeypatch.setattr(
-        "matrx_orm.core.config.get_all_database_project_names", lambda: ["main"]
-    )
-    import matrx_orm
-
-    monkeypatch.setattr(matrx_orm, "call_function", fake_call_function)
 
     delta = await mcp_sync._register_mcp_discovered("server-1", [])
 
+    assert _rpc_call_index(recording_connection) == 1
     assert delta == {"inserted": [], "updated": [], "deactivated": []}

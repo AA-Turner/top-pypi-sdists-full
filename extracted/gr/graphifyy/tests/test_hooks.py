@@ -2,6 +2,8 @@
 import os
 import shutil
 import subprocess
+import sys
+import textwrap
 from types import SimpleNamespace
 from pathlib import Path
 import pytest
@@ -330,6 +332,78 @@ def test_rebuild_bodies_with_graphify_root_are_valid_python():
     that crashes the moment git fires it (#1173)."""
     for body in (_REBUILD_BODY_COMMIT, _REBUILD_BODY_CHECKOUT):
         ast.parse(body)
+
+
+def _extract_root_resolution(body: str) -> str:
+    """Pull the `.graphify_root` -> `_root` snippet out of a rebuild body, so a
+    test can execute the shipped logic itself rather than a hand copy that could
+    quietly drift from it."""
+    match = re.search(r"(    _root = Path\('\.'\).*?)\n    _rebuild_code\(", body, re.DOTALL)
+    assert match, "root resolution snippet not found"
+    return textwrap.dedent(match.group(1))
+
+
+@pytest.mark.parametrize(
+    "name,body",
+    [("post-commit", _REBUILD_BODY_COMMIT), ("post-checkout", _REBUILD_BODY_CHECKOUT)],
+)
+def test_rebuild_bodies_reject_an_out_of_repo_graphify_root(name, body, tmp_path, monkeypatch):
+    """#3265: `.graphify_root` sits inside graphify-out/, a directory the
+    documented team workflow says to commit, so its contents are checkout
+    controlled. Without a bound, a value planted there by a malicious fork or PR
+    (an absolute path outside the repository) would steer the rebuild -- and so
+    what gets read, and what gets written into the same committed graphify-out/
+    -- to wherever the checkout names, not the repository the hook was installed
+    into. The recovered root must stay inside the working tree the hook actually
+    runs from."""
+    repo = tmp_path / "repo"
+    outside = tmp_path / "outside"
+    (repo / "graphify-out").mkdir(parents=True)
+    outside.mkdir()
+    (repo / "graphify-out" / ".graphify_root").write_text(str(outside), encoding="utf-8")
+    monkeypatch.chdir(repo)
+    ns = {"Path": Path, "os": os}
+    exec(compile(_extract_root_resolution(body), "<rebuild_body>", "exec"), ns)
+    assert ns["_root"].resolve() == repo.resolve(), f"{name} honoured an out-of-repo root"
+
+
+@pytest.mark.parametrize(
+    "name,body",
+    [("post-commit", _REBUILD_BODY_COMMIT), ("post-checkout", _REBUILD_BODY_CHECKOUT)],
+)
+def test_rebuild_bodies_honour_an_in_repo_graphify_root(name, body, tmp_path, monkeypatch):
+    """The legitimate case the #3265 guard must not break: a subdirectory-scoped
+    root (#1173) is still recovered."""
+    repo = tmp_path / "repo"
+    (repo / "graphify-out").mkdir(parents=True)
+    (repo / "backend").mkdir()
+    (repo / "graphify-out" / ".graphify_root").write_text("backend", encoding="utf-8")
+    monkeypatch.chdir(repo)
+    ns = {"Path": Path, "os": os}
+    exec(compile(_extract_root_resolution(body), "<rebuild_body>", "exec"), ns)
+    assert ns["_root"].resolve() == (repo / "backend").resolve(), f"{name} lost the scoped root"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symlink setup differs on Windows")
+@pytest.mark.parametrize(
+    "name,body",
+    [("post-commit", _REBUILD_BODY_COMMIT), ("post-checkout", _REBUILD_BODY_CHECKOUT)],
+)
+def test_rebuild_bodies_survive_a_graphify_root_symlink_loop(name, body, tmp_path, monkeypatch):
+    """A committed `.graphify_root` naming a path that resolves through a
+    symlink loop (two symlinks pointing at each other) must fall back to the
+    repo top rather than let `Path.resolve()`'s RuntimeError escape the #3265
+    guard uncaught -- the guard's own `except OSError` doesn't catch it, since
+    a symlink loop is a RuntimeError on this platform, not an OSError."""
+    repo = tmp_path / "repo"
+    (repo / "graphify-out").mkdir(parents=True)
+    (repo / "loop_a").symlink_to(repo / "loop_b")
+    (repo / "loop_b").symlink_to(repo / "loop_a")
+    (repo / "graphify-out" / ".graphify_root").write_text("loop_a", encoding="utf-8")
+    monkeypatch.chdir(repo)
+    ns = {"Path": Path, "os": os}
+    exec(compile(_extract_root_resolution(body), "<rebuild_body>", "exec"), ns)
+    assert ns["_root"].resolve() == repo.resolve(), f"{name} did not fall back on a symlink loop"
 
 
 @pytest.mark.parametrize(

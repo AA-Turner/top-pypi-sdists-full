@@ -27,23 +27,27 @@ Convenience symlinks (refreshed on first event / on conv changes):
   - ``<log_dir>/current.log`` → active file for this process
   - ``<log_dir>/conv-<short>.log`` → active file, per conversation short id
 
-Verbose mode: set ``MATRX_TOOL_DEBUG_VERBOSE=1`` so callers (executor)
-include ``args=`` and a truncated ``result=`` on every event, not just
-``FAIL``. Use this when chasing a silent-success bug — the file grows
-much faster but you get forensic detail without joining ``cx_tool_call``.
+Verbose mode: the host switches it on (``configure_trace_switches``) so
+callers (executor) include ``args=`` and a truncated ``result=`` on every
+event, not just ``FAIL``. Use this when chasing a silent-success bug — the
+file grows much faster but you get forensic detail without joining
+``cx_tool_call``. In aidream the switch is the ``platform.debug``
+``tool_trace_verbose`` setting; this package never reads the environment
+for it (USD-5, 2026-09-11: "Never an env var").
 
 At first write, header-only files (≤ 100 bytes — left behind by previous
 processes that started but never dispatched a tool) are auto-deleted to
 keep the directory readable.
 
-Disable: set ``MATRX_TOOL_DEBUG_LOG_DISABLED=1`` to silence all output
-without touching the call sites.
+Disable: the host's ``file_sink_disabled`` switch (``configure_trace_switches``;
+in aidream the ``platform.debug`` ``tool_trace_file_sink_disabled`` setting)
+silences all output without touching the call sites.
 """
 from __future__ import annotations
 
 import os
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -62,6 +66,60 @@ _linked_convs_lock = threading.Lock()
 # Set ONLY by `trace_sinks_enabled()` — the escape hatch for tests that assert
 # on the sinks themselves. See `sinks_disabled_by_stage`.
 _sinks_forced = False
+
+
+# ── Host-injected switches ──────────────────────────────────────────────────
+#
+# Three behaviours used to ride environment variables
+# (MATRX_TOOL_DEBUG_VERBOSE / _LOG_DISABLED / _DB_DISABLED). An env toggle lets
+# every machine running identical code disagree invisibly, so they are now
+# switches the HOST supplies as zero-arg callables — aidream binds them to
+# `platform.feature_knob` rows (feature `platform.debug`). A standalone
+# install that configures nothing gets this package's own posture: verbose
+# off, both sinks on. A switch that RAISES (the host's settings not loaded yet)
+# is announced once on stderr and treated as that same posture — telemetry
+# must never become a tool error.
+
+_switches: dict[str, Callable[[], bool]] = {}
+_switch_announced: set[str] = set()
+
+
+def configure_trace_switches(
+    *,
+    verbose: Callable[[], bool] | None = None,
+    file_sink_disabled: Callable[[], bool] | None = None,
+    db_sink_disabled: Callable[[], bool] | None = None,
+) -> None:
+    """Bind the trace switches to the host's settings. Each argument is a
+    zero-arg callable returning bool, or None to leave that switch alone."""
+    for name, fn in (
+        ("verbose", verbose),
+        ("file_sink_disabled", file_sink_disabled),
+        ("db_sink_disabled", db_sink_disabled),
+    ):
+        if fn is not None:
+            _switches[name] = fn
+            _switch_announced.discard(name)
+
+
+def _switch(name: str) -> bool:
+    fn = _switches.get(name)
+    if fn is None:
+        return False
+    try:
+        return bool(fn())
+    except Exception as exc:  # noqa: BLE001 — announced, then the package posture
+        if name not in _switch_announced:
+            _switch_announced.add(name)
+            import sys
+
+            print(
+                f"[tool-trace] switch {name!r} could not be read ({exc!r}); "
+                f"using the package posture (off) until it can. Fix: load the "
+                f"host's settings before dispatching tools.",
+                file=sys.stderr,
+            )
+        return False
 
 
 def sinks_disabled_by_stage() -> bool:
@@ -111,11 +169,12 @@ def trace_sinks_enabled() -> Iterator[None]:
 
 def is_verbose() -> bool:
     """True when callers should include ``args=`` and ``result=`` on
-    every event (not just ``FAIL``). Driven by ``MATRX_TOOL_DEBUG_VERBOSE=1``.
+    every event (not just ``FAIL``). Driven by the host's ``verbose`` switch
+    (aidream: ``platform.debug.tool_trace_verbose``).
 
-    Cheap — checks env var on each call so flipping the variable mid-run
-    takes effect on the next event without restarting the process."""
-    return os.environ.get("MATRX_TOOL_DEBUG_VERBOSE") == "1"
+    Cheap — consults the switch on each call so a changed setting takes
+    effect on the next event without restarting the process."""
+    return _switch("verbose")
 
 
 def _cleanup_header_only_files(log_dir: Path, keep: Path) -> None:
@@ -167,7 +226,7 @@ def _resolve_log_path() -> Path | None:
     callers skip the write entirely."""
     global _log_file_path
 
-    if os.environ.get("MATRX_TOOL_DEBUG_LOG_DISABLED") == "1":
+    if _switch("file_sink_disabled"):
         return None
 
     if sinks_disabled_by_stage():

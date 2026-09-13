@@ -90,6 +90,53 @@ def _bounded_listing(
     )
 
 
+def _normalize_sandbox_search_results(raw_results: Any) -> list[dict[str, Any]]:
+    """Project daemon-specific search rows into the public tool contract.
+
+    The sandbox content endpoint is ripgrep-backed and returns useful transport
+    fields such as ``lines``, ``line_number``, and ``submatches``. Those are
+    deliberately not part of ``FileSearchMatch``: the tool's cross-runtime
+    result contract is just a path plus matching snippets. Accepting the
+    daemon row directly made its harmless extra fields turn a successful
+    search into a Pydantic validation failure.
+    """
+    if not isinstance(raw_results, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for row in raw_results:
+        # The path-search endpoint supplies bare path strings; content search
+        # supplies ripgrep-style objects. Keep both daemon variants behind the
+        # same documented result shape.
+        if isinstance(row, str):
+            normalized.append({"path": row})
+            continue
+        if not isinstance(row, dict):
+            continue
+
+        path = row.get("path")
+        if not isinstance(path, str):
+            continue
+
+        match: dict[str, Any] = {"path": path}
+        snippets: list[str] = []
+        lines = row.get("lines")
+        if isinstance(lines, str):
+            snippets.append(lines)
+        else:
+            for submatch in row.get("submatches", []):
+                candidate = submatch.get("match") if isinstance(submatch, dict) else None
+                text = candidate.get("text") if isinstance(candidate, dict) else None
+                if isinstance(text, str):
+                    snippets.append(text)
+        if snippets:
+            match["matches"] = snippets
+        elif isinstance(row.get("size"), int):
+            match["size"] = row["size"]
+        normalized.append(match)
+    return normalized
+
+
 def _proxy_error(
     exc: SandboxProxyError | Exception,
     *,
@@ -560,11 +607,12 @@ async def fs_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 content_search=parsed.content_search,
                 max_results=parsed.max_results,
             )
+            results = _normalize_sandbox_search_results(data.get("results"))
             return ToolResult(
                 success=True,
                 output=FileSearchResults(
-                    results=[FileSearchMatch(**r) for r in data.get("results", [])],
-                    count=len(data.get("results", [])),
+                    results=[FileSearchMatch(**result) for result in results],
+                    count=len(results),
                     pattern=parsed.pattern,
                     path=sandbox_path,
                     content_search=parsed.content_search,

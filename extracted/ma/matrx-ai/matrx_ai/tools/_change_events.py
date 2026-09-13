@@ -18,6 +18,7 @@ Why these helpers exist instead of inlining the call:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from typing import Any
@@ -71,14 +72,34 @@ async def emit_resource_changed(
         # for test contexts that synthesize a partial AppContext.
         user_id = getattr(app_ctx, "user_id", None) or None
 
-    await app_ctx.emitter.send_resource_changed(
-        kind=kind,
-        action=action,
-        resource_id=resource_id,
-        sandbox_id=sandbox_id,
-        user_id=user_id,
-        metadata=metadata or {},
-    )
+    # A REFRESH HINT NEVER UNDOES THE WORK IT ANNOUNCES.
+    #
+    # Every caller emits this AFTER the mutation already succeeded — the file is
+    # written, the directory exists. Letting a failed client-notify raise here
+    # would propagate out of the tool's return path and report a completed
+    # mutation as a failed tool call, which is the operation-stream-journal
+    # class (2026-09-12): an observability sink failing the work it observes.
+    # None of the twelve call sites guards this, and none should have to.
+    try:
+        await app_ctx.emitter.send_resource_changed(
+            kind=kind,
+            action=action,
+            resource_id=resource_id,
+            sandbox_id=sandbox_id,
+            user_id=user_id,
+            metadata=metadata or {},
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001 - the mutation stands; only the hint is lost
+        logger.exception(
+            "emit_resource_changed failed for %s %s (%s) — the mutation itself "
+            "succeeded; clients displaying it may show stale state until they "
+            "refetch",
+            kind,
+            resource_id,
+            action,
+        )
 
 
 async def emit_fs_changed(

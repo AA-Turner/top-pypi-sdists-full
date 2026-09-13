@@ -1,6 +1,6 @@
 import pytest
 from _pytest.main import ExitCode
-from flask import Response
+from flask import Response, jsonify
 
 import schemathesis
 from schemathesis.python._constants.registry import default_registry
@@ -320,6 +320,88 @@ def test_warning_on_many_operations(ctx, cli, snapshot_cli):
     )
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_advice_for_linked_operations(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.users_crud()
+    assert (
+        cli.run(
+            api.schema_url,
+            "-c not_a_server_error",
+            "--phases=fuzzing",
+            "--mode=positive",
+            "-n 10",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_advice_for_unusable_linked_data(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                            "links": {
+                                "GetItem": {"operationId": "getItem", "parameters": {"item_id": "$response.body#/id"}}
+                            },
+                        }
+                    }
+                }
+            },
+            "/items/{item_id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"in": "path", "name": "item_id", "required": True, "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}, "404": {"description": "Not found"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": "unknown"}), 201
+
+    @app.route("/items/<item_id>", methods=["GET"])
+    def get_item(item_id):
+        return jsonify({"message": "Not found"}), 404
+
+    assert (
+        cli.run_openapi_app(
+            app,
+            "-c not_a_server_error",
+            "--phases=fuzzing,stateful",
+            "--mode=positive",
+            "-n 10",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_missing_test_data_advice_grouped_by_cause(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.users_crud()
+    assert (
+        cli.run(
+            api.schema_url,
+            f"--url={api.base_url}/v4/",
+            "-c not_a_server_error",
+            "--phases=fuzzing,stateful",
+            "--mode=positive",
+            "-n 10",
+        )
+        == snapshot_cli
+    )
+
+
 @pytest.fixture
 def _clean_registry():
     default_registry().clear()
@@ -380,3 +462,31 @@ def test_silent_when_the_schema_declares_no_base_path(ctx, cli, app_runner, snap
     base = schema_url.rsplit("/", 1)[0]
 
     assert cli.run(schema_url, f"--url={base}", "--max-examples=2", "--phases=fuzzing") == snapshot_cli
+
+
+def test_no_missing_auth_warning_when_the_operation_later_succeeds(ctx, cli, app_runner):
+    # Rejected once, served afterwards: the run as a whole got past authentication.
+    schema = ctx.openapi.build_schema(
+        {
+            "/thing": {
+                "get": {
+                    "parameters": [
+                        {"name": "q", "in": "query", "schema": {"type": "integer"}, "examples": {"only": {"value": 7}}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    calls = {"n": 0}
+
+    def thing():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return Response(status=401)
+        return Response('{"ok": true}', status=200, content_type="application/json")
+
+    schema_url = _serve_schema(ctx, cli, app_runner, schema, [("GET", "/thing", thing)])
+    result = cli.run(schema_url, "-c not_a_server_error", "--max-examples=5", "--phases=examples,fuzzing")
+
+    assert "Missing authentication" not in result.stdout

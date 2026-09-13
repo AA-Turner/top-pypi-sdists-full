@@ -45,6 +45,8 @@ from matrx_orm.session.dag import tier_ops
 from matrx_orm.session.fallback import (
     DIRECT_WRITE_PRESERVED_MARKER,
     DISK_SPILL_RECOVERED_MARKER,
+    IMMUTABLE_WRITE_PRESERVED_MARKER,
+    immutable_row_differences,
 )
 from matrx_orm.session.flush import execute_tiers
 from matrx_orm.session.op import SessionOp, make_delete, make_insert, make_update
@@ -55,6 +57,10 @@ from matrx_ai.persistence.registry import get_model
 logger = logging.getLogger("matrx_ai.persistence.replay")
 
 
+class ImmutableReplayConflictError(RuntimeError):
+    """A preserved immutable insert collides with a different committed row."""
+
+
 @dataclass(slots=True)
 class ReplayReport:
     candidates: int = 0
@@ -62,6 +68,7 @@ class ReplayReport:
     recovered_count: int = 0
     still_failed_count: int = 0
     quarantined_count: int = 0
+    conflict_count: int = 0
     """Rows given up on this sweep — permanent failures, no longer retried/alerted."""
     skipped_count: int = 0
     by_request: dict[str, str] = field(default_factory=dict)
@@ -110,6 +117,7 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "InterfaceError: cannot perform operation: another operation is in progress",
     DISK_SPILL_RECOVERED_MARKER,
     DIRECT_WRITE_PRESERVED_MARKER,
+    IMMUTABLE_WRITE_PRESERVED_MARKER,
     "commit hard-deadline",
 )
 
@@ -215,6 +223,8 @@ def is_permanent_failure_text(error_text: str | None) -> bool:
 
 def is_permanent_failure_exception(exc: BaseException) -> bool:
     """True when a live replay attempt died of a deterministic refusal."""
+    if isinstance(exc, ImmutableReplayConflictError):
+        return True
     from matrx_orm.exceptions import describe_db_exception
 
     try:
@@ -442,7 +452,39 @@ async def _upgrade_legacy_chat_payloads(rows: Sequence[Any]) -> list[dict[str, A
     return upgraded
 
 
-async def _op_already_satisfied(op: SessionOp) -> bool:
+_LEGACY_UNAMBIGUOUS_FIELD_RENAMES: dict[str, dict[str, str]] = {
+    # ``workbench.notes`` uses ``label`` as its canonical display-title field.
+    # A past producer emitted ``name`` into a captured coordinator UPDATE.
+    # Keep this as a narrow, versioned replay migration rather than a generic
+    # field guesser: replay is allowed to upgrade only a synonym that maps to
+    # one known column on one known relation.
+    "workbench.notes": {"name": "label"},
+}
+
+
+async def _upgrade_legacy_payloads(rows: Sequence[Any]) -> list[dict[str, Any]]:
+    """Upgrade durable payloads whose pre-normalization spelling is unambiguous.
+
+    The replay queue is forensic evidence, so upgrades are in-memory only: the
+    original ``ops.system_write_failure.payload`` remains intact while the
+    reconstructed ``SessionOp`` targets today's model contract.  A source key
+    is rewritten only when its canonical target is absent; a payload that
+    contains both remains untouched and is deliberately left for the model to
+    refuse rather than silently choosing a value.
+    """
+    upgraded = await _upgrade_legacy_chat_payloads(rows)
+    for row in upgraded:
+        renames = _LEGACY_UNAMBIGUOUS_FIELD_RENAMES.get(str(row["table_target"]))
+        if not renames:
+            continue
+        payload = row["payload"]
+        for legacy_name, canonical_name in renames.items():
+            if legacy_name in payload and canonical_name not in payload:
+                payload[canonical_name] = payload.pop(legacy_name)
+    return upgraded
+
+
+async def _op_already_satisfied(op: SessionOp, *, verify_exact: bool = False) -> bool:
     """Return whether an idempotent replay op already has its final state.
 
     An INSERT whose primary-key row exists already landed, even if the process
@@ -467,7 +509,24 @@ async def _op_already_satisfied(op: SessionOp) -> bool:
     if len(filters) != len(primary_keys):
         return False
     exists = await op.model_cls.exists(**filters)
-    return exists if op.op_type == "insert" else not exists
+    if op.op_type != "insert":
+        return not exists
+    if not exists:
+        return False
+    if not verify_exact:
+        return True
+    # Preserved immutable inserts must never mistake PK existence for recovery.
+    # The exact comparator is shared with the live writer.
+    rows = await op.model_cls.filter(**filters).limit(1).all()
+    if not rows:
+        return False
+    differences = immutable_row_differences(rows[0], op.payload)
+    if differences:
+        raise ImmutableReplayConflictError(
+            "immutable replay conflict: existing row differs from preserved payload "
+            f"for {op.table} {op.pk_value}: {sorted(differences)}"
+        )
+    return True
 
 
 def _swf_model() -> Any:
@@ -760,10 +819,38 @@ async def replay_pending(
             continue
 
         try:
-            group_rows = await _upgrade_legacy_chat_payloads(group_rows)
+            group_rows = await _upgrade_legacy_payloads(group_rows)
             ops = [_row_to_op(r) for r in group_rows]
-            pending_ops = [op for op in ops if not await _op_already_satisfied(op)]
+            pending_ops = []
+            for op, row in zip(ops, group_rows, strict=True):
+                immutable = IMMUTABLE_WRITE_PRESERVED_MARKER in str(row.get("error_text", ""))
+                satisfied = (
+                    await _op_already_satisfied(op, verify_exact=True)
+                    if immutable
+                    else await _op_already_satisfied(op)
+                )
+                if not satisfied:
+                    pending_ops.append(op)
         except Exception as exc:
+            immutable_rows = [
+                row for row in group_rows
+                if IMMUTABLE_WRITE_PRESERVED_MARKER in str(row.get("error_text", ""))
+            ]
+            if immutable_rows and "immutable replay conflict" in str(exc):
+                report.still_failed_count += len(group_rows)
+                report.conflict_count += len(immutable_rows)
+                report.by_request[request_id] = (
+                    "would-quarantine (immutable conflict)" if dry_run else "quarantined (immutable conflict)"
+                )
+                if not dry_run:
+                    await _capture_replay_failure(
+                        exc, request_id=request_id, rows=group_rows, phase="exact-verify",
+                        kind="persistence_replay_quarantined",
+                    )
+                    report.quarantined_count += await _record_failed_attempt(
+                        group_rows, max_attempts=max_attempts, permanent=True
+                    )
+                continue
             report.still_failed_count += len(group_rows)
             report.by_request[request_id] = f"failed: replay preparation: {exc}"
             report.errors.append(f"{request_id}: prepare {exc}")
@@ -804,6 +891,17 @@ async def replay_pending(
                 color="green",
             )
         except Exception as exc:
+            if "UniqueViolation" in type(exc).__name__ or "23505" in str(exc):
+                try:
+                    if all([
+                        await _op_already_satisfied(op, verify_exact=True) for op in pending_ops
+                    ]):
+                        await _mark_recovered([r["id"] for r in group_rows], recovery_op_id)
+                        report.recovered_count += len(group_rows)
+                        report.by_request[request_id] = "recovered (concurrent exact insert)"
+                        continue
+                except Exception as verify_exc:
+                    exc = verify_exc
             report.still_failed_count += len(group_rows)
             report.by_request[request_id] = f"failed: {type(exc).__name__}: {exc}"
             report.errors.append(f"{request_id}: {type(exc).__name__}: {exc}")

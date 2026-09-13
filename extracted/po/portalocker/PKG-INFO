@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: portalocker
-Version: 4.3.0
+Version: 4.3.1
 Summary: Cross-platform file locking, with Redis, PID-file and bounded-semaphore locks
 Keywords: locking,locks,with,statement,windows,linux,unix
 Author: Rick van Hattem
@@ -42,16 +42,16 @@ Classifier: Topic :: System :: Distributed Computing
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: System :: Monitoring
 Classifier: Typing :: Typed
-Requires-Dist: sphinx>=7 ; extra == 'docs'
 Requires-Dist: furo ; extra == 'docs'
+Requires-Dist: sphinx>=7 ; extra == 'docs'
 Requires-Dist: redis>=5.0 ; extra == 'redis'
-Requires-Dist: portalocker[redis] ; extra == 'tests'
-Requires-Dist: fakeredis>=2.31.0 ; extra == 'tests'
-Requires-Dist: pytest>=5.4.1 ; extra == 'tests'
-Requires-Dist: pytest-cov>=2.8.1 ; extra == 'tests'
-Requires-Dist: pytest-timeout>=2.1.0 ; extra == 'tests'
-Requires-Dist: pytest-rerunfailures>=15.1 ; extra == 'tests'
 Requires-Dist: coverage-conditional-plugin>=0.9 ; extra == 'tests'
+Requires-Dist: fakeredis>=2.31.0 ; extra == 'tests'
+Requires-Dist: portalocker[redis] ; extra == 'tests'
+Requires-Dist: pytest-cov>=2.8.1 ; extra == 'tests'
+Requires-Dist: pytest-rerunfailures>=15.1 ; extra == 'tests'
+Requires-Dist: pytest-timeout>=2.1.0 ; extra == 'tests'
+Requires-Dist: pytest>=5.4.1 ; extra == 'tests'
 Requires-Dist: types-pywin32>=310.0.0.20250429 ; extra == 'tests'
 Requires-Dist: typing-extensions>=4.4 ; extra == 'tests'
 Requires-Dist: pywin32>=226 ; sys_platform == 'win32' and extra == 'win32'
@@ -59,282 +59,157 @@ Requires-Python: >=3.10
 Project-URL: homepage, https://github.com/wolph/portalocker/
 Project-URL: documentation, https://portalocker.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/wolph/portalocker/
+Project-URL: Funding, https://github.com/sponsors/wolph
 Provides-Extra: docs
 Provides-Extra: redis
 Provides-Extra: tests
 Provides-Extra: win32
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
-############################################
-portalocker - Cross-platform locking library
-############################################
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wolph/portalocker/develop/docs/_static/portalocker-dark.svg">
+  <img src="https://raw.githubusercontent.com/wolph/portalocker/develop/docs/_static/portalocker-light.svg" alt="portalocker" width="300" height="64">
+</picture>
 
-.. image:: https://github.com/wolph/portalocker/actions/workflows/ci.yml/badge.svg?branch=develop
-    :alt: CI Test Status
-    :target: https://github.com/wolph/portalocker/actions/workflows/ci.yml
+# Coordinate access. Keep your code simple.
 
-Overview
---------
+[![CI](https://github.com/wolph/portalocker/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/wolph/portalocker/actions/workflows/ci.yml?query=branch%3Amaster)
+[![PyPI](https://img.shields.io/pypi/v/portalocker)](https://pypi.org/project/portalocker/)
+[![Python versions](https://img.shields.io/pypi/pyversions/portalocker)](https://pypi.org/project/portalocker/)
+[![Documentation](https://readthedocs.org/projects/portalocker/badge/?version=latest)](https://portalocker.readthedocs.io/en/latest/)
+[![Licence](https://img.shields.io/pypi/l/portalocker)](https://github.com/wolph/portalocker/blob/develop/LICENSE)
 
-Portalocker is a library to provide an easy API to file locking.
+Portalocker provides file locks for Python on Linux, macOS and Windows.
+Use a context manager to coordinate access between processes, a semaphore to
+limit concurrent workers, or a Redis lock to coordinate across machines.
+Python 3.10 or later is required.
 
-Portalocker requires Python 3.10 or later.
+[Get started](https://portalocker.readthedocs.io/en/latest/quickstart.html) |
+[Choose a lock](https://portalocker.readthedocs.io/en/latest/lock-types.html) |
+[API reference](https://portalocker.readthedocs.io/en/latest/api/index.html) |
+[Changelog](https://portalocker.readthedocs.io/en/latest/changelog.html)
 
-An important detail to note is that on Linux and Unix systems the locks are
-advisory by default. By specifying the `-o mand` option to the mount command it
-is possible to enable mandatory file locking on Linux. This is generally not
-recommended however. For more information about the subject:
+## Install
 
- - https://en.wikipedia.org/wiki/File_locking
- - http://stackoverflow.com/questions/39292051/portalocker-does-not-seem-to-lock
- - https://stackoverflow.com/questions/12062466/mandatory-file-lock-on-linux
+```console
+python -m pip install portalocker
+```
 
-Windows and the ``pywin32`` dependency
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Exclusive file locks work without extra dependencies. Install the optional
+`redis` extra for Redis locks, or `win32` for shared file locks on Windows:
 
-Since version 4.0.0, ``pywin32`` is no longer installed automatically on
-Windows. Exclusive locks work out of the box without any extra
-dependencies using the built-in `msvcrt` module. Shared locks
-(``LockFlags.SHARED``) on Windows require the optional `pywin32`
-dependency, which can be installed through the ``win32`` extra:
+```console
+python -m pip install "portalocker[redis]"
+python -m pip install "portalocker[win32]"
+```
 
-::
+Redis locks need a Redis server. Shared file locks on Windows without `pywin32`
+raise an `ImportError` explaining which extra to install.
 
-    pip install "portalocker[win32]"
+## Start with a file lock
 
-Attempting to acquire a shared lock on Windows without `pywin32` raises an
-``ImportError`` explaining this requirement.
+Use the file handle inside the context:
 
-The module is currently maintained by Rick van Hattem <Wolph@wol.ph>.
-The project resides at https://github.com/WoLpH/portalocker . Bugs and feature
-requests can be submitted there. Patches are also very welcome.
+```python
+import portalocker
 
-Security contact information
-------------------------------------------------------------------------------
+with portalocker.Lock('report.txt', 'a', timeout=5) as fh:
+    fh.write('Report complete.\n')
+```
+
+`Lock` waits up to five seconds to acquire the lock. Leaving the context
+releases the lock and closes the file, including when the body raises an
+exception. Give every participating process the same file path.
+
+When another holder prevents acquisition, `AlreadyLocked` lets you handle
+contention separately from other failures:
+
+```python
+import portalocker
+
+with portalocker.Lock('worker.lock', 'a', timeout=1):
+    try:
+        with portalocker.Lock('worker.lock', 'a', timeout=0):
+            print('The second holder entered.')
+    except portalocker.AlreadyLocked:
+        print('The first holder still owns the lock.')
+
+with portalocker.Lock('worker.lock', 'a', timeout=0):
+    print('The lock is available after release.')
+```
+
+The second lock cannot enter while the first is held. Once the outer context
+exits, a new holder can acquire it. This example uses the default file-locking
+backend. See [platform behaviour](https://portalocker.readthedocs.io/en/latest/platforms.html)
+before choosing a different POSIX locking primitive.
+
+## Choose a lock
+
+| Your task | Lock | Guide |
+| --- | --- | --- |
+| Coordinate access to a file | `Lock` | [File locking](https://portalocker.readthedocs.io/en/latest/quickstart.html) |
+| Acquire again through the same lock instance | `RLock` | [Reentrant locks](https://portalocker.readthedocs.io/en/latest/lock-types.html#rlock) |
+| Limit the number of concurrent workers | `NamedBoundedSemaphore` | [Workers and slots](https://portalocker.readthedocs.io/en/latest/lock-types.html#namedboundedsemaphore) |
+| Inspect a worker PID or run a singleton | `PidFileLock` | [PID files](https://portalocker.readthedocs.io/en/latest/lock-types.html#pidfilelock) |
+| Coordinate processes across machines | `RedisLock` | [Redis locks](https://portalocker.readthedocs.io/en/latest/redis.html) |
+
+Give cooperating semaphores the same explicit `name` and `directory`. Keep
+their slot files in a directory that will survive while workers hold them.
+
+## Locking details that matter
+
+- Unix file locks are advisory. Every participating process must acquire a
+  lock to honour them. Linux removed its old mandatory locking feature in
+  [kernel 5.15](https://man7.org/linux/man-pages/man2/fcntl_locking.2.html).
+- Network filesystems have their own locking and buffering behaviour. You may
+  need `fh.flush()` followed by `os.fsync(fh.fileno())` before releasing a lock.
+  Read the [platform guide](https://portalocker.readthedocs.io/en/latest/platforms.html)
+  and test on the filesystem you deploy to.
+- A `PidFileLock` context is for inspection by default. Its body runs even
+  when another process holds the lock, returning that holder's PID. `None`
+  means this process acquired it. An unreadable or corrupt PID for a held
+  lock raises `AlreadyLocked`. Use `fail_closed()` when the body must only
+  run after acquisition. See the [PID examples](https://portalocker.readthedocs.io/en/latest/lock-types.html#pidfilelock).
+- A Redis lock uses a pub/sub subscription. Redis releases ownership when it
+  removes the subscription. Detecting a broken connection or a network
+  partition can take time, and the holder observes loss separately. The
+  [Redis guide](https://portalocker.readthedocs.io/en/latest/redis.html#losing-a-lock)
+  covers `lost`, `ensure_held()`, health checks and optional fencing tokens.
+  Fencing only protects writes when the resource checks the token.
+
+For single-file vendoring, see the
+[CLI guide](https://portalocker.readthedocs.io/en/latest/cli.html).
+For upgrades from 3.x, see the
+[migration guide](https://portalocker.readthedocs.io/en/latest/migration.html).
+
+## Contributing
+
+Portalocker is maintained by [Rick van Hattem](https://github.com/wolph).
+[Bug reports and feature requests](https://github.com/wolph/portalocker/issues)
+and patches are welcome. See the
+[contribution guide](https://github.com/wolph/portalocker/blob/develop/CONTRIBUTING.md)
+for development and test commands.
 
 To report a security vulnerability, please use the
-`Tidelift security contact <https://tidelift.com/security>`_.
+[Tidelift security contact](https://tidelift.com/security).
 Tidelift will coordinate the fix and disclosure.
 
-PidFileLock contexts
---------------------
+## Support
 
-The default context is inspection-oriented: it enters even when another
-process owns the lock and returns that process's PID. A ``None`` value means
-this process acquired the lock:
+portalocker is maintained by [Rick van Hattem](https://github.com/wolph) in
+his own time. Most of that time goes on the platforms you are not running, so
+the lock behaves the same on Windows, BSD and NFS as it does on your laptop.
 
-.. code-block:: python
+If it saved you an afternoon, a tip covers an hour of issue triage:
+[Ko-fi](https://ko-fi.com/wolph_gh) or
+[GitHub Sponsors](https://github.com/sponsors/wolph).
 
-    import portalocker
+If your company funds its dependencies, this package is on
+[thanks.dev](https://thanks.dev/u/gh/wolph).
 
-    with portalocker.PidFileLock('worker.pid') as holder_pid:
-        if holder_pid is None:
-            run_singleton_worker()
-        else:
-            print(f'worker already running as PID {holder_pid}')
+[![Support on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/wolph_gh)
 
-One exception to the inspection-oriented entry: when another process holds
-the lock but its PID cannot be read (a missing or corrupt PID file),
-entering raises ``portalocker.AlreadyLocked`` instead of returning
-``None``, since ``None`` is the we-are-the-holder answer and reporting it
-without a readable holder would run the block next to a live holder.
+## Licence
 
-Use ``fail_closed()`` when the protected body must only run after acquisition:
-
-.. code-block:: python
-
-    import portalocker
-
-    try:
-        with portalocker.PidFileLock('worker.pid').fail_closed():
-            run_singleton_worker()
-    except portalocker.AlreadyLocked as exc:
-        print(f'worker already running as PID {exc.holder_pid}')
-
-Redis Locks
------------
-
-This library now features a lock based on Redis which allows for locks across
-multiple threads, processes and even distributed locks across multiple
-computers.
-
-It is an extremely reliable Redis lock that is based on pubsub.
-
-As opposed to most Redis locking systems based on key/value pairs,
-this locking method is based on the pubsub system. The big advantage is
-that if the connection gets killed due to network issues, crashing
-processes or otherwise, it will still immediately unlock instead of
-waiting for a lock timeout.
-
-First make sure you have everything installed correctly:
-
-::
-
-    pip install "portalocker[redis]"
-
-Usage is really easy:
-
-::
-
-    import portalocker
-
-    lock = portalocker.RedisLock('some_lock_channel_name')
-
-    with lock:
-        print('do something here')
-
-Shared locks allow multiple readers while remaining mutually exclusive with
-writers:
-
-::
-
-    read_lock = portalocker.RedisLock(
-        'some_lock_channel_name',
-        flags=portalocker.LockFlags.SHARED,
-    )
-
-    with read_lock:
-        print('read shared state')
-
-Waiting writers prevent new readers from entering, so a continuous stream of
-readers cannot starve an exclusive lock. New shared locks also interoperate with
-older portalocker clients: legacy Redis locks are treated as exclusive.
-
-The API is essentially identical to the other ``Lock`` classes so in addition
-to the ``with`` statement you can also use ``lock.acquire(...)``.
-
-The normal test suite uses ``fakeredis``. To optionally repeat the Redis tests
-against a locally running server:
-
-::
-
-    redis-server
-    tox -e redis-live
-
-Set ``REDIS_HOST`` or ``REDIS_PORT`` when the server does not use
-``localhost:6379``. The ``redis-live`` environment fails instead of skipping
-when it cannot connect.
-
-Upgrading from 3.x to 4.0.0
----------------------------
-
-Version 4.0.0 raised the minimum Python to 3.10, stopped installing
-``pywin32`` on Windows by default, and changed what ``str()`` returns for
-POSIX lock exceptions. The `migration guide
-<https://portalocker.readthedocs.io/en/latest/migration.html>`_ walks
-through every change that can require an edit, with the reason and the
-fix for each.
-
-Tips
-----
-
-On some networked filesystems it might be needed to force a `os.fsync()` before
-closing the file so it's actually written before another client reads the file.
-Effectively this comes down to:
-
-::
-
-   with portalocker.Lock('some_file', 'rb+', timeout=60) as fh:
-       # do what you need to do
-       ...
-
-       # flush and sync to filesystem
-       fh.flush()
-       os.fsync(fh.fileno())
-
-Links
------
-
-* Documentation
-    - http://portalocker.readthedocs.org/en/latest/
-* Source
-    - https://github.com/WoLpH/portalocker
-* Bug reports
-    - https://github.com/WoLpH/portalocker/issues
-* Package homepage
-    - https://pypi.python.org/pypi/portalocker
-* My blog
-    - http://w.wol.ph/
-
-Examples
---------
-
-To make sure your cache generation scripts don't race, use the `Lock` class:
-
->>> import portalocker
->>> with portalocker.Lock('somefile', timeout=1) as fh:
-...     print('writing some stuff to my cache...', file=fh)
-
-To customize the opening and locking a manual approach is also possible:
-
->>> import portalocker
->>> open('somefile', 'a').close()  # the 'r+' mode needs an existing file
->>> file = open('somefile', 'r+')
->>> portalocker.lock(file, portalocker.LockFlags.EXCLUSIVE)
->>> _ = file.seek(12)
->>> _ = file.write('foo')
-
-Explicitly unlocking is not needed in most cases but omitting it has been known
-to cause issues:
-https://github.com/AzureAD/microsoft-authentication-extensions-for-python/issues/42#issuecomment-601108266
-
-If needed, it can be done through:
-
->>> portalocker.unlock(file)
->>> file.close()
-
-Do note that your data might still be in a buffer so it is possible that your
-data is not available until you `flush()` or `close()`.
-
-To create a cross platform bounded semaphore across multiple processes you can
-use the `NamedBoundedSemaphore` class which functions somewhat similar to
-`threading.BoundedSemaphore`. The name is what ties the participating
-processes to the same set of slots, so give it one you control:
-
->>> import portalocker
->>> n = 2
->>> timeout = 0.1
->>> name = 'readme_example'
-
->>> semaphore_a = portalocker.NamedBoundedSemaphore(
-...     n, name=name, timeout=timeout)
->>> semaphore_b = portalocker.NamedBoundedSemaphore(
-...     n, name=name, timeout=timeout)
->>> semaphore_c = portalocker.NamedBoundedSemaphore(
-...     n, name=name, timeout=timeout)
-
->>> semaphore_a.acquire()
-<portalocker.utils.Lock object at ...>
->>> semaphore_b.acquire()
-<portalocker.utils.Lock object at ...>
->>> semaphore_c.acquire()
-Traceback (most recent call last):
-  ...
-portalocker.exceptions.AlreadyLocked
-
->>> semaphore_a.release()
->>> semaphore_b.release()
-
-
-More examples can be found in the
-`tests <http://portalocker.readthedocs.io/en/latest/_modules/tests/tests.html>`_.
-
-
-Versioning
-----------
-
-This library follows `Semantic Versioning <http://semver.org/>`_.
-
-
-Changelog
----------
-
-Every release has a ``git tag`` with a commit message for the tag
-explaining what was added and/or changed. The list of tags/releases
-including the commit messages can be found here:
-https://github.com/WoLpH/portalocker/releases
-
-License
--------
-
-See the `LICENSE <https://github.com/WoLpH/portalocker/blob/develop/LICENSE>`_ file.
+Portalocker is distributed under the BSD 3-Clause licence. See
+[LICENSE](https://github.com/wolph/portalocker/blob/develop/LICENSE).

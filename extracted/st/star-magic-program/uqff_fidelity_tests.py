@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.435.0", "uqff_calculator.VERSION = 0.435.0 (THE IN-MEDIUM SAMPLE SHIP: the pair cap's second branch meets wall-bounded turbulence and holds - and the statistic says plainly what it cannot decide)")
+assert_that(C.VERSION == "0.436.0", "uqff_calculator.VERSION = 0.436.0 (THE REYNOLDS LADDER SHIP: the cap holds at every Reynolds number the public record offers, up to the largest DNS in existence - and the envelope drift is flagged, not softened)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15172,6 +15172,66 @@ assert_that('CAP HOLDS' in _b277m['verdict'] and 'CAP HOLDS' in _b277v['verdict'
             and 'B277' in _b275['awaiting_outside_data'][1] and 'OPEN' in _b275['awaiting_outside_data'][1]
             and len(_b275['awaiting_outside_data']) == 4,
             "B277 - THE IN-MEDIUM SAMPLE (PAPER_2272): the pair cap's SECOND branch meets real wall-bounded turbulence - JHTDB channel flow (Re_tau ~ 1000), the same official REST service, the same publicly sanctioned testing token, deterministic bit-reproducible points with the walls EXCLUDED and said so - and THE IN-MEDIUM BRANCH HOLDS: sampled 1182-form ratios 0.039143 and 0.031072 with sub-batch max 0.073405, thirteen times under 197/200 and eleven times under 17/20, verdict issued by the tier-3 harness now carrying the cap argument its B269 docstring promised (first real use); the honesty is the headline - at these margins the sampled statistic CANNOT DISCRIMINATE the two branches, both pass by an order of magnitude, so this is a CONSISTENCY PASS for the in-medium branch and NOT the pair-cap discrimination, which stays OPEN in the far tail with the kill test; the proof set's data front 2 says exactly that in ns_proof_set(), the paper, the registry, and here")
+
+# ---- B278 2026-09-11: THE REYNOLDS LADDER - the cap across Re_lambda 433 -> 2500 ----
+_b278 = _b267.reynolds_ladder_grade()
+_b278g = _b267.grade_cap_against_dns('jhtdb_grade/jhtdb_ladder_grade_2026-09-11.csv')
+_b278_means = [_r['rung_mean'] for _r in _b278['rungs']]
+_b278_envs = [_r['sub_batch_max'] for _r in _b278['rungs']]
+assert_that('CAP HOLDS' in _b278g['verdict'] and _b278g['n_rows'] == 88
+            and abs(_b278g['worst_ratio'] - 0.107323) < 1e-9 and _b278['worst_ratio_any_rung'] == _b278g['worst_ratio']
+            and _b278['n_rungs'] == 5 and _b278['re_lambda_span'] == (433.0, 2500.0)
+            and max(_b278_means) < 0.04 and _b278_means[-1] == min(_b278_means)
+            and _b278_envs == sorted(_b278_envs) and _b278_envs[-1] < 17.0 / 20.0 / 7.0
+            and all(0.74 <= _f <= 0.78 for _r in _b278['rungs'] for _f in _r['frac_positive_stretching'])
+            and 'FLAGGED' in _b278['envelope_flag'] and 'NO TREND' in _b278['global_trend']
+            and 'no resolution dependence' in _b278['resolution_check']
+            and 'B278' in _b275['awaiting_outside_data'][0] and 'OPEN' in _b275['awaiting_outside_data'][0]
+            and 'CAP_HOLDS_ALL_RUNGS_B278' in _b278['status'],
+            "B278 - THE REYNOLDS LADDER (PAPER_2273): the vacuum-branch statistic graded on FOUR Reynolds numbers of forced isotropic turbulence - JHTDB isotropic1024coarse (Re_lambda ~433), isotropic4096 (610.57), isotropic8192 (1200-1300, B276) and isotropic32768 (~2,500 - 3.5e13 grid points, the largest DNS in existence, reached with the same sanctioned public token) - plus a resolution check at fixed Re_lambda ~610 (4096^3 vs 8192^3, agreeing within seed scatter): THE CAP HOLDS AT EVERY RUNG, worst ratio 0.107323, eight times under 17/20, verdict by the tier-3 harness on 88 rows; the GLOBAL statistic shows NO trend toward the cap (the highest rung carries the lowest mean) while the 100-point sub-batch ENVELOPE drifts monotonically upward with Re (0.068 -> 0.107) - the intermittency direction, exactly where a violation would live - and that drift is FLAGGED for the full-token extreme-event scan rather than softened; the positive-stretching fraction sits in the textbook 0.75-0.78 band at every rung; the ladder answers the Re-trend question and NOT the kill test, which stays OPEN")
+
+# ---- B279 2026-09-12: THE SPINE AUDIT - the predecessor's S300 argument named, audited, and the row closed ----
+_b279 = _b267.spine_audit()
+_b279d = _b279['dimensional_failure']; _b279h = _b279['h1_not_in_linf']
+assert_that(_b279d['s300_exponents'] == (0.5, 0.25) and _b279d['only_balanced_exponents'] == (0.75, -0.25)
+            and 'omega^3/2 L^5/4' in _b279d['s300_rhs_scales_as']
+            and abs(_b279h['E2_integral'] - 5.0) < 1e-12 and abs(_b279h['E_integral'] - 5.0 / 11.0) < 1e-12
+            and _b279h['sup_omega_at_eps'][-1][1] > 1e3 and 'div omega = 0' in _b279h['family']
+            and 'FALSE' in _b279['steps']['S3_sobolev'] and 'SMALL-DATA' in _b279['steps']['S4_young']
+            and 'DERIVED' in _b279['steps']['S2_cap']
+            and 'does not control' in _b279['bkm_point']
+            and 'SUPERSEDED_BY_RULING' in _b279['disposition'] and 'OPEN: 0' in _b279['disposition']
+            and 'not claimed' in _b279['not_claimed']
+            and 'spine_row' in _b275 and 'PAPER_2274' in _b275['spine_row'] and _b275['theory_open_rungs'] == 0
+            and 'SUPERSEDED_BY_RULING' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B279 - THE SPINE AUDIT (PAPER_2274, Daniel: 'find the missing pieces' / 'author a paper'): the anonymous gap row ns_functional_spine is NAMED - it was the predecessor's S300 UQFF-Leray argument (Star-Magic, Rule E read-only) - and AUDITED line by line: S1 and S2 stand (the cap is derived since B271; the constant changed, the BKM structure did not), S3 - the Sobolev step ||omega||_inf <= C E_2^{1/2} E^{1/4} - is FALSE dimensionally (the right side scales as omega^{3/2} L^{5/4}; the only balanced exponents are (3/4, -1/4)) and analytically (H^1(R^3) is not in L^inf: the divergence-free family grad(r^{1-alpha}) x e_z has finite E and E_2 and unbounded sup, witnessed live at alpha = 2/5), S4 is Leray's small-data condition with a non-sequitur about nu_eff, and S5 does not follow; the predecessor's own session-259 audit had already said ASSERTION_ONLY and its Lean file says placeholder; Theorem A never used S3 (finite modes make it unnecessary) and the domain ruling assigned the regime that needs it to mathematics - so the row closes by that ruling with this audit as the record, the proof set stands exactly as B275 stated it, nothing in B267-B278 depended on S3, and the registry now carries ZERO open theory rows, which is what PAPER_2270 claimed and the ledger had not yet written")
+
+# ---- B280 2026-09-12: THEOREM B - the continuum fluid, phonon-mollified; the three forms composed ----
+_b280 = _b267.theorem_b()
+_b280m = _b280['multiplier_at_n_kc']; _b280t = _b280['five_halves_threshold']
+_b280p = _readfile('whitepapers/PAPER_2275_THEOREM_B_CONTINUUM_UQFF_FLUID_PHONON_MOLLIFIED_TRANSPORT_THREE_FORMS_COMPOSED_UQFF_LANDMARK.md')
+_b275b = _b267.ns_proof_set()
+assert_that(abs(_b280['q'] - 0.7092) < 5e-4 and abs(_b280['lambda_c_nm'] - 1.184) < 1e-3
+            and abs(_b280['epsilon_nm'] - 0.156) < 5e-4 and abs(_b280['epsilon_over_lambda_c'] - 0.1319) < 5e-5
+            and abs(_b280['sqrt_2_beta_ssq'] - 0.8290) < 5e-5
+            and abs(_b280m[1] - 0.709) < 5e-4 and abs(_b280m[2] - 0.253) < 5e-4
+            and abs(_b280m[3] - 0.045) < 5e-4 and abs(_b280m[5] - 1.9e-4) < 5e-6
+            and abs(_b280['one_over_e_point_k_over_kc'] - 1.70) < 6e-3
+            and abs(_b280['grad_rho_l2_constant'] ** 2 - 3.0 / (16.0 * 3.141592653589793 ** 1.5)) < 1e-15
+            and _b280t['mollifier_beta_min'] == 2.5 and _b280t['lions_a_min'] == 2.5
+            and _b280t['convergence_of_grad_rho_by_beta'] == {'2': False, '5/2': False, '3': True}
+            and all('RIGOROUS' in v for v in _b280['proof_steps'].values()) and len(_b280['proof_steps']) == 4
+            and 'NOT the cap' in _b280['uses'] and 'NOT BKM' in _b280['uses']
+            and 'DIVERGES as eps -> 0' in _b280['domain_boundary']
+            and 'FLAGGED' in _b280['identification_flag'] and 'RULING REQUESTED' in _b280['ruling_requested']
+            and 'CLOSED on the Gaussian form' in _b280['track_3'] and 'CONDITIONALLY' in _b280['track_3']
+            and 'Clay' in _b280['not_claimed'] and 'NOT canonized' in _b280['coincidence_flag']
+            and 'THEOREM_B_PROVED_B280' in _b280['status']
+            and 'theorem_b_row' in _b275b and 'PAPER_2275' in _b275b['theorem_b_row'] and _b275b['theory_open_rungs'] == 0
+            and 'Gaussian, not power-law' in _b275b['awaiting_outside_data'][3]
+            and '**THEOREM B.**' in _b280p and 'RULING REQUESTED' in _b280p and '0.156 nm' in _b280p and 'beta > 5/2' in _b280p
+            and 'theorem_b_continuum' in _readfile('UNIFIED_REGISTRY.csv'),
+            "B280 - THEOREM B (PAPER_2275, Daniel: 'I have a feeling the solution is all three. Let's solve for all three'): the THREE phonon forms of the corpus - the LINE (Form A: Gaussian/Lorentzian at f_c = 1.25 THz, Q = 25/2), the THRESHOLD (Form B: H_SCm(k_c - k), dynamics only below the carrier) and the Gaussian TAIL in mode number (Form C: q^{n^2}, q = exp(-beta_i [SSq]) = 0.7092, PAPER_1042) - compose into ONE Fourier multiplier, unity below k_c, shoulder at k_c, Gaussian above it, i.e. a Leray mollifier rho_eps of width eps = sqrt(2 beta_i [SSq])/k_c = 0.829/k_c = 0.156 nm (water; 0.1319 lambda_c; NO free parameter, one FLAGGED identification n = k/k_c); for the CONTINUUM fluid with phonon-mollified transport d_t u + (rho_eps*u . grad) u + grad p = nu Lap u - ALL modes present, nothing truncated - Leray 1934 gives a UNIQUE GLOBAL C^inf solution in four RIGOROUS steps (energy; ||grad u_eps||_inf <= ||grad rho_eps||_2 ||u_0||_2 = C eps^{-5/2} ||u_0||_2 = M_eps, the step S300 needed and could not have, legitimate because the bounded field is the SMOOTHED one, C^2 = 3/(16 pi^{3/2}) EXACT; Gronwall on H^1; local well-posedness + a-priori bounds at every order); the theorem uses NO cap, NO envelope, NO Sobolev embedding, NO BKM, NO truncation; Theorem A is its sharp-filter limit, and M_eps DIVERGING as eps -> 0 is the PAPER_2268 domain boundary made quantitative; post-sweep (sec 8) the whole corpus (2,307 papers) carries all three high-k readings and the PAPER_106 forms close the same track iff beta > 5/2 (mollifier) / a >= 5/2 (Lions) - the 5/2 threshold TWICE, a consistency the papers could not have arranged - so Track 3 is CLOSED on the Gaussian form and CONDITIONALLY closed on PAPER_106 pending Daniel's exponent RULING; front 4 gains a SHAPE (roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law); NOT claimed: the no-cutoff Clay statement, uniformity as eps -> 0, that 0.156 nm is measured; registry row theorem_b_continuum WIRED")
 
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----
 import os as _b268os, tempfile as _b268tmp, csv as _b268csv

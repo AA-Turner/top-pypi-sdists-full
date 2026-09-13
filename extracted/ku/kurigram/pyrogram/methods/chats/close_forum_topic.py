@@ -16,18 +16,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Union
+from __future__ import annotations as _annotations
 
 import pyrogram
 from pyrogram import raw
 
 
 class CloseForumTopic:
-    async def close_forum_topic(
-        self: "pyrogram.Client",
-        chat_id: Union[int, str],
-        topic_id: int
-    ) -> bool:
+    async def close_forum_topic(self: pyrogram.Client, chat_id: int | str, topic_id: int) -> bool:
         """Close a forum topic.
 
         .. include:: /_includes/usable-by/users-bots.rst
@@ -49,9 +45,7 @@ class CloseForumTopic:
         """
         await self.invoke(
             raw.functions.messages.EditForumTopic(
-                peer=await self.resolve_peer(chat_id),
-                topic_id=topic_id,
-                closed=True
+                peer=await self.resolve_peer(chat_id), topic_id=topic_id, closed=True
             )
         )
 

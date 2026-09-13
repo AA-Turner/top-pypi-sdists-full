@@ -7,6 +7,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, cast
 
+from schemathesis.config._output import MAX_RECORDED_PAYLOAD_SIZE
 from schemathesis.core.failures import Failure
 from schemathesis.core.transport import Headers, Response
 from schemathesis.engine import Status
@@ -15,6 +16,7 @@ from schemathesis.generation.case import Case
 if TYPE_CHECKING:
     import requests
 
+    from schemathesis.config import OutputConfig
     from schemathesis.generation.stateful.state_machine import Transition
 
 
@@ -34,6 +36,9 @@ class RecordedScenario(Protocol):
 
     @property
     def checks(self) -> Mapping[str, list[CheckNode]]: ...  # pragma: no cover
+
+    @property
+    def filtered_failures(self) -> Mapping[str, int]: ...  # pragma: no cover
 
     @property
     def interactions(self) -> Mapping[str, Interaction]: ...  # pragma: no cover
@@ -67,15 +72,30 @@ class ScenarioRecorder:
     cases: dict[str, CaseNode]
     # Results of checks categorized by test case ID
     checks: dict[str, list[CheckNode]]
+    # How many failures `filter_failure` hooks dropped, by test case ID
+    filtered_failures: dict[str, int]
     # Network interactions by test case ID
     interactions: dict[str, Interaction]
-    __slots__ = ("label", "status", "roots", "cases", "checks", "interactions")
+    __slots__ = (
+        "label",
+        "status",
+        "roots",
+        "cases",
+        "checks",
+        "filtered_failures",
+        "interactions",
+        "max_recorded_payload_size",
+    )
 
-    def __init__(self, *, label: str) -> None:
+    def __init__(self, *, label: str, config: OutputConfig | None = None) -> None:
         self.label = label
         self.cases = {}
         self.checks = {}
+        self.filtered_failures = {}
         self.interactions = {}
+        self.max_recorded_payload_size = (
+            config.truncation.max_recorded_payload_size if config is not None else MAX_RECORDED_PAYLOAD_SIZE
+        )
 
     def record_case(
         self, *, parent_id: str | None, case: Case, transition: Transition | None, is_transition_applied: bool
@@ -89,8 +109,14 @@ class ScenarioRecorder:
         )
 
     def record_response(self, *, case_id: str, response: Response) -> None:
-        """Record the API response for a given test case."""
+        """Record the API response for a given test case.
+
+        Oversized bodies are stored as a truncated copy so checks keep seeing the whole body.
+        """
         request = Request.from_prepared_request(response.request)
+        limit = self.max_recorded_payload_size
+        if limit and response.content and len(response.content) > limit:
+            response = response.truncated(limit)
         self.interactions[case_id] = Interaction(request=request, response=response)
 
     def record_request(self, *, case_id: str, request: requests.PreparedRequest) -> None:
@@ -106,6 +132,10 @@ class ScenarioRecorder:
                 failure_info=CheckFailureInfo(code_sample=code_sample, failure=failure),
             )
         )
+
+    def record_filtered_failure(self, *, case_id: str) -> None:
+        """Record that a `filter_failure` hook dropped a failure for a given test case."""
+        self.filtered_failures[case_id] = self.filtered_failures.get(case_id, 0) + 1
 
     def record_check_success(self, *, name: str, case_id: str) -> None:
         """Record a successful pass of a check for a given test case."""

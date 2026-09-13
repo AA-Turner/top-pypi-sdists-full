@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mammoth
-Version: 1.12.1
+Version: 1.12.2
 Summary: Convert Word documents from docx to simple and clean HTML and Markdown
 Home-page: https://github.com/mwilliamson/python-mammoth
 Author: Michael Williamson

@@ -44,3 +44,47 @@ def test_every_catalog_table_is_covered():
         "ai.setting",
         "ai.model_alias",
     }
+
+
+def test_catalog_rule_writer_rejects_processor_scalar_conflict():
+    error = database._guard_catalog_rules(
+        "ai",
+        "offering",
+        [
+            {
+                "id": "bad-offering",
+                "override": {
+                    "params": {
+                        "reasoning_effort": {
+                            "processor": "together_reasoning",
+                            "value_map": {"high": "high"},
+                        }
+                    },
+                    "constraints": [],
+                },
+            }
+        ],
+    )
+    assert error is not None
+    assert "processor cannot coexist" in error
+
+
+def test_catalog_rule_writer_allows_processor_owned_rule():
+    error = database._guard_catalog_rules(
+        "ai",
+        "offering",
+        [
+            {
+                "override": {
+                    "params": {
+                        "reasoning_effort": {
+                            "processor": "together_reasoning",
+                            "processor_config": {"order": 100},
+                        }
+                    },
+                    "constraints": [],
+                }
+            }
+        ],
+    )
+    assert error is None

@@ -711,6 +711,10 @@ class DataModelField(DataModelFieldBase):
         """Return structured field() arguments before rendering."""
         return self._get_field_data_and_import_requirements()[0]
 
+    def _has_default_for_nested_model_factory(self) -> bool:
+        """Preserve the UNSET default emitted for optional Struct fields."""
+        return not self.required or super()._has_default_for_nested_model_factory()
+
     def _get_constructor_default_info(self) -> tuple[bool, bool]:
         """Return constructor-default semantics from structured field data."""
         if not has_field_assignment(self) or (self.required and not self.use_default_with_required):
@@ -812,6 +816,11 @@ class DataModelField(DataModelFieldBase):
                 ) is not None:
                     merge_normalized_constraint(constraint_data, normalized[0], normalized[1])
             data = {**data, **constraint_data}
+
+        if (gt := data.get("gt")) is not None and (ge := data.get("ge")) is not None:
+            data.pop("ge" if gt >= ge else "gt")
+        if (lt := data.get("lt")) is not None and (le := data.get("le")) is not None:
+            data.pop("le" if lt <= le else "lt")
 
         if (min_items := data.pop("min_items", None)) is not None:
             data["min_length"] = min_items

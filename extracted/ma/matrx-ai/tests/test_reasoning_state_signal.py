@@ -58,7 +58,6 @@ def _part(**kw):
 
 async def _run_google(parts) -> _CaptureEmitter:
     api = object.__new__(GoogleChat)  # skip genai.Client construction
-    api._reasoning_signaled = False
     em = _CaptureEmitter()
     for p in parts:
         await api._handle_part(p, em)
@@ -120,8 +119,8 @@ def _cb_stop():
 
 async def _run_anthropic(events) -> _CaptureEmitter:
     api = AnthropicChat()  # SDK client tolerates a missing key at construction
-    api._reasoning_open = False
-    api._reasoning_signaled = False
+    # Wrapper state is per-STREAM (keyed on the emitter), never on the client —
+    # see providers/reasoning_stream_state.py. A fresh emitter starts clean.
     em = _CaptureEmitter()
     for ev in events:
         await api._handle_event(ev, em)
@@ -184,8 +183,6 @@ def _oa_text_delta(text):
 
 async def _run_openai(events) -> _CaptureEmitter:
     api = OpenAIChat()
-    api._reasoning_started = {}
-    api._reasoning_signaled_ids = set()
     api._event_samples = {}
     em = _CaptureEmitter()
     for ev in events:

@@ -23,6 +23,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import threading
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -77,6 +78,93 @@ DATA_PAGE = (
     "<button id='b' onclick='window.__c=(window.__c||0)+1'>go</button>"
     "</body></html>"
 )
+
+
+def test_restored_profile_install_renames_instead_of_copying(tmp_path, monkeypatch) -> None:
+    """EFS restore performs one extraction and a sibling rename, never copytree."""
+
+    profile = tmp_path / "profile-id"
+    profile.mkdir()
+    (profile / "state.txt").write_text("old", encoding="utf-8")
+
+    archive_root = tmp_path / "archive"
+    archived_profile = archive_root / "profile"
+    archived_profile.mkdir(parents=True)
+    (archived_profile / "state.txt").write_text("new", encoding="utf-8")
+    archive_path = tmp_path / "profile.tar"
+    subprocess.run(
+        ["tar", "-cf", str(archive_path), "-C", str(archive_root), "profile"],
+        check=True,
+    )
+
+    def refuse_copytree(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("restore must not copy an extracted EFS tree")
+
+    monkeypatch.setattr(runtime.shutil, "copytree", refuse_copytree)
+    runtime._install_restored_profile(str(profile), archive_path.read_bytes())
+
+    assert (profile / "state.txt").read_text(encoding="utf-8") == "new"
+    assert not list(tmp_path.glob(".profile-replaced-*"))
+    assert not list(tmp_path.glob("profile-restore-*"))
+
+
+def test_restored_profile_install_survives_busy_backup_cleanup(
+    tmp_path, monkeypatch
+) -> None:
+    """A busy Chromium artifact cannot invalidate an installed profile."""
+
+    profile = tmp_path / "profile-id"
+    profile.mkdir()
+    (profile / "state.txt").write_text("old", encoding="utf-8")
+    archive_root = tmp_path / "archive"
+    archived_profile = archive_root / "profile"
+    archived_profile.mkdir(parents=True)
+    (archived_profile / "state.txt").write_text("new", encoding="utf-8")
+    archive_path = tmp_path / "profile.tar"
+    subprocess.run(
+        ["tar", "-cf", str(archive_path), "-C", str(archive_root), "profile"],
+        check=True,
+    )
+
+    real_rmtree = shutil.rmtree
+
+    def busy_backup(path, *args, **kwargs):  # noqa: ANN002, ANN003
+        if Path(path).name.startswith(".profile-replaced-"):
+            raise OSError(16, "Device or resource busy", str(path))
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(runtime.shutil, "rmtree", busy_backup)
+    runtime._install_restored_profile(str(profile), archive_path.read_bytes())
+
+    assert (profile / "state.txt").read_text(encoding="utf-8") == "new"
+    assert list(tmp_path.glob(".profile-replaced-*"))
+
+
+@pytest.mark.asyncio
+async def test_restore_skips_download_for_exact_installed_checkpoint(
+    tmp_path, monkeypatch
+) -> None:
+    """A clean EFS profile is reused instead of re-extracted on every run."""
+
+    profile = tmp_path / "profile-id"
+    profile.mkdir()
+    runtime._write_profile_checkpoint_marker(str(profile), "expected-hash")
+
+    class RefuseNetwork:
+        def __init__(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("matching installed checkpoint must not be downloaded")
+
+    monkeypatch.setattr(runtime.httpx, "AsyncClient", RefuseNetwork)
+    restore = runtime.M.CheckpointRestore(
+        download_url="https://download.invalid/checkpoint",
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        dek_plaintext_b64="unused",
+        nonce_b64="unused",
+        ciphertext_hash="unused",
+        plaintext_hash="expected-hash",
+    )
+
+    await runtime._restore_profile(str(profile), restore)
 
 
 # ── fixtures ────────────────────────────────────────────────────────────────
@@ -666,6 +754,42 @@ async def test_command_divergences_and_validation(profile_dir: str) -> None:
 # ── bootstrap idempotency + local advisory lock ─────────────────────────────
 
 
+async def test_concurrent_bootstrap_is_serialized_and_replayed(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two API callers cannot restore/launch the same fixed worker concurrently."""
+
+    worker, stub, _ = _new(profile_dir)
+    launch_started = asyncio.Event()
+    release_launch = asyncio.Event()
+    launch_count = 0
+
+    async def slow_launch(_policy: M.LaunchPolicy, _display: M.DisplayConfig | None) -> bool:
+        nonlocal launch_count
+        launch_count += 1
+        launch_started.set()
+        await release_launch.wait()
+        return True
+
+    monkeypatch.setattr(worker, "_launch_context", slow_launch)
+    first_task = asyncio.create_task(
+        stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
+    )
+    await launch_started.wait()
+    second_task = asyncio.create_task(
+        stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
+    )
+    await asyncio.sleep(0.05)
+    assert launch_count == 1
+    release_launch.set()
+
+    first, second = await asyncio.gather(first_task, second_task)
+
+    assert first.ok and first.accepted
+    assert second.ok and second.replayed
+    assert launch_count == 1
+
+
 async def test_stopped_fixed_fleet_worker_accepts_next_run(
     profile_dir: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -726,15 +850,77 @@ def test_profile_lock_clears_only_stale_chromium_singletons(profile_dir: str) ->
         lock.release()
 
 
+def test_profile_lock_does_not_follow_stale_singleton_symlink(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    profile_path = Path(profile_dir)
+    profile_path.mkdir(parents=True, exist_ok=True)
+    singleton_socket = profile_path / "SingletonSocket"
+    singleton_socket.symlink_to("/tmp/previous-container/socket")
+
+    original_stat = Path.stat
+
+    def refuse_followed_socket(path: Path, *args: object, **kwargs: object) -> os.stat_result:
+        if path == singleton_socket and kwargs.get("follow_symlinks", True):
+            raise PermissionError("previous container socket is not accessible")
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", refuse_followed_socket)
+    lock = ProfileLock(profile_dir)
+    lock.acquire()
+    try:
+        assert lock.clear_stale_chromium_singletons() == ["SingletonSocket"]
+        assert singleton_socket.is_symlink() is False
+    finally:
+        lock.release()
+
+
 def test_profile_lock_refuses_singleton_cleanup_without_ownership(profile_dir: str) -> None:
     lock = ProfileLock(profile_dir)
     with pytest.raises(ProfileLockError, match="must be held"):
         lock.clear_stale_chromium_singletons()
 
 
-@CHROMIUM
-async def test_bootstrap_idempotency_and_profile_lock(profile_dir: str) -> None:
+async def test_bootstrap_profile_cleanup_does_not_block_health_event_loop(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     worker, stub, _ = _new(profile_dir)
+    release_cleanup = threading.Event()
+    ticked_at: list[float] = []
+    started_at = time.monotonic()
+
+    def slow_failed_cleanup(_lock: ProfileLock) -> list[str]:
+        assert release_cleanup.wait(timeout=1)
+        raise ProfileLockError("simulated slow EFS metadata failure")
+
+    async def health_tick() -> None:
+        await asyncio.sleep(0.05)
+        ticked_at.append(time.monotonic())
+
+    monkeypatch.setattr(ProfileLock, "clear_stale_chromium_singletons", slow_failed_cleanup)
+    timer = threading.Timer(0.25, release_cleanup.set)
+    timer.start()
+    tick = asyncio.create_task(health_tick())
+    try:
+        result = await stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
+        await tick
+    finally:
+        timer.cancel()
+        release_cleanup.set()
+
+    assert not result.ok and result.error.code == "profile_locked_locally"
+    assert ticked_at and ticked_at[0] - started_at < 0.15
+
+
+async def test_bootstrap_idempotency_and_profile_lock(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, stub, _ = _new(profile_dir)
+
+    async def fake_launch(_policy: M.LaunchPolicy, _display: M.DisplayConfig | None) -> bool:
+        return True
+
+    monkeypatch.setattr(worker, "_launch_context", fake_launch)
 
     # An external holder of the advisory lock makes bootstrap refuse loudly.
     external = ProfileLock(profile_dir)
@@ -751,10 +937,17 @@ async def test_bootstrap_idempotency_and_profile_lock(profile_dir: str) -> None:
     assert replay.ok and replay.replayed is True
 
     # A repeat with a DIFFERENT activation key is already_bootstrapped.
+    incumbent_run_id, incumbent_profile_id = stub.run_id, stub.profile_id
+    stub.run_id = "competing-run"
     stub.activation_key = "a-different-key"
     diff = await stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
     assert not diff.ok and diff.error.code == "already_bootstrapped"
+    # A rejected competing bootstrap must not overwrite the live worker identity.
+    # Otherwise the incumbent manager cannot heartbeat or stop the Chromium it owns.
+    assert worker.run_id == incumbent_run_id
+    assert worker.profile_id == incumbent_profile_id
 
+    stub.run_id, stub.profile_id = incumbent_run_id, incumbent_profile_id
     await stub.shutdown()
 
     # A cleanly stopped fixed-fleet worker accepts the next run. The prior

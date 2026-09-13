@@ -106,6 +106,35 @@ MANDATE_KEY_METADATA_KEY = "mandate_key"
 #: carries the fact that nothing held it.
 MANDATE_BYPASS_METADATA_KEY = "mandate_bypass"
 
+#: The metadata key a RESOLVED Holder is stamped under by whoever resolved the
+#: mandate before calling the executor (``matrx_ai.graph_nodes.mandates
+#: .hold_step`` for workflow steps). A key is a name; a Holder is what runs.
+MANDATE_HOLDER_METADATA_KEY = "mandate_holder"
+
+#: The ``system_error.kind`` written when a call NAMES a mandate through the
+#: explicit ``mandate_key=`` parameter but nothing resolved it — the bound
+#: Holder never ran, the key was a label. Found 2026-09-12: the seven workflow
+#: step nodes carried ``workflow.step_intelligence`` this way for a day, so the
+#: coverage board could go green while the Holder an admin bound changed
+#: nothing about any run.
+MANDATE_CARRIED_UNRESOLVED_KIND = "mandate_carried_unresolved"
+
+#: The ``system_error.kind`` written when a call RESOLVED its mandate honestly
+#: and found NO HOLDER AT ANY RUNG. The step still runs — on the configuration
+#: its own author chose — because refusing would be a platform outage in
+#: service of a list we already agreed to work off (D20 + D23). Found live
+#: 2026-09-12: ``workflow.step_intelligence`` is SEEDLESS ON PURPOSE (D21,
+#: `aidream/workflows/mandates.py`), and a same-day change made resolution
+#: fatal, so every authored ``ai.*`` step on production died at its first AI
+#: node (run fbe577d6…, definition 129a4ec1…, node ``ask_questions``).
+MANDATE_HOLDER_UNBOUND_KIND = "mandate_holder_unbound"
+
+#: The metadata key an UNHELD step is stamped under: the mandate resolved to
+#: nothing, the author's own configuration ran, and this row says so on the
+#: persisted request. Deliberately NOT a Holder identity — nothing held it —
+#: so the screen can never claim "Held by X" over a run nobody held.
+MANDATE_UNHELD_METADATA_KEY = "mandate_unheld"
+
 #: ``source_feature`` prefix ``run_mandate`` stamps on the agent lane.
 MANDATE_SOURCE_FEATURE_PREFIX = "mandate:"
 
@@ -152,6 +181,15 @@ def _stack_caller() -> str:
     except Exception:  # noqa: BLE001 — a broken stack walk must not break a run
         pass
     return "unknown"
+
+
+def _caller_code_path(caller: str) -> str:
+    """Collapse a concrete stack location to its stable file/function path."""
+    location, separator, function = caller.partition(" in ")
+    file_path, line_separator, maybe_line = location.rpartition(":")
+    if separator and line_separator and maybe_line.isdigit():
+        return f"{file_path} in {function}"
+    return caller
 
 
 def _context() -> Any | None:
@@ -218,6 +256,8 @@ def _record(
     model: str,
     spec_type: str | None,
     ctx: Any | None,
+    kind: str = MANDATE_BYPASS_KIND,
+    mandate_key: str | None = None,
 ) -> None:
     """Write the ``system_error`` row through the host's own door. Never raises."""
     try:
@@ -229,16 +269,31 @@ def _record(
     except Exception:  # noqa: BLE001 — no host wiring is a normal standalone state
         return
 
-    error = MandateBypassAtRuntime(
-        f"AI call with no mandate Holder at {caller} (model={model or 'unset'}"
-        + (f", spec_type={spec_type}" if spec_type else "")
-        + ")"
-    )
+    if kind == MANDATE_HOLDER_UNBOUND_KIND:
+        error: RuntimeError = MandateBypassAtRuntime(
+            f"AI call resolved mandate {mandate_key!r} at {caller} and found NO HOLDER at any "
+            f"rung (model={model or 'unset'}"
+            + (f", spec_type={spec_type}" if spec_type else "")
+            + ") — the step ran on its author's own configuration, unheld"
+        )
+    elif kind == MANDATE_CARRIED_UNRESOLVED_KIND:
+        error = MandateBypassAtRuntime(
+            f"AI call named mandate {mandate_key!r} at {caller} but nothing resolved it "
+            f"(model={model or 'unset'}"
+            + (f", spec_type={spec_type}" if spec_type else "")
+            + ") — the bound Holder did not run"
+        )
+    else:
+        error = MandateBypassAtRuntime(
+            f"AI call with no mandate Holder at {caller} (model={model or 'unset'}"
+            + (f", spec_type={spec_type}" if spec_type else "")
+            + ")"
+        )
     try:
         pending = record_error(
             error,
-            kind=MANDATE_BYPASS_KIND,
-            error_type=MANDATE_BYPASS_KIND,
+            kind=kind,
+            error_type=kind,
             error_text=str(error),
             source_app=MANDATE_SCAN_SOURCE_APP,
             route=caller,
@@ -250,6 +305,7 @@ def _record(
                 "caller": caller,
                 "model": model,
                 "spec_type": spec_type,
+                "mandate_key": mandate_key,
                 "source_app": getattr(ctx, "source_app", None),  # orm-getattr-ok: AppContext
                 "source_feature": getattr(ctx, "source_feature", None),  # orm-getattr-ok: AppContext
                 "carriers_checked": [
@@ -270,7 +326,7 @@ def _record(
                 return
             from matrx_utils import detached_task
 
-            detached_task(pending, name=MANDATE_BYPASS_KIND)
+            detached_task(pending, name=kind)
     except Exception:  # noqa: BLE001 — a broken alarm never becomes a failed run
         return
 
@@ -293,7 +349,20 @@ def note_mandate_carrier(
     """
     try:
         ctx = _context()
-        if carrier_for(metadata, ctx, mandate_key=mandate_key) is not None:
+        carrier = carrier_for(metadata, ctx, mandate_key=mandate_key)
+        if carrier is not None:
+            if carrier[0] == "mandate_key" and not _holder_identity_present(metadata, ctx):
+                # An UNHELD step already screamed its own, better row from the
+                # resolver (``record_unheld_step``). Reporting it again here as
+                # "carried, not resolved" would be a second row for one fact
+                # and would blame the caller for an empty rung ladder.
+                if isinstance(metadata, dict) and isinstance(
+                    metadata.get(MANDATE_UNHELD_METADATA_KEY), dict
+                ):
+                    return dict(metadata[MANDATE_UNHELD_METADATA_KEY])
+                return _record_unresolved_label(
+                    config, metadata, ctx, mandate_key=carrier[1]
+                )
             return None
 
         model = ""
@@ -352,6 +421,214 @@ def note_mandate_carrier(
         return record
     except Exception:  # noqa: BLE001 — the gate can never fail a real AI request
         return None
+
+
+def _holder_identity_present(metadata: dict[str, Any] | None, ctx: Any | None) -> bool:
+    """Did something RESOLVE the mandate before this call reached the executor?
+
+    Two shapes count, both written by resolving code and never by a label:
+    ``metadata["mandate_holder"]`` (stamped by ``hold_step`` and any other
+    resolver that runs the Holder itself) and an agent identity on the
+    AppContext (``run_agent`` stamps it when a loaded Holder executes).
+    """
+    if isinstance(metadata, dict):
+        holder = metadata.get(MANDATE_HOLDER_METADATA_KEY)
+        if isinstance(holder, dict) and holder:
+            return True
+    if ctx is not None:
+        for attribute in ("agent_id", "agent_version_id"):
+            value = getattr(ctx, attribute, None)  # orm-getattr-ok: AppContext
+            if isinstance(value, str) and value.strip():
+                return True
+    return False
+
+
+def _model_and_spec(config: Any, metadata: dict[str, Any] | None, ctx: Any | None) -> tuple[str, str | None]:
+    model = ""
+    try:
+        model = str(getattr(config, "model", "") or "")  # orm-getattr-ok: UnifiedConfig
+    except Exception:  # noqa: BLE001
+        model = ""
+    spec_type = None
+    for source in (metadata, getattr(ctx, "metadata", None)):  # orm-getattr-ok: AppContext
+        if isinstance(source, dict):
+            candidate = source.get("spec_type") or source.get("node_type")
+            if isinstance(candidate, str) and candidate.strip():
+                spec_type = candidate.strip()
+                break
+    return model, spec_type
+
+
+def _record_unresolved_label(
+    config: Any,
+    metadata: dict[str, Any] | None,
+    ctx: Any | None,
+    *,
+    mandate_key: str,
+) -> dict[str, Any]:
+    """A mandate was NAMED but never RESOLVED: scream, record, continue.
+
+    This is the second half of the gate. The first half catches calls that
+    name nothing; this catches calls that name a mandate as a label and run
+    whatever they were going to run anyway — so the admin page can say "Held
+    by X" while X never runs, which is a screen that lies. Same D20/D23
+    shape as the bypass: one ``system_error`` row per code path, never a
+    raise, and the fact stamped onto the request the persistence layer
+    already writes.
+    """
+    model, spec_type = _model_and_spec(config, metadata, ctx)
+    caller = _stack_caller()
+    record = {
+        "reason": MANDATE_CARRIED_UNRESOLVED_KIND,
+        "mandate_key": mandate_key,
+        "caller": caller,
+        "model": model,
+        "spec_type": spec_type,
+    }
+    signature = (
+        f"{MANDATE_CARRIED_UNRESOLVED_KIND}:{mandate_key}:{_caller_code_path(caller)}",
+        model,
+    )
+    if signature in _REPORTED:
+        return record
+    _REPORTED.add(signature)
+
+    vcprint(
+        "\n"
+        "================================================================\n"
+        "  MANDATE CARRIED, NOT RESOLVED — the bound Holder did not run\n"
+        "----------------------------------------------------------------\n"
+        f"  Mandate:   {mandate_key}\n"
+        f"  Caller:    {caller}\n"
+        f"  Model:     {model or '(unset)'}\n"
+        f"  Step type: {spec_type or '(none)'}\n"
+        "  Why it matters: the call names a Mandate but nothing resolved\n"
+        "          it, so whatever an admin binds to it changes nothing\n"
+        "          about this run — the key is a label, not a Holder.\n"
+        "  Fix:     resolve the Mandate before the call (a workflow step:\n"
+        "           matrx_ai.graph_nodes.mandates.hold_step) and stamp\n"
+        f"           metadata[{MANDATE_HOLDER_METADATA_KEY!r}], or run it through run_mandate.\n"
+        f"  Recorded: ops.system_error kind={MANDATE_CARRIED_UNRESOLVED_KIND} "
+        f"source_app={MANDATE_SCAN_SOURCE_APP}\n"
+        "================================================================",
+        color="red",
+    )
+    logger.error(
+        "[mandates] %s: %s named at %s but never resolved (model=%s, spec_type=%s)",
+        MANDATE_CARRIED_UNRESOLVED_KIND,
+        mandate_key,
+        caller,
+        model or "unset",
+        spec_type or "none",
+    )
+    _record(
+        caller=caller,
+        model=model,
+        spec_type=spec_type,
+        ctx=ctx,
+        kind=MANDATE_CARRIED_UNRESOLVED_KIND,
+        mandate_key=mandate_key,
+    )
+    return record
+
+
+def record_unheld_step(
+    *,
+    mandate_key: str,
+    consumer: str,
+    spec_type: str | None,
+    model: str,
+    detail: str,
+) -> dict[str, Any]:
+    """A mandate RESOLVED to nothing: scream, record, and let the step run.
+
+    This is the third shape of the gate, and the only one that fires from the
+    RESOLVER rather than the executor. ``note_mandate_carrier`` catches calls
+    that name no mandate (``mandate_bypass_runtime``) and calls that name one
+    as a label (``mandate_carried_unresolved``). This one is the honest case
+    that has no Holder to find: the code did resolve, walked every rung, and
+    nothing answered.
+
+    **It never raises**, and that is the whole point. ``workflow.step_intelligence``
+    is SEEDLESS ON PURPOSE under D21 — declared, inventoried, and flying a red
+    "no Holder bound" flag until an admin binds one — and an authored step
+    already carries the model and instructions its author chose, so there is a
+    correct thing to run without a Holder. On 2026-09-12 a change made the
+    unbound case fatal and every authored ``ai.*`` step on production died at
+    its first AI node. D20 ("we'll live with the ones we've got until we have
+    time to fix them") and D23 ("scream loud and red and REPORT… but without
+    blocking") leave exactly one behavior: run the author's step, and make the
+    missing Holder impossible to miss.
+
+    Returns the record to stamp under :data:`MANDATE_UNHELD_METADATA_KEY`, so
+    the persisted request says plainly that nothing held it.
+    """
+    record = {
+        "reason": MANDATE_HOLDER_UNBOUND_KIND,
+        "mandate_key": mandate_key,
+        "consumer": consumer,
+        "model": model,
+        "spec_type": spec_type,
+        "detail": detail,
+        "remedy": (
+            f"Bind a Holder to {mandate_key} on the mandates admin page. Until then "
+            "this step runs on the model and instructions its own author chose."
+        ),
+    }
+    try:
+        ctx = _context()
+        caller = _stack_caller()
+        record["caller"] = caller
+        signature = (
+            f"{MANDATE_HOLDER_UNBOUND_KIND}:{mandate_key}:{consumer}",
+            model,
+        )
+        if signature in _REPORTED:
+            return record
+        _REPORTED.add(signature)
+
+        vcprint(
+            "\n"
+            "================================================================\n"
+            "  MANDATE HAS NO HOLDER — the step ran on its author's config\n"
+            "----------------------------------------------------------------\n"
+            f"  Mandate:   {mandate_key}\n"
+            f"  Consumer:  {consumer}\n"
+            f"  Caller:    {caller}\n"
+            f"  Model:     {model or '(unset)'}\n"
+            f"  Step type: {spec_type or '(none)'}\n"
+            f"  Resolver:  {detail}\n"
+            "  Why it matters: nobody is accountable for this call, and no\n"
+            "          admin floor reaches it. The author's own model and\n"
+            "          instructions ran, which is the right answer for an\n"
+            "          authored step and the WRONG answer for a platform\n"
+            "          that says every call has a Holder.\n"
+            f"  Fix:     bind a Holder to {mandate_key}.\n"
+            f"  Recorded: ops.system_error kind={MANDATE_HOLDER_UNBOUND_KIND} "
+            f"source_app={MANDATE_SCAN_SOURCE_APP}\n"
+            "================================================================",
+            color="red",
+        )
+        logger.error(
+            "[mandates] %s: %s resolved to no Holder for %s (model=%s, spec_type=%s): %s",
+            MANDATE_HOLDER_UNBOUND_KIND,
+            mandate_key,
+            consumer,
+            model or "unset",
+            spec_type or "none",
+            detail,
+        )
+        _record(
+            caller=caller,
+            model=model,
+            spec_type=spec_type,
+            ctx=ctx,
+            kind=MANDATE_HOLDER_UNBOUND_KIND,
+            mandate_key=mandate_key,
+        )
+    except Exception:  # noqa: BLE001 — a broken alarm never becomes a failed run
+        return record
+    return record
 
 
 def reset_reported_signatures() -> None:

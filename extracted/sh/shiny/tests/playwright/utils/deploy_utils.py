@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import re
@@ -12,6 +13,7 @@ from typing import Any, Callable, List, Optional, TypeVar
 
 import pytest
 from conftest import ScopeName
+from packaging.version import Version
 from playwright.sync_api import Page
 
 from shiny.run._run import shiny_app_gen
@@ -26,6 +28,7 @@ __all__ = (
     "goto_deployed_app",
     "local_deploys_app_url_fixture",
     "skip_if_not_chrome",
+    "skip_if_shinychat_older_than",
 )
 
 # connect
@@ -35,10 +38,6 @@ server_url = os.environ.get("DEPLOY_CONNECT_SERVER_URL") or os.environ.get(
 api_key = os.environ.get("DEPLOY_CONNECT_SERVER_API_KEY") or os.environ.get(
     "CONNECT_API_KEY"
 )
-# shinyapps.io
-shinyappsio_name = os.environ.get("DEPLOY_SHINYAPPS_NAME")
-shinyappsio_token = os.environ.get("DEPLOY_SHINYAPPS_TOKEN")
-shinyappsio_secret = os.environ.get("DEPLOY_SHINYAPPS_SECRET")
 
 run_on_ci = os.environ.get("CI", "False") == "true"
 repo = os.environ.get("GITHUB_REPOSITORY", "unknown")
@@ -48,7 +47,7 @@ should_use_github_requirements_txt = (
 )
 
 
-deploy_locations: List[str] = ["connect", "shinyapps"]
+deploy_locations: List[str] = ["connect"]
 
 
 CallableT = TypeVar("CallableT", bound=Callable[..., Any])
@@ -70,6 +69,35 @@ def skip_on_webkit(fn: CallableT) -> CallableT:
     fn = pytest.mark.skip_browser("webkit")(fn)
 
     return fn
+
+
+def skip_if_shinychat_older_than(
+    required_version: str,
+    reason: Optional[str] = None,
+) -> Callable[[CallableT], CallableT]:
+    """
+    Skip a test unless the installed shinychat is at least `required_version`.
+
+    `pyproject.toml` floors shinychat well below the versions some chat behaviour
+    was introduced in, so a test written against newer semantics -- `greeting=`
+    replacing `messages=`, `icon_assistant=True` opting into the built-in icon --
+    would fail rather than skip on an older but permitted install.
+    """
+    installed_version = importlib.metadata.version("shinychat")
+
+    def _(fn: CallableT) -> CallableT:
+        fn = pytest.mark.skipif(
+            Version(installed_version) < Version(required_version),
+            reason=reason
+            or (
+                f"Requires shinychat >= {required_version} "
+                f"(installed: {installed_version})"
+            ),
+        )(fn)
+
+        return fn
+
+    return _
 
 
 def skip_on_python_version(
@@ -173,17 +201,6 @@ def deploy_to_connect(app_name: str, app_dir: str) -> str:
     return url
 
 
-# TODO-future: Supress web browser from opening after deploying - https://github.com/rstudio/rsconnect-python/issues/462
-def deploy_to_shinyapps(app_name: str, app_dir: str) -> str:
-    # Deploy to shinyapps.io
-    shinyapps_deploy = f"rsconnect deploy shiny {app_dir} --account {shinyappsio_name} --token {shinyappsio_token} --secret {shinyappsio_secret} --title {app_name} --override-python-version 3.10 --verbose"
-    shinyapps_env = os.environ.copy()
-    shinyapps_env.pop("CONNECT_API_KEY", None)
-    shinyapps_env.pop("CONNECT_SERVER", None)
-    run_command(shinyapps_deploy, env=shinyapps_env)
-    return f"https://{shinyappsio_name}.shinyapps.io/{app_name}/"
-
-
 # Since connect parses python packages, we need to get latest version of shiny on HEAD
 def write_github_requirements_txt(app_dir: str) -> None:
     print("Writing github requirements.txt")
@@ -240,9 +257,8 @@ def deploy_app(
     # This allows us to run tests in parallel when deploying apps both modify the same rsconnect config file
     with tempfile.TemporaryDirectory("deploy_app") as tmpdir:
 
-        # Creating a dir with same name instead of tmp to avoid issues
-        # when deploying app to shinyapps.io using rsconnect package
-        # since the rsconnect/*.json file needs the app_dir name to be same
+        # Keep the original directory name because rsconnect uses it for the
+        # deployment record filename.
         tmp_app_dir = os.path.join(tmpdir, app_dir_name)
         os.mkdir(tmp_app_dir)
         shutil.copytree(app_dir, tmp_app_dir, dirs_exist_ok=True)
@@ -253,7 +269,6 @@ def deploy_app(
 
         deployment_function = {
             "connect": deploy_to_connect,
-            "shinyapps": deploy_to_shinyapps,
         }[location]
 
         pre_deployment_time = time.time()
@@ -282,17 +297,8 @@ def local_deploys_app_url_fixture(
             yield next(shinyapp_proc_gen).url
         elif deploy_location in deploy_locations:
 
-            if deploy_location == "connect":
-                if not (server_url and api_key):
-                    pytest.skip(
-                        "Connect server url or api key not found. Cannot deploy."
-                    )
-            if deploy_location == "shinyapps" and not (
-                shinyappsio_name and shinyappsio_token and shinyappsio_secret
-            ):
-                pytest.skip(
-                    "Shinyapps.io name, token or secret not found. Cannot deploy."
-                )
+            if not (server_url and api_key):
+                pytest.skip("Connect server url or api key not found. Cannot deploy.")
 
             app_url = deploy_app(
                 app_file,

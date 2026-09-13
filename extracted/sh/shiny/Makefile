@@ -58,13 +58,16 @@ clean-test: FORCE
 
 typings/folium:
 	@echo "Creating folium stubs"
-	pyright --createstub folium
+	dir="$$(python -c "import importlib.util as u,os;print(os.path.dirname(u.find_spec('folium').origin))")" && \
+		pyrefly stubgen "$$dir" -o typings/folium --include-private
 typings/uvicorn:
 	@echo "Creating uvicorn stubs"
-	pyright --createstub uvicorn
+	dir="$$(python -c "import importlib.util as u,os;print(os.path.dirname(u.find_spec('uvicorn').origin))")" && \
+		pyrefly stubgen "$$dir" -o typings/uvicorn --include-private
 typings/seaborn:
 	@echo "Creating seaborn stubs"
-	pyright --createstub seaborn
+	dir="$$(python -c "import importlib.util as u,os;print(os.path.dirname(u.find_spec('seaborn').origin))")" && \
+		pyrefly stubgen "$$dir" -o typings/seaborn --include-private
 typings/matplotlib/__init__.pyi:
 	@echo "Creating matplotlib stubs"
 	mkdir -p typings
@@ -72,7 +75,7 @@ typings/matplotlib/__init__.pyi:
 	mv typings/python-type-stubs/stubs/matplotlib typings/
 	rm -rf typings/python-type-stubs
 
-pyright-typings: typings/folium typings/uvicorn typings/seaborn typings/matplotlib/__init__.pyi
+typings: FORCE typings/folium typings/uvicorn typings/seaborn typings/matplotlib/__init__.pyi
 
 check: check-format check-lint check-types check-tests  ## check code, style, types, and test (basic CI)
 check-fix: format check-lint check-types check-tests ## check and format code, style, types, and test
@@ -90,13 +93,13 @@ check-black: FORCE
 check-isort: FORCE
 	@echo "-------- Sorting imports with isort ---------"
 	isort --check-only --diff .
-check-pyright: pyright-typings
+check-pyright: typings
 	@echo "-------- Checking types with pyright --------"
 	pyright
-check-pyrefly: pyright-typings
+check-pyrefly: typings
 	@echo "-------- Checking types with pyrefly --------"
 	pyrefly check
-update-pyrefly-baseline: pyright-typings ## Accept current Pyrefly errors as the baseline
+update-pyrefly-baseline: typings ## Accept current Pyrefly errors as the baseline
 	pyrefly check --baseline pyrefly-baseline.json --update-baseline
 check-pytest: FORCE
 	@echo "-------- Running tests with pytest ----------"
@@ -158,7 +161,7 @@ update-testing-docs: docs update-testing-docs-repomix update-testing-docs-proces
 
 ci-install-ai-deps: FORCE
 	uv pip install -e ".[dev,test,add-test]"
-	$(MAKE) install-playwright
+	"$(MAKE)" install-playwright
 
 run-test-ai-evaluation: FORCE ## Run the AI evaluation script for tests
 	@echo "-------- Running AI evaluation for tests --------"
@@ -213,6 +216,12 @@ PLAYWRIGHT_VERBOSE:= -v
 else
 PLAYWRIGHT_VERBOSE:=
 endif
+# Extra pytest options for one-off local runs, e.g.
+# `make playwright-shiny PYTEST_EXTRA_ARGS="--tracing on"` to record a
+# Playwright trace per test. See `playwright-show-trace` to open one.
+PYTEST_EXTRA_ARGS:=
+# A specific trace for `playwright-show-trace`; defaults to the newest one.
+TRACE:=
 
 
 # Full test path to playwright tests
@@ -243,29 +252,41 @@ install-rsconnect: FORCE
 # Stale snapshots can still be cleaned up with an all-browser, unsharded run
 # using `--snapshot-update`.
 playwright: install-playwright ## All end-to-end tests with playwright; (TEST_FILE="" from root of repo)
-	pytest $(PLAYWRIGHT_VERBOSE) --snapshot-warn-unused --timeout=$(PLAYWRIGHT_TEST_TIMEOUT) --timeout-method=$(PLAYWRIGHT_TEST_TIMEOUT_METHOD) -o faulthandler_timeout=$(PLAYWRIGHT_FAULTHANDLER_TIMEOUT) $(TEST_FILE) $(PYTEST_BROWSERS)
+	pytest $(PLAYWRIGHT_VERBOSE) --snapshot-warn-unused --timeout=$(PLAYWRIGHT_TEST_TIMEOUT) --timeout-method=$(PLAYWRIGHT_TEST_TIMEOUT_METHOD) -o faulthandler_timeout=$(PLAYWRIGHT_FAULTHANDLER_TIMEOUT) $(TEST_FILE) $(PYTEST_BROWSERS) $(PYTEST_EXTRA_ARGS)
 
 playwright-debug: install-playwright ## All end-to-end tests, chrome only, headed; (TEST_FILE="" from root of repo)
-	pytest -c tests/playwright/playwright-pytest.ini $(TEST_FILE)
+	pytest -c tests/playwright/playwright-pytest.ini $(TEST_FILE) $(PYTEST_EXTRA_ARGS)
 
-playwright-show-trace: ## Show trace of failed tests
-	npx playwright show-trace test-results/*/trace.zip
+# `show-trace` takes exactly one trace, and `--tracing on` writes one per test,
+# so default to the most recently written trace rather than globbing them all.
+playwright-show-trace: ## Show a Playwright trace: the newest under test-results/, or TRACE="path/to/trace.zip"
+	@trace="$(TRACE)"; \
+	if [ -z "$$trace" ]; then \
+		trace=$$(ls -t test-results/*/trace.zip 2>/dev/null | head -1); \
+	fi; \
+	if [ -z "$$trace" ]; then \
+		echo "No trace found under test-results/. Record one with:"; \
+		echo "  make playwright-shiny SUB_FILE=\"inputs/test_foo.py\" PYTEST_EXTRA_ARGS=\"--tracing on\""; \
+		exit 1; \
+	fi; \
+	echo "npx playwright show-trace $$trace"; \
+	npx playwright show-trace "$$trace"
 
 # end-to-end tests with playwright; (SUB_FILE="" within tests/playwright/shiny/)
 playwright-shiny: FORCE
-	$(MAKE) playwright TEST_FILE="$(SHINY_TEST_FILE)"
+	"$(MAKE)" playwright TEST_FILE="$(SHINY_TEST_FILE)"
 
 # end-to-end tests on deployed apps with playwright; (SUB_FILE="" within tests/playwright/deploys/)
 playwright-deploys: FORCE
-	$(MAKE) playwright PYTEST_BROWSERS="$(PYTEST_DEPLOYS_BROWSERS)" TEST_FILE="$(DEPLOYS_TEST_FILE)"
+	"$(MAKE)" playwright PYTEST_BROWSERS="$(PYTEST_DEPLOYS_BROWSERS)" TEST_FILE="$(DEPLOYS_TEST_FILE)"
 
 # end-to-end tests on all py-shiny examples with playwright; (SUB_FILE="" within tests/playwright/examples/)
 playwright-examples: FORCE
-	$(MAKE) playwright TEST_FILE="$(EXAMPLES_TEST_FILE)"
+	"$(MAKE)" playwright TEST_FILE="$(EXAMPLES_TEST_FILE)"
 
 # end-to-end tests for all AI generated apps
 playwright-ai: FORCE
-	$(MAKE) playwright TEST_FILE="$(AI_TEST_FILE)"
+	"$(MAKE)" playwright TEST_FILE="$(AI_TEST_FILE)"
 
 coverage: FORCE ## check combined code coverage (must run e2e last)
 	pytest --cov-report term-missing --cov=shiny tests/pytest/ $(SHINY_TEST_FILE) $(PYTEST_BROWSERS)
@@ -337,10 +358,10 @@ upgrade-html-deps: FORCE ## Upgrade Shiny's HTMLDependencies
 
 narwhals-install-shiny: FORCE
 	@echo "-------- Install py-shiny ----------"
-	$(MAKE) ci-install-deps
-	$(MAKE) install-playwright PLAYWRIGHT_BROWSERS=chromium
+	"$(MAKE)" ci-install-deps
+	"$(MAKE)" install-playwright PLAYWRIGHT_BROWSERS=chromium
 narwhals-test-integration: FORCE
 	@echo "-------- Running py-shiny typing and unit tests ----------"
-	$(MAKE) check-types check-tests
+	"$(MAKE)" check-types check-tests
 	@echo "-------- Running py-shiny playwright tests ----------"
-	$(MAKE) playwright TEST_FILE="tests/playwright/shiny/components/data_frame/data_type/" PYTEST_BROWSERS="--browser chromium"
+	"$(MAKE)" playwright TEST_FILE="tests/playwright/shiny/components/data_frame/data_type/" PYTEST_BROWSERS="--browser chromium"

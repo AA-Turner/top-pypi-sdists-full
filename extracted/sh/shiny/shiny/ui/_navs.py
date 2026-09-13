@@ -1119,11 +1119,11 @@ def navbar_options(
     ```python
     ui.page_navbar(
       theme=ui.Theme(version=5, preset="flatly"),
-      navbar_options=ui.navbar_options(class="bg-primary", theme="dark")
+      navbar_options=ui.navbar_options(class_="bg-primary", theme="dark")
     )
     ```
 
-    This particular combination of `class="bg-primary"` and `theme="dark"` works well
+    This particular combination of `class_="bg-primary"` and `theme="dark"` works well
     for most Bootswatch presets. Note that in Shiny Express, `theme` and
     `navbar_options` both are set using :func:`~shiny.express.ui.page_opts`.
 
@@ -1133,7 +1133,7 @@ def navbar_options(
     ```python
     ui.page_navbar(
       theme = ui.Theme(version=5, preset="flatly"),
-      navbar_options = ui.navbar_options(class="bg-light", theme="light")
+      navbar_options = ui.navbar_options(class_="bg-light", theme="light")
     )
     ```
 
@@ -1318,9 +1318,13 @@ class NavSetBar(NavSet):
         self._is_page_level = False
 
     def layout(self, nav: Tag, content: Tag) -> TagList:
+        container_attrs: TagAttrs = {
+            "class": "container-fluid" if self.fluid else "container"
+        }
+        brand_attrs: TagAttrs = {"class": "navbar-brand"}
         nav_container = div(
-            {"class": "container-fluid" if self.fluid else "container"},
-            tags.span({"class": "navbar-brand"}, self.title),
+            container_attrs,
+            tags.span(brand_attrs, self.title),
         )
         if self.navbar_options.collapsible:
             collapse_id = "navbar-collapse-" + nav_random_int()
@@ -1339,10 +1343,12 @@ class NavSetBar(NavSet):
             nav = div(nav, id=collapse_id, class_="collapse navbar-collapse")
 
         nav_container.append(nav)
+        navbar_attrs: TagAttrs = {"class": "navbar navbar-expand-md"}
+        theme_attrs: TagAttrs = {"data-bs-theme": self.navbar_options.theme}
         nav_final = tags.nav(
-            {"class": "navbar navbar-expand-md"},
+            navbar_attrs,
             nav_container,
-            {"data-bs-theme": self.navbar_options.theme},
+            theme_attrs,
             **self.navbar_options.attrs,
         )
 
@@ -1393,10 +1399,13 @@ class NavSetBar(NavSet):
                     *contents, fillable=self.fillable is not False
                 )
 
+            # In the fluid case, the sidebar layout should be flush (i.e.,
+            # the .container-fluid class adds padding that we don't want)
+            flush_attrs: TagAttrs | None = (
+                {"class": "container"} if not self.fluid else None
+            )
             content_div = div(
-                # In the fluid case, the sidebar layout should be flush (i.e.,
-                # the .container-fluid class adds padding that we don't want)
-                {"class": "container"} if not self.fluid else None,
+                flush_attrs,
                 layout_sidebar(
                     self.sidebar,
                     tab_content,
@@ -1617,7 +1626,9 @@ def render_navset(
     selected: Optional[str],
     context: dict[str, Any],
 ) -> tuple[Tag, Tag]:
-    tabsetid = nav_random_int()
+    # Derive the tabset ID from the user-supplied (already module-resolved)
+    # input id when available; fall back to a random ID for anonymous navsets.
+    tabsetid = id if id is not None else nav_random_int()
 
     # Separate MetadataNodes from NavSetArgs.
     metadata_args: list[MetadataNode] = []

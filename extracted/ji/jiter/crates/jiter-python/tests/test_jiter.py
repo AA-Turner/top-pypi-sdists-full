@@ -1,13 +1,14 @@
-from concurrent.futures import ThreadPoolExecutor
+import gc
 import json
-from decimal import Decimal
-from pathlib import Path
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
+from math import inf
+from pathlib import Path
 from typing import Any
 
 import jiter
 import pytest
-from math import inf
 from dirty_equals import IsFloatNan
 
 JITER_BENCH_DIR = Path(__file__).parent.parent.parent / 'jiter' / 'benches'
@@ -263,7 +264,7 @@ def test_python_cache_usage_none():
 
 
 def test_use_tape():
-    json = '  "foo\\nbar"  '.encode()
+    json = b'  "foo\\nbar"  '
     jiter.cache_clear()
     parsed = jiter.from_json(json, cache_mode=False)
     assert parsed == 'foo\nbar'
@@ -396,6 +397,21 @@ def test_against_json():
 
 
 @pytest.mark.skipif(
+    sys.implementation.name != 'cpython', reason='singletons are a CPython detail'
+)
+def test_short_strings_are_singletons():
+    """CPython interns the empty string and every single Latin-1 character."""
+    for s in ['', 'a', ' ', '\x7f']:
+        data = json.dumps([s, {s: s}]).encode()
+        for cache_mode in (True, False):
+            parsed, obj = jiter.from_json(data, cache_mode=cache_mode)
+            assert parsed is s
+            key, value = next(iter(obj.items()))
+            assert key is s
+            assert value is s
+
+
+@pytest.mark.skipif(
     sys.platform == 'emscripten', reason='threads not supported on pyodide'
 )
 def test_multithreaded_parsing():
@@ -413,3 +429,29 @@ def test_multithreaded_parsing():
 
         for result in results:
             assert result.result()
+
+
+@pytest.mark.skipif(sys.implementation.name != 'cpython', reason='uses CPython gc APIs')
+def test_cache_clear_during_parse_does_not_deadlock():
+    # on CPython <= 3.11 a GC can run inside the parser's allocations, on newer versions it's deferred
+    # to the eval loop, so only older versions exercise a cache_clear while a parse holds the cache
+    unraisable = []
+
+    def callback(phase, info):
+        jiter.cache_clear()
+
+    data = ('[' + ','.join('{"key": "value"}' for _ in range(50_000)) + ']').encode()
+    thresholds = gc.get_threshold()
+    gc.callbacks.append(callback)
+    hook = sys.unraisablehook
+    sys.unraisablehook = unraisable.append
+    try:
+        gc.set_threshold(1)
+        result = jiter.from_json(data, cache_mode=True)
+    finally:
+        sys.unraisablehook = hook
+        gc.callbacks.remove(callback)
+        gc.set_threshold(*thresholds)
+
+    assert len(result) == 50_000
+    assert unraisable == []

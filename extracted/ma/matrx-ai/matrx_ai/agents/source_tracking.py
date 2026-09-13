@@ -22,6 +22,7 @@ class MissingSourceTrackingError(RuntimeError):
 
 
 def _capture_missing_source_tracking(
+    ctx: AppContext,
     *,
     handler: str,
     label: str | None,
@@ -44,6 +45,7 @@ def _capture_missing_source_tracking(
             kind=MISSING_SOURCE_TRACKING_KIND,
             error_type=MISSING_SOURCE_TRACKING_KIND,
             error_text=str(error),
+            **_capture_context(ctx),
             route=handler,
             payload={"handler": handler, "label": label, "missing": missing},
         )
@@ -98,6 +100,7 @@ async def capture_missing_source_tracking(
             kind=MISSING_SOURCE_TRACKING_KIND,
             error_type=MISSING_SOURCE_TRACKING_KIND,
             error_text=str(error),
+            **_capture_context(ctx),
             route=handler,
             payload={"handler": handler, "label": label, "missing": missing},
         )
@@ -110,6 +113,18 @@ async def capture_missing_source_tracking(
         # awaits the write when available, but telemetry cannot fail a run.
         pass
     return True
+
+
+def _capture_context(ctx: AppContext) -> dict[str, str | None]:
+    """Project known request identity onto a durable provenance alarm."""
+    return {
+        "request_id": getattr(ctx, "request_id", None),
+        "user_id": getattr(ctx, "user_id", None),
+        "conversation_id": getattr(ctx, "conversation_id", None),
+        "agent_id": getattr(ctx, "agent_id", None),
+        "organization_id": getattr(ctx, "organization_id", None),
+        "source_app": getattr(ctx, "source_app", None) or None,
+    }
 
 
 def default_child_source_app() -> str:
@@ -249,6 +264,7 @@ def warn_missing_source_tracking(
 
     if capture:
         _capture_missing_source_tracking(
+            ctx,
             handler=handler,
             label=label,
             missing=missing,

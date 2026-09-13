@@ -535,9 +535,9 @@ def main(argv=None) -> None:
         "note": "пары русского и английского написания; имена с несколькими ролями "
                 "(разное английское написание в разных местах) исключены",
     }
-    # Компактный файл читает рантайм на каждом прогоне - в нём только то, чем пользуются
-    # правила. Полный словарь (тысячи членов) лежит рядом и грузится по требованию:
-    # 1 МБ json в каждом параллельном воркере стоил бы четверти времени прогона.
+    # The compact file is read on every run and holds only what the rules use. The full
+    # dictionary (thousands of members) sits beside it and loads on demand: 1 MB of json
+    # in every parallel process would cost a quarter of the run time.
     small = {"meta": meta, **{name: dict(sorted(sections[name].items()))
                               for name in ("types", "facets", "properties", "enums", "query",
                                            "kinds")}}
@@ -546,9 +546,11 @@ def main(argv=None) -> None:
     version_dir = _distro.version_dir(version)
     version_dir.mkdir(parents=True, exist_ok=True)
     out = version_dir / "terms.json"
-    out.write_text(json.dumps(small, ensure_ascii=False, indent=1), encoding="utf-8")
+    out.write_text(json.dumps(small, ensure_ascii=False, indent=1), encoding="utf-8",
+                   newline="\n")
     out_full = version_dir / "terms_full.json"
-    out_full.write_text(json.dumps(full, ensure_ascii=False, indent=1), encoding="utf-8")
+    out_full.write_text(json.dumps(full, ensure_ascii=False, indent=1), encoding="utf-8",
+                        newline="\n")
     _distro.update_index(version)
 
     print(f"Записано: {out} (версия {version})")

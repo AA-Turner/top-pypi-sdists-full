@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Kurigram
-Version: 2.2.25
+Version: 2.2.26
 Summary: Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://kurigram.icu
 Project-URL: Documentation, https://docs.kurigram.icu
@@ -9,9 +9,11 @@ Project-URL: Issues, https://github.com/KurimuzonAkuma/pyrogram/issues
 Project-URL: Community, https://t.me/kurigram_chat
 Author-email: Dan <dan@pyrogram.org>
 Maintainer: KurimuzonAkuma
+Maintainer-email: Danipulok <danipulok@gmail.com>
 License-Expression: LGPL-3.0-or-later
 License-File: COPYING
 License-File: COPYING.lesser
+License-File: NOTICE
 Keywords: api,chat,client,library,messenger,mtproto,python,telegram
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -20,8 +22,6 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -36,27 +36,14 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
-Requires-Dist: pyaes<=1.6.1
-Requires-Dist: python-socks[asyncio]<=2.8.1
-Provides-Extra: dev
-Requires-Dist: hatch<=1.17.0; extra == 'dev'
-Requires-Dist: keyring<=25.7.0; extra == 'dev'
-Requires-Dist: pytest-asyncio<=1.4.0; extra == 'dev'
-Requires-Dist: pytest-cov<=7.1.0; extra == 'dev'
-Requires-Dist: pytest<=9.1.1; extra == 'dev'
-Requires-Dist: twine<=6.2.0; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: pygments<=2.20.0; extra == 'docs'
-Requires-Dist: shibuya<=2026.5.19; extra == 'docs'
-Requires-Dist: sphinx-autobuild<=2025.8.25; extra == 'docs'
-Requires-Dist: sphinx-copybutton<=0.5.2; extra == 'docs'
-Requires-Dist: sphinx-design<=0.7.0; extra == 'docs'
-Requires-Dist: sphinx-iconify<=0.3.0; extra == 'docs'
-Requires-Dist: sphinx<=9.1.0; extra == 'docs'
+Requires-Python: >=3.10
+Requires-Dist: pyaes>=1.2.0
+Requires-Dist: python-socks[asyncio]>=2.4.0
 Provides-Extra: fast
-Requires-Dist: tgcrypto<=1.2.5; extra == 'fast'
-Requires-Dist: uvloop<=0.22.1; (sys_platform == 'darwin' or sys_platform == 'linux') and extra == 'fast'
+Requires-Dist: tgcrypto>=1.2.2; extra == 'fast'
+Requires-Dist: uvloop>=0.21.0; (sys_platform == 'darwin' or sys_platform == 'linux') and extra == 'fast'
+Provides-Extra: qrcode
+Requires-Dist: qrcode>=5.2.2; extra == 'qrcode'
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -149,6 +136,13 @@ Dev version
 
 ``` bash
 pip install https://github.com/KurimuzonAkuma/kurigram/archive/dev.zip --force-reinstall
+```
+
+Optional dependencies
+
+``` bash
+pip install kurigram[fast]     # TgCrypto and uvloop for better performance
+pip install kurigram[qrcode]   # QR code login support
 ```
 
 ### Resources

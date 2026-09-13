@@ -17,7 +17,7 @@ class HumanNameCapitalizationTestCase(HumanNameTestBase):
 
     # FIXME: this test does not pass due to a known issue
     # http://code.google.com/p/python-nameparser/issues/detail?id=22
-    @pytest.mark.xfail
+    @pytest.mark.xfail(reason="#492")
     def test_capitalization_exception_for_already_capitalized_III_KNOWN_FAILURE(self) -> None:
         hn = HumanName('juan garcia III')
         hn.capitalize()
@@ -95,7 +95,13 @@ class HumanNameCapitalizationTestCase(HumanNameTestBase):
     def test_capitalize_multiple_suffixes_still_split_correctly(self) -> None:
         hn = HumanName('JOHN DOE PHD MD')
         hn.capitalize()
-        self.assertEqual(hn.suffix_list, ['Ph.D.', 'M.D.'])
+        # The split this guards is capitalize() giving each word its own
+        # exception form rather than title-casing the run, and that is
+        # untouched. The two words are ONE entry since #436 -- the writer
+        # spaced them, so they render with a space -- and one entry is one
+        # suffix_list element. A deliberate deviation from 1.4.0, which
+        # inserted a comma into a run the writer had spaced.
+        self.assertEqual(hn.suffix_list, ['Ph.D. M.D.'])
 
     def test_capitalize_suffix_acronym_with_dots(self) -> None:
         # Suffixes already written with dots (e.g. "M.D.") should capitalize
@@ -228,7 +234,7 @@ class HumanNameCapitalizationTestCase(HumanNameTestBase):
     # `Jane van der Berg nee y Jones`, whose conjunction sits in the
     # MAIDEN name: `str(HumanName)` renders the default spec, and
     # that spec omits the field. Recompute by running both forms over
-    # the four corpus files deduped and diffing, on whichever surface
+    # the corpus files deduped and diffing, on whichever surface
     # you name.
     #
     # The mechanism is v1's initial carve-out, taken in the PARSE

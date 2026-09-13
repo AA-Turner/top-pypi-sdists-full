@@ -32,6 +32,7 @@ pub mod axe_chop;
 pub mod axe_overrun;
 pub mod axe_status;
 pub mod bead;
+pub mod bead_action;
 pub mod commit_footer;
 pub mod commit_sha;
 pub mod commit_subject;
@@ -81,6 +82,7 @@ pub mod queue_directive;
 mod reference_path;
 pub mod referenced_by;
 pub mod repository_resolution;
+pub mod retryability;
 pub mod runner_capacity;
 pub mod runner_limit_override;
 pub mod sections;
@@ -552,6 +554,16 @@ pub use bead::{
     BEAD_HISTORY_WIRE_SCHEMA_VERSION, BEAD_READ_WIRE_SCHEMA_VERSION,
     BEAD_SEARCH_FIELD_NAMES, BEAD_SQLITE_SCHEMA,
 };
+pub use bead_action::{
+    decide_bead_action, decide_bead_action_from_json, parse_bead_action_field,
+    parse_bead_action_value, validate_finalizer_assigned_bead_binding,
+    validate_finalizer_bead_decision,
+    validate_finalizer_bead_decision_from_json, BeadActionDecisionWire,
+    BeadActionDispositionWire, BeadActionError, BeadActionRequestWire,
+    BeadActionStatusFactWire, BeadActionWire, BeadCommitMethodWire,
+    BeadRepositoryScopeWire, FinalizerBeadDecisionWire, BEAD_ACTION_USAGE,
+    BEAD_ACTION_WIRE_SCHEMA_VERSION,
+};
 pub use commit_footer::{
     parse_commit_footer, update_commit_footer, CommitFooterReferenceWire,
     CommitFooterTagWire, CommitFooterUpdateWire, CommitFooterWire,
@@ -593,11 +605,13 @@ pub use content_layout::{
     SKILL_NAMESPACE_SEGMENT,
 };
 pub use continuation::{
+    freeze_continuation_policy, new_continuation_delivery_record,
     plan_continuation_budget, plan_continuation_replay,
     resolve_continuation_policy, select_continuation_evidence,
-    validate_agent_delta, validate_continuation_delivery_record,
-    validate_continuation_graph, validate_continuation_intent,
-    validate_continuation_node, validate_continuation_node_value,
+    transition_continuation_delivery, validate_agent_delta,
+    validate_continuation_delivery_record, validate_continuation_graph,
+    validate_continuation_intent, validate_continuation_node,
+    validate_continuation_node_value, validate_continuation_policy,
     validate_diagnostic_manifest, validate_monitor_result,
     AgentDeltaStatusWire, ContinuationActionWire, ContinuationAttributionWire,
     ContinuationBranchAttributionWire, ContinuationBudgetDecisionKindWire,
@@ -606,15 +620,18 @@ pub use continuation::{
     ContinuationBudgetReserveWire, ContinuationByteRangeWire,
     ContinuationCheckpointCoverageWire, ContinuationDeliveryAttemptWire,
     ContinuationDeliveryDispositionWire, ContinuationDeliveryKeyWire,
-    ContinuationDeliveryRecordWire, ContinuationError,
+    ContinuationDeliveryNewRequestWire, ContinuationDeliveryRecordWire,
+    ContinuationDeliveryTransitionRequestWire, ContinuationError,
     ContinuationEvidenceContextKindWire, ContinuationEvidenceLimitsWire,
     ContinuationEvidencePolicyWire, ContinuationEvidenceSelectionRequestWire,
     ContinuationEvidenceSelectionWire, ContinuationExecutionIdentityWire,
+    ContinuationFrozenBranchesWire, ContinuationFrozenPolicyWire,
     ContinuationGraphValidationWire, ContinuationIntentWire,
     ContinuationModelRouteWire, ContinuationNodeKindWire, ContinuationNodeWire,
     ContinuationOmissionWire, ContinuationOutcomePolicyWire,
     ContinuationParentEdgeWire, ContinuationPolicyBranchWire,
-    ContinuationPolicyDecisionWire, ContinuationPolicyResolutionRequestWire,
+    ContinuationPolicyDecisionWire, ContinuationPolicyFreezeRequestWire,
+    ContinuationPolicyResolutionRequestWire,
     ContinuationPromptSegmentProvenanceWire, ContinuationPromptSegmentWire,
     ContinuationRenderedComponentSizesWire, ContinuationRenderedComponentWire,
     ContinuationReplayBlockWire, ContinuationReplayManifestWire,
@@ -775,18 +792,19 @@ pub use finalizer::{
     validate_finalizer_instance_results, validate_finalizer_instance_spec,
     validate_finalizer_plan, validate_finalizer_provider_spec,
     validate_finalizer_submission, FinalizerAggregateResultWire,
-    FinalizerAggregateStatusWire, FinalizerAttemptWire, FinalizerContextWire,
-    FinalizerDeferralReasonWire, FinalizerDeferralWire,
-    FinalizerDiagnosticSeverityWire, FinalizerDiagnosticWire, FinalizerError,
-    FinalizerInstancePolicyWire, FinalizerInstanceResultWire,
-    FinalizerInstanceSpecWire, FinalizerInstanceStatusWire,
-    FinalizerObligationWire, FinalizerOutcomeEvidenceWire,
-    FinalizerPayloadRequirementWire, FinalizerPlanEntryWire,
-    FinalizerPlanInputWire, FinalizerPlanWire, FinalizerProviderCapabilityWire,
-    FinalizerProviderSpecWire, FinalizerRefusalPolicyWire,
-    FinalizerSelectorOpWire, FinalizerSubmissionEnvelopeWire,
-    FinalizerSubmissionPayloadWire, FinalizerSubmissionValidationWire,
-    FinalizerTriggerKindWire, FINALIZER_WIRE_SCHEMA_VERSION,
+    FinalizerAggregateStatusWire, FinalizerAssignedBeadWire,
+    FinalizerAttemptWire, FinalizerContextWire, FinalizerDeferralReasonWire,
+    FinalizerDeferralWire, FinalizerDiagnosticSeverityWire,
+    FinalizerDiagnosticWire, FinalizerError, FinalizerInstancePolicyWire,
+    FinalizerInstanceResultWire, FinalizerInstanceSpecWire,
+    FinalizerInstanceStatusWire, FinalizerObligationWire,
+    FinalizerOutcomeEvidenceWire, FinalizerPayloadRequirementWire,
+    FinalizerPlanEntryWire, FinalizerPlanInputWire, FinalizerPlanWire,
+    FinalizerProviderCapabilityWire, FinalizerProviderSpecWire,
+    FinalizerRefusalPolicyWire, FinalizerSelectorOpWire,
+    FinalizerSubmissionEnvelopeWire, FinalizerSubmissionPayloadWire,
+    FinalizerSubmissionValidationWire, FinalizerTriggerKindWire,
+    FINALIZER_WIRE_SCHEMA_VERSION,
 };
 pub use fleet_attention::{
     decide_attention_notices, decide_fleet_attention_replay,
@@ -1154,15 +1172,15 @@ pub use provider_priority::{
     classify_provider_availability, classify_provider_availability_many,
     clear_provider_priority, decode_provider_priority_bytes,
     get_provider_priority, get_provider_routing_context,
-    peek_provider_priority, provider_priority_state_path,
-    provider_routing_context_from_parts, set_provider_priority_relative,
-    set_provider_priority_until, ProviderAvailabilityFactsWire,
-    ProviderAvailabilityProvenance, ProviderAvailabilityWire,
-    ProviderEffectiveAvailability, ProviderPriorityDecodeWire,
-    ProviderPriorityError, ProviderPriorityTargetFactsWire,
-    ProviderPriorityWire, ProviderPriorityWriteOutcomeWire,
-    ProviderPriorityWriteStatus, ProviderRoutingContextWire,
-    PROVIDER_AVAILABILITY_WIRE_SCHEMA_VERSION,
+    peek_provider_priority, pool_eligibility_mask, pool_reservation_eligible,
+    provider_priority_state_path, provider_routing_context_from_parts,
+    set_provider_priority_relative, set_provider_priority_until,
+    ProviderAvailabilityFactsWire, ProviderAvailabilityProvenance,
+    ProviderAvailabilityWire, ProviderEffectiveAvailability,
+    ProviderPriorityDecodeWire, ProviderPriorityError,
+    ProviderPriorityTargetFactsWire, ProviderPriorityWire,
+    ProviderPriorityWriteOutcomeWire, ProviderPriorityWriteStatus,
+    ProviderRoutingContextWire, PROVIDER_AVAILABILITY_WIRE_SCHEMA_VERSION,
     PROVIDER_PRIORITY_STATE_FILENAME, PROVIDER_PRIORITY_WIRE_SCHEMA_VERSION,
     PROVIDER_ROUTING_CONTEXT_WIRE_SCHEMA_VERSION,
 };
@@ -1219,11 +1237,13 @@ pub use query::{
     QueryRow, QuerySigilSpec, QueryTokenKind, QueryTokenWire,
 };
 pub use queue_directive::{
-    collect_queue_fields, format_queue_directive, parse_queue_capacity,
+    collect_queue_fields, collect_queue_fields_with_flags,
+    format_queue_directive, parse_queue_capacity,
+    parse_queue_capacity_with_flags, queue_capacity_budget_enabled,
     queue_directive_disabled_message, queue_directive_enabled,
     queue_directive_flag_key, QueueArgWire, QueueCollectResultWire,
     QueueFieldsWire, QueueOccurrenceWire, QueueParseErrorWire,
-    QUEUE_DIRECTIVE_FLAG,
+    QUEUE_CAPACITY_BUDGET_FLAG, QUEUE_DIRECTIVE_FLAG,
 };
 pub use referenced_by::{
     parse_referenced_by_block, remove_referenced_by_block,
@@ -1238,6 +1258,13 @@ pub use repository_resolution::{
     RepositoryResolutionCandidateWire, RepositoryResolutionDiagnosticWire,
     RepositoryResolutionRequestWire, RepositoryResolutionStatus,
     RepositoryResolutionWire, REPOSITORY_RESOLUTION_WIRE_SCHEMA_VERSION,
+};
+pub use retryability::{
+    classify_failure_retryability, retryability_wire_schema_version,
+    FailureObservationWire, RetryabilityVerdictWire,
+    RETRYABILITY_VERDICT_AFTER_DELAY, RETRYABILITY_VERDICT_PERMANENT,
+    RETRYABILITY_VERDICT_TRANSIENT, RETRYABILITY_WIRE_SCHEMA_VERSION,
+    RETRY_OPERATION_GH, RETRY_OPERATION_GIT, RETRY_OPERATION_GIT_CLONE,
 };
 pub use runner_capacity::{
     runner_capacity_policy_schema_version, runner_capacity_snapshot,

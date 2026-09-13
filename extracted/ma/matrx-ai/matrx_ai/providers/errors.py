@@ -1115,6 +1115,28 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             ),
         )
 
+    # A tool UUID that reached the provider boundary is a registry-state
+    # defect in THIS process (the registry was never loaded, so ids could not
+    # resolve to names). The provider was never contacted. Retrying re-runs the
+    # same unresolved list; naming the provider hides the registry. Keep the
+    # real message — it says which ids leaked and whether the registry was
+    # loaded, which is the whole diagnosis.
+    from matrx_ai.tools.registry import ToolIdBoundaryError
+
+    if isinstance(exception, ToolIdBoundaryError):
+        detail = str(exception).strip() or type(exception).__name__
+        return RetryableError(
+            error_type="matrx_tool_boundary_error",
+            message=detail,
+            is_retryable=False,
+            details={"exception": type(exception).__qualname__},
+            user_message=(
+                "This step could not start because its tools were not resolved in "
+                f"the process that ran it (a bug in our code, not a {provider} "
+                f"failure; no request was sent). It has been recorded. {detail}"
+            ),
+        )
+
     if isinstance(exception, _INTERNAL_BUG_EXCEPTIONS):
         return RetryableError(
             error_type="matrx_internal_error",

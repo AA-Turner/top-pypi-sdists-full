@@ -46,6 +46,7 @@ changes — which is the right cache-bust behavior for tests.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Callable
@@ -350,7 +351,7 @@ class RecordReplayExecutor:
         result = await execute_ai_request(
             config, max_iterations, max_retries_per_iteration, metadata
         )
-        self._persist(path, result, config)
+        await asyncio.to_thread(self._persist, path, result, config)
         return result
 
     @staticmethod

@@ -539,10 +539,22 @@ def extract_output(output: dict | Any) -> str | ImageContent:
         return f"[Unknown output type: {output_type}]"
 
 
+# Every escape a kernel can write, not only the CSI sequences: an OSC string
+# carries a hyperlink or a window title, DCS and friends carry device control,
+# and the two character forms move the cursor or select a charset.
+_ANSI_ESCAPE = re.compile(
+    r"\x1b(?:"
+    r"\[[0-?]*[ -/]*[@-~]"              # CSI, e.g. colour or cursor movement
+    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC, terminated by BEL or ST
+    r"|[P^_X][^\x1b]*\x1b\\"           # DCS, PM, APC and SOS strings
+    r"|[ -/]*[0-~]"                    # two character and charset sequences
+    r")"
+)
+
+
 def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-    return ansi_escape.sub("", text)
+    return _ANSI_ESCAPE.sub("", text)
 
 
 def clean_notebook_outputs(notebook):
@@ -666,7 +678,9 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxClient:
+def create_code_sandbox(
+    config, logger, path: str | None = None, code_sandbox_id: str | None = None
+) -> CodeSandboxClient:
     """Create a new code sandbox using current configuration.
 
     Creation is resolved in this order:
@@ -683,9 +697,16 @@ def create_code_sandbox(config, logger, path: str | None = None) -> CodeSandboxC
     ``path`` is the root-relative path of the notebook the sandbox belongs to.
     Jupyter Server derives the kernel's working directory from it, so relative
     file access inside a notebook resolves against the notebook's own directory.
+
+    ``code_sandbox_id`` attaches to that existing backend (a Jupyter kernel, or a
+    sandbox for another variant) instead of starting one. It overrides the
+    configured ``code_sandbox_id`` so extensions see it too.
     """
     from jupyter_mcp_server.extensions import get_extension_manager
     from jupyter_mcp_server.sandbox_client import create_jupyter_sandbox_client
+
+    if code_sandbox_id:
+        config = config.model_copy(update={"code_sandbox_id": code_sandbox_id})
 
     extension_code_sandbox = get_extension_manager().create_code_sandbox(config, logger)
     if extension_code_sandbox is not None:
@@ -1471,8 +1492,60 @@ class _HttpxExecuteTransport:
     async def get(self, path: str):
         return await self._send("GET", path)
 
+    async def delete(self, path: str):
+        return await self._send("DELETE", path)
+
     async def aclose(self):
         await self._client.aclose()
+
+
+async def _cancel_http_execution(transport, request_url: str, request_id: str, logger) -> None:
+    """Ask the runtime to stop a run whose wait was cancelled or timed out.
+
+    A DELETE on the request's URL; the runtime interrupts the cell and records
+    the interrupt as the request's terminal result. Best effort on purpose: a
+    transport without ``delete`` (an older injected one) or a runtime without
+    the route (answers 404) leaves the run going, which is the behaviour before
+    the route existed — so it is logged, never raised, and never masks the
+    cancellation that triggered it.
+    """
+    delete = getattr(transport, "delete", None)
+    if delete is None:
+        logger.warning(
+            f"HTTP execution request {request_id or request_url} interrupted; "
+            "the transport cannot cancel it, so the runtime keeps running it"
+        )
+        return
+    try:
+        # Shielded so a *second* cancellation cannot strand the run. One
+        # `cancel()` is delivered once, and this await then completes normally,
+        # so the plain form is enough for the ordinary case; but a caller that
+        # cancels again while the cleanup is in flight (a `wait_for` giving up,
+        # a task group tearing down) would cancel the DELETE before it leaves,
+        # and the run it was stopping would keep going with its outputs still
+        # landing in the document. The shield lets the request finish on its
+        # own even when we can no longer wait for it.
+        status, body, _ = await asyncio.shield(delete(request_url))
+    except asyncio.CancelledError:
+        logger.info(
+            f"cancelling HTTP execution {request_id or request_url} was itself "
+            "cancelled; the DELETE is already on its way to the runtime"
+        )
+        return
+    except Exception as err:
+        # Cancel is best effort: a transport error here must not mask the
+        # cancellation that triggered it.
+        logger.warning(
+            f"could not cancel HTTP execution {request_id or request_url} on the runtime: {err}"
+        )
+        return
+    if status in (200, 202, 204):
+        logger.info(f"HTTP execution request {request_id or request_url} cancelled on the runtime")
+    else:
+        logger.warning(
+            f"the runtime answered {status} cancelling {request_id or request_url}; "
+            f"it may keep running: {body}"
+        )
 
 
 async def execute_via_execution_stack_http(
@@ -1645,15 +1718,15 @@ async def execute_via_execution_stack_http(
                     hook_ctx=hook_ctx,
                 )
         except (asyncio.CancelledError, TimeoutError) as interrupt_err:
-            # The server-side request keeps running: there is no HTTP cancel
-            # route on the runtime yet (a later increment adds one), so the most
-            # this can do honestly is stop polling and fire the AFTER_EXECUTE it
-            # owes. CancelledError is not an Exception, so it would not reach the
-            # outer handler — fire here.
-            logger.warning(
-                f"HTTP execution request {request_id or request_url} interrupted; "
-                "the runtime keeps running it until it finishes on its own"
-            )
+            # Stop the server-side run too. The runtime now has a cancel route
+            # (jupyter-server-nbmodel >= 0.2.9): a DELETE on the request
+            # interrupts the cell, so a cancelled wait no longer leaves it
+            # running with its outputs still landing in the document. Best
+            # effort — an older runtime without the route answers 404, and a
+            # failure to reach it must not mask the cancellation — then fire the
+            # AFTER_EXECUTE this owes. CancelledError is not an Exception, so it
+            # would not reach the outer handler — fire here.
+            await _cancel_http_execution(transport, request_url, request_id, logger)
             await HookRegistry.get_instance().fire(
                 HookEvent.AFTER_EXECUTE,
                 code=code,

@@ -34,6 +34,7 @@ class TwitterExtractor(Extractor):
         self.user = match[1]
 
     def _init(self):
+        self.showmore = self.config("showmore", True)
         self.showreplies = self.config("showreplies", True)
         self.unavailable = self.config("unavailable", False)
         self.textonly = self.config("text-tweets", False)
@@ -2255,6 +2256,13 @@ class TwitterAPI():
                     if not cursor.get("stopOnEmptyResponse", True):
                         # keep going even if there are no tweets
                         tweet = True
+                    cursor = cursor.get("value")
+                elif esw("cursor-showmorethreads-") and extr.showmore:
+                    cursor = entry["content"]
+                    if "displayTreatment" in cursor:
+                        item = cursor["displayTreatment"].get("actionText")
+                        extr.log.debug("Expanding '%s' stub",
+                                       item or "Show More")
                     cursor = cursor.get("value")
 
             if pinned_tweet is not None:

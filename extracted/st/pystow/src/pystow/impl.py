@@ -12,12 +12,11 @@ import os
 import pickle
 import sqlite3
 import tarfile
-import typing
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import closing, contextmanager
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, overload
+from typing import IO, TYPE_CHECKING, Any, Literal, TypeAlias, cast, overload
 
 from . import utils
 from .constants import JSON, Provider
@@ -34,7 +33,6 @@ from .utils import (
     open_tarfile,
     open_zipfile,
     path_to_sqlite,
-    read_rdf,
     read_tarfile_csv,
     read_tarfile_xml,
     read_zip_np,
@@ -478,7 +476,7 @@ class Module:
         download_kwargs: DownloadKwargs | None,
         mode: Literal["r", "rt", "w", "wt"] = ...,
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[StringIO, None, None]: ...
+    ) -> Generator[StringIO]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -493,7 +491,7 @@ class Module:
         download_kwargs: DownloadKwargs | None,
         mode: Literal["rb", "wb"] = ...,
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[BytesIO, None, None]: ...
+    ) -> Generator[BytesIO]: ...
 
     @contextmanager
     def ensure_open(
@@ -506,7 +504,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["r", "rt", "w", "wt", "rb", "wb"] = "r",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[StringIO | BytesIO, None, None]:
+    ) -> Generator[StringIO | BytesIO]:
         """Ensure a file is downloaded and open it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -570,7 +568,7 @@ class Module:
         mode: Literal["r", "rt", "w", "wt"] = ...,
         open_kwargs: Mapping[str, Any] | None = None,
         ensure_exists: bool,
-    ) -> Generator[StringIO, None, None]: ...
+    ) -> Generator[StringIO]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -582,7 +580,7 @@ class Module:
         mode: Literal["rb", "wb"] = ...,
         open_kwargs: Mapping[str, Any] | None = None,
         ensure_exists: bool,
-    ) -> Generator[BytesIO, None, None]: ...
+    ) -> Generator[BytesIO]: ...
 
     @contextmanager
     def open(
@@ -592,7 +590,7 @@ class Module:
         mode: Literal["r", "rt", "w", "wt", "rb", "wb"] = "r",
         open_kwargs: Mapping[str, Any] | None = None,
         ensure_exists: bool = False,
-    ) -> Generator[StringIO | BytesIO, None, None]:
+    ) -> Generator[StringIO | BytesIO]:
         """Open a file.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -631,7 +629,7 @@ class Module:
         mode: Literal["r", "w", "rt", "wt"] = ...,
         open_kwargs: Mapping[str, Any] | None,
         ensure_exists: bool,
-    ) -> Generator[StringIO, None, None]: ...
+    ) -> Generator[StringIO]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -643,7 +641,7 @@ class Module:
         mode: Literal["rb", "wb"] = ...,
         open_kwargs: Mapping[str, Any] | None,
         ensure_exists: bool,
-    ) -> Generator[BytesIO, None, None]: ...
+    ) -> Generator[BytesIO]: ...
 
     @contextmanager
     def open_gz(
@@ -653,7 +651,7 @@ class Module:
         mode: Literal["r", "w", "rt", "wt", "rb", "wb"] = "rb",
         open_kwargs: Mapping[str, Any] | None = None,
         ensure_exists: bool = False,
-    ) -> Generator[StringIO | BytesIO, None, None]:
+    ) -> Generator[StringIO | BytesIO]:
         """Open a gzipped file that exists already.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -684,7 +682,7 @@ class Module:
         download_kwargs: DownloadKwargs | None,
         mode: Literal["r", "w", "rt", "wt"] = "rt",
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[io.TextIOWrapper[lzma.LZMAFile], None, None]: ...
+    ) -> Generator[io.TextIOWrapper[lzma.LZMAFile]]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -698,7 +696,7 @@ class Module:
         download_kwargs: DownloadKwargs | None,
         mode: Literal["rb", "wb"] = ...,
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[lzma.LZMAFile, None, None]: ...
+    ) -> Generator[lzma.LZMAFile]: ...
 
     @contextmanager
     def ensure_open_lzma(
@@ -710,7 +708,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["r", "rb", "w", "wb", "rt", "wt"] = "rt",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[lzma.LZMAFile | io.TextIOWrapper[lzma.LZMAFile], None, None]:
+    ) -> Generator[lzma.LZMAFile | io.TextIOWrapper[lzma.LZMAFile]]:
         """Ensure a LZMA-compressed file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -745,7 +743,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["r", "rb", "w", "wb", "rt", "wt"] = "rt",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[io.BufferedIOBase, None, None]:
+    ) -> Generator[io.BufferedIOBase]:
         """Ensure a zSTD-compressed file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -783,7 +781,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = ...,
         mode: Literal["rt"] = ...,
         open_kwargs: Mapping[str, Any] | None = ...,
-    ) -> Generator[typing.TextIO, None, None]: ...
+    ) -> Generator[IO[str]]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -798,7 +796,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = ...,
         mode: Literal["r", "rb"] = ...,
         open_kwargs: Mapping[str, Any] | None = ...,
-    ) -> Generator[typing.IO[bytes], None, None]: ...
+    ) -> Generator[IO[bytes]]: ...
 
     @contextmanager
     def ensure_open_tarfile(
@@ -811,7 +809,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["r", "rb", "rt"] = "r",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[typing.TextIO, None, None] | Generator[typing.IO[bytes], None, None]:
+    ) -> Generator[IO[str]] | Generator[IO[bytes]]:
         """Ensure a tar file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -858,7 +856,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = ...,
         mode: Literal["r", "rb"] = ...,
         open_kwargs: Mapping[str, Any] | None = ...,
-    ) -> Generator[typing.BinaryIO, None, None]: ...
+    ) -> Generator[IO[bytes]]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -873,7 +871,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = ...,
         mode: Literal["rt"] = ...,
         open_kwargs: Mapping[str, Any] | None = ...,
-    ) -> Generator[typing.TextIO, None, None]: ...
+    ) -> Generator[IO[str]]: ...
 
     @contextmanager
     def ensure_open_zip(
@@ -887,7 +885,7 @@ class Module:
         mode: Literal["r", "rb", "rt"] = "r",
         zipfile_kwargs: Mapping[str, Any] | None = None,
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
+    ) -> Generator[IO[str]] | Generator[IO[bytes]]:
         """Ensure a file is downloaded then open it with :mod:`zipfile`.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -938,7 +936,7 @@ class Module:
         download_kwargs: DownloadKwargs | None,
         mode: Literal["r", "w", "rt", "wt"] = ...,
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[StringIO, None, None]: ...
+    ) -> Generator[StringIO]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -955,7 +953,7 @@ class Module:
             "wb",
         ] = ...,
         open_kwargs: Mapping[str, Any] | None,
-    ) -> Generator[BytesIO, None, None]: ...
+    ) -> Generator[BytesIO]: ...
 
     @contextmanager
     def ensure_open_gz(
@@ -968,7 +966,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["r", "rb", "w", "wb", "rt", "wt"] = "rb",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[StringIO | BytesIO, None, None]:
+    ) -> Generator[StringIO | BytesIO]:
         """Ensure a gzipped file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -1011,7 +1009,7 @@ class Module:
         download_kwargs: DownloadKwargs | None = None,
         mode: Literal["rb"] = "rb",
         open_kwargs: Mapping[str, Any] | None = None,
-    ) -> Generator[bz2.BZ2File, None, None]:
+    ) -> Generator[bz2.BZ2File]:
         """Ensure a BZ2-compressed file is downloaded and open a file inside it.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -1770,7 +1768,7 @@ class Module:
         :param precache: Should the parsed :class:`rdflib.Graph` be stored as a pickle
             for fast loading?
         :param parse_kwargs: Keyword arguments to pass through to
-            :func:`pystow.utils.read_rdf` and transitively to
+            :func:`pystow.utils.read_rdflib` and transitively to
             :func:`rdflib.Graph.parse`.
 
         :returns: An RDF graph
@@ -1779,7 +1777,7 @@ class Module:
             *subkeys, url=url, name=name, force=force, download_kwargs=download_kwargs
         )
         if not precache:
-            return read_rdf(path=path, **(parse_kwargs or {}))
+            return utils.read_rdflib(path=path, **(parse_kwargs or {}))
 
         cache_path = path.with_suffix(path.suffix + ".pickle.gz")
         if cache_path.exists() and not force:
@@ -1788,7 +1786,7 @@ class Module:
             with gzip.open(cache_path, "rb") as file:
                 return cast(rdflib.Graph, pickle.load(file))
 
-        rv = read_rdf(path=path, **(parse_kwargs or {}))
+        rv = utils.read_rdflib(path=path, **(parse_kwargs or {}))
         with gzip.open(cache_path, "wb") as file:
             pickle.dump(rv, file, protocol=pickle.HIGHEST_PROTOCOL)
         return rv
@@ -1805,13 +1803,13 @@ class Module:
             returns the directory for this module.
         :param name: The name of the file to open
         :param parse_kwargs: Keyword arguments to pass through to
-            :func:`pystow.utils.read_rdf` and transitively to
+            :func:`pystow.utils.read_rdflib` and transitively to
             :func:`rdflib.Graph.parse`.
 
         :returns: An RDF graph
         """
         path = self.join(*subkeys, name=name, ensure_exists=False)
-        return read_rdf(path=path, **(parse_kwargs or {}))
+        return utils.read_rdflib(path=path, **(parse_kwargs or {}))
 
     def dump_rdf(
         self,
@@ -1916,7 +1914,7 @@ class Module:
         name: str | None = None,
         force: bool = False,
         download_kwargs: DownloadKwargs | None = None,
-    ) -> Generator[sqlite3.Connection, None, None]:
+    ) -> Generator[sqlite3.Connection]:
         """Ensure and connect to a SQLite database.
 
         :param subkeys: A sequence of additional strings to join. If none are given,
@@ -1950,7 +1948,7 @@ class Module:
         name: str | None = None,
         force: bool = False,
         download_kwargs: DownloadKwargs | None = None,
-    ) -> Generator[sqlite3.Connection, None, None]:
+    ) -> Generator[sqlite3.Connection]:
         """Ensure and connect to a SQLite database that's gzipped.
 
         Unfortunately, it's a paid feature to directly read gzipped sqlite files, so

@@ -11,12 +11,15 @@ __all__ = (
     "page_bootstrap",
     "page_auto",
     "page_output",
+    "page_html",
 )
 
 from copy import copy
-from typing import Any, Callable, Literal, Optional, Sequence
+from typing import Any, Callable, Literal, Optional, Sequence, cast
 
 from htmltools import (
+    HTMLDependency,
+    HTMLTextDocument,
     MetadataNode,
     Tag,
     TagAttrs,
@@ -31,7 +34,8 @@ from htmltools import (
 
 from .._docstring import add_example, no_example
 from .._namespaces import resolve_id_or_none
-from ..types import DEPRECATED, MISSING, MISSING_TYPE, NavSetArg
+from ..html_dependencies import _page_deps
+from ..types import DEPRECATED, MISSING, MISSING_TYPE, ListOrTuple, NavSetArg
 from ._bootstrap import panel_title
 from ._html_deps_external import Theme, ThemeProvider, shiny_page_theme_deps
 from ._html_deps_py_shiny import page_output_dependency
@@ -129,8 +133,10 @@ def page_sidebar(
 
     attrs, children = consolidate_attrs(*args, **kwargs)
 
+    page_attrs: TagAttrs = {"class": "bslib-page-sidebar"}
+
     return page_fillable(
-        {"class": "bslib-page-sidebar"},
+        page_attrs,
         navbar_title,
         layout_sidebar(
             sidebar,
@@ -150,7 +156,8 @@ def page_sidebar(
 
 
 def page_main_container(*args: TagChild, fillable: bool = True) -> Tag:
-    main = tags.main({"class": "bslib-page-main bslib-gap-spacing"}, *args)
+    main_attrs: TagAttrs = {"class": "bslib-page-main bslib-gap-spacing"}
+    main = tags.main(main_attrs, *args)
     if not fillable:
         return main
     return as_fillable_container(as_fill_item(main))
@@ -425,10 +432,18 @@ def page_fillable(
 
     style = css(padding=as_css_padding(padding), gap=as_css_unit(gap))
 
+    page_fill_attrs: TagAttrs = {
+        "class": "bslib-page-fill bslib-gap-spacing",
+        "style": style,
+    }
+    flow_mobile_attrs: TagAttrs | None = (
+        {"class": "bslib-flow-mobile"} if not fillable_mobile else None
+    )
+
     page = page_bootstrap(
         head_content(tags.style("html { height: 100%; }")),
-        {"class": "bslib-page-fill bslib-gap-spacing", "style": style},
-        {"class": "bslib-flow-mobile"} if not fillable_mobile else None,
+        page_fill_attrs,
+        flow_mobile_attrs,
         attrs,
         *children,
         components_dependencies(),
@@ -495,8 +510,10 @@ def page_fluid(
     * :func:`~shiny.ui.page_navbar`
     """
 
+    container_fluid_attrs: TagAttrs = {"class": "container-fluid"}
+
     return page_bootstrap(
-        div({"class": "container-fluid"}, *args, **kwargs),
+        div(container_fluid_attrs, *args, **kwargs),
         title=title,
         lang=lang,
         theme=theme,
@@ -551,8 +568,10 @@ def page_fixed(
     * :func:`~shiny.ui.page_navbar`
     """
 
+    container_attrs: TagAttrs = {"class": "container"}
+
     return page_bootstrap(
-        div({"class": "container"}, *args, **kwargs),
+        div(container_attrs, *args, **kwargs),
         title=title,
         lang=lang,
         theme=theme,
@@ -623,9 +642,10 @@ def page_auto(
     theme: str | Path | Theme | ThemeProvider | MISSING_TYPE = MISSING,
     fillable: bool | MISSING_TYPE = MISSING,
     full_width: bool = False,
-    page_fn: Callable[..., Tag] | None = None,
+    html: str | Path | None = None,
+    page_fn: Callable[..., Tag | PageHtmlDocument] | None = None,
     **kwargs: object,
-) -> Tag:
+) -> Tag | PageHtmlDocument:
     """
     A page container which automatically decides which page function to use.
 
@@ -675,6 +695,14 @@ def page_auto(
         This has an effect only if there are no sidebars or top-level navs, and
         ``fillable`` is ``False``. If this is ``False`` (the default), use use
         :func:`~shiny.ui.page_fixed`; if ``True``, use :func:`~shiny.ui.page_fillable`.
+    html
+        A complete HTML document that you own, passed to
+        :func:`~shiny.ui.page_html` and served as-is: a document string, or a
+        :class:`~pathlib.Path` to an HTML file. The markup of any UI elements in
+        ``*args`` is dropped (the document already contains the page), but their HTML
+        dependencies are kept. This cannot be combined with ``page_fn`` or with page
+        options like ``title`` or ``theme``, which cannot be applied to a document
+        that is served as-is.
     page_fn
         The page function to use. If ``None`` (the default), will automatically choose
         one based on the arguments provided. If not ``None``, this will override all
@@ -695,6 +723,29 @@ def page_auto(
         kwargs["lang"] = lang
     if not isinstance(theme, MISSING_TYPE):
         kwargs["theme"] = theme
+
+    if html is not None:
+        if page_fn is not None:
+            raise ValueError("`html=` cannot be combined with `page_fn=`.")
+        page_options = sorted(kwargs)
+        if not isinstance(fillable, MISSING_TYPE):
+            page_options.append("fillable")
+        if full_width:
+            page_options.append("full_width")
+        if page_options:
+            raise ValueError(
+                "`html=` serves the document as-is, so page options cannot be applied"
+                f" to it. Received: {sorted(page_options)}"
+            )
+        return page_html(
+            html,
+            # The document already contains the page, so the markup of any UI elements
+            # in `args` is dropped -- but their HTML dependencies (e.g. from
+            # `ui.include_css()`, or an output widget's assets) must be kept.
+            extra_deps=TagList(
+                *(x for x in args if not isinstance(x, dict))
+            ).get_dependencies(),
+        )
 
     # Presence of a top-level nav items and/or sidebar determines the page function
     navs = [x for x in args if isinstance(x, (NavPanel, NavMenu))]
@@ -751,8 +802,10 @@ def page_auto(
                     "Multiple top-level sidebars not allowed in combination with top-level navs."
                 )
 
-    # If we got here, _page_fn is not None, but the type checker needs a little help.
-    return page_fn(*args, **kwargs)
+    # If we got here, page_fn is not None, but the type checker needs a little help to
+    # avoid narrowing `page_fn` to a union of the concrete page function signatures.
+    resolved_page_fn = cast("Callable[..., Tag | PageHtmlDocument]", page_fn)
+    return resolved_page_fn(*args, **kwargs)
 
 
 # For `page_fillable`, `page_fluid`, and `page_fixed`, the `title` arg sets the window
@@ -836,4 +889,80 @@ def page_output(id: str) -> Tag:
         tags.body(id=id, class_="shiny-page-output"),
         page_output_dependency(),
         lang="en",
+    )
+
+
+DEPS_PLACEHOLDER = '<meta name="shiny-dependency-placeholder" content="">'
+"""
+The default marker in the document that is replaced with the HTML dependencies.
+"""
+
+
+class PageHtmlDocument(HTMLTextDocument):
+    """
+    A complete HTML document to serve as an app's UI, with Shiny's dependencies.
+
+    Create one with :func:`~shiny.ui.page_html`; see its documentation for details.
+    """
+
+    def __init__(
+        self,
+        html: str,
+        *,
+        extra_deps: ListOrTuple[HTMLDependency] | None = None,
+        deps_replace_pattern: str = DEPS_PLACEHOLDER,
+    ) -> None:
+        super().__init__(
+            html,
+            # A complete document has no tag tree to inspect for the Bootstrap
+            # dependency, so Shiny's CSS is always included.
+            deps=[*_page_deps(include_css=True), *(extra_deps or [])],
+            deps_replace_pattern=deps_replace_pattern,
+        )
+
+
+@add_example()
+def page_html(
+    html: str | Path,
+    *,
+    extra_deps: ListOrTuple[HTMLDependency] | None = None,
+    deps_replace_pattern: str = DEPS_PLACEHOLDER,
+) -> PageHtmlDocument:
+    """
+    Create a page from a complete HTML document that you own.
+
+    Use this as ``App(ui=)`` when your app's UI is a complete HTML document -- the
+    ``index.html`` a JS bundler emits, say -- rather than one Shiny builds for you
+    from ``ui.page_*()`` components. The document is served as-is, with Shiny's own
+    HTML dependencies (and any in ``extra_deps``) inserted at
+    ``deps_replace_pattern``, and their files served by the app.
+
+    Parameters
+    ----------
+    html
+        A complete HTML document, including ``<html>``, as a string -- or a
+        :class:`~pathlib.Path` to an HTML file, which is read (as UTF-8) each time
+        this function is called. It must contain ``deps_replace_pattern`` to mark
+        where the dependencies are inserted.
+    extra_deps
+        Additional HTML dependencies to include, alongside Shiny's own. These are
+        inserted after Shiny's, and their files are served by the app.
+    deps_replace_pattern
+        The string in ``html`` to replace with Shiny's dependencies. Only the first
+        instance is replaced. Defaults to
+        ``'<meta name="shiny-dependency-placeholder" content="">'``.
+
+    Returns
+    -------
+    :
+        A document object to pass as ``App(ui=)``, or to return from a UI function
+        (``App(ui=lambda request: ...)``, which is what bookmarking requires).
+    """
+    if isinstance(html, Path):
+        html = html.read_text(encoding="utf-8")
+
+    return PageHtmlDocument(
+        html,
+        extra_deps=extra_deps,
+        deps_replace_pattern=deps_replace_pattern,
     )

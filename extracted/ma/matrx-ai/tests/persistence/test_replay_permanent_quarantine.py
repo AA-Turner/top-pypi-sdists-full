@@ -32,6 +32,7 @@ import pytest
 from matrx_orm.session.fallback import (
     DIRECT_WRITE_PRESERVED_MARKER,
     DISK_SPILL_RECOVERED_MARKER,
+    IMMUTABLE_WRITE_PRESERVED_MARKER,
 )
 
 from matrx_ai.persistence import replay
@@ -239,11 +240,80 @@ async def test_permanent_at_capture_is_quarantined_without_an_attempt(monkeypatc
     assert report.still_failed_count == 2
     assert report.recovered_count == 0
     assert report.by_request == {"request-1": "quarantined (permanent at capture)"}
-    # Exactly ONE structured capture, with the quarantine kind — not one
-    # ``persistence_replay_failed`` per sweep.
     assert [c["kind"] for c in h.captured] == ["persistence_replay_quarantined"]
     assert h.captured[0]["phase"] == "classify"
     assert [r["id"] for r in h.captured[0]["rows"]] == ["a", "b"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("dry_run", [True, False])
+async def test_immutable_replay_conflict_is_reported_and_never_replayed(
+    monkeypatch: pytest.MonkeyPatch, dry_run: bool
+) -> None:
+    """PK existence with different text must be a conflict, not recovery."""
+    h = _Harness(monkeypatch, [_row("a", f"{IMMUTABLE_WRITE_PRESERVED_MARKER}: timeout")])
+
+    async def conflicting(_: Any, *, verify_exact: bool = False) -> bool:
+        if verify_exact:
+            raise RuntimeError("immutable replay conflict: existing row differs")
+        return False
+
+    monkeypatch.setattr(replay, "_op_already_satisfied", conflicting)
+    report = await replay.replay_pending(
+        dry_run=dry_run, retry_errors=None, max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS
+    )
+    assert h.executed == []
+    assert report.conflict_count == 1
+    assert report.by_request["request-1"] == (
+        "would-quarantine (immutable conflict)" if dry_run else "quarantined (immutable conflict)"
+    )
+    if dry_run:
+        assert h.attempts == []
+    else:
+        assert h.attempts == [{"ids": ["a"], "max_attempts": 5, "permanent": True}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["exact", "different"])
+async def test_concurrent_unique_immutable_replay_has_one_truthful_terminal_receipt(
+    monkeypatch: pytest.MonkeyPatch, outcome: str
+) -> None:
+    """A post-insert unique race recovers exact rows and quarantines differing rows once."""
+    h = _Harness(monkeypatch, [_row("a", f"{IMMUTABLE_WRITE_PRESERVED_MARKER}: timeout")])
+    checks = 0
+
+    async def state(_: Any, *, verify_exact: bool = False) -> bool:
+        nonlocal checks
+        checks += 1
+        if checks == 1:
+            return False  # pre-insert probe: absent
+        if outcome == "different":
+            raise replay.ImmutableReplayConflictError("immutable replay conflict: text")
+        return True  # post-unique probe: another writer landed the exact row
+
+    class UniqueViolationError(RuntimeError):
+        pass
+
+    async def collide(_: Any) -> None:
+        raise UniqueViolationError("duplicate key [SQLSTATE 23505]")
+
+    monkeypatch.setattr(replay, "_op_already_satisfied", state)
+    monkeypatch.setattr(replay, "execute_tiers", collide)
+    report = await replay.replay_pending(
+        dry_run=False, retry_errors=None, max_attempts=replay.AUTO_REPLAY_MAX_ATTEMPTS
+    )
+    assert len(h.executed) == 0  # replaced with collision seam, never overwrites
+    if outcome == "exact":
+        assert h.recovered == [["a"]]
+        assert h.attempts == []
+        assert report.recovered_count == 1
+        assert report.quarantined_count == 0
+    else:
+        assert h.recovered == []
+        assert h.attempts == [{"ids": ["a"], "max_attempts": 5, "permanent": True}]
+        assert report.recovered_count == 0
+        assert report.quarantined_count == 1
+        assert report.by_request["request-1"].startswith("quarantined (permanent)")
 
 
 @pytest.mark.asyncio

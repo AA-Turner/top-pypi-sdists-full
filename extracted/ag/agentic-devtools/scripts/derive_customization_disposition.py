@@ -76,6 +76,10 @@ PROMPT_SUBAGENT_TO_SKILL_RECLASSIFICATIONS = {
 #: ``.agents/skills/README.md:28``); ``.github/skills`` is not read by any runtime.
 AUTHORED_SKILL_ROOTS = (".agents/skills",)
 
+#: Repository-native AGDT skills are published independently of the legacy
+#: customization migration tracked by this table.
+NATIVE_AGDT_SKILL_NAMES = frozenset({"agdt-setup-pr"})
+
 #: Root ``--verify-authored`` scans for authored subagents under this root. The scan
 #: keeps migration output bounded by expected targets plus ``agdt-*`` legacy re-slugs.
 AUTHORED_AGENT_ROOTS = (".github/agents",)
@@ -1509,6 +1513,8 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             slug = skill.parent.name
             frontmatter, _ = split_frontmatter(skill.read_text(encoding="utf-8"))
             if _frontmatter_target_name(frontmatter) != slug:
+                continue
+            if slug in NATIVE_AGDT_SKILL_NAMES:
                 continue
             expected_kinds = expected_kinds_by_target.get(slug, set())
             if slug.startswith("agdt-"):

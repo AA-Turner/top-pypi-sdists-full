@@ -84,6 +84,7 @@ from schemathesis.specs.openapi.coverage._wire import (
     ensure_valid_path_parameter_schema,
     jsonify,
 )
+from schemathesis.specs.openapi.formats import format_length_bounds, format_lengths_for
 from schemathesis.specs.openapi.patterns import (
     matches_every_string,
     pattern_length_bounds,
@@ -117,6 +118,10 @@ VALIDATED_FORMATS = frozenset(
         "uuid",
     }
 )
+
+
+# A string where these alone surround `format`: nothing else can widen what the generator produces.
+_FORMAT_WITH_LENGTH_KEYS = frozenset({"format", "maxLength", "minLength", "type"})
 
 
 def _get_format_validator(
@@ -643,7 +648,12 @@ class CoverageContext:
         # This phase reshapes what it is given and covers whatever parses, so a definition the draft
         # rejects - the caller's or one of these rewrites - leaves the branch uncovered, not the run failed.
         try:
-            return build(schema, draft=draft, formats=self.custom_formats)
+            return build(
+                schema,
+                draft=draft,
+                formats=self.custom_formats,
+                format_lengths=format_lengths_for(self.custom_formats),
+            )
         except InvalidSchema:
             return None
 
@@ -808,6 +818,19 @@ class CoverageContext:
         min_items = schema.get("minItems")
         if isinstance(min_items, int) and min_items > INTERNAL_BUFFER_SIZE and "array" in get_type(schema):
             raise Unsatisfiable
+        # A format generator cannot be steered to a length, so a window outside the lengths it reaches
+        # is one no draw lands in - and here the length keywords alone stand between them.
+        fmt = schema.get("format")
+        if isinstance(fmt, str) and get_type(schema) == ["string"] and set(keys) <= _FORMAT_WITH_LENGTH_KEYS:
+            bounds = format_length_bounds(fmt, self.custom_formats.get(fmt))
+            if bounds is not None:
+                shortest, longest = bounds
+                min_length = schema.get("minLength")
+                max_length = schema.get("maxLength")
+                if (isinstance(min_length, int) and min_length > longest) or (
+                    isinstance(max_length, int) and max_length < shortest
+                ):
+                    raise Unsatisfiable
         # Shortcuts read the describing keywords alone, which a combinator beside them can still narrow;
         # such a schema is built whole instead.
         if not any(key in schema for key in _FOLDED_KEYS):
@@ -867,6 +890,7 @@ class CoverageContext:
                     raise Unsatisfiable
                 min_length = schema.get("minLength")
                 max_length = schema.get("maxLength")
+                length_is_pinned = False
                 if min_length is not None or max_length is not None:
                     pattern_min, pattern_max = pattern_length_bounds(pattern)
                     if max_length is not None and max_length < pattern_min:
@@ -887,16 +911,25 @@ class CoverageContext:
                         pinned = pin_pattern_length(pattern, min_length, max_length)
                         if pinned != pattern:
                             updated = pinned
+                            length_is_pinned = True
                     pattern = updated
                 if min_length is not None and min_length > MAX_GENERATED_PATTERN_LENGTH:
                     return self._long_string_matching(schema, min_length)
                 fmt = schema.get("format")
+                validated = fmt if fmt in VALIDATED_FORMATS else None
+                # Spelling the length into the pattern fixes the shape of every match, so a format the
+                # first match fails is one no redraw satisfies; checking once beats searching for it.
                 strategy = _pattern_strategy(
-                    self.session, pattern, min_length, max_length, fmt if fmt in VALIDATED_FORMATS else None
+                    self.session, pattern, min_length, max_length, None if length_is_pinned else validated
                 )
                 if strategy is None:
                     raise Unsatisfiable from None
-                return cached_draw(self.session, strategy)
+                value = cached_draw(self.session, strategy)
+                if length_is_pinned and validated is not None:
+                    validator = _get_format_validator(self.session, validated, self.validator_cls)
+                    if not validator.is_valid(value):
+                        raise Unsatisfiable
+                return value
             if (
                 isinstance(min_properties, int)
                 and min_properties > MAX_DRAWN_OBJECT_PROPERTIES

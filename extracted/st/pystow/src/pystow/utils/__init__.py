@@ -12,23 +12,13 @@ import pickle
 import shutil
 import tarfile
 import typing
+import warnings
 import zipfile
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from io import BytesIO
 from pathlib import Path, PurePosixPath
 from subprocess import check_output
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    BinaryIO,
-    Literal,
-    Protocol,
-    TextIO,
-    TypeAlias,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import IO, TYPE_CHECKING, Any, Literal, Protocol, TypeAlias, TypeVar, cast, overload
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -185,6 +175,7 @@ __all__ = [
     "read_pydantic_tsv",
     "read_pydantic_yaml",
     "read_rdf",
+    "read_rdflib",
     "read_tarfile_csv",
     "read_tarfile_xml",
     "read_xml",
@@ -214,6 +205,7 @@ __all__ = [
     "write_pydantic_json",
     "write_pydantic_jsonl",
     "write_pydantic_yaml",
+    "write_rdflib",
     "write_tarfile_csv",
     "write_tarfile_xml",
     "write_yaml",
@@ -408,7 +400,7 @@ def open_zipfile(
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
-) -> Generator[typing.TextIO, None, None]: ...
+) -> Generator[IO[str]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -423,7 +415,7 @@ def open_zipfile(
     zipfile_kwargs: Mapping[str, Any] | None = ...,
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
-) -> Generator[typing.BinaryIO, None, None]: ...
+) -> Generator[IO[bytes]]: ...
 
 
 @contextlib.contextmanager
@@ -436,7 +428,7 @@ def open_zipfile(
     zipfile_kwargs: Mapping[str, Any] | None = None,
     open_kwargs: Mapping[str, Any] | None = None,
     encoding: str | None = None,
-) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
     """Open a zipfile."""
     mode = _MODE_TO_SIMPLE[operation]
     with (
@@ -461,7 +453,7 @@ def open_tarfile(
     operation: Operation = "read",
     representation: Representation = "binary",
     open_kwargs: Mapping[str, Any] | None = None,
-) -> Generator[typing.IO[bytes], None, None]:
+) -> Generator[IO[bytes]]:
     """Open a tar file."""
     if representation != "binary":
         raise NotImplementedError("tarfile must use binary representation")
@@ -488,7 +480,7 @@ def open_tarfile(
 @contextlib.contextmanager
 def open_zip_reader(
     path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
-) -> Generator[Reader, None, None]:
+) -> Generator[Reader]:
     """Read an inner CSV file from a zip archive.
 
     :param path: The path to the zip archive
@@ -505,7 +497,7 @@ def open_zip_reader(
 @contextlib.contextmanager
 def open_zip_dict_reader(
     path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
-) -> Generator[csv.DictReader[str], None, None]:
+) -> Generator[csv.DictReader[str]]:
     """Read an inner CSV file from a zip archive.
 
     :param path: The path to the zip archive
@@ -522,7 +514,7 @@ def open_zip_dict_reader(
 @contextlib.contextmanager
 def open_zip_writer(
     path: str | Path, inner_path: str, delimiter: str = "\t", **kwargs: Any
-) -> Generator[Writer, None, None]:
+) -> Generator[Writer]:
     """Open a writer for an inner CSV file from a zip archive.
 
     :param path: The path to the zip archive
@@ -749,6 +741,16 @@ def read_tarfile_xml(path: str | Path, inner_path: str, **kwargs: Any) -> lxml.e
 
 
 def read_rdf(path: str | Path, **kwargs: Any) -> rdflib.Graph:
+    """Read an RDF file with :mod:`rdflib` via :func:`read_rdflib`."""
+    warnings.warn(
+        "use read_rdflib() instead - this new function has a more precise name",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_rdflib(path, **kwargs)
+
+
+def read_rdflib(path: str | Path, **kwargs: Any) -> rdflib.Graph:
     """Read an RDF file with :mod:`rdflib`.
 
     :param path: The path to the RDF file
@@ -762,6 +764,19 @@ def read_rdf(path: str | Path, **kwargs: Any) -> rdflib.Graph:
     with safe_open(path, representation="binary", operation="read") as file:
         graph.parse(file, **kwargs)
     return graph
+
+
+def write_rdflib(
+    graph: rdflib.Graph, path: str | Path | IO[str] | IO[bytes], *, format: str | None = None
+) -> None:
+    """Write an RDF file with :mod:`rdflib`.
+
+    :param graph: The RDF graph
+    :param path: The path to the RDF file
+    :param format: The format to write the RDF to. Defaults to ttl
+    """
+    with safe_open(path, representation="binary", operation="write") as file:
+        graph.serialize(file, format=format or "ttl")
 
 
 def write_sql(df: pandas.DataFrame, name: str, path: str | Path, **kwargs: Any) -> None:
@@ -873,8 +888,8 @@ def gzip_compress(
 
 @contextlib.contextmanager
 def safe_open_writer(
-    f: str | Path | TextIO, *, delimiter: str = "\t", **kwargs: Any
-) -> Generator[Writer, None, None]:
+    f: str | Path | IO[str], *, delimiter: str = "\t", **kwargs: Any
+) -> Generator[Writer]:
     """Open a CSV writer, wrapping :func:`csv.writer`.
 
     :param f: A path to a file, or an already open text-based IO object
@@ -889,12 +904,12 @@ def safe_open_writer(
 
 @contextlib.contextmanager
 def safe_open_dict_writer(
-    f: str | Path | TextIO,
+    f: str | Path | IO[str],
     fieldnames: typing.Sequence[str],
     *,
     delimiter: str = "\t",
     **kwargs: Any,
-) -> Generator[csv.DictWriter[str], None, None]:
+) -> Generator[csv.DictWriter[str]]:
     """Open a CSV dictionary writer, wrapping :func:`csv.DictWriter`.
 
     :param f: A path to a file, or an already open text-based IO object
@@ -910,8 +925,8 @@ def safe_open_dict_writer(
 
 @contextlib.contextmanager
 def safe_open_reader(
-    f: str | Path | TextIO, *, delimiter: str = "\t", **kwargs: Any
-) -> Generator[Reader, None, None]:
+    f: str | Path | IO[str], *, delimiter: str = "\t", **kwargs: Any
+) -> Generator[Reader]:
     """Open a CSV reader, wrapping :func:`csv.reader`.
 
     :param f: A path to a file, or an already open text-based IO object
@@ -975,7 +990,7 @@ class ArchivedFileIterator(Protocol[ArchiveType_contra, ArchiveInfo_co]):
         open_kwargs: Mapping[str, Any] | None = ...,
         encoding: str | None = ...,
         newline: str | None = ...,
-    ) -> Iterable[BinaryIO]: ...
+    ) -> Iterable[IO[bytes]]: ...
 
     # docstr-coverage:excused `overload`
     @overload
@@ -990,7 +1005,7 @@ class ArchivedFileIterator(Protocol[ArchiveType_contra, ArchiveInfo_co]):
         open_kwargs: Mapping[str, Any] | None = ...,
         encoding: str | None = ...,
         newline: str | None = ...,
-    ) -> Iterable[TextIO]: ...
+    ) -> Iterable[IO[str]]: ...
 
     def __call__(
         self,
@@ -1003,7 +1018,7 @@ class ArchivedFileIterator(Protocol[ArchiveType_contra, ArchiveInfo_co]):
         open_kwargs: Mapping[str, Any] | None = None,
         encoding: str | None = ...,
         newline: str | None = ...,
-    ) -> Iterable[TextIO] | Iterable[BinaryIO]: ...
+    ) -> Iterable[IO[str]] | Iterable[IO[bytes]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -1018,7 +1033,7 @@ def iter_tarred_files(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Iterable[BinaryIO]: ...
+) -> Iterable[IO[bytes]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -1033,7 +1048,7 @@ def iter_tarred_files(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Iterable[TextIO]: ...
+) -> Iterable[IO[str]]: ...
 
 
 def iter_tarred_files(
@@ -1046,7 +1061,7 @@ def iter_tarred_files(
     open_kwargs: Mapping[str, Any] | None = None,
     encoding: str | None = None,
     newline: str | None = None,
-) -> Iterable[TextIO] | Iterable[BinaryIO]:
+) -> Iterable[IO[str]] | Iterable[IO[bytes]]:
     """Iterate over opened files in a tar archive in read mode."""
     encoding = ensure_sensible_default_encoding(encoding, representation=representation)
     newline = ensure_sensible_newline(newline, representation=representation)
@@ -1062,19 +1077,20 @@ def iter_tarred_files(
         for member in tqdm(tar_file.getmembers(), disable=not progress, **_tqdm_kwargs):
             if keep is not None and not keep(member):
                 continue
-            file = tar_file.extractfile(member, **(open_kwargs or {}))
-            if file is None:
-                continue
-            if representation == "text":
-                yield io.TextIOWrapper(file, encoding=encoding, newline=newline)
-            else:
-                yield cast(BinaryIO, file)  # FIXME
+            match tar_file.extractfile(member, **(open_kwargs or {})):
+                case None:
+                    continue
+                case io.BufferedReader() as reader:
+                    if representation == "text":
+                        yield io.TextIOWrapper(reader, encoding=encoding, newline=newline)
+                    else:
+                        yield reader
 
 
 @contextlib.contextmanager
 def safe_tarfile_open(
     tar_file: str | Path | tarfile.TarFile,
-) -> Generator[tarfile.TarFile, None, None]:
+) -> Generator[tarfile.TarFile]:
     """Open a tar archive safely."""
     if isinstance(tar_file, str | Path):
         with tarfile.open(Path(tar_file).expanduser().resolve(), mode="r") as yv:
@@ -1146,7 +1162,7 @@ def iter_zipped_files(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Iterable[typing.BinaryIO]: ...
+) -> Iterable[IO[bytes]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -1161,7 +1177,7 @@ def iter_zipped_files(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Iterable[typing.TextIO]: ...
+) -> Iterable[IO[str]]: ...
 
 
 def iter_zipped_files(
@@ -1174,7 +1190,7 @@ def iter_zipped_files(
     open_kwargs: Mapping[str, Any] | None = None,
     encoding: str | None = None,
     newline: str | None = None,
-) -> Iterable[typing.TextIO] | Iterable[typing.BinaryIO]:
+) -> Iterable[IO[str]] | Iterable[IO[bytes]]:
     """Iterate over opened files in a zip file in read mode."""
     with safe_zipfile_open(path) as zip_file:
         _tqdm_kwargs = {
@@ -1202,7 +1218,7 @@ def iter_zipped_files(
 @contextlib.contextmanager
 def safe_zipfile_open(
     zip_file: str | Path | zipfile.ZipFile,
-) -> Generator[zipfile.ZipFile, None, None]:
+) -> Generator[zipfile.ZipFile]:
     """Open a zip archive safely."""
     if isinstance(zip_file, str | Path):
         with zipfile.ZipFile(Path(zip_file).expanduser().resolve(), mode="r") as yv:

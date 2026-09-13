@@ -1,12 +1,15 @@
 # pyright:basic
 import time
+from typing import Callable, Literal
 
-from shiny import App, module, reactive, render, ui
+from shiny import App, Inputs, Outputs, Session, module, reactive, render, ui
+
+SpinnerType = Literal["ring", "bars", "dots", "pulse"]
 
 
 # -- Reusable card module --
 @module.ui
-def card_ui(spinner_type, spinner_color, spinner_size):
+def card_ui(spinner_type: SpinnerType, spinner_color: str, spinner_size: str):
     return ui.card(
         ui.busy_indicators.options(
             spinner_type=spinner_type,
@@ -19,7 +22,9 @@ def card_ui(spinner_type, spinner_color, spinner_size):
 
 
 @module.server
-def card_server(input, output, session, rerender):
+def card_server(
+    input: Inputs, output: Outputs, session: Session, rerender: Callable[[], object]
+):
     @render.plot
     def plot():
         rerender()
@@ -47,7 +52,7 @@ app_ui = ui.page_fillable(
         inline=True,
     ),
     ui.input_task_button("rerender", "Re-render"),
-    ui.output_text_verbatim("counter", placeholder=True),
+    ui.output_code("counter", placeholder=True),
     ui.layout_columns(
         card_ui("ring", "ring", "red", "10px"),
         card_ui("bars", "bars", "green", "20px"),
@@ -59,7 +64,7 @@ app_ui = ui.page_fillable(
 )
 
 
-def server(input, output, session):
+def server(input: Inputs, output: Outputs, session: Session):
 
     @reactive.calc
     @reactive.event(input.rerender, ignore_none=False)
@@ -79,7 +84,7 @@ def server(input, output, session):
             pulse=(selected_busy_indicator_type != "spinners"),
         )
 
-    @render.text
+    @render.code
     def counter():
         return str(rerender())
 

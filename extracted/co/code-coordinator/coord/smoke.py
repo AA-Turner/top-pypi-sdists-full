@@ -67,11 +67,17 @@ from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from coord.merge_queue import GhOps
+
 import httpx
 
 from coord import github_ops
 from coord.config import Config, SmokeRule, SmokeTestsConfig
 from coord.dispatch import AGENT_PORT, ASSIGN_POST_TIMEOUT_SECS
+# #3315 review: the shared environmental-retry-budget knob — see
+# `ENVIRONMENTAL_SMOKE_RETRY_BUDGET` below for why this lives in
+# `coord.failure_class` rather than as this module's own literal.
+from coord.failure_class import ENVIRONMENTAL_RETRY_BUDGET
 from coord.models import (
     SEALED_PATH_AUTHOR_TYPES,
     WORK_LIKE_TYPES,
@@ -1367,6 +1373,68 @@ def _fetch_touched_files(repo_github: str, branch: str) -> list[str]:
 TEST_STATE_BLOCKED = "blocked"
 
 
+def _test_verdict_is_stale(
+    completed: Assignment,
+    board: Board,
+    config: Config,
+    gh_ops: "GhOps | None",
+) -> bool:
+    """#3309: True when *completed*'s own recorded Test verdict is
+    #1479-stale — recorded against a base/branch combination that has since
+    moved (typically a #241 conflict-fix rebase).
+
+    ``dispatch_pending_smoke`` used to treat ANY recorded ``test_state`` as
+    "someone is already handling this row" and skip it forever. That is
+    correct for a fresh verdict, but a rebase can make a ``passed`` verdict
+    stale without ever clearing it — from that moment the merge gate reports
+    ``smoke_required`` while this producer, its only automatic source, keeps
+    skipping the row on every tick. Nothing else ever re-asks once the drive
+    that recorded the original verdict has exited (that is what made the
+    rebase necessary in the first place), so the entry deadlocks silently.
+
+    Reuses :func:`coord.merge_queue.evaluate_smoke_verdict` — the SAME
+    function ``coord merge``/``coord gates`` call to decide
+    ``smoke_required`` — rather than a second implementation of the #1479
+    freshness math that could silently drift from it (#2096, "one question,
+    one answer"). Built via :func:`coord.merge_queue.live_gate_entry`, the
+    one shared constructor for gate-checking a raw work
+    :class:`~coord.models.Assignment` before it has gone through a live
+    ``coord merge`` pass (#2085) — mirrors exactly what
+    :func:`coord.gates.build_gate_report` does for the same reason.
+
+    Only a genuinely :data:`~coord.merge_queue.SMOKE_STALE` result returns
+    ``True``. A :data:`~coord.merge_queue.SMOKE_MISSING` result (e.g. a
+    ``"failed"`` verdict — #1479's staleness anchors are stamped only for
+    ``"passed"``/``"skipped"``, ``coord.state._record_test_verdict_local``)
+    or a :data:`~coord.merge_queue.SMOKE_UNKNOWN` result (a live SHA lookup
+    that could not be confirmed — a transient GitHub read failure) both
+    return ``False``: re-dispatching on either would either resurrect a
+    "failed" row nothing asked to re-run, or fire on a probe that never
+    actually observed a discrepancy.
+
+    ``gh_ops=None`` (or no ``repo.github``/``completed.branch``) fails open
+    to ``False`` — the #821/#1475 convention every #1479 staleness check
+    follows: with no live SHA to compare against, every anchor check inside
+    ``evaluate_smoke_verdict`` is a no-op and it reports the verdict fresh,
+    exactly as it did before this function existed.
+    """
+    if gh_ops is None or not completed.branch:
+        return False
+    repo = config.repo(completed.repo_name)
+    if repo is None or not repo.github:
+        return False
+
+    from coord import merge_queue as mq  # noqa: PLC0415
+    from coord.branch_model import resolve_base_branch_for_issue_number  # noqa: PLC0415
+
+    target_branch = resolve_base_branch_for_issue_number(
+        repo, repo.github, completed.issue_number,
+    )
+    entry = mq.live_gate_entry(completed, repo.github, target_branch, gh_ops)
+    status = mq.evaluate_smoke_verdict(entry, board, gh_ops)
+    return (not status.ok) and status.kind == mq.SMOKE_STALE
+
+
 # ── Mute Test-stage legs: the retry budget (#2244/#2272) ────────────────────
 #
 # A Test-stage leg that finishes without printing a `SMOKE:` marker records NO
@@ -1450,6 +1518,106 @@ def mute_smoke_tally(count: int) -> str:
     if count <= 1:
         return NO_SMOKE_VERDICT_MARKER
     return f"{NO_SMOKE_VERDICT_MARKER} x{count}"
+
+
+# ── Environmental Test-stage retries: the rate-limit budget (#3315) ─────────
+#
+# A sustained Claude API 429 (the account's weekly usage limit exhausted
+# mid-window, 2026-09-11/12) produced 542 Test-stage legs on one issue over
+# 12h18m — every leg died at zero turns/zero tokens. Each death is correctly
+# classified `environmental` by `coord.reconcile.propagate_smoke_terminal_
+# failure` (#1605) and cleared back to `test_state=None` so the row isn't
+# charged against the work-failure budget — right for a genuine blip, but
+# that clear was UNCONDITIONAL, so `dispatch_pending_smoke` picked the row
+# straight back up on the very next tick and re-dispatched into the same
+# exhausted budget, forever. Nothing ever stopped it; the window resetting on
+# its own is what ended the incident.
+#
+# The fix mirrors `coord/drive.py`'s WORK-stage environmental retry budget
+# (`_ENVIRONMENTAL_WORK_RETRY_BUDGET`, #2360): "environmental" means "don't
+# spend the WORK-failure budget on the provider's fault", never "retry
+# infinitely". Same shape as the mute-leg budget just above — a marker +
+# tally embedded in `test_reason`, the one field that survives across
+# Test-stage legs — because it is the same problem: bound a retry that a
+# naive re-dispatch treats as free.
+#
+# #3315 review: this is `coord.failure_class.ENVIRONMENTAL_RETRY_BUDGET`
+# under a local name, not a second independently-tuned literal — smoke.py
+# already has no reason to depend on `coord.drive` (nothing else here does),
+# but it — like `coord.drive` — already depends on `coord.failure_class` for
+# the environmental/work classification itself, so that leaf module is where
+# the ONE shared number belongs. Importing it directly here (rather than
+# threading it through every caller as a parameter) keeps this module's
+# `_dispatch_smoke_single_leg`/`_dispatch_smoke_fanout` display text able to
+# name the budget without a `coord.reconcile` round-trip.
+ENVIRONMENTAL_SMOKE_RETRY_BUDGET = ENVIRONMENTAL_RETRY_BUDGET
+
+#: The marker left in the parent work row's ``test_reason`` when an
+#: environmental Test-stage death (#1605) is cleared for automatic
+#: re-dispatch. Suffixed with `` xN`` from the second CONSECUTIVE leg on,
+#: exactly like :data:`NO_SMOKE_VERDICT_MARKER` — see :func:`environmental_
+#: smoke_tally`.
+ENVIRONMENTAL_SMOKE_MARKER = "environmental-retry (#3315)"
+
+#: Matches the marker with or without its `` xN`` tally — mirrors
+#: :data:`_MUTE_TALLY_RE`.
+_ENV_RETRY_TALLY_RE = re.compile(
+    re.escape(ENVIRONMENTAL_SMOKE_MARKER) + r"(?:\s*x\s*(\d+))?", re.IGNORECASE
+)
+
+
+def environmental_smoke_legs(test_reason: str | None) -> int:
+    """How many CONSECUTIVE environmental Test-stage deaths *test_reason*
+    records (0 if none) — the reader half of the #3315 budget, mirroring
+    :func:`mute_smoke_legs`.
+
+    Any write that is NOT an environmental-death clear (a mute-leg record, a
+    real pass/fail verdict, a fresh dispatch's plain "running" stamp) does not
+    carry this marker, so the tally naturally resets to 0 the moment the row
+    stops dying environmentally — exactly the behaviour the #3315 budget
+    needs: only *consecutive* environmental deaths count against it.
+    """
+    if not test_reason:
+        return 0
+    match = _ENV_RETRY_TALLY_RE.search(test_reason)
+    if match is None:
+        return 0
+    raw = match.group(1)
+    if raw is None:
+        return 1
+    try:
+        return max(1, int(raw))
+    except ValueError:  # pragma: no cover — regex only matches digits
+        return 1
+
+
+def environmental_smoke_tally(count: int) -> str:
+    """The marker for *count* consecutive environmental Test-stage deaths —
+    mirrors :func:`mute_smoke_tally`."""
+    if count <= 1:
+        return ENVIRONMENTAL_SMOKE_MARKER
+    return f"{ENVIRONMENTAL_SMOKE_MARKER} x{count}"
+
+
+def environmental_smoke_tally_reset(test_reason: str | None) -> str:
+    """*test_reason* with any #3315 environmental-tally marker (and its
+    `` xN`` suffix) removed, trailing whitespace trimmed.
+
+    Every OTHER writer of this tally (`_dispatch_smoke_single_leg`,
+    `coord.reconcile.propagate_smoke_terminal_failure`'s single-leg branch)
+    reconstructs its whole `test_reason` from scratch each time, so the old
+    marker is simply never carried into the new string — no stripping
+    needed. The #3182 fan-out PARENT row is the one exception: its
+    `test_reason` starts with the `[[smoke-fanout:...]]` manifest
+    `_parse_fanout_manifest`/`finalize_smoke_fanout` need to find every
+    sibling leg again, so a re-stamp there must APPEND the updated tally
+    onto that existing text rather than replacing it wholesale — and without
+    this, repeated appends would pile up a duplicate marker per death
+    instead of one running count.
+    """
+    if not test_reason:
+        return ""
+    return _ENV_RETRY_TALLY_RE.sub("", test_reason).rstrip()
 
 
 #: Soft (transient) unroutable reports already logged this process, keyed by
@@ -2330,9 +2498,23 @@ def _dispatch_smoke_single_leg(
         # the board-carried value when it is unavailable (thin client, remote
         # read failure). Both are bounded previews at worst and the tally is
         # written at the front of the reason, so either still carries it.
+        authoritative_reason = load_assignment_test_reason(completed.assignment_id)
+        board_reason = getattr(completed, "test_reason", None)
         prior_legs = max(
-            mute_smoke_legs(load_assignment_test_reason(completed.assignment_id)),
-            mute_smoke_legs(getattr(completed, "test_reason", None)),
+            mute_smoke_legs(authoritative_reason), mute_smoke_legs(board_reason),
+        )
+        # #3315: ...and this stamp must ALSO carry the ENVIRONMENTAL-retry
+        # tally forward, for the identical #2272 reason above — a fresh
+        # `record_test_verdict(test_state="running", ...)` call is the same
+        # writer that used to erase the mute-leg count, and it erases this
+        # tally exactly the same way if it isn't re-stated here. Without this,
+        # the #3315 budget below (`coord.reconcile.propagate_smoke_terminal_
+        # failure`) can never fire: every "running" stamp between two
+        # environmental deaths would silently hand the row a fresh budget,
+        # reproducing the 542-leg incident this exists to bound.
+        prior_env_legs = max(
+            environmental_smoke_legs(authoritative_reason),
+            environmental_smoke_legs(board_reason),
         )
         running_reason = "dispatched: Test stage running (#1426)"
         if prior_legs:
@@ -2340,6 +2522,13 @@ def _dispatch_smoke_single_leg(
                 f"{mute_smoke_tally(prior_legs)} — {running_reason}; "
                 f"retry {prior_legs + 1} of {MUTE_SMOKE_LEG_BUDGET} after "
                 f"{prior_legs} Test-stage leg(s) produced no verdict (#2272)"
+            )
+        if prior_env_legs:
+            running_reason = (
+                f"{environmental_smoke_tally(prior_env_legs)} — "
+                f"{running_reason} ({prior_env_legs} of "
+                f"{ENVIRONMENTAL_SMOKE_RETRY_BUDGET} consecutive "
+                "environmental Test-stage death(s) so far, #3315)"
             )
 
         record_test_verdict(
@@ -2576,7 +2765,10 @@ def _dispatch_smoke_fanout(
     if leg_manifest and completed.assignment_id is not None and completed.test_state not in (
         "passed", "skipped", "failed", TEST_STATE_BLOCKED,
     ):
-        from coord.state import record_test_verdict  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            load_assignment_test_reason,
+            record_test_verdict,
+        )
 
         summary = "; ".join(
             f"[{'+'.join(sorted(caps))}]" for _, caps, _ in leg_manifest
@@ -2586,6 +2778,27 @@ def _dispatch_smoke_fanout(
             f"{manifest_line}\nTest stage running across {len(partitions)} "
             f"capability-partition leg(s) (#3182): {summary}."
         )
+        # #3315 review: carry the shared fan-out environmental-retry tally
+        # FORWARD across this rewrite — the identical #2272/#3315 reason the
+        # single-leg path's own "running" stamp must
+        # (`_dispatch_smoke_single_leg`, above): this call REPLACES the
+        # parent's `test_reason` wholesale, and `coord.reconcile.propagate_
+        # smoke_terminal_failure`'s fan-out branch is the only other writer
+        # of this field — if a re-dispatch round here doesn't re-embed
+        # whatever count it left, the very next environmental death reads
+        # zero and the budget can never accumulate past one.
+        authoritative_reason = load_assignment_test_reason(completed.assignment_id)
+        prior_env_legs = max(
+            environmental_smoke_legs(authoritative_reason),
+            environmental_smoke_legs(completed.test_reason),
+        )
+        if prior_env_legs:
+            running_reason = (
+                f"{running_reason}\n{environmental_smoke_tally(prior_env_legs)} "
+                f"({prior_env_legs} of {ENVIRONMENTAL_SMOKE_RETRY_BUDGET} "
+                "consecutive environmental fan-out-leg death(s) so far, "
+                "#3315)"
+            )
         record_test_verdict(
             assignment_id=completed.assignment_id,
             test_state="running",
@@ -2654,13 +2867,14 @@ def dispatch_pending_smoke(
     config: Config,
     *,
     now: float | None = None,
+    gh_ops: "GhOps | None" = None,
 ) -> list[Assignment]:
     """Bulk Test-stage dispatch — the smoke analogue of
     :func:`coord.review.dispatch_pending_reviews`.
 
     Scans the FULL completed backlog on `board` (not just rows that just
-    transitioned this pass) for work-like completions with no test verdict
-    yet, and dispatches a smoke assignment for each eligible one via
+    transitioned this pass) for work-like completions with no FRESH test
+    verdict yet, and dispatches a smoke assignment for each eligible one via
     :func:`dispatch_smoke` (which itself enforces `auto_queue`, the #459-style
     dedupe via `has_active_followup`, and capability routing).
 
@@ -2672,6 +2886,32 @@ def dispatch_pending_smoke(
     thin-client/timer-only setup with nobody running `coord resume` never
     dispatched the Test stage at all — the gap `drive-issue.sh` had to paper
     over with a local `scripts/coord-test-runner.sh` subprocess (#1395).
+
+    #3309: a row carrying a recorded ``passed``/``failed``/``skipped``
+    verdict is skipped UNLESS :func:`_test_verdict_is_stale` says that
+    verdict is #1479-stale (a rebase moved the base or the branch out from
+    under it) — see that function for why "stale" and "missing"/"unknown"
+    get different treatment. *gh_ops* backs that live SHA comparison; the
+    default ``None`` fails open (no live lookup, a recorded verdict is never
+    treated as stale — identical to this function's behaviour before #3309),
+    matching the #821/#1475 convention every other #1479 staleness check
+    follows. Production callers (`coord.notify`, `coord.reconcile`) pass the
+    real :mod:`coord.github_ops` explicitly, the same module every other
+    live gate check in this codebase hands `merge_queue`'s gate functions.
+
+    A confirmed-stale verdict is **cleared** (``record_test_verdict(...,
+    test_state=None)``, mirrored in-memory on ``completed.test_state``)
+    *before* the re-dispatch, not left in place — so the row reads
+    "running"/unset for the duration of the new leg instead of still showing
+    the old terminal verdict. Leaving the old verdict in place would (a) trip
+    `_dispatch_smoke_single_leg`'s #1819 guard, which refuses to stamp
+    "running" over any terminal verdict, so the new leg would never be
+    recorded as in-flight and every following tick would re-probe and
+    re-dispatch again; and (b) on completion, make
+    `coord.notify._record_smoke_verdict` see the stale verdict as
+    "already terminal", wrongly credit it to the worker's own `coord test`
+    (#2217/#2464), and skip reading the new worker's actual verdict entirely
+    — silently laundering a stale pass into a fresh-anchored one.
 
     Returns the list of smoke `Assignment`s actually dispatched. The caller
     is responsible for persisting the board.
@@ -2714,19 +2954,79 @@ def dispatch_pending_smoke(
                 continue
         if completed.status != "done":
             continue
-        if completed.test_state is not None:
-            # Already has a verdict ("passed"/"failed"/"skipped"), or is
+        if completed.test_state in (TEST_STATE_BLOCKED, "running"):
             # "running" — someone (an interactive --smoke-of session, or a
-            # smoke assignment already in flight) is already handling it.
+            # smoke assignment already in flight) is genuinely handling this
+            # row right now; skip unconditionally, no re-probing needed.
             #
-            # #1672: this is also what makes the unroutable report fire ONCE.
-            # `dispatch_smoke` records `test_state="blocked"` when no
+            # #1672: "blocked" is also what makes the unroutable report fire
+            # ONCE. `dispatch_smoke` records `test_state="blocked"` when no
             # capability-matched machine can take the stage, so the next tick
             # lands here and skips instead of re-probing a fleet that is
             # still broken and re-logging the identical refusal every 30 s
             # (#1678). Clearing it (`coord diagnose <repo> <issue> --stage
             # test --reset`) puts the row back in this scan.
             continue
+        if completed.test_state is not None:
+            # A terminal verdict exists ("passed"/"failed"/"skipped"). Before
+            # #3309 presence alone was enough to skip forever — but a
+            # "passed" verdict can go #1479-stale the moment the merge base
+            # moves (a #241 conflict-fix rebase), and once the drive that
+            # recorded it has exited nothing else ever asks for a fresh one:
+            # the merge gate then reports `smoke_required` against a row this
+            # producer, its only automatic source, believes is already
+            # handled — and it deadlocks silently forever. Re-dispatch only
+            # when the SAME staleness predicate the merge gate applies
+            # (`_test_verdict_is_stale`, #1479) confirms the recorded verdict
+            # is genuinely stale — never merely because it's missing or
+            # unconfirmable (see that function's docstring).
+            if not _test_verdict_is_stale(completed, board, config, gh_ops):
+                continue
+            logger.info(
+                "dispatch_pending_smoke: %s#%s row %s carries a %r Test "
+                "verdict recorded against a base/branch that has since "
+                "moved (#1479) — re-dispatching instead of deadlocking "
+                "against the merge gate's `smoke_required` (#3309).",
+                completed.repo_name, completed.issue_number,
+                completed.assignment_id, completed.test_state,
+            )
+            # Clear the stale verdict BEFORE dispatching the re-run — both
+            # the persisted row (`record_test_verdict(test_state=None)`, the
+            # same "make this row eligible for re-dispatch" step every other
+            # clearer in this codebase already takes: `coord/reconcile.py`'s
+            # environmental-death clear, `coord/notify.py`'s mute-leg-budget
+            # clear) and the in-memory `completed.test_state` this loop
+            # itself is about to hand to `_dispatch_smoke_legs`.
+            #
+            # Skipping this step left the stale "passed" sitting on the row
+            # for the ENTIRE duration of the new run: `_dispatch_smoke_single_
+            # leg`'s own #1819 guard (never stamp "running" over a terminal
+            # verdict) would refuse to record the new leg as in-flight, so
+            # every subsequent tick still saw "passed" and kept re-dispatching
+            # (re-triggering the live #1479 SHA lookup on every one), AND —
+            # far worse — when the new leg completed,
+            # `coord.notify._record_smoke_verdict` would read the still-
+            # "passed" `current_state`, wrongly conclude the worker
+            # self-recorded it via `coord test` (#2217/#2464's branch), and
+            # never inspect the new worker's actual `SMOKE:` verdict at all —
+            # silently laundering a stale pass into a fresh-anchored one with
+            # no real observation behind it (worse than the deadlock #3309
+            # set out to fix). Clearing it here makes the row read "running"
+            # (or unset) until the new leg's own verdict lands, exactly like
+            # every other re-dispatch path.
+            if completed.assignment_id is not None:
+                from coord.state import record_test_verdict  # noqa: PLC0415
+
+                record_test_verdict(
+                    assignment_id=completed.assignment_id,
+                    test_state=None,
+                    test_reason=(
+                        f"Cleared a #1479-stale {completed.test_state!r} Test "
+                        "verdict for re-dispatch — the recorded verdict was "
+                        "against a base/branch that has since moved (#3309)."
+                    ),
+                )
+            completed.test_state = None
 
         # #685: per-issue test-mode policy gates auto-smoke dispatch.
         #   test-mode:auto  → headless smoke (auto-dispatch here).

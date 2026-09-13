@@ -23,7 +23,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast
 
@@ -40,6 +39,8 @@ from .svg import SvgMixin
 from .unit import Unit
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from .element import PropDefBool
     from .table import Table
 
@@ -461,7 +462,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
         Returns:
             DrawImage | None: The image element if found, None otherwise.
         """
-        return cast(DrawImage | None, self.get_element("draw:image"))
+        return cast("DrawImage | None", self.get_element("draw:image"))
 
     def set_image(self, url_or_element: DrawImage | str) -> DrawImage:
         """Set or replace the image in the frame.
@@ -497,7 +498,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
         Returns:
             DrawTextBox | None: The text box element if found, None otherwise.
         """
-        return cast(DrawTextBox | None, self.get_element("draw:text-box"))
+        return cast("DrawTextBox | None", self.get_element("draw:text-box"))
 
     def set_text_box(
         self,
@@ -631,8 +632,9 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
             str: The formatted text with proper indentation.
         """
         str_list = ["  "]
-        for child in element.children:
-            str_list.append(child.get_formatted_text(context))
+        str_list.extend(
+            [child.get_formatted_text(context) for child in element.children]
+        )
         subresult = "".join(str_list)
         subresult = subresult.replace("\n", "\n  ")
         return subresult.rstrip(" ")
@@ -714,7 +716,7 @@ class DrawTextBox(MDDrawTextBox, ListMixin, TocMixin, SectionMixin):
         Returns:
             list[Table]: The list of tables found inside the text box.
         """
-        return cast(list["Table"], self.get_elements("descendant::table:table"))
+        return cast("list[Table]", self.get_elements("descendant::table:table"))
 
 
 register_element_class(Frame)

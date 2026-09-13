@@ -25,6 +25,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
 from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource
 from schemathesis.specs.openapi.formats import HEADER_FORMAT
 from schemathesis.specs.openapi.semantic_pool import (
+    MAX_ARRAY_ITEMS,
     BoundedValues,
     IngestionLeaf,
     LeafDescriptor,
@@ -293,13 +294,16 @@ def test_walker_ingests_bounded_numeric(leaf_schema, value, expected_type):
     assert list(iter_ingestion_leaves(schema, {"x": value})) == [IngestionLeaf(expected_type, None, None, "x", value)]
 
 
-def test_walker_does_not_recurse_into_arrays():
+def test_walker_ingests_formatted_array_items():
     schema = {
         "type": "object",
         "properties": {"emails": {"type": "array", "items": {"type": "string", "format": "email"}}},
     }
     body = {"emails": ["a@b.com", "c@d.com"]}
-    assert list(iter_ingestion_leaves(schema, body)) == []
+    assert list(iter_ingestion_leaves(schema, body)) == [
+        IngestionLeaf("string", "email", None, "email", "a@b.com"),
+        IngestionLeaf("string", "email", None, "email", "c@d.com"),
+    ]
 
 
 def test_walker_records_pattern_when_format_absent():
@@ -2098,8 +2102,10 @@ def test_schemaless_walker_respects_max_nodes():
     assert 0 < len(leaves) < 10
 
 
-def test_schemaless_walker_skips_top_level_array_body():
-    assert list(iter_ingestion_leaves(None, [{"email": "a@b.com"}])) == []
+def test_schemaless_walker_ingests_top_level_array_body():
+    assert list(iter_ingestion_leaves(None, [{"email": "a@b.com"}])) == [
+        IngestionLeaf("string", "email", None, "email", "a@b.com")
+    ]
 
 
 def test_schemaless_walker_skips_nameless_scalar_body():
@@ -2451,3 +2457,52 @@ def test_semantic_overlay_drops_overwritten_constant_provenance():
             assert result.value["code"] == draw.value, "stale constant provenance after semantic overwrite"
 
     collect()
+
+
+def test_walker_recurses_into_arrays_of_objects():
+    # Collection endpoints answer with a list of resources; their fields are the pool's main source.
+    schema = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"email": {"type": "string", "format": "email"}}},
+    }
+    body = [{"email": "a@b.com"}, {"email": "c@d.com"}]
+    assert list(iter_ingestion_leaves(schema, body)) == [
+        IngestionLeaf("string", "email", None, "email", "a@b.com"),
+        IngestionLeaf("string", "email", None, "email", "c@d.com"),
+    ]
+
+
+def test_walker_caps_items_ingested_per_array():
+    schema = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"email": {"type": "string", "format": "email"}}},
+    }
+    body = [{"email": f"user{index}@b.com"} for index in range(50)]
+    assert len(list(iter_ingestion_leaves(schema, body))) == MAX_ARRAY_ITEMS
+
+
+def test_walker_ingests_scalar_arrays_under_the_singular_name():
+    # A collection answers `{"projects": [...]}` and the next path consumes one as `{project}`.
+    schema = {"type": "object", "properties": {"projects": {"type": "array", "items": {"type": "string"}}}}
+    assert list(iter_ingestion_leaves(schema, {"projects": ["paper", "velocity"]})) == [
+        IngestionLeaf("string", None, None, "project", "paper"),
+        IngestionLeaf("string", None, None, "project", "velocity"),
+    ]
+
+
+def test_schemaless_walker_recurses_into_arrays():
+    # Specs that declare no response schema still answer with collections; the walk is all we have.
+    body = [{"region": "Europe", "demonym": "Norwegian"}, {"region": "Asia", "demonym": "Thai"}]
+    assert list(iter_ingestion_leaves(None, body)) == [
+        IngestionLeaf("string", None, None, "region", "Europe"),
+        IngestionLeaf("string", None, None, "demonym", "Norwegian"),
+        IngestionLeaf("string", None, None, "region", "Asia"),
+        IngestionLeaf("string", None, None, "demonym", "Thai"),
+    ]
+
+
+def test_schemaless_walker_ingests_scalar_arrays_under_the_singular_name():
+    assert list(iter_ingestion_leaves(None, {"projects": ["paper", "velocity"]})) == [
+        IngestionLeaf("string", None, None, "project", "paper"),
+        IngestionLeaf("string", None, None, "project", "velocity"),
+    ]

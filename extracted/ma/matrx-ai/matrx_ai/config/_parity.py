@@ -17,8 +17,9 @@ Four rules, and every one of them is load-bearing:
    it lands where a human reviews it (`error-capture` skill's close-the-loop
    guarantee). With no host configured this is a silent no-op and matrx-ai
    stays standalone.
-4. **Off by default.** ``PARITY_SHADOW_ENABLED`` gates the whole thing. The fast
-   path when disabled is one module-global read.
+4. **Off by default.** :func:`parity_shadow_enabled` gates the whole thing, and
+   with no host bound it is ``False``. The fast path when disabled is one dict
+   lookup.
 
 🚨 RETIREMENT — this module is TEMPORARY.
    It is row 1 of the Retirement Ledger (CUTOVER.md §9, D13). Its deletion
@@ -30,15 +31,40 @@ Four rules, and every one of them is load-bearing:
 
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from typing import Any, TypeVar
 
 T = TypeVar("T")
 
-# Gate. A knob rather than a deploy is the point (CUTOVER.md §3 rule 4); until
-# the host wires a real feature knob, the env var is the flip.
-PARITY_SHADOW_ENABLED = os.environ.get("MATRX_PARITY_SHADOW") == "1"
+# Gate. A knob rather than a deploy is the point (CUTOVER.md §3 rule 4), and as
+# of 2026-09-11 it IS a real knob: aidream binds this seam to
+# `platform.debug.config_parity_shadow` in package_integration. It was
+# `MATRX_PARITY_SHADOW=1` until then — USD-5 (Arman, 2026-09-10): "Never an env
+# var. Env values are only for secrets, not for controlling behavior." matrx-ai
+# must not import aidream, so the host injects a zero-arg callable; standalone,
+# nothing is bound and the shadow is OFF.
+_shadow_enabled: Callable[[], bool] | None = None
+
+
+def configure_parity_shadow(enabled: Callable[[], bool] | None) -> None:
+    """Bind the shadow gate to the host's setting (aidream:
+    ``platform.debug.config_parity_shadow``). ``None`` unbinds it, which is the
+    package posture: off."""
+    global _shadow_enabled
+    _shadow_enabled = enabled
+
+
+def parity_shadow_enabled() -> bool:
+    """True when dual construction should run. Consulted per call so flipping
+    the knob takes effect without a restart. Never raises: a gate that cannot
+    be read is OFF, because the shadow is telemetry and telemetry must never
+    become the caller's failure."""
+    if _shadow_enabled is None:
+        return False
+    try:
+        return bool(_shadow_enabled())
+    except Exception:  # noqa: BLE001 — see docstring
+        return False
 
 # Bounded so a pathological payload can never turn a divergence record into its
 # own incident.
@@ -140,7 +166,7 @@ def shadow_compare(
     what a caller receives.
     """
     old = build_old()
-    if not PARITY_SHADOW_ENABLED:
+    if not parity_shadow_enabled():
         return old
     try:
         new = build_new()

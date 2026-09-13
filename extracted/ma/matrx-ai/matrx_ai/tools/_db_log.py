@@ -11,10 +11,12 @@ Contract:
     ``detached_task(db_log_event(...))`` callers. Detachment therefore happens
     after the write has joined the request's transactional DAG.
   - Any exception is swallowed — telemetry must never surface as a tool error.
-  - Disabled via ``MATRX_TOOL_DEBUG_DB_DISABLED=1`` (separate knob from
-    the file sink's ``MATRX_TOOL_DEBUG_LOG_DISABLED=1``) so an operator
-    can keep file logs while quieting DB writes — e.g. in a tight loop
-    where they don't want to fill the table.
+  - Disabled via the host's ``db_sink_disabled`` switch
+    (``_debug_log.configure_trace_switches``; in aidream the
+    ``platform.debug`` ``tool_trace_db_sink_disabled`` setting) — separate
+    from the file sink's switch so an operator can keep file logs while
+    quieting DB writes, e.g. in a tight loop where they don't want to fill
+    the table. Never an environment variable (USD-5, 2026-09-11).
 
 Schema lives at [db/migrations/0044_cx_tool_trace.sql](../../../../db/migrations/0044_cx_tool_trace.sql).
 
@@ -38,7 +40,7 @@ from typing import Any
 # Reuse the file sink's process-start timestamp so trace rows correlate with
 # the file they share a process with. Lazy because ``_debug_log`` may not be
 # importable in all contexts (e.g. minimal test runs).
-from ._debug_log import _PROCESS_START, sinks_disabled_by_stage
+from ._debug_log import _PROCESS_START, _switch, sinks_disabled_by_stage
 from .fault import classify_fault
 
 #: Reserved ``AppContext.metadata`` key holding a dict of labels to stamp on
@@ -92,7 +94,7 @@ def _coerce_args(args: Any) -> dict[str, Any] | None:
 def _is_disabled() -> bool:
     # Same stage guard as the file sink — a pytest run's deliberate failure
     # fixtures must never land in `cx_tool_trace` and outnumber real traffic.
-    return os.environ.get("MATRX_TOOL_DEBUG_DB_DISABLED") == "1" or sinks_disabled_by_stage()
+    return _switch("db_sink_disabled") or sinks_disabled_by_stage()
 
 
 def _queue_db_log_event(

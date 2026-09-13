@@ -103,6 +103,10 @@ class SendPrep:
     wire_config: Any | None = None
     cache_state: dict[str, Any] | None = None
     steps: list[str] = field(default_factory=list)
+    # What the context pre-flight measured (estimated tokens vs the model's
+    # declared window). ``None`` = not measurable (no declared window) or
+    # disabled; an over-window prompt never gets here — it raises.
+    preflight: dict[str, Any] | None = None
 
 
 async def prepare_for_send(
@@ -135,7 +139,10 @@ async def prepare_for_send(
         user_input / config_overrides: resolve-stage turn intent used to decide
             whether a completed structured contract may relax to text.
 
-    Never raises. A failing step is logged and skipped.
+    Never raises for a SHAPING failure — a failing step is logged and skipped.
+    The one deliberate exception is the context pre-flight: a prompt that
+    provably cannot fit the model's window raises ``PromptTooLargeError`` here,
+    before the provider is called and before anything is spent.
     """
     prep = SendPrep(stage=stage)
 
@@ -179,6 +186,13 @@ async def prepare_for_send(
         ),
     )
 
+    # PRE-FLIGHT — deliberately NOT inside ``_run_step``: every other step here
+    # is best-effort and skippable, this one is a REFUSAL and must reach the
+    # caller. It runs after the trim (so it measures what actually goes on the
+    # wire) and before anything is sent.
+    prep.preflight = _preflight(config, stage=stage, conversation_id=conversation_id)
+    prep.steps.append("context_preflight")
+
     if stage == STAGE_LOOP:
         _run_step(
             prep,
@@ -194,6 +208,41 @@ async def prepare_for_send(
 # --------------------------------------------------------------------------- #
 # Steps                                                                        #
 # --------------------------------------------------------------------------- #
+
+
+def _preflight(config: Any, *, stage: str, conversation_id: str | None) -> dict[str, Any] | None:
+    """Measure the prompt against the resolved model's context window.
+
+    Raises ``PromptTooLargeError`` when it provably does not fit (see
+    ``matrx_ai.config.context_preflight``). Anything that goes wrong INSIDE the
+    measurement (catalog unreachable, an unserializable part) yields a skip,
+    announced by the module itself — never a blocked send.
+    """
+    from matrx_ai.config.context_preflight import PromptTooLargeError, check_prompt_fits
+
+    step = _step_name(conversation_id)
+    try:
+        return check_prompt_fits(config, step=step)
+    except PromptTooLargeError as exc:
+        vcprint(f"[send_boundary/{stage}] {exc}", color="red")
+        raise
+
+
+def _step_name(conversation_id: str | None) -> str:
+    """The name the refusal points at: the workflow STEP when the call is made
+    inside one, else the conversation it belongs to."""
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001
+        ctx = None
+    if ctx is not None:
+        node_id = (ctx.metadata or {}).get("workflow_node_id")
+        if node_id:
+            run_id = getattr(ctx, "execution_id", None) or ""
+            return f"{node_id} (workflow run {run_id})" if run_id else str(node_id)
+    return f"conversation {conversation_id}" if conversation_id else "this call"
 
 
 def _apply_followup_response_format(
@@ -229,13 +278,17 @@ def _apply_followup_response_format(
     except Exception:  # observability can never change response behavior
         pass
 
-    logger.info(
-        "response_format_relaxed_after_first_structured_answer "
-        "conversation_id=%s from=%s to=text reason=%s origin_class=%s",
-        transition.get("conversation_id"),
-        transition["from"],
-        transition["reason"],
-        transition.get("origin_class"),
+    # vcprint, NOT logger.info (V-34, 2026-09-12): four live walks and this line was
+    # in none of the server logs, because the host's logging config does not print
+    # this module's logger while every other send-boundary fact goes out through
+    # vcprint — which both prints and records. An announcement nobody can find is a
+    # silent one. Still exactly ONE record, so the format transition is never
+    # double-reported.
+    vcprint(
+        "[send_boundary/resolve] response_format_relaxed_after_first_structured_answer "
+        f"conversation_id={transition.get('conversation_id')} from={transition['from']} "
+        f"to=text reason={transition['reason']} origin_class={transition.get('origin_class')}",
+        color="cyan",
     )
 
 

@@ -28,19 +28,14 @@ from __future__ import annotations
 import contextlib
 import csv
 import json
-import math
 import os
-from collections.abc import Iterable, Iterator
-from datetime import date, datetime, timedelta
-from decimal import Decimal
+from datetime import timedelta
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
 from textwrap import wrap
 from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
-
-from lxml.etree import XPath  # ty: ignore[unresolved-import]
 
 from .cell import Cell
 from .column import Column
@@ -54,14 +49,13 @@ from .element import (
     xpath_return_elements,
 )
 from .form import FormMixin
-from .frame import Frame
 from .mixin_md import MD_GLOBAL, MDTable, _set_global
 from .mixin_named_range import TableNamedExpressions
 from .named_range import NamedRange, table_name_check
 from .office_forms import OfficeFormsMixin
 from .row import Row
-from .row_group import RowGroup
 from .table_cache import _XP_COLUMN_IDX, _XP_ROW_IDX, TableCache
+from .table_serializer import serialize_table
 from .utils import (
     NameUnifyer,
     convert_coordinates,
@@ -73,6 +67,12 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+    from lxml.etree import XPath  # ty: ignore[unresolved-import]
+
+    from .frame import Frame
+    from .row_group import RowGroup
     from .style import Style
 
 # for compatibility with version <= 3.18.1
@@ -158,6 +158,8 @@ def _get_python_value(
 def _populate_table(table: Table, rows: Iterable[Iterable[Any]]) -> None:
     """Populate a table with rows of values, appending each row in-place.
 
+    String values are evaluated as Python types.
+
     Args:
         table: Target Table instance.
         rows: 2D iterable of cell values.
@@ -168,6 +170,21 @@ def _populate_table(table: Table, rows: Iterable[Iterable[Any]]) -> None:
             _get_python_value(val) if isinstance(val, str) else val for val in row
         ]
         row_elem.set_values(row_converted)
+        table.append_row(row_elem, clone=False)
+
+
+def _populate_table_keep_strings(table: Table, rows: Iterable[Iterable[Any]]) -> None:
+    """Populate a table with rows of values, appending each row in-place.
+
+    String-type values are preserved as strings.
+
+    Args:
+        table: Target Table instance.
+        rows: 2D iterable of cell values.
+    """
+    for row in rows:
+        row_elem = Row()
+        row_elem.set_values(row)
         table.append_row(row_elem, clone=False)
 
 
@@ -589,9 +606,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                     # Hack to handle correctly the lists or the directives
                     subsequent_indent = ""
                     part_lstripped = part.lstrip()
-                    if part_lstripped.startswith("-") or part_lstripped.startswith(
-                        ".."
-                    ):
+                    if part_lstripped.startswith(("-", "..")):
                         subsequent_indent = " " * (len(part) - len(part.lstrip()) + 2)
                     wrapped_part = wrap(
                         part, width=cols_size[i], subsequent_indent=subsequent_indent
@@ -682,6 +697,17 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     def size(self) -> tuple[int, int]:
         """Get the current width and height of the table.
 
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> table.size
+        (3, 4)
+
         Returns:
             A tuple containing the (width, height) of the table.
         """
@@ -719,7 +745,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         Returns:
             bool: True if the table is protected, False otherwise.
         """
-        return cast(bool, self.get_attribute("table:protected"))
+        return cast("bool", self.get_attribute("table:protected"))
 
     @protected.setter
     def protected(self, protect: bool) -> None:
@@ -733,7 +759,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             str | None: The protection key (a hash value) as a string, or None
                 if not set.
         """
-        return cast(str | None, self.get_attribute("table:protection-key"))
+        return cast("str | None", self.get_attribute("table:protection-key"))
 
     @protection_key.setter
     def protection_key(self, key: str) -> None:
@@ -760,7 +786,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             list[str]: A list of strings representing the print ranges
                 (e.g., ['A1:C5', 'E1:G5']).
         """
-        print_ranges = cast(str | None, self.get_attribute("table:print-ranges"))
+        print_ranges = cast("str | None", self.get_attribute("table:print-ranges"))
         if print_ranges is None:
             return []
         return print_ranges.split()
@@ -875,6 +901,18 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
 
         Note: the cell style content is kept when using cell values.
         To ensure an absolute empty table, use Table.clear().
+
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> table.values
+        [['reference', 'color', 'price'], ['ref01', 'white', 10], ['ref02',
+        'blue', Decimal('20.5')], ['ref03', 'red', Decimal('25.75')]]
 
         Returns:
             list[list[CellValue | None]]:
@@ -993,8 +1031,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         """Remove empty rows and right-side empty cells from the table
         in-place.
 
-        A cell is considered empty if it has no value (or a value that
-        evaluates to False) and no style.
+        A cell is considered empty if it has no value (value is None) and no
+        style.
 
         Args:
             aggressive: If True, empty cells with styles are also considered
@@ -1017,7 +1055,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         # Step 3: trim columns to match max_width
         columns = self._get_columns()
         repeated_cols: list[EText] = cast(
-            list[EText], self.xpath("table:table-column/@table:number-columns-repeated")
+            "list[EText]",
+            self.xpath("table:table-column/@table:number-columns-repeated"),
         )
         unrepeated = len(columns) - len(repeated_cols)
         column_width = sum(int(r) for r in repeated_cols) + unrepeated
@@ -1029,14 +1068,75 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 if repeated > 0:
                     column.repeated = repeated
                     break
-                else:
-                    column.parent.delete(column)
-                    diff = -repeated
-                    if diff == 0:
-                        break
+                column.parent.delete(column)
+                diff = -repeated
+                if diff == 0:
+                    break
         # raz cache of columns
         self._table_cache.clear_col_indexes()
         self._compute_table_cache()
+
+    def lstrip(self, aggressive: bool = False) -> None:
+        """Remove top empty rows and left-side empty cells from the table
+        in-place.
+
+        A cell is considered empty if it has no value (value is None) and no
+        style (or style is ignored when `aggressive=True`).
+
+        Args:
+            aggressive: If True, empty cells with styles are also considered
+                empty and will be removed.
+        """
+        # Step 1: remove empty rows at the top of the table
+        while True:
+            rows = self._get_rows()
+            if not rows:
+                break
+            if rows[0].is_empty(aggressive=aggressive):
+                row0 = rows[0]
+                row0.parent.delete(row0)
+                self._table_cache.clear_row_indexes()
+            else:
+                break
+
+        rows = self._get_rows()
+        if not rows:
+            self._compute_table_cache()
+            return
+
+        # Step 2: find minimum leading empty cells across all rows
+        min_leading_empty: int = 2**30
+        for row in rows:
+            leading = 0
+            for cell in row._get_cells():
+                if cell.is_empty(aggressive=aggressive):
+                    leading += cell.repeated or 1
+                else:
+                    break
+            if leading < min_leading_empty:
+                min_leading_empty = leading
+                if min_leading_empty == 0:
+                    break
+
+        # Step 3: delete min_leading_empty columns from the left
+        if min_leading_empty > 0:
+            for _ in range(min_leading_empty):
+                self.delete_column(0)
+
+        self._table_cache.clear_row_indexes()
+        self._table_cache.clear_col_indexes()
+        self._compute_table_cache()
+
+    def strip(self, aggressive: bool = False) -> None:
+        """Remove empty rows and columns from top, bottom, left, and right
+        in-place.
+
+        Args:
+            aggressive: If True, empty cells with styles are also considered
+                empty and will be removed.
+        """
+        self.rstrip(aggressive=aggressive)
+        self.lstrip(aggressive=aggressive)
 
     def optimize_height(self) -> None:
         """Remove bottom empty rows in-place.
@@ -1098,7 +1198,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         # trim columns to match minimal_width
         columns = self._get_columns()
         repeated_cols: list[EText] = cast(
-            list[EText],
+            "list[EText]",
             self.xpath("table:table-column/@table:number-columns-repeated"),
         )
         unrepeated = len(columns) - len(repeated_cols)
@@ -1111,11 +1211,10 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 if repeated > 0:
                     column.repeated = repeated
                     break
-                else:
-                    column.parent.delete(column)
-                    diff = -repeated
-                    if diff == 0:
-                        break
+                column.parent.delete(column)
+                diff = -repeated
+                if diff == 0:
+                    break
         # raz cache of columns
         self._table_cache.clear_col_indexes()
         self._compute_table_cache()
@@ -1130,8 +1229,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         """
         data = []
         if coord is None:
-            for row in self.iter_rows():
-                data.append(row.cells)
+            data = [row.cells for row in self.iter_rows()]
             transposed_data = zip_longest(*data)
             self.clear()
             for row_cells in transposed_data:
@@ -1168,7 +1266,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 self.set_values(nones, coord=(x, y, z, t))
             # put transposed
             self.set_cells(
-                cast(Iterable[tuple[Cell]], transposed_data),
+                cast("Iterable[tuple[Cell]]", transposed_data),
                 (x, y, x + h - 1, y + w - 1),
             )
             self._compute_table_cache()
@@ -1176,8 +1274,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     def is_empty(self, aggressive: bool = False) -> bool:
         """Return True if every cell in the table is empty.
 
-        A cell is considered empty if it has no value (or a value that
-        evaluates to False, like an empty string) and no style.
+        A cell is considered empty if it has no value (value is None) and
+        no style.
 
         Args:
             aggressive: If True, empty cells with styles are also
@@ -1199,10 +1297,10 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         Returns:
             list[RowGroup]: A list of RowGroup elements.
         """
-        return cast(list[RowGroup], self.get_elements(_XP_ROW_GROUP))
+        return cast("list[RowGroup]", self.get_elements(_XP_ROW_GROUP))
 
     def _get_rows(self) -> list[Row]:
-        return cast(list[Row], self.get_elements(_XP_ROW))
+        return cast("list[Row]", self.get_elements(_XP_ROW))
 
     def iter_rows(
         self,
@@ -1591,8 +1689,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         """Return True if every cell in the row at the given 'y' position is
         empty.
 
-        A cell is considered empty if it has no value (or a value that
-        evaluates to False, like an empty string) and no style.
+        A cell is considered empty if it has no value (value is None) and
+        no style.
 
         Args:
             y: The 0-based index of the row.
@@ -1646,30 +1744,26 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
                 )
                 cells.extend(row_cells)
             return cells
-        else:
-            lcells: list[list[Cell]] = []
-            for row in self.iter_rows(start=y, end=t):
-                row_cells = row.get_cells(
-                    coord=(x, z),
-                    cell_type=cell_type,
-                    style=style,
-                    content=content,
-                )
-                lcells.append(row_cells)
-            return lcells
+        lcells: list[list[Cell]] = []
+        for row in self.iter_rows(start=y, end=t):
+            row_cells = row.get_cells(
+                coord=(x, z),
+                cell_type=cell_type,
+                style=style,
+                content=content,
+            )
+            lcells.append(row_cells)
+        return lcells
 
     @property
-    def cells(self) -> list:
+    def cells(self) -> list[list[Cell]]:
         """Get all cells of the table as a list of lists.
 
         Returns:
             list: A list of lists, where each inner list contains the Cell
                 elements of a row.
         """
-        lcells: list[list[Cell]] = []
-        for row in self.iter_rows():
-            lcells.append(row.cells)
-        return lcells
+        return [row.cells for row in self.iter_rows()]
 
     def get_cell(
         self,
@@ -1743,17 +1837,16 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             if get_type:
                 return (None, None)
             return None
-        else:
-            # Inside the defined table
-            row = self._get_row2_base(y)
-            if row is None:
-                raise ValueError
-            cell = row._get_cell2_base(x)
-            if cell is None:
-                if get_type:
-                    return (None, None)
-                return None
-            return cell.get_value(get_type=get_type)
+        # Inside the defined table
+        row = self._get_row2_base(y)
+        if row is None:
+            raise ValueError
+        cell = row._get_cell2_base(x)
+        if cell is None:
+            if get_type:
+                return (None, None)
+            return None
+        return cell.get_value(get_type=get_type)
 
     def set_cell(
         self,
@@ -1811,10 +1904,12 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         coord: tuple | list | str | None = None,
         clone: bool = True,
     ) -> None:
-        """Set a matrix of cells in the table, starting from a specified coordinate.
+        """Set a matrix of cells in the table, starting from a specified
+        coordinate.
 
-        The table is not cleared before this operation. The `cells` argument should
-        be an iterable of iterables, where each inner iterable represents a row.
+        The table is not cleared before this operation. The `cells` argument
+        should be an iterable of iterables, where each inner iterable
+        represents a row.
 
         Args:
             cells: An iterable of iterables of Cell elements.
@@ -2037,7 +2132,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     # Columns
 
     def _get_columns(self) -> list[Column]:
-        return cast(list[Column], self.get_elements(_XP_COLUMN))
+        return cast("list[Column]", self.get_elements(_XP_COLUMN))
 
     def iter_columns(
         self,
@@ -2129,8 +2224,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             column = self._get_element_idx2(_XP_COLUMN_IDX, idx)
             if column is None:
                 return None
-            self._table_cache.store_col(cast(Column, column), idx)
-        return cast(Column, column.clone)
+            self._table_cache.store_col(cast("Column", column), idx)
+        return cast("Column", column.clone)
 
     @property
     def columns(self) -> list[Column]:
@@ -2327,7 +2422,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         cells: list[Cell | None] = []
         if not style and not content and not cell_type:
             for row in self.iter_rows():
-                cells.append(row.get_cell(x, clone=True))
+                cells.append(row.get_cell(x, clone=True))  # noqa: PERF401
             return cells
         for row in self.iter_rows():
             cell = row.get_cell(x, clone=True)
@@ -2427,8 +2522,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         """Set the Python values for the cells in the column at the given 'x'
         position.
 
-        The provided iterable of values must yield the same number of items as the
-        table's height.
+        The provided iterable of values must yield the same number of items as
+        the table's height.
 
         Args:
             x: The 0-based index or alphabetical representation of the column.
@@ -2447,8 +2542,8 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         """Return True if every cell in the column at the 'x' position is
         empty.
 
-        A cell is considered empty if it has no value (or a value that
-        evaluates to False) and no style.
+        A cell is considered empty if it has no value (value is None) and
+        no style.
 
         Args:
             x: The 0-based index or alphabetical representation of the column.
@@ -2469,7 +2564,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
     def _local_named_ranges(self) -> list[NamedRange]:
         """(internal) Return the list of local Name Ranges."""
         return cast(
-            list[NamedRange],
+            "list[NamedRange]",
             self.get_elements("descendant::table:named-expressions/table:named-range"),
         )
 
@@ -2479,14 +2574,13 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             f'descendant::table:named-expressions/table:named-range[@table:name="{name}"][1]'
         )
         if named_range:
-            return cast(NamedRange, named_range[0])
-        else:
-            return None
+            return cast("NamedRange", named_range[0])
+        return None
 
     def _local_append_named_range(self, named_range: NamedRange) -> None:
         """(internal) Append the named range to the current table."""
         named_expressions = cast(
-            TableNamedExpressions | None,
+            "TableNamedExpressions | None",
             self.get_element(TableNamedExpressions._tag),
         )
         if not named_expressions:
@@ -2516,7 +2610,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             return
         named_range.delete()
         named_expressions = cast(
-            TableNamedExpressions | None,
+            "TableNamedExpressions | None",
             self.get_element(TableNamedExpressions._tag),
         )
         if not named_expressions:
@@ -2754,7 +2848,7 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         for yy in range(y, t + 1):
             row_cells = []
             for xx in range(x, z + 1):
-                row_cells.append(
+                row_cells.append(  # noqa:PERF401
                     self.get_cell((xx, yy), clone=True, keep_repeated=False)
                 )
             cells.append(row_cells)
@@ -2850,8 +2944,381 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         self.set_cells(cells, coord=start, clone=False)
         return True
 
+    #
+    # Import/export API
+    #
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Return the dimensions (rows, columns) of the table after rstrip
+        optimization.
+
+        The table remains unchanged.
+
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> table.shape
+        (4, 3)
+
+        Returns:
+            The (height, width) tuple of the table.
+        """
+        cloned_table = self.clone
+        cloned_table.rstrip(aggressive=True)
+        return (cloned_table.height, cloned_table.width)
+
+    @property
+    def headers(self) -> list[CellValue | None]:
+        """Return the first row of table values (column headers) after rstrip.
+
+        The table remains unchanged.
+
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> table.headers
+        ['reference', 'color', 'price']
+
+        Returns:
+            List of column header values, or empty list if the table has no
+            rows.
+        """
+        cloned_table = self.clone
+        cloned_table.rstrip(aggressive=True)
+        values = cloned_table.values
+        return values[0] if values else []
+
+    def to_dict(
+        self,
+        orient: str = "list",
+        header: bool = True,
+        mode: str = "python",
+        lstrip: bool = False,
+        no_decimal: bool = False,
+        no_date: bool = False,
+        no_nan: bool = False,
+    ) -> dict[str, Any] | list[dict[str, Any]]:
+        """Export table data as a Python dictionary or list of dictionaries.
+
+        Args:
+            orient: Format of the output:
+                - "list" (default): Columnar dict `{"col": [values, ...]}`.
+                - "records": List of row dicts `[{"col": value, ...}, ...]`.
+                - "matrix": Dict with table name `{"TableName": [[...], ...]}`.
+            header: (for orientation "list" or "records"). If True, uses the
+                first row of data as column header keys. If False, column keys
+                are generated as "0", "1", "2", ...
+            mode: Serialization mode ("python" or "json"). Defaults
+                to "python".
+            lstrip: If True, also removes leading empty rows and columns from
+                the top-left before export.
+            no_decimal: If True in "python" mode, convert Decimal values to
+                float or int.
+            no_date: If True in "python" mode, convert date, datetime, and
+                timedelta values to ODF/ISO formatted strings.
+            no_nan: If True in "python" mode, convert NaN and infinity values
+                to None.
+
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> table.to_dict()
+        {
+            'reference': ['ref01', 'ref02', 'ref03'],
+            'color': ['white', 'blue', 'red'],
+            'price': [10, Decimal('20.5'), Decimal('25.75')]
+        }
+
+        >>> table.to_dict(orient="records")
+        [
+            {'reference': 'ref01', 'color': 'white', 'price': 10},
+            {'reference': 'ref02', 'color': 'blue', 'price': Decimal('20.5')},
+            {'reference': 'ref03', 'color': 'red', 'price': Decimal('25.75')}
+        ]
+
+        >>> table.to_dict(orient="matrix")
+        {
+            'product': [
+                ['reference', 'color', 'price'],
+                ['ref01', 'white', 10],
+                ['ref02', 'blue', Decimal('20.5')],
+                ['ref03', 'red', Decimal('25.75')]
+            ]
+        }
+
+        Returns:
+            The table data formatted as a dictionary or list of dicts.
+
+        Raises:
+            ValueError: If `orient` is not one of "list", "records", or "matrix".
+        """
+        match orient:
+            case "list":
+                return self._to_dict_list(
+                    header=header,
+                    mode=mode,
+                    lstrip=lstrip,
+                    no_decimal=no_decimal,
+                    no_date=no_date,
+                    no_nan=no_nan,
+                )
+            case "records":
+                return self._to_dict_records(
+                    header=header,
+                    mode=mode,
+                    lstrip=lstrip,
+                    no_decimal=no_decimal,
+                    no_date=no_date,
+                    no_nan=no_nan,
+                )
+            case "matrix":
+                return self._to_dict_matrix(
+                    mode=mode,
+                    lstrip=lstrip,
+                    no_decimal=no_decimal,
+                    no_date=no_date,
+                    no_nan=no_nan,
+                )
+            case _:
+                msg = (
+                    f"Invalid orient parameter: {orient!r}. "
+                    "Expected 'list', 'records', or 'matrix'."
+                )
+                raise ValueError(msg)
+
+    def _to_dict_list(
+        self,
+        header: bool,
+        mode: str,
+        lstrip: bool,
+        no_decimal: bool,
+        no_date: bool,
+        no_nan: bool,
+    ) -> dict[str, list[Any]]:
+        rows = serialize_table(
+            self,
+            mode=mode,
+            lstrip=lstrip,
+            no_decimal=no_decimal,
+            no_date=no_date,
+            no_nan=no_nan,
+        )
+        if not rows:
+            return {}
+
+        if header:
+            headers = [
+                str(h) if h is not None and str(h) != "" else f"Unnamed: {i}"
+                for i, h in enumerate(rows[0])
+            ]
+            data_rows = rows[1:]
+        else:
+            headers = [str(i) for i in range(len(rows[0]))]
+            data_rows = rows
+
+        unifyer = NameUnifyer()
+        unique_headers = [unifyer.unique(h) for h in headers]
+
+        res_dict: dict[str, list[Any]] = {h: [] for h in unique_headers}
+        for row in data_rows:
+            for i, h in enumerate(unique_headers):
+                val = row[i] if i < len(row) else None
+                res_dict[h].append(val)
+        return res_dict
+
+    def _to_dict_records(
+        self,
+        header: bool,
+        mode: str,
+        lstrip: bool,
+        no_decimal: bool,
+        no_date: bool,
+        no_nan: bool,
+    ) -> list[dict[str, Any]]:
+        rows = serialize_table(
+            self,
+            mode=mode,
+            lstrip=lstrip,
+            no_decimal=no_decimal,
+            no_date=no_date,
+            no_nan=no_nan,
+        )
+        if not rows:
+            return []
+
+        if header:
+            headers = [
+                str(h) if h is not None and str(h) != "" else f"Unnamed: {i}"
+                for i, h in enumerate(rows[0])
+            ]
+            data_rows = rows[1:]
+        else:
+            headers = [str(i) for i in range(len(rows[0]))]
+            data_rows = rows
+
+        unifyer = NameUnifyer()
+        unique_headers = [unifyer.unique(h) for h in headers]
+
+        res_records: list[dict[str, Any]] = []
+        for row in data_rows:
+            record: dict[str, Any] = {}
+            for i, h in enumerate(unique_headers):
+                record[h] = row[i] if i < len(row) else None
+            res_records.append(record)
+        return res_records
+
+    def _to_dict_matrix(
+        self, mode: str, lstrip: bool, no_decimal: bool, no_date: bool, no_nan: bool
+    ) -> dict[str, list[list[Any]]]:
+        rows = serialize_table(
+            self,
+            mode=mode,
+            lstrip=lstrip,
+            no_decimal=no_decimal,
+            no_date=no_date,
+            no_nan=no_nan,
+        )
+        name = self.name
+        if not name:
+            unifyer = NameUnifyer()
+            name = unifyer.unique()
+        return {name: rows}
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any] | list[dict[str, Any]],
+        name: str | None = None,
+        guess_type: bool = False,
+    ) -> Table:
+        """Create a new Table object from a dictionary or list of
+        dictionaries.
+
+        Accepts:
+        - Columnar dict: `{"Col1": [val1, val2], "Col2": [val3, val4]}`
+        - List of records: `[{"Col1": val1, "Col2": val3}, {"Col1": val2,
+            "Col2": val4}]`
+        - Matrix dict: `{"SheetName": [[val1, val2], [val3, val4]]}`
+
+        Args:
+            data: The dictionary or list of dicts to import.
+            name: Name of the table to create.
+            guess_type: If True, try to detect Python type from strings
+                values (int, float, dates).
+
+        Returns:
+            A new Table populated with the dictionary data.
+
+        Raises:
+            TypeError: If data is not a dict or list of dicts.
+        """
+        if isinstance(data, dict):
+            return cls._from_dict_dict(data, name, guess_type)
+        if isinstance(data, list):
+            return cls._from_dict_list(data, name, guess_type)
+        msg = "data must be a dict or list of dicts."
+        raise TypeError(msg)
+
+    @classmethod
+    def _from_dict_dict(
+        cls, data: dict[str, Any], name: str | None, guess_type: bool
+    ) -> Table:
+        if not data:
+            return cls(name or "Table")
+        first_val = next(iter(data.values()))
+        if (
+            len(data) == 1
+            and isinstance(first_val, list)
+            and (not first_val or isinstance(first_val[0], list))
+        ):
+            table_name = name or next(iter(data.keys()))
+            table = cls(table_name)
+            if guess_type:
+                _populate_table(table, first_val)
+            else:
+                _populate_table_keep_strings(table, first_val)
+            return table
+
+        headers = list(data.keys())
+        columns_data = [data[h] for h in headers]
+        max_len = max(
+            (len(col) if isinstance(col, (list, tuple)) else 1 for col in columns_data),
+            default=0,
+        )
+        rows: list[list[Any]] = [headers]
+        for row_idx in range(max_len):
+            row = [
+                columns_data[col_idx][row_idx]
+                if isinstance(columns_data[col_idx], (list, tuple))
+                and row_idx < len(columns_data[col_idx])
+                else columns_data[col_idx]
+                if not isinstance(columns_data[col_idx], (list, tuple)) and row_idx == 0
+                else None
+                for col_idx in range(len(headers))
+            ]
+            rows.append(row)
+        table = cls(name or "Table")
+        if guess_type:
+            _populate_table(table, rows)
+        else:
+            _populate_table_keep_strings(table, rows)
+        return table
+
+    @classmethod
+    def _from_dict_list(
+        cls, data: list[dict[str, Any]], name: str | None, guess_type: bool
+    ) -> Table:
+        if not data:
+            return cls(name or "Table")
+        first = data[0]
+        if not isinstance(first, dict):
+            msg = "List elements must be dictionaries."
+            raise TypeError(msg)
+        headers = list(
+            dict.fromkeys(
+                k for record in data if isinstance(record, dict) for k in record
+            )
+        )
+        rows = [headers]
+        for record in data:
+            if not isinstance(record, dict):
+                msg = "List elements must be dictionaries."
+                raise TypeError(msg)
+            row = [record.get(h) for h in headers]
+            rows.append(row)
+        table = cls(name or "Table")
+        if guess_type:
+            _populate_table(table, rows)
+        else:
+            _populate_table_keep_strings(table, rows)
+        return table
+
     def to_markdown(self) -> str:
         """Export the table content as a Markdown string.
+
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
 
         Returns:
             str: The Markdown representation of the table.
@@ -2880,23 +3347,30 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             **fmtparams: Additional keyword arguments to pass to the
                 `csv.writer` method.
 
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> print(table.to_csv())
+        reference,color,price
+        ref01,white,10
+        ref02,blue,20.5
+        ref03,red,25.75
+
         Returns:
             str | None: The CSV content as a string if `path_or_file` is None,
                 otherwise None.
         """
-
-        def write_content(csv_writer: object) -> None:
-            for values in self.iter_values():
-                line = []
-                for value in values:
-                    if value is None:
-                        value = ""
-                    line.append(value)
-                csv_writer.writerow(line)
-
+        rows = serialize_table(self, "csv")
         content = StringIO(newline="")
         csv_writer = csv.writer(content, dialect=dialect, **fmtparams)
-        write_content(csv_writer)
+        for row in rows:
+            csv_writer.writerow(row)
+
         if path_or_file:
             # windows fix: write file as binary
             Path(path_or_file).write_bytes(content.getvalue().encode())
@@ -2959,13 +3433,29 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             ensure_ascii: If True, non-ASCII characters are escaped. Defaults
                 to False.
 
+        Example:
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> print(table.to_json(pretty=True))
+        {
+          "product": [
+            ["reference", "color", "price"],
+            ["ref01", "white", 10],
+            ["ref02", "blue", 20.5],
+            ["ref03", "red", 25.75]
+          ]
+        }
+
         Returns:
             str | None: The JSON content as a string if `path_or_file` is
                 None, otherwise None.
         """
-        cloned_table = self.clone
-        cloned_table.rstrip(aggressive=True)
-        rows = cloned_table._serialize_table_rows()
+        rows = serialize_table(self, "json")
         name = self.name
         if not name:
             unifyer = NameUnifyer()
@@ -2980,47 +3470,14 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
             return None
         return content
 
-    def _serialize_table_rows(self) -> list[list[CellValue]]:
-        serialized_rows: list[list[CellValue]] = []
-        for row in self.values:
-            serialized_row: list[Any] = []
-            for val in row:
-                if val is None or isinstance(val, (str, int, bool)):
-                    serialized_row.append(val)
-                elif isinstance(val, float):
-                    if math.isnan(val) or math.isinf(val):
-                        serialized_row.append(None)
-                    else:
-                        serialized_row.append(val)
-                elif isinstance(val, Decimal):
-                    if val.is_nan() or val.is_infinite():
-                        serialized_row.append(None)
-                    else:
-                        serialized_row.append(
-                            int(val) if int(val) == val else float(val)
-                        )
-                elif isinstance(val, datetime):
-                    serialized_row.append(DateTime.encode(val))
-                elif isinstance(val, date):
-                    serialized_row.append(Date.encode(val))
-                elif isinstance(val, timedelta):
-                    serialized_row.append(Duration.encode(val))
-                else:
-                    serialized_row.append(str(val))
-            while serialized_row and serialized_row[-1] is None:
-                serialized_row.pop()
-            serialized_rows.append(serialized_row)
-
-        while serialized_rows and not serialized_rows[-1]:
-            serialized_rows.pop()
-
-        return serialized_rows
+    def _serialize_table_rows(self) -> list[list[CellValue | None]]:
+        return serialize_table(self, "json")
 
     @classmethod
     def from_json(
         cls,
         content: str | dict[str, list[list[Any]]] | list[list[Any]],
-        name: str = "",
+        name: str | None = "",
     ) -> Table:
         """Import JSON content into a new Table object.
 
@@ -3041,14 +3498,14 @@ class Table(MDTable, FormMixin, OfficeFormsMixin, Element):
         unifyer = NameUnifyer()
         if isinstance(data, dict):
             if not data:
-                table_name = unifyer.unique(name)
+                table_name = unifyer.unique(name or "")
                 rows_data: list[list[Any]] = []
             else:
                 key = next(iter(data))
                 table_name = unifyer.unique(key)
                 rows_data = data[key]
         elif isinstance(data, list):
-            table_name = unifyer.unique(name)
+            table_name = unifyer.unique(name or "")
             rows_data = data
         else:
             msg = "JSON content must be a dict, list, or valid JSON string."

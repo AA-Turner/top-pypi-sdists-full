@@ -92,6 +92,17 @@ def main() -> int:
     ap.add_argument("--stream-fps", type=int, default=30)
     ap.add_argument("--stream-bitrate", default="4M")
     ap.add_argument(
+        "--image-benchmark-contract",
+        action="store_true",
+        help=(
+            "Declare that the image in P6_SELKIES_IMAGE implements the harness "
+            "benchmark entrypoint (consumes P6_BASE_URL/P6_DURATION, emits the "
+            "ready/action/encoder JSONL). Without it, a container image run is "
+            "REFUSED rather than reported as a misleading capacity number. This "
+            "was P6_IMAGE_BENCHMARK_CONTRACT=1 until 2026-09-11 (USD-5)."
+        ),
+    )
+    ap.add_argument(
         "--input-latency-cmd",
         default=os.environ.get("P6_INPUT_LATENCY_CMD"),
         help="command printing ONE number (ms) per call; the only way the "
@@ -163,6 +174,7 @@ def main() -> int:
         stream_fps=args.stream_fps,
         stream_bitrate=args.stream_bitrate,
         selkies_image=os.environ.get("P6_SELKIES_IMAGE"),
+        image_benchmark_contract=args.image_benchmark_contract,
         sandbox_image=os.environ.get("P6_SANDBOX_IMAGE"),
         turn_url=os.environ.get("P6_TURN_URL"),
         input_latency_cmd=args.input_latency_cmd,

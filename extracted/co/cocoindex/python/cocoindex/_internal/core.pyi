@@ -349,18 +349,18 @@ class LiveComponentController:
     def update_full_async(
         self,
         processor: ComponentProcessor[Any],
-        handler_callback: Callable[[str], Awaitable[None]] | None = None,
+        handler_callback: Callable[[BaseException], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, None]: ...
     def update_async(
         self,
         stable_path: StablePath,
         processor: ComponentProcessor[Any],
-        handler_callback: Callable[[str], Awaitable[None]] | None = None,
+        handler_callback: Callable[[BaseException], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, ComponentMountHandle]: ...
     def delete_async(
         self,
         stable_path: StablePath,
-        handler_callback: Callable[[str], Awaitable[None]] | None = None,
+        handler_callback: Callable[[BaseException], Awaitable[None]] | None = None,
     ) -> Coroutine[Any, Any, ComponentMountHandle]: ...
     def mark_ready_async(self) -> Coroutine[Any, Any, None]: ...
     def read_committed_state_async(
@@ -386,13 +386,19 @@ def mount_live_async(
 # --- TargetActionSink ---
 class TargetActionSink:
     @staticmethod
-    def new_sync(callback: Callable[..., Any]) -> TargetActionSink: ...
+    def new_sync(
+        callback: Callable[..., Any], with_children: bool
+    ) -> TargetActionSink: ...
     @staticmethod
     def new_async(
-        callback: Callable[..., Coroutine[Any, Any, Any]],
+        callback: Callable[..., Coroutine[Any, Any, Any]], with_children: bool
     ) -> TargetActionSink: ...
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
+
+# --- ChildTargetSlot ---
+class ChildTargetSlot:
+    def fulfill(self, handler: Any, /) -> None: ...
 
 # --- TargetHandler (marker class, used for typing) ---
 class TargetHandler: ...
@@ -412,7 +418,7 @@ def init_runtime(
     package_id: str,
     lang: str,
     serialize_fn: Callable[[Any], bytes],
-    handler_wrapper_fn: Callable[[Any], Any],
+    child_slot_wrapper_fn: Callable[[ChildTargetSlot], Any],
     non_existence: Any,
     not_set: Any,
 ) -> None: ...
@@ -424,7 +430,7 @@ async def mount_async(
     stable_path: StablePath,
     comp_ctx: ComponentProcessorContext,
     fn_ctx: FnCallContext,
-    handler_callback: Any | None = None,
+    handler_callback: Callable[[BaseException], Awaitable[None]] | None = None,
 ) -> ComponentMountHandle: ...
 async def use_mount_async(
     processor: ComponentProcessor[T_co],

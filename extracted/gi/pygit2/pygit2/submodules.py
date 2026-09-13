@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Optional
 from ._pygit2 import Oid
 from .callbacks import RemoteCallbacks, git_fetch_options
 from .enums import SubmoduleIgnore, SubmoduleStatus
-from .errors import check_error
+from .errors import AlreadyExistsError, check_error
 from .ffi import C, ffi
 from .utils import decode_fs_path, decode_string, encode_string
 
@@ -210,7 +210,11 @@ class SubmoduleCollection:
         """
         try:
             return self[name]
-        except KeyError:
+        except (KeyError, AlreadyExistsError):
+            # libgit2 reports GIT_EEXISTS, which check_error turns into
+            # AlreadyExistsError, when a repository exists at the path but was
+            # never registered as a submodule. There is still no submodule by
+            # that name, so report it the same way as a missing one.
             return None
 
     def add(

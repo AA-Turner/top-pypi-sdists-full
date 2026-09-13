@@ -1,6 +1,9 @@
 """Tests for stream_processor.py — the StreamBlockProcessor and batch helpers."""
 
-import json
+import asyncio
+import threading
+
+import pytest
 
 from matrx_ai.processing.blocks.models.base import BlockStatus
 from matrx_ai.processing.blocks.stream_processor import (
@@ -62,7 +65,7 @@ class TestStreamBlockProcessor:
     def test_finalize_idempotent(self):
         proc = StreamBlockProcessor()
         proc.process_token("Text")
-        final1 = proc.finalize()
+        proc.finalize()
         final2 = proc.finalize()
         assert len(final2) == 0  # Second call returns nothing
 
@@ -153,3 +156,64 @@ class TestProcessComplete:
         # Should be sorted by blockIndex
         indices = [b["blockIndex"] for b in blocks]
         assert indices == sorted(indices)
+
+
+def test_cancelled_async_token_keeps_the_processor_serialized_until_worker_settles():
+    """``to_thread`` cancellation must not let finalize race the token worker."""
+
+    async def scenario() -> None:
+        processor = StreamBlockProcessor()
+        first_started = threading.Event()
+        first_release = threading.Event()
+        final_started = threading.Event()
+        final_release = threading.Event()
+        active = 0
+        peak_active = 0
+        calls = 0
+        lock = threading.Lock()
+
+        def blocking_token(_token: str):
+            nonlocal active, peak_active, calls
+            with lock:
+                active += 1
+                peak_active = max(peak_active, active)
+                calls += 1
+            first_started.set()
+            assert first_release.wait(1), "first worker was not released"
+            with lock:
+                active -= 1
+            return []
+
+        def blocking_finalize():
+            nonlocal active, peak_active, calls
+            with lock:
+                active += 1
+                peak_active = max(peak_active, active)
+                calls += 1
+            final_started.set()
+            assert final_release.wait(1), "final worker was not released"
+            with lock:
+                active -= 1
+            return []
+
+        processor.process_token = blocking_token  # type: ignore[method-assign]
+        processor.finalize = blocking_finalize  # type: ignore[method-assign]
+
+        token = asyncio.create_task(processor.process_token_async("<xml"))
+        assert await asyncio.to_thread(first_started.wait, 1)
+        token.cancel()
+        final = asyncio.create_task(processor.finalize_async())
+        await asyncio.sleep(0.05)
+        assert calls == 1, "finalize started while the cancelled token worker still ran"
+
+        first_release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await token
+        assert await asyncio.to_thread(final_started.wait, 1)
+        assert peak_active == 1
+
+        final_release.set()
+        assert await final == []
+        assert calls == 2
+
+    asyncio.run(scenario())

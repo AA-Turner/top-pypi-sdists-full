@@ -73,8 +73,14 @@ from matrx_ai.tools.result_gate import apply_size_gate
                 "saved": True,
                 "id": "catalog-id",
                 "changes": ["nodes added: summary."],
+                "warnings": [
+                    {
+                        "severity": "warning",
+                        "message": "This input is supplied by the run host.",
+                    }
+                ],
             },
-            id="workflow-author-patch-receipt",
+            id="workflow-author-patch-receipt-with-warnings",
         ),
         pytest.param(
             "workflow_plan_result",
@@ -213,6 +219,53 @@ def test_dispatcher_contract_flattens_generated_variant_properties() -> None:
     assert set(schema["properties"]) == {"action", "session_id", "url"}
     assert schema["properties"]["session_id"]["type"] == "string"
     assert schema["required"] == ["action"]
+
+
+def test_dispatcher_contract_keeps_bulk_write_data_unconstrained() -> None:
+    """Bulk SQL writes accept an object or a list; flattening must not lie.
+
+    The provider's flat schema cannot make ``data`` action-dependent because
+    update is object-only while insert/upsert also accept arrays.  The honest
+    flattened schema therefore omits ``type`` and the Content IR shadow check
+    accepts both executable shapes.
+    """
+    tool = ToolDefinition(
+        name="sql",
+        parameters={
+            "action": {
+                "type": "string",
+                "enum": ["insert", "update", "upsert"],
+                "required": True,
+            },
+            "data": {"type": ["object", "array"]},
+            "$variants": {
+                "insert": {
+                    "type": "object",
+                    "required": ["data"],
+                    "properties": {"data": {"type": ["object", "array"]}},
+                },
+                "update": {
+                    "type": "object",
+                    "required": ["data"],
+                    "properties": {"data": {"type": "object"}},
+                },
+                "upsert": {
+                    "type": "object",
+                    "required": ["data"],
+                    "properties": {"data": {"type": ["object", "array"]}},
+                },
+            },
+        },
+    )
+
+    schema = tool.content_ir_contracts()[0].json_schema
+    assert "type" not in schema["properties"]["data"]
+
+    from matrx_graph.contract_kinds import check_schema
+
+    assert check_schema(
+        {"action": "insert", "data": [{"name": "first"}]}, schema
+    ).errors == []
 
 
 def test_typeless_dispatcher_property_accepts_object_in_content_ir_contract() -> None:

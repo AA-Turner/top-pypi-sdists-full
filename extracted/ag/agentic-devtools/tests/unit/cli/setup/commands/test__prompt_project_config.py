@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from agentic_devtools.cli.setup.commands import _prompt_project_config
 
 
@@ -327,6 +329,55 @@ class TestPromptProjectConfig:
         saved = mock_save.call_args[0][0]
         assert saved["jira_project_keys"] == "NEW_KEY"
         assert saved["jira_base_url"] == "https://new.example.com"
+
+    def test_prompt_path_returns_current_values_when_input_raises_oserror(self, capsys):
+        """Should keep current values when prompt input raises OSError."""
+        existing = {
+            "jira_project_keys": "PROJ",
+            "jira_base_url": "https://jira.example.com",
+            "corporate_network_test_host": "corp.example.com",
+            "vpn_url": "https://vpn.example.com",
+            "vpn_hostnames": "vpn1.example.com",
+        }
+
+        with patch("agentic_devtools.cli.setup.commands.input", side_effect=OSError("stdin closed")):
+            with patch("agentic_devtools.cli.config.project_config.load_project_config", return_value=existing):
+                with patch(
+                    "agentic_devtools.cli.config.project_config.save_project_config", return_value="/fake/path"
+                ) as mock_save:
+                    _prompt_project_config(force_prompt=True)
+
+        saved = mock_save.call_args[0][0]
+        for key, value in existing.items():
+            assert saved[key] == value
+
+    def test_prompt_path_propagates_keyboard_interrupt(self, capsys):
+        """Ctrl-C aborts the prompt instead of silently keeping current values."""
+        existing = {
+            "jira_project_keys": "PROJ",
+            "jira_base_url": "https://jira.example.com",
+        }
+
+        with patch("agentic_devtools.cli.setup.commands.input", side_effect=KeyboardInterrupt):
+            with patch("agentic_devtools.cli.config.project_config.load_project_config", return_value=existing):
+                with patch("agentic_devtools.cli.config.project_config.save_project_config") as mock_save:
+                    with pytest.raises(KeyboardInterrupt):
+                        _prompt_project_config(force_prompt=True)
+
+        mock_save.assert_not_called()
+
+    def test_returns_config_without_saving_when_persist_is_false(self, capsys):
+        """Should return the updated config without saving when persist is false."""
+        inputs = iter(["ACME", "https://jira.example.com", "", "", ""])
+
+        with patch("agentic_devtools.cli.setup.commands.input", side_effect=lambda _: next(inputs)):
+            with patch("agentic_devtools.cli.config.project_config.load_project_config", return_value={}):
+                with patch("agentic_devtools.cli.config.project_config.save_project_config") as mock_save:
+                    config = _prompt_project_config(force_prompt=True, persist=False)
+
+        mock_save.assert_not_called()
+        assert config["jira_project_keys"] == "ACME"
+        assert config["jira_base_url"] == "https://jira.example.com"
 
     def test_fresh_config_gets_commit_type_defaults(self, capsys):
         """Fresh config gets both defaultCommitIssueType and availableCommitIssueTypes."""

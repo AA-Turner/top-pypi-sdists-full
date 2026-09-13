@@ -53,6 +53,7 @@ from matrx_ai.tools.kinds.agent_ops import (  # noqa: E402
     OfficeToolResult,
     ResearchRunState,
     RulebookToolResult,
+    SealedCaseToolResult,
     SelfPromptResult,
 )
 from matrx_ai.tools.kinds.agent_tasks import AgentTaskList  # noqa: E402
@@ -316,6 +317,7 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # kind per tool, and its extract branch is a summary (see kinds/agent_ops.py).
     "self_prompt": SelfPromptResult,
     "rulebook": RulebookToolResult,
+    "sealed_case": SealedCaseToolResult,
     "research_run": ResearchRunState,
     "office": OfficeToolResult,
 }

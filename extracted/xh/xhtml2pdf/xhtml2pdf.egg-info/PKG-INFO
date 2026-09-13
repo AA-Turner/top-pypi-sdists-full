@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xhtml2pdf
-Version: 0.2.18
+Version: 0.2.19
 Summary: PDF generator using HTML and CSS
 Author-email: Dirk Holtwick <dirk.holtwick@gmail.com>
 Maintainer-email: Luis Zarate <luisza14@gmail.com>, Timo Brembeck <opensource@timo.brembeck.email>

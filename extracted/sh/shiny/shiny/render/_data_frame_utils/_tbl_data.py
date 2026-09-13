@@ -1,17 +1,20 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, List, TypedDict, cast
+import operator
+from typing import TYPE_CHECKING, Any, List, SupportsIndex, TypedDict, cast
 
 import narwhals.stable.v1 as nw
 import orjson
 
+from ..._typing_extensions import TypeIs
 from ...session import Session, require_active_session
-from ...types import Jsonifiable, JsonifiableDict
+from ...types import Jsonifiable, JsonifiableDict, ListOrTuple
 from ._html import as_cell_html, ui_must_be_processed
 from ._types import (
     CellHtml,
     CellPatch,
     CellValue,
+    ColIndexes,
     ColsList,
     DataFrame,
     DataFrameT,
@@ -25,6 +28,7 @@ from ._types import (
 )
 
 __all__ = (
+    "as_col_indexes",
     "as_data_frame",
     "data_frame_to_native",
     "apply_frame_patches",
@@ -150,29 +154,34 @@ def apply_frame_patches(
     # This allows for a single column to be updated in a single operation (rather than multiple updates to the same column)
     #
     # In; patches: List[Dict[row_index: int, column_index: int, value: Any]]
-    # Out; cell_patches_by_column: Dict[column_name: str, List[Dict[row_index: int, value: Any]]]
+    # Out; cell_patches_by_column: Dict[column_index: int, List[Dict[row_index: int, value: Any]]]
     #
-    cell_patches_by_column: dict[str, ScatterValues] = {}
+    # Patches arrive from the browser keyed by column *index*, and the column is read
+    # back out positionally, so the column name never enters the lookup. Names are not
+    # dependable keys: they may be empty or, in pandas, not even strings.
+    cell_patches_by_column: dict[int, ScatterValues] = {}
     for cell_patch in patches:
-        column_name = nw_data.columns[cell_patch["column_index"]]
-        if column_name not in cell_patches_by_column:
-            cell_patches_by_column[column_name] = {
+        column_index = cell_patch["column_index"]
+        if column_index not in cell_patches_by_column:
+            cell_patches_by_column[column_index] = {
                 "row_indexes": [],
                 "values": [],
             }
 
         # Append the row index and value to the column information
-        cell_patches_by_column[column_name]["row_indexes"].append(
+        cell_patches_by_column[column_index]["row_indexes"].append(
             cell_patch["row_index"]
         )
-        cell_patches_by_column[column_name]["values"].append(cell_patch["value"])
+        cell_patches_by_column[column_index]["values"].append(cell_patch["value"])
 
-    # Upgrade the Scatter info to new column Series objects
+    # Upgrade the Scatter info to new column Series objects.
+    # `nw_data[:, i]` selects positionally; the resulting Series keeps the column's
+    # name, which is what `with_columns()` below matches on.
     scatter_columns = [
-        nw_data[column_name].scatter(
+        nw_data[:, column_index].scatter(
             scatter_values["row_indexes"], scatter_values["values"]
         )
-        for column_name, scatter_values in cell_patches_by_column.items()
+        for column_index, scatter_values in cell_patches_by_column.items()
     ]
     # Apply patches to the nw data
     return nw_data.with_columns(*scatter_columns)
@@ -237,7 +246,9 @@ def serialize_frame(into_data: IntoDataFrame) -> FrameJson:
 
     data = as_data_frame(into_data)
 
-    type_hints = [serialize_dtype(data[col_name]) for col_name in data.columns]
+    type_hints = [
+        serialize_dtype(data.get_column(col_name)) for col_name in data.columns
+    ]
 
     # TODO-future-barret; Swich serialization to "by column", rather than "by row"
     # * This would allow for a single column to be serialized in a single operation
@@ -297,6 +308,86 @@ def serialize_frame(into_data: IntoDataFrame) -> FrameJson:
     }
 
 
+# as_col_indexes -----------------------------------------------------------------------
+def _is_col_position(col: str | SupportsIndex) -> TypeIs[SupportsIndex]:
+    """Whether `col` should be read as a column position rather than a column name.
+
+    Anything integer-like counts, not only `int`: `numpy` integers (what `np.where()`,
+    `np.arange()`, and `Index.get_indexer()` hand back) are the most likely source of a
+    position, and `isinstance(np.int64(0), int)` is `False`.
+
+    `bool` is integer-like in Python but is never a position here; the caller is
+    rejected instead, so that `[True, False]` cannot silently mean `[1, 0]`.
+    """
+    if isinstance(col, (str, bool)):
+        return False
+    return hasattr(col, "__index__")
+
+
+def as_col_indexes(
+    data: DataFrame[Any], cols: ListOrTuple[str | SupportsIndex]
+) -> ColIndexes:
+    """Resolve caller-supplied columns to column positions.
+
+    This is the single place where `subset_frame()` turns a column name into a column
+    position; everything downstream of it addresses columns by position only
+    (:data:`ColIndexes`), because names are not dependable identifiers: they may be
+    empty, and pandas allows names that are not strings. (Other name lookups still exist
+    elsewhere in the data frame code, e.g. `update_cell_value()` and `style_info_cols()`.)
+
+    Parameters
+    ----------
+    data
+        The data frame the columns belong to.
+    cols
+        Column names (`str`) or column positions (any integer-like value, e.g. `int` or
+        `numpy.int64`).
+
+        An integer is **always** read as a position, never as a label. The two cannot be
+        told apart otherwise, and narwhals reads a list of ints in the column slot
+        positionally, so a pandas frame whose labels are ints (e.g. `{5: ..., 3: ...}`)
+        must be addressed by position.
+
+    Raises
+    ------
+    TypeError
+        If a column is a `bool`. `bool` is a subclass of `int`, so accepting it would
+        read `[True, False]` as positions `[1, 0]` rather than as a mask.
+    ValueError
+        If a name is not a column of `data`, or if a position is negative or beyond the
+        last column.
+    """
+    ncol = len(data.columns)
+    col_indexes: list[int] = []
+    for col in cols:
+        if isinstance(col, bool):
+            raise TypeError(
+                f"Column {col!r} must be a column name (`str`) or a column position "
+                "(`int`), not a `bool`."
+            )
+        if _is_col_position(col):
+            col_index = operator.index(col)
+            if col_index < 0:
+                raise ValueError(
+                    f"Column position {col_index} must be greater than or equal to 0."
+                )
+            if col_index >= ncol:
+                raise ValueError(
+                    f"Column position {col_index} is out of range. "
+                    f"The data frame has {ncol} columns."
+                )
+            col_indexes.append(col_index)
+            continue
+        try:
+            col_indexes.append(data.columns.index(col))
+        except ValueError:
+            raise ValueError(
+                f"Column name {col!r} not found in the data frame. "
+                "To select a column by position, pass an `int`."
+            ) from None
+    return col_indexes
+
+
 # subset_frame -------------------------------------------------------------------------
 def subset_frame(
     data: DataFrameT,
@@ -304,34 +395,41 @@ def subset_frame(
     rows: RowsList = None,
     cols: ColsList = None,
 ) -> DataFrameT:
-    """Return a subsetted DataFrame, based on row positions and column names.
+    """Return a subsetted DataFrame, based on row positions and column names or positions.
 
     Note that when None is passed, all rows or columns get included.
-    """
-    # Note that this type signature assumes column names are string objects.
-    # This is always true in Polars, but not in Pandas (e.g. a column name could be an
-    # int, or even a tuple of ints)
 
+    Known narwhals behavior: on polars, any selection that names columns positionally
+    renames a column whose name is `""` to `"column_<position in the result>"` -- both
+    the columns-only and the rows-and-columns branches below, e.g. selecting all of
+    `["a", "", "c"]` yields `["a", "column_1", "c"]` and selecting `[2, 1]` of it yields
+    `["c", "column_1"]`. Only the rows-only branch is unaffected. (polars 1.43.2,
+    narwhals 2.24.0)
+    """
     # The nested if-else structure is used to navigate around narwhals' typing system and lack of `:` operator outside of `[`, `]`.
 
+    # Note: pyright resolves `DataFrame.__getitem__` to the overload returning `Self`
+    # (i.e. `DataFrameT`), but pyrefly resolves `Self` to the type variable's bound
+    # (`DataFrame[Any]`), hence the pyrefly ignores on the subsetted returns.
     if cols is None:
         if rows is None:
             return data
         else:
-            return data[rows, :]
+            return data[rows, :]  # pyrefly: ignore[bad-return]
     else:
-        # `cols` is not None
-        col_names = [data.columns[col] if isinstance(col, int) else col for col in cols]
+        # `cols` is not None. Resolve names to positions once, here, so that the
+        # subsetting below only ever deals with positions.
+        col_indexes = as_col_indexes(data, cols)
 
         # Return a DataFrame with no rows or columns
         # If there are no columns, there are no Series objects to support any rows
-        if len(col_names) == 0:
-            return data[[], []]
+        if len(col_indexes) == 0:
+            return data[[], []]  # pyrefly: ignore[bad-return]
 
         if rows is None:
-            return data[:, col_names]
+            return data[:, col_indexes]  # pyrefly: ignore[bad-return]
         else:
-            return data[rows, col_names]
+            return data[rows, col_indexes]  # pyrefly: ignore[bad-return]
 
 
 class ScatterValues(TypedDict):

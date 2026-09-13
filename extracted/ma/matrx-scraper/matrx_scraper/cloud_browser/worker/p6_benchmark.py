@@ -4,7 +4,18 @@ This is deliberately not a second worker implementation. It boots the real
 ``BrowserWorker`` against the image's real Xvfb display, starts the same
 ``SelkiesSupervisor`` used by the HTTP transport, and drives actions through the
 real ordered command path. The ordinary image entrypoint selects this module only
-when ``P6_BENCHMARK_MODE=1`` is explicitly present.
+when the container is started in benchmark mode, and then invokes it as
+``python -m …p6_benchmark --benchmark``.
+
+The ``--benchmark`` flag is the interlock: this module refuses to run without it,
+so an accidental import or a stray ``python -m`` can never take over a worker.
+It used to re-read ``P6_BENCHMARK_MODE=1`` here as well; USD-5 (Arman,
+2026-09-10 — "Never an env var. Env values are only for secrets, not for
+controlling behavior") retired that read on 2026-09-11. The container's
+``P6_BENCHMARK_MODE`` variable survives ONE layer up, in the image entrypoint,
+because ``docker run --env`` is the only channel a caller has into a container —
+and the entrypoint now turns it into an explicit argument the moment it reaches
+Python.
 """
 
 from __future__ import annotations
@@ -58,9 +69,15 @@ class BenchmarkConfig:
     requested_bitrate: str
 
     @classmethod
-    def from_env(cls) -> BenchmarkConfig:
-        if os.environ.get("P6_BENCHMARK_MODE") != "1":
-            raise ValueError("P6_BENCHMARK_MODE=1 is required")
+    def from_env(cls, *, benchmark_requested: bool) -> BenchmarkConfig:
+        """Build from the container's P6_* parameters. ``benchmark_requested``
+        is the ``--benchmark`` flag: the run parameters are values (they name
+        this container's workload), the arming is an argument."""
+        if not benchmark_requested:
+            raise ValueError(
+                "--benchmark is required: this module is the opt-in P6 capacity "
+                "driver and never takes over a worker implicitly"
+            )
         return cls(
             base_url=os.environ.get("P6_BASE_URL", "about:blank"),
             duration_s=_positive_float("P6_DURATION", "120"),
@@ -230,9 +247,10 @@ async def run_benchmark(
     return 0
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
     try:
-        config = BenchmarkConfig.from_env()
+        config = BenchmarkConfig.from_env(benchmark_requested="--benchmark" in args)
     except (TypeError, ValueError) as exc:
         _emit(ev="fatal", msg=str(exc))
         return 2

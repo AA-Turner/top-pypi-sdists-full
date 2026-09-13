@@ -71,7 +71,8 @@ class GanknowExtractor(Extractor):
                     self.log.warning("%s: No URL for media %s",
                                      post["id"], media["id"])
                     continue
-            elif media.get("type") == "image":
+            elif media.get("type") == "image" and \
+                    ".googleusercontent.com/" in url:
                 url += "=s0"
 
             files.append({

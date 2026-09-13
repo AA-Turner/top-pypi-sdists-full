@@ -7,6 +7,7 @@ from matrx_utils import vcprint
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
+from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.result import NodeResult, failure, success
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -154,6 +155,9 @@ class CostSummaryInput(BaseModel):
     conversation_id: str | None = Field(
         default=None,
         description="The conversation ID to get the cost summary for. If not provided, the current app context's conversation ID is used.",
+        # IDENTITY (``matrx_graph.types.identity_inputs``): an inherited id
+        # would report a DIFFERENT conversation's spend as this step's.
+        json_schema_extra=identity_input(),
     )
 
 

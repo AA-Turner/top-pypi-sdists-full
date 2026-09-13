@@ -22,10 +22,9 @@ All placeholder tier; union rule as everywhere.
 
 from __future__ import annotations
 
-from pydantic import JsonValue
-
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
+from pydantic import JsonValue
 
 
 @kind(
@@ -88,6 +87,18 @@ class RulebookToolResult(KindModel):
     description_truncated: bool | None = None
     rules_truncated: bool | None = None
     rules_shown: int | None = None
+    #: ``read`` keeps the rule vocabulary complete while paging rule bodies.
+    rule_ids: list[str] | None = None
+    approved_rule_ids: list[str] | None = None
+    rule_index: list[dict] | None = None
+    #: Every read page declares whether its vocabulary fragment is complete;
+    #: when false, call the opaque ``next_cursor`` exactly as returned.
+    vocabulary_complete: bool | None = None
+    vocabulary_page_offset: int | None = None
+    vocabulary_total_rules: int | None = None
+    next_cursor: str | None = None
+    rules_bodies_paged: bool | None = None
+    rules_paging_note: str | None = None
     intake_truncated: bool | None = None
     #: ``read_rule``.
     rule: dict | None = None
@@ -98,13 +109,28 @@ class RulebookToolResult(KindModel):
     duplicates_skipped: list[str] | None = None
     rejected: list[str] | None = None
     updated: list[str] | None = None
+    #: ``retire_rules`` bulk receipt.
+    retired: list[str] | None = None
+    refused: list[str] | None = None
+    not_found: list[str] | None = None
+    refused_note: str | None = None
+    not_found_note: str | None = None
     relates_to: JsonValue | None = None
     relations_dropped: int | None = None
     relations_note: str | None = None
+    #: ``update_rule`` receipt for a POLICY rule (W58) — the judgment shape that
+    #: landed: {kind, precondition, next_action, action_kind, cost, risk}.
+    #: Nested deliberately: ``kind`` is the reserved content-IR marker name, so
+    #: a top-level receipt field of that name would collide with ``__kind``.
+    policy: JsonValue | None = None
     #: ``settle_tension``.
     tension_id: str | None = None
     outcome: str | None = None
     note: str | None = None
+    #: A Rulebook receipt is structurally trimmed before it reaches the
+    #: universal result gate.  The agent is told exactly what to re-read.
+    result_truncated: bool | None = None
+    result_truncation_note: str | None = None
 
 
 @kind(
@@ -323,3 +349,48 @@ __all__ += [
     "FileExtractionResult",
     "ContentPlanToolResult",
 ]
+
+
+@kind(
+    "sealed_case_tool_result",
+    label="Sealed Case Tool Result",
+    family="masterwork",
+    example={
+        "action": "ask",
+        "case_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "run_scope": "workflow_run:8c1f…",
+        "seq": 3,
+        "question": "What were her vital signs on arrival?",
+        "answer": "Heart rate 34 bpm, blood pressure 104/62, afebrile.",
+        "found": True,
+        "cost": "low",
+        "risk": "low",
+        "asked_kind": "ask",
+        "disclosures_so_far": 3,
+    },
+    # PLACEHOLDER — the sealed source's ask / commit / ledger union. The
+    # `commit` branch deliberately carries NO correctness field of any kind:
+    # the oracle never grades (services/masterworks/sealed_case.py).
+    maturity="placeholder",
+)
+class SealedCaseToolResult(KindModel):
+    action: str = ""
+    case_id: str = ""
+    run_scope: str = ""
+    #: ``ask`` — one disclosure.
+    seq: int | None = None
+    question: str | None = None
+    answer: str | None = None
+    found: bool | None = None
+    cost: str | None = None
+    risk: str | None = None
+    asked_kind: str | None = None
+    #: ``ask`` / ``commit`` receipt. NEVER a verdict.
+    disclosures_so_far: int | None = None
+    recorded: bool | None = None
+    #: ``ledger``.
+    disclosures: list[dict] | None = None
+    score: dict | None = None
+
+
+__all__ += ["SealedCaseToolResult"]

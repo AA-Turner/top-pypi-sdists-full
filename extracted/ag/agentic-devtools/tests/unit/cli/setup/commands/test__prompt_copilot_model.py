@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from agentic_devtools.cli.setup.commands import _prompt_copilot_model
 
 
@@ -84,12 +86,12 @@ class TestPromptCopilotModel:
                     _prompt_copilot_model()
 
     def test_handles_keyboard_interrupt_gracefully(self, capsys):
-        """Handles KeyboardInterrupt without crashing."""
+        """Ctrl-C aborts model selection instead of silently continuing setup."""
         with patch("agentic_devtools.cli.setup.commands._query_copilot_models", return_value=["gpt-4o"]):
             with patch("agentic_devtools.cli.config.project_config.load_project_config", return_value={}):
                 with patch("agentic_devtools.cli.setup.commands.input", side_effect=KeyboardInterrupt):
-                    # Should not raise
-                    _prompt_copilot_model()
+                    with pytest.raises(KeyboardInterrupt):
+                        _prompt_copilot_model()
 
     def test_prints_confirmation_message(self, capsys):
         """Prints a confirmation message with the selected model."""

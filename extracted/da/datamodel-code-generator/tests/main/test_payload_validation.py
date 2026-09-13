@@ -12,6 +12,8 @@ from typing import Any, Literal, TypeAlias
 import pytest
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
+from hypothesis_jsonschema import from_schema
+from jsonschema import Draft7Validator
 from jsonschema import ValidationError as JsonSchemaValidationError
 from packaging.version import Version
 from pydantic import VERSION as PYDANTIC_VERSION
@@ -19,6 +21,9 @@ from pydantic import ValidationError
 
 from datamodel_code_generator.format import PythonVersion
 from tests.conftest import assert_inputs_not_mutated, assert_output
+from tests.main.conftest import DATA_PATH, EXPECTED_MAIN_PATH, JSON_SCHEMA_DATA_PATH
+from tests.main.payload_validation.codegen import PayloadAdapterError, generate_payload_runtime
+from tests.main.payload_validation.schema import _schema_exclusion_reason
 
 from .payload_validation import (
     BACKEND_ACCEPTANCE_EXCLUDED_CASES,
@@ -61,7 +66,11 @@ from .payload_validation.constants import (
     PYDANTIC_V2_FLOAT_MULTIPLE_OF_CASE_IDS,
     PYDANTIC_V2_FLOAT_MULTIPLE_OF_RUNTIME_MIN_VERSION,
 )
-from .payload_validation.native_numeric import native_float_multiple_errors, pydantic_payload_result
+from .payload_validation.native_numeric import (
+    NATIVE_NUMERIC_SAMPLING_ADAPTERS,
+    native_float_multiple_errors,
+    pydantic_payload_result,
+)
 from .payload_validation.schema import _schema_for_payload_generation
 from .payload_validation.strategy import _bound_float_multiples
 
@@ -331,7 +340,18 @@ def test_numeric_payload_sampling_validates_generated_models(
         payload = data.draw(payload_strategy(case), label=name)
         validate_with_source_schema(case, payload)
         adapter = load_generated_payload_adapter(case, generated_model_cache)
-        validated = adapter.validate_python(payload)
+        expected_errors = (
+            pydantic_payload_result(native_adapter, payload)[1]
+            if (native_adapter := NATIVE_NUMERIC_SAMPLING_ADAPTERS.get(name)) is not None
+            else []
+        )
+        validated, errors = pydantic_payload_result(adapter, payload)
+        assert_output(
+            json.dumps([] if errors == expected_errors else {"expected": expected_errors, "actual": errors}, indent=2),
+            NATIVE_NUMERIC_EMPTY_ERRORS,
+        )
+        if errors:
+            return
         dumped = adapter.dump_python(validated, mode="json", by_alias=True, exclude_unset=True)
         validate_with_source_schema(case, dumped)
 
@@ -491,6 +511,13 @@ def test_payload_backend_full_matrix_exclusions_are_classified() -> None:
     "case_id",
     [
         "jsonschema/constrained_types_keyword_order.json",
+        "jsonschema/allof_constraint_intersections/complex.json",
+        "jsonschema/allof_constraint_intersections/metadata.json",
+        "jsonschema/allof_constraint_intersections/scalars_equal.json",
+        "jsonschema/allof_constraint_intersections/scalars_partial.json",
+        "jsonschema/custom_template_dependencies_many.json",
+        "jsonschema/optional_nested_factory_requirements/union.json",
+        "jsonschema/numeric_constraint_precision/large.json",
         "jsonschema/exact_imports_collapse_root_models_module_split_oneof.json",
         "jsonschema/strict_types.json",
         "jsonschema/type_array_only_null.json",
@@ -973,29 +1000,33 @@ def test_generated_pydantic_v2_model_rejects_schema_invalid_payloads(
 
 
 @pytest.mark.parametrize(("backend", "case"), BACKEND_ACCEPTANCE_CASES)
-@settings(
-    database=None,
-    deadline=None,
-    derandomize=True,
-    max_examples=MAX_EXAMPLES,
-    suppress_health_check=[
-        HealthCheck.filter_too_much,
-        HealthCheck.function_scoped_fixture,
-        HealthCheck.too_slow,
-    ],
-)
-@given(data=st.data())
 def test_generated_payload_backend_accepts_representative_schema_payloads(
     backend: PayloadBackend,
     case: SchemaCase,
     generated_model_cache: dict[str, Any],
-    data: st.DataObject,
 ) -> None:
-    """Representative non-default backends should accept source-valid payloads."""
-    payload = data.draw(payload_strategy(case), label=f"{backend.value}:{case.id}:valid")
-    validate_with_source_schema(case, payload)
-    runtime = load_generated_payload_runtime(case, generated_model_cache, backend)
-    runtime.validate_python(payload)
+    """Check each backend case with fresh Hypothesis settings, avoiding parametrization parent chains."""
+
+    @settings(
+        database=None,
+        deadline=None,
+        derandomize=True,
+        max_examples=MAX_EXAMPLES,
+        suppress_health_check=[
+            HealthCheck.filter_too_much,
+            HealthCheck.function_scoped_fixture,
+            HealthCheck.too_slow,
+        ],
+    )
+    @given(data=st.data())
+    def check_acceptance(data: st.DataObject) -> None:
+        """Non-default backends should accept source-valid payloads."""
+        payload = data.draw(payload_strategy(case), label=f"{backend.value}:{case.id}:valid")
+        validate_with_source_schema(case, payload)
+        runtime = load_generated_payload_runtime(case, generated_model_cache, backend)
+        runtime.validate_python(payload)
+
+    check_acceptance()
 
 
 @pytest.mark.parametrize(("backend", "case"), BACKEND_REJECTION_CASES)
@@ -1070,3 +1101,103 @@ def test_literal_source_witnesses() -> None:
         for payload in witnesses["invalid"]:
             with pytest.raises(JsonSchemaValidationError):
                 validate_with_source_schema(LITERAL_CASES["unicode"], payload)
+
+
+PAYLOAD_UNION_DATA_PATH = Path(__file__).parents[1] / "data" / "payloads" / "union_capabilities_schemas.json"
+
+
+PAYLOAD_UNION_SCHEMAS = json.loads(PAYLOAD_UNION_DATA_PATH.read_text(encoding="utf-8"))
+
+
+PAYLOAD_UNION_CASES = {
+    name: SchemaCase(name, "jsonschema", PAYLOAD_UNION_DATA_PATH, schema, schema, ".json")
+    for name, schema in PAYLOAD_UNION_SCHEMAS.items()
+}
+
+
+@pytest.mark.parametrize("name", ["permissive_union", "required_union", "required_allof"])
+@settings(
+    database=None,
+    deadline=None,
+    derandomize=True,
+    max_examples=20,
+    suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow, HealthCheck.function_scoped_fixture],
+)
+@given(data=st.data())
+def test_union_source_payloads(name: str, generated_model_cache: dict[str, Any], data: st.DataObject) -> None:
+    """Preserve source-valid payloads through actual generated model validation and dumping."""
+    case = PAYLOAD_UNION_CASES[name]
+    with assert_inputs_not_mutated({"schema": case.source_schema}):
+        payload = data.draw(payload_strategy(case))
+        validate_with_source_schema(case, payload)
+        adapter = load_generated_payload_adapter(case, generated_model_cache)
+        validated = adapter.validate_python(payload)
+        validate_with_source_schema(case, adapter.dump_python(validated, mode="json", exclude_unset=True))
+
+
+def test_union_rejection_capabilities() -> None:
+    """A permissive alternative cannot promise rejection of a required-field deletion."""
+    with assert_inputs_not_mutated({"schemas": PAYLOAD_UNION_SCHEMAS}):
+        capabilities = {name: sorted(rejection_constraint_ids(case)) for name, case in PAYLOAD_UNION_CASES.items()}
+        assert_output(
+            json.dumps(capabilities, indent=2) + "\n",
+            PAYLOAD_UNION_DATA_PATH.parents[1] / "expected" / "payloads" / "union_capabilities.txt",
+        )
+
+
+def test_union_native_witnesses(generated_model_cache: dict[str, Any]) -> None:
+    """Missing optional branch fields remain valid while actual object type violations fail."""
+    from jsonschema import ValidationError as SourceValidationError
+
+    witnesses = json.loads(
+        PAYLOAD_UNION_DATA_PATH.with_name("union_capabilities_values.json").read_text(encoding="utf-8")
+    )["permissive_union"]
+    case = PAYLOAD_UNION_CASES["permissive_union"]
+    adapter = load_generated_payload_adapter(case, generated_model_cache)
+    with assert_inputs_not_mutated({"schema": case.source_schema, "witnesses": witnesses}):
+        for payload in witnesses["valid"]:
+            validate_with_source_schema(case, payload)
+            adapter.validate_python(payload)
+        for payload in witnesses["invalid"]:
+            with pytest.raises(ValidationError):
+                adapter.validate_python(payload)
+            with pytest.raises(SourceValidationError):
+                validate_with_source_schema(case, payload)
+
+
+def test_allof_payload_strategy_classification() -> None:
+    """Keep impossible intersections out of acceptance generation while retaining valid controls."""
+    names = json.loads((DATA_PATH / "payloads/allof_payload_strategy_cases.json").read_text())
+    payloads = json.loads((DATA_PATH / "payloads/allof_payload_strategy_values.json").read_text())
+    results = {}
+    for name in names:
+        schema = json.loads((JSON_SCHEMA_DATA_PATH / "numeric_allof_types" / f"{name}.json").read_text())
+        validator = Draft7Validator(schema)
+        with assert_inputs_not_mutated({"schema": schema}):
+            results[name] = {
+                "empty_strategy": from_schema(deepcopy(schema)).is_empty,
+                "classification": _schema_exclusion_reason(schema),
+                "source_acceptance": [validator.is_valid(payload) for payload in payloads],
+            }
+    assert_output(
+        json.dumps(results, indent=2) + "\n", EXPECTED_MAIN_PATH / "allof_payload_strategy_classification.txt"
+    )
+
+
+def test_payload_generation_reports_real_schema_failure(tmp_path: Path) -> None:
+    """Keep actual generation errors visible when checking expected warnings."""
+    source = JSON_SCHEMA_DATA_PATH / "payload_generation_missing_reference.json"
+    schema = json.loads(source.read_text())
+    case = SchemaCase(
+        id="jsonschema/payload_generation_missing_reference.json",
+        input_file_type="jsonschema",
+        source_path=source,
+        source_schema=schema,
+        codegen_schema=schema,
+        temp_input_suffix=".json",
+    )
+    with pytest.raises(PayloadAdapterError) as caught:
+        generate_payload_runtime(
+            case, GeneratedModelCache({"base": tmp_path, "adapters": {}}), PayloadBackend.PYDANTIC_V2
+        )
+    assert_output(str(caught.value) + "\n", EXPECTED_MAIN_PATH / "payload_generation_missing_reference.txt")

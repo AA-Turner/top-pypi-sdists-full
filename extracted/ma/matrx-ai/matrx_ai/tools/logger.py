@@ -404,6 +404,37 @@ class ToolExecutionLogger:
                 result.output, output_type, output_chars
             )
 
+        # A FAILED TOOL CALL CARRIES ITS MESSAGE OR IT IS A LIE.
+        #
+        # A tool that raised has ``output is None``, so the two lines above set
+        # output_chars=0 and output_preview={"chars": 0} — and those are the ONLY
+        # two fields the persisted ``tool_result`` block copies. The block's
+        # ``is_error: true`` then stands next to zero bytes of explanation: the
+        # user sees a red error with nothing in it, and so does anyone reading
+        # the row later. (2026-09-12: a journal write timeout killed a 54s agent
+        # build and the persisted trace said only `is_error: true,
+        # output_chars: 0`.) The error text lives on ``result.error``, which no
+        # normalizer downstream reads — so stamp it here, at the one synchronous
+        # funnel every success, error, guardrail and rejected path passes
+        # through, into the field that IS persisted.
+        if not result.success and result.error is not None and not output_chars:
+            result.output_preview = self._synthesize_error_preview(result.error)
+            result.output_chars = len(result.error.message or "")
+
+    @staticmethod
+    def _synthesize_error_preview(error: Any) -> dict[str, Any]:
+        """The persisted, human-readable trace of a failed tool call."""
+        message = getattr(error, "message", None) or "Unknown error"
+        preview: dict[str, Any] = {
+            "error": message[: ToolExecutionLogger._MAX_PREVIEW_CHARS],
+            "error_type": getattr(error, "error_type", None) or "unknown",
+            "chars": len(message),
+        }
+        suggested = getattr(error, "suggested_action", None)
+        if suggested:
+            preview["suggested_action"] = suggested[: ToolExecutionLogger._MAX_PREVIEW_CHARS]
+        return preview
+
     # ------------------------------------------------------------------
     # Phase 0: log_rejected (single terminal INSERT)
     #

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -317,7 +316,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="package.xml",
     ),
     "bolt_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"biped"},
         robot="Bolt",
         maker="ODRI",
@@ -448,6 +447,16 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_spdx="Apache-2.0",
         license_file="LICENSE",
     ),
+    "enlight_description": Description(
+        formats={Format.URDF},
+        tags={"arm"},
+        robot="Enlight-L",
+        maker="Flexiv Robotics",
+        dof=7,
+        repository="flexiv_description",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE",
+    ),
     "ergocub_description": Description(
         formats={Format.URDF},
         tags={"humanoid"},
@@ -494,7 +503,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE.md",
     ),
     "finger_edu_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"educational"},
         robot="FingerEdu",
         dof=3,
@@ -566,7 +575,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="unitree_g1/LICENSE",
     ),
     "gen2_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="Gen2",
         maker="Kinova",
@@ -584,7 +593,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "gen3_lite_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="Gen3 Lite",
         maker="Kinova",
@@ -723,7 +732,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE.txt",
     ),
     "hyq_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"quadruped"},
         robot="HyQ",
         maker="IIT",
@@ -787,7 +796,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "j2n6s300_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="Jaco2 j2n6s300",
         maker="Kinova",
@@ -814,7 +823,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "j2s6s300_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="Jaco2 j2s6s300",
         maker="Kinova",
@@ -823,7 +832,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "j2s7s300_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="Jaco2 j2s7s300",
         maker="Kinova",
@@ -895,6 +904,16 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_spdx="Apache-2.0",
         license_file="low_cost_robot_arm/LICENSE",
     ),
+    "mico_description": Description(
+        formats={Format.URDF},
+        tags={"dual_arm"},
+        robot="MICO-Core",
+        maker="Flexiv Robotics",
+        dof=14,
+        repository="flexiv_description",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE",
+    ),
     "mini_cheetah_description": Description(
         formats={Format.URDF},
         tags={"quadruped"},
@@ -943,7 +962,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="fourier_n1/LICENSE",
     ),
     "nextage_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"dual_arm"},
         robot="NEXTAGE",
         maker="Kawada Robotics",
@@ -953,7 +972,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="nextage_description/package.xml",
     ),
     "omx_f_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="OMX-F",
         maker="ROBOTIS",
@@ -971,7 +990,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "omy_3m_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="OMY-3M",
         maker="ROBOTIS",
@@ -980,7 +999,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "omy_f3m_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="OMY-F3M",
         maker="ROBOTIS",
@@ -1007,13 +1026,23 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="robotis_op3/LICENSE",
     ),
     "open_manipulator_x_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="OpenMANIPULATOR-X",
         maker="ROBOTIS",
         repository="open_manipulator",
         license_spdx="Apache-2.0",
         license_file="LICENSE",
+    ),
+    "openarm_v1_description": Description(
+        formats={Format.URDF},
+        tags={"dual_arm"},
+        robot="OpenArm v1",
+        maker="Enactic",
+        dof=18,
+        repository="openarm_description",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE.txt",
     ),
     "openarm_v1_mj_description": Description(
         formats={Format.MJCF},
@@ -1024,6 +1053,16 @@ DESCRIPTIONS: Dict[str, Description] = {
         repository="openarm_mujoco",
         license_spdx="Apache-2.0",
         license_file="LICENSE",
+    ),
+    "openarm_v2_description": Description(
+        formats={Format.URDF},
+        tags={"dual_arm"},
+        robot="OpenArm v2",
+        maker="Enactic",
+        dof=18,
+        repository="openarm_description",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE.txt",
     ),
     "openarm_v2_mj_description": Description(
         formats={Format.MJCF},
@@ -1108,6 +1147,16 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_spdx="BSD",
         license_file="README.md",
     ),
+    "r1_pro_description": Description(
+        formats={Format.URDF, Format.SRDF},
+        tags={"dual_arm", "mobile_manipulator"},
+        robot="R1 Pro",
+        maker="Galaxea AI",
+        dof=22,
+        repository="GalaxeaManipSim",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE",
+    ),
     "r2_description": Description(
         formats={Format.URDF},
         tags={"humanoid"},
@@ -1151,6 +1200,16 @@ DESCRIPTIONS: Dict[str, Description] = {
         maker="Gabrael Levine",
         dof=7,
         repository="rhea_description",
+        license_spdx="Apache-2.0",
+        license_file="LICENSE",
+    ),
+    "rizon10_description": Description(
+        formats={Format.URDF},
+        tags={"arm"},
+        robot="Rizon10",
+        maker="Flexiv Robotics",
+        dof=7,
+        repository="flexiv_description",
         license_spdx="Apache-2.0",
         license_file="LICENSE",
     ),
@@ -1272,7 +1331,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "simple_humanoid_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"educational", "humanoid"},
         robot="Simple Humanoid",
         dof=29,
@@ -1346,7 +1405,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "solo_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"quadruped"},
         robot="Solo",
         maker="ODRI",
@@ -1421,7 +1480,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE.md",
     ),
     "talos_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"humanoid"},
         robot="TALOS",
         maker="PAL Robotics",
@@ -1683,7 +1742,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="trossen_wx250s/LICENSE",
     ),
     "wl_p311d_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"quadruped", "wheeled"},
         robot="WL P311D",
         maker="LimX Dynamics",
@@ -1692,7 +1751,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "wl_p311e_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"quadruped", "wheeled"},
         robot="WL P311E",
         maker="LimX Dynamics",
@@ -1701,7 +1760,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "xarm6_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="xArm6",
         maker="UFACTORY",
@@ -1710,7 +1769,7 @@ DESCRIPTIONS: Dict[str, Description] = {
         license_file="LICENSE",
     ),
     "xarm7_description": Description(
-        formats={Format.URDF},
+        formats={Format.URDF, Format.SRDF},
         tags={"arm"},
         robot="xArm7",
         maker="UFACTORY",

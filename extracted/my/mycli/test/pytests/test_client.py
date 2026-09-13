@@ -27,6 +27,100 @@ def patch_constructor_side_effects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(client_module, 'get_mylogin_cnf_path', lambda: None)
 
 
+def test_init_configures_completion_ranking(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    myclirc = write_myclirc(tmp_path, '[main]\ncompletion_match_order = CAMEL_CASE, under_words\n')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.completion_match_order == ('camel_case', 'under_words')
+
+
+@pytest.mark.parametrize(
+    ('value', 'expected'),
+    [(None, 'frecency'), ('', 'frecency'), ('length', 'length'), ('LEXICOGRAPHIC', 'lexicographic'), ('invalid', 'frecency')],
+)
+def test_init_configures_completion_tiebreaker(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str | None, expected: str) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    messages: list[str] = []
+    monkeypatch.setattr(MyCli, 'echo', lambda self, message, **kwargs: messages.append(message))
+    setting = f'completion_tiebreaker = {value}\n' if value is not None else ''
+    cli = MyCli(myclirc=write_myclirc(tmp_path, f'[main]\n{setting}'))
+
+    assert cli.completer.completion_tiebreaker == expected
+    assert messages == (['Invalid completion_tiebreaker; using frecency.'] if value == 'invalid' else [])
+
+
+@pytest.mark.parametrize(('value', 'expected'), [(None, 3), ('', 3), ('5', 5), ('0', 0), ('-1', 0)])
+def test_init_configures_regex_match_distance(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str | None, expected: int) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    setting = f'regex_match_distance = {value}\n' if value is not None else ''
+    myclirc = write_myclirc(tmp_path, f'[main]\n{setting}')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.regex_match_distance == expected
+
+
+@pytest.mark.parametrize(('value', 'expected'), [(None, 4), ('', 4), ('2', 2), ('0', 0), ('-1', 0)])
+def test_init_configures_rapidfuzz_min_length(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str | None, expected: int) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    setting = f'rapidfuzz_min_length = {value}\n' if value is not None else ''
+    myclirc = write_myclirc(tmp_path, f'[main]\n{setting}')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.rapidfuzz_min_length == expected
+
+
+@pytest.mark.parametrize(('value', 'expected'), [(None, 0.67), ('', 0.67), ('0.5', 0.5), ('0', 0.0), ('-1', 0.0)])
+def test_init_configures_rapidfuzz_length_coverage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str | None, expected: float
+) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    setting = f'rapidfuzz_length_coverage = {value}\n' if value is not None else ''
+    myclirc = write_myclirc(tmp_path, f'[main]\n{setting}')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.rapidfuzz_length_coverage == expected
+
+
+@pytest.mark.parametrize(('value', 'expected'), [(None, 75.0), ('', 75.0), ('82.5', 82.5), ('0', 0.0), ('-1', 0.0), ('101', 100.0)])
+def test_init_configures_rapidfuzz_score_cutoff(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str | None, expected: float
+) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    setting = f'rapidfuzz_score_cutoff = {value}\n' if value is not None else ''
+    myclirc = write_myclirc(tmp_path, f'[main]\n{setting}')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.rapidfuzz_score_cutoff == expected
+
+
+@pytest.mark.parametrize('value', ['', 'rapidfuzz'])
+def test_init_reads_empty_or_single_match_order(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, value: str) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    myclirc = write_myclirc(tmp_path, f'[main]\ncompletion_match_order = {value}\n')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.completion_match_order[0] == (value or 'perfect')
+
+
+def test_init_reports_invalid_completion_match_order(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    patch_constructor_side_effects(monkeypatch)
+    messages: list[str] = []
+    monkeypatch.setattr(MyCli, 'echo', lambda self, message, **kwargs: messages.append(message))
+    myclirc = write_myclirc(tmp_path, '[main]\ncompletion_match_order = invalid\n')
+
+    cli = MyCli(myclirc=myclirc)
+
+    assert cli.completer.completion_match_order == ('perfect', 'regex', 'under_words', 'slash_words', 'camel_case', 'rapidfuzz')
+    assert messages == ['Invalid completion_match_order; using the default order.']
+
+
 def test_init_reports_invalid_ssl_mode(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     patch_constructor_side_effects(monkeypatch)
     echo_calls: list[tuple[str, dict[str, Any]]] = []

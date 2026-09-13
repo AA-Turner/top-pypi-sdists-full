@@ -318,6 +318,12 @@ pub(crate) fn total_timeout<B>(body: B, timeout: Pin<Box<Sleep>>) -> TotalTimeou
 }
 
 pub(crate) fn with_read_timeout<B>(body: B, timeout: Duration) -> ReadTimeoutBody<B> {
+    // Zero is rejected at the builder API (`try_read_timeout`); a zero here
+    // degrades to an immediate timeout rather than panicking the library.
+    debug_assert!(
+        !timeout.is_zero(),
+        "read_timeout must be non-zero, got 0; use None to disable"
+    );
     ReadTimeoutBody {
         inner: body,
         sleep: None,
@@ -372,11 +378,11 @@ where
     ) -> Poll<Option<Result<hyper::body::Frame<Self::Data>, Self::Error>>> {
         let mut this = self.project();
 
-        // Start the `Sleep` if not active.
+        let deadline = tokio::time::Instant::now() + *this.timeout;
         let sleep_pinned = if let Some(some) = this.sleep.as_mut().as_pin_mut() {
             some
         } else {
-            this.sleep.set(Some(tokio::time::sleep(*this.timeout)));
+            this.sleep.set(Some(tokio::time::sleep_until(deadline)));
             // Unreachable: the field was just set to `Some`. Surface a
             // body error rather than panicking under `panic = "abort"`.
             match this.sleep.as_mut().as_pin_mut() {
@@ -396,8 +402,10 @@ where
 
         let item = ready!(this.inner.poll_frame(cx))
             .map(|opt_chunk| opt_chunk.map_err(crate::error::body));
-        // a ready frame means timeout is reset
-        this.sleep.set(None);
+        // a ready frame means timeout is reset for the next chunk
+        if let Some(some) = this.sleep.as_mut().as_pin_mut() {
+            some.reset(tokio::time::Instant::now() + *this.timeout);
+        }
         Poll::Ready(item)
     }
 
@@ -435,6 +443,13 @@ where
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     use http_body_util::BodyExt;
+
+    // Defense-in-depth: builders reject zero read timeouts with an error, but
+    // `Request::read_timeout_mut` is public, so a zero can still arrive here.
+    // A panic inside the async task is never acceptable; treat zero as
+    // disabled (the `with_read_timeout` assert documents the invariant for
+    // direct callers).
+    let read_timeout = read_timeout.filter(|d| !d.is_zero());
 
     match (deadline, read_timeout) {
         (Some(total), Some(read)) => {
@@ -522,5 +537,13 @@ mod tests {
         let stream_body = Body::wrap(empty_body);
         assert!(stream_body.is_end_stream());
         assert_eq!(stream_body.size_hint().exact(), Some(0));
+    }
+
+    #[test]
+    fn response_tolerates_zero_read_timeout() {
+        // Defense-in-depth: a zero read timeout bypassing builder validation
+        // (e.g. via `Request::read_timeout_mut`) must not panic the async
+        // task; it is treated as disabled.
+        let _ = super::response(Body::empty(), None, Some(std::time::Duration::ZERO));
     }
 }

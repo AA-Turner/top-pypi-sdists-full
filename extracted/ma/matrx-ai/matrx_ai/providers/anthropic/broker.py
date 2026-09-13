@@ -14,6 +14,15 @@ import httpx
 
 MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens"
+#: The Admin API root — organisation usage and cost REPORTS, never a model call.
+#: It lives here for the same reason the two above do: a provider endpoint
+#: spelled at a call site is an independent transport boundary, and the
+#: mandate/provider scan has to read it as a bypass because from the outside it
+#: is indistinguishable from one. Named separately so a reader can see at a
+#: glance that reaching it spends nothing.
+ADMIN_API_BASE_URL = "https://api.anthropic.com"
+#: The Messages API version header every one of these endpoints expects.
+ANTHROPIC_API_VERSION = "2023-06-01"
 
 
 async def open_broker_stream(

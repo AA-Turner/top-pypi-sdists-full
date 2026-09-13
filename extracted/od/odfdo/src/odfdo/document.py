@@ -55,15 +55,14 @@ from .container import Container
 from .content import Content
 from .datatype import Boolean
 from .element import Element
-from .image import DrawFillImage, DrawImage, DrawMarker
 from .manifest import Manifest
 from .meta import Meta
 from .mixin_md import MDDocument, _set_global
 from .settings import Settings
-from .style import Style
 from .style_base import StyleBase
 from .styles import Styles
 from .table import Table, _populate_table
+from .table_serializer import serialize_table
 from .utils import (
     FAMILY_LESS_STYLE_TAGS,
     FAMILY_MAPPING,
@@ -77,6 +76,8 @@ from .xmlpart import XmlPart
 
 if TYPE_CHECKING:
     from .body import Body
+    from .image import DrawFillImage, DrawImage, DrawMarker
+    from .style import Style
 
 AUTOMATIC_PREFIX = "odfdo_auto_"
 
@@ -821,9 +822,7 @@ class Document(MDDocument):
             if not include_hidden and not self.get_table_displayed(table):
                 continue
             name = unifyer.unique(table.name or "")
-            cloned_table = table.clone
-            cloned_table.rstrip(aggressive=True)
-            tables_dict[name] = cloned_table._serialize_table_rows()
+            tables_dict[name] = serialize_table(table, "json")
 
         if pretty:
             content_str = format_json(tables_dict, ensure_ascii=ensure_ascii)
@@ -896,6 +895,298 @@ class Document(MDDocument):
             table.clear()
             body.append(table)
             _populate_table(table, data)
+
+        return doc
+
+    def to_dict(
+        self,
+        table: str | int | None = None,
+        orient: str = "list",
+        header: bool = True,
+        mode: str = "python",
+        lstrip: bool = False,
+        include_hidden: bool = False,
+        no_decimal: bool = False,
+        no_date: bool = False,
+        no_nan: bool = False,
+    ) -> dict[str, Any] | list[dict[str, Any]]:
+        """Export document table(s) as Python dictionaries.
+
+        Args:
+            table: Name or 0-based index of a specific table to export. If
+                None, exports all tables in the document.
+            orient: Format of the exported dictionary:
+                - "list" (default): Columnar format `{"col": [values, ...]}`.
+                - "records": List of row dicts `[{"col": value, ...}, ...]`.
+                - "matrix": Dict mapping table names to 2D lists
+                  `{"TableName": [[...], ...]}`.
+            header: If True, uses the first row of data as column header keys.
+            mode: Serialization mode ("python" or "json"). Defaults to
+                "python". "python" mode can be customized by arguments
+                "no_decimal", "no_date" and "no_nan".
+            lstrip: If True, removes leading empty rows and columns from the
+                top-left before export.
+            include_hidden: If True, include hidden tables.
+            no_decimal: If True in "python" mode, convert Decimal values to
+                float or int.
+            no_date: If True in "python" mode, convert date, datetime, and
+                timedelta values to ODF/ISO formatted strings.
+            no_nan: If True in "python" mode, convert NaN and infinity values
+                to None.
+
+        Example:
+
+            Table "product":
+
+            | reference | color | price |
+            |-----------|-------|-------|
+            | ref01     | white | 10,00 |
+            | ref02     | blue  | 20,50 |
+            | ref03     | red   | 25,75 |
+
+        >>> document.to_dict()
+        {
+            'product': {
+                'reference': ['ref01', 'ref02', 'ref03'],
+                'color': ['white', 'blue', 'red'],
+                'price': [10, Decimal('20.5'), Decimal('25.75')]
+            }
+        }
+
+        >>> document.to_dict(orient="records")
+        {
+            'product': [
+                {'reference': 'ref01', 'color': 'white', 'price': 10},
+                {'reference': 'ref02', 'color': 'blue', 'price': Decimal('20.5')},
+                {'reference': 'ref03', 'color': 'red', 'price': Decimal('25.75')}
+            ]
+        }
+
+        >>> document.to_dict(orient="matrix")
+        {
+            'product': [
+                ['reference', 'color', 'price'],
+                ['ref01', 'white', 10],
+                ['ref02', 'blue', Decimal('20.5')],
+                ['ref03', 'red', Decimal('25.75')]
+            ]
+        }
+
+        Returns:
+            A dictionary of table dictionaries if `table` is None, or the
+            dictionary for the specified table if `table` is given.
+
+        Raises:
+            KeyError: If the specified table name is not found.
+            IndexError: If the specified table index is out of bounds.
+            ValueError: If `orient` is not one of "list", "records", or "matrix".
+        """
+        if orient not in ("list", "records", "matrix"):
+            msg = (
+                f"Invalid orient parameter: {orient!r}. "
+                "Expected 'list', 'records', or 'matrix'."
+            )
+            raise ValueError(msg)
+        if table is not None:
+            if isinstance(table, int):
+                tables = self.body.tables
+                if table < 0 or table >= len(tables):
+                    msg = f"Table index {table} out of range (0..{len(tables) - 1})"
+                    raise IndexError(msg)
+                target_table = tables[table]
+            else:
+                target_table = self.body.get_table_by_name(table)
+                if not target_table:
+                    msg = f"Table {table!r} not found in document"
+                    raise KeyError(msg)
+            return target_table.to_dict(
+                orient=orient,
+                header=header,
+                mode=mode,
+                lstrip=lstrip,
+                no_decimal=no_decimal,
+                no_date=no_date,
+                no_nan=no_nan,
+            )
+
+        tables_dict: dict[str, Any] = {}
+        unifyer = NameUnifyer()
+        for t in self.body.tables:
+            if not include_hidden and not self.get_table_displayed(t):
+                continue
+            name = unifyer.unique(t.name or "")
+            table_dict = t.to_dict(
+                orient=orient,
+                header=header,
+                mode=mode,
+                lstrip=lstrip,
+                no_decimal=no_decimal,
+                no_date=no_date,
+                no_nan=no_nan,
+            )
+            if orient == "matrix" and isinstance(table_dict, dict):
+                tables_dict[name] = (
+                    next(iter(table_dict.values())) if table_dict else []
+                )
+            else:
+                tables_dict[name] = table_dict
+        return tables_dict
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: dict[str, Any] | list[dict[str, Any]],
+        table_name: str | None = None,
+        guess_type: bool = False,
+        language: str | None = None,
+    ) -> Document:
+        """Create a new spreadsheet Document from dictionary data.
+
+        Accepts:
+        - Multi-sheet dict: `{"Sheet1": data1, "Sheet2": data2}`
+        - Single table data (dict of columns, list of record dicts, or matrix)
+
+        Args:
+            data: The dictionary or list of dicts to import.
+            table_name: Optional name for single-table import.
+            guess_type: If True, try to detect Python type from strings
+                values (int, float, dates).
+            language: Optional document language code.
+
+        Example:
+
+            # Multi-sheet: columnar format
+            >>> data = {
+            ...     "product": {
+            ...         "reference": ["ref01", "ref02"],
+            ...         "price": [10, 20.5],
+            ...     },
+            ...     "stock": {
+            ...         "reference": ["ref01", "ref02"],
+            ...         "qty": [100, 50],
+            ...     },
+            ... }
+            >>> doc = Document.from_dict(data)
+
+            # Multi-sheet: records format
+            >>> data = {
+            ...     "product": [
+            ...         {"reference": "ref01", "price": 10},
+            ...         {"reference": "ref02", "price": 20.5},
+            ...     ],
+            ...     "stock": [
+            ...         {"reference": "ref01", "qty": 100},
+            ...         {"reference": "ref02", "qty": 50},
+            ...     ],
+            ... }
+            >>> doc = Document.from_dict(data)
+
+            # Multi-sheet: matrix format
+            >>> data = {
+            ...     "product": [
+            ...         ["reference", "price"],
+            ...         ["ref01", 10],
+            ...         ["ref02", 20.5],
+            ...     ],
+            ...     "stock": [
+            ...         ["reference", "qty"],
+            ...         ["ref01", 100],
+            ...         ["ref02", 50],
+            ...     ],
+            ... }
+            >>> doc = Document.from_dict(data)
+
+            # Single table: columnar dict
+            >>> data = {
+            ...     "reference": ["ref01", "ref02"],
+            ...     "price": [10, 20.5],
+            ... }
+            >>> doc = Document.from_dict(data, table_name="product")
+
+            # Single table: list of records
+            >>> data = [
+            ...     {"reference": "ref01", "price": 10},
+            ...     {"reference": "ref02", "price": 20.5},
+            ... ]
+            >>> doc = Document.from_dict(data, table_name="product")
+
+        Returns:
+            Document: A new spreadsheet Document populated with the tables.
+
+        Raises:
+            TypeError: If data is not a dict or list of dicts.
+        """
+        doc = cls.new("spreadsheet")
+        doc.body.clear()
+        unifyer = NameUnifyer()
+
+        if isinstance(data, dict):
+            if not data:
+                name = unifyer.unique(table_name or "")
+                doc.body.append(Table.from_dict({}, name=name))
+            else:
+                first_val = next(iter(data.values()))
+                if isinstance(first_val, dict) or (
+                    isinstance(first_val, list)
+                    and (
+                        (
+                            len(data) > 1
+                            and (not first_val or isinstance(first_val[0], (dict, list)))
+                        )
+                        or (
+                            len(data) == 1
+                            and bool(first_val)
+                            and isinstance(first_val[0], dict)
+                        )
+                    )
+                ):
+                    for name, sheet_data in data.items():
+                        unique_name = unifyer.unique(name or "")
+                        if isinstance(sheet_data, list) and (
+                            not sheet_data or isinstance(sheet_data[0], list)
+                        ):
+                            table = Table.from_dict(
+                                {unique_name: sheet_data},
+                                name=unique_name,
+                                guess_type=guess_type,
+                            )
+                        else:
+                            table = Table.from_dict(
+                                sheet_data,
+                                name=unique_name,
+                                guess_type=guess_type,
+                            )
+                        doc.body.append(table)
+                else:
+                    # Single table (columnar dict or single matrix)
+                    if (
+                        len(data) == 1
+                        and isinstance(first_val, list)
+                        and (not first_val or isinstance(first_val[0], list))
+                    ):
+                        name = table_name
+                    else:
+                        name = unifyer.unique(table_name or "")
+                    table = Table.from_dict(
+                        data,
+                        name=name,
+                        guess_type=guess_type,
+                    )
+                    doc.body.append(table)
+        elif isinstance(data, list):
+            name = unifyer.unique(table_name or "")
+            table = Table.from_dict(
+                data,
+                name=name,
+                guess_type=guess_type,
+            )
+            doc.body.append(table)
+        else:
+            msg = "data must be a dict or list of dicts."
+            raise TypeError(msg)
+
+        if language:
+            doc.language = language
 
         return doc
 
@@ -1250,7 +1541,7 @@ class Document(MDDocument):
         list_style_name = getattr(style, "list_style_name", None)
         if not list_style_name:
             return None
-        return cast(StyleBase | None, self.get_style("list", list_style_name))
+        return cast("StyleBase | None", self.get_style("list", list_style_name))
 
     @staticmethod
     def _pseudo_style_attribute(
@@ -1422,13 +1713,12 @@ class Document(MDDocument):
         if name and automatic is False and default is False:
             return self._insert_style_get_common_styles(family, name)
         # Automatic style
-        elif automatic is True and default is False:
+        if automatic is True and default is False:
             return self._insert_style_get_automatic_styles(style, family, name)
         # Default style
-        elif automatic is False and default is True:
+        if automatic is False and default is True:
             return self._insert_style_get_default_styles(style, family, name)
-        else:
-            raise AttributeError("Invalid combination of arguments")
+        raise AttributeError("Invalid combination of arguments")
 
     def insert_style(
         self,
@@ -1737,12 +2027,12 @@ class Document(MDDocument):
             # Copy images from the header/footer
             if tagname == "style:master-page":
                 images = cast(
-                    list[DrawImage], style.get_elements("descendant::draw:image")
+                    "list[DrawImage]", style.get_elements("descendant::draw:image")
                 )
                 for image in images:
                     self._copy_image_from_document(document, image.url)
             elif tagname == "draw:fill-image":
-                draw_fill_image = cast(DrawFillImage, style)
+                draw_fill_image = cast("DrawFillImage", style)
                 self._copy_image_from_document(document, draw_fill_image.url)
 
     def add_page_break_style(self) -> None:
@@ -1950,7 +2240,7 @@ class Document(MDDocument):
                 'style:writing-mode="lr-tb"/></style:style>'
             )
             self.insert_style(orig_style, automatic=True)  # ty:ignore
-        new_style = cast(Style, orig_style.clone)
+        new_style = cast("Style", orig_style.clone)
         new_name = self._unique_style_name("ta")
         new_style.name = new_name
         self.insert_style(new_style, automatic=True)

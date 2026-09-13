@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skfolio
-Version: 1.0.6
+Version: 1.1.0
 Summary: Portfolio optimization, factor model construction, and risk management built on top of scikit-learn
 Author-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>
 Maintainer-email: Hugo Delatte <hugo.delatte@skfoliolabs.com>, Matteo Manzi <matteomanzi09@gmail.com>, Carlo Nicolini <c.nicolini@ipazia.com>
@@ -59,7 +59,7 @@ Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy>=1.23.5
+Requires-Dist: numpy>=1.24.0
 Requires-Dist: scipy>=1.15.2
 Requires-Dist: pandas>=2.1.0
 Requires-Dist: cvxpy-base>=1.5.0

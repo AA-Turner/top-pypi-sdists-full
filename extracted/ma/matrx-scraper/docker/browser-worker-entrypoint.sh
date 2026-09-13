@@ -60,8 +60,11 @@ if ! xdpyinfo -display "${worker_display}" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Benchmark mode. `docker run --env` is the ONLY channel a caller has into a
+# container, so the container's own mode variable is read HERE, at the boundary,
+# and turned into an explicit argument. No Python module reads it (USD-5).
 if [[ "${P6_BENCHMARK_MODE:-0}" == "1" ]]; then
-  uv run --no-sync python -m matrx_scraper.cloud_browser.worker.p6_benchmark
+  uv run --no-sync python -m matrx_scraper.cloud_browser.worker.p6_benchmark --benchmark
   exit $?
 fi
 

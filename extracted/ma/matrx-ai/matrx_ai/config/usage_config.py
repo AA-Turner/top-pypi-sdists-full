@@ -1620,3 +1620,93 @@ def validate_model_pricing(
                 )
 
     return issues
+
+
+# ---------------------------------------------------------------------------
+# THE one way to turn measured usage into ledger meters.
+#
+# `UsageTotals.total_cost` is deliberately None whenever ANY call in a run was
+# unpriceable (build_aggregated_usage, above): a partial subtotal must never
+# masquerade as the complete bill. Every consumer then wrote the same line —
+# `totals.total_cost or 0` — which converts that honest "unknown" into a silent,
+# believable **$0** on the spend ledger. A $0 nobody can distinguish from "this
+# really was free" is worse than no number at all: the dashboard under-reports
+# real money and nothing anywhere screams.
+#
+# These two builders are the replacement. They record the money we DO know
+# (`known_cost_subtotal`), count what we could not price, and make the gap a
+# first-class meter the dashboard can surface — plus a loud line naming the
+# model whose pricing row is missing, so the fix is the catalog, not the meter.
+# ---------------------------------------------------------------------------
+
+#: Meter key carrying the number of calls in a run whose cost could not be
+#: derived from the catalog. Non-zero means `usd` is a FLOOR, not the bill.
+UNPRICED_CALLS_METER = "unpriced_calls"
+
+
+def cost_meters_from_totals(totals: Any, *, label: str = "") -> dict[str, Any]:
+    """Ledger meters for a whole agent/model run, from its ``UsageTotals``.
+
+    Returns ``{"usd", "input_tokens", "output_tokens"}`` and, only when some
+    call could not be priced, ``{"unpriced_calls": n}``. ``usd`` is always the
+    catalog-known subtotal — never a silent 0 standing in for an unknown bill.
+    """
+    if totals is None:
+        return {}
+    unknown = int(getattr(totals, "unknown_cost_requests", 0) or 0)
+    total_cost = getattr(totals, "total_cost", None)
+    known = float(getattr(totals, "known_cost_subtotal", 0.0) or 0.0)
+    usd = float(total_cost) if total_cost is not None else known
+    meters: dict[str, Any] = {
+        "usd": usd,
+        "input_tokens": int(getattr(totals, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(totals, "output_tokens", 0) or 0),
+    }
+    if unknown > 0:
+        meters[UNPRICED_CALLS_METER] = unknown
+        vcprint(
+            f"💸 UNPRICED SPEND{f' [{label}]' if label else ''}: {unknown} of "
+            f"{int(getattr(totals, 'total_requests', 0) or 0)} calls in this run "
+            f"could not be priced from the catalog. Recording the known subtotal "
+            f"${usd:.6f} as a FLOOR plus meters.{UNPRICED_CALLS_METER}={unknown}; "
+            f"the real bill is higher. Fix: add the missing ai.offering pricing row "
+            f"for the model(s) this run used — never the meter.",
+            color="red",
+            log_level="warning",
+        )
+    return meters
+
+
+def cost_meters_from_usage(usage: Any, *, label: str = "", **extra: Any) -> dict[str, Any]:
+    """Ledger meters for ONE metered call, from its ``TokenUsage``.
+
+    The single-call sibling of :func:`cost_meters_from_totals` — used by the
+    speech (STT/TTS) funnels, whose result carries one `TokenUsage` rather than
+    an aggregate. ``calculate_cost()`` returning None means the catalog has no
+    pricing row for this offering; that records ``usd`` 0 **with**
+    ``unpriced_calls: 1`` and a scream, never a bare, believable 0.
+    """
+    if usage is None:
+        vcprint(
+            f"💸 UNPRICED SPEND{f' [{label}]' if label else ''}: the provider call "
+            "returned NO usage object at all, so its cost cannot be derived. "
+            f"Recording meters.{UNPRICED_CALLS_METER}=1 so the ledger shows a "
+            "hole instead of a free call.",
+            color="red",
+            log_level="warning",
+        )
+        return {"usd": 0.0, UNPRICED_CALLS_METER: 1, **extra}
+    cost = usage.calculate_cost()
+    if cost is None:
+        vcprint(
+            f"💸 UNPRICED SPEND{f' [{label}]' if label else ''}: no catalog price "
+            f"for model {getattr(usage, 'matrx_model_name', '?')!r} "
+            f"(api {getattr(usage, 'api', '?')!r}, offering "
+            f"{getattr(usage, 'offering_id', '') or '—'}). Recording "
+            f"meters.{UNPRICED_CALLS_METER}=1 instead of a silent $0. Fix: add the "
+            "missing ai.offering pricing row.",
+            color="red",
+            log_level="warning",
+        )
+        return {"usd": 0.0, UNPRICED_CALLS_METER: 1, **extra}
+    return {"usd": float(cost), **extra}

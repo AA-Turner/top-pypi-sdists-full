@@ -109,6 +109,51 @@ async def test_sql_schema_misses_are_validation_not_operational_failures(
     assert result.error.error_type == "validation"
 
 
+@pytest.mark.asyncio
+async def test_database_query_failure_preserves_traceback(monkeypatch) -> None:
+    """A classified database failure must keep the actionable producer stack."""
+
+    async def unavailable(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        raise ConnectionError("database unavailable")
+
+    monkeypatch.setattr("matrx_orm.operations.dynamic_crud.dynamic_select", unavailable)
+
+    result = await database.db_query(
+        {"table": "ai.offering", "fields": ["id"]},
+        ToolContext(call_id="call-database-traceback"),
+    )
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.error_type == "database"
+    assert result.error.traceback is not None
+    assert "ConnectionError: database unavailable" in result.error.traceback
+
+
+@pytest.mark.asyncio
+async def test_database_schema_failure_preserves_traceback(monkeypatch) -> None:
+    """Schema introspection is an SQL operation and keeps its producer stack too."""
+
+    async def unavailable(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        raise ConnectionError("catalog unavailable")
+
+    monkeypatch.setattr(
+        "matrx_orm.catalog.describe_relation_columns",
+        unavailable,
+    )
+
+    result = await database.db_schema(
+        {"table": "ai.offering"},
+        ToolContext(call_id="call-schema-traceback"),
+    )
+
+    assert result.success is False
+    assert result.error is not None
+    assert result.error.error_type == "database"
+    assert result.error.traceback is not None
+    assert "ConnectionError: catalog unavailable" in result.error.traceback
+
+
 def test_real_database_failure_remains_operational() -> None:
     assert database._structured_query_error_type(ConnectionError("database unavailable")) == (
         "database"

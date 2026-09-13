@@ -29,7 +29,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
-    step_metadata,
+    hold_step,
 )
 from matrx_ai.graph_nodes.shared import AiUsage, _extract_usage
 
@@ -267,13 +267,18 @@ async def ai_text_to_speech(
         if inputs.speed is not None:
             config_payload["speed"] = inputs.speed
 
-        config = UnifiedConfig.from_dict(config_payload)
+        # The Holder of workflow.step_intelligence is resolved on EVERY run;
+        # an unbound mandate REFUSES here (a structured Failure, below).
+        held = await hold_step(
+            config_payload, spec_type="ai.tts", consumer="ai.tts", metadata=inputs.metadata
+        )
+        config = UnifiedConfig.from_dict(held.config)
 
         completed = await execute_ai_request(
             config,
             max_iterations=1,
             max_retries_per_iteration=2,
-            metadata=step_metadata(inputs.metadata, spec_type="ai.tts"),
+            metadata=held.metadata,
             mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
         )
 

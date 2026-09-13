@@ -1,8 +1,16 @@
-import statsd
+"""Averaged metrics.
+
+The statsd server averages every value it receives for an ``average``
+metric within a flush interval and forwards the single result to
+Graphite. Use it when the mean of a series matters and the individual
+samples do not.
+"""
+
+from statsd.client import Client
 
 
-class Average(statsd.Client):
-    '''Class to implement a statsd "average" message.
+class Average(Client):
+    """Class to implement a statsd "average" message.
     This value will be averaged against other messages before being
     sent.
 
@@ -13,16 +21,15 @@ class Average(statsd.Client):
     >>> # do something here
     >>> average.send('subname', 123)
     True
-    '''
+    """
 
-    def send(self, subname, value):
-        '''Send the data to statsd via self.connection
+    def send(self, subname: str | None, value: float) -> bool:
+        """Send the data to statsd via self.connection
 
         :keyword subname: The subname to report the data to (appended to the
             client name)
         :keyword value: The raw value to send
-        '''
+        """
         name = self._get_name(self.name, subname)
-        self.logger.info('%s: %d', name, value)
-        return statsd.Client._send(self, {name: '%d|a' % value})
-
+        self.logger.info('%s: %d', name, int(value))
+        return self._send({name: f'{int(value)}|a'})

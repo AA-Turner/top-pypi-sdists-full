@@ -11,7 +11,7 @@ import re
 import typing
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, MutableSet
-from typing import IO, TYPE_CHECKING, Any, Union, cast
+from typing import IO, TYPE_CHECKING, Any, Final, Union, cast
 
 from prov import Error
 from prov.constants import (
@@ -78,7 +78,7 @@ from prov.constants import (
     XSD_LONG,
     XSD_STRING,
 )
-from prov.identifier import Identifier, Namespace, QualifiedName
+from prov.identifier import Identifier, Namespace, QualifiedName, _slot_state
 
 if TYPE_CHECKING:
     from prov.model.bundle import ProvBundle
@@ -347,7 +347,19 @@ def _ensure_multiline_string_triple_quoted(value: str) -> str:
     if "\n" in s:
         return f'"""{s}"""'
     else:
+        # STRING_LITERAL2 ([60]) forbids a bare CR in a short string; the
+        # lexer decodes the "\r" escape, so use it rather than emit one raw.
+        s = s.replace("\r", "\\r")
         return f'"{s}"'
+
+
+def _xsd_datetime_text(value: datetime.datetime) -> str:
+    """ISO 8601 text with an xsd:dateTime-legal zone: an offset that is not a
+    whole number of minutes (historical LMT offsets) is normalised to UTC."""
+    offset = value.utcoffset()
+    if offset is not None and (offset.total_seconds() % 60 or offset.microseconds):
+        value = value.astimezone(datetime.timezone.utc)
+    return value.isoformat()
 
 
 def encoding_provn_value(
@@ -356,8 +368,8 @@ def encoding_provn_value(
     """Return the PROV-N literal representation of a Python value.
 
     Strings are quoted (triple-quoted when they span multiple lines); dates
-    and booleans are rendered with their XSD datatype suffix. Floats are
-    rendered as full-precision ``xsd:double`` (#251). Plain ints are typed by
+    are rendered with their XSD datatype suffix and booleans as ``"true"``/``"false"``
+    with theirs. Floats are rendered as full-precision ``xsd:double`` (#251). Plain ints are typed by
     magnitude: within +/-(2**31-1) they render as a bare ``INT_LITERAL`` (PROV-N
     [60] sugar for ``xsd:int``); beyond that they carry an explicit
     ``xsd:long``/``xsd:integer`` suffix (#249). Any other value is rendered
@@ -366,12 +378,13 @@ def encoding_provn_value(
     if isinstance(value, str):
         return _ensure_multiline_string_triple_quoted(value)
     elif isinstance(value, datetime.datetime):
-        return f'"{value.isoformat()}" %% xsd:dateTime'
+        return f'"{_xsd_datetime_text(value)}" %% xsd:dateTime'
     elif isinstance(value, float):
         return f'"{value!r}" %% xsd:double'
     elif isinstance(value, bool):
-        # bool is an int subtype, so :d renders "1"/"0" (not "True"/"False")
-        return f'"{value:d}" %% xsd:boolean'
+        # Before the int branch: bool is an int subtype. "true"/"false" is
+        # the lexical form every other PROV-N producer writes.
+        return f'"{"true" if value else "false"}" %% xsd:boolean'
     elif isinstance(value, int):
         datatype = canonical_xsd_datatype(value)
         if datatype == XSD_INT:
@@ -392,6 +405,15 @@ class Literal:
     PROV-JSON/PROV-XML rules for language-tagged strings.
     """
 
+    __slots__ = ("__weakref__", "_datatype", "_langtag", "_value")
+
+    # These fields are assign-once. They take part in equality and hashing,
+    # so reassigning one after the object has been used as a set member or
+    # dict key corrupts that container. #444 tracks the runtime guard.
+    _value: Final[str]
+    _datatype: Final[QualifiedName | None]
+    _langtag: Final[str | None]
+
     def __init__(
         self,
         value: Any,
@@ -407,7 +429,7 @@ class Literal:
             langtag: An optional language tag. When given, ``datatype`` is
                 coerced to ``prov:InternationalizedString`` (default: ``None``).
         """
-        self._value: str = str(value)  # value is always a string
+        self._value = str(value)  # value is always a string
         if langtag:
             if datatype is None:
                 logger.debug(
@@ -424,15 +446,30 @@ class Literal:
                     "prov:InternationalizedString."
                 )
                 datatype = PROV_INTERNATIONALIZEDSTRING
-        self._datatype: QualifiedName | None = datatype
+        self._datatype = datatype
         # langtag is always a string
-        self._langtag: str | None = str(langtag) if langtag is not None else None
+        self._langtag = str(langtag) if langtag is not None else None
 
     def __str__(self) -> str:
         return self.provn_representation()
 
     def __repr__(self) -> str:
         return f"<Literal: {self.provn_representation()}>"
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {
+            "_value": self._value,
+            "_datatype": self._datatype,
+            "_langtag": self._langtag,
+        }
+
+    def __setstate__(self, state: Any) -> None:
+        # Also accepts the __dict__ state of 3.1.1 pickles and the
+        # (dict_state, slot_state) tuple of 3.2.0 pickles.
+        state = _slot_state(state)
+        object.__setattr__(self, "_value", state["_value"])
+        object.__setattr__(self, "_datatype", state["_datatype"])
+        object.__setattr__(self, "_langtag", state["_langtag"])
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -501,13 +538,26 @@ class Literal:
         return self._langtag is None
 
     def provn_representation(self) -> str:
-        """Return the PROV-N representation of the literal."""
+        """Return the PROV-N representation of the literal.
+
+        An empty language tag has no PROV-N spelling, so it is written as a
+        plain string, the same as a literal built with no language tag at all;
+        this is a writer-only choice and leaves the model's own ``langtag``
+        value (``""``, not ``None``) untouched.
+        """
         quoted_value = _ensure_multiline_string_triple_quoted(self._value)
         if self._langtag:
-            # a language tag can only go with prov:InternationalizedString
-            return f"{quoted_value}@{self._langtag!s}"
-        else:
-            return f"{quoted_value} %% {self._datatype!s}"
+            # a language tag can only go with prov:InternationalizedString.
+            # PROV-N's LANGTAG ([63]) only allows hyphens between subtags, so
+            # an underscore-separated tag (e.g. "en_US") is written with a
+            # hyphen, as BCP 47 itself uses.
+            langtag = self._langtag.replace("_", "-")
+            return f"{quoted_value}@{langtag}"
+        if self._langtag == "" and (
+            self._datatype is None or self._datatype == PROV_INTERNATIONALIZEDSTRING
+        ):
+            return quoted_value
+        return f"{quoted_value} %% {self._datatype!s}"
 
 
 # Depends on `Literal` and `SupportedXSDParsedTypes` above, so it cannot join
@@ -520,10 +570,6 @@ CoercedAttributeValue: typing.TypeAlias = (
 # Exceptions and warnings
 class ProvException(Error):
     """Base class for PROV model exceptions."""
-
-
-class ProvWarning(Warning):
-    """Base class for PROV model warnings."""
 
 
 class ProvExceptionInvalidQualifiedName(ProvException):
@@ -942,19 +988,24 @@ class ProvRecord:
     def __str__(self) -> str:
         return self.get_provn()
 
-    def get_provn(self) -> str:
-        """Return the PROV-N representation of the record."""
+    def get_provn(self, strict: bool = False) -> str:
+        """Return the PROV-N representation of the record.
+
+        Args:
+            strict: Write ``prov:mentionOf`` instead of the bare
+                ``mentionOf`` keyword so the output parses under the strict
+                PROV-N profile.
+        """
         items = []
 
         # Generating identifier
         relation_id = ""  # default blank
         if self._identifier:
-            # #223: escape PN_CHARS_ESC metacharacters in the local part
             identifier = self._identifier.provn_bare_representation()
             if self.is_element():
                 items.append(identifier)
             else:
-                # this is a relation, which relation uses a semicolon to separate identifiers
+                # a relation's identifier is followed by a semicolon
                 relation_id = identifier + "; "
 
         # Writing out the formal attributes
@@ -964,9 +1015,8 @@ class ProvRecord:
                 # Formal attributes always have single values
                 value = first(values)
                 if isinstance(value, datetime.datetime):
-                    items.append(value.isoformat())
+                    items.append(_xsd_datetime_text(value))
                 elif isinstance(value, QualifiedName):
-                    # #223: escape PN_CHARS_ESC metacharacters in the local part
                     items.append(value.provn_bare_representation())
                 else:
                     items.append(str(value))
@@ -980,22 +1030,23 @@ class ProvRecord:
                 for value in self._attributes[attr]:
                     try:
                         # try if there is a prov-n representation defined
-                        provn_represenation = value.provn_representation()
+                        provn_representation = value.provn_representation()
                     except AttributeError:
-                        provn_represenation = encoding_provn_value(value)
-                    # #223: escape PN_CHARS_ESC metacharacters in the local part
+                        provn_representation = encoding_provn_value(value)
                     attr_name = attr.provn_bare_representation()
-                    extra.append(f"{attr_name}={provn_represenation}")
+                    extra.append(f"{attr_name}={provn_representation}")
 
         if extra:
             # .format(), not an f-string: the nested string literals reuse the
             # same quote character, which f-strings only allow from py3.12 (PEP 701)
             items.append("[{}]".format(", ".join(extra)))
-        prov_n = "{}({}{})".format(
-            PROV_N_MAP[self.get_type()],
-            relation_id,
-            ", ".join(items),
-        )
+        keyword = PROV_N_MAP[self.get_type()]
+        if strict and self.get_type() == PROV_MENTION:
+            # The Recommendation grammar has no Mention; PROV-Links writes it
+            # as prov:mentionOf. The default keeps the bare keyword ProvToolbox
+            # reads (#248).
+            keyword = "prov:mentionOf"
+        prov_n = "{}({}{})".format(keyword, relation_id, ", ".join(items))
         return prov_n
 
     def is_element(self) -> bool:

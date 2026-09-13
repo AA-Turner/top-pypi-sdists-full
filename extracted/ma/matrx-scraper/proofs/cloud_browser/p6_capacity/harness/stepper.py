@@ -43,6 +43,10 @@ class RunContext:
     stream_fps: int
     stream_bitrate: str
     selkies_image: str | None
+    #: The operator's --image-benchmark-contract declaration. An ACKNOWLEDGEMENT
+    #: the person running the harness makes, so it is an argument of the run, not
+    #: a property of the machine (USD-5; was P6_IMAGE_BENCHMARK_CONTRACT).
+    image_benchmark_contract: bool
     sandbox_image: str | None
     turn_url: str | None
     input_latency_cmd: str | None

@@ -13,7 +13,11 @@ def test_apply_provider_configuration_writes_only_mutating_plans(tmp_path: Path)
     )
     assert apply_provider_configuration(created)
 
-    preserved = plan_provider_configuration(tmp_path, existing_model="gpt-4.1")
+    preserved = plan_provider_configuration(
+        tmp_path,
+        existing_model="gpt-4.1",
+        readiness=lambda _document: ("ready", "ready"),
+    )
     assert preserved.status == "preserved"
     assert not apply_provider_configuration(preserved)
 

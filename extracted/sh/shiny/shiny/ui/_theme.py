@@ -566,6 +566,9 @@ class Theme:
             name=make_valid_path_str(self._dep_name()),
             version=self._version,
             source={"subdir": str(css_path.parent)},
+            # The extra `data-shiny-theme` key is intentional (rendered onto the
+            # <link> tag) but is not part of htmltools' `StylesheetItem` TypedDict.
+            # pyrefly: ignore[bad-argument-type]
             stylesheet={
                 "href": css_path.name,
                 "data-shiny-theme": self.name or self._preset,  # type: ignore
@@ -730,7 +733,7 @@ def check_theme_pkg_installed(pkg: str, spec: str | None = None) -> None:
     if importlib.util.find_spec(spec or pkg) is None:
         raise ImportError(
             f"The '{pkg}' package is required to compile custom themes. "
-            'Please install it with `pip install {pkg}` or `pip install "shiny[theme]"`.',
+            f'Please install it with `pip install {pkg}` or `pip install "shiny[theme]"`.',
         )
 
 

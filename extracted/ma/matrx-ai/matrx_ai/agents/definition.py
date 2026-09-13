@@ -473,6 +473,15 @@ class Agent:
         if self.config.tools:
             from matrx_ai.tools.merge import canonical_tool_names
 
+            # The resolution above is only as good as the registry behind it:
+            # ``canonical_tool_names`` returns the literal input when the
+            # registry does not recognize it, so in a process that never loaded
+            # the registry (a worker lane, a script, an MCP host) every UUID
+            # walked through untouched and the provider-boundary guard fired
+            # as "An unexpected Anthropic error" (commerce-intake research,
+            # live 2026-08-30). Load the registry here, once, out loud, before
+            # resolving — the direct-execution edge owns its own readiness.
+            await _ensure_registry_can_resolve_ids(self.config.tools)
             self.config.tools = canonical_tool_names(self.config.tools)
 
         # A host may own richer resource semantics than this standalone
@@ -617,3 +626,60 @@ def _resolve_auto_assignment_final_values(variable_defaults: dict, final_values:
         )
     bindings = random_assignment_bindings_from_variables(variable_defaults)
     return get_ext("auto_assign_resolve_sync")(final_values, bindings=bindings)
+
+
+
+_UUID_SHAPE = None
+
+
+def _looks_like_tool_id(value: Any) -> bool:
+    global _UUID_SHAPE
+    if not isinstance(value, str):
+        return False
+    if _UUID_SHAPE is None:
+        import re
+
+        _UUID_SHAPE = re.compile(
+            r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        )
+    return _UUID_SHAPE.match(value) is not None
+
+
+async def _ensure_registry_can_resolve_ids(tools: list[Any]) -> None:
+    """Load the tool registry before a UUID-bearing tool list is resolved.
+
+    Only acts when ``tools`` carries at least one DB id AND the process
+    registry is empty or never loaded — the exact state in which
+    ``canonical_tool_names`` would pass the ids through and the provider
+    boundary would refuse them. A names-only list never triggers a load, so
+    hosts and tests that configure names see no side effect. The load
+    announces itself: a process that reaches this point skipped the boot-time
+    ``initialize_tool_system`` call, which is a wiring gap worth seeing.
+    """
+    if not any(_looks_like_tool_id(entry) for entry in tools):
+        return
+    from matrx_ai.tools.registry import ToolRegistry
+
+    registry = ToolRegistry.get_instance()
+    if registry.loaded and registry.count > 0:
+        return
+    from matrx_utils import vcprint
+
+    from matrx_ai.tools.handle_tool_calls import initialize_tool_system
+
+    vcprint(
+        "[Agent.execute] tool registry not loaded in this process but the agent "
+        "carries tool ids — loading it now so ids resolve to names. This process "
+        "should call initialize_tool_system() at boot (app lifespan, "
+        "run_worker_bootstrap, or the host's startup) so no run pays this on "
+        "the hot path.",
+        color="yellow",
+    )
+    count = await initialize_tool_system()
+    if count == 0:
+        vcprint(
+            "[Agent.execute] tool registry loaded 0 tools — the tool ids on this "
+            "agent will still be refused at the provider boundary. Check the "
+            "database connection / tool.definition rows for this process.",
+            color="red",
+        )

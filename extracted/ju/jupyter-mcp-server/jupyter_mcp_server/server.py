@@ -340,7 +340,14 @@ class MCPServerWithCORS(MCPServer):
 INSTRUCTIONS = (
     "Read, edit and run Jupyter notebooks. Cells are addressed by index within "
     "a notebook you have opened with use_notebook, and execution happens on the "
-    "server, so a long computation keeps running after this session ends."
+    "server, so a long computation keeps running after this session ends.\n"
+    "\n"
+    "**ALWAYS MCP**: All operations on the Notebook, such as creating, editing, "
+    "and code execution, MUST be performed via tools provided by Jupyter MCP. "
+    "**NEVER Directly create or modify the Notebook Source File Content**. A "
+    "notebook open in JupyterLab or another agent's session is a live "
+    "collaborative document: a write straight to the file is silently discarded "
+    "or silently overwrites unsaved edits."
 )
 
 mcp = MCPServerWithCORS(
@@ -796,7 +803,11 @@ async def use_notebook(
         ),
     ] = "connect",
     kernel_id: Annotated[
-        str, Field(description="Specific kernel ID to use (will create new if skipped)")
+        str,
+        Field(
+            description="Id of an existing kernel (or sandbox, for a non-Jupyter sandbox variant)"
+            " to attach the notebook to. A new one is created if skipped."
+        ),
     ] = None,
 ) -> ToolAnswer:
     """Use a notebook and activate it for following cell operations.

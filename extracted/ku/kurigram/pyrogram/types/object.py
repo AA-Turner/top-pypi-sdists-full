@@ -16,25 +16,26 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import typing
 from datetime import datetime
 from enum import Enum
 from json import dumps
 
-from typing import Optional
 
 import pyrogram
 
 
 class Object:
-    def __init__(self, client: Optional["pyrogram.Client"] = None):
+    def __init__(self, client: pyrogram.Client | None = None):
         self._client = client
 
-    def bind(self, client: "pyrogram.Client"):
+    def bind(self, client: pyrogram.Client):
         """Bind a Client instance to this and to all nested Pyrogram objects.
 
         Parameters:
-            client (:obj:`~pyrogram.types.Client`):
+            client (:obj:`~pyrogram.Client`):
                 The Client instance to bind this object with. Useful to re-enable bound methods after serializing and
                 deserializing Pyrogram objects with ``repr`` and ``eval``.
         """
@@ -47,7 +48,7 @@ class Object:
                 o.bind(client)
 
     @staticmethod
-    def default(obj: "Object"):
+    def default(obj: Object):
         if isinstance(obj, bytes):
             return repr(obj)
 
@@ -76,10 +77,7 @@ class Object:
             else:
                 filtered_attributes[attr] = value
 
-        return {
-            "_": obj.__class__.__name__,
-            **filtered_attributes
-        }
+        return {"_": obj.__class__.__name__, **filtered_attributes}
 
     def __str__(self) -> str:
         return dumps(self, indent=4, default=Object.default, ensure_ascii=False)
@@ -91,10 +89,10 @@ class Object:
                 f"{attr}={repr(getattr(self, attr))}"
                 for attr in filter(lambda x: not x.startswith("_"), self.__dict__)
                 if getattr(self, attr) is not None
-            )
+            ),
         )
 
-    def __eq__(self, other: "Object") -> bool:
+    def __eq__(self, other: object) -> bool:
         for attr in self.__dict__:
             try:
                 if attr.startswith("_"):
@@ -106,6 +104,11 @@ class Object:
                 return False
 
         return True
+
+    # Equality is by mutable attribute value (see `__eq__` above), so a stable hash across
+    #  the object's lifetime cannot be guaranteed. Declared explicitly rather than relying on
+    #  the implicit `__hash__ = None` Python already applies when `__eq__` is defined alone.
+    __hash__ = None
 
     def __setstate__(self, state):
         for attr in state:

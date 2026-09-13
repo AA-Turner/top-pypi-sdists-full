@@ -253,7 +253,7 @@ MESSAGES = {
         "en": "files written: {count} -> {out}",
     },
     "translate.cleaned": {
-        "ru": "убрано остатков прошлого прогона: {count}",
+        "ru": "убрано остатков прошлого запуска: {count}",
         "en": "leftovers of earlier passes removed: {count}",
     },
     "translate.clean-without-out": {
@@ -261,12 +261,12 @@ MESSAGES = {
         "en": "--clean without --out: there is nothing to clean, no tree is being written",
     },
     "translate.dry-run-without-out": {
-        "ru": "--dry-run без --out: прогон и так ничего не пишет – показывать нечего",
+        "ru": "--dry-run без --out: команда и так ничего не пишет – показывать нечего",
         "en": "--dry-run without --out: the pass writes nothing anyway - there is nothing"
               " to show",
     },
     "translate.dry-run": {
-        "ru": "СУХОЙ ПРОГОН: ничего не записано и не убрано",
+        "ru": "Пробный запуск: ничего не записано и не убрано",
         "en": "DRY RUN: nothing written and nothing removed",
     },
     "translate.would-write": {
@@ -274,7 +274,7 @@ MESSAGES = {
         "en": "files to be written: {count} -> {out}",
     },
     "translate.would-clean": {
-        "ru": "будет убрано остатков прошлого прогона: {count}",
+        "ru": "будет убрано остатков прошлого запуска: {count}",
         "en": "leftovers of earlier passes to be removed: {count}",
     },
     "translate.cleaned-more": {
@@ -322,9 +322,9 @@ MESSAGES = {
         "en": "fill the untranslated remainder with an external translator: suggestions, not writes",
     },
     "translate.help.clean": {
-        "ru": "перед записью убрать из каталога --out всё, чего этот прогон не пишет:"
+        "ru": "перед записью убрать из каталога --out всё, чего этот запуск не пишет:"
               " переименованный или снятый в исходнике файл иначе доживает в дереве от"
-              " прошлого прогона и уезжает в сборку, а остаток на месте нужного файла ломает"
+              " прошлого запуска и уезжает в сборку, а остаток на месте нужного файла ломает"
               " саму запись",
         "en": "before writing, take out of the --out directory everything this pass does not"
               " write: a file renamed or dropped in the sources otherwise survives there from"
@@ -332,7 +332,7 @@ MESSAGES = {
               " goes breaks the write itself",
     },
     "translate.help.dry-run": {
-        "ru": "показать, что прогон сделает с каталогом --out, и не делать: перечень того,"
+        "ru": "показать, что команда сделает с каталогом --out, и не делать: перечень того,"
               " что уберёт --clean, и число файлов, которые будут записаны. Первая чистка"
               " дерева в тысячу файлов иначе делается вслепую – счётчик печатается уже после",
         "en": "say what the pass would do to the --out directory and do none of it: the list"
@@ -369,8 +369,15 @@ MESSAGES = {
         "ru": "неизвестный план в --plans: {names} (доступные: {valid})",
         "en": "unknown --plans value: {names} (available: {valid})",
     },
+    "translate.table-unread-flags": {
+        "ru": "режим {mode} отвечает таблицей и дерева не пишет, поэтому не читает эти ключи:"
+              " {names}. Дерево пишет запуск без ключа режима",
+        "en": "the {mode} mode answers with a table and writes no tree, so it does not read"
+              " these flags: {names}. The run that writes the tree is the one without a mode"
+              " flag",
+    },
     "translate.suggest-unread-flags": {
-        "ru": "режим предложений не читает эти флаги: {names}. Прогон идёт по всему проекту"
+        "ru": "режим предложений не читает эти флаги: {names}. Разбор идёт по всему проекту"
               " целиком; чтобы посмотреть срез, воспользуйтесь --gaps или --entries",
         "en": "the suggest mode does not read these flags: {names}. The run always covers the"
               " whole project; to look at a slice use --gaps or --entries",
@@ -448,6 +455,15 @@ def cli_main(argv: list[str] | None = None) -> int:
     if not root.is_dir():
         print(i18n.t("translate.no-root", path=root), file=sys.stderr)
         return 2
+    mode = _table_mode(args)
+    if mode:
+        # Before the dictionary is even looked for: a flag the mode cannot honor is a usage
+        # error, and answering it must not depend on whether this project has a dictionary.
+        unread = [flag for flag, attribute, absent in WRITING_FLAGS
+                  if getattr(args, attribute) != absent]
+        if unread:
+            return _refused(args, i18n.t("translate.table-unread-flags",
+                                         mode=mode, names=", ".join(unread)))
     if args.clean and not args.out:
         # Silently ignoring it would leave the caller believing a stale tree was cleaned.
         print(i18n.t("translate.clean-without-out"), file=sys.stderr)
@@ -1055,6 +1071,43 @@ def _apply_edits(args, root: Path, loaded) -> int:
             for item in refused:
                 print(f"  {item['key']}: {item['reason']}", file=sys.stderr)
     return 1 if refused else 0
+
+
+#: The modes that answer with a TABLE, in the order the dispatch below tries them: the flag and
+#: the parsed attribute behind it. Each of them returns before the writing pass ever runs.
+TABLE_MODES = (
+    ("--set", "set_file"),
+    ("--table", "table"),
+    ("--entries", "entries"),
+    ("--redundant", "redundant"),
+    ("--unused", "unused"),
+    ("--prune", "prune"),
+    ("--gaps", "gaps"),
+    ("--suggest", "suggest"),
+)
+
+#: Flags of the WRITING pass - where the tree goes, whether the stale part of it is cleaned,
+#: whether the writing stops short, and the stub of what is left untranslated. A table mode
+#: runs none of that, so it can honor none of these: the flag, the parsed attribute, and the
+#: value that means "not given".
+WRITING_FLAGS = (
+    ("--out", "out", None),
+    ("--clean", "clean", False),
+    ("--dry-run", "dry_run", False),
+    ("--missing", "missing", None),
+)
+
+
+def _table_mode(args) -> str:
+    """The table mode this run asks for, named by its flag; empty for the writing pass.
+
+    The order matches the dispatch, so the name is the mode that will actually answer rather
+    than the first flag that happens to be set.
+    """
+    for flag, attribute in TABLE_MODES:
+        if getattr(args, attribute):
+            return flag
+    return ""
 
 
 #: Flags the table modes honor and the suggest mode does not: the flag, the parsed attribute

@@ -114,3 +114,30 @@ def test_provider_adapters_do_not_log_tracebacks_or_emit_terminal_errors() -> No
         assert (
             "error_type=error_info.error_type" not in source
         ), f"{relative_path} emits a classified exception instead of rethrowing it"
+
+
+def test_tool_id_boundary_leak_is_our_bug_and_never_retried() -> None:
+    """A tool UUID that reaches the provider boundary means THIS process's
+    registry could not resolve ids — the provider was never contacted. Before
+    2026-09-12 it fell through to the string fallback as a retryable
+    ``unknown_error`` and surfaced as "An unexpected Anthropic error occurred.
+    Retrying..." (commerce-intake research, live 2026-08-30): three paid-for
+    retries of a deterministic refusal, and a message naming the wrong system.
+    """
+    from matrx_ai.tools.registry import ToolIdBoundaryError
+
+    error = ToolIdBoundaryError(
+        "Tool IDs reached the provider boundary (must be tool names): "
+        "['55bc14b4-a166-4a33-a0bc-a2b0dcf66de0']. (registry_loaded=False, registry_count=0)"
+    )
+
+    for classified in (
+        classify_anthropic_error(error),
+        classify_google_error(error),
+        classify_provider_error("anthropic", error),
+    ):
+        assert classified.error_type == "matrx_tool_boundary_error"
+        assert classified.is_retryable is False
+        assert "55bc14b4-a166-4a33-a0bc-a2b0dcf66de0" in classified.message
+        assert "registry_loaded=False" in classified.user_message
+        assert "unexpected" not in classified.user_message.lower()

@@ -16,42 +16,49 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import asyncio
 import logging
-from typing import Optional, Tuple, Union
 
-from .tcp import TCP, ProxyDict
+from pyrogram.connection.proxy import Proxy
+from pyrogram.connection.transport.tcp.tcp import ABRIDGED_OBFUSCATE_TAG, TCP
 
 log = logging.getLogger(__name__)
 
 
 class TCPAbridged(TCP):
+    # Lets TCP._connect_via_web_proxy use this class over a WEB proxy
+    #  (proxy={"scheme": "web", ...}) unmodified.
+    OBFUSCATE_TAG = ABRIDGED_OBFUSCATE_TAG
+
     def __init__(
         self,
         ipv6: bool = False,
-        proxy: Optional[Union[str, ProxyDict]] = None,
+        proxy: Proxy | None = None,
         crypto_executor_workers: int = 1,
-        loop: Optional[asyncio.AbstractEventLoop] = None,
+        loop: asyncio.AbstractEventLoop | None = None,
+        dc_id: int | None = None,
     ) -> None:
-        super().__init__(ipv6, proxy, crypto_executor_workers, loop)
+        super().__init__(ipv6, proxy, crypto_executor_workers, loop, dc_id=dc_id)
 
-    async def connect(self, address: Tuple[str, int]) -> None:
+    async def connect(self, address: tuple[str, int]) -> None:
         self.marker_event.clear()
         await super().connect(address)
-        await super().send(b"\xef", wait_for_marker=False)
+        if not self.opens_with_obfuscated2_header:
+            # The header already carries this tag where one was sent; see
+            #  `TCP.opens_with_obfuscated2_header`.
+            await super().send(b"\xef", wait_for_marker=False)
         self.marker_event.set()
 
     async def send(self, data: bytes, *args) -> None:
         length = len(data) // 4
 
         await super().send(
-            (bytes([length])
-             if length <= 126
-             else b"\x7f" + length.to_bytes(3, "little"))
-            + data
+            (bytes([length]) if length <= 126 else b"\x7f" + length.to_bytes(3, "little")) + data
         )
 
-    async def recv(self, length: int = 0) -> Optional[bytes]:
+    async def recv(self, length: int = 0) -> bytes | None:
         length = await super().recv(1)
 
         if length is None:

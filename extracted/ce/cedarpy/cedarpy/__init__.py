@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Union, List, Optional, Any
 
 from cedarpy import _internal
+from cedarpy import pst
 
 # Re-export the Rust-implemented PolicySet and Schema handles.
 PolicySet = _internal.PolicySet
@@ -143,7 +144,7 @@ class AuthzResult:
         return Decision.Allow == self.decision
 
     @property
-    def correlation_id(self) -> Decision:
+    def correlation_id(self) -> Optional[str]:
         return self._authz_resp.get('correlation_id', None)
 
     @property
@@ -358,6 +359,16 @@ def policies_from_json_str(policies: str) -> str:
     return _internal.policies_from_json_str(policies)
 
 
+def policies_to_pst(policies: str) -> "pst.PolicySet":
+    """Parse Cedar policy text into typed PST nodes from cedarpy.pst.
+
+    The node set tracks the Cedar engine (see the ``cedarpy.pst`` module
+    docs): syntax newer than the modelled node types raises ``ValueError``
+    until a cedarpy release models it.
+    """
+    return _internal.policies_to_pst(policies)
+
+
 class PartialDiagnostics(_DiagnosticsBase):
     """Diagnostics for a partial-evaluation authorization decision.
 
@@ -445,6 +456,15 @@ def is_authorized_partial(request: dict,
     Fields in the request dict that are None or absent are treated as
     unknown. The evaluator simplifies policies as far as possible and
     returns residual expressions for policies that cannot be fully resolved.
+
+    .. warning::
+
+        **Experimental upstream feature.** This function is built on the
+        ``cedar-policy`` crate's ``partial-eval`` feature, which Cedar ships
+        outside its semver guarantee (see Cedar's experimental-features
+        policy). Cedar may change or break it in any release, so a cedarpy
+        minor release may carry breaking changes to this API; the CHANGELOG
+        calls them out when they happen.
 
     .. warning::
 

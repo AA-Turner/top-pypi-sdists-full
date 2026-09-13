@@ -269,8 +269,23 @@ class OpenAPIApps:
     def wfc_role_gated_401(self) -> OpenAPIServer:
         return _start(self.parent, openapi_wfc.wfc_role_gated_401())
 
+    def wfc_role_gated_401_when_anonymous(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_role_gated_401_when_anonymous())
+
+    def wfc_credentials_rejected(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_wfc.wfc_credentials_rejected())
+
     def planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.planted_bug())
+
+    def collection_with_planted_bug(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.collection_with_planted_bug())
+
+    def undocumented_collection_with_planted_bug(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.undocumented_collection_with_planted_bug())
+
+    def vocabulary_path_with_planted_bug(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_basic.vocabulary_path_with_planted_bug())
 
     def planted_bug_with_quiet_operation(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.planted_bug_with_quiet_operation())

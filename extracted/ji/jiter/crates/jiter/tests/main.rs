@@ -10,8 +10,8 @@ use std::sync::Arc;
 use num_bigint::BigInt;
 
 use jiter::{
-    Jiter, JiterErrorType, JiterResult, JsonErrorType, JsonObject, JsonType, JsonValue, LinePosition, NumberAny,
-    NumberFloat, NumberInt, PartialMode, Peek,
+    Jiter, JiterErrorType, JiterResult, JsonErrorType, JsonObject, JsonType, JsonValue, JsonValueScratch, LinePosition,
+    NumberAny, NumberFloat, NumberInt, PartialMode, Peek,
 };
 
 fn json_vec(jiter: &mut Jiter, peek: Option<Peek>) -> JiterResult<Vec<String>> {
@@ -1024,6 +1024,34 @@ fn test_4300_int() {
 
 #[cfg(feature = "num-bigint")]
 #[test]
+fn signed_integer_digit_limit() {
+    for sign in ["", "-"] {
+        for digits in [4299, 4300, 4301] {
+            let json = format!("{sign}{}", "9".repeat(digits));
+            let bytes = json.as_bytes();
+            let any = NumberAny::from_bytes(bytes, false);
+            let int = NumberInt::from_bytes(bytes);
+            let mut jiter = Jiter::new(bytes);
+            let range = jiter.next_number_bytes();
+            if digits <= 4300 {
+                let expected = BigInt::from_str(&json).unwrap();
+                assert_eq!(any.unwrap(), NumberAny::Int(NumberInt::BigInt(expected.clone())));
+                assert_eq!(int.unwrap(), NumberInt::BigInt(expected));
+                assert_eq!(range.unwrap(), bytes);
+            } else {
+                let expected_index = sign.len() + 4301;
+                for error in [any.unwrap_err(), int.unwrap_err()] {
+                    assert_eq!(error.error_type, JsonErrorType::NumberOutOfRange);
+                    assert_eq!(error.index, expected_index);
+                }
+                assert!(range.is_err());
+            }
+        }
+    }
+}
+
+#[cfg(feature = "num-bigint")]
+#[test]
 fn test_big_int_errs() {
     for json in [
         &[b'9'; 4302][..],
@@ -1277,6 +1305,78 @@ fn jiter_next_value_owned() {
     };
     assert_eq!(s, "v");
     assert!(matches!(s, Cow::Owned(_)));
+}
+
+#[test]
+fn number_any_chunk_boundaries() {
+    for integer in [
+        1_234_567i64,
+        12_345_678,
+        123_456_789,
+        123_456_789_012_345,
+        1_234_567_890_123_456,
+        12_345_678_901_234_567,
+        123_456_789_012_345_678,
+        1_234_567_890_123_456_789,
+    ] {
+        for value in [integer, -integer] {
+            for suffix in ["", ".125", "e-3", "E+3"] {
+                let token = format!("{value}{suffix}");
+                let expected = if suffix.is_empty() {
+                    NumberAny::Int(NumberInt::Int(value))
+                } else {
+                    NumberAny::Float(token.parse::<f64>().unwrap())
+                };
+                for offset in [0, 1, 7, 15] {
+                    for trailing in ["", ", 12345678901234567890]"] {
+                        let data = format!("{}{token}{trailing}", " ".repeat(offset));
+                        let mut jiter = Jiter::new(data.as_bytes());
+                        assert_eq!(jiter.next_number().unwrap(), expected, "{data}");
+                        assert_eq!(jiter.current_index(), offset + token.len(), "{data}");
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn number_any_non_digit_terminators() {
+    for len in [1, 3, 7, 8, 9, 15, 16, 17, 18, 19] {
+        let token = &"1234567890123456789"[..len];
+        let expected = NumberAny::Int(NumberInt::Int(token.parse().unwrap()));
+        for &byte in b"/:\x00\x80\xff]" {
+            let mut data = b"       ".to_vec();
+            data.extend_from_slice(token.as_bytes());
+            data.push(byte);
+            data.extend_from_slice(b"12345678901234567890]");
+            let mut jiter = Jiter::new(&data);
+            assert_eq!(jiter.next_number().unwrap(), expected, "{data:?}");
+            assert_eq!(jiter.current_index(), 7 + len, "{data:?}");
+        }
+    }
+}
+
+#[test]
+fn number_any_i64_boundaries() {
+    assert_eq!(
+        NumberAny::from_bytes(b"9223372036854775807", false).unwrap(),
+        NumberAny::Int(NumberInt::Int(i64::MAX))
+    );
+    assert_eq!(
+        NumberAny::from_bytes(b"-9223372036854775808", false).unwrap(),
+        NumberAny::Int(NumberInt::Int(i64::MIN))
+    );
+    for json in ["9223372036854775808", "-9223372036854775809"] {
+        let result = NumberAny::from_bytes(json.as_bytes(), false);
+        #[cfg(feature = "num-bigint")]
+        assert_eq!(
+            result.unwrap(),
+            NumberAny::Int(NumberInt::BigInt(json.parse::<BigInt>().unwrap()))
+        );
+        #[cfg(not(feature = "num-bigint"))]
+        assert_eq!(result.unwrap_err().error_type, JsonErrorType::NumberOutOfRange);
+    }
 }
 
 #[cfg(feature = "num-bigint")]
@@ -1705,6 +1805,79 @@ fn test_unicode_roundtrip() {
 }
 
 #[test]
+fn test_string_simd_chunks_all_offsets() {
+    // exercise the SIMD string decoder: place non-ascii characters, escapes and the string end
+    // at every offset relative to the 16-byte SIMD chunks
+    for pad in 0..40 {
+        let prefix = "a".repeat(pad);
+        for insert in ["é", "±", "中", "💩", "中中中中", r"\n", r#"\""#, r"中", ""] {
+            for suffix_len in [0, 1, 20] {
+                let suffix = "b".repeat(suffix_len);
+                let json = format!("\"{prefix}{insert}{suffix}\"");
+                let expected: String = serde_json::from_str(&json).unwrap();
+                let value = JsonValue::parse(json.as_bytes(), false).unwrap();
+                let JsonValue::Str(s) = value else {
+                    panic!("expected string, got {value:?}")
+                };
+                assert_eq!(s.as_ref(), expected, "json: {json}");
+            }
+        }
+        // a control character should error at the right position, whatever the offset
+        let mut json_bytes = format!("\"{prefix}").into_bytes();
+        json_bytes.extend(*b"\x07a\"");
+        let err = JsonValue::parse(&json_bytes, false).unwrap_err();
+        assert_eq!(err.error_type, JsonErrorType::ControlCharacterWhileParsingString);
+        assert_eq!(err.index, pad + 1);
+    }
+}
+
+#[test]
+fn test_string_simd_chunks_partial() {
+    // the same as above in partial mode, truncating at every byte: the SIMD non-ascii branch
+    // skips a whole chunk at a time, so the tail it leaves to the fallback varies with the offset
+    for pad in 0..40 {
+        let prefix = "a".repeat(pad);
+        for insert in ["é", "中", "💩", "中中中中", r"\n"] {
+            let json = format!("\"{prefix}{insert}{}\"", "b".repeat(20));
+            let full: String = serde_json::from_str(&json).unwrap();
+            for cut in 1..=json.len() {
+                let value =
+                    JsonValue::parse_with_config(&json.as_bytes()[..cut], false, PartialMode::TrailingStrings).unwrap();
+                let JsonValue::Str(s) = value else {
+                    panic!("expected string, got {value:?}")
+                };
+                assert!(full.starts_with(s.as_ref()), "cut {cut} of {json}");
+            }
+        }
+    }
+}
+
+#[test]
+fn test_string_simd_stop_char_after_non_ascii() {
+    // a stop character sharing a SIMD chunk with a preceding non-ascii character, which the
+    // scan reaches via the mask rather than the byte-by-byte loop
+    for pad in 0..24 {
+        for lead in ["é", "中", "💩"] {
+            let prefix = lead.repeat(pad);
+
+            let json = format!("\"{prefix}\\n\"");
+            let expected: String = serde_json::from_str(&json).unwrap();
+            let value = JsonValue::parse(json.as_bytes(), false).unwrap();
+            let JsonValue::Str(s) = value else {
+                panic!("expected string, got {value:?}")
+            };
+            assert_eq!(s.as_ref(), expected, "json: {json}");
+
+            let mut json_bytes = format!("\"{prefix}").into_bytes();
+            json_bytes.extend(*b"\x07\"");
+            let err = JsonValue::parse(&json_bytes, false).unwrap_err();
+            assert_eq!(err.error_type, JsonErrorType::ControlCharacterWhileParsingString);
+            assert_eq!(err.index, prefix.len() + 1);
+        }
+    }
+}
+
+#[test]
 fn test_value_partial_array_on() {
     let json_bytes = br#"["string", true, null, 1, "foo"#;
     let value = JsonValue::parse_with_config(json_bytes, false, PartialMode::On).unwrap();
@@ -1798,4 +1971,158 @@ fn test_partial_medium_response() {
         let value = JsonValue::parse_with_config(partial_json, false, PartialMode::TrailingStrings).unwrap();
         assert!(matches!(value, JsonValue::Object(_)));
     }
+}
+
+/// Check `json` against Rust std's float parsing, which is guaranteed correctly rounded,
+/// through both the `NumberAny` (`next_number`) and `NumberFloat` (`next_float`) decoders.
+fn check_float_bits(json: &str) {
+    let expected: f64 = json.parse().unwrap();
+    let NumberAny::Float(any) = Jiter::new(json.as_bytes()).next_number().unwrap() else {
+        panic!("{json}: expected a float");
+    };
+    assert_eq!(
+        any.to_bits(),
+        expected.to_bits(),
+        "{json}: next_number {any} != std {expected}"
+    );
+    let float = Jiter::new(json.as_bytes()).next_float().unwrap();
+    assert_eq!(
+        float.to_bits(),
+        expected.to_bits(),
+        "{json}: next_float {float} != std {expected}"
+    );
+}
+
+#[test]
+fn test_many_floats() {
+    // xorshift, deterministic so failures are reproducible
+    let mut state = 0x853c_49e6_748f_ea9bu64;
+    let mut rand = move || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state
+    };
+    let digit = |value: u64| char::from(b'0' + (value % 10) as u8);
+
+    // values which a previous implementation, summing separately-parsed integer and fraction
+    // f64s, got wrong by 1 ulp
+    check_float_bits("12.12");
+    check_float_bits("13.813696130201759");
+    check_float_bits("599.01160859540181");
+    check_float_bits("195.050856528187481310935284622811025225961617");
+
+    // every exponent from far below the subnormal range (parses to 0) to far above f64::MAX
+    // (parses to inf), with mantissas of increasing digit count
+    for exp in -350..=350 {
+        for mantissa in ["1", "7.3", "2.225073858507", "1.7976931348623157"] {
+            check_float_bits(&format!("{mantissa}e{exp}"));
+            check_float_bits(&format!("-{mantissa}E{exp}"));
+        }
+    }
+
+    // every combination of integer and fraction digit counts, crossing the exact-u64-mantissa
+    // limits (19 significant digits, 16+ fraction digits, 18+ integer digits) in both directions
+    for int_len in 1..=25 {
+        for frac_len in 1..=30 {
+            let mut s = String::new();
+            if rand() % 2 == 0 {
+                s.push('-');
+            }
+            s.push(char::from(b'1' + (rand() % 9) as u8));
+            for _ in 1..int_len {
+                s.push(digit(rand()));
+            }
+            s.push('.');
+            for _ in 0..frac_len {
+                s.push(digit(rand()));
+            }
+            check_float_bits(&s);
+        }
+    }
+
+    // round-tripped doubles from random bit patterns: shortest representation and full digits;
+    // large integral doubles format without a `.` or exponent and jiter parses them as ints
+    let mut checked = 0;
+    while checked < 10_000 {
+        let f = f64::from_bits(rand());
+        if f.is_finite() {
+            for s in [format!("{f}"), format!("{f:?}")] {
+                if s.contains(['.', 'e']) {
+                    check_float_bits(&s);
+                }
+            }
+            checked += 1;
+        }
+    }
+
+    // zero integer parts with leading fraction zeros, and near-halfway values with long tails
+    for _ in 0..10_000 {
+        let mut s = String::from("0.");
+        for _ in 0..(rand() % 5) {
+            s.push('0');
+        }
+        for _ in 0..=(rand() % 25) {
+            s.push(digit(rand()));
+        }
+        check_float_bits(&s);
+        check_float_bits(&format!(
+            "{}.{:018}5",
+            rand() % 1_000_000,
+            rand() % 1_000_000_000_000_000_000
+        ));
+    }
+}
+
+#[test]
+fn test_scratch_reuse() {
+    let documents: [&[u8]; 5] = [
+        br#"[true, false, null, 1, 2.5, "x", [1, [2, [3]]], {"a": {"b": [1, {"c": 2}]}}]"#,
+        br#"{"person": {"name": "x", "tags": ["a", "b"]}, "count": 3}"#,
+        b"[]",
+        b"{}",
+        br#""just a string""#,
+    ];
+    let mut scratch = JsonValueScratch::new();
+    for _ in 0..3 {
+        for json_data in documents {
+            let expected = JsonValue::parse(json_data, false).unwrap();
+            assert_eq!(scratch.parse(json_data, false, PartialMode::Off).unwrap(), expected);
+        }
+    }
+}
+
+#[test]
+fn test_scratch_owned() {
+    let mut scratch = JsonValueScratch::new();
+    let value = {
+        let s = r#"  { "int": 1, "const": true, "float": 1.2, "array": [1, false, null]}"#.to_string();
+        scratch.parse_owned(s.as_bytes(), false, PartialMode::Off).unwrap()
+    };
+    assert_eq!(value, value_owned());
+    let again = scratch
+        .parse_owned(br#"[{"k": "v"}, {"k": "w"}]"#, false, PartialMode::Off)
+        .unwrap();
+    assert_eq!(
+        again,
+        JsonValue::parse_owned(br#"[{"k": "v"}, {"k": "w"}]"#, false, PartialMode::Off).unwrap()
+    );
+}
+
+#[test]
+fn test_scratch_after_error() {
+    let mut scratch = JsonValueScratch::new();
+    let broken: &[u8] = br#"{"a": "escaped\nvalue", "b": [1, 2, {"c": [3, "#;
+    assert!(scratch.parse(broken, false, PartialMode::Off).is_err());
+    let trailing: &[u8] = br#"[1, "two\n"] x"#;
+    assert!(scratch.parse(trailing, false, PartialMode::Off).is_err());
+    let json_data: &[u8] = br#"[5, {"b": "six\n"}]"#;
+    assert_eq!(
+        scratch.parse(json_data, false, PartialMode::Off).unwrap(),
+        JsonValue::parse(json_data, false).unwrap()
+    );
+    assert_eq!(
+        scratch.parse(broken, false, PartialMode::On).unwrap(),
+        JsonValue::parse_with_config(broken, false, PartialMode::On).unwrap()
+    );
 }

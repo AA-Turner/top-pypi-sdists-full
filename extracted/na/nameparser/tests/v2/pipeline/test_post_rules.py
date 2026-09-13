@@ -5,6 +5,7 @@ import pytest
 
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import run
+from nameparser._pipeline._post_rules import suffix_entries
 from nameparser._pipeline._state import ParseState
 from nameparser._policy import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
                                 GIVEN_FIRST, PatronymicRule, Policy,
@@ -105,6 +106,57 @@ def test_no_swap_when_more_fields_present() -> None:
 _ES = Policy(patronymic_rules=frozenset({PatronymicRule.EAST_SLAVIC}))
 _TK = Policy(patronymic_rules=frozenset({PatronymicRule.TURKIC}))
 
+_FF = Policy(name_order=FAMILY_FIRST)
+_FFGL = Policy(name_order=FAMILY_FIRST_GIVEN_LAST)
+
+#: Both family-first orders, since the rules claimed of a family-first
+#: order are claimed of every one of them and only one was ever parsed.
+#: They differ in where the given name lands behind the family, which
+#: is exactly what a leading shape must not depend on; the
+#: leading-particle cases below fold identically under both.
+_FAMILY_FIRST = [pytest.param(_FF, id="FAMILY_FIRST"),
+                 pytest.param(_FFGL, id="FAMILY_FIRST_GIVEN_LAST")]
+
+#: What the SHIPPED 2.2.0 wheel reads as the family, per (input,
+#: declared order) -- the rotation firing on the family slot whatever
+#: order assign read, which under a family-first order is the FIRST
+#: word. This column is the negative control: it is the reading the
+#: two stand-down tests below exist to prevent, recorded as data and
+#: re-measurable (`pip install nameparser==2.2.0`) rather than left in
+#: a comment. The stand-down tests do not assert on it -- what they
+#: assert is the expected column -- but a failure quotes it, so a
+#: rotation that fires again says so in the message. The vacuity probe
+#: below DOES assert on it, which is what keeps this column honest.
+#: The key is (input, declared order): each input picks out its own
+#: pack, `Мицкевич` being East Slavic and `oglu` Turkic, so no pack
+#: identifier is needed to disambiguate a row.
+_PRE_GATE_FAMILY = {
+    ("Мицкевич Адам Юзеф", FAMILY_FIRST): "Адам",
+    ("Мицкевич Адам Юзеф", FAMILY_FIRST_GIVEN_LAST): "Юзеф",
+    ("Dr. Мицкевич Адам Юзеф", FAMILY_FIRST): "Адам",
+    ("Dr. Мицкевич Адам Юзеф", FAMILY_FIRST_GIVEN_LAST): "Юзеф",
+    ("oglu Ahmad Vali Ali", FAMILY_FIRST): "Ahmad",
+    ("oglu Ahmad Vali Ali", FAMILY_FIRST_GIVEN_LAST): "Ali",
+}
+
+
+def _assert_rotation_stood_down(pack: Policy, order: Policy, text: str,
+                                family: str, title: str = "") -> None:
+    """The pack opted in under `order` reads `text` exactly as `order`
+    alone reads it, family included."""
+    out = _parsed(text, dataclasses.replace(pack,
+                                            name_order=order.name_order))
+    plain = _parsed(text, order)
+    roles = (Role.TITLE, Role.GIVEN, Role.MIDDLE, Role.FAMILY,
+             Role.SUFFIX)
+    pre_gate = _PRE_GATE_FAMILY[text, order.name_order]
+    assert [_by_role(out, r) for r in roles] == \
+        [_by_role(plain, r) for r in roles], (
+        f"the pack changed the reading; before the gate the 2.2.0 "
+        f"wheel read family {pre_gate!r} here")
+    assert _by_role(out, Role.FAMILY) == family
+    assert _by_role(out, Role.TITLE) == title
+
 
 def test_east_slavic_rotation() -> None:
     out = _parsed("Сидоров Иван Петрович", _ES)
@@ -136,6 +188,33 @@ def test_east_slavic_skips_when_middle_is_also_patronymic() -> None:
     assert _by_role(out, Role.FAMILY) == "Abramovich"
 
 
+@pytest.mark.parametrize("text,title", [
+    ("Мицкевич Адам Юзеф", ""),
+    # a peeled title must not move the shape the gate is claimed of:
+    # rules.md#O1 counts name words "titles, suffixes and nicknames
+    # aside", so the rotation still reaches this input pre-gate
+    # (_PRE_GATE_FAMILY records the same family as the bare form) and
+    # the title has to survive the stand-down
+    ("Dr. Мицкевич Адам Юзеф", "Dr."),
+])
+@pytest.mark.parametrize("order", _FAMILY_FIRST)
+def test_east_slavic_stands_down_under_a_declared_family_first_order(
+        order: Policy, text: str, title: str) -> None:
+    # rules.md#O1's scope clause (decisions.md#O1, 2026-09-07, #384):
+    # the rotation RESTORES the default reading a family-first listing
+    # hides, so a declared family-first order supplies that reading and
+    # the rotation stands down. The gate is on the order assign READ,
+    # so it needs an input the rotation would otherwise fire on: under
+    # a family-first order the family slot holds the FIRST word, and a
+    # patronymic-DERIVED surname written first carries the ending.
+    #
+    # BOTH family-first orders, because the gate is claimed of the
+    # order class and the two place the given name differently: the
+    # rotation rewrote a different word under each (_PRE_GATE_FAMILY),
+    # so one order alone would leave the other's reading unpinned.
+    _assert_rotation_stood_down(_ES, order, text, "Мицкевич", title)
+
+
 def test_east_slavic_off_by_default() -> None:
     out = _parsed("Сидоров Иван Петрович")
     assert _by_role(out, Role.GIVEN) == "Сидоров"
@@ -146,6 +225,44 @@ def test_turkic_rotation() -> None:
     assert _by_role(out, Role.GIVEN) == "Aygun"
     assert _by_role(out, Role.MIDDLE) == "Ali kizi"
     assert _by_role(out, Role.FAMILY) == "Mammadova"
+
+
+@pytest.mark.parametrize("order", _FAMILY_FIRST)
+def test_turkic_stands_down_under_a_declared_family_first_order(
+        order: Policy) -> None:
+    # The other pack, gated by the same read: rules.md#O2 is the same
+    # restoration of a hidden given-first reading, and the gate is one
+    # condition covering both rotations -- so pinning only the East
+    # Slavic half would leave half the gate free to come back out.
+    # 'oglu' is the Turkic patronymic marker standing where a
+    # family-first order puts the surname, which is what makes O2's
+    # trailing-marker test see it.
+    _assert_rotation_stood_down(_TK, order, "oglu Ahmad Vali Ali",
+                                "oglu")
+
+
+def test_the_order_gate_is_what_stands_the_rotations_down(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reachability probe: with the gate patched back to the ungated
+    condition, every stand-down input must rotate again, reading the
+    family _PRE_GATE_FAMILY records from the 2.2.0 wheel. If this
+    fails green-side, the stand-down rows above have gone vacuous --
+    the rotation no longer reaches their inputs."""
+    from nameparser._pipeline import _post_rules
+    monkeypatch.setattr(
+        _post_rules, "_rotations_apply",
+        lambda state: state.structure is _post_rules.Structure.NO_COMMA)
+    for pack, text in ((_ES, "Мицкевич Адам Юзеф"),
+                       (_ES, "Dr. Мицкевич Адам Юзеф"),
+                       (_TK, "oglu Ahmad Vali Ali")):
+        for order in (_FF, _FFGL):
+            policy = dataclasses.replace(pack,
+                                         name_order=order.name_order)
+            out = _parsed(text, policy)
+            assert _by_role(out, Role.FAMILY) == \
+                _PRE_GATE_FAMILY[text, policy.name_order], (
+                f"{text!r} no longer reaches the rotation under "
+                f"{policy.name_order}; the stand-down rows are vacuous")
 
 
 def test_leading_never_given_particle_folds_into_family() -> None:
@@ -169,18 +286,6 @@ def test_degenerate_bare_particle_stays_given() -> None:
     out = _parsed("de")
     assert _by_role(out, Role.GIVEN) == "de"
     assert not _by_role(out, Role.FAMILY)
-
-
-_FF = Policy(name_order=FAMILY_FIRST)
-_FFGL = Policy(name_order=FAMILY_FIRST_GIVEN_LAST)
-
-#: Both family-first orders, since the rule is claimed of every one of
-#: them and only one was ever parsed. They differ in where the given
-#: name lands behind the family, which is exactly what the leading
-#: shape must not depend on; the cases below fold identically under
-#: both.
-_FAMILY_FIRST = [pytest.param(_FF, id="FAMILY_FIRST"),
-                 pytest.param(_FFGL, id="FAMILY_FIRST_GIVEN_LAST")]
 
 
 # --- rule 1b under the family-first orders (#359) ---------------------
@@ -814,3 +919,205 @@ def test_the_suffix_arm_report_names_the_post_nominal_it_declined() -> None:
         "family the comma named rather than standing as a "
         "post-nominal")
     assert [out.tokens[i].text for i in amb.indices] == ["vd"]
+
+
+def _entry_tags(text: str, policy: Policy | None = None) -> list[tuple[str, bool]]:
+    """(text, is a continuation) per SUFFIX token, after the stage.
+
+    Read off the tokens rather than off the rendered string: the tag
+    is what post_rules produces and the ", " join is _types.py's, and
+    a test that read the string would pass on a stage that tagged
+    nothing if the render ever stopped honoring the tag.
+    """
+    state = run(ParseState(original=text, lexicon=Lexicon.default(),
+                           policy=policy or Policy()))
+    return [(tok.text, "joined" in tok.tags)
+            for i, tok in enumerate(state.tokens)
+            if tok.role is Role.SUFFIX and i not in set(state.dropped)]
+
+
+def test_a_space_separated_run_is_one_entry() -> None:
+    """rules.md#R1's no-comma path, which is the whole of #436."""
+    assert _entry_tags("John Smith MD PhD") == [("MD", False), ("PhD", True)]
+
+
+def test_the_writers_comma_parts_two_entries() -> None:
+    """The `same_part` conjunct. Drop it and 'Smith Jr., Mr. Jr.'
+    renders suffix 'Jr. Jr.' -- the tag gluing a run across the
+    writer's own comma, which is the inverse of the bug #429 fixed and
+    the reason the bucket comparison is not optional."""
+    assert _entry_tags("Smith, MD, PhD") == [("MD", False), ("PhD", False)]
+    assert _entry_tags("Smith Jr., Mr. Jr.") == [("Jr.", False), ("Jr.", False)]
+
+
+def test_a_run_of_three_reads_each_gap_on_its_own() -> None:
+    """The pass walks CONSECUTIVE pairs, so a mixed run decides each
+    gap against the post-nominal immediately before it. Measure the
+    bucket against the run's FIRST suffix instead of the predecessor
+    and the first assertion below reads [F, F, F]: 'FACS' loses its
+    continuation because 'MD' sits in an earlier bucket than the
+    'PhD' it actually follows. The mirror is the same run written the
+    other way round, where that mutant agrees and only the pairwise
+    reading distinguishes the two (measured 2026-09-06)."""
+    assert _entry_tags("John Doe, MD, PhD FACS") == [
+        ("MD", False), ("PhD", False), ("FACS", True)]
+    assert _entry_tags("John Doe, MD PhD, FACS") == [
+        ("MD", False), ("PhD", True), ("FACS", False)]
+
+
+def test_an_interleaved_title_does_not_part_the_run() -> None:
+    """A title renders into another field, so it is transparent to the
+    entry: 'Smith, MD Dr. PhD' is one run, as it was when group kept
+    the entry open across a piece that was not in it."""
+    assert _entry_tags("Smith, MD Dr. PhD") == [("MD", False), ("PhD", True)]
+
+
+def test_an_interleaved_nickname_does_not_part_the_run() -> None:
+    """TITLE is not the only transparent role: a nickname renders into
+    `nickname`, so it is no more in the run than a title is. Narrow
+    _RENDERS_ELSEWHERE back to {TITLE} and this renders 'MD, PhD'."""
+    assert _entry_tags('Smith, MD "Doc" PhD') == [("MD", False), ("PhD", True)]
+
+
+def test_an_interleaved_nickname_does_not_part_a_no_comma_run() -> None:
+    """The same transparency on the no-comma path #436 is about: with
+    a name before it there is no family comma, and the run still has
+    to survive the nickname. Narrow _RENDERS_ELSEWHERE back to
+    {TITLE} and this renders 'MD, PhD'."""
+    assert _entry_tags('John Smith MD "Doc" PhD') == [
+        ("MD", False), ("PhD", True)]
+
+
+def test_a_bracketed_maiden_clause_does_not_part_the_run() -> None:
+    """MAIDEN renders into `maiden`, so the KEPT word of a maiden
+    clause is transparent too. Narrow _RENDERS_ELSEWHERE back to
+    {TITLE} and this renders 'MD, PhD'."""
+    assert _entry_tags("Smith, MD (nee Jones) PhD") == [
+        ("MD", False), ("PhD", True)]
+
+
+def test_a_bare_marker_maiden_clause_does_not_part_the_run() -> None:
+    """The dropped arm's other half: written without brackets the
+    marker word itself is DROPPED, with no role for the transparency
+    test to read. It is not a delimiter core, so it does not part the
+    run either -- make the dropped arm part on any dropped index and
+    this renders 'MD, PhD'. The bracketed twin above drops its marker
+    too, so that mutant fails both; what separates the two tests is
+    the role test, which sees 'Jones' in both and 'nee' in neither
+    (measured 2026-09-06)."""
+    assert _entry_tags("Smith, MD nee Jones PhD") == [
+        ("MD", False), ("PhD", True)]
+
+
+def test_a_marker_the_policy_names_as_a_delimiter_parts_the_run() -> None:
+    """Where the two sites' gates differ, and the one case that
+    reaches it. group drops a core only on a `tail` segment, through
+    `seg_cores`; this pass reads `delimiter_cores` whole and asks by
+    TEXT, so a dropped token the policy names as a delimiter parts the
+    run whatever dropped it. A maiden marker the policy ALSO lists is
+    the reachable case, and it parts by the policy's own declaration
+    (measured 2026-09-06)."""
+    nee = Policy(extra_suffix_delimiters=frozenset({" nee "}))
+    assert _entry_tags("John Doe, MD nee Jones PhD", nee) == [
+        ("MD", False), ("PhD", False)]
+    assert _entry_tags("John Doe, MD nee Jones PhD") == [
+        ("MD", False), ("PhD", True)]
+
+
+def test_a_dropped_core_parts_two_entries() -> None:
+    """The `parted` conjunct, dropped-core half (#206). Drop it and
+    'John Doe, MD - PhD - FACS' renders 'MD PhD FACS' under this
+    policy. Moved here from test_group.py's
+    test_extra_suffix_delimiter_splits_tail_entries with #436: the
+    core is dropped in group and the entry it separates is decided
+    here."""
+    dash = Policy(extra_suffix_delimiters=frozenset({" - "}))
+    assert _entry_tags("John Doe, MD - PhD - FACS", dash) == [
+        ("MD", False), ("PhD", False), ("FACS", False)]
+
+
+def test_a_surviving_name_word_parts_two_entries() -> None:
+    """The `parted` conjunct, kept-core half -- the one a dropped-core
+    test alone cannot reach. After a FAMILY comma segment 1 is no
+    tail, so nothing drops the dashes and they stand as name words
+    between the post-nominals. Drop the conjunct and this renders
+    'PhD FACS' under EVERY policy, the bare one included, where the
+    dash is no delimiter at all."""
+    for policy in (Policy(),
+                   Policy(extra_suffix_delimiters=frozenset({" - "}))):
+        assert _entry_tags("Smith, MD - PhD - FACS", policy) == [
+            ("PhD", False), ("FACS", False)]
+
+
+def test_the_pass_runs_after_roles_are_settled() -> None:
+    """Why the pass keys on Role.SUFFIX and runs after assign: the
+    same span rule asked role-blind would make 'John A B Smith' one
+    middle_list element. Asserted as the middle staying two tokens,
+    neither of them a continuation."""
+    state = run(ParseState(original="John A B Smith",
+                           lexicon=Lexicon.default(), policy=Policy()))
+    middles = [tok for tok in state.tokens if tok.role is Role.MIDDLE]
+    assert [tok.text for tok in middles] == ["A", "B"]
+    assert not any("joined" in tok.tags for tok in middles)
+
+
+# -- suffix_entries as a function of its own (#511) -------------------
+#
+# Parser.revise forces the named role on a sub-parse's tokens and then
+# runs THIS pass over the forced state, so the pass is exercised here
+# on states whose roles were set by hand rather than by assign.
+
+
+def _forced(text: str, role: Role,
+            policy: Policy | None = None) -> ParseState:
+    """A full parse of `text` with every non-dropped token re-roled to
+    `role`, which is what revise() hands the pass. The forcing keeps
+    the sub-parse's tags, as revise() keeps them. Dropped tokens keep
+    their role, as revise() leaves them."""
+    state = run(ParseState(original=text, lexicon=Lexicon.default(),
+                           policy=policy or Policy()))
+    dropped = set(state.dropped)
+    return dataclasses.replace(state, tokens=tuple(
+        tok if i in dropped
+        else dataclasses.replace(tok, role=role)
+        for i, tok in enumerate(state.tokens)))
+
+
+def _forced_entry_tags(text: str, role: Role,
+                       policy: Policy | None = None) -> list[tuple[str, bool]]:
+    state = suffix_entries(_forced(text, role, policy))
+    return [(tok.text, "joined" in tok.tags)
+            for i, tok in enumerate(state.tokens)
+            if tok.role is role and i not in set(state.dropped)]
+
+
+def test_suffix_entries_joins_a_forced_role_run() -> None:
+    """A bare 'MD PhD' parses as a title and a family name, so the
+    pass inside that parse marks nothing; over the FORCED state it
+    reads two suffix tokens in one comma bucket and joins them."""
+    assert _forced_entry_tags("MD PhD", Role.SUFFIX) == [
+        ("MD", False), ("PhD", True)]
+
+
+def test_suffix_entries_reads_the_values_own_comma() -> None:
+    """The pass reads the comma offsets of the STATE it is handed --
+    for revise() that is the value's own string, not the outer name's
+    -- so a comma in the value parts the entries."""
+    assert _forced_entry_tags("MD, PhD", Role.SUFFIX) == [
+        ("MD", False), ("PhD", False)]
+
+
+def test_suffix_entries_heals_a_spaced_credential_by_the_comma_rule() -> None:
+    """The Ph. D. MERGE is a head-position rule (#371) and does not
+    fire in a bare value; the ENTRY pass joins the pair anyway, for the
+    reason it joins MD and PhD -- same bucket, nothing between."""
+    assert _forced_entry_tags("Ph. D.", Role.SUFFIX) == [
+        ("Ph.", False), ("D.", True)]
+
+
+def test_suffix_entries_keys_on_the_suffix_role() -> None:
+    """A forced MIDDLE value has no suffix token, so the pass writes
+    nothing there: revise(middle='A B') stays two middle tokens,
+    neither a continuation."""
+    assert _forced_entry_tags("A B", Role.MIDDLE) == [
+        ("A", False), ("B", False)]

@@ -5,8 +5,6 @@ authors = [
 ]
 classifiers = [
     "Environment :: Console",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
@@ -17,8 +15,8 @@ dependencies = [
 ]
 description = "Music Assistant Base Models"
 readme = "README.md"
-requires-python = ">=3.11"
-version = "1.1.210"
+requires-python = ">=3.13"
+version = "1.1.212"
 
 [project.license]
 text = "Apache-2.0"
@@ -151,4 +149,3 @@ warn_unused_ignores = true
 
 [tool.pytest.ini_options]
 addopts = "--cov music_assistant_models"
-asyncio_mode = "auto"

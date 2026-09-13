@@ -1,23 +1,23 @@
 Metadata-Version: 2.4
 Name: Levenshtein
-Version: 0.27.4
+Version: 0.27.5
 Summary: Python extension for computing string edit distances and similarities.
 Author: David Necas, Mikko Ohtamaa, Antti Haapala
 Author-Email: Max Bachmann <pypi@maxbachmann.de>
 Maintainer-Email: Max Bachmann <pypi@maxbachmann.de>
 License-Expression: GPL-2.0-or-later
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: Homepage, https://github.com/rapidfuzz/Levenshtein
 Project-URL: Documentation, https://rapidfuzz.github.io/Levenshtein/
 Project-URL: Repository, https://github.com/rapidfuzz/Levenshtein.git
 Project-URL: Issues, https://github.com/rapidfuzz/Levenshtein/issues
 Project-URL: Changelog, https://github.com/rapidfuzz/Levenshtein/blob/main/HISTORY.md
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: rapidfuzz<4.0.0,>=3.9.0
 Description-Content-Type: text/markdown
 
@@ -56,7 +56,7 @@ computation of:
 * string sequence and set similarity
 
 ## Requirements
-* Python 3.10 or later
+* Python 3.11 or later
 
 ## Installation
 ```bash

@@ -16,7 +16,10 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence, Union
+from __future__ import annotations as _annotations
+
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable, Sequence
 
 from pyrogram.filters import Filter
 
@@ -44,7 +47,7 @@ class ErrorHandler(Handler):
             An exception type or a sequence of exception types that this handler should handle.
             If None, the handler will catch any exception that is a subclass of ``Exception``.
 
-        filters (:obj:`Filter`, *optional*):
+        filters (:obj:`~pyrogram.filters.Filter`, *optional*):
             Pass one or more filters to allow only a subset of updates to be passed
             in your callback function.
 
@@ -78,15 +81,15 @@ class ErrorHandler(Handler):
         self,
         callback: Callable[
             [
-                "pyrogram.Client",
-                "raw.base.Update",
-                Dict[int, "raw.base.User"],
-                Dict[int, "raw.base.Chat"],
+                pyrogram.Client,
+                raw.base.Update,
+                dict[int, raw.base.User],
+                dict[int, raw.base.Chat],
             ],
             Any,
         ],
-        exceptions: Optional[Union[Exception, Sequence[Exception]]] = None,
-        filters: Optional[Filter] = None,
+        exceptions: Exception | Sequence[Exception] | None = None,
+        filters: Filter | None = None,
     ):
         super().__init__(callback, filters)
 

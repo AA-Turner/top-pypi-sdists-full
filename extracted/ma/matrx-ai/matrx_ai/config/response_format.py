@@ -196,6 +196,19 @@ def response_format_transition_after_first_structured_answer(
     (no new ``user_input``), authored assistant examples, failed/invalid output,
     and explicit per-turn response-format overrides retain enforcement.
 
+    **DD-135 — relaxing is RIGHT, and it is not the end of the story.** A run whose
+    structured output is an ACTION (the host's output-directive seam) must still be
+    able to act on turn 5 and to answer in plain prose on turn 6. Forcing the JSON
+    contract back on every turn buys the first and destroys the second: the agent
+    then answers a plain question with an empty directive and the user is shown a
+    card and an Approve button for nothing (observed live 2026-09-12, V-34 turn 3:
+    ``Proposed — confirm to run 0 create project with taskses``). So the relaxation
+    stays exactly as it is for everyone, and the dispatch seam stops depending on it:
+    the host declares the run's standing contract on
+    ``ctx.metadata['standing_output_contract']`` and the executor parses the relaxed
+    turn's text against it (``executor._emit_structured_output_if_schema``). A turn
+    that speaks is prose; a turn that acts is parsed and dispatched.
+
     This function only decides the transition. The send boundary owns the
     actual wire-config mutation and observability so every shaping step remains
     behind one mechanically guarded entry point.

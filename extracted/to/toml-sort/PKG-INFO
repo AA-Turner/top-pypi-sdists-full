@@ -1,18 +1,17 @@
 Metadata-Version: 2.4
 Name: toml-sort
-Version: 0.24.4
+Version: 0.25.0
 Summary: Toml sorting library
 License: MIT
 License-File: LICENSE
 Keywords: toml,sort,cli,unix,utility
 Author: Sam Roeca
 Author-email: samuel.roeca@gmail.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Dist: tomlkit (>=0.13.2)
+Requires-Dist: tomlrt (>=2.2.0)
 Project-URL: Homepage, https://github.com/pappasam/toml-sort
 Project-URL: Repository, https://github.com/pappasam/toml-sort
 Description-Content-Type: text/markdown

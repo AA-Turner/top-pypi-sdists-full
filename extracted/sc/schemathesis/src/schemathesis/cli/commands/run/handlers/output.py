@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass, field
 from itertools import groupby
 from json.decoder import JSONDecodeError
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
@@ -17,10 +18,12 @@ from schemathesis.cli.output import (
     LoadingProgressManager,
     _style,
     display_api_operations,
+    display_baseline_summary,
     display_errors_summary,
     display_failures,
     display_failures_summary,
     display_fatal_error,
+    display_filtered_summary,
     display_final_line,
     display_header,
     display_section_name,
@@ -88,6 +91,31 @@ def get_status_icon(stats: dict[Status, int], *, is_interrupted: bool, default: 
 
 def bold(option: str) -> str:
     return click.style(option, bold=True)
+
+
+def _missing_test_data_advice(
+    label: str, *, linked: set[str], stateful_ran: bool, exercised: set[str]
+) -> tuple[str, str]:
+    """What actually stands between this operation and real data, and the tip that addresses it."""
+    if label not in linked:
+        return (
+            "No links point to these operations",
+            "💡 Provide realistic parameter values in your config file so tests can access existing resources",
+        )
+    if not stateful_ran:
+        return (
+            "Reachable via links, but stateful testing did not run",
+            "💡 Enable the `stateful` phase so declared links can supply real identifiers",
+        )
+    if label not in exercised:
+        return (
+            "Reachable via links, but stateful testing never reached them",
+            "💡 Raise `phases.stateful.max-steps` or run longer so stateful testing reaches these operations",
+        )
+    return (
+        "Reached via links, but the linked data was not usable",
+        "💡 Check the operations that create this data - their responses do not yield usable identifiers",
+    )
 
 
 TRUNCATION_PLACEHOLDER = "[...]"
@@ -662,6 +690,14 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         table.add_row("Operations:", f"{statistic.selected} selected / {statistic.total} total")
         if event.config.config_path:
             table.add_row("Configuration:", event.config.config_path)
+        baseline = event.config.load_baseline()
+        if baseline is not None and event.config.baseline is not None:
+            if not Path(event.config.baseline).exists():
+                detail = "new file"
+            else:
+                entry_word = "entry" if len(baseline.entries) == 1 else "entries"
+                detail = f"{len(baseline.entries)} {entry_word}"
+            table.add_row("Baseline:", f"{event.config.baseline} / {detail}")
         dictionaries = event.config.dictionaries
         if dictionaries:
             total_values = sum(len(d.entries) for d in dictionaries.values())
@@ -1113,6 +1149,34 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
 
         self._print_warning_tips(tips)
 
+    def _display_missing_test_data_block(self, ctx: ExecutionContext) -> None:
+        """Display 404-ed operations grouped by what would actually make them reachable."""
+        linked = ctx.warnings.linked_operations or set()
+        stateful_ran = ctx.phases[PhaseName.STATEFUL_TESTING][0] != Status.SKIP
+        groups: dict[tuple[str, str], set[str]] = {}
+        for label in ctx.warnings.missing_test_data:
+            advice = _missing_test_data_advice(
+                label, linked=linked, stateful_ran=stateful_ran, exercised=ctx.warnings.stateful_exercised
+            )
+            groups.setdefault(advice, set()).add(label)
+
+        self._print_warning_header(
+            "Missing test data",
+            len(ctx.warnings.missing_test_data),
+            "operation",
+            " repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
+        )
+        if len(groups) == 1:
+            (_, tip), labels = next(iter(groups.items()))
+            self._print_items(labels)
+            self._print_warning_tips([tip])
+            return
+        for (cause, tip), labels in sorted(groups.items()):
+            plural = "" if len(labels) == 1 else "s"
+            click.echo(_style(f"{cause} ({len(labels)} operation{plural}):", fg="yellow"))
+            self._print_items(labels)
+            self._print_warning_tips([tip])
+
     def display_warnings(self, ctx: ExecutionContext) -> None:
         display_section_name("WARNINGS")
         click.echo()
@@ -1133,14 +1197,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             )
 
         if ctx.warnings.missing_test_data:
-            self._display_warning_block(
-                title="Missing test data",
-                operations=ctx.warnings.missing_test_data,
-                suffix_text=" repeatedly returned 404 Not Found, preventing tests from reaching your API's core logic",
-                tips=[
-                    "💡 Provide realistic parameter values in your config file so tests can access existing resources",
-                ],
-            )
+            self._display_missing_test_data_block(ctx)
 
         if ctx.warnings.validation_mismatch:
             self._display_warning_block(
@@ -1440,6 +1497,12 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
 
         if summary.failures:
             display_failures_summary(summary.failures)
+
+        if summary.baseline is not None:
+            display_baseline_summary(summary.baseline)
+
+        if summary.filtered:
+            display_filtered_summary(summary.filtered)
 
         if summary.errors:
             display_errors_summary(summary.errors)

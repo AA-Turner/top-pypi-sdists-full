@@ -24,6 +24,7 @@ onto the same conversation. Use ``agent.start`` to begin a thread, and
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Literal
@@ -35,6 +36,7 @@ from matrx_connect.context.app_context import (
 )
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
+from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
@@ -65,7 +67,11 @@ class ConversationContinueInput(BaseModel):
     conversation_id: str = Field(
         min_length=1,
         description="Existing conversation_id to continue.",
-        json_schema_extra=field_extras(widget="text"),
+        # IDENTITY (see ``matrx_graph.types.identity_inputs``): continuing a
+        # conversation is this step's whole job, so WHICH conversation must be
+        # the author's explicit choice — a step that inherited one from an
+        # upstream broadcast would silently append to somebody else's thread.
+        json_schema_extra={**field_extras(widget="text"), **identity_input()},
     )
 
     # --- per-turn input ---
@@ -349,4 +355,4 @@ async def conversation_continue(
 
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return normalize_completed_result(completed)
+    return await asyncio.to_thread(normalize_completed_result, completed)

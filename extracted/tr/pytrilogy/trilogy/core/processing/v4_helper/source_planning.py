@@ -52,6 +52,7 @@ from trilogy.core.processing.node_generators.select_helpers.datasource_nodes imp
     finalize_select_node,
 )
 from trilogy.core.processing.nodes import History, MergeNode, SelectNode, StrategyNode
+from trilogy.core.processing.v4_helper.condition_injection import condition_row_args
 from trilogy.core.processing.v4_helper.constants import ROW_SHAPE_BARRIER_DERIVATIONS
 from trilogy.core.processing.v4_helper.functional_dependency import build_fd_closure
 from trilogy.core.processing.v4_helper.history import V4History
@@ -64,6 +65,7 @@ from trilogy.core.processing.v4_helper.network_model import (
     SearchResult,
     SourceNetwork,
     find,
+    node_address,
     union,
 )
 from trilogy.core.processing.v4_helper.network_search import search_sources
@@ -114,10 +116,6 @@ class BridgePlan:
     connector_aliases: tuple[str, ...] = ()
 
 
-def _concept_node_address(node: str) -> str:
-    return node.split("~", maxsplit=1)[1].split("@", maxsplit=1)[0]
-
-
 def _graph_neighbors(graph: ReferenceGraph, node: str) -> set[str]:
     return set(graph.predecessors(node)) | set(graph.successors(node))
 
@@ -130,17 +128,9 @@ def _concept_node_grain_addresses(node: str) -> set[str]:
     return {address for address in grain.split(",") if address}
 
 
-def _condition_row_concepts(
-    conditions: BuildWhereClause | None,
-) -> list[BuildConcept]:
-    if conditions is None:
-        return []
-    return unique(list(conditions.row_arguments), "address")
-
-
 def _requested_concepts(request: SourceRequest) -> list[BuildConcept]:
     return unique(
-        request.outputs + _condition_row_concepts(request.conditions),
+        request.outputs + condition_row_args(request.conditions),
         "address",
     )
 
@@ -210,10 +200,7 @@ def _concepts_with_grain_keys(
 
 
 def _direct_source(request: SourceRequest, accept_partial: bool) -> StrategyNode | None:
-    outputs = unique(
-        request.outputs + _condition_row_concepts(request.conditions),
-        "address",
-    )
+    outputs = _requested_concepts(request)
     node = request.history.gen_select_node(
         outputs,
         request.environment,
@@ -250,7 +237,7 @@ def _condition_arg_lineage_roots(request: SourceRequest) -> list[BuildConcept]:
     to `gen_root`'s `_resolve_root_condition_sources` fallback; the bridge
     triggers it by failing to source the arg here."""
     roots: list[BuildConcept] = []
-    for concept in _condition_row_concepts(request.conditions):
+    for concept in condition_row_args(request.conditions):
         if concept.lineage is None:
             continue
         if concept.derivation in ROW_SHAPE_BARRIER_DERIVATIONS:
@@ -291,10 +278,10 @@ def _inject_union_datasources(
     union_edges: list[tuple[str, str]] = []
     excluded = environment.excluded_enum_values
     for datasource_group in get_union_sources(datasources, concepts, excluded):
-        node_address = "ds~" + "-".join(
+        union_node = "ds~" + "-".join(
             [datasource.name for datasource in datasource_group]
         )
-        if node_address in graph.datasources:
+        if union_node in graph.datasources:
             continue
         merged_condition = merge_conditions(
             [
@@ -309,7 +296,7 @@ def _inject_union_datasources(
             if merged_condition is not None
             else None
         )
-        graph.datasources[node_address] = BuildUnionDatasource(
+        graph.datasources[union_node] = BuildUnionDatasource(
             children=datasource_group,
             non_partial_for=non_partial_for,
         )
@@ -318,8 +305,8 @@ def _inject_union_datasources(
             common_outputs &= set(datasource.output_concepts)
         for concept in common_outputs:
             concept_node = concept_to_node(concept)
-            union_edges.append((node_address, concept_node))
-            union_edges.append((concept_node, node_address))
+            union_edges.append((union_node, concept_node))
+            union_edges.append((concept_node, union_node))
     graph.add_edges_from(union_edges)
 
 
@@ -458,12 +445,12 @@ def _network_source(
         if network.equivalence.get(concept.address, concept.address) in keep_addresses
     ]
     for address in sorted(keep_addresses):
-        if any(concept.address == address for concept in bridge_concepts):
-            continue
-        connector = request.environment.concepts.get(address)
-        if connector is not None:
-            bridge_concepts.append(connector)
-            continue
+        named = any(concept.address == address for concept in bridge_concepts)
+        if not named:
+            connector = request.environment.concepts.get(address)
+            if connector is not None:
+                bridge_concepts.append(connector)
+                named = True
         # A connector labeled by a canonical (`_virt_*`) address is a derived
         # merge key: each side of the declared equality owns one variant, known
         # only to `canonical_concepts` (the demoted side's real lineage lives in
@@ -474,6 +461,17 @@ def _network_source(
         # Never the whole equivalence class: an unread member (a second
         # declared alias for the same key) would hand the join a column the
         # authored FK already provides, changing the join.
+        #
+        # An already-named address is revisited only when it is a DEMOTED merge
+        # key, which no scan can emit off its own columns. The representative is
+        # the class's lexicographic minimum, so whether it spells the authored
+        # address or the `_virt_` canonical follows from the namespace the model
+        # happens to be imported under; without the revisit the origin reaches
+        # the scan only under the second spelling and the key is unsourced.
+        if named and not _is_demoted_merge_key(
+            request.environment.concepts.get(address), request.environment
+        ):
+            continue
         for node in result.solution.sources:
             binding = network.candidates[node].bindings.get(address)
             if binding is None:
@@ -512,7 +510,7 @@ def _network_source(
             return True
         if not node.startswith("c~"):
             return False
-        address = _concept_node_address(node)
+        address = node_address(node)
         # `keep_addresses` is in equivalence-class terms; a graph node may spell a
         # non-canonical member of the same class.
         return network.equivalence.get(address, address) in keep_addresses
@@ -531,6 +529,19 @@ def _network_source(
     )
 
 
+def _is_demoted_merge_key(
+    concept: BuildConcept | None, environment: BuildEnvironment
+) -> bool:
+    """`concept` is a merge key the merge DEMOTED: a lineage-less ROOT whose
+    only value source is a pseudonym origin's derivation (`merge first_org into
+    org.code` leaves `org.code` bare while `first_org` keeps the split). No scan
+    can emit it off its own columns, so the origin has to be carried explicitly.
+    """
+    if concept is None or concept.derivation != Derivation.ROOT or concept.lineage:
+        return False
+    return bool(environment.merge_origins(concept))
+
+
 def _concept_has_non_basic_merge_origin(
     concept: BuildConcept, environment: BuildEnvironment
 ) -> bool:
@@ -540,15 +551,10 @@ def _concept_has_non_basic_merge_origin(
     lineage-less ROOT. Such a key is materialized by `_derived_connector_nodes`,
     never a raw scan. A BASIC merge origin (`p_last <- split(p_name)`) computes
     inline on the scan, so it is excluded."""
-    for alias in (concept.address, *concept.pseudonyms):
-        origin = environment.alias_origin_lookup.get(alias)
-        if (
-            origin is not None
-            and origin.lineage is not None
-            and origin.derivation != Derivation.BASIC
-        ):
-            return True
-    return False
+    return any(
+        origin.derivation != Derivation.BASIC
+        for origin in environment.merge_origins(concept)
+    )
 
 
 def _bridge_has_non_basic_merge(
@@ -804,7 +810,7 @@ def _datasource_grain_concept_nodes(
     environment: BuildEnvironment,
 ) -> list[str]:
     selected_addresses = {
-        _concept_node_address(node) for node in concept_nodes if node.startswith("c~")
+        node_address(node) for node in concept_nodes if node.startswith("c~")
     }
     datasource = graph.datasources.get(ds_node)
     if datasource is None:
@@ -822,10 +828,9 @@ def _datasource_grain_concept_nodes(
     nodes = [
         neighbor
         for neighbor in graph.neighbors(ds_node)
-        if neighbor.startswith("c~")
-        and _concept_node_address(neighbor) in grain_addresses
+        if neighbor.startswith("c~") and node_address(neighbor) in grain_addresses
     ]
-    node_addresses = {_concept_node_address(node) for node in nodes}
+    node_addresses = {node_address(node) for node in nodes}
     for address in sorted(grain_addresses - node_addresses):
         concept = environment.concepts.get(address)
         if concept is None or not _datasource_can_output(datasource, address):
@@ -950,7 +955,7 @@ def _original_datasource_concept_nodes(
     for neighbor in source_graph.neighbors(ds_node):
         if not neighbor.startswith("c~"):
             continue
-        address = _concept_node_address(neighbor)
+        address = node_address(neighbor)
         if address not in bridge_addresses or address not in environment.concepts:
             continue
         if not _datasource_renders_probe(ds_obj, address, environment):
@@ -994,7 +999,7 @@ def _local_concept_nodes_for_datasource(
             seen.add(neighbor)
             if not neighbor.startswith("c~"):
                 continue
-            address = _concept_node_address(neighbor)
+            address = node_address(neighbor)
             canonical = environment.canonical_concepts.get(address)
             # A recursive/aggregate merge key (`recursive_parent` merged into a
             # dimension key) is reachable from this scan only through its
@@ -1475,8 +1480,7 @@ def _lineage_connected(graph: ReferenceGraph, outputs: list[BuildConcept]) -> bo
             node
             for node in graph.nodes
             if node.startswith("c~")
-            and _concept_node_address(node)
-            in (concept.address, concept.canonical_address)
+            and node_address(node) in (concept.address, concept.canonical_address)
         }
         if not matches:
             return False
@@ -1624,10 +1628,7 @@ def plan_source(request: SourceRequest) -> StrategyNode | None:
         if crossed is not None:
             return crossed
     if request.conditions is not None:
-        outputs = unique(
-            request.outputs + _condition_row_concepts(request.conditions),
-            "address",
-        )
+        outputs = _requested_concepts(request)
         unfiltered = plan_source(
             SourceRequest(
                 outputs=outputs,

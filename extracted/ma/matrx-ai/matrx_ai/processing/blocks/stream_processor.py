@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Callable
 from typing import Any
@@ -36,6 +37,7 @@ from matrx_ai.processing.blocks.block_detector import (
     ATTRIBUTE_XML_BLOCKS,
     CODE_LANGUAGE_ALIASES,
     JSON_BLOCK_PATTERNS,
+    KIND_BLOCK_TYPE,
     SPECIAL_CODE_LANGUAGES,
     XML_TAG_BLOCKS,
     DetectedBlock,
@@ -75,6 +77,22 @@ def _build_parser_map() -> dict[str, Callable[[str], Any]]:
         parse_item_presentation,
     )
     from matrx_ai.processing.blocks.parsers.math_problem_parser import parse_math_problem
+
+    def _parse_kind(c: str, **_kw: Any) -> Any:
+        """A registered kind's body IS canonical JSON — there is nothing to adapt.
+
+        Every other parser in this map translates a legacy wire shape into the structure
+        its kind declares. A kind block has no legacy shape: the emitter wrote the kind's
+        own schema and ``envelope_for_block`` validates it against exactly that. So this
+        is ``json.loads`` and a type check, and it must stay that way — any "helpful"
+        normalisation here would silently diverge from the schema the envelope then
+        claims the value satisfies.
+        """
+        try:
+            parsed = json.loads(c)
+        except (json.JSONDecodeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
     from matrx_ai.processing.blocks.parsers.mermaid_parser import parse_mermaid
     from matrx_ai.processing.blocks.parsers.presentation_parser import parse_presentation
     from matrx_ai.processing.blocks.parsers.progress_parser import parse_progress
@@ -158,6 +176,7 @@ def _build_parser_map() -> dict[str, Callable[[str], Any]]:
         "tasks": lambda c, *, is_final=False: _model_to_dict(parse_tasks(c, is_final=is_final)),
         "quiz": lambda c: _model_to_dict(parse_quiz(c)),
         "presentation": lambda c: _model_to_dict(parse_presentation(c)),
+        "kind": _parse_kind,
         "math_problem": lambda c: _model_to_dict(parse_math_problem(c)),
         "item_presentation": lambda c: _model_to_dict(parse_item_presentation(c)),
         "schema_proposal": lambda c: _model_to_dict(parse_schema_proposal(c)),
@@ -257,6 +276,11 @@ _COMPLETE_ONLY_TYPES = frozenset({
     # JSON-root-key families: a partial object is never renderable, so they
     # promote and parse only once the fence closes.
     "item_presentation", "schema_proposal",
+    # DD-131: every registered, user-authored kind arrives as ONE block type, with its
+    # slug in the body's ``__kind``. Complete-only for the same reason as the rest of
+    # this set — half an object validates against nothing, and an envelope built from it
+    # would poison the frontend's region cache.
+    "kind",
 })
 
 # Types deliberately classified with NO parser: the fence/tag BODY (or the
@@ -469,6 +493,11 @@ class StreamBlockProcessor:
         # exists in the split, and law 1 does not get to be conditional on the
         # block still being there. Entries are dropped as their partials close.
         self._partial_shadow: dict[str, tuple[int, str]] = {}
+        # ``asyncio.to_thread`` cancellation stops waiting, not the worker.
+        # Every async mutation therefore goes through this lock and completes
+        # its worker before releasing it, so a later finalize cannot race a
+        # cancelled token's still-running detector.
+        self._async_operation_lock = asyncio.Lock()
 
     def process_token(self, token: str) -> list[RenderBlockEvent]:
         """
@@ -508,6 +537,17 @@ class StreamBlockProcessor:
         Convenience method — same as process_token but clearer intent.
         """
         return self.process_token(chunk)
+
+    async def process_token_async(self, token: str) -> list[RenderBlockEvent]:
+        """Process one token without monopolizing an API event loop.
+
+        The detector repeatedly scans its accumulated source and can be CPU-heavy
+        for a large generic XML container.  Async hosts must use this entrance;
+        synchronous callers (tests and batch code) retain ``process_token``.
+        Calls are deliberately one-at-a-time per processor so its incremental
+        state remains ordered.
+        """
+        return await self._run_async_mutation(self.process_token, token)
 
     def finalize(self) -> list[RenderBlockEvent]:
         """
@@ -553,6 +593,45 @@ class StreamBlockProcessor:
         events.extend(self.drain_open_partials("stream ended before the block resolved"))
 
         return events
+
+    async def finalize_async(self) -> list[RenderBlockEvent]:
+        """Finalize without running the terminal full-buffer scan on the loop."""
+        return await self._run_async_mutation(self.finalize)
+
+    async def drain_open_partials_async(self, reason: str) -> list[RenderBlockEvent]:
+        """Drain partial state without racing a cancelled detector worker."""
+        return await self._run_async_mutation(self.drain_open_partials, reason)
+
+    async def _run_async_mutation(
+        self, operation: Callable[..., list[RenderBlockEvent]], *args: str
+    ) -> list[RenderBlockEvent]:
+        """Serialize one stateful worker operation, including cancellation cleanup.
+
+        Cancelling an await on ``to_thread`` leaves the thread running.  The
+        lock MUST remain held until that worker actually returns; otherwise a
+        caller's cleanup/finalize can mutate this processor concurrently.
+        """
+        async with self._async_operation_lock:
+            worker = asyncio.create_task(asyncio.to_thread(operation, *args))
+            try:
+                return await asyncio.shield(worker)
+            except asyncio.CancelledError as cancellation:
+                # A second cancellation during cleanup cannot be allowed to
+                # release the lock early either.  Preserve the first caller's
+                # cancellation after the stateful worker has settled.
+                while not worker.done():
+                    try:
+                        await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        continue
+                try:
+                    worker.result()
+                except BaseException:
+                    # The original cancellation remains the caller-visible
+                    # outcome; retrieving the result prevents an unobserved
+                    # worker exception warning.
+                    pass
+                raise cancellation
 
     def drain_open_partials(self, reason: str) -> list[RenderBlockEvent]:
         """A terminal event for EVERY partial still open. Law 1, unconditionally.
@@ -666,6 +745,20 @@ class StreamBlockProcessor:
             )
             if envelope is not None:
                 block.metadata[IR_ENVELOPE_KEY] = envelope
+            elif block.type == KIND_BLOCK_TYPE:
+                # DD-131: the detector claims `kind` from the SLUG, before anything has
+                # validated the VALUE. When the value then fails the kind's own schema (or the
+                # registration has no usable schema), no envelope is stamped — and a `kind`
+                # block with no envelope is a claim the block cannot back.
+                #
+                # The client routes a kind block by its ENVELOPE (the kind route runs before
+                # any type-keyed dispatch); with none, the type falls through to the
+                # unregistered-type lane, which screams and renders basic markdown. That would
+                # be a REGRESSION: before this feature the same body was a `code` block and
+                # rendered as one. So an unverified kind block goes back to being exactly what
+                # it was. Nothing claims a verification it does not have.
+                block.type = "code"
+                block.metadata.setdefault("language", "json")
             self._stamp_partial_terminal(block)
         else:
             self._stamp_partial(block)

@@ -1239,3 +1239,102 @@ async def test_acquire_slot_never_holds_a_slot_it_does_not_need(captured_tiers):
     assert _c._inflight_commits == 1
     await coord.finalize(reason="stream_end")
     assert _c._inflight_commits == 0
+
+
+# ---------------------------------------------------------------------------
+# Late one-shot writes must be DRAINED, not merely fired (2026-09-12).
+#
+# chat.tool_call rows for the `sql` tool were observed stuck status='pending'
+# (output_chars=0, duration_ms=0) until the watchdog flipped them to
+# 'watchdog_timeout', while chat.tool_trace recorded event=OK in 14ms. The tool
+# ran; its completion UPDATE never landed. Mechanism: once the coordinator has
+# flushed, Coordinator.queue() switches to _fire_one_shot() — a DETACHED task —
+# and nothing (not finalize, not drain_and_confirm, not seal, not the executor's
+# _persist_tool_outcome) ever awaited it. A one-shot that still had a DB round
+# trip to make when the request tore down was cancelled with its write unmade.
+# ---------------------------------------------------------------------------
+
+
+async def _teardown_reclaims_stragglers() -> None:
+    """Request/turn teardown: once the lane's finalizers have returned, the
+    surrounding task group (and, at process exit, the loop) cancels every task
+    still running. A one-shot that nobody awaited dies here."""
+    stragglers = [
+        t
+        for t in asyncio.all_tasks()
+        if t is not asyncio.current_task() and t.get_name().startswith("coord_one_shot")
+    ]
+    for t in stragglers:
+        t.cancel()
+    await asyncio.gather(*stragglers, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("pk", "completion"),
+    [
+        # Two real shapes of the same late write: a tool that finished OK and one
+        # that finished with an error. Different expected values so no constant
+        # can satisfy both.
+        ("a689fb2a-tool-call", "completed:1482_chars"),
+        ("dd88d99b-tool-call", "failed:catalog_fallback_timeout"),
+    ],
+)
+async def test_late_completion_write_lands_before_teardown(monkeypatch, pk, completion):
+    """A completion UPDATE queued after the coordinator has flushed must be
+    DURABLE by the time the request's terminal drain returns.
+
+    The break this catches: drain_and_confirm / seal returning while a late
+    one-shot task is still in flight. Teardown then cancels it and the UPDATE is
+    lost — the cx/chat tool_call row stays 'pending' until the watchdog.
+    """
+    written: list[tuple[str, str]] = []
+
+    async def execute_tiers_with_round_trip(tiers: Sequence[Sequence]) -> int:
+        # The catalog-fallback read path costs one extra DB round trip before the
+        # completion write commits. Any real I/O leaves the one-shot unfinished
+        # at the moment the turn's finalizers return.
+        await asyncio.sleep(0.05)
+        count = 0
+        for tier in tiers:
+            for op in tier:
+                written.append((op.pk_value, op.payload.get("name")))
+                count += 1
+        return count
+
+    monkeypatch.setattr(
+        "matrx_orm.session.flush.execute_tiers", execute_tiers_with_round_trip
+    )
+    monkeypatch.setattr(
+        "matrx_orm.session.session.execute_tiers", execute_tiers_with_round_trip
+    )
+
+    coord = Coordinator(request_id="r-sql", conversation_id="c-sql")
+
+    # log_started → the tool_call row INSERT, flushed at the turn's barrier.
+    coord.queue("public.cx_fake_a", {"id": pk, "name": "pending"})
+    await coord.flush(reason="pre_suspend")
+    assert coord.phase is CoordinatorPhase.FLUSHED
+
+    # log_completed → the completion UPDATE arrives on the already-flushed
+    # coordinator, so queue() fires a late one-shot.
+    assert coord.queue(
+        "public.cx_fake_a",
+        {"name": completion},
+        op_type="update",
+        primary_key=("id", pk),
+    )
+
+    # The lane finalizer: terminal drain, then seal. Both are supposed to leave
+    # nothing unwritten behind them.
+    await coord.drain_and_confirm(reason="stream_end")
+    await coord.seal()
+
+    # …and then the turn tears down.
+    await _teardown_reclaims_stragglers()
+
+    assert (pk, completion) in written, (
+        "the late completion UPDATE was LOST — the coordinator's terminal drain "
+        "returned while its one-shot write was still in flight, and teardown "
+        "cancelled it (tool_call stuck 'pending' → watchdog_timeout)"
+    )

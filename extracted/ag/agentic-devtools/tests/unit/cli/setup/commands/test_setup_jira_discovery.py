@@ -1,5 +1,6 @@
 """Tests for Jira discovery integration in setup_cmd (Step 1.5)."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +46,7 @@ def _disable_live_model_discovery():
                     with patch.object(
                         commands,
                         "_query_copilot_model_records",
-                        return_value=[MagicMock(model_id="model-a")],
+                        return_value=[SimpleNamespace(model_id="model-a")],
                     ):
                         yield
 

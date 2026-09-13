@@ -11,6 +11,8 @@ from bs4 import BeautifulSoup
 from .element_extractor import ElementExtractor
 from .extraction_rules import rules
 from .link_extractor import LinkExtractor
+from .knobs import parser_knob
+from .main_content import ArticleContentFinder
 from .noise_remover import NoiseRemover
 from .noise_config import NoiseRemoverConfig
 from .overrides import overrides
@@ -23,6 +25,12 @@ try:
     _EXTRUCT_AVAILABLE = True
 except ImportError:
     _EXTRUCT_AVAILABLE = False
+
+
+#: A "main content" thinner than this is not worth preferring over the page.
+#: KNOB MIRROR of platform.feature_knob "knowledge.scraper" "min_main_content_chars" —
+#: the standalone default; the host binds the live row through configure_parser_knobs.
+MIN_MAIN_CONTENT_CHARS = 500
 
 
 def _get_soup(obj) -> BeautifulSoup | None:
@@ -82,6 +90,9 @@ class ParserOrchestrator:
         self.unique_page_name = ""
 
         self.noise_remover = NoiseRemover(config=noise_remover_config)
+        self.article_finder = ArticleContentFinder()
+        self.main_content_selector: str | None = None
+        self.main_content_removal_details: list[dict] = []
         self.scrape_filter = ScrapeFilter()
         self.element_extractor = ElementExtractor()
         self.content_filter_overrides = content_filter_overrides or overrides
@@ -136,6 +147,14 @@ class ParserOrchestrator:
             wrapped_filter, "ContentFilter"
         )
 
+        # ---- Stage 3b: Main content (THE MAIN-CONTENT LAW, main_content.py) ----
+        # An article-like page also gets its body extracted on its own, so a
+        # consumer asking "what does this page SAY?" never learns the site's
+        # furniture. Non-article pages return None here and keep the full page.
+        main_content_soup = self.article_finder.find(self._filtered_soup)
+        self.main_content_selector = self.article_finder.root_selector
+        self.main_content_removal_details = list(self.article_finder.removal_details)
+
         # ---- Stage 4: Element extraction ----
         extracted = self.element_extractor.extract_content(self._filtered_soup, url=self.url)
 
@@ -155,6 +174,16 @@ class ParserOrchestrator:
 
         # ---- Stage 5: Text / char count ----
         text_data = self._build_text_data(page_dict)
+        main_content_text = ""
+        if main_content_soup is not None:
+            main_extracted = ElementExtractor().extract_content(main_content_soup, url=self.url)
+            main_content_text = self._build_text_data(main_extracted.get("organized_data"))
+            if len(main_content_text.strip()) < int(
+                parser_knob("min_main_content_chars", MIN_MAIN_CONTENT_CHARS)
+            ):
+                # Honest, never half a page called an article.
+                main_content_text = ""
+                self.main_content_selector = None
         char_count = len(text_data)
         char_count_formatted = len(self._build_text_data_with_markers(page_dict))
 
@@ -201,6 +230,9 @@ class ParserOrchestrator:
             "structured_data": structured_data,
             "organized_data": page_dict,
             "text_data": text_data,
+            "main_content_text": main_content_text,
+            "main_content_selector": self.main_content_selector,
+            "main_content_removal_details": self.main_content_removal_details,
             "main_image": main_image,
             "hashes": hashes,
             "links": links,

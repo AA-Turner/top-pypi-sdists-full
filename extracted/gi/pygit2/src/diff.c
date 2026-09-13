@@ -93,7 +93,7 @@ wrap_diff_file(const git_diff_file *file)
 }
 
 PyObject *
-wrap_diff_delta(const git_diff_delta *delta)
+wrap_diff_delta(const git_diff_delta *delta, Diff *diff, size_t idx)
 {
     DiffDelta *py_delta;
 
@@ -108,6 +108,10 @@ wrap_diff_delta(const git_diff_delta *delta)
         py_delta->nfiles = delta->nfiles;
         py_delta->old_file = wrap_diff_file(&delta->old_file);
         py_delta->new_file = wrap_diff_file(&delta->new_file);
+        py_delta->diff = diff;
+        if (diff)
+            Py_INCREF(diff);
+        py_delta->idx = idx;
     }
 
     return (PyObject *) py_delta;
@@ -315,6 +319,37 @@ DiffDelta_status_char(DiffDelta *self)
     return Py_BuildValue("C", status);
 }
 
+/* Load the file data so delta->flags is up to date. This is a no-op if the
+   flags have already been loaded or if the delta was not created from a Diff
+   object (e.g. it came from a Patch, whose flags are already loaded). */
+static int
+DiffDelta_ensure_flags(DiffDelta *self)
+{
+    git_patch *patch = NULL;
+    const git_diff_delta *delta;
+    int err;
+
+    if (self->diff == NULL)
+        return 0;
+
+    if (self->flags & (GIT_DIFF_FLAG_BINARY | GIT_DIFF_FLAG_NOT_BINARY))
+        return 0;
+
+    err = git_patch_from_diff(&patch, self->diff->diff, self->idx);
+    if (err < 0)
+        return err;
+
+    delta = git_diff_get_delta(self->diff->diff, self->idx);
+    if (delta == NULL) {
+        git_patch_free(patch);
+        return GIT_ENOTFOUND;
+    }
+
+    self->flags = delta->flags;
+    git_patch_free(patch);
+    return 0;
+}
+
 PyDoc_STRVAR(DiffDelta_is_binary__doc__,
     "True if binary data, False if text, None if not (yet) known."
 );
@@ -322,6 +357,12 @@ PyDoc_STRVAR(DiffDelta_is_binary__doc__,
 PyObject *
 DiffDelta_is_binary__get__(DiffDelta *self)
 {
+    int err;
+
+    err = DiffDelta_ensure_flags(self);
+    if (err < 0)
+        return Error_set(err);
+
     if (self->flags & GIT_DIFF_FLAG_BINARY)
         Py_RETURN_TRUE;
 
@@ -350,12 +391,19 @@ PyDoc_STRVAR(DiffDelta_flags__doc__,
 PyObject *
 DiffDelta_flags__get__(DiffDelta *self)
 {
+    int err;
+
+    err = DiffDelta_ensure_flags(self);
+    if (err < 0)
+        return Error_set(err);
+
     return pygit2_enum(DiffFlagEnum, self->flags);
 }
 
 static void
 DiffDelta_dealloc(DiffDelta *self)
 {
+    Py_CLEAR(self->diff);
     Py_CLEAR(self->old_file);
     Py_CLEAR(self->new_file);
     PyObject_Del(self);
@@ -603,7 +651,7 @@ PyTypeObject DiffIterType = {
 };
 
 PyObject *
-diff_get_delta_byindex(git_diff *diff, size_t idx)
+diff_get_delta_byindex(git_diff *diff, size_t idx, Diff *parent)
 {
     const git_diff_delta *delta = git_diff_get_delta(diff, idx);
     if (delta == NULL) {
@@ -611,14 +659,14 @@ diff_get_delta_byindex(git_diff *diff, size_t idx)
         return NULL;
     }
 
-    return (PyObject*) wrap_diff_delta(delta);
+    return (PyObject*) wrap_diff_delta(delta, parent, idx);
 }
 
 PyObject *
 DeltasIter_iternext(DeltasIter *self)
 {
     if (self->i < self->n)
-        return diff_get_delta_byindex(self->diff->diff, self->i++);
+        return diff_get_delta_byindex(self->diff->diff, self->i++, self->diff);
 
     PyErr_SetNone(PyExc_StopIteration);
     return NULL;
@@ -784,14 +832,21 @@ DiffHunk_lines__get__(DiffHunk *self)
 
     // TODO Replace by an iterator
     py_lines = PyList_New(self->n_lines);
+    if (py_lines == NULL)
+        return NULL;
+
     for (i = 0; i < self->n_lines; ++i) {
         err = git_patch_get_line_in_hunk(&line, self->patch->patch, self->idx, i);
-        if (err < 0)
+        if (err < 0) {
+            Py_DECREF(py_lines);
             return Error_set(err);
+        }
 
         py_line = wrap_diff_line(line, self);
-        if (py_line == NULL)
+        if (py_line == NULL) {
+            Py_DECREF(py_lines);
             return NULL;
+        }
 
         PyList_SetItem(py_lines, i, py_line);
    }

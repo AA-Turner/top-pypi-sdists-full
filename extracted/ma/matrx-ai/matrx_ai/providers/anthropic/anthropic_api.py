@@ -20,6 +20,10 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.reasoning_stream_state import (
+    reasoning_state_for,
+    reset_reasoning_state,
+)
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
@@ -65,19 +69,15 @@ class AnthropicChat:
         self.endpoint_name = "[ANTHROPIC CHAT]"
         self.translator = AnthropicTranslator(debug=debug)
         self.debug = debug
-        # Tracks whether a <reasoning> wrapper is currently open in the stream.
-        # Mirrors OpenAI's lazy-open pattern (openai_api.py::_reasoning_started):
-        # we open the wrapper only when the first thinking_delta actually
-        # carries text and close it only if it was opened — so a thinking block
-        # with no visible text (display="omitted", or a turn the model skipped
-        # thinking on) never emits an empty <reasoning></reasoning> pair.
-        self._reasoning_open = False
-        # Tracks whether we've emitted the content-less "reasoning started"
-        # lifecycle signal for the CURRENT thinking block but not yet its
-        # "stopped". Independent of _reasoning_open: this fires on the thinking
-        # block boundary regardless of whether any thinking text is streamed,
-        # so the UI learns the model is thinking even under display="omitted".
-        self._reasoning_signaled = False
+        # 🚨 NO PER-STREAM STATE ON `self`. This object is memoized
+        # process-wide (unified_client._provider_client_cache), so it parses
+        # every concurrent turn at once. The <reasoning> wrapper's open/closed
+        # bookkeeping — and the content-less "reasoning started/stopped"
+        # lifecycle signal — live per STREAM in
+        # providers/reasoning_stream_state.py, keyed on that stream's emitter.
+        # Holding them here made two simultaneous turns share one flag: one
+        # turn's thinking leaked as visible prose, the other's answer rendered
+        # inside the collapsed "Thought process" block (2026-09-12).
 
         if DEBUG_OVERRIDE:
             self.debug = True
@@ -412,10 +412,10 @@ class AnthropicChat:
     ) -> UnifiedResponse:
         """Execute streaming Anthropic request"""
 
-        # Reset per-stream reasoning state so a wrapper left open by a prior
-        # request on a reused instance can never leak into this one.
-        self._reasoning_open = False
-        self._reasoning_signaled = False
+        # Reset THIS stream's reasoning state. Scoped to this emitter: the
+        # instance is shared process-wide, so a reset on `self` would clear a
+        # CONCURRENT turn's open wrapper and strand its close.
+        reset_reasoning_state(emitter)
 
         attempt_config = dict(config_data)
         accumulated_usage = None
@@ -560,9 +560,10 @@ class AnthropicChat:
                     # when thinking text exists — and never an empty wrapper.
                     thinking = getattr(delta, "thinking", "")
                     if thinking:
-                        if not self._reasoning_open:
+                        reasoning_state = reasoning_state_for(emitter)
+                        if not reasoning_state.open:
                             await emitter.send_chunk("\n<reasoning>\n")
-                            self._reasoning_open = True
+                            reasoning_state.open = True
                         await emitter.send_chunk(thinking)
                         await asyncio.sleep(0)
 
@@ -648,7 +649,7 @@ class AnthropicChat:
                     # thinking text is omitted, so it is the one reliable "the
                     # model is thinking now" marker. Emit it so the UI can leave
                     # the silent heartbeat gap and show a thinking state.
-                    self._reasoning_signaled = True
+                    reasoning_state_for(emitter).signaled = True
                     await emitter.send_reasoning_state("started")
 
         elif event_type == "content_block_stop":
@@ -656,16 +657,17 @@ class AnthropicChat:
             # actually opened by a thinking_delta. Keyed off our own state (not
             # the block type, which the stop event may not carry) so the close
             # always pairs with a real open and we never emit a stray close.
-            if self._reasoning_open:
+            reasoning_state = reasoning_state_for(emitter)
+            if reasoning_state.open:
                 await emitter.send_chunk("\n</reasoning>\n")
-                self._reasoning_open = False
+                reasoning_state.open = False
             # Close the lifecycle signal at the same block boundary. Anthropic
             # streams blocks sequentially (start N … stop N before start N+1),
             # so the first content_block_stop after a thinking start IS the
-            # thinking block's stop — the same sequencing _reasoning_open relies
+            # thinking block's stop — the same sequencing `state.open` relies
             # on. Fires whether or not any thinking text was streamed.
-            if self._reasoning_signaled:
-                self._reasoning_signaled = False
+            if reasoning_state.signaled:
+                reasoning_state.signaled = False
                 await emitter.send_reasoning_state("stopped")
 
         elif event_type == "message_start":

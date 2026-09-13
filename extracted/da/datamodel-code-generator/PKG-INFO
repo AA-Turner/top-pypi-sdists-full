@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: datamodel-code-generator
-Version: 0.79.0
+Version: 0.80.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/datamodel-code-generator/datamodel-code-generator
 Project-URL: Source, https://github.com/datamodel-code-generator/datamodel-code-generator
@@ -28,6 +28,7 @@ Requires-Dist: pydantic<3,>=2.12; python_version >= '3.14'
 Requires-Dist: pydantic<3,>=2; python_version < '3.14'
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: tomli<3,>=2.2.1; python_version < '3.11'
+Requires-Dist: typing-extensions<5,>=4.16
 Provides-Extra: all
 Requires-Dist: black>=19.10b0; (sys_platform != 'emscripten') and extra == 'all'
 Requires-Dist: graphql-core>=3.2.3; extra == 'all'

@@ -110,7 +110,7 @@ class _Boom:
 def test_shadow_never_breaks_the_caller(monkeypatch):
     """CUTOVER.md §3 rule 2 — with the shadow ON and the new path raising, the
     caller still receives the old result."""
-    monkeypatch.setattr(_parity, "PARITY_SHADOW_ENABLED", True)
+    monkeypatch.setattr(_parity, "_shadow_enabled", lambda: True)
     recorded: list[tuple] = []
     monkeypatch.setattr(
         _parity, "record_divergence", lambda *a, **k: recorded.append((a, k))
@@ -127,7 +127,7 @@ def test_shadow_never_breaks_the_caller(monkeypatch):
 
 def test_shadow_is_off_by_default_and_costs_one_read(monkeypatch):
     """Disabled is the production default; the new path must not even run."""
-    monkeypatch.setattr(_parity, "PARITY_SHADOW_ENABLED", False)
+    monkeypatch.setattr(_parity, "_shadow_enabled", None)
     ran = []
     old = UnifiedMessage(role="user", content=[])
     got = _parity.shadow_compare(

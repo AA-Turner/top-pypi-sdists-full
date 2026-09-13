@@ -35,6 +35,66 @@ from matrx_scraper.search.rate_limiter import (
 #: an error, so a fallback to them is invisible. See `BraveSearchClient.__init__`.
 BRAVE_KEY_ENV_VAR = "BRAVE_SEARCH_API_KEY_PRO_AI"
 
+#: ---------------------------------------------------------------------------
+#: BILLABLE-CALL OBSERVERS — the ONE seam a host uses to put Brave money on a ledger.
+#:
+#: Brave Search is billed PER REQUEST ($5/1,000 at the Search tier), so every
+#: request that reaches Brave is an invoice line. This package owns no ledger and
+#: never will (it must install and run alone), so the host registers an observer
+#: and turns each call into its own cost row — aidream wires
+#: `record_external_api_cost` here at startup.
+#:
+#: Observers MUST never raise: a bookkeeping failure may not kill a search that
+#: already cost money. One that does is caught and screamed about, exactly as the
+#: SerpAPI client's observer seam does.
+#: ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class BraveBillableCall:
+    """One request Brave will bill for. `endpoint` is the API path
+    (`web/search`, `local/pois`, `summarizer/search`), `query` the human query it
+    carried, `attempts` how many HTTP attempts it took (Brave bills the
+    successful one), `quota` the account headers Brave returned."""
+
+    endpoint: str
+    query: str
+    attempts: int
+    status_code: int
+    quota: dict[str, str] = field(default_factory=dict)
+
+
+BraveCallObserver = Callable[[BraveBillableCall], None]
+_call_observers: list[BraveCallObserver] = []
+
+
+def register_brave_call_observer(observer: BraveCallObserver) -> None:
+    """Install a host observer. Idempotent — registering the same callable twice
+    would double-bill every search."""
+    if observer not in _call_observers:
+        _call_observers.append(observer)
+
+
+def clear_brave_call_observers() -> None:
+    _call_observers.clear()
+
+
+def _notify_billable(call: BraveBillableCall) -> None:
+    for observer in list(_call_observers):
+        try:
+            observer(call)
+        except Exception as exc:  # noqa: BLE001 - never lose a paid search to bookkeeping
+            vcprint(
+                f"[brave_search] call observer {observer!r} raised "
+                f"{type(exc).__name__}: {exc}",
+                color="red",
+            )
+
+
+def _endpoint_of(url: str) -> str:
+    return url.split("/res/v1/", 1)[-1] if "/res/v1/" in url else url
+
+
 BRAVE_API_ROOT = "https://api.search.brave.com/res/v1"
 BRAVE_WEB_SEARCH_URL = f"{BRAVE_API_ROOT}/web/search"
 
@@ -398,7 +458,7 @@ class BraveSearchClient:
         }
 
         if client is not None:
-            return await self._attempt_loop(
+            result = await self._attempt_loop(
                 client,
                 url,
                 wire_params,
@@ -410,19 +470,33 @@ class BraveSearchClient:
                 base_backoff_seconds,
                 max_retry_delay_seconds,
             )
-        async with self._client_factory() as owned_client:
-            return await self._attempt_loop(
-                owned_client,
-                url,
-                wire_params,
-                headers,
-                params,
-                limiter,
-                timeout,
-                max_attempts,
-                base_backoff_seconds,
-                max_retry_delay_seconds,
+        else:
+            async with self._client_factory() as owned_client:
+                result = await self._attempt_loop(
+                    owned_client,
+                    url,
+                    wire_params,
+                    headers,
+                    params,
+                    limiter,
+                    timeout,
+                    max_attempts,
+                    base_backoff_seconds,
+                    max_retry_delay_seconds,
+                )
+        # A response in hand means Brave served (and will bill) this request.
+        # A raised 429/timeout never reaches here, which is correct: Brave does
+        # not bill a request it refused.
+        _notify_billable(
+            BraveBillableCall(
+                endpoint=_endpoint_of(url),
+                query=params.query,
+                attempts=result.attempts,
+                status_code=result.status_code,
+                quota=dict(result.quota or {}),
             )
+        )
+        return result
 
     async def _attempt_loop(
         self,
@@ -693,6 +767,15 @@ class BraveSearchClient:
                 )
             self._tune_limiter(limiter, response)
             self._raise_for_status(response, probe)
+            _notify_billable(
+                BraveBillableCall(
+                    endpoint=_endpoint_of(url),
+                    query=query,
+                    attempts=1,
+                    status_code=response.status_code,
+                    quota=_quota_from(response),
+                )
+            )
             return response.json()
 
 

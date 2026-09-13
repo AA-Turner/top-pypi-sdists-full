@@ -134,7 +134,7 @@ def test_list_rules_answers_about_one_rule_with_its_parameters(monkeypatch):
         sys.modules.pop("xbsl.mcp_server", None)
 
 
-def _project_with_stale_entry(tmp_path, reason="решение владельца: так и задумано"):
+def _project_with_stale_entry(tmp_path, reason="так и задумано, правило здесь не применяем"):
     """A project whose baseline holds one live entry and one stale entry with a reason."""
     project = tmp_path / "acme" / "Проба"
     project.mkdir(parents=True)
@@ -168,7 +168,7 @@ def test_lint_paths_names_the_stale_entries(tmp_path, monkeypatch):
         entry = summary["baseline_stale_entries"][0]
         assert entry["path"] == "acme/Проба/Ушедший.xbsl"
         assert entry["rule"] == "whitespace/trailing" and entry["count"] == 2
-        assert entry["reason"] == "решение владельца: так и задумано"
+        assert entry["reason"] == "так и задумано, правило здесь не применяем"
     finally:
         sys.modules.pop("xbsl.mcp_server", None)
 
@@ -185,7 +185,7 @@ def test_baseline_prune_removes_the_stale_entries_and_reports_their_reasons(
         res = m.baseline_prune([str(project)], ignore=_NO_PAIR)
 
         assert res["stale"] == 1 and res["written"] is True
-        assert res["removed"][0]["reason"] == "решение владельца: так и задумано"
+        assert res["removed"][0]["reason"] == "так и задумано, правило здесь не применяем"
         data = json.loads(bl.read_text(encoding="utf-8"))
         assert "acme/Проба/Ушедший.xbsl" not in data["files"]
         # the live entry keeps its place, its count and the shape of the file
@@ -431,7 +431,7 @@ def test_lint_paths_checks_with_the_rule_set_of_the_ci_job(tmp_path, monkeypatch
 
     off_by_default = "typography/yo-in-text"
     if off_by_default in SEVERITY_OVERRIDES:  # pragma: no cover - an installed plugin decides
-        pytest.skip("правило включено установленным плагином – публичный дефолт не виден")
+        pytest.skip("правило включено установленным плагином – не видно, что по умолчанию оно выключено")
     m = _with_stub(monkeypatch)
     try:
         project = tmp_path / "project"
@@ -460,7 +460,7 @@ def test_lint_paths_can_be_told_which_ci_job_to_judge_by(tmp_path, monkeypatch):
 
     off_by_default = "typography/yo-in-text"
     if off_by_default in SEVERITY_OVERRIDES:  # pragma: no cover - an installed plugin decides
-        pytest.skip("правило включено установленным плагином – публичный дефолт не виден")
+        pytest.skip("правило включено установленным плагином – не видно, что по умолчанию оно выключено")
     m = _with_stub(monkeypatch)
     try:
         project = tmp_path / "project"
@@ -502,7 +502,7 @@ def test_lint_paths_can_add_a_rule_that_is_off_by_default(tmp_path, monkeypatch)
 
     off_by_default = "typography/yo-in-text"
     if off_by_default in SEVERITY_OVERRIDES:  # pragma: no cover - an installed plugin decides
-        pytest.skip("правило включено установленным плагином – публичный дефолт не виден")
+        pytest.skip("правило включено установленным плагином – не видно, что по умолчанию оно выключено")
     m = _with_stub(monkeypatch)
     try:
         f = tmp_path / "Форма.yaml"

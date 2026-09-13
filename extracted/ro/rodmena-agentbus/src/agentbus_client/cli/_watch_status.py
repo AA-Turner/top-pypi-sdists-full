@@ -8,8 +8,8 @@ import json
 import os
 import sys
 
-from . import _watch_runtime
-from ._common import _accept_common_flags_after_subcommand, _cfg_dir
+from . import _common, _watch_runtime
+from ._common import _cfg_dir
 from ._watch_runtime import (
     _existing_logfile,
     _scan_watch_process,
@@ -81,9 +81,8 @@ def _read_running_client_version(
 
 
 def cmd_watch_status(args: argparse.Namespace) -> int:
-    agent = args.agent or os.environ.get("AGENTBUS_AGENT") or ""
+    agent = _common.require_acting_agent(args)
     if not agent:
-        print("no acting agent: pass --agent or set AGENTBUS_AGENT", file=sys.stderr)
         return 2
     # A SILENTLY FAILING WAKE PATH IS THE THING THIS COMMAND EXISTS TO FIND.
     #
@@ -258,7 +257,9 @@ def cmd_watch_status(args: argparse.Namespace) -> int:
 def cmd_watch_stop(args: argparse.Namespace) -> int:
     import signal
 
-    agent = args.agent or os.environ.get("AGENTBUS_AGENT") or ""
+    agent = _common.require_acting_agent(args)
+    if not agent:
+        return 2
     # SCOPING, for the per-(agent,state) model: `--state NAME` stops exactly
     # the registrations whose pid-file state key is NAME (matched by SUFFIX so
     # `--state foobar.json` matches `{agent}-foobar.json.pid`). Without it, stop
@@ -293,24 +294,3 @@ def cmd_watch_stop(args: argparse.Namespace) -> int:
             + (f" [{st}]" if st != "(legacy)" else " [legacy]")
         )
     return 0
-
-
-def add_commands(sub: argparse._SubParsersAction) -> None:
-    """Wire this module's subcommands into the shared subparser."""
-
-    p = sub.add_parser("watch-status", help="is a watcher running for this agent?")
-    p.add_argument(
-        "--state", default=None, help="scope to one registration by state-file name (default: all)"
-    )
-    _accept_common_flags_after_subcommand(p)
-    p.set_defaults(func=cmd_watch_status)
-
-    p = sub.add_parser("watch-stop", help="stop the detached watcher for this agent")
-    p.add_argument(
-        "--state",
-        default=None,
-        help="stop exactly the registration with this state-file name "
-        "(default: every live watcher for the agent)",
-    )
-    _accept_common_flags_after_subcommand(p)
-    p.set_defaults(func=cmd_watch_stop)

@@ -70,6 +70,12 @@ class PageCaptureRequest(BaseModel):
     organization_id: str | None = None
     site_id: str | None = None
     backlink_id: str | None = None
+    #: THE MAIN-CONTENT LAW: `content` is the article body by default — the
+    #: site's furniture (nav, sponsor lines, staff bios, tag lists, donate and
+    #: newsletter CTAs) is not what the page SAYS. A caller that genuinely
+    #: wants the whole document (SEO audit, archival diff) asks for it here,
+    #: and `content_scope` on the result always says which it got.
+    full_page: bool = False
 
 
 class CapturedLink(BaseModel):
@@ -103,6 +109,10 @@ class PageCaptureResult(BaseModel):
     char_count: int = 0
     content: str = ""
     content_truncated: bool = False
+    #: "main" — the article body with the site's furniture stripped;
+    #: "full" — the whole page, either because the caller asked or because the
+    #: page is not article-like. Never silent about which one `content` is.
+    content_scope: Literal["main", "full"] = "full"
     links_to_target: list[CapturedLink] = Field(default_factory=list)
     screenshot_file_id: str | None = None
     screenshot_width: int | None = None
@@ -306,9 +316,14 @@ async def page_capture(
             failure_reason="navigation ended on a non-public address; response discarded",
         )
 
-    text = (
+    full_text = (
         result.ai_research_content or result.text_data or result.ai_content or result.raw_text or ""
     )
+    main_text = (result.main_content_text or "").strip()
+    if request.full_page or not main_text:
+        text, content_scope = full_text, "full"
+    else:
+        text, content_scope = main_text, "main"
     content_truncated = len(text) > PAGE_CAPTURE_MAX_TEXT_CHARS
     content = text[:PAGE_CAPTURE_MAX_TEXT_CHARS]
     normalized_target = normalize_url(request.target_url) if request.target_url else ""
@@ -343,6 +358,7 @@ async def page_capture(
         char_count=len(text),
         content=content,
         content_truncated=content_truncated,
+        content_scope=content_scope,
         links_to_target=matching,
         **screenshot,
         failure_reason=result.failure_reason,

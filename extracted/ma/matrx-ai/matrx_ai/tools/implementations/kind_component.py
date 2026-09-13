@@ -54,12 +54,14 @@ from matrx_ai.tools.implementations.kind_shared import (
     PLATFORM_COMPONENT_CONTRACTS,
     PROPS_CONTRACT,
     can_access_kind,
+    component_globals_lint,
     component_import_lint,
     component_source_lint,
     component_summary,
     ctx_user_id,
     ensure_can_edit_kind,
     ensure_can_view_kind,
+    ensure_platform_shape_author,
     err,
     example_summary,
     kind_summary,
@@ -103,15 +105,26 @@ async def _capture_component_create_failure(
 
 async def _refuse_broken_source(source: str) -> tuple[ToolResult | None, bool]:
     """The write-time component gates, in order of cheapness: the props-contract
-    lint, the import allowlist, then the esbuild TSX syntax gate. Returns
-    ``(refusal, compile_checked)`` — ``compile_checked=False`` means no esbuild
-    on this host, which every caller surfaces loudly in its result."""
+    lint, the import allowlist, the dangerous-globals gate, then the esbuild TSX
+    syntax gate. Returns ``(refusal, compile_checked)`` —
+    ``compile_checked=False`` means no esbuild on this host, which every caller
+    surfaces loudly in its result.
+
+    The globals gate (Q82 / B-17, 2026-09-11) is the SAME rule the browser
+    Studio write path runs (matrx-frontend
+    `features/agent-apps/utils/component-source-gate.ts`) and the same one
+    `content_ir.kind_component_source_gate` enforces at the table — three
+    enforcement points, one list, held identical by
+    `tests/test_component_source_gate_parity.py`."""
     lint_refusal = component_source_lint(source)
     if lint_refusal:
         return err("validation", lint_refusal), False
     import_refusal = component_import_lint(source)
     if import_refusal:
         return err("validation", import_refusal), False
+    globals_refusal = component_globals_lint(source)
+    if globals_refusal:
+        return err("validation", globals_refusal), False
     compile_errors, checked = await tsx_compile_check(source)
     if compile_errors:
         return (
@@ -124,7 +137,6 @@ async def _refuse_broken_source(source: str) -> tuple[ToolResult | None, bool]:
             checked,
         )
     return None, checked
-
 
 
 def _dedup_incidents(rows: list[Any]) -> list[dict[str, Any]]:
@@ -337,7 +349,9 @@ async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
     if not kind_ref or not component_key or not component_source:
         return err("validation", "kind, component_key, and component_source are required.")
     if platform not in COMPONENT_PLATFORMS:
-        return err("validation", f"Invalid platform '{platform}'. Valid: {list(COMPONENT_PLATFORMS)}")
+        return err(
+            "validation", f"Invalid platform '{platform}'. Valid: {list(COMPONENT_PLATFORMS)}"
+        )
     if role not in COMPONENT_ROLES:
         return err("validation", f"Invalid role '{role}'. Valid: {list(COMPONENT_ROLES)}")
     refusal, compile_checked = await _refuse_broken_source(component_source)
@@ -351,6 +365,12 @@ async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         denied = await ensure_can_edit_kind(kd, ctx)
         if denied:
             return denied
+        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
+        # until the iframe sandbox ships. Edit access to the kind is necessary
+        # but no longer sufficient.
+        denied_author = await ensure_platform_shape_author(ctx)
+        if denied_author:
+            return denied_author
 
         KindComponent = get_db_model("KindComponent")
         existing = await KindComponent.filter(
@@ -464,8 +484,7 @@ async def kindcomp_get_code(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     component_id = (args.get("component_id") or "").strip()
     sections = args.get("sections") or list(CODE_SECTIONS)
     if not component_id:
-        return err("validation", "component_id is required.",
-                   "Get it from kindcomp_get_context.")
+        return err("validation", "component_id is required.", "Get it from kindcomp_get_context.")
     invalid = [s for s in sections if s not in CODE_SECTIONS]
     if invalid:
         return err("validation", f"Invalid sections: {invalid}. Valid: {list(CODE_SECTIONS)}")
@@ -531,11 +550,15 @@ async def _load_editable_component(
     if denied:
         return None, None, denied
     if comp.source != "db":
-        return None, None, err(
-            "validation",
-            f"Component '{component_id}' is source='{comp.source}' — its code ships in the "
-            "frontend bundle and cannot be edited here.",
-            "Create a db-sourced sibling with kindcomp_create_component instead.",
+        return (
+            None,
+            None,
+            err(
+                "validation",
+                f"Component '{component_id}' is source='{comp.source}' — its code ships in the "
+                "frontend bundle and cannot be edited here.",
+                "Create a db-sourced sibling with kindcomp_create_component instead.",
+            ),
         )
     return comp, kd, None
 
@@ -584,6 +607,12 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
+        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
+        # until the iframe sandbox ships. Edit access to the kind is necessary
+        # but no longer sufficient.
+        denied_author = await ensure_platform_shape_author(ctx)
+        if denied_author:
+            return denied_author
         sections = list(updates.keys())
         if bump_version:
             updates["semver"] = _bump_semver_patch(comp.semver)
@@ -659,6 +688,12 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
+        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
+        # until the iframe sandbox ships. Edit access to the kind is necessary
+        # but no longer sufficient.
+        denied_author = await ensure_platform_shape_author(ctx)
+        if denied_author:
+            return denied_author
         code = getattr(comp, section) or ""
         if not code:
             return err(
@@ -671,9 +706,17 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         for i, patch in enumerate(patches):
             desc = patch.get("description", f"patch {i + 1}")
             try:
-                working, round_used = _apply_patch(working, patch["old_string"], patch["new_string"])
-                results.append({"index": i, "description": desc, "status": "applied",
-                                "match_round": round_used})
+                working, round_used = _apply_patch(
+                    working, patch["old_string"], patch["new_string"]
+                )
+                results.append(
+                    {
+                        "index": i,
+                        "description": desc,
+                        "status": "applied",
+                        "match_round": round_used,
+                    }
+                )
             except ValueError as ve:
                 return ToolResult(
                     success=False,
@@ -747,14 +790,22 @@ async def kindcomp_update_settings(args: dict[str, Any], ctx: ToolContext) -> To
     KindcompUpdateSettingsArgs.model_validate(args)  # enforce the declared arg contract
     component_id = (args.get("component_id") or "").strip()
     settings = args.get("settings") or {}
-    valid = {"is_active", "is_default", "sort_order", "config", "pinned_kind_version",
-             "component_key", "notes"}
+    valid = {
+        "is_active",
+        "is_default",
+        "sort_order",
+        "config",
+        "pinned_kind_version",
+        "component_key",
+        "notes",
+    }
     if not component_id:
         return err("validation", "component_id is required.")
     rejected = [k for k in settings if k in CODE_SECTIONS]
     if rejected:
-        return err("validation",
-                   f"Code fields not allowed here: {rejected}. Use kindcomp_update_code.")
+        return err(
+            "validation", f"Code fields not allowed here: {rejected}. Use kindcomp_update_code."
+        )
     invalid = [k for k in settings if k not in valid]
     if invalid:
         return err("validation", f"Unknown settings keys: {invalid}. Valid: {sorted(valid)}")

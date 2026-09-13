@@ -26,11 +26,9 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, Any, cast
 
 from .cell import Cell
-from .const import CellValue
 from .element import (
     Element,
     register_element_class,
@@ -41,8 +39,11 @@ from .table_cache import _XP_CELL_IDX, RowCache, TableCache
 from .utils import convert_coordinates, increment, isiterable, translate_from_any
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
     from lxml.etree import XPath  # ty: ignore[unresolved-import]
 
+    from .const import CellValue
     from .style import Style
 
 
@@ -137,7 +138,7 @@ class Row(Element):
         self._row_cache = RowCache()
 
     def _get_cells(self) -> list[Cell]:
-        return cast(list[Cell], self.get_elements(_XPATH_CELL))
+        return cast("list[Cell]", self.get_elements(_XPATH_CELL))
 
     def _translate_row_coordinates(
         self,
@@ -165,7 +166,7 @@ class Row(Element):
     @property
     def clone(self) -> Row:
         """Return a copy of the row."""
-        cloned_row = cast(Row, Element.clone.fget(self))
+        cloned_row = cast("Row", Element.clone.fget(self))
         cloned_row.y = self.y
         cloned_row._table_cache = TableCache.copy(self._table_cache)
         cloned_row._row_cache = RowCache.copy(self._row_cache)
@@ -488,7 +489,7 @@ class Row(Element):
         x_int = self._translate_x_from_any(x)
         if x_int < self.width:
             current = self._get_cell2_base(x_int)
-            if current is not None:
+            if current is not None:  # pragma: no branch
                 cell = current.clone
                 cell.repeated = None
                 cell.set_value(
@@ -501,8 +502,6 @@ class Row(Element):
                     cell.style = style
                 self.set_cell(x_int, cell, clone=False)
                 return
-            else:  # pragma: nocover
-                pass
         cell = Cell(
             value,
             style=style,
@@ -664,11 +663,10 @@ class Row(Element):
                     continue
                 values.append(cell.get_value(get_type=get_type))
             return values
-        else:
-            return [
-                cell.get_value(get_type=get_type)
-                for cell in self.iter_cells(start=x, end=z)
-            ]
+        return [
+            cell.get_value(get_type=get_type)
+            for cell in self.iter_cells(start=x, end=z)
+        ]
 
     def get_sub_elements(
         self,
@@ -753,10 +751,12 @@ class Row(Element):
         values_list: list[CellValue | None]
         if not isiterable(values):
             # guard against str iterable
-            values_list = [cast(CellValue | None, values)]
+            values_list = [cast("CellValue | None", values)]
         else:
             # we need the number of values
-            values_list = [cast(CellValue | None, v) for v in cast(Iterable[Any], values)]
+            values_list = [
+                cast("CellValue | None", v) for v in cast("Iterable[Any]", values)
+            ]
         if start >= self.width:
             x = start
             for value in values_list:
@@ -830,6 +830,34 @@ class Row(Element):
         self._compute_row_cache()
         self._row_cache.clear_cell_indexes()
 
+    def lstrip(self, aggressive: bool = False) -> None:
+        """Remove empty cells at the left of the row, in-place.
+
+        An empty cell has no value but can have style. If `aggressive` is
+        True, style is ignored.
+
+        Args:
+            aggressive: If True, ignores cell style.
+        """
+        for cell in self._get_cells():
+            if not cell.is_empty(aggressive=aggressive):
+                break
+            self.delete(cell)
+        self._compute_row_cache()
+        self._row_cache.clear_cell_indexes()
+
+    def strip(self, aggressive: bool = False) -> None:
+        """Remove empty cells from both left and right of the row, in-place.
+
+        An empty cell has no value but can have style. If `aggressive` is
+        True, style is ignored.
+
+        Args:
+            aggressive: If True, ignores cell style.
+        """
+        self.rstrip(aggressive=aggressive)
+        self.lstrip(aggressive=aggressive)
+
     def _current_length(self) -> int:
         """Return the current estimated length of the row.
 
@@ -899,9 +927,8 @@ class Row(Element):
     def is_empty(self, aggressive: bool = False) -> bool:
         """Return whether every cell in the row is empty.
 
-        An empty cell has no value (or the value evaluates to False) and no
-        style. If `aggressive` is True, empty cells with style are considered
-        empty.
+        An empty cell has no value (value is None) and no style.
+        If `aggressive` is True, empty cells with style are considered empty.
 
         Args:
             aggressive: If True, ignores cell style.

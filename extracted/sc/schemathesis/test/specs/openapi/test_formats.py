@@ -10,7 +10,7 @@ from schemathesis.core.validation import check_header_name
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.specs.openapi._hypothesis import _build_custom_formats, _canonical_strategy
 from schemathesis.specs.openapi.coverage._schema import is_valid_header_value
-from schemathesis.specs.openapi.formats import register_string_format
+from schemathesis.specs.openapi.formats import FORMAT_LENGTHS, register_string_format
 from schemathesis.transport.serialization import Binary
 
 FORMATS = _build_custom_formats(GenerationConfig(), GenerationMode.POSITIVE)
@@ -67,6 +67,20 @@ def test_registered_format_generates_strings(name):
     test()
 
 
+@pytest.mark.parametrize(("name", "bounds"), sorted(FORMAT_LENGTHS.items()))
+def test_declared_format_lengths_hold(name, bounds):
+    # A length window outside these is answered without drawing, so a generator reaching past them
+    # silently drops cases.
+    low, high = bounds
+
+    @given(_resolve(name))
+    @SETTINGS
+    def test(value):
+        assert low <= len(value) <= high, value
+
+    test()
+
+
 @given(st.data())
 @SETTINGS
 def test_byte_format_is_base64(data):
@@ -109,6 +123,44 @@ def test_registering_a_format_invalidates_built_strategies():
         assert value.isdigit(), value
 
     test()
+
+
+def test_length_window_no_format_value_reaches_admits_nothing():
+    # The generator cannot be steered to a length, so a window it never lands in has no values.
+    built = _canonical_strategy(
+        {"type": "string", "format": "uuid", "minLength": 64, "maxLength": 64},
+        GenerationConfig(),
+        jsonschema_rs.Draft4Validator,
+    )
+
+    assert built.is_empty
+
+
+def test_narrow_length_window_on_many_format_properties():
+    # Rejection sampling cannot clear twenty fields pinned to one length at once.
+    properties = {
+        f"f{index}": {"type": "string", "format": "date-time", "minLength": 25, "maxLength": 25} for index in range(20)
+    }
+    built = _canonical_strategy(
+        {"type": "object", "properties": properties, "required": list(properties)},
+        GenerationConfig(),
+        jsonschema_rs.Draft4Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator({"type": "string", "format": "date-time"}, validate_formats=True)
+    drawn = []
+
+    @given(built)
+    @SETTINGS
+    def test(value):
+        drawn.append(value)
+
+    test()
+
+    assert drawn
+    for value in drawn:
+        for name in properties:
+            assert len(value[name]) == 25, value[name]
+            assert validator.is_valid(value[name]), value[name]
 
 
 def test_regex_format_respects_generation_alphabet():

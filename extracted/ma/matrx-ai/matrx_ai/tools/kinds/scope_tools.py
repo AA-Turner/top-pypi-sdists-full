@@ -24,6 +24,11 @@ from matrx_graph.content_ir.sdk import kind
 class ScopeSystemResult(KindModel):
     #: render actions — the rendered scope-context tier.
     context: str | None = None
+    #: Render actions return a bounded page of the complete context document.
+    context_total_chars: int | None = None
+    context_offset: int | None = None
+    context_next_offset: int | None = None
+    context_truncated: bool | None = None
     #: `apply` — the atomic batch receipt from `scope_system_apply`.
     organization_id: str | None = None
     applied: int | None = None

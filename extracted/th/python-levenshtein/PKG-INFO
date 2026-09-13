@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-Levenshtein
-Version: 0.27.4
+Version: 0.27.5
 Summary: Python extension for computing string edit distances and similarities.
 Author-email: Max Bachmann <pypi@maxbachmann.de>
 License: GPL-2.0-or-later
@@ -11,15 +11,15 @@ Project-URL: Issues, https://github.com/rapidfuzz/python-Levenshtein/issues
 Project-URL: Changelog, https://github.com/rapidfuzz/python-Levenshtein/blob/main/CHANGELOG.rst
 Keywords: string,Levenshtein,comparison,edit-distance
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Levenshtein==0.27.4
+Requires-Dist: Levenshtein==0.27.5
 Dynamic: license-file
 
 # Levenshtein

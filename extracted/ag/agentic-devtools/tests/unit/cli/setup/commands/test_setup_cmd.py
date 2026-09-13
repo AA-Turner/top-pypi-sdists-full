@@ -3,7 +3,8 @@
 import os
 from contextlib import ExitStack
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -46,12 +47,18 @@ def _provider_runtime_ready():
         return_value=None,
     ):
         with patch("agentic_devtools.cli.setup.commands._query_copilot_models", return_value=["model-a"]):
-            with patch.object(
-                commands,
-                "_query_copilot_model_records",
-                return_value=[MagicMock(model_id="model-a")],
+            with patch(
+                "agentic_devtools.cli.setup.commands._query_copilot_model_records",
+                return_value=[SimpleNamespace(model_id="model-a")],
             ):
-                with patch.object(commands, "_populate_available_models"):
+                with patch.object(
+                    commands,
+                    "_populate_available_models",
+                    return_value={
+                        "availableModels": ["gemini-3.7-flash"],
+                        "models": {"gemini-3.7-flash": {"display_name": "Gemini 3.7 Flash"}},
+                    },
+                ):
                     with patch.object(commands, "_prompt_copilot_model"):
                         with patch(
                             "agentic_devtools.cli.setup.autorun._autorun_setup_dev_tools",
@@ -109,8 +116,237 @@ class TestSetupCmd:
                                                 "_prompt_copilot_model",
                                                 side_effect=AssertionError("legacy prompt should be bypassed"),
                                             ):
-                                                with patch.object(commands, "_generate_setup_scripts"):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"availableModels": ["gemini-3.7-flash"]},
+                                                ):
+                                                    with patch.object(commands, "_generate_setup_scripts"):
+                                                        commands.setup_cmd()
+
+    def test_defaults_refreshes_inventory_before_provider_plan(self, tmp_path):
+        """--defaults replans from the refreshed inventory instead of a stale cache."""
+        initial_config = {"availableModels": ["stale-model"]}
+        refreshed_config = {
+            "availableModels": ["fresh-model"],
+            "models": {"fresh-model": {"display_name": "Fresh Model"}},
+        }
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return plan_provider_configuration(
+                git_root,
+                available_models=kwargs.get("available_models"),
+                existing_model=kwargs.get("existing_model"),
+                defaults=bool(kwargs.get("defaults", False)),
+                reconfigure=bool(kwargs.get("reconfigure", False)),
+                dry_run=bool(kwargs.get("dry_run", False)),
+                interactive=bool(kwargs.get("interactive", False)),
+                readiness=lambda _document: ("ready", "ready"),
+                skip_model_refresh=bool(kwargs.get("skip_model_refresh", False)),
+                skip_reason=str(kwargs.get("skip_reason", "no_git_root")),
+            )
+
+        with patch("sys.argv", ["agdt-setup", "--defaults", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            return_value=initial_config,
+                                        ):
+                                            with patch.object(
+                                                commands,
+                                                "_populate_available_models",
+                                                return_value=refreshed_config,
+                                            ) as mock_populate:
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                    side_effect=_plan,
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                        return_value=False,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.save_project_config"
+                                                        ) as mock_save:
+                                                            commands.setup_cmd()
+
+        mock_populate.assert_called_once_with(
+            refresh_models=True,
+            config=initial_config,
+            persist=False,
+        )
+        assert plan_calls[0]["available_models"] == ["fresh-model"]
+        assert any(
+            call.args
+            and isinstance(call.args[0], dict)
+            and call.args[0].get("availableModels") == ["fresh-model"]
+            and call.args[0].get("models") == {"fresh-model": {"display_name": "Fresh Model"}}
+            for call in mock_save.call_args_list
+        )
+
+    def test_defaults_keeps_cached_selection_when_refresh_returns_nothing(self, tmp_path):
+        """--defaults falls back to the cached selection when live refresh is empty."""
+        initial_config = {"availableModels": [], "default_copilot_model": "cached-model"}
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return plan_provider_configuration(
+                git_root,
+                available_models=kwargs.get("available_models"),
+                existing_model=kwargs.get("existing_model"),
+                defaults=bool(kwargs.get("defaults", False)),
+                reconfigure=bool(kwargs.get("reconfigure", False)),
+                dry_run=bool(kwargs.get("dry_run", False)),
+                interactive=bool(kwargs.get("interactive", False)),
+                readiness=lambda _document: ("ready", "ready"),
+                skip_model_refresh=bool(kwargs.get("skip_model_refresh", False)),
+                skip_reason=str(kwargs.get("skip_reason", "no_git_root")),
+            )
+
+        with patch("sys.argv", ["agdt-setup", "--defaults", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            return_value=initial_config,
+                                        ):
+                                            with patch.object(
+                                                commands,
+                                                "_populate_available_models",
+                                                return_value=dict(initial_config),
+                                            ) as mock_populate:
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                    side_effect=_plan,
+                                                ):
                                                     commands.setup_cmd()
+
+        mock_populate.assert_called_once_with(
+            refresh_models=True,
+            config=initial_config,
+            persist=False,
+        )
+        assert plan_calls[0]["existing_model"] == "cached-model"
+        assert plan_calls[0]["available_models"] == []
+
+    def test_defaults_no_refresh_reuses_cached_inventory(self, tmp_path):
+        """--defaults --no-refresh-models skips live discovery and keeps the cached inventory."""
+        initial_config = {"availableModels": ["cached-model"]}
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return plan_provider_configuration(
+                git_root,
+                available_models=kwargs.get("available_models"),
+                existing_model=kwargs.get("existing_model"),
+                defaults=bool(kwargs.get("defaults", False)),
+                reconfigure=bool(kwargs.get("reconfigure", False)),
+                dry_run=bool(kwargs.get("dry_run", False)),
+                interactive=bool(kwargs.get("interactive", False)),
+                readiness=lambda _document: ("ready", "ready"),
+                skip_model_refresh=bool(kwargs.get("skip_model_refresh", False)),
+                skip_reason=str(kwargs.get("skip_reason", "no_git_root")),
+            )
+
+        with patch(
+            "sys.argv",
+            ["agdt-setup", "--defaults", "--no-refresh-models", "--skip-platform-detection", "--skip-templates"],
+        ):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            return_value=initial_config,
+                                        ):
+                                            with patch.object(
+                                                commands,
+                                                "_populate_available_models",
+                                                return_value=dict(initial_config),
+                                            ) as mock_populate:
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                    side_effect=_plan,
+                                                ):
+                                                    commands.setup_cmd()
+
+        mock_populate.assert_called_once_with(
+            refresh_models=False,
+            config=initial_config,
+            persist=False,
+        )
+        assert plan_calls[0]["available_models"] == ["cached-model"]
+
+    def test_dry_run_defaults_uses_cached_inventory_before_provider_plan(self, tmp_path):
+        """--dry-run --defaults reuses the inventory helper without forcing live discovery."""
+        initial_config = {"availableModels": ["stale-model"]}
+        refreshed_config = {"availableModels": ["fresh-model"]}
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return plan_provider_configuration(
+                git_root,
+                available_models=kwargs.get("available_models"),
+                existing_model=kwargs.get("existing_model"),
+                defaults=bool(kwargs.get("defaults", False)),
+                reconfigure=bool(kwargs.get("reconfigure", False)),
+                dry_run=bool(kwargs.get("dry_run", False)),
+                interactive=bool(kwargs.get("interactive", False)),
+                readiness=lambda _document: ("ready", "ready"),
+                skip_model_refresh=bool(kwargs.get("skip_model_refresh", False)),
+                skip_reason=str(kwargs.get("skip_reason", "no_git_root")),
+            )
+
+        with patch("sys.argv", ["agdt-setup", "--dry-run", "--defaults"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch(
+                    "agentic_devtools.cli.config.project_config.load_project_config",
+                    return_value=initial_config,
+                ):
+                    with patch.object(
+                        commands,
+                        "_populate_available_models",
+                        return_value=refreshed_config,
+                    ) as mock_populate:
+                        with patch(
+                            "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                            side_effect=_plan,
+                        ):
+                            with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                                with patch.object(commands, "print_dependency_report"):
+                                    with patch("agentic_devtools.cli.setup.report.write_report", return_value=True):
+                                        with pytest.raises(SystemExit) as exc_info:
+                                            commands.setup_cmd()
+
+        assert exc_info.value.code == 0
+        mock_populate.assert_called_once_with(refresh_models=False, config=initial_config, persist=False)
+        assert plan_calls[0]["available_models"] == ["fresh-model"]
 
     @pytest.fixture(autouse=True)
     def _isolate_gitignore(self):
@@ -791,12 +1027,8 @@ class TestSetupCmd:
                                                                 "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
                                                                 return_value=True,
                                                             ) as apply:
-                                                                with patch(
-                                                                    "agentic_devtools.cli.config.project_config.save_project_config"
-                                                                ) as save_config:
-                                                                    commands.setup_cmd()
+                                                                commands.setup_cmd()
         apply.assert_called_once_with(plan)
-        assert any(call.args[0].get("default_copilot_model") == "model-a" for call in save_config.call_args_list)
 
     def test_explicit_provider_failure_stops_before_mutation(self, tmp_path):
         """An explicit failed provider plan exits before repository mutation."""
@@ -947,6 +1179,1302 @@ class TestSetupCmd:
         report = mock_write.call_args[0][0]
         assert report.details["provider_configuration"]["status"] == "preserved"
 
+    def test_post_checkout_replan_uses_checked_out_project_config(self, tmp_path):
+        """Callback replanning reads the checked-out branch config instead of reusing the prior model."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="default_copilot_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {
+                "availableModels": ["caller-branch-model"],
+                "default_copilot_model": "caller-branch-model",
+            },
+            {
+                "availableModels": ["gemini-3.7-flash"],
+                "default_copilot_model": "gemini-3.7-flash",
+            },
+        ]
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=lambda *args, **kwargs: dict(
+                                                    load_calls[min(len(plan_calls), 1)]
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                    return_value=({"providers": {}}, None),
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration._resolve_review_provider",
+                                                        return_value=(None, "custom", {"type": "local_model"}),
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                            side_effect=_plan,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                                return_value=True,
+                                                            ):
+                                                                commands.setup_cmd()
+
+        assert plan_calls[1]["existing_model"] == "gemini-3.7-flash"
+        assert plan_calls[1]["available_models"] == ["gemini-3.7-flash"]
+
+    def test_post_checkout_replan_uses_checked_out_default_when_copilot_stays_default_provider(self, tmp_path):
+        """Callback replanning keeps the checked-out Copilot default even when review_files is custom."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="updated",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="existing",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {
+                "availableModels": ["caller-branch-model"],
+                "default_copilot_model": "caller-branch-model",
+            },
+            {
+                "availableModels": ["gemini-3.7-flash"],
+                "default_copilot_model": "gemini-3.7-flash",
+            },
+        ]
+        current_provider_document = {
+            "providers": {
+                "copilot_pr_review": {"type": "copilot", "model": "gemini-3.7-flash"},
+                "custom": {
+                    "type": "local_model",
+                    "model": "llama3",
+                    "endpoint": "http://localhost",
+                },
+            },
+            "workflows": {
+                "pr_review": {
+                    "default_provider": "copilot_pr_review",
+                    "nodes": {"review_files": {"provider": "custom"}},
+                }
+            },
+        }
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=lambda *args, **kwargs: dict(
+                                                    load_calls[min(len(plan_calls), 1)]
+                                                ),
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                    return_value=(current_provider_document, None),
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                        "plan_provider_configuration",
+                                                        side_effect=_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration."
+                                                            "apply_provider_configuration",
+                                                            return_value=True,
+                                                        ):
+                                                            commands.setup_cmd()
+
+        assert plan_calls[1]["existing_model"] == "gemini-3.7-flash"
+        assert plan_calls[1]["available_models"] == ["gemini-3.7-flash"]
+
+    def test_post_checkout_replan_uses_prefetched_inventory_when_checked_out_provider_is_missing(self, tmp_path):
+        """Callback replanning can provision a missing checked-out provider from preflight inventory."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=False,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {"availableModels": ["gemini-3.7-flash"]},
+            {},
+            {},
+        ]
+        refreshed_config = {"availableModels": ["gemini-3.7-flash"]}
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=lambda *args, **kwargs: dict(
+                                                    load_calls.pop(0) if load_calls else {}
+                                                ),
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value=refreshed_config,
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                        return_value=(None, None),
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration."
+                                                            "plan_provider_configuration",
+                                                            side_effect=_plan,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration."
+                                                                "apply_provider_configuration",
+                                                                return_value=True,
+                                                            ):
+                                                                commands.setup_cmd()
+
+        assert plan_calls[-1]["available_models"] == ["gemini-3.7-flash"]
+
+    def test_noninteractive_reconfigure_replans_from_refreshed_inventory_without_saved_default(self, tmp_path):
+        """Non-interactive --reconfigure reruns provider planning when only availableModels is refreshed."""
+        failed_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="failed",
+            document=None,
+            rendered=None,
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model=None,
+            model_source=None,
+            mappings=(),
+            auth_status="unavailable",
+            credential_status="not_required",
+            source="template",
+            reason="model_unavailable",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="model-a",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return failed_plan if len(plan_calls) == 1 else replanned
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                return_value={"availableModels": ["stale-model"]},
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"availableModels": ["model-a"]},
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                        side_effect=_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                            return_value=False,
+                                                        ):
+                                                            commands.setup_cmd()
+
+        assert len(plan_calls) >= 2
+        assert plan_calls[1]["existing_model"] is None
+        assert plan_calls[1]["available_models"] == ["model-a"]
+
+    def test_noninteractive_refresh_syncs_replanned_copilot_model_into_project_config(self, tmp_path):
+        """A managed Copilot replan updates project.json even without ``--defaults``."""
+        failed_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="failed",
+            document=None,
+            rendered=None,
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model=None,
+            model_source=None,
+            mappings=(),
+            auth_status="unavailable",
+            credential_status="not_required",
+            source="template",
+            reason="model_unavailable",
+            dry_run=False,
+            reconfigure=False,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="model-a",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return failed_plan if len(plan_calls) == 1 else replanned
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                return_value={
+                                                    "availableModels": ["stale-model"],
+                                                    "default_copilot_model": "stale-model",
+                                                },
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"availableModels": ["model-a"]},
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                        side_effect=_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.save_project_config"
+                                                        ) as mock_save:
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                                return_value=False,
+                                                            ):
+                                                                commands.setup_cmd()
+
+        assert any(
+            call.args
+            and isinstance(call.args[0], dict)
+            and call.args[0].get("availableModels") == ["model-a"]
+            and call.args[0].get("default_copilot_model") == "model-a"
+            for call in mock_save.call_args_list
+        )
+
+    def test_noninteractive_refresh_syncs_mixed_provider_copilot_model_into_project_config(self, tmp_path):
+        """A mixed-provider replan still updates project.json to the managed Copilot model."""
+        mixed_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="updated",
+            document={
+                "providers": {
+                    "copilot_pr_review": {"type": "copilot", "model": "model-a"},
+                    "custom": {
+                        "type": "local_model",
+                        "model": "llama3",
+                        "endpoint": "http://localhost",
+                    },
+                },
+                "workflows": {
+                    "pr_review": {
+                        "default_provider": "copilot_pr_review",
+                        "nodes": {"review_files": {"provider": "custom"}},
+                    }
+                },
+            },
+            rendered="providers: {}\n",
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="existing",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=True,
+        )
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                return_value={
+                                                    "availableModels": ["stale-model"],
+                                                    "default_copilot_model": "stale-model",
+                                                },
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                    side_effect=[mixed_plan, mixed_plan],
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.config.project_config.save_project_config"
+                                                    ) as mock_save:
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration."
+                                                            "apply_provider_configuration",
+                                                            return_value=False,
+                                                        ):
+                                                            commands.setup_cmd()
+
+        assert any(
+            call.args and isinstance(call.args[0], dict) and call.args[0].get("default_copilot_model") == "model-a"
+            for call in mock_save.call_args_list
+        )
+
+    def test_empty_project_config_diff_does_not_save_project_json(self, tmp_path, capsys):
+        """An empty project-config diff stays a no-op, even under ``--defaults``."""
+        preserved_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=False,
+        )
+        existing_config = {"availableModels": ["model-a"]}
+
+        with patch(
+            "sys.argv",
+            ["agdt-setup", "--defaults", "--skip-platform-detection", "--skip-templates", "--skip-pr-workflow"],
+        ):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=False):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            side_effect=lambda *args, **kwargs: dict(existing_config),
+                                        ):
+                                            with patch(
+                                                "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                return_value=preserved_plan,
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.config.project_config.save_project_config"
+                                                ) as mock_save:
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                        return_value=False,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.skill_injector.inject_skills_with_summary",
+                                                            return_value=(
+                                                                False,
+                                                                InjectionSummary(injected=0, pruned=0),
+                                                            ),
+                                                        ):
+                                                            with patch.object(
+                                                                commands,
+                                                                "_generate_setup_scripts",
+                                                                side_effect=RuntimeError("skip"),
+                                                            ):
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.gitignore_negations."
+                                                                    "ensure_root_gitignore_negations",
+                                                                    return_value=False,
+                                                                ):
+                                                                    with patch.object(
+                                                                        commands,
+                                                                        "ensure_copilot_settings",
+                                                                        return_value=False,
+                                                                    ):
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.setup.phase_0."
+                                                                            "_prompt_phase_0_config"
+                                                                        ):
+                                                                            commands.setup_cmd()
+
+        mock_save.assert_not_called()
+        assert "Project configuration saved" not in capsys.readouterr().out
+
+    def test_post_checkout_replan_falls_back_to_pending_config_when_project_load_fails(self, tmp_path):
+        """Callback replanning uses pending values when the checked-out project config cannot be read."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="model-a",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="model-a",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        plan_calls: list[dict[str, object]] = []
+        load_calls = 0
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        def _load_project_config(*args, **kwargs):
+            nonlocal load_calls
+            load_calls += 1
+            if load_calls < 3:
+                return {"availableModels": ["stale-model"]}
+            if load_calls == 3:
+                raise RuntimeError("disk full")
+            return {
+                "availableModels": ["model-a"],
+                "default_copilot_model": "model-a",
+            }
+
+        with patch("sys.argv", ["agdt-setup", "--defaults", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=_load_project_config,
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"availableModels": ["model-a"]},
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                        "plan_provider_configuration",
+                                                        side_effect=_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.save_project_config"
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration."
+                                                                "apply_provider_configuration",
+                                                                return_value=True,
+                                                            ):
+                                                                commands.setup_cmd()
+
+        assert plan_calls[1]["existing_model"] == "model-a"
+        assert plan_calls[1]["available_models"] == ["model-a"]
+
+    def test_post_checkout_replan_prefers_pending_project_model_over_checked_out_config(self, tmp_path):
+        """Callback replanning keeps the model queued for project.json instead of reverting to base-branch values."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="selected-model",
+            model_source="explicit_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="selected-model",
+            model_source="default_copilot_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {
+                "availableModels": ["caller-branch-model"],
+                "default_copilot_model": "caller-branch-model",
+            },
+            {
+                "availableModels": ["base-branch-model"],
+                "default_copilot_model": "base-branch-model",
+            },
+            {
+                "availableModels": ["base-branch-model"],
+                "default_copilot_model": "base-branch-model",
+            },
+        ]
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = True
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=lambda *args, **kwargs: dict(
+                                                    load_calls[min(len(plan_calls), len(load_calls) - 1)]
+                                                ),
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_prompt_project_config",
+                                                    return_value={"default_copilot_model": "selected-model"},
+                                                ):
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value={
+                                                            "availableModels": ["selected-model"],
+                                                            "default_copilot_model": "selected-model",
+                                                        },
+                                                    ):
+                                                        with patch.object(
+                                                            commands,
+                                                            "_prompt_copilot_model",
+                                                            return_value="selected-model",
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                                return_value=({"providers": {}}, None),
+                                                            ):
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.provider_configuration._resolve_review_provider",
+                                                                    return_value=(
+                                                                        None,
+                                                                        "copilot_pr_review",
+                                                                        {"type": "copilot"},
+                                                                    ),
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                                        side_effect=_plan,
+                                                                    ):
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                                            return_value=True,
+                                                                        ):
+                                                                            commands.setup_cmd()
+
+        assert plan_calls[2]["existing_model"] == "selected-model"
+        assert plan_calls[2]["available_models"] == ["selected-model"]
+
+    def test_post_checkout_replan_syncs_pending_default_to_final_copilot_plan(self, tmp_path):
+        """Project config default model is synchronized to the final callback Copilot plan."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="queued-model",
+            model_source="explicit_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="final-model",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {
+                "availableModels": ["queued-model"],
+                "default_copilot_model": "queued-model",
+            },
+            {
+                "availableModels": ["final-model"],
+                "default_copilot_model": "final-model",
+            },
+            {
+                "availableModels": ["final-model"],
+                "default_copilot_model": "final-model",
+            },
+        ]
+
+        with patch("sys.argv", ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = True
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=lambda *args, **kwargs: dict(
+                                                    load_calls[min(len(plan_calls), len(load_calls) - 1)]
+                                                ),
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_prompt_project_config",
+                                                    return_value={"default_copilot_model": "queued-model"},
+                                                ):
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value={
+                                                            "availableModels": ["queued-model"],
+                                                            "default_copilot_model": "queued-model",
+                                                        },
+                                                    ):
+                                                        with patch.object(
+                                                            commands,
+                                                            "_prompt_copilot_model",
+                                                            return_value="queued-model",
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                                return_value=({"providers": {}}, None),
+                                                            ):
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.provider_configuration."
+                                                                    "_resolve_review_provider",
+                                                                    return_value=(
+                                                                        None,
+                                                                        "copilot_pr_review",
+                                                                        {"type": "copilot"},
+                                                                    ),
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.setup."
+                                                                        "provider_configuration.plan_provider_configuration",
+                                                                        side_effect=_plan,
+                                                                    ):
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.setup."
+                                                                            "provider_configuration."
+                                                                            "apply_provider_configuration",
+                                                                            return_value=True,
+                                                                        ):
+                                                                            with patch(
+                                                                                "agentic_devtools.cli.config."
+                                                                                "project_config.save_project_config"
+                                                                            ) as mock_save:
+                                                                                commands.setup_cmd()
+
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert any(config.get("default_copilot_model") == "final-model" for config in saved_configs)
+
+    def test_post_checkout_replan_discards_stale_pending_default_when_checked_out_matches_resolved(self, tmp_path):
+        """Callback replanning drops a queued stale default when checked-out config already matches final model."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="queued-model",
+            model_source="explicit_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="final-model",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=True,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [{}, {"availableModels": ["final-model"], "default_copilot_model": "final-model"}]
+        load_index = {"value": 0}
+
+        def _load_project_config(*args, **kwargs):
+            idx = min(load_index["value"], len(load_calls) - 1)
+            load_index["value"] += 1
+            return dict(load_calls[idx])
+
+        with patch(
+            "sys.argv",
+            ["agdt-setup", "--reconfigure", "--skip-platform-detection", "--skip-templates", "--no-refresh-models"],
+        ):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                side_effect=_load_project_config,
+                                            ):
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"default_copilot_model": "queued-model"},
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                        return_value=({"providers": {}}, None),
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration."
+                                                            "_resolve_review_provider",
+                                                            return_value=(
+                                                                None,
+                                                                "copilot_pr_review",
+                                                                {"type": "copilot"},
+                                                            ),
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup."
+                                                                "provider_configuration.plan_provider_configuration",
+                                                                side_effect=_plan,
+                                                            ):
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup."
+                                                                    "provider_configuration."
+                                                                    "apply_provider_configuration",
+                                                                    return_value=True,
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.config."
+                                                                        "project_config.save_project_config"
+                                                                    ) as mock_save:
+                                                                        commands.setup_cmd()
+
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert saved_configs
+        assert all(config.get("default_copilot_model") != "queued-model" for config in saved_configs)
+        assert any(config.get("default_copilot_model") == "final-model" for config in saved_configs)
+
+    @pytest.mark.parametrize("resolved_provider", [None, {"type": "   "}])
+    def test_post_checkout_replan_tolerates_unresolved_or_blank_provider_type(self, tmp_path, resolved_provider):
+        """Callback replanning leaves fallback selection intact when the checked-out provider is absent or blank."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="default_copilot_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {
+                "availableModels": ["gemini-3.7-flash"],
+                "default_copilot_model": "gemini-3.7-flash",
+            },
+            {
+                "availableModels": ["gemini-3.7-flash"],
+                "default_copilot_model": "gemini-3.7-flash",
+            },
+        ]
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            side_effect=lambda *args, **kwargs: dict(
+                                                load_calls[min(len(plan_calls), 1)]
+                                            ),
+                                        ):
+                                            with patch(
+                                                "agentic_devtools.cli.setup.provider_configuration._parse_document",
+                                                return_value=({"providers": {}}, None),
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration._resolve_review_provider",
+                                                    return_value=(None, "copilot_pr_review", resolved_provider),
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                        side_effect=_plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                            return_value=True,
+                                                        ):
+                                                            commands.setup_cmd()
+
+        assert plan_calls[1]["existing_model"] == "gemini-3.7-flash"
+        assert plan_calls[1]["available_models"] == ["gemini-3.7-flash"]
+
+    def test_post_checkout_replan_falls_back_to_preflight_inventory_when_checked_out_inventory_is_empty(self, tmp_path):
+        """Callback replanning keeps the preflight Copilot inventory when the checked-out branch has no usable list."""
+        initial_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        replanned = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        plan_calls: list[dict[str, object]] = []
+
+        def _plan(git_root, **kwargs):
+            plan_calls.append(kwargs)
+            return initial_plan if len(plan_calls) == 1 else replanned
+
+        load_calls = [
+            {"availableModels": ["stale-model"]},
+            {"availableModels": []},
+            {"availableModels": []},
+        ]
+
+        with patch("sys.argv", ["agdt-setup", "--defaults", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch("agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True):
+                    with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                        with patch.object(commands, "install_copilot_cli", return_value=True):
+                            with patch.object(commands, "install_gh_cli", return_value=True):
+                                with patch.object(
+                                    commands, "check_all_dependencies", return_value=_make_statuses(True)
+                                ):
+                                    with patch.object(commands, "_persist_env_vars_to_profile"):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            side_effect=lambda *args, **kwargs: dict(
+                                                load_calls.pop(0) if load_calls else {"availableModels": []}
+                                            ),
+                                        ):
+                                            with patch.object(
+                                                commands,
+                                                "_populate_available_models",
+                                                return_value={"availableModels": ["gemini-3.7-flash"]},
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                    side_effect=_plan,
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                        return_value=True,
+                                                    ):
+                                                        commands.setup_cmd()
+
+        assert plan_calls[1]["available_models"] == ["gemini-3.7-flash"]
+
+    def test_provider_preflight_load_failure_skips_to_model_unavailable_plan(self, tmp_path, capsys):
+        """Project-config load failures still re-evaluate the checked-out branch before skipping."""
+        load_side_effects: list[object] = [{}, RuntimeError("broken config"), {}, {}, {}, {}]
+
+        def _load_project_config(*args, **kwargs):
+            result = load_side_effects.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                    with patch.object(commands, "install_copilot_cli", return_value=True):
+                        with patch.object(commands, "install_gh_cli", return_value=True):
+                            with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                                with patch.object(commands, "_persist_env_vars_to_profile"):
+                                    with patch(
+                                        "agentic_devtools.cli.config.project_config.load_project_config",
+                                        side_effect=_load_project_config,
+                                    ):
+                                        with patch(
+                                            "agentic_devtools.cli.setup.report.write_report",
+                                            return_value=True,
+                                        ) as mock_write:
+                                            with pytest.raises(SystemExit) as exc_info:
+                                                commands.setup_cmd()
+        assert exc_info.value.code == 1
+        report = mock_write.call_args[0][0]
+        assert report.details["provider_configuration"]["status"] == "skipped"
+        assert report.details["provider_configuration"]["reason"] == "model_unavailable_without_refresh"
+        stderr = capsys.readouterr().err
+        assert "LangChain provider configuration skipped: RuntimeError" in stderr
+        assert "LangChain provider configuration skipped: model_unavailable_without_refresh" in stderr
+
+    def test_provider_preflight_load_failure_preserves_project_config_reason_before_file_modifications(self, tmp_path):
+        """Setup reports a sanitized project-config load reason when PR setup aborts before replanning."""
+        load_side_effects: list[object] = [{}, RuntimeError("broken config")]
+
+        def _load_project_config(*args, **kwargs):
+            result = load_side_effects.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                    with patch.object(commands, "install_copilot_cli", return_value=True):
+                        with patch.object(commands, "install_gh_cli", return_value=True):
+                            with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                                with patch.object(commands, "_persist_env_vars_to_profile"):
+                                    with patch(
+                                        "agentic_devtools.cli.config.project_config.load_project_config",
+                                        side_effect=_load_project_config,
+                                    ):
+                                        with patch(
+                                            "agentic_devtools.cli.setup.pr_workflow.run_setup_with_pr_workflow",
+                                            side_effect=RuntimeError("stop before callback"),
+                                        ):
+                                            with patch(
+                                                "agentic_devtools.cli.setup.report.write_report",
+                                                return_value=True,
+                                            ) as mock_write:
+                                                with pytest.raises(SystemExit) as exc_info:
+                                                    commands.setup_cmd()
+
+        assert exc_info.value.code == 5
+        report = mock_write.call_args[0][0]
+        assert report.details["provider_configuration"]["status"] == "skipped"
+        assert report.details["provider_configuration"]["reason"] == "project_config_unavailable"
+
     def test_post_checkout_replan_failed_provider_plan_exits_before_apply(self, tmp_path):
         """A failed provider replan exits before repository mutation."""
         initial_plan = ProviderConfigurationPlan(
@@ -1065,16 +2593,137 @@ class TestSetupCmd:
                                                             side_effect=RuntimeError("boom"),
                                                         ):
                                                             with patch(
-                                                                "agentic_devtools.cli.setup.report.write_report",
-                                                                return_value=True,
-                                                            ) as mock_write:
-                                                                with pytest.raises(SystemExit) as exc_info:
-                                                                    commands.setup_cmd()
+                                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                                            ) as mock_save:
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.report.write_report",
+                                                                    return_value=True,
+                                                                ) as mock_write:
+                                                                    with pytest.raises(SystemExit) as exc_info:
+                                                                        commands.setup_cmd()
         assert exc_info.value.code == 5
+        mock_save.assert_not_called()
         report = mock_write.call_args[0][0]
         assert report.details["provider_configuration"]["status"] == "failed"
         assert report.details["provider_configuration"]["reason"] == "write_failed"
         assert report.details["error_type"] == "RuntimeError"
+
+    def test_post_checkout_replan_keeps_idempotent_default_model_without_project_write(self, tmp_path):
+        """No-op Copilot replan does not requeue default_copilot_model writes."""
+        preserved_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="default_copilot_model",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="existing",
+            reason="no_change",
+            dry_run=False,
+            reconfigure=False,
+        )
+        stable_config = {
+            "availableModels": ["gemini-3.7-flash"],
+            "default_copilot_model": "gemini-3.7-flash",
+            "defaultCommitIssueType": "feat",
+            "availableCommitIssueTypes": [
+                "feat",
+                "fix",
+                "docs",
+                "style",
+                "refactor",
+                "perf",
+                "test",
+                "build",
+                "ci",
+                "chore",
+                "revert",
+            ],
+        }
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates", "--skip-pr-workflow"]):
+            with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                    with patch.object(commands, "install_copilot_cli", return_value=True):
+                        with patch.object(commands, "install_gh_cli", return_value=True):
+                            with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                                with patch.object(commands, "_persist_env_vars_to_profile"):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=False
+                                    ):
+                                        with patch(
+                                            "agentic_devtools.skill_injector.inject_skills_with_summary",
+                                            return_value=(False, InjectionSummary(injected=0, pruned=0)),
+                                        ):
+                                            with patch.object(
+                                                commands, "_generate_setup_scripts", side_effect=RuntimeError("skip")
+                                            ):
+                                                with patch(
+                                                    "agentic_devtools.cli.setup.gitignore_negations."
+                                                    "ensure_root_gitignore_negations",
+                                                    return_value=False,
+                                                ):
+                                                    with patch.object(
+                                                        commands, "ensure_copilot_settings", return_value=False
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config."
+                                                            "load_project_config",
+                                                            side_effect=lambda *args, **kwargs: dict(stable_config),
+                                                        ):
+                                                            with patch.object(commands, "_prompt_project_config"):
+                                                                with patch.object(commands, "_prompt_copilot_model"):
+                                                                    with patch.object(
+                                                                        commands,
+                                                                        "_populate_available_models",
+                                                                        return_value=dict(stable_config),
+                                                                    ):
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.setup."
+                                                                            "provider_configuration._parse_document",
+                                                                            return_value=(
+                                                                                {
+                                                                                    "providers": {
+                                                                                        "copilot_pr_review": {
+                                                                                            "type": "copilot"
+                                                                                        }
+                                                                                    }
+                                                                                },
+                                                                                None,
+                                                                            ),
+                                                                        ):
+                                                                            with patch(
+                                                                                "agentic_devtools.cli.setup."
+                                                                                "provider_configuration."
+                                                                                "_resolve_review_provider",
+                                                                                return_value=(
+                                                                                    None,
+                                                                                    "copilot_pr_review",
+                                                                                    {"type": "copilot"},
+                                                                                ),
+                                                                            ):
+                                                                                with patch(
+                                                                                    "agentic_devtools.cli.setup."
+                                                                                    "provider_configuration."
+                                                                                    "plan_provider_configuration",
+                                                                                    return_value=preserved_plan,
+                                                                                ):
+                                                                                    with patch(
+                                                                                        "agentic_devtools.cli.setup."
+                                                                                        "provider_configuration."
+                                                                                        "apply_provider_configuration",
+                                                                                        return_value=False,
+                                                                                    ):
+                                                                                        with patch(
+                                                                                            "agentic_devtools.cli.config."
+                                                                                            "project_config.save_project_config"
+                                                                                        ) as mock_save:
+                                                                                            commands.setup_cmd()
+        mock_save.assert_not_called()
 
     def test_dry_run_prints_provider_proposal(self, tmp_path, capsys):
         """Dry-run renders a provider proposal without entering mutation."""
@@ -1263,11 +2912,21 @@ class TestSetupCmd:
                                                             with patch(
                                                                 "agentic_devtools.cli.config.project_config.save_project_config",
                                                                 return_value=tmp_path / "project.json",
-                                                            ):
+                                                            ) as mock_save:
                                                                 commands.setup_cmd()
         mock_project.assert_called_once_with(force_prompt=True, persist=False)
         mock_copilot.assert_called_once_with(force_prompt=True, refresh_models=False, config={}, persist=False)
-        mock_models.assert_called_once_with(refresh_models=True, config={}, persist=False, records=None)
+        assert mock_models.call_count == 1
+        assert mock_models.call_args.kwargs["refresh_models"] is True
+        assert mock_models.call_args.kwargs["config"] == {}
+        assert mock_models.call_args.kwargs["persist"] is False
+        assert "model_records" not in mock_models.call_args.kwargs
+        assert any(
+            call.args
+            and isinstance(call.args[0], dict)
+            and call.args[0].get("default_copilot_model") == "gemini-3.7-flash"
+            for call in mock_save.call_args_list
+        )
 
     def test_no_refresh_models_disables_live_discovery(self, capsys, tmp_path):
         """--no-refresh-models passes refresh_models=False to the inventory step."""
@@ -1289,7 +2948,7 @@ class TestSetupCmd:
                                                     with pytest.raises(SystemExit) as exc_info:
                                                         commands.setup_cmd()
         assert exc_info.value.code == 1
-        mock_models.assert_called_once_with(refresh_models=False, config=None, persist=False, records=ANY)
+        mock_models.assert_called_once_with(refresh_models=False, config=None, persist=False)
 
     def test_no_reconfigure_passes_false_to_prompt_functions(self, capsys, tmp_path):
         """Without --reconfigure, force_prompt=False is passed to both prompt functions."""
@@ -1303,18 +2962,29 @@ class TestSetupCmd:
                                     with patch(
                                         "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
                                     ):
-                                        with patch.object(commands, "_prompt_project_config") as mock_project:
-                                            with patch.object(commands, "_prompt_copilot_model") as mock_copilot:
-                                                with patch.object(
-                                                    commands, "_populate_available_models"
-                                                ) as mock_models:
-                                                    commands.setup_cmd()
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = True
+                                            with patch.object(commands, "_prompt_project_config") as mock_project:
+                                                with patch.object(commands, "_prompt_copilot_model") as mock_copilot:
+                                                    with patch.object(
+                                                        commands, "_populate_available_models"
+                                                    ) as mock_models:
+                                                        commands.setup_cmd()
         mock_project.assert_called_once_with(force_prompt=False, persist=False)
         mock_copilot.assert_called_once_with(force_prompt=False, refresh_models=False, config=None, persist=False)
-        mock_models.assert_called_once_with(refresh_models=True, config=None, persist=False, records=ANY)
+        assert mock_models.call_count == 1
+        assert mock_models.call_args.kwargs["refresh_models"] is True
+        assert mock_models.call_args.kwargs["config"] is None
+        assert mock_models.call_args.kwargs["persist"] is False
+        assert [record.model_id for record in mock_models.call_args.kwargs["model_records"]] == ["model-a"]
 
-    def test_setup_refreshes_empty_cached_model_inventory(self, capsys, tmp_path):
-        """Normal setup treats an empty cached inventory as stale."""
+    def test_non_interactive_setup_skips_prompts_and_persists_refreshed_models(self, tmp_path):
+        """No TTY skips prompts while still persisting refreshed model inventory."""
+        refreshed_config = {
+            "availableModels": ["gemini-3.7-flash"],
+            "models": {"gemini-3.7-flash": {"display_name": "Gemini 3.7 Flash"}},
+            "default_copilot_model": "gemini-3.7-flash",
+        }
         with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
             with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
                 with patch.object(commands, "install_copilot_cli", return_value=True):
@@ -1325,19 +2995,470 @@ class TestSetupCmd:
                                     with patch(
                                         "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
                                     ):
-                                        with patch.object(commands, "_prompt_project_config"):
-                                            with patch.object(commands, "_prompt_copilot_model"):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch.object(commands, "_prompt_project_config") as mock_project:
+                                                with patch.object(commands, "_prompt_copilot_model") as mock_copilot:
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value=refreshed_config,
+                                                    ) as mock_models:
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                                            return_value={},
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                                            ) as mock_save:
+                                                                commands.setup_cmd()
+        mock_project.assert_not_called()
+        mock_copilot.assert_not_called()
+        assert mock_models.call_count == 1
+        assert mock_models.call_args.kwargs["refresh_models"] is True
+        assert mock_models.call_args.kwargs["config"] is None
+        assert mock_models.call_args.kwargs["persist"] is False
+        assert [record.model_id for record in mock_models.call_args.kwargs["model_records"]] == ["model-a"]
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert saved_configs
+        saved_config = next(config for config in saved_configs if "availableModels" in config)
+        assert saved_config["availableModels"] == ["gemini-3.7-flash"]
+        assert saved_config["models"] == {"gemini-3.7-flash": {"display_name": "Gemini 3.7 Flash"}}
+        assert saved_config["default_copilot_model"] == "gemini-3.7-flash"
+        assert saved_config["defaultCommitIssueType"] == "feat"
+        assert "availableCommitIssueTypes" in saved_config
+
+    def test_non_interactive_setup_uses_pending_config_when_checked_out_config_is_invalid(self, tmp_path):
+        """An invalid checked-out project config does not discard refreshed pending values."""
+        refreshed_config = {
+            "availableModels": ["gemini-3.7-flash"],
+            "models": {"gemini-3.7-flash": {"display_name": "Gemini 3.7 Flash"}},
+            "default_copilot_model": "gemini-3.7-flash",
+        }
+        plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="gemini-3.7-flash",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        load_calls: list[object] = [{}, {}, []]
+
+        def _load_project_config(*args, **kwargs):
+            return load_calls.pop(0) if load_calls else []
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
+                                    ):
+                                        with patch(
+                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                            side_effect=_load_project_config,
+                                        ):
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                            ) as mock_save:
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value=refreshed_config,
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                        "plan_provider_configuration",
+                                                        return_value=plan,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration."
+                                                            "apply_provider_configuration",
+                                                            return_value=False,
+                                                        ):
+                                                            commands.setup_cmd()
+
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert saved_configs
+        saved_config = next(config for config in saved_configs if "availableModels" in config)
+        assert saved_config["availableModels"] == ["gemini-3.7-flash"]
+        assert saved_config["models"] == {"gemini-3.7-flash": {"display_name": "Gemini 3.7 Flash"}}
+
+    def test_non_interactive_setup_deep_merges_refreshed_models_into_checked_out_project_config(self, tmp_path):
+        """Model metadata from refresh and checked-out config are merged instead of replaced wholesale."""
+        refreshed_config = {
+            "availableModels": ["caller-model"],
+            "models": {"caller-model": {"display_name": "Caller Model"}},
+            "default_copilot_model": "caller-model",
+        }
+        current_config = {
+            "availableModels": ["checked-out-model"],
+            "models": {"checked-out-model": {"display_name": "Checked Out Model", "pricingStatus": "priceable"}},
+            "defaultCommitIssueType": "feat",
+            "availableCommitIssueTypes": ["feat"],
+        }
+        load_calls = [{}, current_config, current_config]
+        load_index = {"value": 0}
+
+        def _load_project_config(*args, **kwargs):
+            idx = min(load_index["value"], len(load_calls) - 1)
+            load_index["value"] += 1
+            return dict(load_calls[idx])
+
+        plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="caller-model",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
+                                    ):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch.object(commands, "_prompt_project_config") as mock_project:
+                                                with patch.object(commands, "_prompt_copilot_model") as mock_copilot:
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value=refreshed_config,
+                                                    ) as mock_models:
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                                            side_effect=_load_project_config,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                                            ) as mock_save:
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.provider_configuration."
+                                                                    "plan_provider_configuration",
+                                                                    side_effect=lambda *args, **kwargs: plan,
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                                        "apply_provider_configuration",
+                                                                        return_value=False,
+                                                                    ):
+                                                                        commands.setup_cmd()
+
+        mock_project.assert_not_called()
+        mock_copilot.assert_not_called()
+        assert mock_models.call_count == 1
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert saved_configs
+        merged_save = next(config for config in saved_configs if config.get("default_copilot_model") == "caller-model")
+        assert merged_save["models"] == {
+            "checked-out-model": {"display_name": "Checked Out Model", "pricingStatus": "priceable"},
+            "caller-model": {"display_name": "Caller Model"},
+        }
+
+    def test_non_interactive_setup_preserves_checked_out_nested_model_metadata_unchanged_by_refresh(self, tmp_path):
+        """Only refreshed nested model entries are replayed onto the checked-out project config."""
+        refreshed_config = {
+            "availableModels": ["checked-out-model", "caller-model"],
+            "models": {
+                "checked-out-model": {"display_name": "Checked Out Model", "pricingStatus": "cached"},
+                "caller-model": {"display_name": "Caller Model"},
+            },
+            "default_copilot_model": "caller-model",
+        }
+        preflight_config = {
+            "availableModels": ["checked-out-model"],
+            "models": {
+                "checked-out-model": {"display_name": "Checked Out Model", "pricingStatus": "cached"},
+            },
+        }
+        current_config = {
+            "availableModels": ["checked-out-model"],
+            "models": {
+                "checked-out-model": {
+                    "display_name": "Checked Out Model",
+                    "pricingStatus": "priceable",
+                    "contextWindow": 8192,
+                }
+            },
+            "defaultCommitIssueType": "feat",
+            "availableCommitIssueTypes": ["feat"],
+        }
+        load_calls = [preflight_config, preflight_config, current_config, current_config]
+        load_index = {"value": 0}
+
+        def _load_project_config(*args, **kwargs):
+            idx = min(load_index["value"], len(load_calls) - 1)
+            load_index["value"] += 1
+            return dict(load_calls[idx])
+
+        plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="caller-model",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
+                                    ):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch.object(commands, "_prompt_project_config") as mock_project:
+                                                with patch.object(commands, "_prompt_copilot_model") as mock_copilot:
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value=refreshed_config,
+                                                    ) as mock_models:
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                                            side_effect=_load_project_config,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                                            ) as mock_save:
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.provider_configuration."
+                                                                    "plan_provider_configuration",
+                                                                    side_effect=lambda *args, **kwargs: plan,
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                                        "apply_provider_configuration",
+                                                                        return_value=False,
+                                                                    ):
+                                                                        commands.setup_cmd()
+
+        mock_project.assert_not_called()
+        mock_copilot.assert_not_called()
+        assert mock_models.call_count == 1
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        assert saved_configs
+        merged_save = next(config for config in saved_configs if config.get("default_copilot_model") == "caller-model")
+        assert merged_save["models"] == {
+            "checked-out-model": {
+                "display_name": "Checked Out Model",
+                "pricingStatus": "priceable",
+                "contextWindow": 8192,
+            },
+            "caller-model": {"display_name": "Caller Model"},
+        }
+
+    def test_non_interactive_setup_preserves_checked_out_model_entries_when_preflight_models_are_invalid(
+        self, tmp_path
+    ):
+        """Invalid caller-side model caches only replay newly discovered model entries onto the checked-out config."""
+        preflight_config = {
+            "availableModels": ["checked-out-model"],
+            "models": "broken",
+        }
+        refreshed_config = {
+            "availableModels": ["checked-out-model", "caller-model"],
+            "models": {
+                "checked-out-model": {
+                    "display_name": "Checked Out Model",
+                    "pricingStatus": "cached",
+                },
+                "caller-model": {"display_name": "Caller Model"},
+            },
+            "default_copilot_model": "checked-out-model",
+        }
+        current_config = {
+            "availableModels": ["checked-out-model"],
+            "models": {
+                "checked-out-model": {
+                    "display_name": "Checked Out Model",
+                    "pricingStatus": "priceable",
+                    "contextWindow": 8192,
+                }
+            },
+            "defaultCommitIssueType": "feat",
+            "availableCommitIssueTypes": ["feat"],
+        }
+        load_calls = [preflight_config, preflight_config, current_config, current_config]
+        load_index = {"value": 0}
+
+        def _load_project_config(*args, **kwargs):
+            idx = min(load_index["value"], len(load_calls) - 1)
+            load_index["value"] += 1
+            return dict(load_calls[idx])
+
+        plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="checked-out-model",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
+                                    ):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch.object(commands, "_prompt_project_config"):
+                                                with patch.object(commands, "_prompt_copilot_model"):
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value=refreshed_config,
+                                                    ):
+                                                        with patch(
+                                                            "agentic_devtools.cli.config.project_config.load_project_config",
+                                                            side_effect=_load_project_config,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.config.project_config.save_project_config"
+                                                            ) as mock_save:
+                                                                with patch(
+                                                                    "agentic_devtools.cli.setup.provider_configuration."
+                                                                    "plan_provider_configuration",
+                                                                    side_effect=lambda *args, **kwargs: plan,
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.setup.provider_configuration."
+                                                                        "apply_provider_configuration",
+                                                                        return_value=False,
+                                                                    ):
+                                                                        commands.setup_cmd()
+
+        saved_configs = [call.args[0] for call in mock_save.call_args_list if call.args]
+        merged_save = next(
+            config for config in saved_configs if config.get("default_copilot_model") == "checked-out-model"
+        )
+        assert merged_save["models"] == {
+            "checked-out-model": {
+                "display_name": "Checked Out Model",
+                "pricingStatus": "priceable",
+                "contextWindow": 8192,
+            },
+            "caller-model": {"display_name": "Caller Model"},
+        }
+
+    def test_empty_prefetch_forwards_consumed_records_to_population(self, tmp_path):
+        """An empty prefetch is forwarded so population does not repeat live discovery."""
+        created_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="created",
+            document={},
+            rendered="providers: {}\n",
+            provider_id="copilot_pr_review",
+            provider_type="copilot",
+            model="model-a",
+            model_source="availableModels",
+            mappings=(),
+            auth_status="ready",
+            credential_status="not_required",
+            source="template",
+            reason="ready",
+            dry_run=False,
+            reconfigure=False,
+        )
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=True
+                                    ):
+                                        with patch("sys.stdin") as mock_stdin:
+                                            mock_stdin.isatty.return_value = False
+                                            with patch(
+                                                "agentic_devtools.cli.config.project_config.load_project_config",
+                                                return_value={},
+                                            ):
                                                 with patch.object(
                                                     commands,
                                                     "_query_copilot_model_records",
-                                                    return_value=[MagicMock(model_id="model-a")],
-                                                ) as query_records:
-                                                    with patch(
-                                                        "agentic_devtools.cli.config.project_config.load_project_config",
-                                                        return_value={"availableModels": []},
-                                                    ):
-                                                        commands.setup_cmd()
-        query_records.assert_called_once_with(refresh=True, allow_stale=False)
+                                                    return_value=[],
+                                                ):
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value={"availableModels": ["model-a"]},
+                                                    ) as mock_models:
+                                                        with patch(
+                                                            "agentic_devtools.cli.setup.provider_configuration.plan_provider_configuration",
+                                                            return_value=created_plan,
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
+                                                                return_value=False,
+                                                            ):
+                                                                commands.setup_cmd()
+        assert mock_models.call_count == 1
+        assert mock_models.call_args.kwargs["refresh_models"] is True
+        assert mock_models.call_args.kwargs["config"] is None
+        assert mock_models.call_args.kwargs["persist"] is False
+        assert mock_models.call_args.kwargs["model_records"] == []
 
     def test_defaults_and_reconfigure_warns_reconfigure_ignored(self, capsys, tmp_path):
         """--defaults + --reconfigure together → warning that --reconfigure is ignored."""
@@ -1355,8 +3476,15 @@ class TestSetupCmd:
                                     ):
                                         with patch.object(commands, "_prompt_project_config"):
                                             with patch.object(commands, "_prompt_copilot_model"):
-                                                with patch("agentic_devtools.cli.setup.phase_0._prompt_phase_0_config"):
-                                                    commands.setup_cmd()
+                                                with patch.object(
+                                                    commands,
+                                                    "_populate_available_models",
+                                                    return_value={"availableModels": ["gemini-3.7-flash"]},
+                                                ):
+                                                    with patch(
+                                                        "agentic_devtools.cli.setup.phase_0._prompt_phase_0_config"
+                                                    ):
+                                                        commands.setup_cmd()
 
         err = capsys.readouterr().err
         assert "--reconfigure is ignored when --defaults is set" in err
@@ -4232,7 +6360,8 @@ class TestSetupCmd:
 
         out = capsys.readouterr().out
         assert "Pinned agdt_version=" in out
-        mock_save.assert_called_once()
+        assert len(mock_save.call_args_list) == 2
+        assert mock_save.call_args_list[-1].args[0]["agdt_version"]
 
     def test_specialization_uses_newly_persisted_version_pin(self, tmp_path):
         """Specialization receives the version that setup just persisted to project.json."""
@@ -4291,7 +6420,7 @@ class TestSetupCmd:
         assert mock_specialize.call_args.kwargs["version_pin"] == "1.2.3"
 
     def test_version_pinning_exception_warns_on_stderr(self, capsys, tmp_path):
-        """Prints warning to stderr when version pinning fails."""
+        """Version pinning failures warn and setup still completes."""
         with patch("sys.argv", ["agdt-setup"]):
             with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
                 with patch.object(commands, "install_copilot_cli", return_value=True):
@@ -4306,18 +6435,39 @@ class TestSetupCmd:
                                             with patch.object(commands, "_prompt_copilot_model"):
                                                 with patch(
                                                     "agentic_devtools.cli.config.project_config.load_project_config",
-                                                    side_effect=[{}, RuntimeError("disk full")],
+                                                    return_value={},
                                                 ):
-                                                    with pytest.raises(SystemExit) as exc_info:
+                                                    with patch(
+                                                        "agentic_devtools.cli.config.project_config.save_project_config",
+                                                        side_effect=[
+                                                            tmp_path / "project.json",
+                                                            RuntimeError("disk full"),
+                                                        ],
+                                                    ):
                                                         commands.setup_cmd()
-
-        assert exc_info.value.code == 1
 
         err = capsys.readouterr().err
         assert "Failed to pin agdt_version" in err
 
     def test_version_pinning_skipped_when_no_repo_mutations_succeeded(self, capsys, tmp_path):
         """Version pin is NOT written when all repo-mutating steps failed."""
+        preserved_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=False,
+        )
         with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates"]):
             with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
                 with patch.object(commands, "install_copilot_cli", return_value=True):
@@ -4349,17 +6499,126 @@ class TestSetupCmd:
                                                                 return_value=False,
                                                             ):
                                                                 with patch(
-                                                                    "agentic_devtools.cli.config.project_config.save_project_config",
-                                                                ) as mock_save:
+                                                                    "agentic_devtools.cli.config.project_config."
+                                                                    "load_project_config",
+                                                                    return_value={"availableModels": ["model-a"]},
+                                                                ):
                                                                     with patch(
-                                                                        "agentic_devtools.cli.setup.provider_configuration.apply_provider_configuration",
-                                                                        return_value=False,
+                                                                        "agentic_devtools.cli.setup."
+                                                                        "provider_configuration.plan_provider_configuration",
+                                                                        return_value=preserved_plan,
                                                                     ):
-                                                                        commands.setup_cmd()
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.config.project_config."
+                                                                            "save_project_config",
+                                                                        ) as mock_save:
+                                                                            with patch(
+                                                                                "agentic_devtools.cli.setup."
+                                                                                "provider_configuration."
+                                                                                "apply_provider_configuration",
+                                                                                return_value=False,
+                                                                            ):
+                                                                                commands.setup_cmd()
 
         out = capsys.readouterr().out
         assert "Pinned agdt_version=" not in out
         mock_save.assert_not_called()
+
+    def test_version_pinning_runs_when_project_config_save_is_only_mutation(self, capsys, tmp_path):
+        """Saving project.json alone counts as a repo mutation for version pinning."""
+        preserved_plan = ProviderConfigurationPlan(
+            path=tmp_path / ".agdt/config/llm-providers.yml",
+            status="preserved",
+            document={},
+            rendered=None,
+            provider_id="custom",
+            provider_type="local_model",
+            model="llama3",
+            model_source="existing",
+            mappings=(),
+            auth_status="ready",
+            credential_status="unknown",
+            source="custom",
+            reason="preserved_custom_mapping",
+            dry_run=False,
+            reconfigure=False,
+        )
+        with patch("sys.argv", ["agdt-setup", "--skip-platform-detection", "--skip-templates", "--skip-pr-workflow"]):
+            with patch.object(commands, "_prefetch_certs", return_value=(None, None)):
+                with patch.object(commands, "install_copilot_cli", return_value=True):
+                    with patch.object(commands, "install_gh_cli", return_value=True):
+                        with patch.object(commands, "check_all_dependencies", return_value=_make_statuses(True)):
+                            with patch.object(commands, "_persist_env_vars_to_profile"):
+                                with patch("agentic_devtools.state._get_git_repo_root", return_value=tmp_path):
+                                    with patch(
+                                        "agentic_devtools.agdt_gitignore.ensure_agdt_gitignore", return_value=False
+                                    ):
+                                        with patch(
+                                            "agentic_devtools.skill_injector.inject_skills_with_summary",
+                                            return_value=(False, InjectionSummary(injected=0, pruned=0)),
+                                        ):
+                                            with patch("sys.stdin") as mock_stdin:
+                                                mock_stdin.isatty.return_value = True
+                                                with patch.object(
+                                                    commands,
+                                                    "_prompt_project_config",
+                                                    return_value={"jira_project_key": "ABC"},
+                                                ):
+                                                    with patch.object(
+                                                        commands,
+                                                        "_populate_available_models",
+                                                        return_value={"jira_project_key": "ABC"},
+                                                    ):
+                                                        with patch.object(
+                                                            commands,
+                                                            "_generate_setup_scripts",
+                                                            side_effect=RuntimeError("skip"),
+                                                        ):
+                                                            with patch(
+                                                                "agentic_devtools.cli.setup.gitignore_negations.ensure_root_gitignore_negations",
+                                                                return_value=False,
+                                                            ):
+                                                                with patch.object(
+                                                                    commands,
+                                                                    "ensure_copilot_settings",
+                                                                    return_value=False,
+                                                                ):
+                                                                    with patch(
+                                                                        "agentic_devtools.cli.config.project_config.load_project_config",
+                                                                        side_effect=[
+                                                                            {},
+                                                                            {},
+                                                                            {},
+                                                                            {},
+                                                                            {"jira_project_key": "ABC"},
+                                                                        ],
+                                                                    ):
+                                                                        with patch(
+                                                                            "agentic_devtools.cli.setup."
+                                                                            "provider_configuration.plan_provider_configuration",
+                                                                            return_value=preserved_plan,
+                                                                        ):
+                                                                            with patch(
+                                                                                "agentic_devtools.cli.config.project_config."
+                                                                                "save_project_config"
+                                                                            ) as mock_save:
+                                                                                with patch(
+                                                                                    "agentic_devtools.cli.setup."
+                                                                                    "provider_configuration."
+                                                                                    "apply_provider_configuration",
+                                                                                    return_value=False,
+                                                                                ):
+                                                                                    with patch(
+                                                                                        "agentic_devtools.cli.setup.phase_0."
+                                                                                        "_prompt_phase_0_config"
+                                                                                    ):
+                                                                                        commands.setup_cmd()
+
+        out = capsys.readouterr().out
+        assert "Project configuration saved" in out
+        assert "Pinned agdt_version=" in out
+        assert len(mock_save.call_args_list) == 2
+        assert mock_save.call_args_list[-1].args[0]["agdt_version"]
 
     def test_skill_injector_import_failure_silenced_when_no_git_root(self, capsys):
         """Silently skips skill injection warning when import fails and git_root is None."""

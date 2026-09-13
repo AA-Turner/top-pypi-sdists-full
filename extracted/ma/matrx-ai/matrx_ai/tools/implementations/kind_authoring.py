@@ -992,7 +992,14 @@ async def kind_update_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         try:
             from matrx_graph.kinds import invalidate_kind_catalog_cache
 
+            from matrx_ai.processing.blocks.kind_catalog import invalidate as invalidate_blocks
+
             invalidate_kind_catalog_cache()
+            # DD-131: the chat block pipeline keeps its OWN sync projection of the registry,
+            # because a token-loop detector cannot await a lookup. Dropping only the async
+            # cache would leave this process typing the kind against the shape it had BEFORE
+            # this edit until the next prime compared versions.
+            invalidate_blocks()
         except Exception:
             pass
         from matrx_ai.tools.kinds.kind_authoring import KindSchemaUpdateResult, StrandedExample
@@ -1473,7 +1480,14 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         try:
             from matrx_graph.kinds import invalidate_kind_catalog_cache
 
+            from matrx_ai.processing.blocks.kind_catalog import invalidate as invalidate_blocks
+
             invalidate_kind_catalog_cache()
+            # DD-131: the chat block pipeline keeps its OWN sync projection of the registry,
+            # because a token-loop detector cannot await a lookup. Dropping only the async
+            # cache would leave this process typing the kind against the shape it had BEFORE
+            # this edit until the next prime compared versions.
+            invalidate_blocks()
         except Exception:
             logger.warning("kind catalog cache invalidation failed after activation", exc_info=True)
 

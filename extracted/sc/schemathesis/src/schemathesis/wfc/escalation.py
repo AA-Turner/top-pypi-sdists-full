@@ -16,25 +16,47 @@ DENIED = frozenset({401, 403})
 
 
 def _is_admitted(status_code: int) -> bool:
-    """Whether the response shows the request got past authorization.
+    """Whether the response proves the request got past authorization.
 
-    400 counts as neither: many stacks validate the payload before authorizing, so it says
-    nothing about the identity.
+    Only a served response does. A rejected payload or a missing resource is decided before the
+    role is looked at, so it says nothing about the identity and must not settle the assignment.
     """
-    return status_code != 400 and status_code not in DENIED
+    return 200 <= status_code < 400
+
+
+ANONYMOUS = "<anonymous>"
+
+
+class _AnonymousAuthProvider:
+    """Send no credentials. Returning `None` leaves the request untouched."""
+
+    def get(self, case: Case, context: AuthContext) -> Any:
+        return None
+
+    def set(self, case: Case, data: Any, context: AuthContext) -> None:  # pragma: no cover
+        pass
+
+
+# A 403 got past authentication into authorization; a 401 did not reach that far.
+_DENIAL_RANK = {401: 0, 403: 1}
 
 
 class EscalatingAuthProvider:
     """Try each identity in document order, moving on from the ones an operation refuses."""
 
-    __slots__ = ("providers", "names", "_assigned", "_settled", "_lock")
+    __slots__ = ("providers", "names", "_assigned", "_settled", "_best", "_lock")
 
     def __init__(self, providers: list[AuthProvider], names: list[str]) -> None:
-        self.providers = providers
-        self.names = names
+        # Credentials an operation rejects are worse than none: a stack that refuses a bad
+        # `Authorization` header serves the same request once it is absent. Second in line, so a
+        # document whose credentials never work costs one request to find out rather than all of them.
+        self.providers = [providers[0], _AnonymousAuthProvider(), *providers[1:]]
+        self.names = [names[0], ANONYMOUS, *names[1:]]
         self._assigned: dict[str, int] = {}
         # Operations that have been admitted keep their identity for the rest of the run.
         self._settled: set[str] = set()
+        # Best (rank, index) seen per operation, so an exhausted chain keeps its furthest rung.
+        self._best: dict[str, tuple[int, int]] = {}
         self._lock = threading.Lock()
 
     def index_for(self, label: str) -> int:
@@ -58,11 +80,21 @@ class EscalatingAuthProvider:
                 return
             if status_code not in DENIED:
                 return
+            current = self._assigned.get(label, 0)
+            rank = _DENIAL_RANK[status_code]
+            best = self._best.get(label)
+            # Ties go to the later rung: among identities that got equally far, it is the one with
+            # the most privilege, and so the one a later request has any chance with.
+            if best is None or rank >= best[0]:
+                self._best[label] = (rank, current)
             # One denial is enough: an operation may only get a couple of requests, and a
             # threshold above its budget could never flip.
-            current = self._assigned.get(label, 0)
             if current + 1 < len(self.providers):
                 self._assigned[label] = current + 1
+                return
+            # Chain exhausted: keep whichever rung got furthest and stop moving.
+            self._assigned[label] = self._best[label][1]
+            self._settled.add(label)
 
     def snapshot(self) -> dict[str, str]:
         """Identity per operation, including the ones that never had to escalate."""

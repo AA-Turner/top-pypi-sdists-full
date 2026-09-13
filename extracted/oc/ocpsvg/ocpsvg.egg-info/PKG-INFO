@@ -1,13 +1,14 @@
 Metadata-Version: 2.4
 Name: ocpsvg
-Version: 0.6.0
-Requires-Python: >=3.10
+Version: 0.7.0
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cadquery_ocp_proxy<8.0,>=7.9
+Requires-Dist: cadquery_ocp_proxy<9.0,>=8.0
 Requires-Dist: svgelements<2,>=1.9.1
 Provides-Extra: dev
-Requires-Dist: cadquery_ocp_novtk<8.0,>=7.9; extra == "dev"
+Requires-Dist: cadquery_ocp_novtk<9.0,>=8.0; extra == "dev"
+Requires-Dist: cadquery-ocp-stubs<9.0,>=8.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
 Requires-Dist: mypy; extra == "dev"

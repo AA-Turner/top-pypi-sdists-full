@@ -29,6 +29,7 @@ form" of an agent run.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -42,6 +43,7 @@ from matrx_connect.context.app_context import (
 )
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
+from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
@@ -74,6 +76,21 @@ class AgentStartConfig(BaseModel):
         description=(
             "Agent variable names exposed as upstream connection points in the "
             "workflow studio. Not sent to the agent — only used for edge wiring."
+        ),
+    )
+    # THE ONE KNOB over the all-zero refusal (``matrx_graph.emptiness``): an
+    # agent whose honest answer can be "nothing here" — a checker that finds no
+    # issues, a filter that matches nothing — says so HERE, at author time, on
+    # the step that means it. Left unset, the organization's
+    # ``ai_structured_output.allow_empty`` knob decides, and its default is to
+    # REFUSE: an empty-but-valid object handed to a person as a finished answer
+    # is the silent failure this exists to stop (run 9347de24…, 2026-09-12).
+    allow_empty_structured_output: bool | None = Field(
+        default=None,
+        description=(
+            "Let this step succeed when the agent's structured answer comes back "
+            "completely empty (every field blank, null, false or an empty list). "
+            "Leave unset unless 'nothing found' is a real answer here."
         ),
     )
 
@@ -157,6 +174,15 @@ class AgentRunCommonInput(BaseModel):
     conversation_id: str | None = Field(
         default=None,
         description="Continue an existing conversation. Leave blank for a fresh thread.",
+        # IDENTITY, not data: a conversation belongs to whoever opened it, and
+        # its immutable variables are frozen on turn one. A plain upstream
+        # broadcast carrying an ``agent_result``'s ``conversation_id`` used to
+        # land here and make this step CONTINUE the upstream agent's thread —
+        # which the binding guard correctly refused with a 409
+        # (``conversation_binding_mismatch``), killing the whole run. The
+        # engine now withholds it from unmapped edges; an author who really
+        # means to continue that thread maps it explicitly.
+        json_schema_extra=identity_input(),
     )
     is_new: bool | None = Field(
         default=None,
@@ -703,6 +729,88 @@ async def resolve_step_agent_full(
     )
 
 
+
+# ── THE AGENT_RESULT BOOKKEEPING FIELDS ──────────────────────────────────────
+# Every key of ``AiExecutionResult``. When a whole agent_result is broadcast
+# down an unmapped edge into another agent step, these arrive as top-level
+# extras and — because ``AgentStartInput`` is extra="allow" — used to be folded
+# into the agent's VARIABLES. They are the run's bookkeeping (the transcript,
+# the token usage, the request id), never anything an agent declared. The one
+# part of an agent_result that IS an answer is ``structured_output``.
+_AGENT_RESULT_BOOKKEEPING: frozenset[str] = frozenset(AiExecutionResult.model_fields)
+
+# A broadcast agent_result is recognised by QUORUM, never by a single key: a
+# workflow author may legitimately name a variable ``content`` or ``metadata``
+# and map it explicitly, and that single mapped key must keep working. Four or
+# more bookkeeping keys at once, including at least one that only an agent run
+# produces, is an agent_result — nothing else looks like that.
+_AGENT_RESULT_QUORUM = 4
+_AGENT_RESULT_WITNESSES: frozenset[str] = frozenset(
+    {"structured_output", "final_text", "messages", "iterations", "request_id"}
+)
+
+
+def _fold_broadcast_agent_result(
+    extra_vars: dict[str, Any],
+    *,
+    node_type: str,
+    node_id: str,
+    declared_variables: list[str] | None,
+) -> dict[str, Any]:
+    """Keep an upstream agent_result's BOOKKEEPING out of this step's variables.
+
+    THE CLASS (live defect, 2026-09-12 — Watson Parenting Adviser run
+    51524ca9): a plain ``data`` edge with no mappings broadcasts the upstream
+    step's whole payload. From an ``ai.agent.start`` step that payload is an
+    ``agent_result``, so a downstream agent step bound ``content``,
+    ``messages``, ``usage``, ``final_text``, ``request_id`` … as VARIABLES —
+    none of which the agent declares — alongside the upstream
+    ``conversation_id`` (withheld by the engine now, see
+    ``matrx_graph.types.identity_inputs``). The variable binding must honour
+    the DECLARATION, not whatever the wire happened to carry.
+
+    So: when a whole agent_result arrives as extras, its bookkeeping is
+    dropped, and the ONE part of it that carries answers —
+    ``structured_output`` — is projected onto the step's DECLARED variable
+    names (``AgentStartConfig.exposed_variables``, what the author exposed as
+    connection points). That is the explicit mapping the author meant; a
+    broadcast is not a licence to invent variables.
+
+    Explicitly MAPPED keys are untouched: they never reach quorum.
+    """
+    present = [k for k in extra_vars if k in _AGENT_RESULT_BOOKKEEPING]
+    if len(present) < _AGENT_RESULT_QUORUM or not (_AGENT_RESULT_WITNESSES & set(present)):
+        return extra_vars
+
+    kept = {k: v for k, v in extra_vars.items() if k not in _AGENT_RESULT_BOOKKEEPING}
+    declared = [v for v in (declared_variables or []) if v]
+    structured = extra_vars.get("structured_output")
+    projected: dict[str, Any] = {}
+    if isinstance(structured, dict) and declared:
+        for name in declared:
+            if name in structured and name not in kept:
+                projected[name] = structured[name]
+
+    vcprint(
+        f"[{node_type}:{node_id}] an upstream step broadcast its whole agent "
+        f"result into this step (an edge with no field mappings). Its "
+        f"bookkeeping fields {sorted(present)} are NOT agent variables and "
+        f"were dropped"
+        + (
+            f"; the answer fields {sorted(projected)} were bound from "
+            f"structured_output onto this step's declared variables."
+            if projected
+            else (
+                ". Nothing was bound from it: name the fields you need on the "
+                "edge (mappings: {\"<variable>\": \"structured_output.<field>\"}) "
+                "or expose them on this step."
+            )
+        ),
+        color="yellow",
+    )
+    return {**projected, **kept}
+
+
 def build_agent_request(
     ctx: NodeExecutionContext,
     inputs: AgentRunCommonInput,
@@ -710,6 +818,7 @@ def build_agent_request(
     *,
     node_type: str,
     top_config_overrides: dict[str, Any] | None = None,
+    declared_variables: list[str] | None = None,
 ) -> Any:
     """Build the host ``AgentStartRequest`` for one workflow agent step.
 
@@ -738,6 +847,18 @@ def build_agent_request(
     # so they only reach the agent as variables, never as stray request fields.
     extra_vars = dict(inputs.model_extra or {})
     _strip_inert_burned_tool_fields(extra_vars)
+    # EVERY extra the node received, kept for the ``exclude`` set below: a key
+    # the agent_result filter drops must still be excluded from the top-level
+    # request dump, or dropping it as a variable would promote it to a stray
+    # request FIELD instead.
+    received_extra_names = set(extra_vars)
+    # A whole upstream agent_result broadcast in is not a bag of variables.
+    extra_vars = _fold_broadcast_agent_result(
+        extra_vars,
+        node_type=node_type,
+        node_id=getattr(ctx, "node_id", None) or "?",
+        declared_variables=declared_variables,
+    )
     burned = [f for f in _BURNED_TOOL_FIELDS if f in extra_vars]
     if burned:
         raise ValueError(
@@ -749,7 +870,13 @@ def build_agent_request(
         )
     request_payload = inputs.model_dump(
         exclude_none=True,
-        exclude={"agent_id", "mandate_key", "runtime_config_overrides", *extra_vars},
+        exclude={
+            "agent_id",
+            "mandate_key",
+            "runtime_config_overrides",
+            *received_extra_names,
+            *extra_vars,
+        },
     )
     if extra_vars:
         request_payload["variables"] = {
@@ -802,6 +929,13 @@ async def run_step_agent(ctx: NodeExecutionContext, agent_id: str, request: Any)
     onto ctx.app.
     """
     agent_runner = get_ext("agent_runner")
+    # The STEP's identity, so anything that refuses downstream can name it —
+    # the send-boundary context pre-flight reads this to say WHICH step tried
+    # to send an over-window prompt (a provider refusal names nothing).
+    try:
+        ctx.app.metadata["workflow_node_id"] = getattr(ctx, "node_id", None) or "?"
+    except Exception:  # noqa: BLE001 — identity is a label, never a gate
+        pass
     token = set_app_context(ctx.app)
     try:
         async with _block_stream_scope():
@@ -877,6 +1011,8 @@ async def _run_workflow_held_mandate(
     ctx: NodeExecutionContext,
     inputs: AgentRunCommonInput,
     resolved: StepWorkflowMandate,
+    *,
+    declared_variables: list[str] | None = None,
 ) -> NodeResult[AiExecutionResult]:
     """Execute a WORKFLOW-held mandate from a workflow step (SPEC §6.3 lift).
 
@@ -890,6 +1026,12 @@ async def _run_workflow_held_mandate(
     runner = get_ext("workflow_mandate_runner")
     extra_vars = dict(inputs.model_extra or {})
     _strip_inert_burned_tool_fields(extra_vars)
+    extra_vars = _fold_broadcast_agent_result(
+        extra_vars,
+        node_type="ai.mandate.start",
+        node_id=getattr(ctx, "node_id", None) or "?",
+        declared_variables=declared_variables,
+    )
     variables: dict[str, Any] = {
         **(getattr(inputs, "variables", None) or {}),
         **extra_vars,
@@ -945,7 +1087,9 @@ async def _run_workflow_held_mandate(
     tags=("ai", "agent", "llm"),
 )
 async def agent_start(
-    ctx: NodeExecutionContext, inputs: AgentStartInput
+    ctx: NodeExecutionContext,
+    inputs: AgentStartInput,
+    config: AgentStartConfig | None = None,
 ) -> NodeResult[AiExecutionResult]:
     require_agent_host("ai.agent.start")
     node_id = getattr(ctx, "node_id", None) or "?"
@@ -955,7 +1099,15 @@ async def agent_start(
     # child run.
     resolved = await resolve_step_agent_full(inputs, consumer=f"ai.agent.start:{node_id}")
     assert isinstance(resolved, StepAgent)  # no mandate field -> never a workflow Holder
-    request = build_agent_request(ctx, inputs, resolved, node_type="ai.agent.start")
+    request = build_agent_request(
+        ctx,
+        inputs,
+        resolved,
+        node_type="ai.agent.start",
+        # What the AUTHOR exposed as this step's variable connection points —
+        # the declaration a broadcast agent_result is projected onto.
+        declared_variables=list(getattr(config, "exposed_variables", None) or []),
+    )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult —
@@ -969,4 +1121,6 @@ async def agent_start(
 
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return normalize_completed_result(completed)
+    # ``step_config`` carries the author's ``allow_empty_structured_output``
+    # into the all-zero refusal; nothing else is read from it.
+    return await asyncio.to_thread(normalize_completed_result, completed, step_config=config)

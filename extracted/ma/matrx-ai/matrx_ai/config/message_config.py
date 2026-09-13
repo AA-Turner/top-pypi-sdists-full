@@ -20,7 +20,9 @@ from .structured_input_config import (
 )
 from .tool_result_guard import (
     LAYER_SANITIZE,
+    ORPHAN_TOOL_RESULT_TEXT,
     report_nonadjacent_tool_uses,
+    report_orphan_tool_uses_repaired,
     report_tool_result_duplicates,
     result_block_is_empty,
 )
@@ -1244,6 +1246,85 @@ class MessageList:
                 layer=LAYER_SANITIZE,
                 duplicates=dup_report,
                 total_tool_results=total_tool_results,
+            )
+
+        # ── Pass 2.5 — TRUE-ORPHAN tool_use REPAIR (never a silent drop) ─────
+        #
+        # A tool_use with NO tool_result ANYWHERE is a call the platform never
+        # answered. Until 2026-09-12 Pass 3 simply DROPPED it to satisfy the
+        # provider's pairing rule — and an assistant message whose only content
+        # was that call lost everything and was dropped whole. That is wall W49:
+        # a Masterwork Conductor called the client-delegated `apply_surface_write`
+        # from a plain /chat/<id> tab with no surface handlers, the answer never
+        # reached the server, and the turn ended with NOTHING on screen while the
+        # next turn's model had no idea its write had not happened.
+        #
+        # REPAIR, don't drop: synthesize the is_error tool_result the platform
+        # owes that call and insert it in a role='tool' message immediately
+        # after, so the pair is legal AND adjacent (the adjacency window below
+        # spans the whole non-assistant run, so a real sibling result in a later
+        # tool message still pairs). The model then reads a sentence it can act
+        # on instead of suffering amnesia.
+        #
+        # ONLY true orphans are repaired. A tool_use whose result exists
+        # somewhere is a corrupted/duplicate copy — Pass 3's `nonadjacent_uses`
+        # owns that, and answering it here would invent a SECOND result for a
+        # call that already has one (the exact 400 this module exists to stop).
+        # The same guard applies within this pass: an id is repaired at most
+        # once, so a doubly-emitted unanswered call gets one synthetic result
+        # and its stray copy falls through to Pass 3's loud non-adjacent report.
+        answered_ids: set[str] = {
+            rid
+            for rid, blocks in results_by_id.items()
+            if any(id(b) not in drop_ids for b in blocks)
+        }
+        repaired_orphans: list[dict[str, Any]] = []
+        repaired_ids: set[str] = set()
+        repaired_visible: list[UnifiedMessage] = []
+        for msg in visible:
+            repaired_visible.append(msg)
+            orphan_calls = [
+                c
+                for c in msg.content
+                if isinstance(c, ToolCallContent)
+                and c.id
+                and c.id not in answered_ids
+                and c.id not in repaired_ids
+            ]
+            if not orphan_calls:
+                continue
+            synthetic: list[UnifiedContent] = []
+            for call in orphan_calls:
+                call_name = getattr(call, "name", "") or "tool"
+                repaired_ids.add(call.id)
+                repaired_orphans.append({"tool_use_id": call.id, "name": call_name})
+                synthetic.append(
+                    ToolResultContent(
+                        tool_use_id=call.id,
+                        call_id=call.id,
+                        name=getattr(call, "name", "") or "",
+                        content=ORPHAN_TOOL_RESULT_TEXT.format(name=call_name),
+                        is_error=True,
+                        metadata={
+                            "synthesized_by": "MessageList.sanitize",
+                            "reason": "orphan_tool_use",
+                        },
+                    )
+                )
+            repaired_visible.append(
+                UnifiedMessage(
+                    role=Role.TOOL,
+                    content=synthetic,
+                    metadata={
+                        "synthesized_by": "MessageList.sanitize",
+                        "reason": "orphan_tool_use_repair",
+                    },
+                )
+            )
+        if repaired_orphans:
+            visible = repaired_visible
+            report_orphan_tool_uses_repaired(
+                layer=LAYER_SANITIZE, repaired=repaired_orphans
             )
 
         # Pass 3 prep — ADJACENCY-aware pairing. The provider's rule is strict:

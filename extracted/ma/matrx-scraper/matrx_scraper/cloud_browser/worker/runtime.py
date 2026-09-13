@@ -44,6 +44,7 @@ import xml.etree.ElementTree as ET
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -65,6 +66,8 @@ from matrx_scraper.cloud_browser.worker.sanitize import (
 )
 
 logger = logging.getLogger(__name__)
+
+_PROFILE_CHECKPOINT_MARKER = ".matrx-checkpoint-hash"
 
 # The Browser Manager gives a worker call 65 seconds.  Bootstrap must finish
 # (successfully or as a typed refusal) comfortably inside that envelope: an
@@ -250,6 +253,13 @@ class BrowserWorker:
         self._xvfb_display = xvfb_display
 
         # Lifecycle
+        # Bootstrap mutates the entire process-wide worker identity and profile
+        # mount. Two API tasks may race the same activation (for example while
+        # a deployment is settling), so only one bootstrap may cross this
+        # boundary at a time. The loser observes the completed idempotency state
+        # and replays it instead of restoring/launching a second Chromium over
+        # the same EFS profile.
+        self._bootstrap_gate = asyncio.Lock()
         self._bootstrapped = False
         self._activation_key: str | None = None
         self._bootstrap_response: M.BootstrapResponse | None = None
@@ -601,6 +611,12 @@ class BrowserWorker:
     async def bootstrap(
         self, request: M.BootstrapRequest, *, bearer: str | None = None
     ) -> M.BootstrapResponse:
+        async with self._bootstrap_gate:
+            return await self._bootstrap_once(request, bearer=bearer)
+
+    async def _bootstrap_once(
+        self, request: M.BootstrapRequest, *, bearer: str | None = None
+    ) -> M.BootstrapResponse:
         try:
             self._verify_bearer(bearer, "bootstrap")
         except WorkerProtocolError as err:
@@ -621,10 +637,12 @@ class BrowserWorker:
                 and self._bootstrap_response is not None
             ):
                 return self._bootstrap_response.model_copy(update={"replayed": True})
-            self.run_id, self.profile_id = (
-                request.run_id,
-                request.profile_id,
-            )  # for a coherent reply envelope
+            # This is an incumbent-worker refusal, not an identity transition.
+            # Replacing these fields merely to echo the rejected request corrupts
+            # the live worker: its next heartbeat/command for the incumbent run
+            # then fails ``run_mismatch`` while Chromium is still attached to it.
+            # Keep the incumbent envelope intact; the refusal code is sufficient
+            # for the caller to identify the rejected bootstrap.
             return self._error_reply(
                 M.BootstrapResponse,
                 WorkerProtocolError(
@@ -710,9 +728,12 @@ class BrowserWorker:
         # A killed container releases our flock automatically but Chromium's
         # own Singleton* crash markers persist on EFS.  Clear only those narrow
         # browser-owned artifacts, and only after exclusive profile ownership
-        # is proven.  Saved session data remains untouched.
+        # is proven. EFS metadata operations are blocking filesystem calls, so
+        # keep them off the ASGI event loop: the same process must continue to
+        # answer ECS health probes while a large/recovering profile is inspected.
+        # Saved session data remains untouched.
         try:
-            self._lock.clear_stale_chromium_singletons()
+            await asyncio.to_thread(self._lock.clear_stale_chromium_singletons)
         except ProfileLockError:
             self._lock.release()
             return self._error_reply(
@@ -825,6 +846,7 @@ class BrowserWorker:
         self._bootstrapped = True
         self.health = "healthy"
         self.queue_state = "open"
+        await asyncio.to_thread(_remove_profile_checkpoint_marker, self._user_data_dir)
         self._closed_reason = ""
         # Idle age belongs to a RUN, not to this reusable fixed-fleet process.
         # Without this reset, the next run inherits the prior run's idle clock
@@ -2061,6 +2083,15 @@ class BrowserWorker:
                 zeroized=zeroized,
             )
 
+        try:
+            await asyncio.to_thread(
+                _write_profile_checkpoint_marker, self._user_data_dir, plaintext_hash
+            )
+        except OSError:
+            # The remote checkpoint is still valid. Missing this local cache
+            # marker only makes the next bootstrap perform a full restore.
+            logger.warning("could not cache the installed profile checkpoint hash", exc_info=True)
+
         relaunch = request.mode == "close_and_archive" and request.reason != "stop"
         context_relaunched = False
         if relaunch:
@@ -2068,6 +2099,9 @@ class BrowserWorker:
                 await self._launch_context(self._policy, self._display)  # type: ignore[arg-type]
                 self.queue_state = "open"
                 context_relaunched = True
+                await asyncio.to_thread(
+                    _remove_profile_checkpoint_marker, self._user_data_dir
+                )
             except Exception:
                 self.health = "browser_crashed"
 
@@ -2306,6 +2340,10 @@ def _encrypt(dek: bytes, nonce: bytes, plaintext: bytes) -> tuple[bytes, str, bo
 
 async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> None:
     """Download, authenticate, and safely replace a closed profile directory."""
+    if await asyncio.to_thread(
+        _profile_checkpoint_matches, user_data_dir, restore.plaintext_hash
+    ):
+        return
     async with httpx.AsyncClient(timeout=120) as client:
         response = await client.get(restore.download_url, headers=restore.headers)
         response.raise_for_status()
@@ -2326,6 +2364,50 @@ async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> 
     if hashlib.sha256(plaintext).hexdigest() != restore.plaintext_hash:
         raise ValueError("checkpoint plaintext hash mismatch")
 
+    await asyncio.to_thread(_install_restored_profile, user_data_dir, plaintext)
+    await asyncio.to_thread(
+        _write_profile_checkpoint_marker, user_data_dir, restore.plaintext_hash
+    )
+
+
+def _profile_checkpoint_matches(user_data_dir: str, plaintext_hash: str) -> bool:
+    try:
+        return (
+            Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER)
+            .read_text(encoding="utf-8")
+            .strip()
+            == plaintext_hash
+        )
+    except (FileNotFoundError, OSError):
+        return False
+
+
+def _write_profile_checkpoint_marker(user_data_dir: str, plaintext_hash: str) -> None:
+    marker = Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER)
+    temporary = marker.with_name(f"{marker.name}.{uuid.uuid4().hex}.tmp")
+    temporary.write_text(f"{plaintext_hash}\n", encoding="utf-8")
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, marker)
+
+
+def _remove_profile_checkpoint_marker(user_data_dir: str) -> None:
+    try:
+        Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER).unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _install_restored_profile(user_data_dir: str, plaintext: bytes) -> None:
+    """Extract and atomically install one verified profile without copying it twice.
+
+    The profile volume is EFS.  Extracting into an EFS sibling and then using
+    ``copytree`` made every restart rewrite the entire archive a second time,
+    blocked the worker event loop, and let ECS kill the only worker as
+    unhealthy.  The sibling is already on the same filesystem, so a rename is
+    the correct constant-time cutover.  Keep the prior directory as a rollback
+    sibling until the new one is in place.
+    """
+
     parent = os.path.dirname(user_data_dir.rstrip(os.sep))
     os.makedirs(parent, mode=0o700, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="profile-restore-", dir=parent) as temporary:
@@ -2343,7 +2425,29 @@ async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> 
         restored = os.path.join(temporary, "profile")
         if not os.path.isdir(restored):
             raise ValueError("checkpoint profile directory missing")
-        if os.path.isdir(user_data_dir):
-            shutil.rmtree(user_data_dir)
-        shutil.copytree(restored, user_data_dir)
-        os.chmod(user_data_dir, 0o700)
+        backup = os.path.join(parent, f".profile-replaced-{uuid.uuid4().hex}")
+        had_existing = os.path.isdir(user_data_dir)
+        if had_existing:
+            os.rename(user_data_dir, backup)
+        try:
+            os.rename(restored, user_data_dir)
+            os.chmod(user_data_dir, 0o700)
+        except Exception:
+            if had_existing and not os.path.exists(user_data_dir):
+                os.rename(backup, user_data_dir)
+            raise
+        if had_existing:
+            try:
+                shutil.rmtree(backup)
+            except OSError:
+                # Chromium can briefly retain BrowserMetrics as a mount-like
+                # resource after shutdown.  The new profile is already live;
+                # failure to reap the rollback copy must not turn a successful
+                # atomic restore into a bootstrap failure.  A later sweep can
+                # remove this hidden, non-canonical backup once the kernel
+                # releases it.
+                logger.warning(
+                    "restored profile installed but prior profile cleanup is deferred",
+                    extra={"backup_path": backup},
+                    exc_info=True,
+                )

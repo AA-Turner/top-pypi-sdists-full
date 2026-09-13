@@ -8,17 +8,21 @@ compacted shape only, one JSON object per PROV-DM statement in ``@graph``.
 import datetime
 import io
 import json
+import warnings
 from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
 from prov import Error
+from prov._warnings import external_stacklevel
 from prov.constants import (
+    PROV_ATTR_ENTITY,
     PROV_ATTRIBUTE_LITERALS,
     PROV_BUNDLE,
     PROV_ENTITY,
     PROV_LABEL,
     PROV_LOCATION,
+    PROV_MEMBERSHIP,
     PROV_MENTION,
     PROV_N_MAP,
     PROV_QUALIFIEDNAME,
@@ -37,11 +41,13 @@ from prov.model import (
     ProvDocument,
     ProvElement,
     ProvRecord,
+    ProvWarning,
     QualifiedNameCandidate,
     canonical_xsd_datatype,
     first,
     parse_xsd_datetime,
 )
+from prov.model.records import _xsd_datetime_text
 from prov.serializers import Serializer, _is_text_stream
 
 __author__ = "Trung Dong Huynh"
@@ -183,7 +189,7 @@ def encode_jsonld_value(value: Any, term: str) -> Any:
             return {"@value": value.value, "@language": value.langtag}
         return {"@value": value.value, "@type": str(value.datatype)}
     if isinstance(value, datetime.datetime):
-        return {"@value": value.isoformat(), "@type": "xsd:dateTime"}
+        return {"@value": _xsd_datetime_text(value), "@type": "xsd:dateTime"}
     if isinstance(value, Identifier):
         return {"@value": value.uri, "@type": "xsd:anyURI"}
     if isinstance(value, bool):
@@ -259,7 +265,7 @@ def encode_jsonld_statement(record: ProvRecord) -> dict[str, Any]:
         if values:
             value = first(values)
             obj[attr.localpart] = (
-                value.isoformat()  # type: ignore[union-attr]
+                _xsd_datetime_text(value)  # type: ignore[arg-type]
                 if attr in PROV_ATTRIBUTE_LITERALS
                 else str(value)
             )
@@ -541,33 +547,39 @@ def _decode_statement_type(item: dict[str, Any]) -> tuple[QualifiedName, str]:
     return rec_type, type_term
 
 
-def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
-    """Decode one submission §4 statement object and add it to ``bundle``.
+def _decode_statement_attributes(
+    item: dict[str, Any],
+    bundle: ProvBundle,
+    rec_type: QualifiedName,
+    type_term: str,
+    formal_by_term: dict[str, QualifiedName],
+) -> tuple[dict[QualifiedNameCandidate, Any], list[AttributePair], list[Any] | None]:
+    """Split one statement object's keys into formal, non-formal and Membership members.
 
     Args:
-        item: The statement object (one ``@graph`` entry), as produced by
-            :func:`encode_jsonld_statement`.
-        bundle: Bundle to add the decoded record to.
+        item: The statement object, as passed to :func:`decode_jsonld_statement`.
+        bundle: Bundle the decoded values resolve qualified names against.
+        rec_type: The statement's record type.
+        type_term: ``item``'s ``"@type"`` term, for error messages.
+        formal_by_term: ``rec_type``'s formal attributes, keyed by local part.
+
+    Returns:
+        A ``(attributes, other_attributes, members)`` triple: ``attributes``
+        holds every single-valued formal attribute, ``other_attributes``
+        every non-formal attribute value, and ``members`` is ``None`` unless
+        ``rec_type`` is ``Membership`` and its ``entity`` is a JSON array, in
+        which case it holds that array's raw (still-encoded) values.
 
     Raises:
-        ProvJSONLDException: If ``item``'s ``"@type"`` is missing, is not a
-            recognised PROV-JSONLD statement type (including ``"Mention"``,
-            which the submission defines no term for), or names an element
-            type without an ``"@id"``; if a formal attribute's value is an
-            array (formal attributes take a single value) or cannot be
+        ProvJSONLDException: If a formal attribute's value is an array
+            (formal attributes take a single value, except a Membership's
+            ``entity``, which may be a non-empty array) or cannot be
             resolved to a qualified name; or if a non-formal attribute's
             value is not a JSON array.
     """
-    rec_type, type_term = _decode_statement_type(item)
-    cls = PROV_REC_CLS[rec_type]
-    formal_by_term = FORMAL_ATTRS_BY_TERM[cls]
-    rec_id = item.get("@id")
-    if rec_id is None and issubclass(cls, ProvElement):
-        raise ProvJSONLDException(
-            f'A {type_term} statement requires an "@id"; found {item!r}'
-        )
     attributes: dict[QualifiedNameCandidate, Any] = {}
     other_attributes: list[AttributePair] = []
+    members: list[Any] | None = None
     for key, value in item.items():
         if key in ("@type", "@id"):
             continue
@@ -579,6 +591,13 @@ def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
                 attributes[attr] = _decode_formal_qname(bundle, value, type_term, key)
             continue
         if attr is not None:
+            if rec_type == PROV_MEMBERSHIP and attr == PROV_ATTR_ENTITY:
+                # Submission 4.18: a Membership's entity is "a single entity
+                # or an array of them" (schema QualifiedName+). PROV-DM's
+                # hadMember is binary, so the array becomes one record per
+                # member, in decode_jsonld_statement.
+                members = value
+                continue
             raise ProvJSONLDException(
                 f"The formal attribute {key!r} of {type_term} takes a single "
                 f"value, not an array; found {value!r}"
@@ -593,7 +612,70 @@ def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
         other_attributes.extend(
             (qname, decode_jsonld_value(v, bundle, term)) for v in value
         )
-    bundle.new_record(rec_type, rec_id, attributes, other_attributes)
+    return attributes, other_attributes, members
+
+
+def decode_jsonld_statement(item: dict[str, Any], bundle: ProvBundle) -> None:
+    """Decode one submission §4 statement object and add it to ``bundle``.
+
+    Args:
+        item: The statement object (one ``@graph`` entry), as produced by
+            :func:`encode_jsonld_statement`.
+        bundle: Bundle to add the decoded record to.
+
+    Note: an identified Membership's array of members yields one record per
+    member; PROV-DM's ``hadMember`` is binary, so records sharing one
+    identifier cannot be unified. The ``"@id"`` is kept only when the array
+    has exactly one member; with more than one, every decoded record is
+    unidentified and a :class:`~prov.model.ProvWarning` names the dropped
+    ``"@id"`` and the member count.
+
+    Raises:
+        ProvJSONLDException: If ``item``'s ``"@type"`` is missing, is not a
+            recognised PROV-JSONLD statement type (including ``"Mention"``,
+            which the submission defines no term for), or names an element
+            type without an ``"@id"``; if a formal attribute's value is an
+            array (formal attributes take a single value, except a
+            Membership's ``entity``, which may be a non-empty array and
+            yields one record per member) or cannot be
+            resolved to a qualified name; or if a non-formal attribute's
+            value is not a JSON array.
+    """
+    rec_type, type_term = _decode_statement_type(item)
+    cls = PROV_REC_CLS[rec_type]
+    formal_by_term = FORMAL_ATTRS_BY_TERM[cls]
+    rec_id = item.get("@id")
+    if rec_id is None and issubclass(cls, ProvElement):
+        raise ProvJSONLDException(
+            f'A {type_term} statement requires an "@id"; found {item!r}'
+        )
+    attributes, other_attributes, members = _decode_statement_attributes(
+        item, bundle, rec_type, type_term, formal_by_term
+    )
+    if members is None:
+        bundle.new_record(rec_type, rec_id, attributes, other_attributes)
+        return
+    if not members:
+        raise ProvJSONLDException(
+            f'The "entity" array of {type_term} is empty; found {item!r}'
+        )
+    member_id = rec_id
+    if rec_id is not None and len(members) > 1:
+        warnings.warn(
+            f"Membership {rec_id!r} lists {len(members)} members; PROV-DM membership "
+            "is binary, so the members are decoded as unidentified hadMember records",
+            ProvWarning,
+            stacklevel=external_stacklevel(),
+        )
+        member_id = None
+    for member in members:
+        entity = _decode_formal_qname(bundle, member, type_term, "entity")
+        bundle.new_record(
+            rec_type,
+            member_id,
+            {**attributes, PROV_ATTR_ENTITY: entity},
+            list(other_attributes),
+        )
 
 
 def decode_jsonld_document(container: Any, document: ProvDocument) -> None:
@@ -644,6 +726,17 @@ def decode_jsonld_document(container: Any, document: ProvDocument) -> None:
 
 class ProvJSONLDSerializer(Serializer):
     """PROV-JSONLD serializer for :class:`~prov.model.ProvDocument`."""
+
+    deserialize_options = frozenset(
+        {
+            "object_hook",
+            "object_pairs_hook",
+            "parse_float",
+            "parse_int",
+            "parse_constant",
+        }
+    )
+    """The :func:`json.load` options :meth:`deserialize` forwards."""
 
     def serialize(self, stream: io.IOBase, **args: Any) -> None:
         """Serialize ``self.document`` to `PROV-JSONLD <https://www.w3.org/submissions/prov-jsonld/>`_.

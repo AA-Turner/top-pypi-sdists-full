@@ -18,7 +18,7 @@ from __future__ import annotations
 
 __author__: str = "Max Bachmann"
 __license__: str = "GPL"
-__version__: str = "0.27.4"
+__version__: str = "0.27.5"
 
 import rapidfuzz.distance.Hamming as _Hamming
 import rapidfuzz.distance.Indel as _Indel
@@ -503,7 +503,7 @@ def subtract_edit(edit_operations, subsequence):
     >>> apply_edit(subtract_edit(e, e1), bastard, 'scotsman')
     'scotsman'
     """
-    str_len = 2**32
+    str_len = 2**32 - 1
     return (
         _Editops(edit_operations, str_len, str_len)
         .remove_subsequence(_Editops(subsequence, str_len, str_len))

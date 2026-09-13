@@ -15,6 +15,7 @@ from schemathesis.core.control import SkipTest
 from schemathesis.core.errors import SERIALIZERS_SUGGESTION_MESSAGE
 from schemathesis.core.timing import Instant
 from schemathesis.engine import Status, events
+from schemathesis.engine._baseline import has_new_failures
 from schemathesis.engine.context import EngineContext
 from schemathesis.engine.errors import TestingState, deduplicate_errors
 from schemathesis.engine.recorder import ScenarioRecorder
@@ -42,7 +43,7 @@ def run_test(
     skip_reason = None
     error: Exception
     started_at = Instant()
-    recorder = ScenarioRecorder(label=operation.label)
+    recorder = ScenarioRecorder(label=operation.label, config=ctx.config.output)
     state = TestingState()
 
     def non_fatal_error(error: Exception, code_sample: str | None = None) -> events.NonFatalError:
@@ -130,9 +131,7 @@ def run_test(
         )
         yield from error_events
 
-    if status == Status.SUCCESS and any(
-        check.status == Status.FAILURE for checks in recorder.checks.values() for check in checks
-    ):
+    if status == Status.SUCCESS and has_new_failures(recorder, ctx.config.load_baseline()):
         status = Status.FAILURE
 
     for event in iter_mark_error_events(

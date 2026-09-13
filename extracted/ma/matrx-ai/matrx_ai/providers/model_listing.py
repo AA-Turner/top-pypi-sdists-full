@@ -64,6 +64,10 @@ def iso_from_epoch(created: Any) -> str | None:
     """``created`` (unix seconds, as OpenAI/Groq/xAI give it) → ISO-8601 UTC."""
     if isinstance(created, bool) or not isinstance(created, (int, float)):
         return None
+    if created <= 0:
+        # Cerebras serves ``"created": 0`` for every model — that is "unknown",
+        # not 1970-01-01, and 1970 would silently trip the sync cutoff.
+        return None
     try:
         return datetime.fromtimestamp(float(created), tz=UTC).isoformat().replace("+00:00", "Z")
     except (OverflowError, OSError, ValueError):
@@ -89,6 +93,25 @@ def _openai_shaped_entry(raw: ProviderEntry) -> ProviderEntry:
 def normalize_openai_page(payload: ProviderEntry) -> list[ProviderEntry]:
     """OpenAI ``GET /v1/models`` → entries."""
     return [_openai_shaped_entry(m) for m in payload.get("data") or [] if isinstance(m, dict)]
+
+
+def normalize_cerebras_page(payload: ProviderEntry) -> list[ProviderEntry]:
+    """Cerebras ``GET /v1/models`` → entries (OpenAI shape, ``created`` is 0)."""
+    return [_openai_shaped_entry(m) for m in payload.get("data") or [] if isinstance(m, dict)]
+
+
+def normalize_together_page(payload: Any) -> list[ProviderEntry]:
+    """Together ``GET /v1/models`` → entries.
+
+    Together answers with a bare JSON ARRAY (not ``{"data": [...]}``) of
+    ``{"id", "display_name", "created", "type", "context_length", "pricing"}``
+    across every modality it serves (chat, image, video, audio, transcribe,
+    embedding, rerank). Everything is kept verbatim — ``type`` is what the sync
+    agent uses to defer audio/video, ``pricing`` is per-1M-token USD — and only
+    the ISO ``created_at`` is added.
+    """
+    models = payload if isinstance(payload, list) else (payload.get("data") if isinstance(payload, dict) else None)
+    return [_openai_shaped_entry(m) for m in models or [] if isinstance(m, dict)]
 
 
 def normalize_groq_page(payload: ProviderEntry) -> list[ProviderEntry]:
@@ -186,6 +209,26 @@ async def _get_json(
     return payload
 
 
+async def _get_json_any(
+    http: _GetClient,
+    url: str,
+    *,
+    label: str,
+    headers: dict[str, str],
+) -> Any:
+    """Like :func:`_get_json` but accepts an object OR an array (Together)."""
+    response: _JsonResponse = await http.get(url, headers=headers, params=None)
+    if response.status_code != 200:
+        body = response.text[:400]
+        raise ProviderModelsApiError(f"{label} models API returned {response.status_code}: {body}")
+    payload = response.json()
+    if not isinstance(payload, (dict, list)):
+        raise ProviderModelsApiError(
+            f"{label} models API returned a {type(payload).__name__}, expected an object or an array"
+        )
+    return payload
+
+
 async def fetch_openai(http: _GetClient, api_key: str) -> list[ProviderEntry]:
     payload = await _get_json(
         http,
@@ -214,6 +257,38 @@ async def fetch_xai(http: _GetClient, api_key: str) -> list[ProviderEntry]:
         headers={"Authorization": f"Bearer {api_key}"},
     )
     return normalize_xai_page(payload)
+
+
+async def fetch_cerebras(http: _GetClient, api_key: str) -> list[ProviderEntry]:
+    payload = await _get_json(
+        http,
+        "https://api.cerebras.ai/v1/models",
+        label="Cerebras",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    return normalize_cerebras_page(payload)
+
+
+async def fetch_together(http: _GetClient, api_key: str) -> list[ProviderEntry]:
+    payload = await _get_json_any(
+        http,
+        "https://api.together.xyz/v1/models",
+        label="Together",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    return normalize_together_page(payload)
+
+
+async def fetch_moonshot(http: _GetClient, api_key: str) -> list[ProviderEntry]:
+    """Moonshot ``GET /v1/models`` — OpenAI shape plus ``context_length`` and
+    ``supports_image_in`` / ``supports_video_in`` / ``supports_reasoning`` flags."""
+    payload = await _get_json(
+        http,
+        "https://api.moonshot.ai/v1/models",
+        label="Moonshot",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    return normalize_openai_page(payload)
 
 
 async def fetch_anthropic(http: _GetClient, api_key: str) -> list[ProviderEntry]:
@@ -287,6 +362,12 @@ PROVIDER_FETCHERS: tuple[ProviderFetcher, ...] = (
         fetch_google,
     ),
     ProviderFetcher("xai", "xAI", ("XAI_API_KEY",), fetch_xai),
+    # Serving vendors (they host other makers' models). Their snapshot is
+    # matched by ai.provider_sync_candidates against the vendor's endpoint
+    # offerings + aliases (ai_080/081), not against maker rows.
+    ProviderFetcher("cerebras", "Cerebras", ("CEREBRAS_API_KEY",), fetch_cerebras),
+    ProviderFetcher("together", "Together", ("TOGETHER_API_KEY",), fetch_together),
+    ProviderFetcher("moonshot-ai", "Moonshot AI", ("MOONSHOT_API_KEY",), fetch_moonshot),
 )
 
 FETCHERS_BY_SLUG: dict[str, ProviderFetcher] = {f.slug: f for f in PROVIDER_FETCHERS}

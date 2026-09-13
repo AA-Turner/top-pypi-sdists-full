@@ -7,20 +7,22 @@ from harness.workloads import streaming
 
 def test_container_image_requires_explicit_benchmark_contract(monkeypatch):
     monkeypatch.setattr(streaming.shutil, "which", lambda binary: f"/usr/bin/{binary}")
-    monkeypatch.delenv("P6_IMAGE_BENCHMARK_CONTRACT", raising=False)
-    ctx = SimpleNamespace(selkies_image="production-browser-worker:latest")
+    ctx = SimpleNamespace(
+        selkies_image="production-browser-worker:latest", image_benchmark_contract=False
+    )
 
     mode, reasons = streaming._stream_plane(ctx)
 
     assert mode == "none"
-    assert "P6_IMAGE_BENCHMARK_CONTRACT=1 is not" in reasons[0]
+    assert "--image-benchmark-contract was not passed" in reasons[0]
     assert "Refusing a misleading capacity run" in reasons[0]
 
 
 def test_container_image_with_declared_contract_is_accepted(monkeypatch):
     monkeypatch.setattr(streaming.shutil, "which", lambda binary: f"/usr/bin/{binary}")
-    monkeypatch.setenv("P6_IMAGE_BENCHMARK_CONTRACT", "1")
-    ctx = SimpleNamespace(selkies_image="benchmark-browser-worker:latest")
+    ctx = SimpleNamespace(
+        selkies_image="benchmark-browser-worker:latest", image_benchmark_contract=True
+    )
 
     assert streaming._stream_plane(ctx) == ("selkies", [])
 

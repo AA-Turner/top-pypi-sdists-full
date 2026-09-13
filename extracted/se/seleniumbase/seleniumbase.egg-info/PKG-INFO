@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.54.1
+Version: 4.54.3
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -171,6 +171,7 @@ Dynamic: requires-python
 Dynamic: summary
 
 <!-- SeleniumBase Docs -->
+<!-- mcp-name: io.github.seleniumbase/seleniumbase -->
 
 <meta property="og:site_name" content="SeleniumBase">
 <meta property="og:title" content="SeleniumBase: Stealthy Chromium Automation with Python; and E2E Testing." />

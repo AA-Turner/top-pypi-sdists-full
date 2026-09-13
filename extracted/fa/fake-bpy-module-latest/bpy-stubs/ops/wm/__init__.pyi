@@ -947,7 +947,7 @@ class drop_blend_file(bpy.ops._BPyOpsSubModOp):
         :param execution_context:
         :param undo:
         :param filepath: filepath, (optional, never None)
-        :param use_scripts: Trusted Source, (optional)
+        :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
         :return: Result of the operator call.
         """
 

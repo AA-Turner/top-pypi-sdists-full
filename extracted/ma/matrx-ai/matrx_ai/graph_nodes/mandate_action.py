@@ -30,6 +30,7 @@ different door.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from matrx_graph.actions import register_node
@@ -100,7 +101,9 @@ class MandateStartInput(MandateStartStrictInput):
     tags=("ai", "mandate", "agent"),
 )
 async def mandate_start(
-    ctx: NodeExecutionContext, inputs: MandateStartInput
+    ctx: NodeExecutionContext,
+    inputs: MandateStartInput,
+    config: AgentStartConfig | None = None,
 ) -> NodeResult[AiExecutionResult]:
     require_agent_host(_NODE_TYPE)
     node_id = getattr(ctx, "node_id", None) or "?"
@@ -111,13 +114,18 @@ async def mandate_start(
         # type that knows how to run that lane, so it is the one that opts in.
         allow_workflow_holder=has_ext("workflow_mandate_runner"),
     )
+    declared_variables = list(getattr(config, "exposed_variables", None) or [])
     if isinstance(resolved, StepWorkflowMandate):
-        return await _run_workflow_held_mandate(ctx, inputs, resolved)
-    request = build_agent_request(ctx, inputs, resolved, node_type=_NODE_TYPE)
+        return await _run_workflow_held_mandate(
+            ctx, inputs, resolved, declared_variables=declared_variables
+        )
+    request = build_agent_request(
+        ctx, inputs, resolved, node_type=_NODE_TYPE, declared_variables=declared_variables
+    )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult
     # (a compiled Orchestra whose final step IS the result). Pass it through.
     if isinstance(completed, AiExecutionResult):
         return success(completed)
-    return normalize_completed_result(completed)
+    return await asyncio.to_thread(normalize_completed_result, completed)

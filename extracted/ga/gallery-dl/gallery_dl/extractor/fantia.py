@@ -20,6 +20,7 @@ class FantiaExtractor(Extractor):
     _warning = True
 
     def _init(self):
+        self.blog_text = self.config("text", True)
         self.headers = {
             "Accept" : "application/json, text/plain, */*",
             "X-Requested-With": "XMLHttpRequest",
@@ -166,6 +167,14 @@ class FantiaExtractor(Extractor):
                     files.append({"file_id" : img["id"],
                                   "file_url": self.root + img["original_url"]})
             post["blogpost_text"] = blog_text
+
+            if not files and blog_text and self.blog_text:
+                files.append({
+                    "file_id" : content["id"],
+                    "file_url": "text:" + blog_text,
+                    "content_filename": (content["title"] or
+                                         post["post_title"]) + ".txt",
+                })
         else:
             post["blogpost_text"] = ""
 

@@ -23,14 +23,19 @@ if TYPE_CHECKING:
 CLAUDE_MD_BEGIN = "<!-- parrot:wiki:begin -->"
 CLAUDE_MD_END = "<!-- parrot:wiki:end -->"
 
-#: Hook command written into .claude/settings.json — also the needle
-#: used to find (and remove) our hook entries when merging settings.
-#: When the installer can resolve an absolute path to the binary, the
-#: full path replaces the bare name (worktrees don't inherit the venv's
-#: ``$PATH``, so the bare name would fail there).  This constant is
-#: still the *identification needle* used by ``_is_our_hook`` — it is
-#: always a substring of the resolved command.
-HOOK_COMMAND = "wikitoolkit claude-hook"
+#: Binary name and subcommand that identify our hook. They are matched as
+#: separate tokens (see ``installer._is_our_command``) rather than as one
+#: literal needle: the installed command carries an absolute path and may
+#: be re-spelled by hand — quoted, or via ``$CLAUDE_PROJECT_DIR`` — and
+#: neither spelling contains ``HOOK_COMMAND`` as a substring.
+HOOK_BIN_NAME = "wikitoolkit"
+HOOK_SUBCOMMAND = "claude-hook"
+
+#: Hook command written into .claude/settings.json. When the installer can
+#: resolve an absolute path to the binary, the full path replaces the bare
+#: name (worktrees don't inherit the venv's ``$PATH``, so the bare name
+#: would fail there).
+HOOK_COMMAND = f"{HOOK_BIN_NAME} {HOOK_SUBCOMMAND}"
 
 #: Tool matcher for the PreToolUse nudge. Includes ``Bash`` so shell-based
 #: searches (``grep``/``rg``/``find`` run via the Bash tool) are nudged too —
@@ -143,12 +148,17 @@ def toolkit_mcp_json_entry(root: Path, name: str, section: ToolkitSection) -> di
             mapping.
 
     Returns:
-        ``{"command": <abs parrot bin>, "args": ["mcp-local", name],
+        ``{"command": <abs parrot bin>, "args": ["mcp-local", name,
+        "--config", <abs path to mcp-toolkits.yaml>], "cwd": <abs root>,
         "env": dict(section.env)}``.
     """
     return {
         "command": resolve_parrot_bin(root),
-        "args": ["mcp-local", name],
+        # Pinned (FEAT-556): `parrot mcp-local` resolves its project root from
+        # Path.cwd() (verified: parrot/mcp/local_cli.py:105), so an unpinned
+        # entry resolves no toolkit when the host starts it from a worktree.
+        "args": ["mcp-local", name, "--config", str(root / ".parrot" / "mcp-toolkits.yaml")],
+        "cwd": str(root),
         "env": dict(section.env),
     }
 

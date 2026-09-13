@@ -600,6 +600,7 @@ def _expr116(gen0: TypeInfo) -> TypeInfo:
 
 @dataclass(eq=False, repr=False, slots=True)
 class EnumerateTryWithState_1[T](Record):
+    __fable_field_names__ = ("Source", "Caught")
     source: IEnumerator[Any] | None
     caught: bool
 

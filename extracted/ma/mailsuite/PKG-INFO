@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mailsuite
-Version: 2.3.1
+Version: 2.3.2
 Summary: A Python package for retrieving, parsing, and sending emails
 Project-URL: Homepage, https://github.com/seanthegeek/mailsuite/
 Project-URL: Documentation, https://seanthegeek.net/mailsuite/
@@ -28,7 +28,7 @@ Requires-Dist: dkimpy>=1.1.0
 Requires-Dist: dnspython>=2.0.0
 Requires-Dist: expiringdict==1.2.2
 Requires-Dist: html2text>=2020.1.16
-Requires-Dist: imapclient>=3.1.0
+Requires-Dist: imapclient>=4.0.0
 Requires-Dist: mail-parser>=4.6.2
 Requires-Dist: publicsuffix2>=2.20190812
 Provides-Extra: all

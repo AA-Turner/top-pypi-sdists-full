@@ -13,6 +13,7 @@ References:
 """
 
 import typing
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape, unescape
@@ -27,6 +28,7 @@ except ImportError as e:  # pragma: no cover -- pydot (dot extra) absent; covere
         'install "prov[dot]" to use graphical export'
     ) from e
 
+from prov._warnings import external_stacklevel
 from prov.graph import INFERRED_ELEMENT_CLASS
 from prov.identifier import QualifiedName
 from prov.model import (
@@ -58,8 +60,10 @@ from prov.model import (
     ProvEntity,
     ProvException,
     ProvRecord,
+    ProvWarning,
     sorted_attributes,
 )
+from prov.model.records import _xsd_datetime_text
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
@@ -291,7 +295,7 @@ def _attach_attribute_annotation(
             escape(
                 str(value)
                 if not isinstance(value, datetime)
-                else str(value.isoformat())
+                else _xsd_datetime_text(value)
             ),
         )
         for attr, value in attributes
@@ -458,6 +462,18 @@ def _add_relation(state: _DotRenderState, dot: DotContainer, rec: ProvRecord) ->
         strict=False,
     )
     inferred_types = list(map(INFERRED_ELEMENT_CLASS.get, attr_names))
+    unset = [
+        str(attr_name)
+        for attr_name, node in zip(attr_names[:2], nodes[:2], strict=False)
+        if node is None
+    ]
+    if unset:
+        warnings.warn(
+            f"{rec!r} has no value for {', '.join(unset)}; drawing the "
+            "relation to a blank node",
+            ProvWarning,
+            stacklevel=external_stacklevel(),
+        )
     other_attributes = [
         (attr_name, value)
         for attr_name, value in rec.attributes
@@ -466,8 +482,10 @@ def _add_relation(state: _DotRenderState, dot: DotContainer, rec: ProvRecord) ->
     add_attribute_annotation = state.show_relation_attributes and other_attributes
     add_nary_elements = len(nodes) > 2 and state.show_nary
     style = DOT_PROV_STYLE[rec.get_type()]
-    if len(nodes) < 2:  # too few elements for a relation?
-        return  # cannot draw this
+    if len(nodes) < 2:
+        # Defensive: every built-in relation yields at least two formal
+        # QNAME attributes, so this is unreachable in practice.
+        return
 
     if add_nary_elements or add_attribute_annotation:
         formal = list(zip(attr_names, nodes, inferred_types, strict=False))

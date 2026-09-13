@@ -15,7 +15,7 @@ import urllib.request
 import zipfile
 from collections.abc import Generator, Mapping
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, Never, TextIO, TypeGuard, cast, overload
+from typing import IO, Any, Literal, Never, TypeGuard, overload
 
 from .io_typing import (
     _MODE_TO_SIMPLE,
@@ -65,62 +65,37 @@ __all__ = [
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: typing.BinaryIO,
-    *,
-    operation: Operation = ...,
-    representation: Representation = ...,
-    encoding: str | None = ...,
-) -> Generator[typing.BinaryIO, None, None]: ...
-
-
-# docstr-coverage:excused `overload`
-@typing.overload
-@contextlib.contextmanager
-def safe_open(
-    path: typing.TextIO,
-    *,
-    operation: Operation = ...,
-    representation: Representation = ...,
-    encoding: str | None = ...,
-    newline: str | None = ...,
-) -> Generator[typing.TextIO, None, None]: ...
-
-
-# docstr-coverage:excused `overload`
-@typing.overload
-@contextlib.contextmanager
-def safe_open(
-    path: str | Path,
+    path: str | Path | IO[str] | IO[bytes],
     *,
     operation: Operation = ...,
     representation: Literal["text"] = "text",
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[typing.TextIO, None, None]: ...
+) -> Generator[IO[str]]: ...
 
 
 # docstr-coverage:excused `overload`
 @typing.overload
 @contextlib.contextmanager
 def safe_open(
-    path: str | Path,
+    path: str | Path | IO[str] | IO[bytes],
     *,
     operation: Operation = ...,
     representation: Literal["binary"] = "binary",
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[typing.BinaryIO, None, None]: ...
+) -> Generator[IO[bytes]]: ...
 
 
 @contextlib.contextmanager
 def safe_open(  # noqa:C901
-    path: str | Path | typing.TextIO | typing.BinaryIO,
+    path: str | Path | IO[str] | IO[bytes],
     *,
     operation: Operation = "read",
     representation: Representation = "text",
     encoding: str | None = None,
     newline: str | None = None,
-) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
     """Safely open a file for reading or writing text."""
     if operation not in OPERATION_VALUES:
         raise InvalidOperationError(operation)
@@ -146,43 +121,37 @@ def safe_open(  # noqa:C901
                     yield file  # type:ignore
             elif path.suffix.endswith(".bz2"):
                 with bz2.open(path, mode=mode, encoding=encoding, newline=newline) as file:
-                    yield file  # type:ignore
+                    yield file
             elif path.suffix.endswith(".xz"):
                 with lzma.open(path, mode=mode, encoding=encoding, newline=newline) as file:
-                    yield file  # type:ignore
+                    yield file
             elif path.suffix.endswith(".zst"):
                 with zstd_open(path, mode=mode, encoding=encoding, newline=newline) as file:
                     yield file  # type:ignore
             else:
                 with open(path, mode=mode, encoding=encoding, newline=newline) as file:
-                    yield file  # type:ignore
+                    yield file
 
     elif isinstance(path, typing.TextIO | io.TextIOWrapper | io.TextIOBase):
         if representation != "text":
-            raise ValueError(
-                "must specify `text` representation when passing through a text file-like object"
-            )
+            path = path.buffer
         yield path
 
     # io.BufferedIOBase covers the LZMA, BZ2, Gzip, and ZSTD file types
     # as well as io.BufferedReader
     elif isinstance(path, typing.BinaryIO | io.BufferedIOBase):
-        if representation != "binary":
-            raise ValueError(
-                "must specify `binary` representation when passing through "
-                "a binary file-like object"
-            )
-        yield path
+        with _wrap_binary_if_needed(path, representation, encoding=encoding, newline=newline) as yp:
+            yield yp
     else:
         raise TypeError(f"unsupported type for opening: {type(path)} - {path}")
 
 
 @contextlib.contextmanager
 def _open_read_text(
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     encoding: str | None = None,
     newline: str | None = None,
-) -> Generator[typing.TextIO, None, None]:
+) -> Generator[IO[str]]:
     with safe_open(
         path, representation="text", operation="read", encoding=encoding, newline=newline
     ) as file:
@@ -191,10 +160,10 @@ def _open_read_text(
 
 @contextlib.contextmanager
 def _open_write_text(
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     encoding: str | None = None,
     newline: str | None = None,
-) -> Generator[typing.TextIO, None, None]:
+) -> Generator[IO[str]]:
     with safe_open(
         path, representation="text", operation="write", encoding=encoding, newline=newline
     ) as file:
@@ -202,7 +171,7 @@ def _open_write_text(
 
 
 def safe_open_json(
-    path_or_url: str | Path | TextIO,
+    path_or_url: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -213,7 +182,7 @@ def safe_open_json(
 
 
 def safe_open_yaml(
-    path_or_url: str | Path | TextIO,
+    path_or_url: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -227,7 +196,7 @@ def safe_open_yaml(
 
 def safe_write_text(
     s: str,
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -238,7 +207,7 @@ def safe_write_text(
 
 
 def safe_read_text(
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -250,7 +219,7 @@ def safe_read_text(
 
 def write_yaml(
     data: Any,
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -267,7 +236,7 @@ def write_yaml(
 
 def write_json(
     data: Any,
-    path: str | Path | TextIO,
+    path: str | Path | IO[str],
     *,
     encoding: str | None = None,
     newline: str | None = None,
@@ -295,7 +264,7 @@ def open_inner_zipfile(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[typing.TextIO, None, None]: ...
+) -> Generator[IO[str]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -310,7 +279,7 @@ def open_inner_zipfile(
     open_kwargs: Mapping[str, Any] | None = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[typing.BinaryIO, None, None]: ...
+) -> Generator[IO[bytes]]: ...
 
 
 @contextlib.contextmanager
@@ -323,25 +292,66 @@ def open_inner_zipfile(
     open_kwargs: Mapping[str, Any] | None = None,
     encoding: str | None = None,
     newline: str | None = None,
-) -> Generator[typing.TextIO, None, None] | Generator[typing.BinaryIO, None, None]:
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
     """Open a file inside an already opened zip archive."""
     mode = _MODE_TO_SIMPLE[operation]
     encoding = ensure_sensible_default_encoding(encoding, representation=representation)
     newline = ensure_sensible_newline(newline, representation=representation)
-    with zip_file.open(inner_path, mode=mode, **(open_kwargs or {})) as binary_file:
-        if representation == "text":
-            with io.TextIOWrapper(binary_file, encoding=encoding, newline=newline) as text_file:
-                yield text_file
-        elif representation == "binary":
-            yield cast(typing.BinaryIO, binary_file)
-        else:
-            raise InvalidRepresentationError(representation)
+    with (
+        zip_file.open(inner_path, mode=mode, **(open_kwargs or {})) as binary_file,
+        _wrap_binary_if_needed(
+            binary_file, representation, encoding=encoding, newline=newline
+        ) as yf,
+    ):
+        yield yf
+
+
+ZZ = typing.TypeVar("ZZ", bound=IO[bytes])
+
+
+@overload
+@contextlib.contextmanager
+def _wrap_binary_if_needed(
+    file: ZZ,
+    representation: Literal["text"],
+    *,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[io.TextIOWrapper[ZZ]]: ...
+
+
+@overload
+@contextlib.contextmanager
+def _wrap_binary_if_needed(
+    file: ZZ,
+    representation: Literal["binary"],
+    *,
+    encoding: str | None = ...,
+    newline: str | None = ...,
+) -> Generator[ZZ]: ...
+
+
+@contextlib.contextmanager
+def _wrap_binary_if_needed(
+    file: ZZ,
+    representation: Representation,
+    *,
+    encoding: str | None = None,
+    newline: str | None = None,
+) -> Generator[ZZ | io.TextIOWrapper[ZZ]]:
+    if representation == "text":
+        with io.TextIOWrapper(file, encoding=encoding, newline=newline) as text_file:
+            yield text_file
+    elif representation == "binary":
+        yield file
+    else:
+        raise InvalidRepresentationError(representation)
 
 
 @contextlib.contextmanager
 def safe_open_dict_reader(
-    f: str | Path | TextIO, *, delimiter: str = "\t", **kwargs: Any
-) -> Generator[csv.DictReader[str], None, None]:
+    f: str | Path | IO[str], *, delimiter: str = "\t", **kwargs: Any
+) -> Generator[csv.DictReader[str]]:
     """Open a CSV dictionary reader, wrapping :func:`csv.DictReader`.
 
     :param f: A path to a file, or an already open text-based IO object
@@ -354,7 +364,7 @@ def safe_open_dict_reader(
         yield csv.DictReader(file, delimiter=delimiter, **kwargs)
 
 
-def is_url(s: str | Path | TextIO | Any) -> TypeGuard[str]:
+def is_url(s: str | Path | IO[str] | Any) -> TypeGuard[str]:
     """Check if the object is a URL."""
     return isinstance(s, str) and s.startswith(("http://", "https://"))
 
@@ -368,7 +378,7 @@ def open_url(
     representation: Literal["text"] = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[TextIO, None, None]: ...
+) -> Generator[IO[str]]: ...
 
 
 # docstr-coverage:excused `overload`
@@ -380,7 +390,7 @@ def open_url(
     representation: Literal["binary"] = ...,
     encoding: str | None = ...,
     newline: str | None = ...,
-) -> Generator[BinaryIO, None, None]: ...
+) -> Generator[IO[bytes]]: ...
 
 
 @contextlib.contextmanager
@@ -390,7 +400,7 @@ def open_url(
     representation: Representation = "text",
     encoding: str | None = None,
     newline: str | None = None,
-) -> Generator[TextIO, None, None] | Generator[BinaryIO, None, None]:
+) -> Generator[IO[str]] | Generator[IO[bytes]]:
     """Get a file-like object from a URL."""
     with urllib.request.urlopen(url) as response:  # noqa:S310
         match representation:

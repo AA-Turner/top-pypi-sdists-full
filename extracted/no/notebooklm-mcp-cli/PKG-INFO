@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: notebooklm-mcp-cli
-Version: 0.11.2
+Version: 0.11.3
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/gemini-notebook-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/gemini-notebook-mcp-cli
@@ -17,12 +17,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.11
-Requires-Dist: fastmcp<4.0,>=2.0.0
+Requires-Dist: fastmcp<5.0,>=2.0.0
 Requires-Dist: httpx[socks]<1.0,>=0.27.0
 Requires-Dist: platformdirs<5.0,>=4.0.0
 Requires-Dist: pydantic<3.0,>=2.0.0
 Requires-Dist: pyyaml<7.0,>=6.0
-Requires-Dist: rich<15.0,>=13.0.0
+Requires-Dist: rich<16.0,>=13.0.0
 Requires-Dist: typer<1.0,>=0.9.0
 Requires-Dist: typing-extensions>=4.4.0; python_version < '3.12'
 Requires-Dist: websocket-client<2.0,>=1.6.0
@@ -128,6 +128,7 @@ Then use natural language: _"Create a notebook about quantum computing and gener
 | Configure AI tools                            | `nlm setup add/remove/list`     | —                                    |
 | Install AI Skills                             | `nlm skill install/update`      | —                                    |
 | Diagnose issues                               | `nlm doctor`                    | —                                    |
+| Check remaining plan usage                    | `nlm usage`                     | `usage_get`                          |
 
 📚 **More Documentation:**
 
@@ -689,7 +690,7 @@ uv tool list | grep notebooklm
 
 ## Limitations
 
-- **Rate limits**: Free tier has ~50 queries/day
+- **Rate limits**: Chat and Studio usage is metered as compute against a rolling (~5h) window and a weekly cap, scaled by plan tier. Run `nlm usage` to see what is left and when it resets
 - **No official support**: API may change without notice
 - **Cookie expiration**: Need to re-extract cookies every few weeks
 

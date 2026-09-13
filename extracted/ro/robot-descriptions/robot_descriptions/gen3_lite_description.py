@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -19,4 +18,12 @@ PACKAGE_PATH: str = _path.join(REPOSITORY_PATH, "kortex_description")
 
 XACRO_PATH: str = _path.join(
     PACKAGE_PATH, "robots", "gen3_lite_gen3_lite_2f.xacro"
+)
+
+SRDF_PATH: str = _path.join(
+    REPOSITORY_PATH,
+    "kortex_moveit_config",
+    "kinova_gen3_lite_moveit_config",
+    "config",
+    "gen3_lite.srdf",
 )

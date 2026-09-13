@@ -262,7 +262,7 @@ pub struct Builder {
     /// connection-level budget for DATA framing overhead.
     ///
     /// When this gets exhausted, we issue a GOAWAY with `ENHANCE_YOUR_CALM`.
-    data_frame_budget: usize,
+    data_frame_budget: proto::DataFrameBudget,
 }
 
 /// Send a response back to the client
@@ -662,7 +662,7 @@ impl Builder {
             max_send_buffer_size: proto::DEFAULT_MAX_SEND_BUFFER_SIZE,
 
             local_max_error_reset_streams: Some(proto::DEFAULT_LOCAL_RESET_COUNT_MAX),
-            data_frame_budget: proto::DEFAULT_DATA_FRAME_BUDGET,
+            data_frame_budget: proto::DataFrameBudget::Auto,
         }
     }
 
@@ -696,6 +696,13 @@ impl Builder {
     /// # pub fn main() {}
     /// ```
     pub fn initial_window_size(&mut self, size: u32) -> &mut Self {
+        if size > proto::MAX_WINDOW_SIZE {
+            tracing::warn!(
+                "ignoring initial_window_size({size}): must be 0..={}",
+                proto::MAX_WINDOW_SIZE
+            );
+            return self;
+        }
         self.settings.set_initial_window_size(Some(size));
         self
     }
@@ -730,6 +737,14 @@ impl Builder {
     /// # pub fn main() {}
     /// ```
     pub fn initial_connection_window_size(&mut self, size: u32) -> &mut Self {
+        // 0 is RFC-legal (stall) but rejected (see client.rs).
+        if size == 0 || size > proto::MAX_WINDOW_SIZE {
+            tracing::warn!(
+                "ignoring initial_connection_window_size({size}): must be 1..={}",
+                proto::MAX_WINDOW_SIZE
+            );
+            return self;
+        }
         self.initial_target_connection_window_size = Some(size);
         self
     }
@@ -763,10 +778,7 @@ impl Builder {
     /// # pub fn main() {}
     /// ```
     ///
-    /// # Panics
-    ///
-    /// This function panics if `max` is not within the legal range specified
-    /// above.
+    /// Out-of-range warns, keeps previous.
     pub fn max_frame_size(&mut self, max: u32) -> &mut Self {
         self.settings.set_max_frame_size(Some(max));
         self
@@ -1035,8 +1047,12 @@ impl Builder {
     }
 
     /// Sets the connection-level budget for DATA framing overhead.
+    ///
+    /// By default, the budget is half the initial connection window, with a
+    /// minimum of 25,600 bytes. Increasing the connection window therefore
+    /// also increases the permitted framing overhead.
     pub fn data_frame_budget(&mut self, budget: usize) -> &mut Self {
-        self.data_frame_budget = budget;
+        self.data_frame_budget = proto::DataFrameBudget::Configured(budget);
         self
     }
 
@@ -1505,7 +1521,10 @@ where
                                 .builder
                                 .local_max_error_reset_streams,
                             settings: self.builder.settings.clone(),
-                            data_frame_budget: self.builder.data_frame_budget,
+                            data_frame_budget: self
+                                .builder
+                                .data_frame_budget
+                                .resolve(self.builder.initial_target_connection_window_size),
                             headers_pseudo_order: None,
                             headers_priority: None,
                             headers_order: None,

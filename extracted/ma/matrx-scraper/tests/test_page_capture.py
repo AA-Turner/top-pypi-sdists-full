@@ -157,3 +157,93 @@ async def test_page_capture_preserves_underlying_failure_details(monkeypatch) ->
     assert result.success is False
     assert result.failure_reason == "request_error"
     assert result.failure_details == [{"request_error": "connection reset by peer"}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "full_page, expected_content, expected_scope",
+    [
+        (False, "The article body itself.", "main"),
+        (True, "Nav Sponsor Staff bio Tags The article body itself.", "full"),
+    ],
+)
+async def test_page_capture_returns_the_article_body_by_default(
+    monkeypatch, full_page: bool, expected_content: str, expected_scope: str
+) -> None:
+    """THE MAIN-CONTENT LAW on the wire (see test_main_content_extraction.py).
+
+    `content` is the article body unless the caller asks for the whole page,
+    and `content_scope` always says which one it is — never silent.
+    """
+
+    async def public_url(value: str) -> str:
+        return value
+
+    async def fake_scrape(*_args, **_kwargs) -> ScrapeResult:
+        return ScrapeResult(
+            url="https://publisher.example/article",
+            success=True,
+            status_code=200,
+            response_url="https://publisher.example/article",
+            content_type="text/html",
+            text_data="Nav Sponsor Staff bio Tags The article body itself.",
+            main_content_text="The article body itself.",
+            main_content_selector="article",
+        )
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
+    monkeypatch.setattr(
+        url_utils,
+        "get_url_info",
+        lambda _url: SimpleNamespace(unique_page_name="publisher-example-article"),
+    )
+    monkeypatch.setattr(_ext, "get_ext", lambda name: FakeCache() if name == "cache" else None)
+    monkeypatch.setattr(_ext, "has_ext", lambda _name: False)
+    monkeypatch.setattr("matrx_scraper.orchestrator.scrape", fake_scrape)
+
+    result = await scrape_router.page_capture(
+        scrape_router.PageCaptureRequest(
+            url="https://publisher.example/article", full_page=full_page
+        ),
+        ctx=SimpleNamespace(),
+    )
+
+    assert result.content == expected_content
+    assert result.content_scope == expected_scope
+    assert result.char_count == len(expected_content)
+
+
+@pytest.mark.asyncio
+async def test_page_capture_falls_back_to_the_full_page_honestly(monkeypatch) -> None:
+    """A non-article page has no main content — say "full", never a half page."""
+
+    async def public_url(value: str) -> str:
+        return value
+
+    async def fake_scrape(*_args, **_kwargs) -> ScrapeResult:
+        return ScrapeResult(
+            url="https://publisher.example/pricing",
+            success=True,
+            status_code=200,
+            response_url="https://publisher.example/pricing",
+            content_type="text/html",
+            text_data="Pricing table and plan comparison.",
+        )
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
+    monkeypatch.setattr(
+        url_utils,
+        "get_url_info",
+        lambda _url: SimpleNamespace(unique_page_name="publisher-example-pricing"),
+    )
+    monkeypatch.setattr(_ext, "get_ext", lambda name: FakeCache() if name == "cache" else None)
+    monkeypatch.setattr(_ext, "has_ext", lambda _name: False)
+    monkeypatch.setattr("matrx_scraper.orchestrator.scrape", fake_scrape)
+
+    result = await scrape_router.page_capture(
+        scrape_router.PageCaptureRequest(url="https://publisher.example/pricing"),
+        ctx=SimpleNamespace(),
+    )
+
+    assert result.content == "Pricing table and plan comparison."
+    assert result.content_scope == "full"

@@ -13,10 +13,12 @@ patterns.
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from matrx_graph.actions import register_node
 from matrx_graph.types.context import NodeExecutionContext
+from matrx_graph.types.identity_inputs import identity_input
 from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
@@ -24,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from matrx_ai.graph_nodes.mandates import (
     WORKFLOW_STEP_INTELLIGENCE_MANDATE,
-    step_metadata,
+    hold_step,
 )
 from matrx_ai.graph_nodes.shared import (
     AiExecutionResult,
@@ -81,6 +83,9 @@ class ChatManualInput(BaseModel):
     conversation_id: str | None = Field(
         default=None,
         description="Optional — attach this call to an existing conversation.",
+        # IDENTITY (``matrx_graph.types.identity_inputs``) — never inherited
+        # from an upstream broadcast.
+        json_schema_extra=identity_input(),
     )
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
@@ -126,7 +131,9 @@ async def chat_manual(
     if inputs.max_tokens is not None:
         overrides["max_tokens"] = inputs.max_tokens
 
-    config = UnifiedConfig.from_dict(
+    # The Holder of workflow.step_intelligence is resolved on EVERY run and
+    # fills only what the author left unset; an unbound mandate REFUSES here.
+    held = await hold_step(
         {
             "model": inputs.model,
             "messages": messages,
@@ -134,16 +141,20 @@ async def chat_manual(
             "tools": inputs.tools,
             "variables": inputs.variables,
             **overrides,
-        }
+        },
+        spec_type="ai.chat",
+        consumer="ai.chat",
+        metadata=inputs.metadata,
     )
+    config = UnifiedConfig.from_dict(held.config)
 
     completed = await execute_ai_request(
         config,
         max_iterations=inputs.max_iterations,
         max_retries_per_iteration=inputs.max_retries_per_iteration,
-        metadata=step_metadata(inputs.metadata, spec_type="ai.chat"),
+        metadata=held.metadata,
         mandate_key=WORKFLOW_STEP_INTELLIGENCE_MANDATE,
     )
     # Node Result System: a failed turn becomes a structured Failure
     # (code='ai_turn_failed', billed usage in details) instead of a raise.
-    return normalize_completed_result(completed)
+    return await asyncio.to_thread(normalize_completed_result, completed)

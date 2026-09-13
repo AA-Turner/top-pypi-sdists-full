@@ -24,6 +24,9 @@ from matrx_ai.providers.outbound_capture import (
     stamp_call_meta,
 )
 from matrx_ai.providers.reasoning import emit_complete_reasoning_block
+from matrx_ai.providers.reasoning_stream_state import (
+    reset_reasoning_state,
+)
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
@@ -51,9 +54,11 @@ class XAIChat:
         self.endpoint_name = "[XAI CHAT]"
         self.translator = XAITranslator(debug=debug)
         self.debug = debug
-        # Tracks whether we've emitted the content-less "reasoning started"
-        # signal for the current stream but not yet "stopped".
-        self._reasoning_signaled = False
+        # 🚨 NO PER-STREAM STATE ON `self` — this object is memoized
+        # process-wide (unified_client._provider_client_cache) and parses every
+        # concurrent turn at once. Whether the content-less "reasoning started"
+        # signal is outstanding lives per STREAM in
+        # providers/reasoning_stream_state.py, keyed on that stream's emitter.
 
         if DEBUG_OVERRIDE:
             self.debug = True
@@ -378,7 +383,7 @@ class XAIChat:
         vcprint("[xAI] Starting API call (streaming)...", color="cyan")
 
         final_response = None
-        self._reasoning_signaled = False
+        reasoning_state = reset_reasoning_state(emitter)
         try:
             async for response, chunk in chat.stream():
                 final_response = response
@@ -389,14 +394,14 @@ class XAIChat:
                 # only live evidence xAI gives that the model is thinking. A
                 # no-op on non-reasoning models (reasoning_content stays empty).
                 reasoning = getattr(response, "reasoning_content", None)
-                if reasoning and not self._reasoning_signaled:
-                    self._reasoning_signaled = True
+                if reasoning and not reasoning_state.signaled:
+                    reasoning_state.signaled = True
                     await emitter.send_reasoning_state("started")
                 delta = chunk.content
                 if delta:
                     # First answer token — reasoning is over.
-                    if self._reasoning_signaled:
-                        self._reasoning_signaled = False
+                    if reasoning_state.signaled:
+                        reasoning_state.signaled = False
                         await emitter.send_reasoning_state("stopped")
                     await emitter.send_chunk(delta)
                     await asyncio.sleep(0)
@@ -415,8 +420,8 @@ class XAIChat:
 
         # Safety net: close an outstanding reasoning signal (e.g. a turn that
         # reasoned then went straight to a tool call with no answer content).
-        if self._reasoning_signaled:
-            self._reasoning_signaled = False
+        if reasoning_state.signaled:
+            reasoning_state.signaled = False
             await emitter.send_reasoning_state("stopped")
 
         if final_response is None:

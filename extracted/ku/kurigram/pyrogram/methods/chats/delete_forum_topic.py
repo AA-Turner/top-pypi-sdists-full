@@ -16,18 +16,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Union
+from __future__ import annotations as _annotations
 
 import pyrogram
 from pyrogram import raw
 
 
 class DeleteForumTopic:
-    async def delete_forum_topic(
-        self: "pyrogram.Client",
-        chat_id: Union[int, str],
-        topic_id: int
-    ) -> bool:
+    async def delete_forum_topic(self: pyrogram.Client, chat_id: int | str, topic_id: int) -> bool:
         """Delete a forum topic.
 
         .. include:: /_includes/usable-by/users-bots.rst
@@ -49,8 +45,7 @@ class DeleteForumTopic:
         """
         await self.invoke(
             raw.functions.messages.DeleteTopicHistory(
-                peer=await self.resolve_peer(chat_id),
-                top_msg_id=topic_id
+                peer=await self.resolve_peer(chat_id), top_msg_id=topic_id
             )
         )
 

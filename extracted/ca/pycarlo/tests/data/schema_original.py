@@ -14597,7 +14597,9 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     """
 
     chunk_char_size = sgqlc.types.Field(Int, graphql_name="chunkCharSize")
-    """Chunk size used for full message retrieval. Defaults to 16000."""
+    """Chunk size used for full message retrieval. Defaults to 16000;
+    capped at 200000 characters.
+    """
 
     include_internal_steps = sgqlc.types.Field(Boolean, graphql_name="includeInternalSteps")
     """Whether to include internal step summaries in the response.

@@ -14,7 +14,7 @@
 #   LIBSSH2_VERSION=<Version> - Build the given version of libssh2
 #   LIBGIT2_VERSION=<Version> - Build the given version of libgit2
 #   OPENSSL_VERSION=<Version> - Build the given version of OpenSSL
-#                               (only needed for Mac universal on CI)
+#                               (used on Linux and macOS CI builds)
 #
 # Examples.
 #
@@ -22,14 +22,14 @@
 #
 #   sh build.sh
 #
-# Build libgit2 1.9.6 (will use libssh2 if available), then build pygit2
+# Build libgit2 1.9.7 (will use libssh2 if available), then build pygit2
 # inplace:
 #
-#   LIBGIT2_VERSION=1.9.6 sh build.sh
+#   LIBGIT2_VERSION=1.9.7 sh build.sh
 #
-# Build libssh2 1.11.1 and libgit2 1.9.6, then build pygit2 inplace:
+# Build libssh2 1.11.1 and libgit2 1.9.7, then build pygit2 inplace:
 #
-#   LIBSSH2_VERSION=1.11.1 LIBGIT2_VERSION=1.9.6 sh build.sh
+#   LIBSSH2_VERSION=1.11.1 LIBGIT2_VERSION=1.9.7 sh build.sh
 #
 # Build inplace and run the tests:
 #
@@ -82,8 +82,20 @@ if [ "$CIBUILDWHEEL" = "1" ]; then
             apk add --no-cache perl
         fi
     fi
-    rm -rf ci
-    mkdir ci || true
+
+    # Use cached dependencies if they match the requested versions.
+    if [ -f ci/versions.txt ] && \
+       grep -q "^LIBGIT2_VERSION=$LIBGIT2_VERSION$" ci/versions.txt && \
+       grep -q "^LIBSSH2_VERSION=$LIBSSH2_VERSION$" ci/versions.txt && \
+       grep -q "^OPENSSL_VERSION=$OPENSSL_VERSION$" ci/versions.txt; then
+        echo "Using cached dependencies"
+        exit 0
+    fi
+
+    # The ci directory may be a bind-mount (e.g. inside cibuildwheel), so
+    # remove its contents but keep the directory itself.
+    rm -rf ci/* ci/.[!.]* ci/..?* 2>/dev/null || true
+    mkdir -p ci
     cd ci
 else
     # Create a virtual environment
@@ -110,31 +122,24 @@ if [ -n "$OPENSSL_VERSION" ]; then
     wget https://www.openssl.org/source/$FILENAME.tar.gz -N --no-check-certificate
 
     if [ "$KERNEL" = "Darwin" ]; then
+        # Build OpenSSL for the host architecture only.
         tar xf $FILENAME.tar.gz
-        mv $FILENAME openssl-x86
-
-        tar xf $FILENAME.tar.gz
-        mv $FILENAME openssl-arm
-
-        cd openssl-x86
-        ./Configure darwin64-x86_64-cc shared
+        cd $FILENAME
+        if [ "$ARCH" = "arm64" ]; then
+            ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm shared --prefix=$PREFIX --libdir=$PREFIX/lib
+        else
+            ./Configure darwin64-x86_64-cc shared --prefix=$PREFIX --libdir=$PREFIX/lib
+        fi
         make
-        cd ../openssl-arm
-        ./Configure enable-rc5 zlib darwin64-arm64-cc no-asm
-        make
-        cd ..
-
-        mkdir openssl-universal
-
-        LIBSSL=$(basename openssl-x86/libssl.*.dylib)
-        lipo -create openssl-x86/libssl.*.dylib openssl-arm/libssl.*.dylib -output openssl-universal/$LIBSSL
-        LIBCRYPTO=$(basename openssl-x86/libcrypto.*.dylib)
-        lipo -create openssl-x86/libcrypto.*.dylib openssl-arm/libcrypto.*.dylib -output openssl-universal/$LIBCRYPTO
-        cd openssl-universal
-        install_name_tool -id "@rpath/$LIBSSL" $LIBSSL
-        install_name_tool -id "@rpath/$LIBCRYPTO" $LIBCRYPTO
-        OPENSSL_PREFIX=$(pwd)
-        cd ..
+        make install
+        OPENSSL_PREFIX=$PREFIX
+        # Set install names so delocate can bundle the libraries.
+        cd $PREFIX/lib
+        LIBSSL=$(find . -maxdepth 1 -name 'libssl.*.dylib' -type f | head -n1 | sed 's|^\./||')
+        LIBCRYPTO=$(find . -maxdepth 1 -name 'libcrypto.*.dylib' -type f | head -n1 | sed 's|^\./||')
+        install_name_tool -id "@rpath/$LIBSSL" "$LIBSSL"
+        install_name_tool -id "@rpath/$LIBCRYPTO" "$LIBCRYPTO"
+        cd ../..
     else
         # Linux
         tar xf $FILENAME.tar.gz
@@ -154,14 +159,11 @@ if [ -n "$LIBSSH2_VERSION" ]; then
     tar xf $FILENAME.tar.gz
     cd $FILENAME
     if [ "$KERNEL" = "Darwin" ] && [ "$CIBUILDWHEEL" = "1" ]; then
-        cmake . \
+        CMAKE_PREFIX_PATH=$PREFIX cmake . \
                 -DCMAKE_INSTALL_PREFIX=$PREFIX \
                 -DBUILD_SHARED_LIBS=ON \
                 -DBUILD_EXAMPLES=OFF \
-                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-                -DOPENSSL_CRYPTO_LIBRARY="../openssl-universal/$LIBCRYPTO" \
-                -DOPENSSL_SSL_LIBRARY="../openssl-universal/$LIBSSL" \
-                -DOPENSSL_INCLUDE_DIR="../openssl-x86/include" \
+                -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
                 -DBUILD_TESTING=OFF
     else
         cmake . \
@@ -186,14 +188,11 @@ if [ -n "$LIBGIT2_VERSION" ]; then
     mkdir -p build
     cd build
     if [ "$KERNEL" = "Darwin" ] && [ "$CIBUILDWHEEL" = "1" ]; then
-        CMAKE_PREFIX_PATH=$OPENSSL_PREFIX:$PREFIX cmake .. \
+        CMAKE_PREFIX_PATH=$PREFIX cmake .. \
                 -DBUILD_SHARED_LIBS=ON \
                 -DBUILD_TESTS=OFF \
                 -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-                -DOPENSSL_CRYPTO_LIBRARY="../openssl-universal/$LIBCRYPTO" \
-                -DOPENSSL_SSL_LIBRARY="../openssl-universal/$LIBSSL" \
-                -DOPENSSL_INCLUDE_DIR="../openssl-x86/include" \
+                -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
                 -DCMAKE_INSTALL_PREFIX=$PREFIX \
                 -DUSE_SSH=$USE_SSH
     else
@@ -212,9 +211,13 @@ if [ -n "$LIBGIT2_VERSION" ]; then
 fi
 
 if [ "$CIBUILDWHEEL" = "1" ]; then
+    # Record versions so the cache can be reused.
+    cat > $PREFIX/versions.txt <<EOF
+LIBGIT2_VERSION=$LIBGIT2_VERSION
+LIBSSH2_VERSION=$LIBSSH2_VERSION
+OPENSSL_VERSION=$OPENSSL_VERSION
+EOF
     if [ "$KERNEL" = "Darwin" ]; then
-        cp $OPENSSL_PREFIX/*.dylib $PREFIX/lib/
-        cp $OPENSSL_PREFIX/*.dylib $PREFIX/lib/
         echo "PREFIX        " $PREFIX
         echo "OPENSSL_PREFIX" $OPENSSL_PREFIX
         ls -l $PREFIX

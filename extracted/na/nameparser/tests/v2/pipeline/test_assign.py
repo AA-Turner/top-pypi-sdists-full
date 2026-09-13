@@ -14,6 +14,16 @@ from nameparser._policy import (
 )
 from nameparser._types import AmbiguityKind, Role
 
+#: The three read orders and the role a lone name word takes under
+#: each, shared by every parametrized case below that asks the same
+#: question of all three: the default (None, given-first), and the two
+#: declared family-first orders.
+_ORDERS = [
+    (None, "given"),
+    (Policy(name_order=FAMILY_FIRST), "family"),
+    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "family"),
+]
+
 _LEX = Lexicon(
     titles=frozenset({"dr", "mr", "mrs", "sir", "sr"}),
     given_name_titles=frozenset({"sir"}),
@@ -83,11 +93,7 @@ def test_leading_ambiguous_particle_reads_as_given_with_ambiguity() -> None:
     assert not _assigned("John Smith").ambiguities
 
 
-@pytest.mark.parametrize("policy,role", [
-    (None, "given"),
-    (Policy(name_order=FAMILY_FIRST), "family"),
-    (Policy(name_order=FAMILY_FIRST_GIVEN_LAST), "family"),
-])
+@pytest.mark.parametrize("policy,role", _ORDERS)
 def test_leading_particle_detail_names_the_role_it_took(
         policy: Policy | None, role: str) -> None:
     # The fork is the same under every order -- particle or name --
@@ -102,6 +108,37 @@ def test_leading_particle_detail_names_the_role_it_took(
     assert amb.detail == (
         f"leading 'Van' may be a family-name particle; "
         f"read as a {role} name")
+
+
+@pytest.mark.parametrize("policy,role", _ORDERS)
+@pytest.mark.parametrize("text,kind,detail", [
+    ("Andrew", AmbiguityKind.GIVEN_OR_FAMILY,
+     "'Andrew' is the only name word and nothing else decides it; "
+     "read as a {role} name by convention, which follows the read order"),
+    ("Rinpoche", AmbiguityKind.SUFFIX_OR_NAME,
+     "'Rinpoche' is post-nominal vocabulary with no name word beside "
+     "it; read as a {role} name rather than a post-nominal, nothing "
+     "else being left to be the name"),
+    ("John of Prince", AmbiguityKind.TITLE_OR_NAME,
+     "'John of Prince' is the only name unit and joins title "
+     "vocabulary to a name word; read as a {role} name by convention"),
+])
+def test_convention_details_name_the_role_the_assignment_took(
+        text: str, kind: AmbiguityKind, detail: str,
+        policy: Policy | None, role: str) -> None:
+    # The three conventions this site reports all place a lone name
+    # word, and all three details have to READ the field back off the
+    # token rather than hardcode "given": the field follows the read
+    # order, which is why none of the three kinds names it. The
+    # PARTICLE_OR_GIVEN test above is the precedent, and these are the
+    # only other details at this site that name a field -- H4's PEEL
+    # shape ("Lord Chancellor") deliberately names none, because H1
+    # retags that word after assign under the default order.
+    lex = _LEX.add(suffix_words={"rinpoche"}, conjunctions={"of"},
+                   titles={"prince"})
+    (amb,) = _assigned(text, policy, lexicon=lex).ambiguities
+    assert amb.kind is kind
+    assert amb.detail == detail.format(role=role)
 
 
 def test_leading_particle_detail_follows_the_effective_order() -> None:
@@ -173,6 +210,131 @@ def test_trailing_suffix_run_no_comma() -> None:
     assert _by_role(out, Role.MIDDLE) == "Jack"
     assert _by_role(out, Role.FAMILY) == "Kennedy"
     assert _by_role(out, Role.SUFFIX) == "PhD MD"
+
+
+def test_trailing_title_run_is_set_before_the_positional_read() -> None:
+    """The walk shortens the name-piece list, and does it early.
+
+    Two TITLE tokens from opposite ends of the input, and the piece
+    between them read as the family name -- which is only true if the
+    walk ran before _name_positions did. `order` is the default
+    because the positional read still happened: the walk removes
+    pieces from it, it does not replace it.
+    """
+    out = _assigned("Dr. John Smith Mr.")
+    assert _by_role(out, Role.TITLE) == "Dr. Mr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert out.order == Policy().name_order
+
+
+def test_the_suffix_peel_runs_over_the_pieces_the_walk_left() -> None:
+    """The trailing title can stand BEHIND a suffix word.
+
+    'Mr.' stopped the first peel, so a single pass would have left
+    'Jr.' as the last name piece and made a generational suffix the
+    family name. The first peel is provisional: the walk's piece is
+    spliced out and the peel runs over what stands, reading 'Jr.' as
+    the suffix it is.
+    """
+    out = _assigned("John Smith Jr. Mr.")
+    assert _by_role(out, Role.TITLE) == "Mr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.SUFFIX) == "Jr."
+
+
+def test_the_trailing_title_is_transparent_to_the_suffix_peel() -> None:
+    """The principle the provisional peel serves.
+
+    'X Mr. Y' reads exactly as 'X Y' reads, plus the title -- so the
+    peel decides over the pieces with the title spliced OUT, in
+    original order, rather than over the two halves separately. Both
+    readings below are what the same input without 'Mr.' gives: the
+    reserve keeps a bare ambiguous acronym the family of a two-word
+    name, and takes it as a credential when a full name remains.
+    """
+    lex = _LEX.add(suffix_acronyms={"ma"},
+                   suffix_acronyms_ambiguous={"ma"})
+    out = _assigned("John Mr. MA", lexicon=lex)
+    assert _by_role(out, Role.TITLE) == "Mr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "MA"
+    assert not _by_role(out, Role.SUFFIX)
+    out = _assigned("John Smith Mr. MA", lexicon=lex)
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert _by_role(out, Role.SUFFIX) == "MA"
+
+
+def test_the_walk_reports_only_the_peel_that_decided() -> None:
+    """One peel decides, so one peel reports.
+
+    The numeral fork reads the piece before the numeral. Over the
+    input as written that piece is 'Mr.' and 'VI' is taken; over the
+    spliced pieces it is 'V', an initial shape, and the fork declines
+    -- which is the answer 'John Smith V VI' gets, with no report.
+    Reporting from the provisional peel as well said suffix 'V VI'
+    and reported the fork twice.
+    """
+    out = _assigned("John Smith V Mr. VI")
+    assert _by_role(out, Role.TITLE) == "Mr."
+    assert _by_role(out, Role.MIDDLE) == "Smith V"
+    assert _by_role(out, Role.FAMILY) == "VI"
+    assert not _by_role(out, Role.SUFFIX)
+    assert not out.ambiguities
+
+
+def test_the_family_comma_walk_reads_past_its_own_suffix_tail() -> None:
+    """Segment 1's candidates are what its walk does not read as a
+    suffix -- the strict test AND the lenient one (#144).
+
+    'V' after the comma is this segment's suffix, so the title behind
+    it is still the trailing piece; and with the two words swapped
+    'V' is where the name ends once the walk has taken the title, so
+    the lenient test still reaches it. Both are 'Smith, John V' plus
+    a title.
+    """
+    for text in ("Smith, John Mr. V", "Smith, John V Mr."):
+        out = _assigned(text)
+        assert _by_role(out, Role.TITLE) == "Mr.", text
+        assert _by_role(out, Role.GIVEN) == "John", text
+        assert _by_role(out, Role.FAMILY) == "Smith", text
+        assert _by_role(out, Role.SUFFIX) == "V", text
+        assert not _by_role(out, Role.MIDDLE), text
+
+
+def test_trailing_title_run_after_a_family_comma() -> None:
+    """The same rule on segment 1's own walk.
+
+    A name word after the comma keeps the no-name gate from reading
+    the segment as a credential run, so this shape had no route to
+    TITLE at all and read the word as a middle name.
+    """
+    out = _assigned("Smith, John Mr.")
+    assert _by_role(out, Role.TITLE) == "Mr."
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+    assert not _by_role(out, Role.MIDDLE)
+
+
+def test_the_trailing_title_is_taken_before_the_script_order_resolves(
+) -> None:
+    """The other half of "set BEFORE _name_positions".
+
+    The sibling above pins that the walk shortens the piece list in
+    time for the POSITIONAL read. This pins it for the SCRIPT read,
+    which is the reason the placement was chosen: a Latin title at
+    the back of a wholly-Han name is the one piece that would make
+    the piece set look mixed-script, and a mixed set declines the
+    script order. Taken first, the pieces the script test sees are
+    all Han and the Han order stands -- family '毛', given '泽东',
+    which is not what the default order would have given.
+    """
+    out = _assigned("毛 泽东 Dr.")
+    assert _by_role(out, Role.TITLE) == "Dr."
+    assert _by_role(out, Role.FAMILY) == "毛"
+    assert _by_role(out, Role.GIVEN) == "泽东"
+    assert out.order != Policy().name_order
 
 
 def test_initial_veto_keeps_v_in_middle() -> None:

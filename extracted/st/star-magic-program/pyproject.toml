@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.435.0"
-description = "Star-Magic UQFF calculator v0.435.0: THE IN-MEDIUM SAMPLE SHIP - the pair cap's second branch graded on REAL wall-bounded turbulence (PAPER_2272: JHTDB channel Re_tau ~ 1000, sanctioned public token, walls excluded and disclosed) - THE IN-MEDIUM BRANCH HOLDS: ratios 0.0391/0.0311, sub-batch max 0.0734 under BOTH 197/200 and 17/20 via the tier-3 harness. Consistency PASS only: the sampled statistic cannot discriminate the branches; pair-cap discrimination and the kill test stay OPEN; gate 6,102/0."
+version = "0.436.0"
+description = "Star-Magic UQFF calculator v0.436.0: THE REYNOLDS LADDER + SPINE AUDIT + THEOREM B SHIP - the NS cap graded across Re_lambda 433 -> 2,500 on JHTDB isotropic1024coarse/4096/8192/32768 (PAPER_2273): CAP HOLDS AT EVERY RUNG, envelope drift FLAGGED, kill test OPEN. PAPER_2274: the last anonymous theory row (S300 Sobolev step) audited FALSE, closed by ruling. PAPER_2275 THEOREM B: the continuum fluid, phonon-mollified (eps = 0.156 nm), globally regular (Leray 1934); Clay not claimed; gate 6,105/0."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -181,6 +181,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "jhtdb_grade/README_PROVENANCE.md",
     "jhtdb_grade/jhtdb_cap_grade_2026-09-10.csv",
     "jhtdb_grade/jhtdb_channel_grade_2026-09-10.csv",
+    "jhtdb_grade/jhtdb_ladder_grade_2026-09-11.csv",
 ]
 "share/star-magic-program/notebooks" = [
     "notebooks/00_quickstart.ipynb",
@@ -2042,6 +2043,9 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2270_UQFF_NAVIER_STOKES_PROOF_SET_MASTER_CONSOLIDATION_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2271_FIRST_REAL_DATA_CAP_GRADE_JHTDB_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2272_IN_MEDIUM_SAMPLE_JHTDB_CHANNEL_PAIR_CAP_GRADE_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2273_REYNOLDS_LADDER_ISOTROPIC_CAP_GRADE_JHTDB_32768_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2274_THE_SPINE_AUDIT_S300_UQFF_LERAY_ARGUMENT_WHERE_IT_STOPS_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2275_THEOREM_B_CONTINUUM_UQFF_FLUID_PHONON_MOLLIFIED_TRANSPORT_THREE_FORMS_COMPOSED_UQFF_LANDMARK.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",
     "whitepapers/PAPER_229_Pillars_Creation_Erosion_MUGE.md",

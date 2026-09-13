@@ -93,6 +93,28 @@ SUFFIX_WORDS = frozenset({
     'さま',      # ja the kana spelling of 様
     'くん',      # ja the kana spelling of 君
     'ちゃん',    # ja familiar/diminutive
+    # #346/#344/#343: spaced trailing honorifics, South Asian and
+    # Tibetan. SPACED ONLY -- none of these is in GLUED_HONORIFICS
+    # below, and none may be added to it. जी is the reason and the
+    # reason generalizes: Banerjee, Mukherjee and Chatterjee are
+    # written बनर्जी, मुखर्जी, चटर्जी, so a glued peel would strand a
+    # fragment on a bare virama (बनर् + जी) -- the 殿 criterion in a
+    # non-CJK script. गांधीजी therefore stays unpeeled, which is the
+    # accepted trade (decisions.md#indic-honorifics).
+    # NOTE the leading/trailing split across the two scripts, which is
+    # real and must not be "harmonized": Devanagari बाबू is a LEADING
+    # honorific -- a TITLES entry (#344), not a suffix -- while Bengali
+    # বাবু is TRAILING (অমল বাবু). Different codepoints, so the two
+    # entries cannot interact.
+    'rinpoche',  # bo postpositional (Sogyal Rinpoche, Lama Zopa Rinpoche)
+    'जी',        # hi/mr the universal respect particle (मोदी जी)
+    'साहब',      # hi Sahib
+    'साहिब',     # hi/pa the Sahib spelling with the i-matra
+    'साहेब',     # mr the Marathi Saheb spelling
+    'महाराज',    # hi Maharaj, trailing; the leading महाराजा is a TITLES entry (#344)
+    'সাহেব',     # bn Saheb (রহমান সাহেব)
+    'বাবু',      # bn Babu -- TRAILING; see the note above
+    'মহারাজ',    # bn Maharaj
 })
 """
 
@@ -107,12 +129,14 @@ suffix if ANY chunk is suffix vocabulary -- and the chunk "i" is the Roman
 numeral listed above.
 So membership here is not the last word on a dotted token; the sentence is
 about this set's lookup alone. :data:`SUFFIX_ACRONYMS` is the set matched
-with every period removed, so it alone covers the multi-dot spelling
-"E.S.Q." -- and, having no interior period to lose, "Esq" as well. 'esq'
-is listed here too (v1 data): inert against the shipped acronym set, since
-dropping it changes no parse, but what keeps "Esq" matching for a caller
-who removes it from :data:`SUFFIX_ACRONYMS`. That is why the two sets are
-deliberately not asserted disjoint -- see the guard block at the bottom.
+with every period removed, so it alone covers a multi-dot spelling: both
+"P.H.D." and the bare "PhD" reach its `phd` entry, the two normalizing to
+the same string once the periods come off. The two sets are asserted
+DISJOINT (see the guard block at the bottom): a post-nominal belongs to
+one of them or the other, and which one holds it is what decides whether
+its multi-dot spelling reaches a whole-token lookup at all --
+``period_joined_vocab`` may still claim the token chunk by chunk, as the
+"J.u.n.i.o.r." example above shows.
 
 """
 GLUED_HONORIFICS = frozenset({
@@ -158,6 +182,11 @@ on -- these entries are recognized in the SPACED position only:
   (Madono) with four-figure populations, so peeling it would cut a real
   family name in two. Spaced 殿 is safe for the reason 양/군 are: a
   殿-surnamed person's name LEADS, and the suffix gate is trailing-only.
+* The Indic trailing set (जी, साहब, साहिब, साहेब, महाराज, সাহেব, বাবু,
+  মহারাজ) and Latin rinpoche are spaced-only for the same reason 殿 is:
+  जी ends Banerjee/Mukherjee/Chatterjee (बनर्जी, मुखर्जी, चटर्जी) and a
+  glued peel would strand बनर् on a bare virama. The criterion is not
+  CJK-specific, which is the point (decisions.md#indic-honorifics).
 
 Three more are in NEITHER set, so neither spelling is recognized. 君: 王君 is
 a complete Chinese name (君 is a common given-name final), so the honorific
@@ -186,6 +215,40 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # suffix only when written with periods ('M.A.' yes, 'Ma' no), so
     # 'Jack Ma' keeps its family name.
     #
+    # The other half of the criterion, added 2026-09-07 with #342.
+    # Being borne at all is only the entry ticket; what decides among
+    # the three answers is a comparison of FREQUENCIES -- how common
+    # the word is as a borne name in the TRAILING position against how
+    # common it is as a credential. Roughly balanced earns the marking
+    # here, and the parse reports the fork: 'ba' is the entry that
+    # earned it that day, BA being a common credential and Ba a real
+    # surname (Vietnamese; Senegalese Fula) about as common as the
+    # credential, which is the ma/Ma shape exactly. Where the NAME
+    # reading dominates, the entry is REMOVED from SUFFIX_ACRONYMS
+    # instead of marked: 'rai' and 'cha' left the set that day, both
+    # far more common as surnames than their credentials are as
+    # credentials (RAI is "RETA Authorized Instructor", CHA is
+    # Certified Hotel Administrator or Certified Healthcare Auditor,
+    # both tenuous or specialized; Rai is a common surname across
+    # Hindi- and Bengali-speaking regions and Cha the Korean 차).
+    # Where the CREDENTIAL dominates, the entry stays unambiguous.
+    # LENGTH is a correlate and not the test -- a short acronym is
+    # more often a common credential AND more often a name -- so do
+    # not read the letter counts here as a rule.
+    #
+    # Removal takes the DOTTED spelling with it too, except by
+    # accident: "John Smith R.A.I." still reads suffix 'R.A.I.' only
+    # because rules.md#S3 splits an interior-period token on its
+    # periods and the chunk 'i' happens to be a Roman numeral in
+    # SUFFIX_WORDS. "John Smith R.A.X." reads family, and so does
+    # "John Smith C.H.A." after the removal. Do not count on a dotted
+    # spelling surviving a removal. A caller who needs an entry back
+    # adds it -- Lexicon.default().add(suffix_acronyms={"cha"}) --
+    # which is the answer this library gives for every
+    # locale-specific vocabulary. The cost is stated and accepted:
+    # with the entry gone, "John Smith RAI" reads family 'RAI'. See
+    # decisions.md#suffix-acronym-collisions.
+    #
     # NOT 'ms' or 'sa', though #296's audit table put them here for the
     # leading-title collision (bare "Ms" the honorific, "M.S." the
     # degree): the gate is position-blind and the collision is not.
@@ -194,6 +257,15 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # and read as a credential anyway. Both words are genuine duals --
     # title and unambiguous suffix -- and position decides, as for
     # 'sr' and 'lt' (decisions.md#C1).
+    #
+    # NOT 'se' or 'om' either, weighed 2026-09-07 with #342 and left
+    # alone: no surname evidence worth standing behind, and OM is the
+    # Order of Merit. And NOT 'mc' or 'vd', which are also PARTICLES:
+    # #454 closed by design -- neither is a borne name, so a bare
+    # trailing one is the decoration, and rules.md#P6's Accepted
+    # clause names them as the two words whose positional reading
+    # does not hold.
+    'ba',
     'do',
     'ed',
     'jd',
@@ -360,8 +432,6 @@ SUFFIX_ACRONYMS = frozenset({
     'cgr',
     'cgsp',
     'ch',
-    'ch',
-    'cha',
     'chba',
     'chdm',
     'che',
@@ -535,14 +605,6 @@ SUFFIX_ACRONYMS = frozenset({
     'emt-p',
     'enp',
     'erd',
-    # The load-bearing membership: the acronym test strips every
-    # period, so this entry is the only thing matching the multi-dot
-    # spelling, and removing it costs the family name ("John Smith
-    # E.S.Q." -> family='E.S.Q.'). 'esq' is in SUFFIX_WORDS as well,
-    # which against this set is inert -- "Esq" has no interior period,
-    # so it matches here too -- but that is not a duplicate to clean
-    # up: it is what still matches "Esq" if this entry ever goes.
-    'esq',
     'evp',
     'faafp',
     'faan',
@@ -780,7 +842,6 @@ SUFFIX_ACRONYMS = frozenset({
     'qsd',
     'qsp',
     'ra',
-    'rai',
     'rba',
     'rci',
     'rcp',
@@ -862,25 +923,28 @@ when matching against these pieces.
 # construction, which is what protects a caller's own vocabulary.
 assert SUFFIX_ACRONYMS_AMBIGUOUS <= SUFFIX_ACRONYMS, \
     "SUFFIX_ACRONYMS_AMBIGUOUS must stay a subset of SUFFIX_ACRONYMS"
-# NOT asserted: disjointness of SUFFIX_ACRONYMS and SUFFIX_WORDS.
-# The two are matched with different normalization -- the word test strips
-# only edge periods, the acronym test strips all of them -- and no
-# SUFFIX_WORDS entry carries an interior period, so for a word in both
-# sets the acronym branch fires wherever the word branch does (the assert
-# just below keeps such a word out of the period-gated ambiguous subset).
-# The single overlap, 'esq', is therefore inert as shipped rather than a
-# second spelling: SUFFIX_ACRONYMS covers "E.S.Q." AND "Esq", and dropping
-# 'esq' from SUFFIX_WORDS changes no parse. It stays because these sets
-# are caller-editable -- it is what still matches "Esq" once 'esq' leaves
-# SUFFIX_ACRONYMS -- and an inert overlap is not worth an assert that
-# would reject a working config.
-# DO assert that an ambiguous acronym is not also a plain suffix word:
-# suffix_as_written ORs the two branches, so the word membership would
-# bypass the period gate the ambiguous set exists to impose.
-assert not (SUFFIX_ACRONYMS_AMBIGUOUS & SUFFIX_WORDS), \
-    "an ambiguous acronym must not also be a suffix word (the word " \
-    "branch bypasses its period gate): " \
-    f"{sorted(SUFFIX_ACRONYMS_AMBIGUOUS & SUFFIX_WORDS)}"
+# The two sets normalize differently -- the word test strips only edge
+# periods, the acronym test strips all of them -- so a word in both is
+# matched twice by two rules, and which one fired is unreadable from the
+# outside. The single overlap was 'esq', dropped 2026-09-08
+# (decisions.md#suffix-acronym-collisions), and the assert is what keeps
+# a bulk import from quietly re-creating one. It guards the SHIPPED sets
+# only: Lexicon has no matching invariant, so a caller who wants the
+# overlap in their own vocabulary may still have it.
+#
+# It carries the AMBIGUOUS set's stake too, which is the sharper one:
+# suffix_as_written ORs the word branch and the acronym branch, so an
+# ambiguous acronym that were also a suffix word would be claimed
+# through the word membership and bypass the period gate the ambiguous
+# set exists to impose. The ambiguous set is a subset of the acronyms
+# (the assert above), so this one covers it -- a separate assert of
+# `SUFFIX_ACRONYMS_AMBIGUOUS & SUFFIX_WORDS` cannot fail while both of
+# these hold.
+assert not (SUFFIX_ACRONYMS & SUFFIX_WORDS), \
+    "a post-nominal belongs to one set or the other, never both (the " \
+    "two normalize differently, and the word branch would bypass an " \
+    "ambiguous acronym's period gate): " \
+    f"{sorted(SUFFIX_ACRONYMS & SUFFIX_WORDS)}"
 # The peel splits its tail off as a TOKEN and suffix classification is
 # what claims it downstream, so a tail that is not also a suffix word
 # would split the name and then leave the piece sitting in it. The

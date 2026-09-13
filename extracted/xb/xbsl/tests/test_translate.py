@@ -601,7 +601,7 @@ def test_a_renamed_source_leaves_an_orphan_that_clean_takes_out(tmp_path: Path, 
     assert len(written("percent.svg")) == 1 and len(written("percent-sign.svg")) == 1
 
     assert _cli([*argv, "--clean"]) == 0
-    assert "убрано остатков прошлого прогона: 1" in capsys.readouterr().out
+    assert "убрано остатков прошлого запуска: 1" in capsys.readouterr().out
     assert written("percent.svg") == []
     assert len(written("percent-sign.svg")) == 1
 
@@ -680,7 +680,7 @@ def test_a_clean_says_which_leftovers_it_took_out(tmp_path: Path, capsys):
     assert _cli([*argv, "--clean"]) == 0
 
     said = capsys.readouterr().out
-    assert "убрано остатков прошлого прогона: 1" in said and "Забытый.yaml" in said
+    assert "убрано остатков прошлого запуска: 1" in said and "Забытый.yaml" in said
 
 
 def test_a_dry_run_names_the_leftovers_and_takes_nothing_out(tmp_path: Path, capsys):
@@ -700,8 +700,8 @@ def test_a_dry_run_names_the_leftovers_and_takes_nothing_out(tmp_path: Path, cap
     assert _cli([*argv, "--clean", "--dry-run"]) == 0
 
     said = capsys.readouterr().out
-    assert "СУХОЙ ПРОГОН" in said and "Забытый.yaml" in said
-    assert "будет убрано остатков прошлого прогона: 1" in said
+    assert "Пробный запуск" in said and "Забытый.yaml" in said
+    assert "будет убрано остатков прошлого запуска: 1" in said
     assert orphan.is_file()  # named, not taken
 
     assert _cli([*argv, "--clean"]) == 0
@@ -762,6 +762,46 @@ def test_a_dry_run_without_out_is_refused(tmp_path: Path, capsys):
     code = _cli([str(root), "--dictionary", str(dictionary), "--lang", "ru", "--dry-run"])
 
     assert code == 2 and "--dry-run" in capsys.readouterr().err
+
+
+def test_a_table_mode_refuses_the_flags_of_the_writing_pass(tmp_path: Path, capsys):
+    """Asked to show what a run would do, the table modes used to answer with a table.
+
+    `--gaps` and its neighbours never reach the writing pass, so `--out`, `--clean`,
+    `--dry-run` and `--missing` had nothing to act on - and were taken without a word. The
+    refusal names the mode, the flags it cannot read, and the run that does write the tree.
+    """
+    root, dictionary = _project_and_dictionary(tmp_path)
+    argv = [str(root), "--dictionary", str(dictionary), "--lang", "en"]
+
+    code = _cli([*argv, "--gaps", "--out", str(tmp_path / "out"), "--dry-run"])
+
+    said = capsys.readouterr().out
+    assert code == 2
+    assert "--gaps" in said and "--out" in said and "--dry-run" in said
+    assert not (tmp_path / "out").exists()
+
+
+def test_every_table_mode_answers_for_the_flags_it_cannot_honor(tmp_path: Path, capsys):
+    """One mode fixed and the rest left silent is how this came about in the first place."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    argv = [str(root), "--dictionary", str(dictionary), "--lang", "en"]
+
+    for mode in ("--gaps", "--entries", "--table", "--unused", "--redundant", "--suggest"):
+        assert _cli([*argv, mode, "--missing", str(tmp_path / "stub.yaml")]) == 2
+        assert mode in capsys.readouterr().out
+    assert not (tmp_path / "stub.yaml").exists()
+
+
+def test_the_writing_pass_still_takes_those_flags(tmp_path: Path, capsys):
+    """The refusal is about the table modes alone - the run that writes the tree is untouched."""
+    root, dictionary = _project_and_dictionary(tmp_path)
+    out = tmp_path / "out"
+
+    code = _cli([str(root), "--dictionary", str(dictionary), "--lang", "en",
+                 "--out", str(out), "--clean", "--dry-run"])
+
+    assert code == 0 and "dry run" in capsys.readouterr().out.casefold()
 
 
 # --- the linter rule -----------------------------------------------------------------------------

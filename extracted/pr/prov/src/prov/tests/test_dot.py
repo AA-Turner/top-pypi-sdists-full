@@ -226,3 +226,64 @@ def test_quoted_label_escapes_double_quote():
 
     assert 'label="ex:e\\"1"' in dot_text
     assert len(dot.create(format="svg")) > 0
+
+
+def test_sub_minute_utc_offset_attribute_is_rendered_as_utc():
+    # xsd:dateTime allows no seconds in a timezone offset (#341 scope
+    # extension): the attribute-annotation label must show the UTC
+    # equivalent of a sub-minute offset, not the illegal offset text.
+    odd_offset = datetime.timezone(datetime.timedelta(seconds=30))
+    doc = ProvDocument()
+    doc.add_namespace("ex", "http://example.org/")
+    doc.activity(
+        "ex:a", startTime=datetime.datetime(2026, 9, 12, 10, 0, 30, tzinfo=odd_offset)
+    )
+
+    dot = prov_to_dot(doc)
+    dot_text = dot.to_string()
+
+    assert "2026-09-12T10:00:00+00:00" in dot_text
+    assert "+00:00:30" not in dot_text
+
+
+def test_unset_endpoint_is_drawn_to_a_blank_node_with_a_warning():
+    from prov.model import ProvWarning
+
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e1")
+    document.generation(entity="ex:e1", activity=None)
+    with pytest.warns(ProvWarning, match=r"Generation.*prov:activity") as record:
+        dot = prov_to_dot(document)
+    assert sum(issubclass(w.category, ProvWarning) for w in record) == 1
+    assert len(dot.get_edges()) == 1
+
+
+def test_unset_endpoint_inside_a_bundle_reports_the_prov_to_dot_call_site():
+    from prov.model import ProvWarning
+
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    bundle = document.bundle("ex:b")
+    bundle.entity("ex:e1")
+    bundle.generation(entity="ex:e1", activity=None)
+    with pytest.warns(ProvWarning, match=r"Generation.*prov:activity") as record:
+        prov_to_dot(document)
+    assert len(record) == 1
+    # The extra _add_bundle frame nested bundles add must not change which
+    # frame the warning is attributed to: still this test module, not a
+    # frame inside prov.dot.
+    assert record[0].filename == __file__
+
+
+def test_complete_relation_draws_without_warning():
+    import warnings
+
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.entity("ex:e1")
+    document.activity("ex:a1")
+    document.wasGeneratedBy("ex:e1", "ex:a1")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        prov_to_dot(document)

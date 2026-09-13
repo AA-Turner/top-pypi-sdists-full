@@ -33,8 +33,7 @@ from .element import FIRST_CHILD, Element, PropDef, register_element_class
 from .element_typed import ElementTyped
 
 if TYPE_CHECKING:
-    from datetime import datetime, timedelta
-    from decimal import Decimal
+    from .const import CellValue
 
 
 class UserFieldDeclMixin(Element):
@@ -65,7 +64,7 @@ class UserFieldDeclMixin(Element):
             are descendants of this element.
         """
         return cast(
-            list[UserFieldDecl],
+            "list[UserFieldDecl]",
             self._filtered_elements(
                 "descendant::text:user-field-decl",
             ),
@@ -85,7 +84,7 @@ class UserFieldDeclMixin(Element):
             declaration matches the criteria.
         """
         return cast(
-            UserFieldDecl | None,
+            "UserFieldDecl | None",
             self._filtered_element(
                 "descendant::text:user-field-decl", position, text_name=name
             ),
@@ -93,7 +92,7 @@ class UserFieldDeclMixin(Element):
 
     def get_user_field_value(
         self, name: str, value_type: str | None = None
-    ) -> bool | str | int | float | Decimal | datetime | timedelta | None:
+    ) -> CellValue | None:
         """Returns the value of the specified user field.
 
         Args:
@@ -111,8 +110,7 @@ class UserFieldDeclMixin(Element):
         user_field_decl = self.get_user_field_decl(name)
         if user_field_decl is None:
             return None
-        value = user_field_decl.get_value(value_type)
-        return value  # ty: ignore
+        return cast("CellValue | None", user_field_decl.get_value(value_type))
 
 
 class UserFieldDeclContMixin(UserFieldDeclMixin):
@@ -157,7 +155,7 @@ class UserFieldDeclContMixin(UserFieldDeclMixin):
             body.insert(Element.from_tag("text:user-field-decls"), FIRST_CHILD)
             user_field_decls = body.get_element("//text:user-field-decls")
 
-        return cast(UserFieldDecls, user_field_decls)
+        return cast("UserFieldDecls", user_field_decls)
 
 
 class UserFieldDecls(UserFieldDeclMixin):

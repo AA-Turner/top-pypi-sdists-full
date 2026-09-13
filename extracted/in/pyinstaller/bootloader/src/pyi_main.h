@@ -81,6 +81,21 @@ enum PYI_PROCESS_LEVEL
     PYI_PROCESS_LEVEL_SUBPROCESS = 2
 };
 
+/* Elevated privileges mode */
+enum PYI_ELEVATED_PRIVILEGES
+{
+    /* Regular mode without elevated privileges */
+    PYI_ELEVATED_PRIVILEGES_NONE = 0,
+    /* Elevation via UAC on Windows (i.e., running with TokenElevationTypeFull) */
+    PYI_ELEVATED_PRIVILEGES_UAC = 1,
+    /* Elevation via setuid (POSIX platforms) */
+    PYI_ELEVATED_PRIVILEGES_SETUID = 2,
+    /* Elevation via setgid (POSIX platforms) */
+    PYI_ELEVATED_PRIVILEGES_SETGID = 4,
+    /* Elevation via file capabilities (linux) */
+    PYI_ELEVATED_PRIVILEGES_FILE_CAPABILITIES = 8,
+};
+
 
 struct PYI_CONTEXT
 {
@@ -148,11 +163,17 @@ struct PYI_CONTEXT
      * environment variable. */
     unsigned char suppress_splash;
 
-    /* Flag indicating whether the executable has `setuid` bit set or
-     * not. Applicable only to POSIX platforms, where it is used to
-     * toggle additional security checks. On other platforms, the value
-     * is left at 0. */
-    unsigned char has_setuid;
+    /* Flag indicating that the executable is running with elevated
+     * privileges while inheriting environment variables set by
+     * unprivileged user. On POSIX platforms, this corresponds to
+     * executable having setuid bit set. On Windows, it corresponds
+     * to a process running with TokenElevationTypeFull. */
+    unsigned char has_elevated_privileges;
+
+    /* Flag indicating whether onefile parent-process verification
+     * is explicitly enabled, even for non-privileged executables.
+     * Mostly intended for testing purposes. */
+    unsigned char enable_onefile_parent_verification;
 
     /* Splash screen context structure. */
     struct SPLASH_CONTEXT *splash;

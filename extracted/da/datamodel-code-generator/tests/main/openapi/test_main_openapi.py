@@ -6763,16 +6763,32 @@ def test_main_custom_file_header_with_import(output_file: Path) -> None:
     )
 
 
-def test_main_custom_file_header_with_docstring_and_import(output_file: Path) -> None:
+@pytest.mark.parametrize("directory_input", [False, True])
+def test_main_custom_file_header_with_docstring_and_import(output_file: Path, directory_input: bool) -> None:
     """Test future import placement with docstring and imports in custom header."""
-    run_main_and_assert(
-        input_path=OPEN_API_DATA_PATH / "api.yaml",
-        output_path=output_file,
-        input_file_type=None,
-        assert_func=assert_file_content,
-        expected_file="custom_file_header_with_docstring_and_import.py",
-        extra_args=["--custom-file-header-path", str(DATA_PATH / "custom_file_header_with_docstring_and_import.txt")],
-    )
+    input_path = OPEN_API_DATA_PATH / "api.yaml"
+    if directory_input:
+        input_path = output_file.parent / "schemas"
+        input_path.mkdir()
+        shutil.copyfile(OPEN_API_DATA_PATH / "api.yaml", input_path / "api.yaml")
+        output_file = input_path
+    for _ in range(2):
+        run_main_and_assert(
+            input_path=input_path,
+            output_path=output_file,
+            input_file_type=None,
+            assert_func=assert_file_content,
+            expected_file="custom_file_header_with_docstring_and_import.py",
+            output_to_expected=[("api.py", "custom_file_header_with_docstring_and_import.py")]
+            if directory_input
+            else None,
+            extra_args=[
+                "--custom-file-header-path",
+                str(DATA_PATH / "custom_file_header_with_docstring_and_import.txt"),
+                # Keep helper-created config/parity outputs outside this repeated-input case.
+                *(["--formatters", "builtin"] if directory_input else []),
+            ],
+        )
 
 
 def test_main_custom_file_header_without_future_imports(output_file: Path) -> None:
@@ -6972,6 +6988,24 @@ def test_main_openapi_msgspec_use_annotated_with_field_constraints(output_file: 
         assert_func=assert_file_content,
         expected_file="msgspec_use_annotated_with_field_constraints.py",
         extra_args=["--field-constraints", "--target-python-version", "3.10", "--output-model-type", "msgspec.Struct"],
+    )
+
+    import msgspec
+
+    cases = json.loads((DATA_PATH / "payloads/openapi_msgspec_numeric_unions.json").read_text())
+    actual = []
+    with _generated_model(output_file, "openapi_msgspec_numeric_unions", "User") as model:
+        decoder = msgspec.json.Decoder(model)
+        for case in cases:
+            payload = json.dumps(case["input"])
+            if case["valid"]:
+                actual.append(msgspec.to_builtins(decoder.decode(payload)))
+            else:
+                with pytest.raises(msgspec.ValidationError):
+                    decoder.decode(payload)
+    assert_output(
+        json.dumps(actual, indent=2) + "\n",
+        EXPECTED_OPENAPI_PATH / "msgspec_numeric_unions_runtime.txt",
     )
 
 
@@ -9804,7 +9838,6 @@ def test_main_openapi_discriminated_oneof_allof_cycle(output_file: Path) -> None
 )
 def test_discriminator_final_field_aliases(
     output_file: Path,
-    capsys: pytest.CaptureFixture[str],
     entrypoint: str,
     case: str,
     source: str,
@@ -9817,31 +9850,6 @@ def test_discriminator_final_field_aliases(
     fixture_dir = OPEN_API_DATA_PATH / "discriminator_field_aliases"
     aliases_path = fixture_dir / f"{alias_file}_aliases.json"
     expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases" / f"{case}.py"
-    if case.startswith("wire_collision"):
-        expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases/wire_collision_error.txt"
-        if entrypoint == "cli":
-            run_main_and_assert(
-                input_path=fixture_dir / f"{source}.json",
-                output_path=output_file,
-                input_file_type="openapi",
-                extra_args=["--aliases", str(aliases_path)],
-                expected_exit=Exit.ERROR,
-                capsys=capsys,
-                expected_stderr=expected.read_text() + "\n",
-                output_should_not_exist=True,
-            )
-        else:
-            with pytest.raises(Error) as exc_info:
-                run_generate_file_and_assert(
-                    input_path=fixture_dir / f"{source}.json",
-                    output_path=output_file,
-                    input_file_type=InputFileType.OpenAPI,
-                    aliases=json.loads(aliases_path.read_text()),
-                    assert_func=assert_file_content,
-                    **options,
-                )
-            assert_output(str(exc_info.value), expected)
-        return
     if entrypoint == "cli":
         args = ["--aliases", str(aliases_path), "--disable-timestamp"]
         for key, value in options.items():
@@ -9870,25 +9878,85 @@ def test_discriminator_final_field_aliases(
             unchanged_inputs={"aliases": aliases},
             **options,
         )
+    payload_dir = DATA_PATH / "payloads" / "discriminator_alias_outputs"
+    payloads = json.loads((payload_dir / "validation.json").read_text())
+    runtime: dict[str, Any] = {}
+    wire_name = "wireKind" if "serialization_aliases" in options else "petType"
     for tag, detail in [("cat", "meow"), ("dog", "bark")]:
         assert_generated_model_json_validation(
             output_file,
             module_name=f"generated_discriminator_alias_{case}_{tag}",
             model_name=model_name,
-            valid_json=json.dumps({"petType": tag, detail: "yes"}),
-            invalid_json='{"petType":"bird"}',
+            valid_json=json.dumps(payloads["omitted"][tag]),
+            invalid_json=json.dumps(payloads["invalid_tag"]),
             expected_error_type="union_tag_invalid",
             expected_attribute_path=("root", field_name),
             expected_attribute_value=tag,
         )
         with _generated_model(output_file, f"generated_discriminator_dump_{case}_{tag}", model_name) as model:
-            value = model.model_validate({"petType": tag, detail: "yes"})
-            wire_name = "wireKind" if "serialization_aliases" in options else "petType"
-            payload_dir = DATA_PATH / "payloads" / "discriminator_alias_outputs"
+            value = model.model_validate(payloads["omitted"][tag])
+            variant = getattr(sys.modules[model.__module__], model_name.replace("Pet", tag.title()))
+            runtime[tag] = {
+                "selected_variant": type(value.root) is variant,
+                "native_identity": model.model_validate(value.root).root is value.root,
+                "coerced_detail": getattr(
+                    model.model_validate({
+                        **payloads["omitted"][tag],
+                        detail: payloads["omitted"][tag][detail].encode(),
+                    }).root,
+                    detail,
+                ),
+            }
             assert_output(
                 json.dumps(value.model_dump(by_alias=True, exclude_none=True), sort_keys=True) + "\n",
                 payload_dir / f"{wire_name}_{tag}.txt",
             )
+            if case.startswith("wire_collision"):
+                native = variant.model_validate(payloads["ordinary"][tag])
+                runtime[tag]["ordinary_native_identity"] = model.model_validate(native).root is native
+                assert_output(
+                    json.dumps(native.model_dump(mode="json", by_alias=True, exclude_none=True), sort_keys=True) + "\n",
+                    payload_dir / f"{wire_name}_{tag}_ordinary.txt",
+                )
+                # Keep tagged dispatch and its existing schema order, including Python-name-first lookup.
+                schema = model.model_json_schema()
+                schema_keys = ("anyOf",) if source == "wire_collision_nullable" else ("discriminator", "oneOf")
+                assert_output(
+                    json.dumps({key: schema[key] for key in schema_keys}, indent=2) + "\n",
+                    payload_dir
+                    / (
+                        "collision_nullable_schema.txt"
+                        if source == "wire_collision_nullable"
+                        else "collision_schema.txt"
+                    ),
+                )
+                if source in {"wire_collision", "wire_collision_nullable"}:
+                    value = model.model_validate(payloads["matching"][tag])
+                    runtime[tag]["matching_selected_variant"] = type(value.root) is variant
+                    runtime[tag]["matching_dump_preserved"] = (
+                        value.model_dump(by_alias=True, exclude_none=True)
+                        == payloads["matching_outputs"][wire_name][tag]
+                    )
+        if case.startswith("wire_collision"):
+            # Pydantic still interprets this wire key as its Python discriminator before trying petType.
+            assert_generated_model_json_invalid(
+                output_file,
+                module_name=f"generated_discriminator_collision_{case}_{tag}",
+                model_name=model_name,
+                invalid_json=json.dumps(payloads["ordinary"][tag]),
+                expected_error_type="union_tag_invalid",
+            )
+    with _generated_model(
+        output_file, f"generated_discriminator_unrelated_{case}", model_name.replace("Pet", "Unrelated")
+    ) as model:
+        runtime["unrelated_dump_preserved"] = (
+            model.model_validate(payloads["unrelated"]).model_dump(by_alias=True)
+            == payloads["unrelated_outputs"][wire_name]
+        )
+    runtime_case = "runtime"
+    if case.startswith("wire_collision"):
+        runtime_case += "_matching" if source in {"wire_collision", "wire_collision_nullable"} else "_collision"
+    assert_output(json.dumps(runtime, indent=2, sort_keys=True) + "\n", payload_dir / f"{runtime_case}.txt")
 
 
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
@@ -10121,3 +10189,42 @@ def test_external_discriminator_parent_load_order(output_file: Path, entrypoint:
                     json.dumps(model.model_validate(payloads[tag]).model_dump(), sort_keys=True) + "\n",
                     DATA_PATH / "payloads/external_discriminator_outputs" / f"local_{tag}.txt",
                 )
+
+
+@pytest.mark.parametrize("entrypoint", ["cli", "api"])
+def test_numeric_union_preserves_nullable_warning(output_file: Path, entrypoint: str) -> None:
+    """Keep strict OpenAPI nullable diagnostics when numeric bounds belong to the field."""
+    from datamodel_code_generator.enums import VersionMode
+
+    source = OPEN_API_DATA_PATH / "type_union_nullable.json"
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always", DeprecationWarning)
+        if entrypoint == "cli":
+            run_main_and_assert(
+                input_path=source,
+                output_path=output_file,
+                input_file_type="openapi",
+                extra_args=[
+                    "--disable-timestamp",
+                    "--field-constraints",
+                    "--schema-version-mode",
+                    "strict",
+                    "--formatters",
+                    "builtin",
+                ],
+                assert_func=assert_file_content,
+                expected_file="type_union_nullable.py",
+            )
+        else:
+            run_generate_file_and_assert(
+                input_path=source,
+                output_path=output_file,
+                input_file_type=InputFileType.OpenAPI,
+                disable_timestamp=True,
+                field_constraints=True,
+                schema_version_mode=VersionMode.Strict,
+                formatters=[Formatter.BUILTIN],
+                assert_func=assert_file_content,
+                expected_file="type_union_nullable.py",
+            )
+    assert_warnings_contain(recorded, "nullable keyword is deprecated")

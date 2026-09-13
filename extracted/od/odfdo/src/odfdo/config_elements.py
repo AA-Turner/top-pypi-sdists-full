@@ -122,7 +122,7 @@ class ConfigItemSet(Element):
         Returns:
             list[ConfigItemSet]: A list of `ConfigItemSet` objects.
         """
-        return cast(list[ConfigItemSet], self.get_elements("config:config-item-set"))
+        return cast("list[ConfigItemSet]", self.get_elements("config:config-item-set"))
 
     @property
     def config_item_maps_indexed(self) -> list[ConfigItemMapIndexed]:
@@ -133,7 +133,7 @@ class ConfigItemSet(Element):
                 objects.
         """
         return cast(
-            list[ConfigItemMapIndexed],
+            "list[ConfigItemMapIndexed]",
             self.get_elements("config:config-item-map-indexed"),
         )
 
@@ -145,7 +145,8 @@ class ConfigItemSet(Element):
             list[ConfigItemMapNamed]: A list of `ConfigItemMapNamed` objects.
         """
         return cast(
-            list[ConfigItemMapNamed], self.get_elements("config:config-item-map-named")
+            "list[ConfigItemMapNamed]",
+            self.get_elements("config:config-item-map-named"),
         )
 
     @property
@@ -155,7 +156,7 @@ class ConfigItemSet(Element):
         Returns:
             list[ConfigItem]: A list of `ConfigItem` objects.
         """
-        return cast(list[ConfigItem], self.get_elements("config:config-item"))
+        return cast("list[ConfigItem]", self.get_elements("config:config-item"))
 
     def as_dict(self) -> dict[str, str | int | bool | list[Any] | dict[str, Any]]:
         """Serialize the element to a dictionary.
@@ -177,7 +178,7 @@ class ConfigItemSet(Element):
         Returns:
             A ConfigItemSet.
         """
-        return cast(ConfigItemSet, _from_dict(data))
+        return cast("ConfigItemSet", _from_dict(data))
 
 
 ConfigItemSet._define_attribut_property()
@@ -227,7 +228,8 @@ class ConfigItemMapIndexed(Element):
             list[ConfigItemMapEntry]: A list of `ConfigItemMapEntry` objects.
         """
         return cast(
-            list[ConfigItemMapEntry], self.get_elements("config:config-item-map-entry")
+            "list[ConfigItemMapEntry]",
+            self.get_elements("config:config-item-map-entry"),
         )
 
     def as_dict(self) -> dict[str, str | int | bool | list[Any] | dict[str, Any]]:
@@ -250,7 +252,7 @@ class ConfigItemMapIndexed(Element):
         Returns:
             A ConfigItemMapIndexed.
         """
-        return cast(ConfigItemMapIndexed, _from_dict(data))
+        return cast("ConfigItemMapIndexed", _from_dict(data))
 
 
 ConfigItemMapIndexed._define_attribut_property()
@@ -300,7 +302,7 @@ class ConfigItemMapEntry(Element):
         Returns:
             list[ConfigItemSet]: A list of `ConfigItemSet` objects.
         """
-        return cast(list[ConfigItemSet], self.get_elements("config:config-item-set"))
+        return cast("list[ConfigItemSet]", self.get_elements("config:config-item-set"))
 
     @property
     def config_item_maps_indexed(self) -> list[ConfigItemMapIndexed]:
@@ -311,7 +313,7 @@ class ConfigItemMapEntry(Element):
                 objects.
         """
         return cast(
-            list[ConfigItemMapIndexed],
+            "list[ConfigItemMapIndexed]",
             self.get_elements("config:config-item-map-indexed"),
         )
 
@@ -323,7 +325,8 @@ class ConfigItemMapEntry(Element):
             list[ConfigItemMapNamed]: A list of `ConfigItemMapNamed` objects.
         """
         return cast(
-            list[ConfigItemMapNamed], self.get_elements("config:config-item-map-named")
+            "list[ConfigItemMapNamed]",
+            self.get_elements("config:config-item-map-named"),
         )
 
     @property
@@ -333,7 +336,7 @@ class ConfigItemMapEntry(Element):
         Returns:
             list[ConfigItem]: A list of `ConfigItem` objects.
         """
-        return cast(list[ConfigItem], self.get_elements("config:config-item"))
+        return cast("list[ConfigItem]", self.get_elements("config:config-item"))
 
     def as_dict(self) -> dict[str, str | int | bool | list[Any] | dict[str, Any]]:
         """Serialize the element to a dictionary.
@@ -354,7 +357,7 @@ class ConfigItemMapEntry(Element):
         Returns:
             A ConfigItemMapEntry.
         """
-        return cast(ConfigItemMapEntry, _from_dict(data))
+        return cast("ConfigItemMapEntry", _from_dict(data))
 
 
 ConfigItemMapEntry._define_attribut_property()
@@ -405,7 +408,8 @@ class ConfigItemMapNamed(Element):
             list[ConfigItemMapEntry]: A list of `ConfigItemMapEntry` objects.
         """
         return cast(
-            list[ConfigItemMapEntry], self.get_elements("config:config-item-map-entry")
+            "list[ConfigItemMapEntry]",
+            self.get_elements("config:config-item-map-entry"),
         )
 
     def as_dict(self) -> dict[str, str | int | bool | list[Any] | dict[str, Any]]:
@@ -428,7 +432,7 @@ class ConfigItemMapNamed(Element):
         Returns:
             A ConfigItemMapNamed.
         """
-        return cast(ConfigItemMapNamed, _from_dict(data))
+        return cast("ConfigItemMapNamed", _from_dict(data))
 
 
 ConfigItemMapNamed._define_attribut_property()
@@ -451,9 +455,7 @@ class ConfigItem(Element):
     _tag: str = "config:config-item"
     _properties: tuple[PropDef | PropDefBool, ...] = (
         PropDef("name", "config:name"),
-        PropDef("config_type", "config:type"),
     )
-    _properties = (PropDef("name", "config:name"),)
     TYPES: ClassVar = {
         "boolean",
         "short",
@@ -525,7 +527,7 @@ class ConfigItem(Element):
         config_type = self.config_type
         if config_type == "boolean":
             return Boolean.decode(content)
-        elif config_type in {"short", "int", "long", "double"}:
+        if config_type in {"short", "int", "long", "double"}:
             return int(content)
         return content or ""
 

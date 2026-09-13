@@ -48,17 +48,6 @@ class TestPopulateAvailableModels:
         assert config["availableModels"] == ["m1"]
         assert config["existing"] is True
 
-    def test_uses_supplied_records_without_querying(self):
-        """Uses discovery records supplied by setup instead of starting another handshake."""
-        records = _records("m1")
-        with patch(_QUERY) as mock_query:
-            with patch(_LOAD, return_value={}):
-                with patch(_SAVE) as mock_save:
-                    _populate_available_models(records=records)
-
-        mock_query.assert_not_called()
-        assert mock_save.call_args[0][0]["availableModels"] == ["m1"]
-
     def test_preserves_existing_keys_when_populating(self, capsys):
         """Existing config keys are preserved when caching the inventory."""
         with patch(_QUERY, return_value=_records("m1")):
@@ -77,6 +66,30 @@ class TestPopulateAvailableModels:
                     _populate_available_models()
         mock_query.assert_called_once_with(refresh=True, allow_stale=False)
         assert mock_save.call_args[0][0]["availableModels"] == ["fresh"]
+
+    def test_uses_prefetched_records_without_running_discovery_again(self):
+        """Prefetched model records are reused to populate availableModels and metadata."""
+        prefetched = _records("prefetched-model")
+        with patch(_QUERY) as mock_query:
+            with patch(_LOAD, return_value={}):
+                with patch(_SAVE) as mock_save:
+                    _populate_available_models(model_records=prefetched)
+
+        mock_query.assert_not_called()
+        saved = mock_save.call_args[0][0]
+        assert saved["availableModels"] == ["prefetched-model"]
+        assert saved["models"]["prefetched-model"]["modelId"] == "prefetched-model"
+
+    def test_treats_empty_prefetched_records_as_consumed_discovery(self):
+        """An explicit empty prefetch must not trigger a second discovery attempt."""
+        with patch(_QUERY) as mock_query:
+            with patch(_LOAD, return_value={}):
+                with patch(_SAVE) as mock_save:
+                    config = _populate_available_models(model_records=[])
+
+        mock_query.assert_not_called()
+        mock_save.assert_not_called()
+        assert config == {}
 
     def test_refresh_handles_empty_discovery_cache(self):
         """A missing discovery cache does not prevent a live inventory refresh."""

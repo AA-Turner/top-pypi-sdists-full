@@ -16,6 +16,8 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import asyncio
 import base64
 import functools
@@ -29,7 +31,6 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from getpass import getpass
 from io import BytesIO
-from typing import Dict, List, Optional, Union
 
 import pyrogram
 from pyrogram import enums, raw, types
@@ -47,11 +48,11 @@ def get_event_loop() -> asyncio.AbstractEventLoop:
     return loop
 
 
-async def ainput(prompt: str = "", *, hide: bool = False, loop: Optional[asyncio.AbstractEventLoop] = None):
+async def ainput(
+    prompt: str = "", *, hide: bool = False, loop: asyncio.AbstractEventLoop | None = None
+):
     """Just like the built-in input, but async"""
-    if isinstance(loop, asyncio.AbstractEventLoop):
-        loop = loop
-    else:
+    if not isinstance(loop, asyncio.AbstractEventLoop):
         loop = get_event_loop()
 
     with ThreadPoolExecutor(1) as executor:
@@ -61,26 +62,28 @@ async def ainput(prompt: str = "", *, hide: bool = False, loop: Optional[asyncio
 
 def get_input_media_from_file_id(
     file_id: str,
-    expected_file_type: Optional[FileType] = None,
-    ttl_seconds: Optional[int] = None,
-    has_spoiler: Optional[bool] = None,
-    video_cover: Optional["raw.types.InputPhoto"] = None,
-    video_start_timestamp: Optional[int] = None,
-    live_photo: Optional[bool] = None,
-    live_photo_video_file_id: Optional[str] = None
-) -> Union["raw.types.InputMediaPhoto", "raw.types.InputMediaDocument"]:
+    expected_file_type: FileType | None = None,
+    ttl_seconds: int | None = None,
+    has_spoiler: bool | None = None,
+    video_cover: raw.types.InputPhoto | None = None,
+    video_start_timestamp: int | None = None,
+    live_photo: bool | None = None,
+    live_photo_video_file_id: str | None = None,
+) -> raw.types.InputMediaPhoto | raw.types.InputMediaDocument:
     try:
         decoded = FileId.decode(file_id)
-    except Exception:
+    except Exception as e:
         raise ValueError(
             f'Failed to decode "{file_id}". The value does not represent an existing local file, '
             f"HTTP URL, or valid file id."
-        )
+        ) from e
 
     file_type = decoded.file_type
 
     if expected_file_type is not None and file_type != expected_file_type:
-        raise ValueError(f"Expected {expected_file_type.name}, got {file_type.name} file id instead")
+        raise ValueError(
+            f"Expected {expected_file_type.name}, got {file_type.name} file id instead"
+        )
 
     if file_type in (FileType.THUMBNAIL, FileType.CHAT_PHOTO):
         raise ValueError(f"This file id can only be used for download: {file_id}")
@@ -90,7 +93,7 @@ def get_input_media_from_file_id(
             id=raw.types.InputPhoto(
                 id=decoded.media_id,
                 access_hash=decoded.access_hash,
-                file_reference=decoded.file_reference
+                file_reference=decoded.file_reference,
             ),
             spoiler=has_spoiler,
             ttl_seconds=ttl_seconds,
@@ -99,8 +102,10 @@ def get_input_media_from_file_id(
                 live_photo_video_file_id,
                 expected_file_type=FileType.VIDEO,
                 has_spoiler=has_spoiler,
-                live_photo=live_photo
-            ) if live_photo else None
+                live_photo=live_photo,
+            )
+            if live_photo
+            else None,
         )
 
     if file_type in DOCUMENT_TYPES:
@@ -108,18 +113,20 @@ def get_input_media_from_file_id(
             id=raw.types.InputDocument(
                 id=decoded.media_id,
                 access_hash=decoded.access_hash,
-                file_reference=decoded.file_reference
+                file_reference=decoded.file_reference,
             ),
             spoiler=has_spoiler,
             ttl_seconds=ttl_seconds,
             video_cover=video_cover,
-            video_timestamp=video_start_timestamp
+            video_timestamp=video_start_timestamp,
         )
 
     raise ValueError(f"Unknown file id: {file_id}")
 
 
-async def get_input_stargift(client: "pyrogram.Client", owned_gift_id: str) -> "raw.base.InputSavedStarGift":
+async def get_input_stargift(
+    client: pyrogram.Client, owned_gift_id: str
+) -> raw.base.InputSavedStarGift:
     if not isinstance(owned_gift_id, str):
         raise ValueError(f"owned_gift_id has to be str, but {type(owned_gift_id)} was provided")
 
@@ -129,23 +136,19 @@ async def get_input_stargift(client: "pyrogram.Client", owned_gift_id: str) -> "
     if saved_gift_match:
         return raw.types.InputSavedStarGiftChat(
             peer=await client.resolve_peer(int(saved_gift_match.group(1))),
-            saved_id=int(saved_gift_match.group(2))
+            saved_id=int(saved_gift_match.group(2)),
         )
     elif slug_match:
-        return raw.types.InputSavedStarGiftSlug(
-            slug=slug_match.group(1)
-        )
+        return raw.types.InputSavedStarGiftSlug(slug=slug_match.group(1))
     else:
-        return raw.types.InputSavedStarGiftUser(
-            msg_id=int(owned_gift_id)
-        )
+        return raw.types.InputSavedStarGiftUser(msg_id=int(owned_gift_id))
 
 
 async def parse_messages(
-    client: "pyrogram.Client",
-    messages: Union["raw.base.messages.Messages", "raw.base.Updates"],
-    replies: int = 1
-) -> List["types.Message"]:
+    client: pyrogram.Client,
+    messages: raw.base.messages.Messages | raw.base.Updates,
+    replies: int = 1,
+) -> list[types.Message]:
     users = {i.id: i for i in getattr(messages, "users", [])}
     chats = {i.id: i for i in getattr(messages, "chats", [])}
     topics = {i.id: i for i in getattr(messages, "topics", [])}
@@ -158,8 +161,8 @@ async def parse_messages(
             raw.types.messages.ChannelMessages,
             raw.types.messages.Messages,
             raw.types.messages.MessagesNotModified,
-            raw.types.messages.MessagesSlice
-        )
+            raw.types.messages.MessagesSlice,
+        ),
     ):
         if not messages.messages:
             return types.List()
@@ -172,7 +175,7 @@ async def parse_messages(
                     users=users,
                     chats=chats,
                     topics=topics,
-                    replies=0
+                    replies=0,
                 )
             )
 
@@ -195,23 +198,27 @@ async def parse_messages(
                 # Scan until we find a message with a chat available (there must be one, because we are fetching replies)
                 chat_id = next((m.chat.id for m in parsed_messages if m.chat), 0)
 
-                is_all_replies_in_same_chat = not any(m.reply_to_peer_id for m in messages_with_replies.values())
-                reply_messages: List["types.Message"] = []
+                is_all_replies_in_same_chat = not any(
+                    m.reply_to_peer_id for m in messages_with_replies.values()
+                )
+                reply_messages: list[types.Message] = []
 
                 if is_all_replies_in_same_chat:
                     reply_messages = await client.get_messages(
                         chat_id=chat_id,
                         message_ids=list(messages_with_replies.keys()),
                         reply=True,
-                        replies=replies - 1
+                        replies=replies - 1,
                     )
                 else:
                     for reply_header in messages_with_replies.values():
                         reply_messages.append(
                             await client.get_messages(
-                                chat_id=get_peer_id(reply_header.reply_to_peer_id) if getattr(reply_header, "reply_to_peer_id", None) else chat_id,
+                                chat_id=get_peer_id(reply_header.reply_to_peer_id)
+                                if getattr(reply_header, "reply_to_peer_id", None)
+                                else chat_id,
                                 message_ids=reply_header.reply_to_msg_id,
-                                replies=replies - 1
+                                replies=replies - 1,
                             )
                         )
 
@@ -236,8 +243,8 @@ async def parse_messages(
                     raw.types.UpdateNewEphemeralMessage,
                     raw.types.UpdateEditMessage,
                     raw.types.UpdateEditChannelMessage,
-                    raw.types.UpdateEditEphemeralMessage
-                )
+                    raw.types.UpdateEditEphemeralMessage,
+                ),
             ):
                 parsed_messages.append(
                     await types.Message._parse(
@@ -248,14 +255,14 @@ async def parse_messages(
                         is_scheduled=isinstance(u, raw.types.UpdateNewScheduledMessage),
                         business_connection_id=getattr(u, "connection_id", None),
                         raw_reply_to_message=getattr(u, "reply_to_message", None),
-                        replies=replies
+                        replies=replies,
                     )
                 )
 
     return types.List(parsed_messages)
 
 
-async def parse_deleted_messages(client, update, users, chats) -> List["types.Message"]:
+async def parse_deleted_messages(client, update, users, chats) -> list[types.Message]:
     is_ephemeral = isinstance(update, raw.types.UpdateDeleteEphemeralMessages)
 
     messages = update.ids if is_ephemeral else update.messages
@@ -265,11 +272,7 @@ async def parse_deleted_messages(client, update, users, chats) -> List["types.Me
     chat = None
 
     if channel_id:
-        chat = types.Chat(
-            id=get_channel_id(channel_id),
-            type=enums.ChatType.CHANNEL,
-            client=client
-        )
+        chat = types.Chat(id=get_channel_id(channel_id), type=enums.ChatType.CHANNEL, client=client)
     if peer:
         chat_id = get_raw_peer_id(peer)
         if chat_id:
@@ -280,9 +283,7 @@ async def parse_deleted_messages(client, update, users, chats) -> List["types.Me
                 chat = await types.Chat._parse_chat_chat(client, chats[chat_id])
 
             else:
-                chat = await types.Chat._parse_channel_chat(
-                    client, chats[chat_id]
-                )
+                chat = await types.Chat._parse_channel_chat(client, chats[chat_id])
 
     parsed_messages = [
         types.Message(
@@ -290,34 +291,26 @@ async def parse_deleted_messages(client, update, users, chats) -> List["types.Me
             ephemeral_message_id=message if is_ephemeral else None,
             chat=chat,
             business_connection_id=getattr(update, "connection_id", None),
-            client=client
-        ) for message in messages
+            client=client,
+        )
+        for message in messages
     ]
 
     return types.List(parsed_messages)
 
 
-def pack_inline_message_id(msg_id: "raw.base.InputBotInlineMessageID"):
+def pack_inline_message_id(msg_id: raw.base.InputBotInlineMessageID):
     if isinstance(msg_id, raw.types.InputBotInlineMessageID):
-        inline_message_id_packed = struct.pack(
-            "<iqq",
-            msg_id.dc_id,
-            msg_id.id,
-            msg_id.access_hash
-        )
+        inline_message_id_packed = struct.pack("<iqq", msg_id.dc_id, msg_id.id, msg_id.access_hash)
     else:
         inline_message_id_packed = struct.pack(
-            "<iqiq",
-            msg_id.dc_id,
-            msg_id.owner_id,
-            msg_id.id,
-            msg_id.access_hash
+            "<iqiq", msg_id.dc_id, msg_id.owner_id, msg_id.id, msg_id.access_hash
         )
 
     return base64.urlsafe_b64encode(inline_message_id_packed).decode().rstrip("=")
 
 
-def unpack_inline_message_id(inline_message_id: str) -> "raw.base.InputBotInlineMessageID":
+def unpack_inline_message_id(inline_message_id: str) -> raw.base.InputBotInlineMessageID:
     padded = inline_message_id + "=" * (-len(inline_message_id) % 4)
     decoded = base64.urlsafe_b64decode(padded)
 
@@ -325,19 +318,15 @@ def unpack_inline_message_id(inline_message_id: str) -> "raw.base.InputBotInline
         unpacked = struct.unpack("<iqq", decoded)
 
         return raw.types.InputBotInlineMessageID(
-            dc_id=unpacked[0],
-            id=unpacked[1],
-            access_hash=unpacked[2]
+            dc_id=unpacked[0], id=unpacked[1], access_hash=unpacked[2]
         )
     else:
         unpacked = struct.unpack("<iqiq", decoded)
 
         return raw.types.InputBotInlineMessageID64(
-            dc_id=unpacked[0],
-            owner_id=unpacked[1],
-            id=unpacked[2],
-            access_hash=unpacked[3]
+            dc_id=unpacked[0], owner_id=unpacked[1], id=unpacked[2], access_hash=unpacked[3]
         )
+
 
 ZERO_SECRET_CHAT_ID = -2000000000000
 ZERO_CHANNEL_ID = -1000000000000
@@ -349,7 +338,9 @@ MAX_USER_ID = (1 << 40) - 1
 MAX_CHAT_ID = 999999999999
 
 
-def get_raw_peer_id(peer: Union[int, raw.base.Peer, raw.base.InputPeer, raw.base.RequestedPeer]) -> Optional[int]:
+def get_raw_peer_id(
+    peer: int | raw.base.Peer | raw.base.InputPeer | raw.base.RequestedPeer,
+) -> int | None:
     """Get the raw peer id from a Peer object or high-lvl id"""
 
     if isinstance(peer, int):
@@ -378,15 +369,23 @@ def get_raw_peer_id(peer: Union[int, raw.base.Peer, raw.base.InputPeer, raw.base
     return None
 
 
-def get_peer_id(peer: Union[raw.base.Peer, raw.base.InputPeer, raw.base.RequestedPeer]) -> int:
+def get_peer_id(peer: raw.base.Peer | raw.base.InputPeer | raw.base.RequestedPeer) -> int:
     """Get the non-raw peer id from a Peer object"""
     if hasattr(peer, "user_id"):
         return peer.user_id
 
-    if hasattr(peer, "chat_id"):
+    if isinstance(peer, (raw.types.PeerChat, raw.types.InputPeerChat, raw.types.RequestedPeerChat)):
         return -peer.chat_id
 
-    if hasattr(peer, "channel_id"):
+    if isinstance(
+        peer,
+        (
+            raw.types.PeerChannel,
+            raw.types.InputPeerChannel,
+            raw.types.InputPeerChannelFromMessage,
+            raw.types.RequestedPeerChannel,
+        ),
+    ):
         return ZERO_CHANNEL_ID - peer.channel_id
 
     raise ValueError(f"Peer type invalid: {peer}")
@@ -413,17 +412,17 @@ def get_peer_type(peer_id: int) -> str:
 
 
 async def get_reply_to(
-    client: "pyrogram.Client",
-    reply_parameters: Optional["types.ReplyParameters"] = None,
-    message_thread_id: Optional[int] = None,
-    direct_messages_topic_id: Optional[int] = None
-) -> Optional["raw.base.InputReplyTo"]:
+    client: pyrogram.Client,
+    reply_parameters: types.ReplyParameters | None = None,
+    message_thread_id: int | None = None,
+    direct_messages_topic_id: int | None = None,
+) -> raw.base.InputReplyTo | None:
     """Get InputReply for reply_to argument"""
     if reply_parameters:
         if reply_parameters.chat_id and reply_parameters.story_id:
             return raw.types.InputReplyToStory(
                 peer=await client.resolve_peer(reply_parameters.chat_id),
-                story_id=reply_parameters.story_id
+                story_id=reply_parameters.story_id,
             )
 
         if reply_parameters.message_id:
@@ -436,7 +435,7 @@ async def get_reply_to(
                         client,
                         reply_parameters.quote,
                         reply_parameters.quote_parse_mode,
-                        reply_parameters.quote_entities
+                        reply_parameters.quote_entities,
                     )
                 ).values()
 
@@ -449,18 +448,16 @@ async def get_reply_to(
                 quote_offset=reply_parameters.quote_position,
                 monoforum_peer_id=await client.resolve_peer(direct_messages_topic_id),
                 todo_item_id=reply_parameters.checklist_task_id,
-                poll_option=reply_parameters.poll_option_id.encode() if reply_parameters.poll_option_id is not None else None,
+                poll_option=reply_parameters.poll_option_id.encode()
+                if reply_parameters.poll_option_id is not None
+                else None,
             )
 
         if reply_parameters.ephemeral_message_id:
-            return raw.types.InputReplyToEphemeralMessage(
-                id=reply_parameters.ephemeral_message_id
-            )
+            return raw.types.InputReplyToEphemeralMessage(id=reply_parameters.ephemeral_message_id)
 
     if message_thread_id:
-        return raw.types.InputReplyToMessage(
-            reply_to_msg_id=message_thread_id
-        )
+        return raw.types.InputReplyToMessage(reply_to_msg_id=message_thread_id)
 
     if direct_messages_topic_id:
         return raw.types.InputReplyToMonoForum(
@@ -470,12 +467,7 @@ async def get_reply_to(
     return None
 
 
-def get_file_name(
-    media: Union[io.BytesIO, str],
-    *,
-    file_name: str = "",
-    fallback: str = ""
-) -> str:
+def get_file_name(media: io.BytesIO | str, *, file_name: str = "", fallback: str = "") -> str:
     if file_name:
         return file_name
 
@@ -502,12 +494,11 @@ def sha256(data: bytes) -> bytes:
 
 
 def xor(a: bytes, b: bytes) -> bytes:
-    return bytes(i ^ j for i, j in zip(a, b))
+    return bytes(i ^ j for i, j in zip(a, b, strict=True))
 
 
 def compute_password_hash(
-    algo: raw.types.PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow,
-    password: str
+    algo: raw.types.PasswordKdfAlgoSHA256SHA256PBKDF2HMACSHA512iter100000SHA256ModPow, password: str
 ) -> bytes:
     hash1 = sha256(algo.salt1 + password.encode() + algo.salt1)
     hash2 = sha256(algo.salt2 + hash1 + algo.salt2)
@@ -518,8 +509,7 @@ def compute_password_hash(
 
 # noinspection PyPep8Naming
 def compute_password_check(
-    r: raw.types.account.Password,
-    password: str
+    r: raw.types.account.Password, password: str
 ) -> raw.types.InputCheckPasswordSRP:
     algo = r.current_algo
 
@@ -530,6 +520,13 @@ def compute_password_check(
     g = algo.g
 
     B_bytes = r.srp_B
+    # `srp_B`, `current_algo` and `srp_id` share the same `has_password` flag bit: every caller
+    #  of `compute_password_check()` only reaches it once the account is known to already
+    #  have a password set, so this is never actually None.
+    if B_bytes is None:
+        msg = "`compute_password_check()` requires a password already set on the account"
+        raise RuntimeError(msg)
+
     B = btoi(B_bytes)
 
     srp_id = r.srp_id
@@ -578,24 +575,21 @@ def compute_password_check(
 
 
 async def parse_text_entities(
-    client: "pyrogram.Client",
+    client: pyrogram.Client,
     text: str,
-    parse_mode: Optional[enums.ParseMode],
-    entities: Optional[List["types.MessageEntity"]]
-) -> Dict[str, Union[str, List[raw.base.MessageEntity]]]:
+    parse_mode: enums.ParseMode | None,
+    entities: list[types.MessageEntity] | None,
+) -> dict[str, str | list[raw.base.MessageEntity]]:
     if entities:
         # Inject the client instance because parsing user mentions requires it
         for entity in entities:
             entity._client = client
 
-        text, entities = text, [await entity.write() for entity in entities] or None
+        entities = [await entity.write() for entity in entities] or None
     else:
         text, entities = (await client.parser.parse(text, parse_mode)).values()
 
-    return {
-        "message": text,
-        "entities": entities
-    }
+    return {"message": text, "entities": entities}
 
 
 def zero_datetime() -> datetime:
@@ -606,11 +600,11 @@ def max_datetime() -> datetime:
     return datetime.fromtimestamp((1 << 31) - 1, timezone.utc)
 
 
-def timestamp_to_datetime(ts: Optional[int]) -> Optional[datetime]:
+def timestamp_to_datetime(ts: int | None) -> datetime | None:
     return datetime.fromtimestamp(ts) if ts else None
 
 
-def datetime_to_timestamp(dt: Optional[Union[datetime, timedelta]]) -> Optional[int]:
+def datetime_to_timestamp(dt: datetime | timedelta | None) -> int | None:
     if isinstance(dt, timedelta):
         return int((datetime.now() + dt).timestamp())
     elif isinstance(dt, datetime):
@@ -621,12 +615,14 @@ def get_first_url(text):
     text = re.sub(r"^\s*(<[\w<>=\s\"]*>)\s*", r"\1", text)
     text = re.sub(r"\s*(</[\w</>]*>)\s*$", r"\1", text)
 
-    matches = re.findall(r"(https?):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])", text)
+    matches = re.findall(
+        r"(https?):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])", text
+    )
 
     return f"{matches[0][0]}://{matches[0][1]}{matches[0][2]}" if matches else None
 
 
-def split_text(text: str, max_length: int = 4096) -> List[str]:
+def split_text(text: str, max_length: int = 4096) -> list[str]:
     """Split text into chunks no longer than max_length"""
     if len(text) <= max_length:
         return [text]
@@ -641,17 +637,17 @@ def split_text(text: str, max_length: int = 4096) -> List[str]:
 
         cut = remaining[:max_length]
 
-        last_newline = cut.rfind('\n')
+        last_newline = cut.rfind("\n")
 
         if last_newline > 0:
             chunk = cut[:last_newline]
-            remaining = remaining[last_newline + 1:]
+            remaining = remaining[last_newline + 1 :]
         else:
-            last_space = cut.rfind(' ')
+            last_space = cut.rfind(" ")
 
             if last_space > 0 and last_space > len(cut) // 2:
                 chunk = cut[:last_space]
-                remaining = remaining[last_space + 1:]
+                remaining = remaining[last_space + 1 :]
             else:
                 chunk = cut
                 remaining = remaining[max_length:]
@@ -662,20 +658,20 @@ def split_text(text: str, max_length: int = 4096) -> List[str]:
     return chunks
 
 
-async def parse_text_with_entities(client, message: "raw.types.TextWithEntities", users):
+async def parse_text_with_entities(client, message: raw.types.TextWithEntities, users):
     entities = types.List(
         filter(
             lambda x: x is not None,
             [
                 await types.MessageEntity._parse(client, entity, users)
                 for entity in getattr(message, "entities", [])
-            ]
+            ],
         )
     )
 
     return {
         "text": Str(getattr(message, "text", "")).init(entities) or None,
-        "entities": entities or None
+        "entities": entities or None,
     }
 
 
@@ -730,7 +726,7 @@ def expand_inline_bytes(bytes_data: bytes):
     return header + bytes_data[3:] + footer
 
 
-def from_inline_bytes(data: bytes, file_name: Optional[str] = None) -> BytesIO:
+def from_inline_bytes(data: bytes, file_name: str | None = None) -> BytesIO:
     b = BytesIO()
 
     b.write(data)
@@ -739,7 +735,7 @@ def from_inline_bytes(data: bytes, file_name: Optional[str] = None) -> BytesIO:
     return b
 
 
-def obj_to_jsonvalue(obj) -> "raw.base.JsonValue":
+def obj_to_jsonvalue(obj) -> raw.base.JSONValue:
     if obj is None:
         return raw.types.JsonNull()
     elif isinstance(obj, bool):
@@ -751,12 +747,16 @@ def obj_to_jsonvalue(obj) -> "raw.base.JsonValue":
     elif isinstance(obj, (list, tuple)):
         return raw.types.JsonArray(value=[obj_to_jsonvalue(x) for x in obj])
     elif isinstance(obj, dict):
-        return raw.types.JsonObject(value=[raw.types.JsonObjectValue(key=k, value=obj_to_jsonvalue(v)) for k, v in obj.items()])
+        return raw.types.JsonObject(
+            value=[
+                raw.types.JsonObjectValue(key=k, value=obj_to_jsonvalue(v)) for k, v in obj.items()
+            ]
+        )
 
     raise TypeError(f"Unsupported type: {type(obj)}")
 
 
-def jsonvalue_to_obj(obj: "raw.base.JsonValue"):
+def jsonvalue_to_obj(obj: raw.base.JSONValue):
     if isinstance(obj, raw.types.JsonNull):
         return None
     elif isinstance(obj, raw.types.JsonBool):

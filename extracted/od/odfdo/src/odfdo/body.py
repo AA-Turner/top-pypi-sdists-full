@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .annotation import AnnotationMixin
 from .bookmark import BookmarkMixin
@@ -37,11 +37,13 @@ from .note import NoteMixin
 from .office_forms import OfficeFormsMixin
 from .reference import ReferenceMixin
 from .section import SectionMixin
-from .table import Table
 from .tracked_changes import TrackedChangesMixin
 from .user_field import UserDefinedMixin
 from .user_field_declaration import UserFieldDeclContMixin
 from .variable_declaration import VarDeclMixin
+
+if TYPE_CHECKING:
+    from .table import Table
 
 # for compatibility with version <= 3.18.1
 BODY_NR_TAGS = BODY_ALLOW_NAMED_RANGE_TAGS
@@ -86,7 +88,7 @@ class Body(Element):
         Returns:
             list[Table]: A list of all Table elements.
         """
-        return cast(list[Table], self.get_elements("descendant::table:table"))
+        return cast("list[Table]", self.get_elements("descendant::table:table"))
 
     sheets = tables
 
@@ -135,10 +137,12 @@ class Body(Element):
         """
         if not name:
             return None
-        result = self._filtered_element(
-            "descendant::table:table", position=0, table_name=name
+        return cast(
+            "Table|None",
+            self._filtered_element(
+                "descendant::table:table", position=0, table_name=name
+            ),
         )
-        return result  # ty: ignore[invalid-return-type]
 
     get_sheet_by_name = get_table_by_name
 
@@ -275,7 +279,7 @@ class OfficeSettings(Body):
         Returns:
             An OfficeSettings instance populated with data from the dictionary.
         """
-        return cast(OfficeSettings, _from_dict(data))
+        return cast("OfficeSettings", _from_dict(data))
 
 
 register_element_class(Body)

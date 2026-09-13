@@ -26,6 +26,10 @@ from matrx_ai.providers.outbound_capture import (
     emit_explicit_context_analysis,
     stamp_call_meta,
 )
+from matrx_ai.providers.reasoning_stream_state import (
+    reasoning_state_for,
+    reset_reasoning_state,
+)
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
@@ -227,12 +231,14 @@ class GoogleChat:
         self.endpoint_name = "[GOOGLE CHAT]"
         self.translator = GoogleTranslator(debug=debug)
         self.debug = debug
-        # Tracks whether we've emitted the content-less "reasoning started"
-        # lifecycle signal for the current turn but not yet "stopped". Gemini has
-        # no explicit reasoning-block-start event — reasoning is inferred from
-        # part shape (part.thought, or a bare part.thought_signature when
-        # include_thoughts=False), which is why the signal is tracked per-stream.
-        self._reasoning_signaled = False
+        # 🚨 NO PER-STREAM STATE ON `self` — this object is memoized
+        # process-wide (unified_client._provider_client_cache) and parses every
+        # concurrent turn at once. Whether the content-less "reasoning started"
+        # signal is outstanding lives per STREAM in
+        # providers/reasoning_stream_state.py, keyed on that stream's emitter.
+        # Gemini has no explicit reasoning-block-start event — reasoning is
+        # inferred from part shape (part.thought, or a bare
+        # part.thought_signature when include_thoughts=False).
 
         if LOCAL_DEBUG:
             self.debug = True
@@ -378,9 +384,10 @@ class GoogleChat:
                     )
                 else:
                     chunk: GenerateContentResponse
-                    # Reset per-stream reasoning-lifecycle state so a signal left
-                    # open by a prior request on a reused instance can't leak in.
-                    self._reasoning_signaled = False
+                    # Reset THIS stream's reasoning-lifecycle state (scoped to
+                    # this emitter — a reset on `self` would clear a concurrent
+                    # turn's outstanding signal).
+                    reset_reasoning_state(emitter)
                     # Use the SDK's async client so the blocking ssl.read() in the
                     # sync httpx transport never runs on the event loop. The sync
                     # path froze the entire process for 2s+ between chunks (loop
@@ -932,15 +939,15 @@ class GoogleChat:
     async def _signal_reasoning_started(self, emitter: Emitter) -> None:
         """Emit the content-less 'reasoning started' signal once per reasoning
         run. Idempotent — safe to call on every thought part."""
-        if emitter and not self._reasoning_signaled:
-            self._reasoning_signaled = True
+        if emitter and not reasoning_state_for(emitter).signaled:
+            reasoning_state_for(emitter).signaled = True
             await emitter.send_reasoning_state("started")
 
     async def _signal_reasoning_stopped(self, emitter: Emitter) -> None:
         """Emit 'reasoning stopped' iff a 'started' is outstanding. Idempotent —
         safe to call on the first content part and again at stream end."""
-        if emitter and self._reasoning_signaled:
-            self._reasoning_signaled = False
+        if emitter and reasoning_state_for(emitter).signaled:
+            reasoning_state_for(emitter).signaled = False
             await emitter.send_reasoning_state("stopped")
 
     async def _handle_part(self, part: Part, emitter: Emitter, audio_format: str | None = None):

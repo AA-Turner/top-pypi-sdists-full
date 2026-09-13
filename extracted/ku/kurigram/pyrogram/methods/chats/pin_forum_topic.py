@@ -16,17 +16,14 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import pyrogram
 from pyrogram import raw
-from typing import Union
 
 
 class PinForumTopic:
-    async def pin_forum_topic(
-        self: "pyrogram.Client",
-        chat_id: Union[int, str],
-        topic_id: int
-    ) -> bool:
+    async def pin_forum_topic(self: pyrogram.Client, chat_id: int | str, topic_id: int) -> bool:
         """Pin a forum topic.
 
         .. include:: /_includes/usable-by/users.rst
@@ -48,9 +45,7 @@ class PinForumTopic:
         """
         await self.invoke(
             raw.functions.channels.UpdatePinnedForumTopic(
-                channel=await self.resolve_peer(chat_id),
-                topic_id=topic_id,
-                pinned=True
+                channel=await self.resolve_peer(chat_id), topic_id=topic_id, pinned=True
             )
         )
 

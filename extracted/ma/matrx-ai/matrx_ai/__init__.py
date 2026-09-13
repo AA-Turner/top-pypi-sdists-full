@@ -200,6 +200,14 @@ def configure(
     if ext_kwargs:
         configure_ext(**ext_kwargs)
 
+    # A turn whose stream task dies must still leave a durable trace. The crash
+    # is caught in matrx-connect, which must never learn the chat schema, so it
+    # calls an injected persister — installed here, the moment this package has
+    # a database to write to. See matrx_ai/db/turn_failure.py.
+    from matrx_ai.db.turn_failure import register_turn_failure_persister
+
+    register_turn_failure_persister()
+
     # A CLIENT host resolves Mandates over the API — the same question the
     # server answers from `agent.mandate`, asked the only way a client
     # can ask it. Installed automatically so a client never silently lacks slot

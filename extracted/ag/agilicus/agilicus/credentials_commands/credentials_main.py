@@ -14,6 +14,8 @@ from ..output.table import output_entry
 @click.option("--password", default=None)
 @click.option("--private-key", type=click.File("r"), default=None)
 @click.option("--private-key-passphrase", default=None)
+@click.option("--service-account-json", default=None, type=str)
+@click.option("--service-account-json-file", type=click.File("r"), default=None)
 @click.option("--oauth2-token-url", default=None, type=str)
 @click.option("--oauth2-client-id", default=None, type=str)
 @click.option("--oauth2-scopes", default=None, multiple=True, type=str)
@@ -22,7 +24,15 @@ from ..output.table import output_entry
 @click.option("--oauth2-routing-external", default=None, type=bool)
 @click.pass_context
 def cli_command_add_object_credential(
-    ctx, private_key, username, password, encrypt, private_key_passphrase, **kwargs
+    ctx,
+    private_key,
+    username,
+    password,
+    encrypt,
+    private_key_passphrase,
+    service_account_json=None,
+    service_account_json_file=None,
+    **kwargs,
 ):
     secrets = credentials.make_secrets(
         private_key=private_key,
@@ -30,6 +40,8 @@ def cli_command_add_object_credential(
         password=password,
         encrypt=encrypt,
         private_key_passphrase=private_key_passphrase,
+        service_account_json=service_account_json,
+        service_account_json_file=service_account_json_file,
     )
 
     output_entry(ctx, credentials.add_object_credentials(ctx, secrets=secrets, **kwargs))

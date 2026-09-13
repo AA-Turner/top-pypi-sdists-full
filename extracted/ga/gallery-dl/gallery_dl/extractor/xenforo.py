@@ -350,7 +350,8 @@ class XenforoExtractor(BaseExtractor):
         return thread
 
     def _parse_album(self, page):
-        main = self._extract_jsonld(page)["mainEntity"]
+        data = self._extract_jsonld(page)
+        main = data.get("mainEntity") or data
         url = main.get("url") or main.get("@id") or ""
         slug, _, id = url[url.rfind("/", 0, -1)+1:-1].rpartition(".")
 
@@ -539,7 +540,7 @@ BASE_PATTERN = XenforoExtractor.update({
 
 class XenforoPostExtractor(XenforoExtractor):
     subcategory = "post"
-    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?threads"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads|ema)"
                r"/[^/?#]+/(?:page-\d+)?#?post-|/posts/)(\d+)")
     example = "https://simpcity.cr/threads/TITLE.12345/post-54321"
 
@@ -560,7 +561,7 @@ class XenforoPostExtractor(XenforoExtractor):
 
 class XenforoThreadExtractor(XenforoExtractor):
     subcategory = "thread"
-    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?threads"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?th(?:reads|ema)"
                r"/(?:[^/?#]+\.)?\d+)(?:/page-(\d+))?")
     example = "https://simpcity.cr/threads/TITLE.12345/"
 
@@ -594,7 +595,7 @@ class XenforoThreadExtractor(XenforoExtractor):
 
 class XenforoForumExtractor(XenforoExtractor):
     subcategory = "forum"
-    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?forums"
+    pattern = (BASE_PATTERN + r"(/(?:index\.php\?)?forums?"
                r"/(?:[^/?#]+\.)?[^/?#]+)(?:/page-(\d+))?")
     example = "https://simpcity.cr/forums/TITLE.123/"
 

@@ -109,7 +109,7 @@ def _stub_completion(monkeypatch, *, structured_output: Any, cost_usd: float = 0
         structured_output=structured_output,
     )
     monkeypatch.setattr(
-        agent_produce_action, "normalize_completed_result", lambda _c: success(result)
+        agent_produce_action, "normalize_completed_result", lambda _c, **_kwargs: success(result)
     )
     return result
 

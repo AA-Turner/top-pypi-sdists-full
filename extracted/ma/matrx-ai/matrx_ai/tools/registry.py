@@ -75,6 +75,23 @@ def _schedule_definition_load_failure(
     detached_task(coro, name="capture_tool_registry_definition_load_failure")
 
 
+class ToolIdBoundaryError(ValueError):
+    """A raw tool UUID reached the provider boundary.
+
+    Raised by ``ToolRegistry.get_provider_tools`` when ``config.tools`` still
+    carries DB ids instead of canonical names. It is OUR defect (the process
+    ran an agent before its tool registry could resolve ids — a worker lane,
+    a script, an MCP host that never called ``initialize_tool_system``), never
+    a provider condition: the provider was never contacted, and re-sending the
+    same request cannot help. The provider error classifiers recognize this
+    type and report it as ``matrx_tool_boundary_error`` (non-retryable, real
+    message preserved) instead of laundering it into a retryable
+    "An unexpected <provider> error occurred" — which is exactly how the
+    commerce-intake research mandate failed on 2026-08-30 with a message that
+    named Anthropic and hid the registry.
+    """
+
+
 class ToolRegistry:
     """Singleton registry: loads tool definitions from the database and
     resolves implementations at startup.
@@ -663,9 +680,13 @@ class ToolRegistry:
                 "(that would hide the bug). FIX THE CALLER to pass tool names, not IDs.",
                 color="red",
             )
-            raise ValueError(
+            raise ToolIdBoundaryError(
                 f"Tool IDs reached the provider boundary (must be tool names): "
-                f"{_id_leaks}. Resolve IDs→names at the edge. See common-docs/systems/agents/agent-tools/STATE.md."
+                f"{_id_leaks}. Resolve IDs→names at the edge. See common-docs/systems/agents/agent-tools/STATE.md. "
+                f"(registry_loaded={self._loaded}, registry_count={len(self._tools)} — a "
+                "registry that is not loaded cannot resolve ids: the process that ran this "
+                "agent must call initialize_tool_system() at boot, or Agent.execute's "
+                "lazy load must be reachable.)"
             )
 
         # Projected agent tools (``custom_tool_N``) are NEVER in the registry by
@@ -805,9 +826,13 @@ class ToolRegistry:
         Returns ``"surface"`` (client delegation) when the tool has a binding
         to one of this request's active CLIENT executors, ``"server"`` otherwise.
 
-        Policy (resolved in Python, NOT from DB columns): client > MCP > server.
-        A tool is delegated to the client iff one of its ``tool_binding`` rows
-        names a client executor that is in ``active_executors`` for this request.
+        A code-declared server tool is always server-owned.  Its declaration is
+        the runtime's source of truth for the callable and its owning executor;
+        an accidental additional client binding must not turn a native tool
+        into an unanswered client delegation.  For tools without a server
+        declaration, client > MCP > server: a tool is delegated iff one of its
+        ``tool_binding`` rows names a client executor that is in
+        ``active_executors`` for this request.
         Otherwise it runs server-side (either via an MCP executor binding, or
         via a server executor binding — both dispatch happens via the executor's
         own runtime).
@@ -818,6 +843,24 @@ class ToolRegistry:
         for users with active connections to those servers). Empty set ⇒ all
         registered tools fall back to server-side dispatch.
         """
+        # ``tool.binding`` is mutable operational data.  A server declaration
+        # is a stronger fact: it names the implementation this process can
+        # actually execute.  In particular, this keeps a malformed
+        # ``matrx-user`` binding from stranding a native call on a surface that
+        # has no dispatcher/result path (the masterwork ``rulebook`` incident).
+        # Client-only tools deliberately have no @tool declaration, so their
+        # normal surface routing remains unchanged.
+        try:
+            from matrx_ai.tools.declared import get_effective_declared
+
+            declared = get_effective_declared(tool_name)
+        except Exception:  # pragma: no cover - declarations are optional at bootstrap
+            declared = None
+        if declared is not None and declared.executor and not _is_client_executor(
+            declared.executor
+        ):
+            return "server"
+
         bindings = self._bindings_by_tool.get(tool_name)
         if not bindings:
             return "server"

@@ -13,10 +13,23 @@ structured-output negotiation) reads the typed object, never the raw column.
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
+
+from matrx_ai.providers.capability_vocabulary import (
+    INTERACTION_MODES,
+    VOCABULARY_FILE,
+    normalize_capabilities,
+)
+
+logger = logging.getLogger(__name__)
+
+#: One scream per (model, problem) per process — this resolver runs on every
+#: request against cached rows.
+_reported_drift: set[str] = set()
 
 # The known NATIVE / INTERNAL provider tools — provider-hosted capabilities the
 # API exposes internally, NOT generic function-calling/tools. A model/provider can
@@ -67,7 +80,12 @@ class ResolvedModelCapabilities(BaseModel):
     native_capabilities: frozenset[str]
     # output-format negotiation: json_schema (SCHEMA) > json_object (JSON) > free text.
     structured_output_mode: StructuredOutputMode
-    interaction: Literal["turn", "realtime", "extraction", "embedding"]
+    # The FULL live vocabulary. It was ["turn","realtime","extraction",
+    # "embedding"] until 2026-09-12, which silently coerced the 9 rows declaring
+    # "single" (one-shot image/video generation) or "agent" (provider-managed
+    # background agent) into "turn" — the same silent-narrowing class as the
+    # features drift, found by census rather than by a report.
+    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent"]
     multilingual: bool
 
 
@@ -77,7 +95,7 @@ class _DeclaredCapabilities(BaseModel):
     input: frozenset[str]
     output: frozenset[str]
     features: frozenset[str]
-    interaction: Literal["turn", "realtime", "extraction", "embedding"]
+    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent"]
     multilingual: bool
 
 
@@ -87,21 +105,53 @@ def _str_set(value: Any) -> frozenset[str]:
     return frozenset()
 
 
-def _parse_declared(raw: Any) -> _DeclaredCapabilities:
+def _report_drift(model_name: str, problems: list[str]) -> None:
+    """SCREAM about a stored capabilities value outside the canonical vocabulary.
+
+    The write path (the agent `sql`/`db_*` tools, `scripts/set_model_capabilities.py`)
+    refuses these now, so anything reaching here predates the guard or arrived
+    through a door we do not own — e.g. a direct Supabase write from an admin
+    surface. Silently resolving around it is how `structured_outputs` turned
+    schema output OFF for gpt-6-astra without a single server-side signal.
+    """
+    for problem in problems:
+        key = f"{model_name}|{problem}"
+        if key in _reported_drift:
+            continue
+        _reported_drift.add(key)
+        logger.error(
+            "ai.model_definition.capabilities drift on model %s: %s — not in the canonical "
+            "vocabulary (%s). Fix the ROW; resolution below uses only what it recognizes.",
+            model_name or "<unknown>",
+            problem,
+            VOCABULARY_FILE,
+        )
+
+
+def _parse_declared(raw: Any, model_name: str = "") -> _DeclaredCapabilities:
     # The jsonb is a structured dict {input,output,features,interaction,multilingual}.
     # A list (the OLD misinterpretation), None, or any non-dict contributes nothing —
     # tolerant by design (this exact mis-iteration masked the column for months).
     if not isinstance(raw, dict):
         raw = {}
-    interaction = raw.get("interaction")
-    if interaction not in ("turn", "realtime", "extraction", "embedding"):
+    # Normalize provider spellings the same way the write path does, so a row
+    # that predates the write guard still RESOLVES correctly instead of losing
+    # the capability — and scream either way. Correcting on read is a stand-in,
+    # never a substitute for repairing the row.
+    checked = normalize_capabilities(raw, label=model_name)
+    if checked.corrections or checked.rejections:
+        _report_drift(model_name, checked.corrections + checked.rejections)
+    normalized = checked.value if isinstance(checked.value, dict) else {}
+
+    interaction = normalized.get("interaction")
+    if interaction not in INTERACTION_MODES:
         interaction = "turn"
     return _DeclaredCapabilities(
-        input=_str_set(raw.get("input")),
-        output=_str_set(raw.get("output")),
-        features=_str_set(raw.get("features")),
+        input=_str_set(normalized.get("input")),
+        output=_str_set(normalized.get("output")),
+        features=_str_set(normalized.get("features")),
         interaction=interaction,
-        multilingual=bool(raw.get("multilingual", False)),
+        multilingual=bool(normalized.get("multilingual", False)),
     )
 
 
@@ -128,7 +178,7 @@ def resolve_model_capabilities(
     if capabilities_override:
         merged.update(capabilities_override)
 
-    declared = _parse_declared(merged)
+    declared = _parse_declared(merged, getattr(model_data, "name", "") or "")
     return ResolvedModelCapabilities(
         model_name=getattr(model_data, "name", "") or "",
         supports_text_input="text" in declared.input,

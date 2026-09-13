@@ -80,6 +80,8 @@ from graphify.extractors.resolution import (  # noqa: E402,F401
     _WORKSPACE_MANIFEST_NAMES,
     _apply_symbol_resolution_facts,
     _augment_symbol_resolution_edges,
+    _cached_realpath,
+    _cached_source_key,
     _collect_js_symbol_resolution_facts,
     _collect_python_symbol_resolution_facts,
     _contained_in_package,
@@ -6259,6 +6261,16 @@ def _extract_parallel(
             flush=True,
         )
         return False
+    except OSError as exc:
+        # The pool could not even start. On macOS, leaked POSIX semaphores
+        # exhaust kern.posix.sem.max and sem_open fails with ENOSPC ("No space
+        # left on device", disk nowhere near full). Sequential needs no pool.
+        print(
+            f"  warning: parallel extraction unavailable ({exc}); "
+            "falling back to sequential.",
+            flush=True,
+        )
+        return False
     if failed:
         # #2445: retry per-future failures once, in-process, instead of leaving
         # their per_file slots None (which the defensive fill downstream turned
@@ -6388,6 +6400,12 @@ def extract(
     _PACKAGE_IMPORTS_CACHE.clear()
     _XAML_CSHARP_CLASS_CACHE.clear()
     _MD_LINK_INDEX_CACHE.clear()
+    # Path-resolution memoization (#3500) is keyed by (path, cwd) with no mtime
+    # component, so — like the alias caches above — a symlink repoint or a path
+    # that starts/stops existing between rebuilds in a long-lived `graphify
+    # watch` / MCP process would otherwise replay a stale result. Clear per run.
+    _cached_realpath.cache_clear()
+    _cached_source_key.cache_clear()
 
     # Infer a common root for cache keys (use first diverging segment, not sum of all matches)
     try:

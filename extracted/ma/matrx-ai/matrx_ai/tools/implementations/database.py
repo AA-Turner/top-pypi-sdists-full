@@ -115,6 +115,19 @@ def _write_output(verb: str, rows: Any, returning: str) -> dict[str, Any]:
     return {verb: count, "data": rows}
 
 
+def _announce_corrections(
+    tool: str, corrections: list[str], output: dict[str, Any]
+) -> dict[str, Any]:
+    """Put vocabulary corrections in the tool result AND the server log.
+    An automatic intervention that nobody is told about is indistinguishable
+    from corrupt data landing quietly."""
+    if not corrections:
+        return output
+    for note in corrections:
+        vcprint(f"[{tool}] capability vocabulary corrected: {note}", color="yellow")
+    return {**output, "vocabulary_corrections": corrections}
+
+
 def _split_schema_table(table: str) -> tuple[str | None, str]:
     """Split a (possibly schema-qualified) reference into (schema|None, table).
 
@@ -333,6 +346,111 @@ def _after_catalog_write(schema: str | None, name: str, verb: str) -> None:
         vcprint(f"[sql] catalog write hook raised (ignored): {exc}", color="yellow")
 
 
+#: Catalog columns whose VALUE has a canonical vocabulary, and the validator
+#: that owns it. The generic sql/db_* tools are how the model-sync agent writes
+#: the catalog, so this is the choke point every agent write passes through.
+#: Before this existed, provider-doc spellings ("structured_outputs",
+#: "reasoning", "code_interpreter", "batch", "pdf_input") landed verbatim in
+#: ai.model_definition.capabilities and silently turned capabilities OFF —
+#: `_structured_mode` matches the literal "structured_output", so gpt-6-astra
+#: resolved to TEXT mode with schema output declared (2026-09-12).
+_VOCABULARY_GUARDED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "ai.model_definition": ("capabilities",),
+}
+
+_CATALOG_RULE_COLUMNS: dict[str, str] = {
+    "ai.api": "rules",
+    "ai.offering": "override",
+}
+
+
+def _guard_catalog_rules(schema: str | None, name: str, rows: list[Any]) -> str | None:
+    """Refuse catalog rules that the compiler would otherwise quarantine."""
+    column = _CATALOG_RULE_COLUMNS.get(f"{schema}.{name}")
+    if column is None:
+        return None
+
+    from matrx_ai.catalog.models import RulesEnvelope
+
+    for row in rows:
+        if not isinstance(row, dict) or column not in row or row[column] is None:
+            continue
+        try:
+            RulesEnvelope.model_validate(row[column])
+        except ValidationError as exc:
+            label = str(row.get("id") or row.get("name") or "submitted row")
+            return (
+                f"Catalog rule write refused for {schema}.{name} {label}: {exc}. "
+                "Fix the full rules envelope before retrying; a processor cannot coexist "
+                "with value_map or const."
+            )
+    return None
+
+
+def _guard_vocabulary(
+    schema: str | None, name: str, rows: list[Any]
+) -> tuple[str | None, list[str]]:
+    """Canonicalize and validate vocabulary-owned columns on a write payload.
+
+    Aliases are rewritten IN PLACE and returned as ``corrections`` for the
+    caller to announce — a silent correction is the same bug as a silent drop.
+    A value nobody has a word for returns an error message: the write is
+    refused with the fix spelled out, never accepted and half-honoured.
+    """
+    columns = _VOCABULARY_GUARDED_COLUMNS.get(f"{schema}.{name}")
+    if not columns:
+        return None, []
+
+    from matrx_ai.providers.capability_vocabulary import normalize_capabilities
+
+    corrections: list[str] = []
+    rejections: list[str] = []
+    replacements: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for column in columns:
+            if column not in row or row[column] is None:
+                continue
+            label = str(row.get("name") or row.get("id") or "")
+            result = normalize_capabilities(row[column], label=label)
+            corrections.extend(result.corrections)
+            if result.ok:
+                replacements.append((row, column, result.value))
+            else:
+                rejections.append(result.rejection_message())
+
+    if rejections:
+        # The enclosing write is refused. Do not leave an in-memory batch
+        # partly canonicalized: callers must be able to correct and retry the
+        # exact payload they supplied, and every announced correction must
+        # correspond to a value that will actually be written.
+        return " | ".join(dict.fromkeys(rejections)), []
+    for row, column, value in replacements:
+        row[column] = value
+    return None, corrections
+
+
+def _orm_lookups(match: dict[str, Any]) -> dict[str, Any]:
+    """Translate the tool's ``match`` into ORM lookup kwargs.
+
+    The read path already treats a LIST value as IN (``match_filters``); the
+    write paths passed ``match`` straight to ``update_where``/``delete_where``,
+    which bound the list as one uuid and failed ("invalid input syntax for type
+    uuid: ['…', '…']"). Same contract everywhere: scalar = equality, list =
+    ``field__in``, None = IS NULL (``field__isnull``).
+    """
+    out: dict[str, Any] = {}
+    for field, value in match.items():
+        if isinstance(value, (list, tuple)):
+            out[f"{field}__in"] = list(value)
+        elif value is None:
+            out[f"{field}__isnull"] = True
+        else:
+            out[field] = value
+    return out
+
+
 def match_filters(match: dict[str, Any]) -> tuple[Any, ...]:
     """Translate the ``sql`` tool's ``match`` object into typed ORM filters.
 
@@ -390,7 +508,8 @@ async def db_query(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type=_structured_query_error_type(exc),
                 message=f"Query failed. {message}",
                 suggested_action=suggested,
@@ -457,6 +576,26 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     try:
         data = parsed.data if isinstance(parsed.data, list) else [parsed.data]
+        rules_error = _guard_catalog_rules(schema, name, data)
+        if rules_error:
+            return ToolResult(
+                success=False,
+                error=ToolError(error_type="validation", message=rules_error),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="db_insert",
+                call_id=ctx.call_id,
+            )
+        vocab_error, corrections = _guard_vocabulary(schema, name, data)
+        if vocab_error:
+            return ToolResult(
+                success=False,
+                error=ToolError(error_type="validation", message=f"Insert refused. {vocab_error}"),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="db_insert",
+                call_id=ctx.call_id,
+            )
         await _stamp_auto_fields(schema, name, data, ctx)
 
         Model = _resolve_write_model(schema, name)
@@ -464,8 +603,12 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         _after_catalog_write(schema, name, "insert")
         return ToolResult(
             success=True,
-            output=_write_output(
-                "inserted", [_instance_to_dict(r) for r in created_rows], parsed.returning
+            output=_announce_corrections(
+                "db_insert",
+                corrections,
+                _write_output(
+                    "inserted", [_instance_to_dict(r) for r in created_rows], parsed.returning
+                ),
             ),
             started_at=started_at,
             completed_at=time.time(),
@@ -476,7 +619,8 @@ async def db_insert(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type="database",
                 message=f"Insert failed. {message}",
                 suggested_action=suggested,
@@ -504,20 +648,46 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     try:
+        update_data = dict(parsed.data)
+        rules_error = _guard_catalog_rules(schema, name, [update_data])
+        if rules_error:
+            return ToolResult(
+                success=False,
+                error=ToolError(error_type="validation", message=rules_error),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="db_update",
+                call_id=ctx.call_id,
+            )
+        vocab_error, corrections = _guard_vocabulary(schema, name, [update_data])
+        if vocab_error:
+            return ToolResult(
+                success=False,
+                error=ToolError(error_type="validation", message=f"Update refused. {vocab_error}"),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name="db_update",
+                call_id=ctx.call_id,
+            )
         Model = _resolve_write_model(schema, name)
         # update_where() is a single UPDATE statement with no RETURNING —
         # re-select by the same match filters afterward so the tool can still
         # echo the updated rows (PostgREST's `.update(...).execute()` did this
         # atomically; this is a fetch-after-write, same as the rest of this
         # file's dynamic write paths — see the ORM-gap note in the final report).
-        await Model.update_where(parsed.match, **parsed.data)
-        updated_rows = await Model.filter(**parsed.match).all()
+        lookups = _orm_lookups(parsed.match)
+        await Model.update_where(lookups, **update_data)
+        updated_rows = await Model.filter(**lookups).all()
         _after_catalog_write(schema, name, "update")
 
         return ToolResult(
             success=True,
-            output=_write_output(
-                "updated", [_instance_to_dict(r) for r in updated_rows], parsed.returning
+            output=_announce_corrections(
+                "db_update",
+                corrections,
+                _write_output(
+                    "updated", [_instance_to_dict(r) for r in updated_rows], parsed.returning
+                ),
             ),
             started_at=started_at,
             completed_at=time.time(),
@@ -528,7 +698,8 @@ async def db_update(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type="database",
                 message=f"Update failed. {message}",
                 suggested_action=suggested,
@@ -684,7 +855,8 @@ async def db_schema(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type="database",
                 message=f"Schema query failed. {message}",
                 suggested_action=suggested,
@@ -763,9 +935,10 @@ async def _sql_delete(args: dict[str, Any], ctx: ToolContext, started_at: float)
         # the final report). A concurrent writer racing between the two
         # statements is the same admin-bypass-RLS risk this whole tool already
         # carries by design.
-        rows_to_delete = await Model.filter(**match).all()
+        lookups = _orm_lookups(match)
+        rows_to_delete = await Model.filter(**lookups).all()
         deleted_data = [_instance_to_dict(r) for r in rows_to_delete]
-        deleted_count = await Model.delete_where(**match)
+        deleted_count = await Model.delete_where(**lookups)
         _after_catalog_write(schema, name, "delete")
         return ToolResult(
             success=True,
@@ -779,7 +952,8 @@ async def _sql_delete(args: dict[str, Any], ctx: ToolContext, started_at: float)
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type="database",
                 message=f"Delete failed. {message}",
                 suggested_action=suggested,
@@ -810,6 +984,12 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
         return _sql_validation_error(err_msg or "", started_at, ctx)
 
     rows = data if isinstance(data, list) else [data]
+    rules_error = _guard_catalog_rules(schema, name, rows)
+    if rules_error:
+        return _sql_validation_error(rules_error, started_at, ctx)
+    vocab_error, corrections = _guard_vocabulary(schema, name, rows)
+    if vocab_error:
+        return _sql_validation_error(f"Upsert refused. {vocab_error}", started_at, ctx)
     await _stamp_auto_fields(schema, name, rows, ctx)
     returning = args.get("returning") or "full"
 
@@ -827,8 +1007,10 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
         _after_catalog_write(schema, name, "upsert")
         return ToolResult(
             success=True,
-            output=_write_output(
-                "upserted", [_instance_to_dict(r) for r in upserted_rows], returning
+            output=_announce_corrections(
+                "sql",
+                corrections,
+                _write_output("upserted", [_instance_to_dict(r) for r in upserted_rows], returning),
             ),
             started_at=started_at,
             completed_at=time.time(),
@@ -839,7 +1021,8 @@ async def _sql_upsert(args: dict[str, Any], ctx: ToolContext, started_at: float)
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(
+            error=ToolError.from_exception(
+                exc,
                 error_type="database",
                 message=f"Upsert failed. {message}",
                 suggested_action=suggested,
@@ -949,8 +1132,7 @@ async def _resolve_read_target(table: str) -> tuple[str | None, str | None]:
             return raw, None
     if schema in _NON_APP_SCHEMAS:
         return None, (
-            f"Schema '{schema}' is not application data and is not readable through "
-            f"the `sql` tool."
+            f"Schema '{schema}' is not application data and is not readable through the `sql` tool."
         )
     return f"{schema}.{name}", None
 
@@ -990,7 +1172,12 @@ async def _sql_query_scoped(
         message, suggested = await _agent_db_error(exc)
         return ToolResult(
             success=False,
-            error=ToolError(error_type="database", message=message, suggested_action=suggested),
+            error=ToolError.from_exception(
+                exc,
+                error_type="database",
+                message=message,
+                suggested_action=suggested,
+            ),
             started_at=started_at,
             completed_at=time.time(),
             tool_name="sql",

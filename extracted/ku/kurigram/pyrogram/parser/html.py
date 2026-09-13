@@ -16,11 +16,12 @@
 #  You should have received a copy of the GNU Lesser General Public License
 #  along with Pyrogram.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import annotations as _annotations
+
 import html
 import logging
 import re
 from html.parser import HTMLParser
-from typing import List, Optional
 
 import pyrogram
 from pyrogram import raw, types
@@ -36,7 +37,7 @@ class Parser(HTMLParser):
     # TODO: <span class="tg-spoiler"> <pre><code class="language-...">
     MENTION_RE = re.compile(r"tg://user\?id=(\d+)")
 
-    def __init__(self, client: "pyrogram.Client"):
+    def __init__(self, client: pyrogram.Client):
         super().__init__()
 
         self.client = client
@@ -149,7 +150,7 @@ class Parser(HTMLParser):
 
 
 class HTML:
-    def __init__(self, client: Optional["pyrogram.Client"]):
+    def __init__(self, client: pyrogram.Client | None):
         self.client = client
 
     async def parse(self, text: str) -> dict:
@@ -186,12 +187,12 @@ class HTML:
 
         return {
             "message": utils.remove_surrogates(parser.text),
-            "entities": sorted(entities, key=lambda e: e.offset) or None
+            "entities": sorted(entities, key=lambda e: e.offset) or None,
         }
 
     @staticmethod
-    def unparse(text: str, entities: List["types.MessageEntity"]) -> str:
-        def parse_one(entity: "types.MessageEntity"):
+    def unparse(text: str, entities: list[types.MessageEntity]) -> str:
+        def parse_one(entity: types.MessageEntity):
             """
             Parses a single entity and returns (start_tag, start), (end_tag, end)
             """
@@ -216,7 +217,7 @@ class HTML:
             elif entity_type == MessageEntityType.BLOCKQUOTE:
                 name = entity_type.name.lower()
                 expandable = getattr(entity, "expandable", False)
-                start_tag = f'<{name}{" expandable" if expandable else ""}>'
+                start_tag = f"<{name}{' expandable' if expandable else ''}>"
                 end_tag = f"</{name}>"
             elif entity_type in (
                 MessageEntityType.CODE,
@@ -287,7 +288,12 @@ class HTML:
             last_offset = entities_offsets[-1][1]
             # no need to sort, but still add entities starting from the end
             for entity, offset in reversed(entities_offsets):
-                text = text[:offset] + entity + html.escape(text[offset:last_offset]) + text[last_offset:]
+                text = (
+                    text[:offset]
+                    + entity
+                    + html.escape(text[offset:last_offset])
+                    + text[last_offset:]
+                )
                 last_offset = offset
 
         return utils.remove_surrogates(text)

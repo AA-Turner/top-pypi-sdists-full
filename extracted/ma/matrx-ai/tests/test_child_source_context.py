@@ -56,7 +56,15 @@ async def test_missing_source_warning_creates_structured_system_error(monkeypatc
     )
 
     warn_missing_source_tracking(
-        SimpleNamespace(source_app="", source_feature=""),
+        SimpleNamespace(
+            source_app="",
+            source_feature="",
+            request_id="request-warning",
+            user_id="user-warning",
+            conversation_id="conversation-warning",
+            agent_id="agent-warning",
+            organization_id="organization-warning",
+        ),
         handler="test.keyword_research",
         label="research",
     )
@@ -66,10 +74,16 @@ async def test_missing_source_warning_creates_structured_system_error(monkeypatc
         {
             "kind": MISSING_SOURCE_TRACKING_KIND,
             "error_type": MISSING_SOURCE_TRACKING_KIND,
-            "error_text": (
-                "agent source tracking missing source_app, source_feature at test.keyword_research"
-            ),
-            "route": "test.keyword_research",
+                "error_text": (
+                    "agent source tracking missing source_app, source_feature at test.keyword_research"
+                ),
+                "request_id": "request-warning",
+                "user_id": "user-warning",
+                "conversation_id": "conversation-warning",
+                "agent_id": "agent-warning",
+                "organization_id": "organization-warning",
+                "source_app": None,
+                "route": "test.keyword_research",
             "payload": {
                 "handler": "test.keyword_research",
                 "label": "research",
@@ -93,7 +107,15 @@ async def test_missing_source_capture_is_awaited_with_system_error_kind(monkeypa
     )
 
     missing = await capture_missing_source_tracking(
-        SimpleNamespace(source_app="", source_feature=""),
+        SimpleNamespace(
+            source_app="",
+            source_feature="",
+            request_id="request-1",
+            user_id="user-1",
+            conversation_id="conversation-1",
+            agent_id="agent-1",
+            organization_id="organization-1",
+        ),
         handler="test.mandate_start",
         label="goal-writer",
     )
@@ -101,3 +123,8 @@ async def test_missing_source_capture_is_awaited_with_system_error_kind(monkeypa
     assert missing is True
     assert captured[0]["kind"] == MISSING_SOURCE_TRACKING_KIND
     assert captured[0]["route"] == "test.mandate_start"
+    assert captured[0]["request_id"] == "request-1"
+    assert captured[0]["user_id"] == "user-1"
+    assert captured[0]["conversation_id"] == "conversation-1"
+    assert captured[0]["agent_id"] == "agent-1"
+    assert captured[0]["organization_id"] == "organization-1"

@@ -6311,3 +6311,73 @@ def test_self_referencing_component_terminates(ctx):
     _, graph = analyze_dependencies(ctx, paths, components={"schemas": {"Node": node}})
 
     assert [entry.producer_operation_ref for entry in graph.iter_links()] == ["#/paths/~1nodes/post"]
+
+
+def test_scalar_body_field_named_after_collection_links_to_its_producer(ctx):
+    # `country` carries no identifier suffix, but it names a collection whose 200 is the list of
+    # values the field accepts.
+    paths = {
+        "/countries": {
+            "get": {
+                "operationId": "listCountries",
+                "responses": {
+                    "200": {"content": {"application/json": {"schema": {"type": "array", "items": {"type": "string"}}}}}
+                },
+            }
+        },
+        "/news": {
+            "post": {
+                "operationId": "createNews",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"country": {"type": "string"}, "text": {"type": "string"}},
+                                "required": ["country"],
+                            }
+                        }
+                    }
+                },
+                "responses": {"201": {"description": "Created"}},
+            }
+        },
+    }
+    _, graph = analyze_dependencies(ctx, paths)
+    assert [
+        [entry.producer_operation_ref, entry.status_code, definition.to_openapi()]
+        for entry in graph.iter_links()
+        for definition in entry.links.values()
+    ] == [
+        [
+            "#/paths/~1countries/get",
+            "200",
+            {
+                "operationRef": "#/paths/~1news/post",
+                "requestBody": {"country": "$response.body#/*"},
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ]
+    ]
+
+
+def test_second_consumer_of_a_foreign_key_gets_its_own_link(ctx):
+    # Two reads of the same resource are distinct destinations, not one.
+    order = {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "customer_id": {"type": "string"}},
+        "required": ["id", "customer_id"],
+    }
+    paths = {
+        **operation("post", "/orders", "201", order, operation_id="createOrder"),
+        **operation("get", "/customers/{id}", "200", parameters=[path_param("id")], operation_id="getCustomer"),
+        **operation(
+            "get", "/customers/{id}/invoices", "200", parameters=[path_param("id")], operation_id="listInvoices"
+        ),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths)
+
+    assert sorted(
+        definition.to_openapi()["operationRef"] for entry in graph.iter_links() for definition in entry.links.values()
+    ) == ["#/paths/~1customers~1{id}/get", "#/paths/~1customers~1{id}~1invoices/get"]

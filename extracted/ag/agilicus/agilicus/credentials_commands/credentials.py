@@ -18,10 +18,12 @@ from ..output.table import (
 from .oauth2 import get_oauth2_auth
 
 
-def make_secrets(private_key=None, **kwargs):
+def make_secrets(private_key=None, service_account_json_file=None, **kwargs):
     private_key_data = None
     if private_key is not None:
         private_key_data = private_key.read()
+    if service_account_json_file is not None:
+        kwargs["service_account_json"] = service_account_json_file.read()
     kwargs = strip_none(kwargs)
 
     if private_key_data is None and len(kwargs) == 0:
@@ -120,6 +122,7 @@ def format_object_credentials(ctx, labels):
         constant_if_exists(
             status_column("private_key_passphrase", "pk_passphrase"), "✓"
         ),
+        constant_if_exists(status_column("service_account_json", "sa_json"), "✓"),
     ]
 
     return format_table(ctx, labels, columns)

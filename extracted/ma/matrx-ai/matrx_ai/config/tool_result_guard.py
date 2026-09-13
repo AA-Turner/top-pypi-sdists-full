@@ -370,3 +370,156 @@ def report_nonadjacent_tool_uses(
         },
     )
     _schedule_nonadjacent_capture(layer=layer, dropped=dropped, context=ctx)
+
+
+# ── ORPHAN tool_use REPAIR (2026-09-12, wall W49) ────────────────────────────
+#
+# The THIRD failure shape this module owns, and the only one that is repaired
+# rather than removed. A ``tool_use`` with NO ``tool_result`` anywhere is a call
+# the platform never answered — most often a CLIENT-DELEGATED tool whose answer
+# never arrived (the surface that owns it was not mounted, the client's
+# ``submit-tool-results`` POST never landed, a desktop executor vanished).
+#
+# Dropping it kept the request legal and destroyed the evidence: an assistant
+# message carrying ONLY that call lost all its content and was dropped whole,
+# so the turn ended with nothing on screen, and the next turn's model could not
+# see — let alone tell the user — that its write never happened. That is the
+# Masterwork Conductor wall: ``apply_surface_write`` delegated to a plain
+# ``/chat/<id>`` tab with no surface handlers.
+#
+# So the guard now PAYS THE DEBT the platform owes that call: it synthesizes the
+# ``is_error`` tool_result nobody produced, keeps the pair legal and adjacent,
+# and says so loudly. The model reads a sentence it can act on instead of
+# suffering amnesia.
+
+ORPHAN_TOOL_USE_REPAIR_KIND = "orphan_tool_use_repaired"
+
+# The sentence the model reads in place of the answer that never came. It names
+# the tool, states the fact, and gives the only two honest next moves — never a
+# fabricated success and never silence.
+ORPHAN_TOOL_RESULT_TEXT = (
+    "TOOL NEVER ANSWERED [{name}]: this call was dispatched but no result ever "
+    "came back, so the platform is answering for it. Nothing was written and "
+    "nothing was changed. This is what it means: the tool was handed to a "
+    "client surface (a page, an extension, or a desktop app) that was not "
+    "there to run it, or its answer never reached the server. Do NOT assume it "
+    "succeeded and do NOT silently retry the identical call. Tell the user "
+    "plainly that the action did not happen, name what you were trying to do, "
+    "and either ask them to open the page that can apply it or offer a way "
+    "that does not need that surface."
+)
+
+
+async def capture_orphan_tool_uses(
+    *,
+    layer: str,
+    repaired: list[dict[str, Any]],
+    context: dict[str, Any],
+) -> None:
+    """Durable repair-queue row for every unanswered tool call we just paid for.
+
+    Bounded on purpose, exactly like ``capture_nonadjacent_tool_uses``: tool
+    names and counts identify the class; arguments and provider output never
+    enter the record.
+    """
+    from matrx_connect.streaming.error_capture import capture_error
+
+    exc = RuntimeError(
+        f"{len(repaired)} tool call(s) never produced a result; "
+        "the sanitizer synthesized error results so the model is told"
+    )
+    await capture_error(
+        exc,
+        kind=ORPHAN_TOOL_USE_REPAIR_KIND,
+        request_id=context.get("request_id"),
+        user_id=context.get("user_id"),
+        conversation_id=context.get("conversation_id"),
+        route=context.get("route"),
+        error_type="OrphanToolUse",
+        context={
+            "layer": layer,
+            "repaired_count": len(repaired),
+            "tool_names": sorted({str(r.get("name") or "?") for r in repaired}),
+        },
+    )
+
+
+def _schedule_orphan_capture(
+    *, layer: str, repaired: list[dict[str, Any]], context: dict[str, Any]
+) -> None:
+    """Schedule capture only when sanitize runs inside a request event loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    supervised_task(
+        capture_orphan_tool_uses(layer=layer, repaired=repaired, context=context),
+        kind="orphan_tool_use_capture_failed",
+        name="capture_orphan_tool_uses",
+    )
+
+
+def report_orphan_tool_uses_repaired(
+    *,
+    layer: str,
+    repaired: list[dict[str, Any]],
+) -> None:
+    """Scream about tool calls that never produced a result, and were answered here."""
+    if not repaired:
+        return
+
+    ctx = _current_context()
+    ids = ", ".join(str(r.get("tool_use_id")) for r in repaired)
+    headline = "TOOL CALL NEVER ANSWERED — AN ERROR RESULT WAS SYNTHESIZED FOR IT"
+    bar = "█" * (len(headline) + 8)
+
+    lines = [
+        "",
+        bar,
+        f"██  {headline}  ██",
+        bar,
+        f"WHO I AM      : {layer}",
+        "                A last-line provider-payload guard inside matrx-ai. This is",
+        "                the one catch I REPAIR instead of removing.",
+        f"WHAT I GOT    : {len(repaired)} tool_use block(s) with NO tool_result anywhere in",
+        "                the conversation:",
+    ]
+    for r in repaired:
+        lines.append(
+            f"                  • id={r.get('tool_use_id')}  name={r.get('name') or '?'}"
+        )
+    lines += [
+        "WHAT'S WRONG  : Something dispatched a tool call and no answer ever came back.",
+        "                The usual source is a CLIENT-DELEGATED tool (cx_tool_call stuck",
+        "                at status='delegated'): the surface that owns it was not mounted",
+        "                in the tab the user was looking at, the client's",
+        "                POST /tool_results never landed, or a desktop executor went away.",
+        "WHERE TO LOOK : 1) cx_tool_call rows for these call ids — status, error_type.",
+        "                2) the client dispatcher for that tool name: it must answer EVERY",
+        "                   call it cannot run, honestly, rather than staying silent.",
+        "                3) aidream/docs/handoffs/delegated-surface-tools-2026-09-12.md —",
+        "                   the census of delegated tools and their fallbacks.",
+        f"CONTEXT       : {ctx or 'no app context available'}",
+        "VERDICT       : I synthesized an is_error tool_result for each one, so the pair",
+        "                is legal, the assistant message survives, and the model is TOLD",
+        "                the action never happened instead of losing it silently.",
+        bar,
+        "",
+    ]
+    vcprint("\n".join(lines), color="red")
+
+    logger.error(
+        "%s unanswered tool call(s) repaired at %s (ids: %s) — a delegated call never "
+        "produced a result; see banner for where to look.",
+        len(repaired),
+        layer,
+        ids,
+        extra={
+            "event": "orphan_tool_use_repaired",
+            "layer": layer,
+            "repaired_ids": [r.get("tool_use_id") for r in repaired],
+            "repaired_detail": repaired,
+            **{f"ctx_{k}": v for k, v in ctx.items()},
+        },
+    )
+    _schedule_orphan_capture(layer=layer, repaired=repaired, context=ctx)

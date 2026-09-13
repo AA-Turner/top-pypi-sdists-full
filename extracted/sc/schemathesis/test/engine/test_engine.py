@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import _thread
+import json
 import platform
 import sys
 import threading
@@ -168,6 +169,65 @@ def test_empty_response_interaction(ctx):
         assert interaction.request.body is None
         # And response encoding is missing
         assert interaction.response.encoding is None
+
+
+LARGE_RESPONSE_BODY = json.dumps({"padding": "x" * 2000, "marker": "tail"}).encode()
+
+
+def _large_response_schema(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/large": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["marker"],
+                                        "properties": {"marker": {"enum": ["tail"]}},
+                                    }
+                                }
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    @app.route("/api/large")
+    def large():
+        return flask.Response(LARGE_RESPONSE_BODY, content_type="application/json")
+
+    return schemathesis.openapi.from_url(app_runner.openapi_url(app))
+
+
+def test_checks_see_full_body_when_recorded_copy_is_truncated(ctx, app_runner):
+    schema = _large_response_schema(ctx, app_runner)
+    schema.config.output.truncation.max_recorded_payload_size = 64
+    stream = EventStream(
+        schema, checks=[response_schema_conformance], phases=[PhaseName.FUZZING], max_examples=1
+    ).execute()
+
+    assert [(check.name, check.status) for check in _last_scenario_checks(stream)] == [
+        ("response_schema_conformance", Status.SUCCESS)
+    ]
+    response = _scenario_interactions(stream)[0].response
+    assert (response.content, response.body_size) == (LARGE_RESPONSE_BODY[:64], len(LARGE_RESPONSE_BODY))
+
+
+def test_response_under_recorded_payload_limit_is_kept_intact(ctx, app_runner):
+    schema = _large_response_schema(ctx, app_runner)
+    schema.config.output.truncation.max_recorded_payload_size = len(LARGE_RESPONSE_BODY) + 1
+    stream = EventStream(
+        schema, checks=[response_schema_conformance], phases=[PhaseName.FUZZING], max_examples=1
+    ).execute()
+
+    response = _scenario_interactions(stream)[0].response
+    assert (response.content, response.body_size) == (LARGE_RESPONSE_BODY, len(LARGE_RESPONSE_BODY))
 
 
 def test_empty_string_response_interaction(ctx):
@@ -2016,3 +2076,48 @@ def test_max_time_stateful_suite_with_no_time_left_is_not_a_pass(ctx, app_runner
     )
 
     assert [event.status for event in stream.find_all(events.SuiteFinished)] == [Status.FAILURE, Status.SKIP]
+
+
+def test_planted_bug_behind_an_id_only_the_listing_carries(ctx):
+    # The 500 sits behind an id that generation cannot invent; only the listing response holds it.
+    api = ctx.openapi.apps.collection_with_planted_bug()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    stream = execute(
+        schema,
+        max_time=10,
+        max_examples=100_000,
+        checks=(not_a_server_error,),
+        phases=[PhaseName.FUZZING],
+    )
+
+    assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
+
+
+def test_planted_bug_behind_an_undocumented_collection(ctx):
+    # The spec declares no response shape, so the listing body is the only place the tag exists.
+    api = ctx.openapi.apps.undocumented_collection_with_planted_bug()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    stream = execute(
+        schema,
+        max_time=10,
+        max_examples=100_000,
+        checks=(not_a_server_error,),
+        phases=[PhaseName.FUZZING],
+    )
+
+    assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
+
+
+def test_planted_bug_behind_a_vocabulary_path_parameter(ctx):
+    # The path segment is a vocabulary value, not an identifier, and only the listing carries it.
+    api = ctx.openapi.apps.vocabulary_path_with_planted_bug()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    stream = execute(
+        schema,
+        max_time=10,
+        max_examples=100_000,
+        checks=(not_a_server_error,),
+        phases=[PhaseName.FUZZING],
+    )
+
+    assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None

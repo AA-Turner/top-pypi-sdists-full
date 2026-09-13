@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: groundx
-Version: 4.0.4
+Version: 4.0.6
 Summary: 
 License: MIT
 Requires-Python: >=3.10,<4.0
@@ -39,7 +39,7 @@ Requires-Dist: httpx-aiohttp (==0.1.8) ; (python_version >= "3.9") and (extra ==
 Requires-Dist: minio ; extra == "extract"
 Requires-Dist: openai ; extra == "extract"
 Requires-Dist: pillow ; extra == "extract"
-Requires-Dist: pydantic (>=1.9.2)
+Requires-Dist: pydantic (==2.14.0b1)
 Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
 Requires-Dist: redis ; extra == "extract"
 Requires-Dist: requests (>=2.4.0)

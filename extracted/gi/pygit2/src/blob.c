@@ -190,6 +190,7 @@ static int blob_filter_stream_write(
             err = GIT_ERROR;
             goto done;
         }
+        Py_DECREF(result);
         pos += chunk_size;
     }
 
@@ -202,7 +203,7 @@ static int blob_filter_stream_close(git_writestream *s)
 {
     struct blob_filter_stream *stream = (struct blob_filter_stream *)s;
     PyGILState_STATE gil = PyGILState_Ensure();
-    PyObject *result;
+    PyObject *result = NULL;
     int err = 0;
 
     /* Signal closed and then ready in that order so consumers can block on
@@ -214,6 +215,7 @@ static int blob_filter_stream_close(git_writestream *s)
         git_error_set(GIT_ERROR_OS, "failed to signal writer closed");
         err = GIT_ERROR;
     }
+    Py_XDECREF(result);
     result = PyObject_CallMethod(stream->py_ready, "set", NULL);
     if (result == NULL)
     {
@@ -221,6 +223,7 @@ static int blob_filter_stream_close(git_writestream *s)
         git_error_set(GIT_ERROR_OS, "failed to signal queue ready");
         err = GIT_ERROR;
     }
+    Py_XDECREF(result);
 
     PyGILState_Release(gil);
     return err;
@@ -316,9 +319,11 @@ Blob__write_to_queue(Blob *self, PyObject *args, PyObject *kwds)
     {
         if (py_oid != NULL && py_oid != Py_None)
         {
-            err = py_oid_to_git_oid(py_oid, &opts.attr_commit_id);
-            if (err < 0)
-                return Error_set(err);
+            size_t len = py_oid_to_git_oid(py_oid, &opts.attr_commit_id);
+            if (len == 0) {
+                git_blob_free(blob);
+                return NULL;
+            }
         }
 
         if ((opts.flags & GIT_BLOB_FILTER_NO_SYSTEM_ATTRIBUTES) != 0)

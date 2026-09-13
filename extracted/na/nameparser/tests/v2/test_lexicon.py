@@ -1,5 +1,6 @@
 import dataclasses
 import pickle
+import unicodedata
 import warnings
 from collections.abc import Callable
 
@@ -11,6 +12,7 @@ from nameparser._lexicon import (
     _title_key,
 )
 from nameparser._policy import Script, _SCRIPT_RANGES
+from nameparser.config.suffixes import SUFFIX_ACRONYMS, SUFFIX_WORDS
 
 
 def test_entries_are_normalized_at_construction() -> None:
@@ -237,6 +239,22 @@ def test_suffix_ambiguous_must_be_subset_of_acronyms() -> None:
         Lexicon(suffix_acronyms_ambiguous=frozenset({"ma"}))
 
 
+def test_the_shipped_suffix_sets_are_disjoint() -> None:
+    # suffixes.py asserts this at import; the assert is stripped under
+    # `python -O`, so the invariant gets a named test as well. The two
+    # sets normalize differently -- the word test strips only edge
+    # periods, the acronym test strips all of them -- so a word in both
+    # is matched by two rules and which one fired is unreadable from
+    # outside. The last overlap, 'esq', left the acronyms 2026-09-08
+    # (decisions.md#suffix-acronym-collisions).
+    #
+    # The SHIPPED sets only: Lexicon has no such invariant, and a
+    # caller who wants the overlap in their own vocabulary keeps it.
+    assert SUFFIX_ACRONYMS & SUFFIX_WORDS == frozenset()
+    default = Lexicon.default()
+    assert default.suffix_acronyms & default.suffix_words == frozenset()
+
+
 def test_given_name_titles_may_hold_a_multi_word_phrase() -> None:
     # given_name_titles is looked up against the SPACE-JOINED title run
     # (_pipeline/_post_rules.py), not per token, so "grand duke" is a
@@ -256,13 +274,36 @@ def test_given_name_titles_folds_per_word_so_abbreviations_match(
     # 'lt. col' verbatim kept the interior period and matched nothing --
     # a silent no-op on the config surface, the failure this field is
     # most prone to (it has no validation by design).
+    #
+    # It is the whole-run arm that matches here, and only that arm:
+    # `col` alone is not a given-name title, so #489's last-word arm
+    # must not have replaced the phrase lookup.
     base = Lexicon.default()
     lex = dataclasses.replace(
         base,
         titles=base.titles | {"lt", "col"},
         given_name_titles=base.given_name_titles | {spelling})
     assert "lt col" in lex.given_name_titles
+    assert "col" not in lex.given_name_titles
     assert Parser(lexicon=lex).parse("Lt. Col. Smith").given == "Smith"
+
+
+def test_the_shipped_given_name_titles_are_every_one_a_single_word() -> None:
+    # The invariant that makes the whole-run arm dead for the shipped
+    # vocabulary: it can only ever match a one-word run, which the
+    # last-word arm reads the same way (#489). A phrase entry here
+    # would give that arm reach the docstring says it has not.
+    assert not any(" " in t for t in Lexicon.default().given_name_titles)
+
+
+def test_a_run_matches_by_its_last_word_when_the_whole_run_does_not() -> None:
+    # The other arm's premise, on the shipped vocabulary: 'dr sir' is
+    # no entry and never could be, and `sir` is the run's last word
+    # (#489). What the parse then reads is the `Dr. Sir John` case
+    # row's, and is not asserted twice.
+    lex = Lexicon.default()
+    assert "dr sir" not in lex.given_name_titles
+    assert "sir" in lex.given_name_titles
 
 
 @pytest.mark.parametrize("entry", ["lt .", "lt . col", ". col", ". ."])
@@ -382,6 +423,15 @@ def test_removing_a_title_leaves_its_given_name_marker_alone() -> None:
 
 @pytest.mark.parametrize("word", [
     "dr.", " Dr. ", ". a .", ".  .", "..x..", "  .b.  ",
+    # the three non-ASCII full stops (#322), alone and mixed with
+    # the ASCII one, and around whitespace like the rows above
+    "씨．", "씨。", "씨｡", "．씨。", " 。씨 ", "。 씨 .",
+    # NFD input: the fold composes, and composing twice is a no-op
+    unicodedata.normalize("NFD", "씨."),
+    unicodedata.normalize("NFD", "Müller."),
+    # a case-mapping that produces a combining mark: lower() then NFC
+    # has to land somewhere a second pass leaves alone
+    "İ.",
 ])
 def test_normalize_reaches_a_fixed_point(word: str) -> None:
     # strip() then strip(".") leaves periods-around-whitespace half
@@ -390,6 +440,77 @@ def test_normalize_reaches_a_fixed_point(word: str) -> None:
     # sees the value change under it, so the fold has to converge.
     once = _normalize(word)
     assert _normalize(once) == once
+
+
+def test_normalize_folds_every_full_stop_and_composes_nfd() -> None:
+    # #322: the vocabulary is stored NFC with edge stops removed, so a
+    # lookup written with a fullwidth or ideographic stop, or in NFD,
+    # has to fold to the same key. Edge stops only: 'J.R.' keeps its
+    # interior period exactly as before.
+    assert _normalize("씨．") == "씨"
+    assert _normalize("씨。") == "씨"
+    assert _normalize("씨｡") == "씨"
+    # the fold is script-agnostic, so the reach is not CJK-only: a
+    # LATIN word wearing an ideographic stop folds to its entry too,
+    # and 'Dr。' consequently reads as a title where before it read as
+    # a name word. Pinned here because it is the shape the tests
+    # elsewhere in this bundle deliberately leave in ASCII.
+    assert _normalize("Dr。") == "dr"
+    assert _normalize(unicodedata.normalize("NFD", "씨.")) == "씨"
+    assert _normalize("J.R.") == "j.r"
+    assert _normalize("김.민준") == "김.민준"
+    # an INTERIOR ideographic stop survives too: the fold composes NFC,
+    # which leaves U+3002 exactly where it is, so this pins the
+    # interior survival the ASCII row above pins for '.'
+    assert _normalize("김。민준") == "김。민준"
+    # NFC, NOT NFKC, and this is the row that separates them. NFKC
+    # folds every fullwidth character to its ASCII compatibility form,
+    # so it would give 'm.b.a' here -- whose period-free form is 'mba',
+    # a shipped suffix acronym (_vocab.suffix_as_written strips
+    # periods for the acronym test alone). Folding widths at the
+    # lookup would therefore make a fullwidth-written credential match
+    # the ASCII vocabulary, which is a decision this bundle did not
+    # take: the stop set was widened, the letters were not.
+    assert _normalize("Ｍ．Ｂ．Ａ．") == "ｍ．ｂ．ａ"
+
+
+def test_an_entry_that_is_only_full_stops_is_rejected() -> None:
+    # the "normalizes to empty" guard reads the same stop set as the
+    # fold, so an ideographic stop on its own is the data bug an ASCII
+    # one already is
+    with pytest.raises(ValueError, match="normalizes to empty"):
+        Lexicon(titles=frozenset({"。"}))
+
+
+def test_an_nfd_authored_entry_is_stored_composed() -> None:
+    # the storage fold composes NFC (#322), so a caller who authors a
+    # surname in NFD gets the NFC entry -- and raw NFD input, which
+    # segmentation matches without folding, then finds no entry and
+    # goes unsplit (rules.md#W1's accepted degradation). Pinned
+    # because the surname site's comment relies on it.
+    nfd = unicodedata.normalize("NFD", "김")
+    lex = Lexicon(surnames=frozenset({nfd}))
+    assert lex.surnames == frozenset({"김"})
+    assert nfd not in lex.surnames
+
+
+def test_every_shipped_entry_is_already_nfc() -> None:
+    # the measurement behind _normalize's docstring, as a standing
+    # assertion: NFC at storage changes no shipped entry, so the
+    # vocabulary a caller reads back is the vocabulary that was
+    # authored. A data module written in NFD would fail here.
+    #
+    # The roster is _VOCAB_FIELDS, which is the roster __post_init__
+    # and __setstate__ normalize -- so a thirteenth vocabulary field
+    # has to join it for add/remove to work at all, and joining it
+    # gets the field checked here for free (#322/#323 review).
+    lex = Lexicon.default()
+    for field in _VOCAB_FIELDS:
+        for word in getattr(lex, field):
+            assert unicodedata.normalize("NFC", word) == word, (field, word)
+    for pair in lex.capitalization_exceptions:
+        for word in pair:
+            assert unicodedata.normalize("NFC", word) == word, pair
 
 
 def test_unpickling_revalidates_invariants() -> None:

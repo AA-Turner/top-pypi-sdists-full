@@ -24,6 +24,10 @@ from matrx_ai.providers.outbound_capture import (
     make_capture_http_client,
     stamp_call_meta,
 )
+from matrx_ai.providers.reasoning_stream_state import (
+    reasoning_state_for,
+    reset_reasoning_state,
+)
 from matrx_ai.providers.sdk_drift import route_undeclared_params
 from matrx_ai.providers.snapshot import capture_request_payload
 
@@ -56,11 +60,14 @@ class OpenAIChat:
         self.translator = OpenAITranslator(debug=debug)
         self.debug = debug
         self._event_samples = {}
-        self._reasoning_started = {}  # Track reasoning items that have received content
-        # Reasoning items for which we've emitted the content-less "reasoning
-        # started" lifecycle signal (keyed by reasoning item id). Independent of
-        # _reasoning_started, which only tracks items that streamed summary TEXT.
-        self._reasoning_signaled_ids: set[str] = set()
+        # 🚨 NO PER-STREAM STATE ON `self`. This object is memoized
+        # process-wide (unified_client._provider_client_cache) and parses every
+        # concurrent turn at once, so which reasoning items opened a
+        # <reasoning> wrapper — and which emitted the content-less lifecycle
+        # signal — live per STREAM in providers/reasoning_stream_state.py,
+        # keyed on that stream's emitter. Clearing them here at the top of a
+        # stream wiped a concurrent turn's in-flight items and stranded their
+        # close, so that turn's whole answer rendered as "Thought process".
 
         if DEBUG_OVERRIDE:
             self.debug = True
@@ -330,9 +337,11 @@ class OpenAIChat:
     ) -> UnifiedResponse:
         """Execute streaming OpenAI request"""
 
-        # Clear reasoning tracking for this stream
-        self._reasoning_started = {}
-        self._reasoning_signaled_ids = set()
+        # Clear THIS stream's reasoning tracking. Scoped to this emitter: the
+        # provider client is memoized process-wide, so clearing it on `self`
+        # wiped a CONCURRENT turn's in-flight reasoning items and stranded
+        # their </reasoning> close (see providers/reasoning_stream_state.py).
+        reset_reasoning_state(emitter)
 
         final_response: OpenAIResponse | None = None
         # Terminal Response seen on ANY terminal event, including
@@ -467,8 +476,9 @@ class OpenAIChat:
             # is added even when the summary is suppressed, so it's the reliable
             # "the model is thinking now" marker. The UI leaves the heartbeat gap.
             reasoning_id = getattr(event.item, "id", None)
-            if reasoning_id and reasoning_id not in self._reasoning_signaled_ids:
-                self._reasoning_signaled_ids.add(reasoning_id)
+            reasoning_state = reasoning_state_for(emitter)
+            if reasoning_id and reasoning_id not in reasoning_state.signaled_ids:
+                reasoning_state.signaled_ids.add(reasoning_id)
                 await emitter.send_reasoning_state("started")
             if self.debug:
                 vcprint(f"Reasoning item added: {event.item.id}", color="blue")
@@ -476,9 +486,10 @@ class OpenAIChat:
         elif event_type == "response.reasoning_summary_text.delta":
             # Only send opening tag on first actual content
             reasoning_id = getattr(event, "item_id", None)
-            if reasoning_id and reasoning_id not in self._reasoning_started:
+            reasoning_state = reasoning_state_for(emitter)
+            if reasoning_id and reasoning_id not in reasoning_state.started_ids:
                 await emitter.send_chunk("\n<reasoning>\n")
-                self._reasoning_started[reasoning_id] = True
+                reasoning_state.started_ids[reasoning_id] = True
                 if self.debug:
                     vcprint(f"Reasoning content started: {reasoning_id}", color="blue")
             await emitter.send_chunk(event.delta)
@@ -486,9 +497,10 @@ class OpenAIChat:
         elif event_type == "response.output_item.done" and event.item.type == "reasoning":
             # Only send closing TEXT tag if we sent the opening one.
             reasoning_id = event.item.id
-            if reasoning_id in self._reasoning_started:
+            reasoning_state = reasoning_state_for(emitter)
+            if reasoning_id in reasoning_state.started_ids:
                 await emitter.send_chunk("\n</reasoning>\n")
-                del self._reasoning_started[reasoning_id]
+                del reasoning_state.started_ids[reasoning_id]
                 if self.debug:
                     vcprint(
                         f"Reasoning completed with content: {reasoning_id}",
@@ -499,8 +511,8 @@ class OpenAIChat:
             # Close the content-less lifecycle signal regardless of whether
             # summary text streamed — pairs with the "started" emitted on
             # output_item.added.
-            if reasoning_id in self._reasoning_signaled_ids:
-                self._reasoning_signaled_ids.discard(reasoning_id)
+            if reasoning_id in reasoning_state.signaled_ids:
+                reasoning_state.signaled_ids.discard(reasoning_id)
                 await emitter.send_reasoning_state("stopped")
 
         # Web-search / file citation annotation attaching to the answer text.

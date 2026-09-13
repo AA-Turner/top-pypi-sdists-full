@@ -24,6 +24,18 @@ def test_authored_skill_is_matched(tmp_path: Path) -> None:
     assert (authored, missing, unexpected) == (["agdt-example"], [], [])
 
 
+def test_native_agdt_skill_is_not_treated_as_migration_output(tmp_path: Path) -> None:
+    """A repository-native AGDT skill is outside the legacy disposition map."""
+    skill = tmp_path / ".agents" / "skills" / "agdt-setup-pr"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: agdt-setup-pr\n---\n# Setup\n", encoding="utf-8")
+    authored, missing, unexpected = derive.verify_authored(
+        [row(disposition="delete", target="-")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == ([], [], [])
+
+
 def test_skill_without_name_is_not_matched(tmp_path: Path) -> None:
     """A skill without a frontmatter name does not satisfy an authored target."""
     skill = tmp_path / ".agents" / "skills" / "agdt-example"

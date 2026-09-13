@@ -179,6 +179,10 @@ class ConversationResolver:
         # the in-memory UnifiedConfig about to be handed to the executor.
         # Never call trim_messages_context (or any other shaping step) directly
         # — see config/send_boundary.py for the law and the guard that enforces it.
+        # Imported BEFORE the try: the except clause below names it, and a name
+        # bound inside the try would not exist if the import itself failed.
+        from matrx_ai.config.context_preflight import PromptTooLargeError
+
         try:
             from matrx_ai.config.send_boundary import STAGE_RESOLVE, prepare_for_send
 
@@ -210,6 +214,12 @@ class ConversationResolver:
                 user_input=user_input,
                 config_overrides=config_overrides,
             )
+        except PromptTooLargeError:
+            # NOT a shaping failure: the prompt provably cannot fit the model's
+            # window. Refusing here is the whole point — swallowing it would
+            # hand the same prompt to the provider a moment later and lose the
+            # step, the numbers and the remedy.
+            raise
         except Exception as prep_exc:
             # Prompt shaping is an optimisation — never let it break the run.
             vcprint(

@@ -7,6 +7,7 @@
 pub mod budget;
 pub mod completion;
 pub mod completion_eval;
+pub mod delivery;
 pub mod evidence;
 pub mod policy;
 pub mod replay;
@@ -40,6 +41,11 @@ pub use completion_eval::{
     ConditionalCompletionEvaluateRequestWire,
     ConditionalCompletionMessageRequestWire,
 };
+pub use delivery::{
+    new_continuation_delivery_record, transition_continuation_delivery,
+    ContinuationDeliveryNewRequestWire,
+    ContinuationDeliveryTransitionRequestWire,
+};
 pub use evidence::{
     select_continuation_evidence, ContinuationEvidenceContextKindWire,
     ContinuationEvidenceLimitsWire, ContinuationEvidencePolicyWire,
@@ -47,9 +53,12 @@ pub use evidence::{
     ContinuationEvidenceSelectionWire,
 };
 pub use policy::{
-    resolve_continuation_policy, ContinuationActionWire,
+    freeze_continuation_policy, resolve_continuation_policy,
+    validate_continuation_policy, ContinuationActionWire,
+    ContinuationFrozenBranchesWire, ContinuationFrozenPolicyWire,
     ContinuationOutcomePolicyWire, ContinuationPolicyBranchWire,
-    ContinuationPolicyDecisionWire, ContinuationPolicyResolutionRequestWire,
+    ContinuationPolicyDecisionWire, ContinuationPolicyFreezeRequestWire,
+    ContinuationPolicyResolutionRequestWire,
 };
 pub use replay::{
     plan_continuation_replay, ContinuationBranchAttributionWire,

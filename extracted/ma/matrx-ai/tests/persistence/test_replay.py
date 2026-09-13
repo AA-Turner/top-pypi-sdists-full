@@ -16,6 +16,22 @@ class _ExistingModel:
         return str(filters["id"]) in cls.present
 
 
+class _ExactExistingModel(_ExistingModel):
+    _meta = SimpleNamespace(primary_keys=("id",), table_name="segment", db_schema="communication")
+    row: dict[str, object] = {}
+
+    @classmethod
+    def filter(cls, **filters):
+        class _Query:
+            def limit(self, _: int):
+                return self
+
+            async def all(self):
+                return [cls.row] if str(filters["id"]) in cls.present else []
+
+        return _Query()
+
+
 @pytest.mark.asyncio
 async def test_replay_treats_existing_insert_and_absent_delete_as_satisfied() -> None:
     from matrx_orm.session.op import make_delete, make_insert
@@ -31,6 +47,19 @@ async def test_replay_treats_existing_insert_and_absent_delete_as_satisfied() ->
     assert not await replay._op_already_satisfied(
         make_insert(_ExistingModel, {"id": "missing"})
     )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_unique_replay_recovers_only_an_exact_existing_insert() -> None:
+    from matrx_orm.session.op import make_insert
+
+    _ExactExistingModel.present = {"landed"}
+    _ExactExistingModel.row = {"id": "landed", "text": "exact", "metadata": {"track": "a"}}
+    op = make_insert(_ExactExistingModel, dict(_ExactExistingModel.row))
+    assert await replay._op_already_satisfied(op, verify_exact=True)
+    _ExactExistingModel.row = {"id": "landed", "text": "different", "metadata": {"track": "a"}}
+    with pytest.raises(RuntimeError, match="immutable replay conflict"):
+        await replay._op_already_satisfied(op, verify_exact=True)
 
 
 @pytest.mark.asyncio
@@ -128,6 +157,71 @@ async def test_legacy_user_request_uses_forensic_failure_org_without_parent() ->
 
     assert upgraded[0]["payload"]["created_by"] == "request-actor"
     assert upgraded[0]["payload"]["organization_id"] == "captured-org"
+
+
+@pytest.mark.asyncio
+async def test_replay_reconciles_an_unambiguous_legacy_notes_name_payload(monkeypatch) -> None:
+    """Replay upgrades known legacy field spelling before ORM validation.
+
+    ``workbench.notes`` canonically stores its display title in ``label``.
+    The replay boundary must preserve the original forensic row while passing a
+    valid, unambiguous update payload to the current model.
+    """
+    captured_payloads: list[dict[str, object]] = []
+    row = {
+        "id": "failure-1",
+        "request_id": None,
+        "table_target": "workbench.notes",
+        "op_type": "update",
+        "primary_key": {"id": "note-1"},
+        "payload": {"name": "queued"},
+        "error_text": "ValueError: Invalid fields for Notes: ['name']",
+    }
+
+    async def fetch_pending(**_kwargs):
+        return [row]
+
+    def row_to_op(replay_row):
+        captured_payloads.append(replay_row["payload"])
+        return SimpleNamespace(op_type="update")
+
+    async def not_satisfied(_op, **_kwargs):
+        return False
+
+    monkeypatch.setattr(replay, "_fetch_pending", fetch_pending)
+    monkeypatch.setattr(replay, "_row_to_op", row_to_op)
+    monkeypatch.setattr(replay, "_op_already_satisfied", not_satisfied)
+    monkeypatch.setattr(replay, "tier_ops", lambda _ops: [])
+    monkeypatch.setattr(
+        "matrx_ai.persistence.queue_helpers._ensure_cx_registered", lambda: None
+    )
+
+    report = await replay.replay_pending(
+        dry_run=True, retry_errors=None, ids=["failure-1"], limit=1, database="test"
+    )
+
+    assert report.recovered_count == 1
+    assert captured_payloads == [{"label": "queued"}]
+    assert row["payload"] == {"name": "queued"}
+
+
+@pytest.mark.asyncio
+async def test_replay_leaves_ambiguous_or_non_notes_synonyms_unmodified() -> None:
+    rows = [
+        {
+            "table_target": "workbench.notes",
+            "payload": {"name": "legacy", "label": "canonical"},
+        },
+        {
+            "table_target": "workspace.tasks",
+            "payload": {"name": "queued"},
+        },
+    ]
+
+    upgraded = await replay._upgrade_legacy_payloads(rows)
+
+    assert upgraded == rows
+    assert upgraded[0]["payload"] is not rows[0]["payload"]
 
 
 @pytest.mark.asyncio
