@@ -2223,9 +2223,19 @@ def test_overwrite_aot_with_implicit_table_containing_empty_aot() -> None:
         source.aempty = []
         source.zchild.leaf = 1
 
-        [target]
-        aempty = []
-        zchild.leaf = 1
+        target.aempty = []
+        target.zchild.leaf = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+    doc.table("target").aot("aempty").add({"x": 2})
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        source.aempty = []
+        source.zchild.leaf = 1
+        target.zchild.leaf = 1
+
+        [[target.aempty]]
+        x = 2
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -4940,17 +4950,9 @@ def test_insert_into_implicit_parent_after_aot_attach() -> None:
 
 
 def test_install_section_through_scalar_intermediate_raises_tomlerror() -> None:
-    """``install("a.b.c", section)`` where ``a`` is a scalar must fail loudly.
-
-    Raises the same `TOMLError`, with the same message, that
-    `ensure_table` raises for the identical scenario: both walk the
-    same existing-prefix logic and neither can descend through a
-    non-table value.
-    """
+    """A structural install cannot descend through a scalar."""
     doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(
-        tomlrt.TOMLError, match="existing value at 'a' is not section-backed"
-    ):
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
         doc.install("a.b.c", Table.section({"x": 1}))
 
 
@@ -6931,17 +6933,12 @@ def test_overwrite_with_no_final_newline_clone_moved_to_anchor_gets_separator() 
     assert _reparses(out) == doc.to_dict()
 
 
-def test_overwrite_with_scattered_implicit_source_skips_reposition() -> None:
+def test_overwrite_with_mixed_implicit_source_preserves_scope() -> None:
     """Overwriting an existing key with an implicit source that has both
     direct KVs and structural children must not crash.
 
-    ``_install_attached_subtree`` hosts the source's direct KVs at the
-    destination's nearest header but gives structural children their
-    own section anchor — the two kinds land in physically disjoint
-    doc-stream regions, not one contiguous block.
-    ``reposition_install``'s position-preserving move assumes a single
-    contiguous span; it must detect this and leave the install where it
-    landed instead of asserting.
+    Dotted KVs stay in the destination's body and the copied structural
+    children follow them without capturing any existing sibling keys.
     """
     doc = tomlrt.loads(
         td("""
@@ -7027,9 +7024,7 @@ def test_overwrite_ancestor_with_own_nested_aot_preserves_nested_entries() -> No
     into ancestor) must preserve nested `[[a.x]]` entries living inside
     that AoT's own entries, not just their own direct/dotted content.
 
-    ``_attach_aot`` must capture the full preserved subtree while the
-    entry is still live, before ``_reset_table_for_rehome`` clears the
-    ``_refs`` that gathering depends on.
+    Moving the outer entries must retain their complete nested subtrees.
     """
     doc = tomlrt.loads(
         td("""
@@ -7179,19 +7174,21 @@ def test_assign_nested_section_of_aot_entry_as_plain_section() -> None:
     assert _reparses(out) == {"copied": {"y": 2}}
 
 
-def test_assign_dotted_key_navigator_view_synthesises_fresh_inline_table() -> None:
-    """A dotted-key navigator view (e.g. the `a` in `t = {a.b = 1}`) owns
-    no CST of its own — it's a live projection over its parent's inline
-    value — so it must be synthesised fresh, not cloned, when used as a
-    value elsewhere."""
-    doc = tomlrt.loads("t = {a.b = 1, a.c = 2}\n")
+def test_assign_dotted_key_navigator_view_keeps_its_slice_of_layout() -> None:
+    """A dotted-key navigator view (e.g. the `a` in `t = {a.b = 1}`) is a
+    live projection over its parent's inline value. Used as a value
+    elsewhere it contributes that slice, keeping its own entries' style
+    and comments but not its owner's framing or unrelated siblings."""
+    doc = tomlrt.loads("t = {a.b = 1, a.c = 2, d = 3}\n")
     inner = doc["t"]["a"]
     doc2 = tomlrt.loads("")
     doc2["x"] = inner
     out = tomlrt.dumps(doc2)
-    assert out == "x = { b = 1, c = 2 }\n"
+    assert out == "x = {b = 1, c = 2}\n"
     assert doc2["x"].to_dict() == {"b": 1, "c": 2}
     assert _reparses(out) == {"x": {"b": 1, "c": 2}}
+    # The source is untouched by being read.
+    assert tomlrt.dumps(doc) == "t = {a.b = 1, a.c = 2, d = 3}\n"
 
 
 def test_aot_append_dotted_key_navigator_view() -> None:
@@ -7809,11 +7806,15 @@ def test_unattached_aot_then_attach_preserves_contents() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_ensure_table_on_inline_view_raises() -> None:
+def test_ensure_table_creates_inline_child_on_inline_view() -> None:
     doc = tomlrt.loads("t = {a = 1}\n")
     inline = doc.table("t")
-    with pytest.raises(tomlrt.TOMLError, match="inline"):
-        inline.ensure_table("sub")
+    sub = inline.ensure_table(("sub", "deep"))
+    sub["x"] = 2
+    assert sub.is_inline
+    out = tomlrt.dumps(doc)
+    assert out == "t = {a = 1, sub = { deep = { x = 2 } }}\n"
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_ensure_table_through_aot_raises() -> None:
@@ -7822,39 +7823,48 @@ def test_ensure_table_through_aot_raises() -> None:
         doc.ensure_table(["arr", "sub"])
 
 
-def test_ensure_table_through_inline_value_raises() -> None:
-    doc = tomlrt.loads("t = {a = 1}\n")
-    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
-        doc.ensure_table(["t", "sub"])
+def test_ensure_table_traverses_inline_value_without_promotion() -> None:
+    src = 'destination = { credentials = { token = "old" } }\n'
+    doc = tomlrt.loads(src)
+    credentials = doc.ensure_table(["destination", "credentials"])
+    assert credentials is doc.table("destination").table("credentials")
+    assert credentials.is_inline
+    assert tomlrt.dumps(doc) == src
+
+
+def test_ensure_table_under_inline_dotted_navigator_keeps_dotted_shape() -> None:
+    doc = tomlrt.loads("t = {a.b = 1, s = 2}\n")
+    deep = doc.ensure_table(["t", "a", "c", "d"])
+    deep["x"] = 1
+    out = tomlrt.dumps(doc)
+    assert out == "t = {a.b = 1, s = 2, a.c = { d = { x = 1 } }}\n"
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_ensure_table_through_scalar_value_raises() -> None:
-    doc = tomlrt.loads("a = 1\n")
-    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
-        doc.ensure_table("a")
+    src = "t = { a = { b = 1 } }\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
+        doc.ensure_table(["t", "a", "b", "c"])
+    assert tomlrt.dumps(doc) == src
 
 
-def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_comments() -> None:
-    """A dotted `install()` that must promote an ancestor, but is then
-    blocked by a *later* ancestor's inner comments, must not leave the
-    first ancestor promoted: the whole call is atomic."""
+def test_install_promotion_preflights_inner_comments() -> None:
     src = td("""
         a = {b = { # comment
         c = 1 }, sibling = 2}
         """)
     doc = tomlrt.loads(src)
     with pytest.raises(tomlrt.TOMLError, match="inner comments"):
-        doc.install("a.b.x", 9)
+        doc.install("a.b.x", Table.section({"y": 9}))
     assert tomlrt.dumps(doc) == src
     assert _reparses(tomlrt.dumps(doc)) == {"a": {"b": {"c": 1}, "sibling": 2}}
 
 
 def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_scalar() -> None:
-    """Same atomicity guarantee when the blocking component is simply a
-    non-table value rather than a comment-bearing inline table."""
     src = "a = {arr = 1}\n"
     doc = tomlrt.loads(src)
-    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
         doc.install("a.arr.x", 9)
     assert tomlrt.dumps(doc) == src
     assert _reparses(tomlrt.dumps(doc)) == {"a": {"arr": 1}}
@@ -7878,34 +7888,299 @@ def test_install_dotted_path_leaves_doc_untouched_when_blocked_by_aot() -> None:
     assert _reparses(tomlrt.dumps(doc)) == {"x": {"a": {"b": 1}, "c": [{"y": 1}]}}
 
 
-def test_install_dotted_path_rolls_back_multiple_promotions_when_later_blocked() -> (
-    None
-):
+def test_install_promotion_preflights_scalar_blocker() -> None:
     """Two ancestors are both promotable, but the third path component
     is a plain scalar: neither of the first two must end up promoted."""
     src = "a = {b = {c = 1}, other = 2}\n"
     doc = tomlrt.loads(src)
-    with pytest.raises(tomlrt.TOMLError, match="inline table or non-table"):
-        doc.install("a.b.c.x", 9)
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
+        doc.install("a.b.c.x", Table.section())
     assert tomlrt.dumps(doc) == src
     assert _reparses(tomlrt.dumps(doc)) == {"a": {"b": {"c": 1}, "other": 2}}
 
 
-def test_install_dotted_path_promotes_every_promotable_ancestor() -> None:
-    """Every promotable ancestor on the path is promoted and the leaf
-    is installed."""
-    doc = tomlrt.loads("a = {b = {c = {d = 1}}, other = 2}\n")
-    doc.install("a.b.c.x", 9)
+@pytest.mark.parametrize("inline_receiver", [False, True])
+def test_install_matches_ensure_table_assignment(*, inline_receiver: bool) -> None:
+    src = 'destination = { credentials = { token = "old" } }\n'
+    value = "new"
+    doc = tomlrt.loads(src)
+    if inline_receiver:
+        doc.table("destination").install("credentials.token", value)
+    else:
+        doc.install("destination.credentials.token", value)
+    expected = tomlrt.loads(src)
+    expected.ensure_table("destination.credentials")["token"] = value
+    out = tomlrt.dumps(doc)
+    assert out == 'destination = { credentials = { token = "new" } }\n'
+    assert out == tomlrt.dumps(expected)
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize(
+    ("value", "rendered"),
+    [
+        ({"x": 1}, "{ x = 1 }"),
+        (Array([1, 2]), "[1, 2]"),
+    ],
+)
+@pytest.mark.parametrize("existing_parent", [False, True])
+def test_install_inline_values_into_inline_parent(
+    value: tomlrt.TomlInput, rendered: str, *, existing_parent: bool
+) -> None:
+    doc = tomlrt.loads("t = { sub = {} }\n" if existing_parent else "t = {}\n")
+    result = doc.install(("t", "sub", "leaf"), value)
+    assert result is doc.table("t").table("sub")["leaf"]
+    out = tomlrt.dumps(doc)
+    assert out == f"t = {{ sub = {{ leaf = {rendered} }} }}\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_deep_inline_tail_keeps_fresh_value_live() -> None:
+    doc = tomlrt.loads("t={a=1}\n")
+    leaf = Table.inline({"x": 1})
+    assert doc.install("t.sub.deep.leaf", leaf) is leaf
+    leaf["x"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == "t={a=1, sub={ deep = { leaf = { x = 2 } } }}\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_install_preserves_multiline_inline_comments(newline: str) -> None:
+    src = td("""
+        t = {
+            # keep
+            credentials = { token = "old" }, # tail
+        }
+        """).replace("\n", newline)
+    doc = tomlrt.loads(src)
+    doc.install("t.credentials.token", "new")
+    doc.table("t").install("extra.deep.x", 2)
     out = tomlrt.dumps(doc)
     assert out == td("""
-        [a]
-        other = 2
+        t = {
+            # keep
+            credentials = { token = "new" }, # tail
+            extra = { deep = { x = 2 } },
+        }
+        """).replace("\n", newline)
+    assert _reparses(out) == doc.to_dict()
 
-        [a.b.c]
-        d = 1
-        x = 9
+
+@pytest.mark.parametrize("displaced", [False, True])
+def test_install_on_detached_inline_table(*, displaced: bool) -> None:
+    if displaced:
+        source = tomlrt.loads("t = { a = 1 }\n")
+        inline = source.table("t")
+        del source["t"]
+        assert tomlrt.dumps(source) == ""
+    else:
+        inline = Table.inline({"a": 1})
+    leaf = Table.inline({"x": 1})
+    assert inline.install("sub.deep", leaf) is leaf
+    doc = tomlrt.Document()
+    doc["t"] = inline
+    leaf["x"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == "t = { a = 1, sub = { deep = { x = 2 } } }\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_through_inline_value_in_aot_entry() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[pkg]]
+        meta = { a = 1 }
+
+        [[pkg]]
+        meta = { a = 2 }
         """)
-    assert _reparses(out) == {"a": {"other": 2, "b": {"c": {"d": 1, "x": 9}}}}
+    )
+    doc.aot("pkg")[0].install("meta.sub.x", 3)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [[pkg]]
+        meta = { a = 1, sub = { x = 3 } }
+
+        [[pkg]]
+        meta = { a = 2 }
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_install_copies_inline_source_before_creating_parents(*, wrapped: bool) -> None:
+    doc = tomlrt.loads("t = {n=0x10}\n")
+    source = doc.table("t")
+    value = {"copies": [source]} if wrapped else source
+    doc.install("t.new.deep", value)
+    out = tomlrt.dumps(doc)
+    if wrapped:
+        assert out == "t = {n=0x10, new={ deep = { copies = [{n=0x10}] } }}\n"
+    else:
+        assert out == "t = {n=0x10, new={ deep = {n=0x10} }}\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_copies_array_ancestor_before_creating_parents() -> None:
+    doc = tomlrt.loads("arr = [{n=0x10}]\n")
+    arr = doc.array("arr")
+    arr.table(0).install("new.deep", arr)
+    out = tomlrt.dumps(doc)
+    assert out == "arr = [{n=0x10, new={ deep = [{n=0x10}] }}]\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_array_blocker_leaves_document_unchanged() -> None:
+    src = "t = { a = [{ x = 1 }] }\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
+        doc.table("t").install("a.new.deep", 2)
+    assert tomlrt.dumps(doc) == src
+
+
+def test_install_invalid_inline_value_does_not_create_parents() -> None:
+    src = "t = { a = 1 }\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(TypeError):
+        doc.table("t").install("new.deep.x", {"x": _OPAQUE})
+    assert tomlrt.dumps(doc) == src
+
+
+@pytest.mark.parametrize(
+    ("value", "tail", "header"),
+    [
+        (Table.section({"x": 1}), "child", "[t.child]"),
+        (AoT([{"x": 1}]), "new.child", "[[t.new.child]]"),
+    ],
+)
+def test_install_structural_value_promotes_inline_parent(
+    value: tomlrt.TomlInput, tail: str, header: str
+) -> None:
+    doc = tomlrt.loads("t = { a = 1 }\n")
+    assert doc.install(f"t.{tail}", value) is value
+    out = tomlrt.dumps(doc)
+    assert out == td(f"""
+        [t]
+        a = 1
+
+        {header}
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_structural_value_rejects_inline_receiver() -> None:
+    src = "t = { a = 1 }\n"
+    doc = tomlrt.loads(src)
+    with pytest.raises(tomlrt.TOMLError, match="cannot store"):
+        doc.table("t").install("child", Table.section())
+    assert tomlrt.dumps(doc) == src
+
+
+def test_install_structural_value_rejects_detached_inline_ancestor() -> None:
+    root = Table.section({"a": Table.inline({"n": 1})})
+    with pytest.raises(tomlrt.TOMLError, match="cannot store"):
+        root.install("a.new.child", Table.section())
+    doc = tomlrt.Document()
+    doc["root"] = root
+    assert tomlrt.dumps(doc) == "[root]\na = { n = 1 }\n"
+
+
+def test_rejected_structural_install_keeps_fresh_value_usable() -> None:
+    src = td("""
+        t = {
+            # keep
+            a = 1,
+        }
+        """)
+    doc = tomlrt.loads(src)
+    source = doc.table("t")
+    value = Table.section({"saved": source})
+    with pytest.raises(tomlrt.TOMLError, match="inner comments"):
+        doc.install("t.new.deep", value)
+    assert tomlrt.dumps(doc) == src
+    assert value.table("saved") is source
+
+    holder = tomlrt.Document()
+    assert holder.install("result", value) is value
+    out = tomlrt.dumps(holder)
+    assert out == td("""
+        [result]
+        saved = {
+            # keep
+            a = 1,
+        }
+        """)
+    assert _reparses(out) == holder.to_dict()
+
+
+@pytest.mark.parametrize(
+    ("value", "header"),
+    [
+        (tomlrt.Document({"x": 1}), "[t]"),
+        (AoT([{"x": 1}]), "[[t]]"),
+    ],
+)
+def test_install_can_replace_explicit_inline_leaf(
+    value: tomlrt.TomlInput, header: str
+) -> None:
+    doc = tomlrt.loads("t = { old = 2 }\n")
+    doc.install("t", value)
+    out = tomlrt.dumps(doc)
+    assert out == f"{header}\nx = 1\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_structural_value_into_detached_section_path() -> None:
+    root = Table.section()
+    child = Table.section({"x": 1})
+    assert root.install("a.b", child) is child
+    doc = tomlrt.Document()
+    doc["root"] = root
+    child["x"] = 2
+    out = tomlrt.dumps(doc)
+    assert out == "[root.a.b]\nx = 2\n"
+    assert _reparses(out) == doc.to_dict()
+
+
+def test_install_document_promotes_ancestors_and_preserves_source_layout() -> None:
+    doc = tomlrt.loads("t = { a = 1 }\n")
+    child = tomlrt.loads("# keep\nx = 0x10\n")
+    doc.install("t.sub.deep", child)
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [t]
+        a = 1
+
+        [t.sub.deep]
+        # keep
+        x = 0x10
+        """)
+    assert _reparses(out) == doc.to_dict()
+    assert tomlrt.dumps(child) == "# keep\nx = 0x10\n"
+
+
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_install_captures_structural_source_before_promotion(*, wrapped: bool) -> None:
+    doc = tomlrt.loads("[outer]\nt = { n=0x10 }\n")
+    source = doc.table("outer")
+    value = Table.section({"saved": source}) if wrapped else source
+    result = doc.install("outer.t.copy", value)
+    if wrapped:
+        assert result is value
+    suffix = ".saved" if wrapped else ""
+    out = tomlrt.dumps(doc)
+    assert out == td(f"""
+        [outer]
+
+        [outer.t]
+        n = 0x10
+
+        [outer.t.copy{suffix}]
+        t = {{ n=0x10 }}
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 @pytest.mark.parametrize(
@@ -7941,10 +8216,7 @@ def test_install_invalid_value_leaves_document_untouched(value: Any) -> None:
         pytest.param(AoT([{"x": _OPAQUE}]), id="aot"),
     ],
 )
-def test_install_invalid_value_does_not_promote_inline_ancestor(value: Any) -> None:
-    """The value check runs before the ancestor promotion `install()`
-    would otherwise perform, so a rejected value leaves inline
-    ancestors inline."""
+def test_install_invalid_value_does_not_change_inline_ancestor(value: Any) -> None:
     src = td("""
         a = {b = 1}
         """)
@@ -8020,11 +8292,31 @@ def test_ensure_table_on_detached_table_section() -> None:
     assert dict(t["a"]["b"]["c"]) == {"x": 1}
 
 
+@pytest.mark.parametrize("displaced", [False, True])
+def test_ensure_table_on_detached_inline_table_returns_live_table(
+    *, displaced: bool
+) -> None:
+    if displaced:
+        source = tomlrt.loads("t = { a = 1 }\n")
+        inline = source.table("t")
+        del source["t"]
+        assert tomlrt.dumps(source) == ""
+    else:
+        inline = Table.inline({"a": 1})
+    leaf = inline.ensure_table(["sub", "deep"])
+    assert isinstance(leaf, Table)
+    assert leaf.is_inline
+
+    doc = tomlrt.Document()
+    doc["t"] = inline
+    leaf["x"] = 1
+    out = tomlrt.dumps(doc)
+    assert out == "t = { a = 1, sub = { deep = { x = 1 } } }\n"
+    assert _reparses(out) == doc.to_dict()
+
+
 def test_ensure_table_on_inline_leaf_returns_existing() -> None:
-    """An existing inline-flavoured table at the leaf is a valid Table
-    and is returned as-is, matching pre-rewrite behaviour. Only
-    descending through an inline (or creating a new section under
-    one) is spec-impossible."""
+    """Ensuring an existing inline leaf leaves its representation unchanged."""
     doc = tomlrt.loads("")
     doc["foo"] = {"a": 1}
     t = doc.ensure_table("foo")
@@ -8044,6 +8336,30 @@ def test_ensure_table_on_inline_leaf_via_inline_self() -> None:
     inner = doc.table("t").ensure_table("sub")
     assert dict(inner) == {"x": 1}
     assert tomlrt.dumps(doc) == src
+
+
+@pytest.mark.parametrize("promote_inline", [False, True])
+def test_ensure_table_legacy_promotion_flag_preserves_existing_table(
+    *, promote_inline: bool
+) -> None:
+    src = "a = { b = { x = 1 } }\n"
+    doc = tomlrt.loads(src)
+    with pytest.warns(DeprecationWarning, match="deprecated and ignored") as caught:
+        child = doc.ensure_table("a.b", promote_inline=promote_inline)
+    assert caught[0].filename == __file__
+    assert child is doc.table("a.b")
+    assert child.is_inline
+    assert tomlrt.dumps(doc) == src
+
+
+def test_ensure_table_legacy_promotion_flag_creates_inline_child() -> None:
+    doc = tomlrt.loads("a = { b = 1 }\n")
+    with pytest.warns(DeprecationWarning, match="deprecated and ignored"):
+        child = doc.table("a").ensure_table("c", promote_inline=True)
+    assert child.is_inline
+    out = tomlrt.dumps(doc)
+    assert out == "a = { b = 1, c = {} }\n"
+    assert _reparses(out) == doc.to_dict()
 
 
 # ---------------------------------------------------------------------------
@@ -9500,6 +9816,162 @@ def test_sort_hoists_mixed_leaf_before_forward_structural_content() -> None:
     assert tomlrt.dumps(doc) == expected
 
 
+@pytest.mark.parametrize("detached", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_sort_implicit_child_stays_after_its_containing_header(
+    newline: str, *, detached: bool, reverse: bool
+) -> None:
+    text = td("""
+        [root.a.deep] # child
+        z = 1
+        [root] # scope
+        a.b=2
+        a.a=3
+        """).replace("\n", newline)
+    doc = tomlrt.loads(text)
+    root = doc.table("root")
+    table = root.table("a")
+    child = table.table("deep")
+    if detached:
+        doc.pop("root")
+    table.sort(reverse=reverse)
+    if detached:
+        doc["root"] = root
+    first, second = ("b=2", "a=3") if reverse else ("a=3", "b=2")
+    expected = td(f"""
+        [root] # scope
+        a.{first}
+        a.{second}
+        [root.a.deep] # child
+        z = 1
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert doc.table("root.a") is table
+    assert doc.table("root.a.deep") is child
+
+    table["c"] = 4
+    root["sibling"] = 5
+    child["z"] = 6
+    expected = td(f"""
+        [root] # scope
+        a.{first}
+        a.{second}
+        a.c = 4
+        sibling = 5
+        [root.a.deep] # child
+        z = 6
+        """).replace("\n", newline)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_sort_implicit_child_preserves_foreign_scopes_and_unterminated_body_tail() -> (
+    None
+):
+    text = td("""
+        root_value = 0
+        [keep]
+        id = 0
+
+        [root.a.deep]
+        z = 1
+
+        [foreign]
+        v = 9
+
+        [root]
+        a.b=2
+        a.a=3
+        tail = 4 # last
+        """).removesuffix("\n")
+    doc = tomlrt.loads(text)
+    root = doc.table("root")
+    table = root.table("a")
+    table.sort()
+    expected = td("""
+        root_value = 0
+        [keep]
+        id = 0
+
+        [foreign]
+        v = 9
+
+        [root]
+        tail = 4 # last
+        a.a=3
+        a.b=2
+
+        [root.a.deep]
+        z = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    root["after"] = 5
+    table["c"] = 6
+    doc["root_after"] = 7
+    expected = td("""
+        root_value = 0
+        root_after = 7
+        [keep]
+        id = 0
+
+        [foreign]
+        v = 9
+
+        [root]
+        tail = 4 # last
+        a.a=3
+        a.b=2
+        a.c = 6
+        after = 5
+
+        [root.a.deep]
+        z = 1
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+
+
+def test_sort_implicit_child_retains_its_aot_owner() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[outer]]
+        label = "first"
+        [outer.root.a.deep]
+        z = 1
+        [outer.root]
+        a.b=2
+        a.a=3
+
+        [[outer]]
+        label = "second"
+        """)
+    )
+    first = doc.aot("outer")[0]
+    first.table("root.a").sort()
+    expected = td("""
+        [[outer]]
+        label = "first"
+        [outer.root]
+        a.a=3
+        a.b=2
+        [outer.root.a.deep]
+        z = 1
+
+        [[outer]]
+        label = "second"
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert doc.aot("outer").pop(0) is first
+    assert tomlrt.dumps(doc) == td("""
+        [[outer]]
+        label = "second"
+        """)
+
+
 def test_sort_groups_all_mixed_leaves_before_their_structural_content() -> None:
     src = td("""
         [a.x.m]
@@ -10710,9 +11182,9 @@ def test_overwrite_with_own_grandchild_then_clone_elsewhere() -> None:
 
         k9 = -7
 
-        name.k75.k96 = 1
-
         name.k75.dots.dot = 42
+
+        name.k75.k96 = 1
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -10916,14 +11388,7 @@ def test_overwrite_with_leading_dotted_kvs_anchors_past_foreign_scope() -> None:
 
 
 def test_clone_implicit_source_with_empty_string_header_child() -> None:
-    """``_install_attached_subtree`` recursively installs a headerless
-    source's structural children via ``Container.install()``'s tuple-
-    path API. That API validates each path *segment*, rejecting an
-    empty one — reasonable for a human-supplied dotted path (an empty
-    segment there is almost certainly a typo), but wrong for this
-    internal recursive use: the key comes from an already-live source
-    Container, where an empty string is a legal (if unusual) TOML key,
-    not user input to second-guess."""
+    """An implicit clone preserves empty keys already valid in its source."""
     doc = tomlrt.loads(
         td("""
         x = 1
@@ -11392,16 +11857,8 @@ def test_adopt_private_section_adds_terminator_when_not_at_doc_tail() -> None:
     assert _reparses(out) == doc.to_dict()
 
 
-def test_reposition_install_leaves_a_scattered_install_where_it_landed() -> None:
-    """A header-less source spells itself in two places at once.
-
-    Its own keys are dotted KVs in the destination's body and its
-    array-of-tables is a block after it, so the install records two
-    runs with other slots between them. ``_recorded_install_span``
-    reports no single span and ``reposition_install`` leaves both runs
-    where they landed rather than move a range that spans slots it
-    never installed.
-    """
+def test_implicit_clone_keeps_its_aot_block_with_its_body() -> None:
+    """An AoT child uses the same placement as a plain section child."""
     doc = tomlrt.loads(
         td("""
         x = 1
@@ -11417,13 +11874,77 @@ def test_reposition_install_leaves_a_scattered_install_where_it_landed() -> None
         a.p = 2
         x.p = 2
 
-        [[a.q]]
+        [[x.q]]
         r = 3
 
-        [[x.q]]
+        [[a.q]]
         r = 3
         """)
     assert _reparses(out) == doc.to_dict()
+
+
+def test_source_parent_repair_can_split_a_recorded_factory_install() -> None:
+    old_doc = tomlrt.loads(
+        td("""
+        [old.child]
+        x=1
+        """)
+    )
+    old = old_doc.table("old")
+    child = old.table("child")
+    old_doc.pop("old")
+    dest_doc = tomlrt.loads(
+        td("""
+        [dest]
+        a=0
+        """)
+    )
+    dest = dest_doc.table("dest")
+    dest_doc.pop("dest")
+    third = Table.section({"z": 2})
+    factory = Table.section({"parent": old, "child": child, "third": third})
+
+    dest["a"] = factory
+
+    doc = tomlrt.Document()
+    doc["result"] = dest
+    assert doc.table("result") is dest
+    assert doc.table("result.a") is factory
+    assert doc.table("result.a.parent") is old
+    assert doc.table("result.a.child") is child
+    assert doc.table("result.a.third") is third
+    expected = td("""
+        [result]
+
+        [result.a.child]
+        x=1
+
+        [result.a.parent]
+
+        [result.a.third]
+        z = 2
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    old["y"] = 3
+    child["x"] = 4
+    third["z"] = 5
+    expected = td("""
+        [result]
+
+        [result.a.child]
+        x=4
+
+        [result.a.parent]
+        y = 3
+
+        [result.a.third]
+        z = 5
+        """)
+    assert tomlrt.dumps(doc) == expected
+    assert _reparses(expected) == doc.to_dict()
+    assert tomlrt.dumps(old_doc) == ""
+    assert tomlrt.dumps(dest_doc) == ""
 
 
 def test_repeated_overlapping_installs_keep_the_source_header_less() -> None:

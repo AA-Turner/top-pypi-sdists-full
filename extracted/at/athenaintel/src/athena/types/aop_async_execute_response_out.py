@@ -31,6 +31,11 @@ class AopAsyncExecuteResponseOut(UniversalBaseModel):
     Base prompt of the AOP before user inputs were added
     """
 
+    deduplicated: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    True when this response replays an earlier launch with the same `Idempotency-Key`; no new run was started.
+    """
+
     final_prompt: str = pydantic.Field()
     """
     Final prompt used for execution including user inputs

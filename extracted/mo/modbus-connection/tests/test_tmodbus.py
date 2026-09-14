@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
+from unittest.mock import Mock
 
 import pytest
 from tmodbus.exceptions import (
@@ -73,6 +75,72 @@ def connection_to(
         return ModbusConnection(ModbusTcpParams(host="test"))
 
     return build
+
+
+@pytest.mark.parametrize(
+    ("framer", "factory_name", "expected_args"),
+    [
+        pytest.param(
+            "socket", "create_async_tcp_client", ("fe80::1%enP3s0", 1502), id="tcp"
+        ),
+        # A serial framing is a serial link over a socket:// device, so the
+        # host reaches the client inside the URL rather than as its own
+        # argument.
+        pytest.param(
+            "rtu",
+            "create_async_rtu_client",
+            ("socket://[fe80::1%enP3s0]:1502",),
+            id="rtu-over-socket",
+        ),
+        pytest.param(
+            "ascii",
+            "create_async_ascii_client",
+            ("socket://[fe80::1%enP3s0]:1502",),
+            id="ascii-over-socket",
+        ),
+    ],
+)
+@pytest.mark.filterwarnings("ignore:ModbusTcpParams:DeprecationWarning")
+async def test_scoped_host_reaches_client(
+    monkeypatch: pytest.MonkeyPatch,
+    framer: Literal["socket", "rtu", "ascii"],
+    factory_name: str,
+    expected_args: tuple[object, ...],
+) -> None:
+    client = _FakeClient()
+    factory = Mock(return_value=client)
+    monkeypatch.setattr(tmodbus_backend, factory_name, factory)
+    connection = ModbusConnection(
+        ModbusTcpParams(host="FE80::1%enP3s0", port=1502, framer=framer)
+    )
+    try:
+        await connection.connect()
+        factory.assert_called_once()
+        assert factory.call_args.args == expected_args
+    finally:
+        await connection.close()
+
+
+@pytest.mark.filterwarnings("ignore:ModbusTcpParams:DeprecationWarning")
+async def test_a_serial_framing_over_tcp_keeps_the_smallest_inter_frame_gap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The TCP spelling names no line speed, so it keeps the gap it always had.
+
+    tmodbus derives the RTU gap from the baud rate and floors it at 1.75 ms.
+    Anything at or above this rate lands on that floor, which is what the
+    RTU-over-TCP client applied.
+    """
+    floor_baudrate = 3.5 * 11 / 0.00175
+    client = _FakeClient()
+    factory = Mock(return_value=client)
+    monkeypatch.setattr(tmodbus_backend, "create_async_rtu_client", factory)
+    connection = ModbusConnection(ModbusTcpParams(host="dev.local", framer="rtu"))
+    try:
+        await connection.connect()
+        assert factory.call_args.kwargs["baudrate"] >= floor_baudrate
+    finally:
+        await connection.close()
 
 
 async def test_read_file_record_decodes_to_words(

@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 # The framings each transport accepts. A framer of ``None`` means "no framing
-# choice" — the backend default (and the only option for TLS).
+# choice", which is the backend default (and the only option for TLS).
 _FRAMERS = ("socket", "rtu", "ascii")
 _TRANSPORT_FRAMERS: dict[str, tuple[str, ...]] = {
     "tcp": _FRAMERS,
@@ -44,13 +44,11 @@ _TRANSPORT_FRAMERS: dict[str, tuple[str, ...]] = {
     "tls": (),
     "serial": ("rtu", "ascii"),
 }
-# Every valid ``(transport, framer)`` connection, in ``--help`` order. A caller
-# passes the subset it supports (see ``add_connection_args``).
+# What a tool reaches for when it says nothing. A caller wanting UDP, TLS or
+# ASCII passes it to ``add_connection_args``.
 _DEFAULT_CONNECTIONS: tuple[tuple[str, str | None], ...] = (
-    *(("tcp", f) for f in _FRAMERS),
-    *(("udp", f) for f in _FRAMERS),
-    ("tls", None),
-    *(("serial", f) for f in ("rtu", "ascii")),
+    ("tcp", None),
+    ("serial", None),
 )
 
 
@@ -119,13 +117,19 @@ def add_connection_args(
     serial_ok = "serial" in transports
     tls_ok = "tls" in transports
 
+    # What a target may look like, for the transports offered. The
+    # serial one takes a URL as well as a port path, which is how it reaches a
+    # serial server, so a reader should not have to find that out elsewhere.
     net_names = [t for t in ("tcp", "udp", "tls") if t in transports]
+    serial_help = "a serial port or URL (/dev/ttyUSB0, socket://192.168.1.50:8899)"
     if net_names and serial_ok:
-        target_help = f"host or IP for {'/'.join(net_names)}, or the serial device path"
+        target_help = (
+            f"host or IP for {'/'.join(net_names)} (192.168.1.50), or {serial_help}"
+        )
     elif serial_ok:
-        target_help = "serial device path, e.g. /dev/ttyUSB0"
+        target_help = serial_help
     else:
-        target_help = "host or IP of the device"
+        target_help = "host or IP of the device (192.168.1.50)"
 
     primary = transports[0]
     group = parser.add_argument_group("Modbus connection")
@@ -140,12 +144,17 @@ def add_connection_args(
     else:
         parser.set_defaults(transport=primary)
     if network or tls_ok:
-        group.add_argument(
-            "--port",
-            type=int,
-            default=None,
-            help="TCP/UDP/TLS port (default: 502 for tcp/udp, 802 for tls)",
-        )
+        # Name only the transports on offer, and the default that follows.
+        if net_names == ["tls"]:
+            port_help = "TLS port (default: 802)"
+        elif "tls" in net_names:
+            port_help = (
+                f"{'/'.join(n.upper() for n in net_names)} port "
+                "(default: 502 for tcp/udp, 802 for tls)"
+            )
+        else:
+            port_help = f"{'/'.join(n.upper() for n in net_names)} port (default: 502)"
+        group.add_argument("--port", type=int, default=None, help=port_help)
     if len(framer_choices) > 1:
         group.add_argument(
             "--framer",
@@ -158,8 +167,8 @@ def add_connection_args(
     group.add_argument(
         "--timeout",
         type=float,
-        default=10.0,
-        help="per-request timeout in seconds (default: 10)",
+        default=None,
+        help="per-request timeout in seconds (default: 10, or what a device asks)",
     )
 
     if serial_ok:
@@ -341,6 +350,12 @@ class CountingUnit:
     def set_message_spacing(self, seconds: float) -> None:
         self._unit.set_message_spacing(seconds)
 
+    def require_timeout(self, seconds: float | None) -> None:
+        self._unit.require_timeout(seconds)
+
+    def require_connect_delay(self, seconds: float | None) -> None:
+        self._unit.require_connect_delay(seconds)
+
     def on_connection_lost(self, callback: Callable[[], None]) -> Callable[[], None]:
         return self._unit.on_connection_lost(callback)
 
@@ -354,12 +369,12 @@ class CountingUnit:
 def _format_flag(value: Flag) -> str:
     """Render a flag value as the lowercased names of the bits it has set.
 
-    A ``flags()`` field decodes to an ``IntFlag``, which is a ``ReprEnum`` — its
-    ``__str__`` is ``int``'s — and is not an ``IntEnum``, so the generic path
-    would print a status or fault word as a bare number. An ``IntFlag`` also
-    keeps bits its type does not name; those are reported as a hex remainder
-    rather than silently dropped, since a fault word is the last place to hide a
-    set bit. An empty flag renders as ``none``.
+    A ``flags()`` field decodes to an ``IntFlag``. That is a ``ReprEnum``
+    whose ``__str__`` is ``int``'s, and not an ``IntEnum``, so the generic
+    path would print a status or fault word as a bare number. An ``IntFlag``
+    also keeps bits its type does not name. Those are reported as a hex
+    remainder rather than dropped, so a fault word never hides a set bit. An
+    empty flag renders as ``none``.
     """
     names: list[str] = []
     named_bits = 0
@@ -431,7 +446,7 @@ def group_rows(
     """Return each ``repeating_group`` on ``component`` with its instances.
 
     An unread register-counted group has no instances yet and yields an empty
-    list, which is the honest answer rather than an omission.
+    list.
     """
     if isinstance(component, ManualComponent):
         return [
@@ -459,9 +474,8 @@ def print_component(
     """Print every field on ``component`` under a heading.
 
     Each ``repeating_group``'s instances follow as indented sub-blocks, so a
-    device modelled as repeated sub-units dumps in full rather than showing
-    only the fields that happen to sit on the parent. ``indent`` prefixes every
-    line, for embedding the output in a wider report.
+    device modelled as repeated sub-units dumps in full. ``indent`` prefixes
+    every line, for embedding the output in a wider report.
     """
     rows = field_rows(component)
     out = file if file is not None else sys.stdout

@@ -17,17 +17,30 @@ from . import (  # noqa: F401
 )
 
 # Tier B – text and conventions:
-from . import security, typography, whitespace  # noqa: F401
+from . import (  # noqa: F401
+    comment_conditions,
+    comment_prose,
+    security,
+    translation_values,
+    typography,
+    whitespace,
+)
 
 # Tier C – code structure, basic syntax and local variables:
 from . import (  # noqa: F401
     annotations_dup,
+    assignments,
     call_arity,
     code_structure,
     code_syntax,
+    code_ternary,
+    control_flow,
+    duplicate_imports,
     interpolation,
+    lambda_capture,
     locals_usage,
     module_level,
+    readonly_targets,
     ref_fields,
     resources,
     return_mismatch,
@@ -41,9 +54,13 @@ from . import (  # noqa: F401
 from . import (  # noqa: F401
     style_conditions,
     style_layout,
+    style_literals,
     style_naming,
+    style_scopes,
     style_strings,
+    style_ternary,
     style_types,
+    style_unions,
     style_variables,
 )
 
@@ -55,6 +72,7 @@ from . import (  # noqa: F401
     catch_exceptions,
     choice_list,
     closeable,
+    comment_names,
     component_render,
     component_since,
     component_values,
@@ -65,6 +83,7 @@ from . import (  # noqa: F401
     enum_values,
     environment,
     event_log,
+    full_names,
     handlers,
     image_binding,
     load_object,
@@ -74,6 +93,7 @@ from . import (  # noqa: F401
     ns_objects,
     popup_markup,
     queries,
+    redundant_checks,
     reserved_names,
     row_fields,
     semantics,
@@ -81,9 +101,11 @@ from . import (  # noqa: F401
     slot_shape,
     structure_fields,
     tabular_members,
+    type_casts,
     type_defaults,
     duplicate_bodies,
     unknown_members,
+    unused_imports,
     unused_methods,
     url_params,
     access_control,

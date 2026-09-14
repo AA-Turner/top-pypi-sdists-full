@@ -109,8 +109,8 @@ class DispatchConflictResolutionAction:
             )
 
         active_session = is_copilot_session_active_via_agent_task(snapshot.base_repo_full_name, snapshot.pr_number)
-        preconditions["no_active_session"] = not active_session
-        if active_session:
+        preconditions["no_active_session"] = active_session is False
+        if active_session is not False:
             # A conflict-repair session is already in flight for this conflicted
             # snapshot. Keep downstream review/approval/merge actions blocked in
             # this run so they cannot act on the pre-resolution HEAD.
@@ -119,7 +119,7 @@ class DispatchConflictResolutionAction:
                 name=self.name,
                 decision=ActionDecision.SKIP,
                 preconditions=preconditions,
-                details="Copilot session active — deferring conflict repair",
+                details="Copilot session active or inventory unavailable — conflict repair blocked",
             )
 
         source = "rebase conflict" if rebase_conflict else "provider mergeable_state=dirty"

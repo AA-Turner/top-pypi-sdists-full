@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Dict, cast
 
 from office365.delta_collection import DeltaCollection
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
@@ -33,8 +34,6 @@ class TodoTaskCollection(DeltaCollection[TodoTask]):
                 return_type.set_property("dueDateTime", DateTimeTimeZone.parse(due_date_time))
             elif isinstance(due_date_time, DateTimeTimeZone):
                 return_type.set_property("dueDateTime", due_date_time)
-            elif isinstance(due_date_time, datetime):
-                return_type.set_property("dueDateTime", DateTimeTimeZone.parse(due_date_time))
 
         if importance is not None:
             return_type.set_property("importance", importance)
@@ -45,6 +44,9 @@ class TodoTaskCollection(DeltaCollection[TodoTask]):
             elif isinstance(body, ItemBody):
                 return_type.set_property("body", body)
 
-        qry = CreateEntityQuery(self, return_type.to_json(), return_type)
+        for key, value in kwargs.items():
+            return_type.set_property(key, value)
+
+        qry = CreateEntityQuery(self, cast(Dict, return_type.to_json()), return_type)
         self.context.add_query(qry)
         return return_type

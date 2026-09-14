@@ -839,6 +839,26 @@ def test_positive_nullable_enum_omits_null(ctx, version, status):
     )
 
 
+def test_coverage_negative_nullable_property_does_not_use_null_for_incorrect_type(ctx):
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "required": ["note"],
+            "properties": {"note": {"type": "string", "nullable": True}},
+        },
+        path="/items",
+    )
+
+    cases = scenario_cases(iter_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.INCORRECT_TYPE)
+    mutated_values = [case.body["note"] for case in cases if isinstance(case.body, dict) and "note" in case.body]
+
+    assert mutated_values, "Expected incorrect_type cases for the nullable property"
+    assert None not in mutated_values
+    assert any(not isinstance(value, str) for value in mutated_values)
+    assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, cases=cases)
+
+
 def test_mixed_type_keyword(ctx):
     schema = build_schema(
         ctx,
@@ -4848,6 +4868,52 @@ def test_coverage_positive_object_type_with_items(ctx):
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
 
 
+def test_items_with_conflicting_object_type_gets_negative_coverage(ctx):
+    # The body itself can never be POSITIVE, but `items`' own sub-schema should still see a valid draw.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "items": {
+                "type": "object",
+                "properties": {"kind": {"type": "string", "example": "removeUserTargets"}},
+            },
+        },
+    )
+    cases = collect_cases(operation, GenerationMode.NEGATIVE)
+
+    with_valid_array = [
+        c
+        for c in cases
+        if isinstance(c.body, list)
+        and c.body
+        and all(isinstance(item, dict) and item.get("kind") == "removeUserTargets" for item in c.body)
+    ]
+    assert with_valid_array, (
+        f"Expected a NEGATIVE case with 'kind' inside an array body. Got bodies: {[c.body for c in cases]}"
+    )
+
+
+def test_items_with_conflicting_object_type_and_example_stays_negative(ctx):
+    # An `example` describing the object must not leak through as the array `items` forces generation into.
+    operation = body_operation(
+        ctx,
+        {
+            "type": "object",
+            "items": {"type": "string"},
+            "example": {"kind": "removeUserTargets"},
+        },
+    )
+    cases = collect_cases(operation, GenerationMode.NEGATIVE)
+
+    def body_is_negative(case):
+        component = case.meta.components.get(ParameterLocation.BODY)
+        return component is not None and component.mode == GenerationMode.NEGATIVE
+
+    no_op_mutations = [c for c in cases if body_is_negative(c) and c.body == {"kind": "removeUserTargets"}]
+    assert not no_op_mutations, f"Body: {[c.body for c in no_op_mutations]}"
+
+
 def test_object_example_with_readonly_key_ships_without_it(ctx):
     # A curated body `example` naming a server-set field must still ship once, minus that field.
     operation = body_operation(
@@ -5575,6 +5641,37 @@ def test_coverage_negative_missing_required_with_additional_properties_schema(ct
         path="/items",
     )
     assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, source=generate_cases, validate_formats=False)
+
+
+@pytest.mark.parametrize(
+    ("annotations", "expected", "scenario"),
+    [
+        ({}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"example": 42}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"b": "oops"}}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"a": "oops"}}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"default": "oops"}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"examples": ["nope", {"b": "oops"}]}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"example": 42, "examples": ["nope"], "default": 42}, [{"a": 0}], CoverageScenario.VALID_OBJECT),
+        ({"example": {"a": 3}}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
+        ({"default": {"a": 3}}, [{"a": 3}, {"a": 0}], CoverageScenario.DEFAULT_VALUE),
+        ({"examples": ["nope", {"a": 3}, 42]}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
+        ({"example": 42, "default": {"a": 3}}, [{"a": 3}, {"a": 0}], CoverageScenario.DEFAULT_VALUE),
+        ({"example": {"a": 3}, "default": "oops"}, [{"a": 3}], CoverageScenario.EXAMPLE_VALUE),
+    ],
+)
+def test_positive_object_annotations_fall_back_to_template(ctx, annotations, expected, scenario):
+    schema = {"type": "object", "properties": {"a": {"type": "integer"}}, "required": ["a"], **annotations}
+    operation = body_operation(ctx, schema)
+    operation.schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+
+    cases = list(iter_cases(operation, GenerationMode.POSITIVE))
+
+    assert [case.body for case in cases] == expected
+    assert cases[0].meta.phase.data.scenario == scenario
+    validator = jsonschema_rs.Draft4Validator(schema)
+    for case in cases:
+        validator.validate(case.body)
 
 
 def test_positive_object_example_with_invalid_format_not_yielded(ctx):
@@ -7119,6 +7216,37 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx):
     )["/foo"]["post"]
     bodies = [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)]
     assert {"file": b"\x89PNG", "name": ""} in bodies, bodies[:5]
+
+
+def test_body_examples_mismatching_schema_do_not_suppress_positive_generation(ctx):
+    # A spec's `examples` can describe a shape unrelated to the body schema (real-world specs
+    # often disagree); they shouldn't poison generation into never producing a valid body.
+    operation = load_schema(
+        ctx,
+        parameters=[
+            {"name": "feedType", "in": "query", "required": True, "schema": {"type": "string", "enum": ["a", "b"]}}
+        ],
+        request_body={
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"file": {"type": "string", "format": "binary"}},
+                        "required": ["file"],
+                    },
+                    "examples": {
+                        "json1": {"value": {"Price": [{"foo": "bar"}], "PriceHeader": {"a": 1}}},
+                        "xml1": {"value": {"Price": [{"baz": "qux"}], "PriceHeader": {"b": 2}}},
+                    },
+                }
+            },
+        },
+    )["/foo"]["post"]
+    cases = iter_cases(operation, GenerationMode.POSITIVE, GenerationMode.NEGATIVE)
+    scenarios = {c.meta.phase.data.scenario for c in cases}
+    assert CoverageScenario.VALID_OBJECT in scenarios, scenarios
+    assert CoverageScenario.INVALID_ENUM_VALUE in scenarios, scenarios
 
 
 def test_multipart_property_with_unregistered_content_type_falls_back_to_schema_generation(ctx):

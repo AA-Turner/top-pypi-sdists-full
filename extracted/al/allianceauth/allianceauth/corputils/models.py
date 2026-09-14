@@ -45,7 +45,7 @@ class CorpStats(models.Model):
 
     def update(self) -> None:
         try:
-            assert get_characters_character_id(self.token.character_id).corporation_id == int(self.corp.corporation_id)
+            assert get_characters_character_id(self.token.character_id, use_etag=False).corporation_id == int(self.corp.corporation_id)
 
             try:
                 logger.debug(f"{self} updating members.")

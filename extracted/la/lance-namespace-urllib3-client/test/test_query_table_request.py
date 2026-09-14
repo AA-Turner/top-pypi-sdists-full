@@ -116,6 +116,8 @@ class TestQueryTableRequest(unittest.TestCase):
                                     ], ), ), ), ),
                 k = 0,
                 lower_bound = 1.337,
+                maximum_nprobes = 1,
+                minimum_nprobes = 1,
                 nprobes = 0,
                 offset = 0,
                 prefilter = True,

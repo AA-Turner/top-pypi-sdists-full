@@ -4,19 +4,8 @@
 
 namespace instanttensor {
 
-// ─── Threading model ─────────────────────────────────────────────────────────
-// ALL io_uring calls (get_sqe, submit, wait_cqe, cqe_seen) run exclusively on
-// uring_thread (an SPSCAsyncExecutor).  The main loader thread is the only
-// producer; cuda_thread is the only consumer (via uring_thread->pop).
-//
-// This mirrors the existing last_page_reader_thread pattern and avoids any
-// concurrent access to the liburing userspace state, which is not thread-safe.
-//
-// Within each chunk, the uring_func submits num_threads SQEs simultaneously
-// and then waits for all their CQEs.  The kernel's io-wq dispatches each SQE
-// to a separate worker thread, so all num_threads page-cache fills happen in
-// parallel — unlike libaio, where io_submit serialises the iocbs through
-// generic_file_read_iter one at a time.
+// The loader thread prepares and submits SQEs. cuda_thread consumes CQEs before
+// launching H2D and NCCL work. Each side has a single caller for its ring API.
 
 #define IO_URING_REGISTER_BUFFER_SIZE (1<<30) // 1GiB buffer size limit
 
@@ -24,42 +13,63 @@ namespace instanttensor {
 
 namespace {
 
-bool kernel_at_least_5_15() {
+struct KernelVersion {
+    long major;
+    long minor;
+    string release;
+};
+
+std::optional<KernelVersion> running_kernel_version() {
     struct utsname uts;
     if (uname(&uts) != 0) {
-        return false;
+        return std::nullopt;
     }
 
     char *end = nullptr;
     long major = strtol(uts.release, &end, 10);
     if (end == uts.release || *end != '.') {
-        return false;
+        return std::nullopt;
     }
 
     const char *minor_start = end + 1;
     long minor = strtol(minor_start, &end, 10);
     if (end == minor_start) {
-        return false;
+        return std::nullopt;
     }
 
-    return major > 5 || (major == 5 && minor >= 15);
+    return KernelVersion{major, minor, uts.release};
 }
 
-bool probe_supports_fixed_buffer_read(struct io_uring *ring) {
+bool kernel_version_at_least(
+    const KernelVersion &version, long required_major, long required_minor) {
+    return version.major > required_major ||
+           (version.major == required_major && version.minor >= required_minor);
+}
+
+bool probe_supports_fixed_buffer_read(struct io_uring *ring, string *reason) {
     struct io_uring_probe *probe = io_uring_get_probe_ring(ring);
     if (!probe) {
+        *reason = "Could not query the supported io_uring opcodes.";
         return false;
     }
 
-    bool supported = io_uring_opcode_supported(probe, IORING_OP_READ) &&
-                     io_uring_opcode_supported(probe, IORING_OP_READ_FIXED);
+    bool supports_read = io_uring_opcode_supported(probe, IORING_OP_READ);
+    bool supports_read_fixed =
+        io_uring_opcode_supported(probe, IORING_OP_READ_FIXED);
     io_uring_free_probe(probe);
-    return supported;
+    if (!supports_read || !supports_read_fixed) {
+        *reason = "The required io_uring READ and READ_FIXED opcodes are unavailable.";
+        return false;
+    }
+    return true;
 }
 
-bool supports_fixed_file_registration(struct io_uring *ring) {
+bool supports_fixed_file_registration(struct io_uring *ring, string *reason) {
     int fd = ::open("/dev/null", O_RDONLY);
     if (fd < 0) {
+        int error = errno;
+        *reason = "Could not open /dev/null while probing io_uring fixed-file "
+                  "registration: " + std::string(strerror(error)) + ".";
         return false;
     }
 
@@ -68,25 +78,49 @@ bool supports_fixed_file_registration(struct io_uring *ring) {
         io_uring_unregister_files(ring);
     }
     ::close(fd);
+    if (ret < 0) {
+        *reason = "io_uring fixed-file registration failed: " +
+                  std::string(strerror(-ret)) + ".";
+    }
     return ret == 0;
 }
 
-bool supports_fixed_buffer_registration(struct io_uring *ring) {
+bool supports_fixed_buffer_registration(struct io_uring *ring, string *reason) {
     char buffer[4096];
     struct iovec iov = {buffer, sizeof(buffer)};
 
     int ret = io_uring_register_buffers(ring, &iov, 1);
     if (ret == 0) {
         io_uring_unregister_buffers(ring);
+    } else {
+        *reason = "io_uring fixed-buffer registration failed: " +
+                  std::string(strerror(-ret)) + ".";
     }
     return ret == 0;
 }
 
 } // namespace
 
-bool Loader::uring_available(){// best-effort check
-    if (!kernel_at_least_5_15()) { // io_uring with kernel < 5.15 is not reliable
-        return false;
+BackendStatus Loader::uring_status(){// best-effort check
+    auto kernel_version = running_kernel_version();
+    if (!kernel_version) {
+        return {false, "Could not determine the Linux kernel version.", ""};
+    }
+
+    // IORING_OP_READ, IOSQE_ASYNC, and IORING_REGISTER_PROBE require 5.6.
+    if (!kernel_version_at_least(*kernel_version, 5, 6)) {
+        return {
+            false,
+            "io_uring requires Linux kernel 5.6 or newer; the detected kernel "
+            "version is " + kernel_version->release + ".",
+            "",
+        };
+    }
+
+    string warning;
+    if (!kernel_version_at_least(*kernel_version, 5, 15)) {
+        warning = "io_uring on Linux " + kernel_version->release +
+                  " may be unstable; Linux 5.15 or newer is recommended.";
     }
 
     struct io_uring ring = {};
@@ -96,21 +130,26 @@ bool Loader::uring_available(){// best-effort check
 
     int ret = io_uring_queue_init_params(2, &ring, &params);
     if (ret < 0) {
-        return false;
+        return {
+            false,
+            "io_uring queue initialization failed: " +
+                std::string(strerror(-ret)) + ".",
+            warning,
+        };
     }
 
     // io_uring_probe reports opcodes; SQPOLL/fixed files are setup/register capabilities.
-    bool supported = // (ring.flags & IORING_SETUP_SQPOLL) &&
-                     probe_supports_fixed_buffer_read(&ring) &&
-                     supports_fixed_file_registration(&ring) &&
-                     supports_fixed_buffer_registration(&ring);
+    string reason;
+    bool supported = probe_supports_fixed_buffer_read(&ring, &reason) &&
+                     supports_fixed_file_registration(&ring, &reason) &&
+                     supports_fixed_buffer_registration(&ring, &reason);
     io_uring_queue_exit(&ring);
-    return supported;
+    return {supported, reason, warning};
 }
 
 void Loader::open_file_uring(FileInfo &f) {
-    // Buffered fd — no O_DIRECT.  Page-cache reads are done by kernel io-wq
-    // workers, which is what makes them truly async with io_uring.
+    // URING uses O_DIRECT; URING_BUFFERED uses the page cache and io-wq
+    // workers for asynchronous buffered reads.
     int open_flags = O_RDONLY;
     if (this->backend == Backend::URING) {
         open_flags |= O_DIRECT;
@@ -132,17 +171,16 @@ void Loader::open_file_uring(FileInfo &f) {
     }
 
     this->need_host_buffer = true;
-    this->need_cuda_thread = true;
 }
 
 void Loader::initialize_uring_context() {
-    int ret = io_uring_queue_init((unsigned)(this->io_depth * this->num_threads), &this->uring_ring, 0);
+    int ret = io_uring_queue_init((unsigned)this->io_depth, &this->uring_ring, 0);
     if (ret < 0) {
         throw std::runtime_error(
             "io_uring_queue_init failed: " + std::string(strerror(-ret)));
     }
     // Since the SQ and CQ of uring both operate in SPSC mode, we use an extra ring to submit IO for the last page.
-    // ret = io_uring_queue_init((unsigned)(this->io_depth * this->num_threads), &this->uring_ring_last_page, 0);
+    // ret = io_uring_queue_init((unsigned)this->io_depth, &this->uring_ring_last_page, 0);
     // if (ret < 0) {
     //     throw std::runtime_error(
     //         "io_uring_queue_init failed: " + std::string(strerror(-ret)));
@@ -206,176 +244,168 @@ void Loader::deregister_host_buffer_uring() {
 
 // ─── chunk read ──────────────────────────────────────────────────────────────
 
-// Helper struct capturing the per-segment read parameters, built on the main
-// thread and moved into the uring_func lambda.
-struct UringReadOp {
-    void  *buf;
-    size_t size;
-    size_t file_offset;
-};
-
-ChunkRequest Loader::post_read_chunk_uring(const ChunkIOParams &p) {
-    // Build the per-thread read descriptors on the main thread (no io_uring
-    // calls here — those happen exclusively on uring_thread below).
+IORequest Loader::post_read_chunk_uring(const ChunkIOParams &p) {
     chunk_id_t chunk_id = p.chunk_id;
-    std::vector<UringReadOp> ops;
-    ops.reserve(this->num_threads);
+    ChunkExtraData &initial_state = this->chunks[chunk_id].extra_data;
+    initial_state.total_logical_size = p.rank_size;
+    initial_state.bytes_completed = 0;
+    initial_state.request_file_offset = p.chunk.file_offset + p.rank_offset;
+    initial_state.request_buffer_offset = p.window_offset;
+    initial_state.request_logical_size = p.rank_size;
 
-    bool unaligned_last_page = false;
-
-    for (size_t i = 0; i < this->num_threads; i++) {
-        size_t thread_offset = p.padded_thread_size * i;
-        size_t thread_size   = std::min(
-            (size_t)std::max((ssize_t)(p.chunk.size - p.rank_offset - thread_offset), (ssize_t)0),
-            p.padded_thread_size);
-        size_t thread_size_aligned = ROUND_UP(thread_size, this->thread_alignment);
-        if(thread_size != thread_size_aligned) unaligned_last_page = true;
-        if (thread_size == 0) continue;
-
-        ops.push_back(UringReadOp{
-            (char*)this->host_buffer + p.window_offset + thread_offset,
-            thread_size_aligned,
-            p.chunk.file_offset + p.rank_offset + thread_offset,
-        });
-    }
-
-    struct io_uring *selected_ring = &this->uring_ring; // unaligned_last_page ? &this->uring_ring_last_page : &this->uring_ring;
-
-    for (const auto &op : ops) {
-        struct io_uring_sqe *sqe = io_uring_get_sqe(selected_ring);
+    auto submit_chunk = [this](chunk_id_t id) {
+        Chunk &chunk = this->chunks[id];
+        ChunkExtraData &state = chunk.extra_data;
+        if (state.request_logical_size == 0) {
+            return;
+        }
+        size_t rank_size_aligned = ROUND_UP(state.request_logical_size, this->rank_alignment);
+        bool unaligned_last_page = state.request_logical_size != rank_size_aligned;
+        void *buf = (char*)this->host_buffer + state.request_buffer_offset;
+        struct io_uring_sqe *sqe = io_uring_get_sqe(&this->uring_ring);
         if (!sqe) {
-            throw std::runtime_error(
-                "io_uring SQ full");
+            throw std::runtime_error("io_uring SQ full");
         }
-        // Buffered read: no alignment constraints, use exact byte range.
-        int file_handle = this->uring_register_file ? p.chunk.file_index : p.file.fd;
-
+        int file_handle = this->uring_register_file
+            ? static_cast<int>(chunk.file_index)
+            : this->file_info[chunk.file_index].fd;
         int buffer_index = -1;
-        if(this->uring_register_buffer) {
-            size_t left_buffer_index = ((char*)op.buf - (char*)this->host_buffer_entry.ptr) / IO_URING_REGISTER_BUFFER_SIZE;
-            size_t right_buffer_index = ((char*)op.buf + op.size - 1 - (char*)this->host_buffer_entry.ptr) / IO_URING_REGISTER_BUFFER_SIZE;
-            if(left_buffer_index == right_buffer_index) {
-                buffer_index = (int)left_buffer_index;
+        if (this->uring_register_buffer) {
+            size_t left = ((char*)buf - (char*)this->host_buffer_entry.ptr) /
+                IO_URING_REGISTER_BUFFER_SIZE;
+            size_t right = ((char*)buf + rank_size_aligned - 1 -
+                (char*)this->host_buffer_entry.ptr) / IO_URING_REGISTER_BUFFER_SIZE;
+            if (left == right) {
+                buffer_index = static_cast<int>(left);
             }
-            // fprintf(stderr, "chunk_id: %zu, buffer_index: %d, size: %zu, buffer_offset: %zu, file_offset: %zu\n", chunk_id, buffer_index, op.size, (char*)op.buf - (char*)this->host_buffer_entry.ptr, op.file_offset);
         }
-        if(buffer_index != -1) {
-            io_uring_prep_read_fixed(sqe, file_handle, op.buf,
-                (unsigned)op.size, op.file_offset, buffer_index);
+        if (buffer_index != -1) {
+            io_uring_prep_read_fixed(sqe, file_handle, buf,
+                static_cast<unsigned>(rank_size_aligned),
+                state.request_file_offset, buffer_index);
+        } else {
+            io_uring_prep_read(sqe, file_handle, buf,
+                static_cast<unsigned>(rank_size_aligned),
+                state.request_file_offset);
         }
-        else {
-            io_uring_prep_read(sqe, file_handle, op.buf,
-                (unsigned)op.size, op.file_offset);
-        }
-        
-        if(this->uring_register_file) {
+        if (this->uring_register_file) {
             sqe->flags |= IOSQE_FIXED_FILE;
         }
-
-        // Normal operation for io_uring is to try and issue an sqe as
-        // non-blocking first (do IO in the current thread without sleeping or waiting), 
-        // and if that fails, execute it in an async manner (do IO in another thread). 
-        // However, the non-blocking path will perform "inline memory copy" 
-        // if the page cache is available under buffered IO (w/o O_DIRECT).
-        // Such inline copy is time consuming and does not benefit from multithreading.
-        // Thus we mark it as async, indicating that we prefer to do IO in another thread instead of inline.
-        // This significantly improves the performance if the page cache is available.
-        // Such optimization also applies to the last page of a chunk if 
-        // the file size is not aligned to pages and the last-page IO has to be blocking.
-        if(this->backend == Backend::URING_BUFFERED || unaligned_last_page) {
+        if (this->backend == Backend::URING_BUFFERED || unaligned_last_page) {
             sqe->flags |= IOSQE_ASYNC;
-            // or io_uring_sqe_set_flags(sqe, sqe->flags | IOSQE_ASYNC)
         }
-        // sqe->flags |= IOSQE_ASYNC;
-        io_uring_sqe_set_data(sqe, (void*)p.chunk_id); // type of user_data is __u64
-    }
-    this->chunks[chunk_id].extra_data.unfinished_cnt = ops.size();
-    const size_t submit_cnt = ops.size();
-
-    int uring_req_id = 0;
-    auto uring_func = [=]() {
+        io_uring_sqe_set_data64(sqe, static_cast<uint64_t>(id));
         size_t submitted = 0;
-        while(submitted < submit_cnt) {
-            int ret = io_uring_submit(selected_ring);
-            if(ret < 0) {
+        while (submitted < 1) {
+            int ret = io_uring_submit(&this->uring_ring);
+            if (ret < 0) {
+                if (ret == -EAGAIN || ret == -EINTR) {
+                    if (!this->io_retry_warning_emitted) {
+                        fprintf(stderr, "[InstantTensor][WARN] retrying io_uring submit for chunk %zd after %s\n",
+                            id, strerror(-ret));
+                        this->io_retry_warning_emitted = true;
+                    }
+                    std::this_thread::yield();
+                    continue;
+                }
                 throw std::runtime_error(
                     "io_uring_submit failed: " + std::string(strerror(-ret)));
             }
             submitted += ret;
-            if(ret == 0) {
-                fprintf(stderr, "io_uring_submit returned 0, chunk_id: %zu, submitted: %zu, submit_cnt: %zu\n", chunk_id, submitted, submit_cnt);
+            if (ret == 0) {
+                if (!this->io_retry_warning_emitted) {
+                    fprintf(stderr, "[InstantTensor][WARN] retrying io_uring submit for chunk %zd after zero submission\n", id);
+                    this->io_retry_warning_emitted = true;
+                }
+                std::this_thread::yield();
             }
         }
     };
 
-    if(submit_cnt > 0) {
-        // if(unaligned_last_page) {
-        //     uring_req_id = this->last_page_reader_thread->post(std::move(uring_func));
-        // }
-        // else {
-        //     uring_func();
-        // }
-        uring_func();
-    }
-
-    // int uring_req_id = this->uring_thread->post(std::move(uring_func));
-
-    // ── cuda_func: runs on cuda_thread ───────────────────────────────────────
-    // Waits for uring_thread to finish (SPSC pop: cuda_thread is the sole
-    // consumer of uring_thread's output queue), then DMA host→GPU.
-    void  *rank_mid         = (char*)this->host_buffer + p.window_offset;
-    void  *rank_dst         = p.rank_dst;
-    void  *all_dst          = p.all_dst;
-    size_t rank_size        = p.rank_size;
-    size_t padded_rank_size = p.padded_rank_size;
-    cudaEvent_t event       = p.event;
-
-    auto cuda_func = [=]() {
-        if(uring_req_id) {
-            this->last_page_reader_thread->pop(uring_req_id);
-        }
-
-        size_t &unfinished_cnt = this->chunks[chunk_id].extra_data.unfinished_cnt;
-        while(unfinished_cnt > 0) {
+    // Consume CQEs and publish a complete host read to the common CUDA path.
+    auto io_func = [=]() -> bool {
+        ChunkExtraData &state = this->chunks[chunk_id].extra_data;
+        for (size_t i = 0; i < this->io_depth &&
+             state.bytes_completed < state.total_logical_size; ++i) {
             struct io_uring_cqe *cqe;
-            int ret = io_uring_wait_cqe(selected_ring, &cqe);
+            int ret = io_uring_peek_cqe(&this->uring_ring, &cqe);
+            if (ret == -EAGAIN) {
+                break;
+            }
+            if (ret == -EINTR) {
+                if (!this->io_retry_warning_emitted) {
+                    fprintf(stderr, "[InstantTensor][WARN] retrying io_uring completion poll for chunk %zd after EINTR\n", chunk_id);
+                    this->io_retry_warning_emitted = true;
+                }
+                return false;
+            }
             if (ret != 0) {
                 throw std::runtime_error(
-                    "io_uring_wait_cqe failed: " + std::string(strerror(-ret)));
+                    "io_uring_peek_cqe failed: " + std::string(strerror(-ret)));
             }
-            chunk_id_t cqe_chunk_id = (chunk_id_t)io_uring_cqe_get_data(cqe);
+            chunk_id_t cqe_chunk_id = static_cast<chunk_id_t>(io_uring_cqe_get_data64(cqe));
+            Chunk &cqe_chunk = this->chunks[cqe_chunk_id];
+            ChunkExtraData &event_state = cqe_chunk.extra_data;
             if (cqe->res < 0) {
+                int error = -cqe->res;
+                io_uring_cqe_seen(&this->uring_ring, cqe);
+                if (error == EAGAIN || error == EINTR) {
+                    if (!this->io_retry_warning_emitted) {
+                        fprintf(stderr, "[InstantTensor][WARN] retrying io_uring read for chunk %zd after %s\n",
+                            cqe_chunk_id, strerror(error));
+                        this->io_retry_warning_emitted = true;
+                    }
+                    submit_chunk(cqe_chunk_id);
+                    continue;
+                }
                 std::string msg =
-                    "io_uring read error for chunk id: " + std::to_string(cqe_chunk_id) + ", error: " + std::string(strerror(-cqe->res));
-                io_uring_cqe_seen(selected_ring, cqe);
+                    "io_uring read error for chunk id: " + std::to_string(cqe_chunk_id) + ", error: " + std::string(strerror(error));
                 throw std::runtime_error(msg);
             }
-            this->chunks[cqe_chunk_id].extra_data.unfinished_cnt --;
-            io_uring_cqe_seen(selected_ring, cqe);
+            size_t padded_world_size = ROUND_UP(cqe_chunk.size, this->world_chunk_alignment);
+            size_t padded_rank_size = padded_world_size / this->world_size;
+            size_t logical_size = rank_logical_size(
+                cqe_chunk.size, padded_rank_size * this->rank, padded_rank_size);
+            size_t original_file_offset = cqe_chunk.file_offset +
+                padded_rank_size * this->rank;
+            if(static_cast<size_t>(cqe->res) < logical_size) {
+                int bytes_read = cqe->res;
+                io_uring_cqe_seen(&this->uring_ring, cqe);
+                struct stat st;
+                if (fstat(this->file_info[cqe_chunk.file_index].fd, &st) != 0 ||
+                    static_cast<size_t>(st.st_size) < cqe_chunk.file_offset +
+                        padded_rank_size * this->rank + logical_size) {
+                    throw std::runtime_error(
+                        "Unexpected io_uring short read at EOF: chunk_id=" +
+                        std::to_string(cqe_chunk_id) + ", bytes_read=" +
+                        std::to_string(bytes_read) + ", logical_size=" +
+                        std::to_string(logical_size));
+                }
+                size_t covered = event_state.request_file_offset - original_file_offset +
+                    static_cast<size_t>(bytes_read);
+                event_state.bytes_completed = std::min(
+                    logical_size, std::max(event_state.bytes_completed, covered));
+                size_t retry_offset = ROUND_DOWN(
+                    original_file_offset + event_state.bytes_completed,
+                    this->rank_alignment);
+                event_state.request_file_offset = retry_offset;
+                event_state.request_buffer_offset =
+                    (cqe_chunk_id % this->io_depth) * this->rank_chunk_size +
+                    (retry_offset - original_file_offset);
+                event_state.request_logical_size =
+                    original_file_offset + logical_size - retry_offset;
+                submit_chunk(cqe_chunk_id);
+                continue;
+            }
+            event_state.bytes_completed = logical_size;
+            io_uring_cqe_seen(&this->uring_ring, cqe);
         }
-
-        CUDA_CHECK(cudaMemcpyAsync(rank_dst, rank_mid, rank_size,
-                                   cudaMemcpyHostToDevice, this->cuda_stream));
-        CUDA_CHECK(cudaEventRecord(event, this->cuda_stream));
-        if (this->world_size > 1) {
-            CUDA_CHECK(cudaStreamWaitEvent(this->nccl_stream, event));
-            NCCL_CHECK(ncclAllGather(rank_dst, all_dst, padded_rank_size,
-                                     ncclInt8, this->group_communicator,
-                                     this->nccl_stream));
-            CUDA_CHECK(cudaEventRecord(event, this->nccl_stream));
-        }
+        return state.bytes_completed >= state.total_logical_size;
     };
-
-    int cuda_req_id = this->cuda_thread->post(std::move(cuda_func));
-
-    // ── wait_func: runs on wait_thread ───────────────────────────────────────
-    auto wait_func = [=]() mutable {
-        this->cuda_thread->pop(cuda_req_id);
-        CUDA_CHECK(cudaEventSynchronize(event));
-    };
-
-    int completion_req_id = this->wait_thread->post(std::move(wait_func));
-    return ChunkRequest{this->wait_thread.get(), completion_req_id};
+    int io_req_id = this->next_loader_task_id();
+    this->io_thread->submit(io_req_id, IOOperation{
+        [=]() { submit_chunk(chunk_id); }, std::move(io_func)});
+    return IORequest{this->io_thread.get(), io_req_id, false};
 }
 
 } // namespace instanttensor

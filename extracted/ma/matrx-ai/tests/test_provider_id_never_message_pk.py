@@ -26,7 +26,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
+from matrx_ai.config import ImageContent, MessageList, TextContent, UnifiedConfig, UnifiedMessage
 from matrx_ai.config.message_config import ToolCallContent, ToolResultContent
 from matrx_ai.config.unified_config import UnifiedResponse
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
@@ -257,7 +257,39 @@ async def test_reserved_id_matching_message_id_is_honored(persist_harness):
 
 
 @pytest.mark.asyncio
-async def test_repeated_persist_sets_immutable_system_instruction_once(persist_harness, monkeypatch):
+async def test_completed_user_projection_strips_inline_bytes(persist_harness):
+    persistence_mod, _creates, updates = persist_harness
+    completed = _build_tool_loop_completed()
+    completed.request.config.messages[0].user_content = [
+        TextContent(text="find e-waste drop-offs"),
+        ImageContent(
+            file_id="13c2a464-2ead-4611-9990-702a03e643c4",
+            base64_data="captured-inline-png-bytes",
+            mime_type="image/png",
+            metadata={"display_title": "review-red-checker.png"},
+        ),
+    ]
+    state = ExecutionState()
+    state.reserved_message_ids = {0: str(uuid4())}
+
+    await persistence_mod.persist_completed_request(
+        completed, conversation_id=CONVERSATION_ID, state=state
+    )
+
+    user_update = next(fields for _mid, fields in updates if fields["role"] == "user")
+    pristine = user_update["user_content"]
+    assert pristine[0]["text"] == "find e-waste drop-offs"
+    assert pristine[1]["file_id"] == "13c2a464-2ead-4611-9990-702a03e643c4"
+    assert pristine[1]["mime_type"] == "image/png"
+    assert pristine[1]["metadata"] == {"display_title": "review-red-checker.png"}
+    assert "base64_data" not in pristine[1]
+    assert "base64" not in pristine[1]
+
+
+@pytest.mark.asyncio
+async def test_repeated_persist_sets_immutable_system_instruction_once(
+    persist_harness, monkeypatch
+):
     """A second finalizer pass must not queue a duplicate immutable-column write
     before the first coordinator flush becomes visible to a DB read."""
     persistence_mod, _creates, _updates = persist_harness

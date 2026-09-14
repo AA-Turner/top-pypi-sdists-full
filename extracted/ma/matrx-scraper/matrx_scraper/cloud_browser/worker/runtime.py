@@ -546,6 +546,16 @@ class BrowserWorker:
         if not self._bootstrapped:
             raise WorkerProtocolError("not_bootstrapped", message="worker not bootstrapped")
 
+    def _require_not_mid_bootstrap(self) -> None:
+        """``not_bootstrapped`` must never be the answer while a bootstrap is
+        being applied: the control plane reads it as "nothing ever started" and
+        retires the run, and the bootstrap then completes into an orphan that
+        refuses every later start ``already_bootstrapped`` (2026-09-13)."""
+        if self._bootstrap_gate.locked() and not self._bootstrapped:
+            raise WorkerProtocolError(
+                "bootstrap_in_progress", message="a bootstrap is being applied; retry"
+            )
+
     def _require_unexpired_lease(self) -> None:
         """Refuse mutable work until the manager has acknowledged a live DB lease.
 
@@ -1185,6 +1195,7 @@ class BrowserWorker:
     ) -> M.HeartbeatResponse:
         try:
             self._verify_bearer(bearer, "heartbeat")
+            self._require_not_mid_bootstrap()
             self._require_bootstrapped()
             self._check_identity(request)
             self._check_fencing(request, is_transition=False)
@@ -2150,6 +2161,7 @@ class BrowserWorker:
     ) -> M.ShutdownResponse:
         try:
             self._verify_bearer(bearer, "shutdown")
+            self._require_not_mid_bootstrap()
             self._require_bootstrapped()
             self._check_identity(request)
             self._check_fencing(request, is_transition=False)

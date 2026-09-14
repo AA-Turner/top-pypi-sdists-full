@@ -7,6 +7,7 @@ from requests import Response
 
 from office365.runtime.client_object import ClientObject
 from office365.runtime.client_request import ClientRequest
+from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value import ClientValue
 from office365.runtime.http.http_method import HttpMethod
@@ -77,7 +78,10 @@ class ODataRequest(ClientRequest):
         if isinstance(return_type, ClientObject):
             return_type.clear_state()
 
-        if response.headers.get("Content-Type", "").lower().split(";")[0] != "application/json":
+        content_type = response.headers.get("Content-Type", "").lower().split(";")[0]
+        is_raw_content = isinstance(query, FunctionQuery) and query.return_raw_content
+
+        if content_type != "application/json" or is_raw_content:
             if isinstance(return_type, ClientResult):
                 return_type.set_property("__value", response.content)
         else:
@@ -85,7 +89,10 @@ class ODataRequest(ClientRequest):
                 if isinstance(query, (ServiceOperationQuery, FunctionQuery)):
                     json_format.function = query.name
 
-            self.map_json(response.json(), return_type, json_format)
+            try:
+                self.map_json(response.json(), return_type, json_format)
+            except ValueError as e:
+                raise ClientRequestException(str(e), response=response) from e
 
     def map_json(
         self,
@@ -138,24 +145,28 @@ class ODataRequest(ClientRequest):
                     yield index, transformed if isinstance(item, dict) else item
             elif isinstance(json, dict):
                 for name, value in json.items():
-                    if isinstance(json_format, JsonLightFormat):
-                        is_valid = name != json_format.metadata_type and not (
-                            isinstance(value, dict) and "__deferred" in value
-                        )
-                    else:
-                        is_valid = "@odata" not in name
-
-                    if is_valid:
-                        transformed = None
-                        if isinstance(value, dict):
-                            transformed = {k: v for k, v in self._next_property(value, json_format)}
-                        yield name, transformed if isinstance(value, dict) else value
-                    elif name == "@odata.etag":
-                        yield "__etag", value
+                    yield from self._next_object_property(name, value, json_format)
             else:
                 yield "__value", json
         elif json is not None:
             yield "__value", json
+
+    def _next_object_property(self, name: str, value: Any, json_format: ODataJsonFormat) -> Iterator[Tuple[str, Any]]:
+        """Yields a single property from a JSON object according to the OData format."""
+        if isinstance(json_format, JsonLightFormat):
+            is_valid = name != json_format.metadata_type and not (isinstance(value, dict) and "__deferred" in value)
+        else:
+            is_valid = "@odata" not in name
+
+        if is_valid:
+            if isinstance(value, dict):
+                yield name, {k: v for k, v in self._next_property(value, json_format)}
+            else:
+                yield name, value
+        elif name == json_format.etag:
+            yield "__etag", value
+        elif name == json_format.metadata_type and isinstance(value, str):
+            yield "__odata_type", value
 
     def _build_payload(self, query: ClientQuery) -> Union[Dict[str, Any], List[Any], str, bytes]:
         """

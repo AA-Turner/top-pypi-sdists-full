@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 
 from office365.booking.availability import BookingsAvailability
@@ -12,7 +12,9 @@ from office365.runtime.client_value_collection import ClientValueCollection
 @dataclass
 class BookingSchedulingPolicy(ClientValue):
     allowStaffSelection: bool | None = None
-    customAvailabilities: ClientValueCollection[BookingsAvailabilityWindow] | None = None
+    customAvailabilities: ClientValueCollection[BookingsAvailabilityWindow] = field(
+        default_factory=lambda: ClientValueCollection(BookingsAvailabilityWindow)
+    )
     generalAvailability: BookingsAvailability | None = None
     isMeetingInviteToCustomersEnabled: bool | None = None
     maximumAdvance: timedelta | None = None

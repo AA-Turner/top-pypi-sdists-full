@@ -73,7 +73,11 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             started_at,
             ctx,
             "validation",
-            f"bash: syntax error: {exc.message}",
+            f"bash: syntax error: {exc.message}"
+            " (backend=durable_vfs: this is the in-process shell emulator over your "
+            "durable code files, not a sandbox — it has no git, no loops, no 2>&1. "
+            "If this conversation is supposed to be bound to a sandbox, the sandbox "
+            "binding was lost; tell the user.)",
         )
 
     try:
@@ -102,6 +106,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         stdout=stdout.decode("utf-8", errors="replace"),
         stderr=stderr.decode("utf-8", errors="replace"),
         exit_code=result.exit_code,
+        backend="durable_vfs",
     ).model_dump(mode="json")
 
     if result.exit_code == 0:

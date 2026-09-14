@@ -63,6 +63,11 @@ _SANDBOX_FS_TOOLS = (
     RegisteredToolSpec(name="shell_execute"),
     RegisteredToolSpec(name="shell_python"),
     RegisteredToolSpec(name="git_ingest"),
+    # Knowing WHICH repositories exist is half of having hands in a box. Without
+    # it an agent asked to "pull aidream" guesses org names and digs a token out
+    # of git's credential helper (live ledger, conversation 99d5b990, 2026-09-13).
+    # Read-only inventory of the user's GitHub connection; never a credential.
+    RegisteredToolSpec(name="github_repositories"),
 )
 
 _SANDBOX_FS = Capability(

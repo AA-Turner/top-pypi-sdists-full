@@ -26,9 +26,10 @@ which is used to render the complete menu.
 from dataclasses import dataclass, field
 
 from django import template
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 from django.http import HttpRequest
 
+from allianceauth.authentication.models import Permission
 from allianceauth.hooks import get_hooks
 from allianceauth.menu.core import menu_item_hooks, smart_sync
 from allianceauth.menu.models import MenuItem
@@ -88,9 +89,11 @@ def render_menu(request: HttpRequest) -> list[RenderedMenuItem]:
     bs5_template = "menu/menu-item-bs5.html"
 
     rendered_items: dict[int, RenderedMenuItem] = {}
-    menu_items: QuerySet[MenuItem] = MenuItem.objects.order_by(
-        "parent", "order", "text"
-    )
+    menu_items: QuerySet[MenuItem] = MenuItem.objects.prefetch_related(
+        Prefetch(
+            "permissions", queryset=Permission.objects.select_related("content_type")
+        )
+    ).order_by("parent", "order", "text")
     for item in menu_items:
         if item.is_hidden:
             continue  # do not render hidden items
@@ -102,6 +105,8 @@ def render_menu(request: HttpRequest) -> list[RenderedMenuItem]:
                 # This item has probably been hidden by permissions
                 continue
         elif item.is_link_item:
+            if not item.user_has_access(request.user):
+                continue  # do not render items the user has no permission to see
             rendered_item = _render_link_item(request, item, bs5_template)
         elif item.is_folder:
             rendered_item = RenderedMenuItem(item)  # we render these items later

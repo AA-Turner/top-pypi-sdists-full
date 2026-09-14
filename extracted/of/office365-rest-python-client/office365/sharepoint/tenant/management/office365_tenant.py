@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Dict, List, Optional, Union
 
@@ -87,7 +89,7 @@ class Office365Tenant(Entity):
             cdn_type (int): Specifies the CDN type. The valid values are: public or private.
         """
         payload = {"cdnType": cdn_type}
-        return_type = ClientResult(self.context)
+        return_type = ClientResult[bool](self.context)
         qry = ServiceOperationQuery(self, "GetTenantCdnEnabled", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
@@ -169,6 +171,12 @@ class Office365Tenant(Entity):
         self.context.add_query(qry)
         return self
 
+    def sync_aadb2b_management_policy(self) -> Self:
+        """ """
+        qry = ServiceOperationQuery(self, "SyncAadB2BManagementPolicy")
+        self.context.add_query(qry)
+        return self
+
     def revoke_all_user_sessions(self, user: Union[str, User]) -> SPOUserSessionRevocationResult:
         """Provides IT administrators the ability to invalidate a particular users' O365 sessions across all their
         devices.
@@ -178,21 +186,18 @@ class Office365Tenant(Entity):
         """
         return_type = SPOUserSessionRevocationResult(self.context)
 
-        def _revoke_all_user_sessions(login_name: str) -> None:
+        def _revoke_all_user_sessions(login_name: str | None) -> None:
             """Logouts a user's sessions across all their devices
 
             Args:
                 login_name (str):
             """
+            assert login_name is not None
             qry = ServiceOperationQuery(self, "RevokeAllUserSessions", [login_name], None, None, return_type)
             self.context.add_query(qry)
 
         if isinstance(user, User):
-
-            def _user_loaded():
-                _revoke_all_user_sessions(user.login_name or "")
-
-            user.ensure_property("LoginName").after_execute(lambda _: _user_loaded())
+            user.ensure_property("LoginName").after_execute(lambda _: _revoke_all_user_sessions(user.login_name))
         else:
             _revoke_all_user_sessions(user)
         return return_type
@@ -245,7 +250,7 @@ class Office365Tenant(Entity):
             name (str):
             theme_json (str):
         """
-        return_type = ClientResult(self.context)
+        return_type = ClientResult[bool](self.context)
         payload = {"name": name, "themeJson": theme_json}
         qry = ServiceOperationQuery(self, "AddTenantTheme", None, payload, None, return_type)
         self.context.add_query(qry)
@@ -273,7 +278,7 @@ class Office365Tenant(Entity):
             property_map (dict): A map from the source property name to the user profile service property name.
             source_uri (str): The URI of the source data file to import.
         """
-        return_type = ClientResult(self.context)
+        return_type = ClientResult[str](self.context)
         payload = {
             "idType": id_type,
             "sourceDataIdProperty": source_data_id_property,
@@ -330,7 +335,7 @@ class Office365Tenant(Entity):
         return self.properties.get("AllowSelectSecurityGroupsInSPSitesList", StringCollection())
 
     @property
-    def allow_select_s_gs_in_odb_list(self) -> StringCollection:
+    def allow_select_sgs_in_odb_list(self) -> StringCollection:
         """Gets the AllowSelectSGsInODBList property"""
         return self.properties.get("AllowSelectSGsInODBList", StringCollection())
 

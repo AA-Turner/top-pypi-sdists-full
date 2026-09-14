@@ -8,14 +8,41 @@ import pytest
 from numpy.testing import assert_allclose
 from pytensor import config
 from pytensor import tensor as pt
+from pytensor.graph.traversal import explicit_graph_inputs
 from scipy import linalg
 
 from pymc_extras.statespace.models import structural as st
-from tests.statespace.test_utilities import unpack_symbolic_matrices_with_params
+from pymc_extras.statespace.utils.constants import MATRIX_NAMES
+from tests.statespace.test_utilities import (
+    simulate_from_numpy_model,
+    unpack_symbolic_matrices_with_params,
+)
 
 floatX = config.floatX
 ATOL = 1e-8 if floatX.endswith("64") else 1e-4
 RTOL = 0 if floatX.endswith("64") else 1e-6
+
+
+@pytest.mark.filterwarnings("ignore:No time index found on the supplied data")
+def test_building_a_component_twice_gives_independent_models():
+    """Each build gets its own representation, so the first model keeps its own P0 placeholder."""
+    component = st.LevelTrend(order=2, innovations_order=1)
+    first = component.build(verbose=False)
+    second = component.build(verbose=False)
+
+    assert first.ssm is not second.ssm
+    assert first._name_to_variable["P0"] is not second._name_to_variable["P0"]
+    for mod in (first, second):
+        inputs = set(explicit_graph_inputs([mod.ssm["initial_state_cov"]]))
+        assert mod._name_to_variable["P0"] in inputs
+
+    # The earlier model must still be able to substitute its own parameters.
+    data = np.zeros((20, 1), dtype=config.floatX)
+    with pm.Model(coords=first.coords):
+        pm.Normal("initial_level_trend", dims=["state_level_trend"])
+        pm.Deterministic("P0", pt.eye(first.k_states, dtype=config.floatX))
+        pm.Exponential("sigma_level_trend", 1, dims=["shock_level_trend"])
+        first.build_statespace_graph(data)
 
 
 def test_add_components():
@@ -74,6 +101,32 @@ def test_add_components_multiple_observed():
 
     for property in ["param_names", "shock_names", "param_info", "coords", "param_dims"]:
         assert [x in getattr(mod, property) for x in getattr(ll, property)]
+
+
+def test_simulate_multiple_observed_with_measurement_error(rng):
+    """Measurement error reaches only the series it was given a variance for."""
+    steps = 100
+    mod = (
+        st.LevelTrend(order=1, innovations_order=1, observed_state_names=["noisy", "clean"])
+        + st.MeasurementError(name="obs", observed_state_names=["noisy", "clean"])
+    ).build(verbose=False)
+
+    params = {
+        "initial_level_trend": np.zeros((2, 1), dtype=floatX),
+        "sigma_level_trend": np.ones((2, 1), dtype=floatX),
+        "sigma_obs": np.array([3.0, 0.0], dtype=floatX),
+        "P0": np.eye(mod.k_states, dtype=floatX),
+    }
+
+    latent, observed = simulate_from_numpy_model(mod, rng, params, steps=steps)
+    matrices = dict(zip(MATRIX_NAMES, unpack_symbolic_matrices_with_params(mod, params, steps)))
+    noiseless = latent @ np.atleast_2d(matrices["Z"]).T
+
+    assert_allclose(observed[:, 1], noiseless[:, 1], atol=ATOL, rtol=RTOL)
+
+    # Scale, not just presence: a variance applied as a standard deviation would still be non-zero.
+    residual = observed[:, 0] - noiseless[:, 0]
+    assert_allclose(residual.std(), params["sigma_obs"][0], rtol=0.2)
 
 
 @pytest.mark.skipif(floatX.endswith("32"), reason="Prior covariance not PSD at half-precision")

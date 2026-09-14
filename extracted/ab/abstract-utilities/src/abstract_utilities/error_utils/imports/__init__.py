@@ -1,1 +1,1 @@
-from .module_imports import *
+from .module_imports import get_logger_callable

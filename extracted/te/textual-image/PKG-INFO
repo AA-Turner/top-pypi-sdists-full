@@ -1,33 +1,32 @@
 Metadata-Version: 2.4
 Name: textual-image
-Version: 0.13.2
+Version: 0.14.0
 Summary: Render images via Kitty's Terminal Graphics Protocol with Rich and Textual
-Project-URL: Homepage, https://github.com/lnqs/textual-image
-Project-URL: Documentation, https://github.com/lnqs/textual-image
-Project-URL: Repository, https://github.com/lnqs/textual-image
-Project-URL: Issues, https://github.com/lnqs/textual-image/issues
+Author: Simon Hayessen
 Author-email: Simon Hayessen <simon@lnqs.io>
-License-File: LICENSE.txt
+License-Expression: LGPL-3.0-or-later
 Classifier: Development Status :: 4 - Beta
-Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
+Classifier: Environment :: Console
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Topic :: Software Development :: Libraries
-Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Typing :: Typed
-Requires-Python: >=3.12
 Requires-Dist: pillow>=10.3.0
 Requires-Dist: rich>=13.4.0
+Requires-Dist: numpy>=2.0.0 ; extra == 'numpy'
+Requires-Dist: textual>=0.68.0 ; extra == 'textual'
+Requires-Python: >=3.12
+Project-URL: Homepage, https://github.com/lnqs/textual-image
+Project-URL: Documentation, https://github.com/lnqs/textual-image
+Project-URL: Repository, https://github.com/lnqs/textual-image
+Project-URL: Issues, https://github.com/lnqs/textual-image/issues
 Provides-Extra: numpy
-Requires-Dist: numpy>=2.0.0; extra == 'numpy'
 Provides-Extra: textual
-Requires-Dist: textual>=0.68.0; extra == 'textual'
 Description-Content-Type: text/markdown
 
 # textual-image
@@ -315,9 +314,11 @@ For integration with Textual, _textual-image_ offers a Textual `Widget` to rende
 from textual.app import App, ComposeResult
 from textual_image.widget import Image
 
+
 class ImageApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Image("path/to/image.png")
+
 
 ImageApp().run()
 ```
@@ -330,11 +331,13 @@ You can also set the image using the `image` property of an `Image` instance:
 from textual.app import App, ComposeResult
 from textual_image.widget import Image
 
+
 class ImageApp(App[None]):
     def compose(self) -> ComposeResult:
         image = Image()
         image.image = "path/to/image.png"
         yield image
+
 
 ImageApp().run()
 ```

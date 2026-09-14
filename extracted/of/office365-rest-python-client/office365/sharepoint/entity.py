@@ -8,10 +8,10 @@ from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_object import ClientObject
 from office365.runtime.client_result import ClientResult
+from office365.runtime.http.url import get_absolute_url
 from office365.runtime.paths.v3.entity import EntityPath
 from office365.runtime.queries.delete_entity import DeleteEntityQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
-from office365.runtime.utilities import get_absolute_url
 
 if TYPE_CHECKING:
     from office365.sharepoint.client_context import ClientContext
@@ -20,23 +20,26 @@ if TYPE_CHECKING:
 class Entity(ClientObject):
     """SharePoint specific entity"""
 
-    def execute_query_with_incremental_retry(self, max_retry: int = 5) -> Self:
+    def execute_query_with_incremental_retry(self, max_retry: int = 5, max_delay=None, jitter: bool = True) -> Self:
         """
         Execute query with incremental retry handling for throttling requests
 
         Args:
             max_retry: Maximum number of retry attempts (default: 5)
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay (default True)
 
         Returns:
             self: Supports method chaining
         """
-        self.context.execute_query_with_incremental_retry(max_retry)
+        self.context.execute_query_with_incremental_retry(max_retry, max_delay=max_delay, jitter=jitter)
         return self
 
     def execute_batch(
         self,
         items_per_batch: int = 100,
         success_callback: Optional[Callable[[List[Union[ClientObject, ClientResult]]], None]] = None,
+        max_batch_bytes: Optional[int] = None,
     ) -> Self:
         """
         Construct and submit a batch request to the server
@@ -44,11 +47,12 @@ class Entity(ClientObject):
         Args:
             items_per_batch: Number of items per batch (default: 100)
             success_callback: Callback function for successful batch execution
+            max_batch_bytes: Maximum estimated batch payload size in bytes
 
         Returns:
             self: Supports method chaining
         """
-        self.context.execute_batch(items_per_batch, success_callback)
+        self.context.execute_batch(items_per_batch, success_callback, max_batch_bytes=max_batch_bytes)
         return self
 
     def with_credentials(self, credentials: Union[UserCredential, ClientCredential]) -> Self:

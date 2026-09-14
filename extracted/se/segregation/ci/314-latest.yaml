@@ -17,6 +17,7 @@ dependencies:
   - quilt3
   - scikit-learn
   - scipy
+  - statsmodels
   - seaborn
   - tqdm
 
@@ -29,8 +30,10 @@ dependencies:
   - twine
 
   # docs
+  - ipykernel
   - ipywidgets
-  - nbsphinx
+  - jupyter-cache
+  - myst-nb
   - numpydoc
   - quilt3
   - sphinx

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hachoir
-Version: 3.3.0
+Version: 3.4.0
 Summary: Package of Hachoir parsers used to open binary files
 Home-page: http://hachoir.readthedocs.io/
 Author: Hachoir team (see AUTHORS file)
@@ -23,9 +23,20 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Filesystems
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Utilities
-Provides-Extra: urwid
-Provides-Extra: wx
 License-File: COPYING
+Provides-Extra: urwid
+Requires-Dist: urwid; extra == "urwid"
+Provides-Extra: wx
+Requires-Dist: wxPython==4.*; extra == "wx"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: summary
 
 *******
 Hachoir
@@ -66,4 +77,4 @@ Command line tools using Hachoir parsers:
 
 Installation instructions: http://hachoir.readthedocs.io/en/latest/install.html
 
-Hachoir is written for Python 3.6 or newer.
+Hachoir is written for Python 3.7 or newer.

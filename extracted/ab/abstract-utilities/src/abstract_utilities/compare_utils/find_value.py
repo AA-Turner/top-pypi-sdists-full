@@ -1,4 +1,15 @@
-from .imports import *
+from .imports import (
+    re,
+    Any,
+    Callable,
+    Optional,
+    Tuple,
+    Iterable,
+    Iterator,
+    List,
+    JSONLike,
+    PathType,
+)
 def iter_values(obj: JSONLike, path: PathType = ()) -> Iterator[Tuple[PathType, Any]]:
     """
     Depth-first walk of nested dict/list/tuple/set. Yields (path, value) for every leaf.

@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.thread_batch_stop_request import ThreadBatchStopRequest
 from ..types.thread_batch_stop_response_out import ThreadBatchStopResponseOut
+from ..types.thread_status_batch_response_out import ThreadStatusBatchResponseOut
 from ..types.thread_status_response_out import ThreadStatusResponseOut
 from ..types.thread_stop_response_out import ThreadStopResponseOut
 from .raw_client import AsyncRawThreadsClient, RawThreadsClient
@@ -61,6 +62,39 @@ class ThreadsClient:
         )
         """
         _response = self._raw_client.batch_stop_by_asset_id(request=request, request_options=request_options)
+        return _response.data
+
+    def get_status_batch(
+        self, *, thread_ids: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadStatusBatchResponseOut:
+        """
+        Read the lifecycle status of up to 200 threads in one call, whether they were started by `POST /aop/execute-async` or `POST /aop/execute-batch`. Returns aggregate counts plus one compact entry per thread (status, terminal flag, output availability, timestamps) without loading any messages; fetch results with `GET /threads/{thread_id}/status` once `output_available` is true. Only threads you launched are returned: unknown IDs and other users' threads are listed in `not_found` and are indistinguishable.
+
+        Parameters
+        ----------
+        thread_ids : typing.Sequence[str]
+            Thread IDs to check (1-200 per request), from `POST /aop/execute-async` or `POST /aop/execute-batch`. Duplicates are collapsed.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadStatusBatchResponseOut
+            Status of every requested thread you own
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.threads.get_status_batch(
+            thread_ids=["thread_12345-6789-abcd-efgh", "thread_22345-6789-abcd-efgh"],
+        )
+        """
+        _response = self._raw_client.get_status_batch(thread_ids=thread_ids, request_options=request_options)
         return _response.data
 
     def batch_stop(
@@ -226,6 +260,50 @@ class AsyncThreadsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.batch_stop_by_asset_id(request=request, request_options=request_options)
+        return _response.data
+
+    async def get_status_batch(
+        self, *, thread_ids: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> ThreadStatusBatchResponseOut:
+        """
+        Read the lifecycle status of up to 200 threads in one call, whether they were started by `POST /aop/execute-async` or `POST /aop/execute-batch`. Returns aggregate counts plus one compact entry per thread (status, terminal flag, output availability, timestamps) without loading any messages; fetch results with `GET /threads/{thread_id}/status` once `output_available` is true. Only threads you launched are returned: unknown IDs and other users' threads are listed in `not_found` and are indistinguishable.
+
+        Parameters
+        ----------
+        thread_ids : typing.Sequence[str]
+            Thread IDs to check (1-200 per request), from `POST /aop/execute-async` or `POST /aop/execute-batch`. Duplicates are collapsed.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ThreadStatusBatchResponseOut
+            Status of every requested thread you own
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.threads.get_status_batch(
+                thread_ids=[
+                    "thread_12345-6789-abcd-efgh",
+                    "thread_22345-6789-abcd-efgh",
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_status_batch(thread_ids=thread_ids, request_options=request_options)
         return _response.data
 
     async def batch_stop(

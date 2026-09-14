@@ -293,14 +293,39 @@ class UnifiedMessage:
             position=data.get("position"),
         )
 
+    @staticmethod
+    def _reconstruct_stored_content(raw: Any) -> list["UnifiedContent"]:
+        """Rebuild a stored ``chat.message.content``/``user_content`` value into
+        content parts, tolerating every shape any writer has ever produced.
+
+        DD-187/DD-187b: every item — the raw value itself when it isn't an array, or
+        each element when it is — decodes through ``reconstruct_content``, THE ONE
+        tolerant block decoder (unified_content.py): a bare string becomes one text
+        part, a dict decodes by its 'type' discriminator, and anything else — or an
+        internal decode failure — becomes a named refusal ``TextContent`` instead of
+        raising. This function no longer duplicates those shape rules; before DD-187b
+        it re-implemented them here as a second copy that could (and did) drift from
+        the one inside ``reconstruct_content`` itself. Before DD-187, ``from_cx_message``
+        iterated the raw value directly, so a bare string row iterated CHARACTER BY
+        CHARACTER and crashed calling ``.get`` on a single character, permanently
+        killing the whole conversation on load.
+        """
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            return [reconstruct_content(item) for item in raw]
+        # A bare string, dict, or any other stored shape (int, bool, float, ...) —
+        # one item, decoded the same way an array's element would be.
+        return [reconstruct_content(raw)]
+
     @classmethod
     def from_cx_message(cls, message) -> "UnifiedMessage":
         """Create UnifiedMessage from CxMessage"""
-        content = [reconstruct_content(item) for item in (message.content or [])]
+        content = cls._reconstruct_stored_content(message.content)
         raw_user_content = getattr(message, "user_content", None)
         user_content = (
-            [reconstruct_content(item) for item in raw_user_content]
-            if isinstance(raw_user_content, list)
+            cls._reconstruct_stored_content(raw_user_content)
+            if raw_user_content is not None
             else None
         )
 
@@ -1278,6 +1303,20 @@ class MessageList:
             for rid, blocks in results_by_id.items()
             if any(id(b) not in drop_ids for b in blocks)
         }
+        # PENDING is not ORPHANED. In the hydration pass (``allow_empty``) the
+        # transcript may legitimately END on an assistant tool call that is
+        # waiting for a client (a delegated call at the instant of suspension).
+        # Repairing it fabricated a "never answered" error result and a red
+        # alarm for a call answered minutes later (conversation 99d5b990,
+        # 2026-09-13). Those calls are left untouched here; the strict pass
+        # before any provider request still repairs a real orphan.
+        pending_ids: set[str] = set()
+        if allow_empty and visible and getattr(visible[-1].role, "value", visible[-1].role) == "assistant":
+            pending_ids = {
+                c.id
+                for c in visible[-1].content
+                if isinstance(c, ToolCallContent) and c.id and c.id not in answered_ids
+            }
         repaired_orphans: list[dict[str, Any]] = []
         repaired_ids: set[str] = set()
         repaired_visible: list[UnifiedMessage] = []
@@ -1290,6 +1329,7 @@ class MessageList:
                 and c.id
                 and c.id not in answered_ids
                 and c.id not in repaired_ids
+                and c.id not in pending_ids
             ]
             if not orphan_calls:
                 continue
@@ -1425,7 +1465,7 @@ class MessageList:
                     # same id re-emitted in a later, adjacently-paired turn) makes
                     # this a corrupted/duplicate tool_use — drop the non-adjacent
                     # copy; the adjacently-paired one survives.
-                    if c.id not in next_results:
+                    if c.id not in next_results and c.id not in pending_ids:
                         if c.id in results_for:
                             nonadjacent_uses.append(
                                 {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xvfbwrapper
-Version: 0.2.29
+Version: 0.2.32
 Summary: Manage headless displays with Xvfb (X virtual framebuffer)
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
@@ -37,17 +37,18 @@ Dynamic: license-file
 
 ## About
 
-`xvfbwrapper` is a Python library for controlling X11 virtual displays with Xvfb.
+`xvfbwrapper` is a Python library for managing X11 virtual displays with
+[Xvfb (X virtual framebuffer)](https://x.org/releases/X11R7.7/doc/man/man1/Xvfb.1.xhtml),
+a virtual X server that runs without a physical display. It provides the
+[`Xvfb`][api-docs] class, a Python interface for configuring and controlling the Xvfb
+program.
+
+See the [module API documentation][api-docs] for more information.
 
 - Copyright (c) 2012-2026 [Corey Goldberg][github-profile]
 - Development: [GitHub][github-repo]
 - Releases: [PyPI][pypi-home]
 - License: [MIT][mit-license]
-
-The package provides the `xvfvwrapper.Xvfb` class that is used to interact with
-an Xvfb server.
-
-See the [module API documentation][api-docs] for more information.
 
 ----
 
@@ -116,7 +117,7 @@ pip install xvfbwrapper
 - Python 3.10+
 - X Window System
 - Xvfb (`sudo apt-get install xvfb`, `yum install xorg-x11-server-Xvfb`, etc)
-- Support for locking with `fcntl` system call (non-Windows systems)
+- Support for file locking using `fcntl` (POSIX systems)
 
 ----
 
@@ -244,10 +245,10 @@ finally:
     xvfb2.stop()
 ```
 
-#### Usage in testing - headless Selenium WebDriver tests:
+#### Headless browser tests:
 
-This is a test using `selenium` and `xvfbwrapper` to run tests
-on Chrome with a headless display. (see: [selenium docs][selenium-docs])
+This uses [`selenium`][selenium-docs] and `xvfbwrapper` to run a test
+on Chrome inside a headless display.
 
 [selenium-docs]: https://www.selenium.dev/selenium/docs/api/py
 

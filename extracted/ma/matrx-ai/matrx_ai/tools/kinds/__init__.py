@@ -52,6 +52,7 @@ from matrx_graph.nodes.text.regex import RegexExtractOutput  # noqa: E402
 from matrx_ai.tools.kinds.agent_ops import (  # noqa: E402
     OfficeToolResult,
     ResearchRunState,
+    RulebookReadToolResult,
     RulebookToolResult,
     SealedCaseToolResult,
     SelfPromptResult,
@@ -317,6 +318,9 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # kind per tool, and its extract branch is a summary (see kinds/agent_ops.py).
     "self_prompt": SelfPromptResult,
     "rulebook": RulebookToolResult,
+    # The run-time READ door onto a Masterwork's own Rulebook — its own kind,
+    # not `rulebook`'s: no write receipt, and every branch is a PAGE.
+    "rulebook_read": RulebookReadToolResult,
     "sealed_case": SealedCaseToolResult,
     "research_run": ResearchRunState,
     "office": OfficeToolResult,

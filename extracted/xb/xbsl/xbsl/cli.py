@@ -34,8 +34,7 @@ def discover(paths: list[str]) -> list[Path]:
     for raw in paths:
         p = Path(raw)
         if p.is_file():
-            if (p.suffix in (".xbsl", ".yaml") or engine.is_query_file(p)
-                    or engine.is_resource_file(p)):
+            if engine.is_source_file(p):
                 out.append(p)
         elif p.is_dir():
             out.extend(engine.find_sources(p, "*.xbsl"))
@@ -343,7 +342,9 @@ _META_COMMANDS = (
     "new-project", "new-object", "add-field", "add-route", "add-method", "add-form",
     "add-subsystem", "add-dependency", "add-localization", "set-localization",
     "set-field-property",
-    "rename-object", "delete-object", "set-access", "object-info", "project-info",
+    "rename-object", "delete-object", "move-object", "rename-package",
+    "move-resource", "rename-resource-folder", "delete-resource-folder", "set-access",
+    "object-info", "project-info", "resource-references",
     "localization-info", "form-tree", "form-edit", "form-handlers",
 )
 
@@ -702,6 +703,31 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", help=i18n.t("cli.help.scaf.yaml-vs-name"))
     p.add_argument("--apply", action="store_true", help=i18n.t("cli.help.scaf.delete-apply"))
 
+    p = command("move-object")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.mo-yaml"))
+    p.add_argument("target_dir", help=i18n.t("cli.help.scaf.mo-target"))
+
+    p = command("rename-package")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("package_dir", help=i18n.t("cli.help.scaf.rp-package"))
+    p.add_argument("new_name", help=i18n.t("cli.help.scaf.rp-new"))
+
+    p = command("move-resource")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("resource_path", help=i18n.t("cli.help.scaf.mr-path"))
+    p.add_argument("target_dir", help=i18n.t("cli.help.scaf.mr-target"))
+
+    p = command("rename-resource-folder")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("folder_dir", help=i18n.t("cli.help.scaf.rrf-folder"))
+    p.add_argument("new_name", help=i18n.t("cli.help.scaf.rrf-new"))
+
+    p = command("delete-resource-folder")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("folder_dir", help=i18n.t("cli.help.scaf.rrf-folder"))
+    p.add_argument("--apply", action="store_true", help=i18n.t("cli.help.scaf.delete-apply"))
+
     p = command("set-access")
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
     p.add_argument("--name", help=i18n.t("cli.help.scaf.arg.object-name"))
@@ -716,12 +742,20 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", help=i18n.t("cli.help.scaf.arg.object-name"))
     p.add_argument("--path", help=i18n.t("cli.help.scaf.yaml-vs-name"))
 
+    p = command("resource-references")
+    p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
+    p.add_argument("resource_path", help=i18n.t("cli.help.scaf.mr-path"))
+
     p = command("project-info")
     p.add_argument("root", help=i18n.t("cli.help.scaf.arg.project-root"))
     p.add_argument("--kind", help=i18n.t("cli.help.scaf.project-info-kind"))
     p.add_argument("--subsystem", help=i18n.t("cli.help.scaf.project-info-subsystem"))
+    p.add_argument("--package", help=i18n.t("cli.help.scaf.project-info-package"))
+    p.add_argument("--project", help=i18n.t("cli.help.scaf.project-info-project"))
     p.add_argument("--brief", action="store_true",
                    help=i18n.t("cli.help.scaf.project-info-brief"))
+    p.add_argument("--reference", action="store_true",
+                   help=i18n.t("cli.help.scaf.project-info-reference"))
 
     p = command("form-tree")
     p.add_argument("yaml_path", help=i18n.t("cli.help.scaf.arg.form-yaml"))
@@ -779,7 +813,7 @@ def _scaffold_parser() -> argparse.ArgumentParser:
     p.add_argument("--signature", help=i18n.t("cli.help.scaf.fh-signature"))
 
     for name, sp in sub.choices.items():
-        if name.endswith("-info") or name == "form-tree":
+        if name.endswith("-info") or name in ("form-tree", "resource-references"):
             continue
         sp.add_argument("--dry-run", action="store_true", help=i18n.t("cli.help.scaf.dry-run"))
     return parser
@@ -791,7 +825,7 @@ def _scaffold_lint(paths: list[str]) -> dict | None:
     from xbsl.engine import load, run_sources
 
     try:
-        sources = [load(Path(p)) for p in paths]
+        sources = [load(Path(p)) for p in paths if engine.is_source_file(Path(p))]
         diags = run_sources(sources, scopes=("file",))
         return report.report(diags, len(sources))
     except _dataset.DatasetError:
@@ -908,6 +942,33 @@ def _scaffold_main(argv: list[str]) -> int:
                 yaml_path=Path(args.path) if args.path else None,
             )
             # Deletion is irreversible: the PLAN is the default answer, --apply performs it.
+            if not args.apply or args.dry_run:
+                payload = result.as_dict(content=False)
+                payload["dry-run"] = True
+                print(json.dumps(payload, ensure_ascii=False))
+                return 0
+            scaffold.apply_result(result)
+            print(json.dumps(result.as_dict(content=False), ensure_ascii=False))
+            return 0
+        elif args.command == "move-object":
+            result = scaffold.op_move_object(
+                Path(args.root), Path(args.yaml_path), Path(args.target_dir),
+            )
+        elif args.command == "rename-package":
+            result = scaffold.op_rename_package(
+                Path(args.root), Path(args.package_dir), args.new_name,
+            )
+        elif args.command == "move-resource":
+            result = scaffold.op_move_resource(
+                Path(args.root), Path(args.resource_path), Path(args.target_dir),
+            )
+        elif args.command == "rename-resource-folder":
+            result = scaffold.op_rename_resource_folder(
+                Path(args.root), Path(args.folder_dir), args.new_name,
+            )
+        elif args.command == "delete-resource-folder":
+            result = scaffold.op_delete_resource_folder(Path(args.root), Path(args.folder_dir))
+            # Irreversible, like delete-object: the PLAN is the default answer, --apply performs it.
             if not args.apply or args.dry_run:
                 payload = result.as_dict(content=False)
                 payload["dry-run"] = True
@@ -1047,10 +1108,18 @@ def _scaffold_main(argv: list[str]) -> int:
                 ensure_ascii=False,
             ))
             return 0
+        elif args.command == "resource-references":
+            print(json.dumps(
+                scaffold.resource_references(Path(args.root), Path(args.resource_path)),
+                ensure_ascii=False,
+            ))
+            return 0
         else:  # project-info
             print(json.dumps(
                 scaffold.project_info(Path(args.root), kind=args.kind,
-                                      subsystem=args.subsystem, brief=args.brief),
+                                      subsystem=args.subsystem, brief=args.brief,
+                                      package=args.package, project=args.project,
+                                      reference=args.reference),
                 ensure_ascii=False,
             ))
             return 0

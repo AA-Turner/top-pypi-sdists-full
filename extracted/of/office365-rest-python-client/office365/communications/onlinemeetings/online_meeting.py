@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import Optional
 
+from office365.communications.calls.transcript import CallTranscript
 from office365.communications.onlinemeetings.base import OnlineMeetingBase
-from office365.communications.onlinemeetings.broadcast_settings import (
-    BroadcastMeetingSettings,
-)
+from office365.communications.onlinemeetings.broadcast_settings import BroadcastMeetingSettings
 from office365.communications.onlinemeetings.participants import MeetingParticipants
 from office365.communications.onlinemeetings.recordings.call import CallRecording
 from office365.entity_collection import EntityCollection
@@ -43,15 +42,11 @@ class OnlineMeeting(OnlineMeetingBase):
         """Indicates whether attendees can turn on their microphone."""
         return self.properties.get("allowAttendeeToEnableMic", None)
 
+    @odata(name="allowedPresenters")
     @property
     def allowed_presenters(self):
         """Specifies who can be a presenter in a meeting. Possible values are listed in the following table."""
         return self.properties.get("allowedPresenters", StringCollection())
-
-    @property
-    def allow_meeting_chat(self) -> Optional[bool]:
-        """Specifies the mode of meeting chat."""
-        return self.properties.get("allowMeetingChat", None)
 
     @property
     def allow_participants_to_change_name(self) -> Optional[bool]:
@@ -63,6 +58,7 @@ class OnlineMeeting(OnlineMeetingBase):
         """The content stream of the attendee report of a Microsoft Teams live event."""
         return self.properties.get("attendeeReport", None)
 
+    @odata(name="broadcastSettings")
     @property
     def broadcast_settings(self) -> BroadcastMeetingSettings:
         """Settings related to a live event."""
@@ -104,6 +100,7 @@ class OnlineMeeting(OnlineMeetingBase):
     def end_datetime(self, value: datetime):
         self.set_property("endDateTime", value)
 
+    @odata(name="joinInformation")
     @property
     def join_information(self) -> ItemBody:
         """The join URL of the online meeting. Read-only."""
@@ -123,21 +120,49 @@ class OnlineMeeting(OnlineMeetingBase):
     def recordings(self) -> EntityCollection[CallRecording]:
         """The recordings of an online meeting"""
         return self.properties.get(
-            "recordings",
-            EntityCollection(
-                self.context,
-                CallRecording,
-                ResourcePath("recordings", self.resource_path),
+            "recordings", EntityCollection(self.context, CallRecording, ResourcePath("recordings", self.resource_path))
+        )
+
+    @property
+    def creation_date_time(self) -> Optional[datetime]:
+        """Gets the creationDateTime property"""
+        return self.properties.get("creationDateTime", datetime.min)
+
+    @property
+    def end_date_time(self) -> Optional[datetime]:
+        """Gets the endDateTime property"""
+        return self.properties.get("endDateTime", datetime.min)
+
+    @property
+    def external_id(self) -> Optional[str]:
+        """Gets the externalId property"""
+        return self.properties.get("externalId", None)
+
+    @property
+    def is_broadcast(self) -> Optional[bool]:
+        """Gets the isBroadcast property"""
+        return self.properties.get("isBroadcast", None)
+
+    @property
+    def meeting_template_id(self) -> Optional[str]:
+        """Gets the meetingTemplateId property"""
+        return self.properties.get("meetingTemplateId", None)
+
+    @property
+    def start_date_time(self) -> Optional[datetime]:
+        """Gets the startDateTime property"""
+        return self.properties.get("startDateTime", datetime.min)
+
+    @property
+    def transcripts(self) -> EntityCollection[CallTranscript]:
+        """Gets the transcripts property"""
+        return self.properties.get(
+            "transcripts",
+            EntityCollection[CallTranscript](
+                self.context, CallTranscript, ResourcePath("transcripts", self.resource_path)
             ),
         )
 
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "broadcastSettings": self.broadcast_settings,
-                "endDateTime": self.end_datetime,
-                "joinInformation": self.join_information,
-                "startDateTime": self.start_datetime,
-            }
-            default_value = property_mapping.get(name, None)
-        return super().get_property(name, default_value)
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.OnlineMeeting"

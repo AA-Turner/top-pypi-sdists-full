@@ -16,6 +16,7 @@ from ..component_registry import R
 from ..embedding_store import BaseEmbeddingStore
 from ..file_graph import BaseFileGraph
 from ..keyword_index import BaseKeywordIndex
+from ..tag_index import BaseTagIndex
 from ...enumeration import LinkScopeEnum
 from ...schema import FileChunk, FileLink, FileNode
 from ...utils import batch_cosine_similarity
@@ -34,10 +35,10 @@ _KEYWORD_REBUILD_BATCH_SIZE = 200
 class LocalFileStore(BaseFileStore):
     """In-memory file store with deferred JSONL persistence.
 
-    Composes three subcomponents: ``embedding_store`` for vector retrieval,
-    ``keyword_index`` for full-text retrieval, and ``file_graph`` for node / link
-    storage. ``file_graph`` is mandatory; at least one of embedding / keyword
-    must be present.
+    Composes ``embedding_store`` for vector retrieval, ``keyword_index`` for
+    full-text retrieval, ``file_graph`` for node/link storage, and an optional
+    ``tag_index`` derived from file-node frontmatter. ``file_graph`` is mandatory;
+    at least one of embedding / keyword must be present.
     """
 
     def __init__(
@@ -45,6 +46,7 @@ class LocalFileStore(BaseFileStore):
         embedding_store: str = "default",
         keyword_index: str = "default",
         file_graph: str = "default",
+        tag_index: str = "",
         encoding: str = "utf-8",
         store_version: str = "v1",
         embedding_rebuild_required: bool = False,
@@ -54,6 +56,7 @@ class LocalFileStore(BaseFileStore):
         from ..embedding_store import LocalEmbeddingStore
         from ..file_graph import LocalFileGraph
         from ..keyword_index import BM25Index
+        from ..tag_index import LocalTagIndex
 
         if not embedding_store and not keyword_index:
             raise ValueError("At least one of embedding_store or keyword_index must be set.")
@@ -63,6 +66,12 @@ class LocalFileStore(BaseFileStore):
         self.embedding_store = self.bind(embedding_store, BaseEmbeddingStore, default_factory=LocalEmbeddingStore)
         self.keyword_index = self.bind(keyword_index, BaseKeywordIndex, default_factory=BM25Index)
         self.file_graph = self.bind(file_graph, BaseFileGraph, default_factory=LocalFileGraph)
+        self.tag_index = self.bind(
+            tag_index,
+            BaseTagIndex,
+            default_factory=LocalTagIndex if tag_index == "default" else None,
+            optional=False,
+        )
 
         self.encoding = encoding
         self.store_version = store_version
@@ -73,7 +82,15 @@ class LocalFileStore(BaseFileStore):
         self._embedding_rebuild_pending = bool(embedding_rebuild_required)
         self._embedding_space_generation = 0
         self._mutation_generation = 0
+        self._tag_index_rebuild_required = False
+        self._tag_indexed_file_count = 0
         self._closing = False
+
+    @property
+    def embedding_dimensions(self) -> int:
+        if self.embedding_store is None:
+            return 0
+        return max(0, int(getattr(self.embedding_store, "dimensions", 0)))
 
     # -- lifecycle ------------------------------------------------------------
 
@@ -130,7 +147,7 @@ class LocalFileStore(BaseFileStore):
             self.embedding_store is None
             or self._embedding_rebuild_pending
             or was_healthy
-            or not getattr(self.embedding_store, "is_healthy", True)
+            or not self.embedding_store.is_healthy
         ):
             return
         self.logger.info(f"{self.name}: embedding provider recovered; scheduling missing-vector backfill")
@@ -190,7 +207,7 @@ class LocalFileStore(BaseFileStore):
             return None
 
         embedding_generation = self._embedding_space_generation
-        was_healthy = bool(getattr(embedding_store, "is_healthy", True))
+        was_healthy = embedding_store.is_healthy
         try:
             query_embedding = await embedding_store.get_embedding(query)
         except Exception as e:
@@ -237,6 +254,14 @@ class LocalFileStore(BaseFileStore):
         self.logger.info(
             f"{self.name}: graph consistency check complete: repaired={graph_repaired}, "
             f"elapsed={time.monotonic() - graph_repair_started_at:.3f}s",
+        )
+
+        tag_sync_started_at = time.monotonic()
+        tag_synced = await self._rebuild_tag_index("startup synchronization")
+        self.logger.info(
+            f"{self.name}: tag index sync complete: enabled={self.tag_index_enabled}, "
+            f"healthy={tag_synced}, "
+            f"elapsed={time.monotonic() - tag_sync_started_at:.3f}s",
         )
 
         keyword_sync_started_at = time.monotonic()
@@ -352,17 +377,20 @@ class LocalFileStore(BaseFileStore):
 
     @BaseFileStore.serialized
     async def reindex(self, scope: str) -> dict:
-        """Rebuild derived search indexes from ``file_chunks`` without touching files or the graph."""
-        if scope not in {"all", "bm25", "embedding"}:
-            raise ValueError("reindex scope must be one of: all, bm25, embedding")
+        """Rebuild derived search indexes without rescanning workspace files."""
+        if scope not in {"all", "bm25", "embedding", "tag"}:
+            raise ValueError("reindex scope must be one of: all, bm25, embedding, tag")
         if scope == "bm25":
             return await self._reindex_bm25()
         if scope == "embedding":
             return await self._reindex_embedding()
+        if scope == "tag":
+            return await self._reindex_tag()
         return {
             "scope": "all",
             "bm25": await self._reindex_bm25(),
             "embedding": await self._reindex_embedding(),
+            "tag": await self._reindex_tag(),
         }
 
     async def _reindex_bm25(self) -> dict:
@@ -485,7 +513,7 @@ class LocalFileStore(BaseFileStore):
             return
 
         total = len(missing)
-        batch_size = max(1, int(getattr(self.embedding_store, "max_batch_size", 10)))
+        batch_size = max(1, int(self.embedding_store.max_batch_size))
         self.logger.info(f"{self.name}: embedding backfill started: total={total}, batch_size={batch_size}")
         try:
             if not skip_health_check:
@@ -617,6 +645,79 @@ class LocalFileStore(BaseFileStore):
         elapsed = time.monotonic() - started_at
         self.logger.info(f"{self.name}: keyword index rebuild complete: total={total}, elapsed={elapsed:.2f}s")
 
+    async def _rebuild_tag_index(self, reason: str) -> bool:
+        """Best-effort rebuild that never lets an optional tag index block the file store."""
+        if not self.tag_index_enabled:
+            self._tag_index_rebuild_required = False
+            self._tag_indexed_file_count = 0
+            return True
+        tag_index = self.require_tag_index()
+        try:
+            nodes = await self.file_graph.get_nodes()
+            await tag_index.rebuild(nodes)
+        except Exception:
+            self._tag_index_rebuild_required = True
+            self.logger.exception(
+                f"{self.name}: tag index rebuild failed during {reason}; keeping file store available",
+            )
+            await self._quarantine_tag_index(reason)
+            return False
+        self._tag_index_rebuild_required = False
+        tag_index.set_healthy(True)
+        self._tag_indexed_file_count = tag_index.n_files
+        return True
+
+    async def _quarantine_tag_index(self, reason: str) -> None:
+        """Fail closed after a reconciliation error without propagating cleanup failures."""
+        tag_index = self.require_tag_index()
+        tag_index.set_healthy(False)
+        try:
+            await tag_index.clear()
+        except Exception:
+            self.logger.exception(f"{self.name}: failed to clear unhealthy tag index during {reason}")
+        finally:
+            tag_index.set_healthy(False)
+
+    async def _reindex_tag(self) -> dict:
+        """Synchronously rebuild the optional tag index from the authoritative file graph."""
+        if not await self._rebuild_tag_index("explicit reindex"):
+            raise RuntimeError("tag index reindex failed")
+        return {"indexed": self._tag_indexed_file_count, "scope": "tag"}
+
+    async def _upsert_tag_nodes(self, nodes: list[FileNode]) -> None:
+        """Update tags without allowing optional-index failures to block other indexes."""
+        if not self.tag_index_enabled:
+            return
+        tag_index = self.require_tag_index()
+        if self._tag_index_rebuild_required:
+            await self._rebuild_tag_index("retry before incremental update")
+            return
+        try:
+            await tag_index.upsert_nodes(nodes)
+            tag_index.set_healthy(True)
+        except Exception:
+            self._tag_index_rebuild_required = True
+            tag_index.set_healthy(False)
+            self.logger.exception(f"{self.name}: incremental tag index update failed; rebuilding from graph")
+            await self._rebuild_tag_index("incremental update recovery")
+
+    async def _delete_tag_paths(self, paths: list[str]) -> None:
+        """Delete tag paths without allowing optional-index failures to block other indexes."""
+        if not self.tag_index_enabled:
+            return
+        tag_index = self.require_tag_index()
+        if self._tag_index_rebuild_required:
+            await self._rebuild_tag_index("retry before incremental delete")
+            return
+        try:
+            await tag_index.delete(paths)
+            tag_index.set_healthy(True)
+        except Exception:
+            self._tag_index_rebuild_required = True
+            tag_index.set_healthy(False)
+            self.logger.exception(f"{self.name}: incremental tag index delete failed; rebuilding from graph")
+            await self._rebuild_tag_index("incremental delete recovery")
+
     async def _dump_owned_state(self) -> None:
         """Persist state owned by this store, excluding dependency snapshots."""
         try:
@@ -671,6 +772,7 @@ class LocalFileStore(BaseFileStore):
         new_nodes, needs_embed, keyword_docs = self._stage_upsert(files, old_map)
 
         await self.file_graph.upsert_nodes(new_nodes)
+        await self._upsert_tag_nodes(new_nodes)
         await self._embed_pending(needs_embed)
         if self.keyword_index and old_chunk_ids:
             await self.keyword_index.delete_docs(list(old_chunk_ids))
@@ -743,7 +845,7 @@ class LocalFileStore(BaseFileStore):
             return
         embedding_store = self.embedding_store
         embedding_generation = self._embedding_space_generation
-        was_healthy = bool(getattr(embedding_store, "is_healthy", True))
+        was_healthy = embedding_store.is_healthy
         try:
             await embedding_store.get_node_embeddings(chunks)
         except Exception as e:
@@ -783,6 +885,7 @@ class LocalFileStore(BaseFileStore):
         for cid in deleted_chunk_ids:
             self.file_chunks.pop(cid, None)
         await self.file_graph.delete_nodes([str(n.path) for n in nodes])
+        await self._delete_tag_paths([str(n.path) for n in nodes])
         if self.keyword_index and deleted_chunk_ids:
             await self.keyword_index.delete_docs(deleted_chunk_ids)
 
@@ -814,6 +917,18 @@ class LocalFileStore(BaseFileStore):
         if self.keyword_index:
             await self.keyword_index.clear()
         await self.file_graph.clear()
+        if self.tag_index_enabled:
+            tag_index = self.require_tag_index()
+            try:
+                await tag_index.clear()
+                self._tag_index_rebuild_required = False
+                self._tag_indexed_file_count = 0
+                tag_index.set_healthy(True)
+            except Exception:
+                self._tag_index_rebuild_required = True
+                tag_index.set_healthy(False)
+                self.logger.exception(f"{self.name}: tag index clear failed; rebuilding from empty graph")
+                await self._rebuild_tag_index("clear recovery")
         self._mutation_generation += 1
 
     # -- search ---------------------------------------------------------------
@@ -867,17 +982,32 @@ class LocalFileStore(BaseFileStore):
         ]
 
     async def keyword_search(self, query: str, limit: int, search_filter: dict) -> list[FileChunk]:
-        if not self.keyword_index:
+        if not self.keyword_index or limit <= 0:
             return []
 
         query = query.strip()
         if not query:
             return []
 
-        retrieve_limit = limit
         if search_filter:
-            retrieve_limit = max(limit, getattr(self.keyword_index, "n_docs", limit))
-        doc_id_score_dict = await self.keyword_index.retrieve(query, limit=retrieve_limit)
+            eligible_ids = {
+                chunk.id for chunk in self.file_chunks.values() if self._matches_search_filter(chunk, search_filter)
+            }
+            if not eligible_ids:
+                return []
+            try:
+                eligible_ids.intersection_update(self.keyword_index.document_ids)
+                if not eligible_ids:
+                    return []
+                doc_id_score_dict = await self.keyword_index.retrieve_filtered(query, limit, eligible_ids)
+            except NotImplementedError:
+                # Compatibility path for third-party indexes implementing only retrieve().
+                doc_id_score_dict = await self.keyword_index.retrieve(
+                    query,
+                    limit=max(limit, getattr(self.keyword_index, "n_docs", limit)),
+                )
+        else:
+            doc_id_score_dict = await self.keyword_index.retrieve(query, limit=limit)
         results = []
         for doc_id, score in doc_id_score_dict.items():
             chunk = self.file_chunks.get(doc_id)
@@ -933,10 +1063,12 @@ class LocalFileStore(BaseFileStore):
             return True
 
         exact_paths = set()
+        has_exact_path_filter = False
         for key in ("path", "paths"):
             if key in search_filter:
+                has_exact_path_filter = True
                 exact_paths.update(cls._as_filter_values(search_filter[key]))
-        if exact_paths and chunk.path not in exact_paths:
+        if has_exact_path_filter and chunk.path not in exact_paths:
             return False
 
         prefixes = []

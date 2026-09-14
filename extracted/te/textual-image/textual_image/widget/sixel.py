@@ -1,7 +1,7 @@
 """Provides a Textual `Widget` to render images as Sixels (<https://en.wikipedia.org/wiki/Sixel>) in the terminal."""
 
 import logging
-from typing import IO, ClassVar, Iterable, NamedTuple
+from typing import IO, Callable, ClassVar, Iterable, NamedTuple
 
 from PIL import Image as PILImage
 from rich.console import Console, ConsoleOptions, RenderResult
@@ -12,6 +12,7 @@ from rich.style import Style
 from textual.app import ComposeResult
 from textual.dom import NoScreen
 from textual.geometry import Region, Size
+from textual.message import Message
 from textual.strip import Strip
 from textual.widget import Widget
 from typing_extensions import override
@@ -104,6 +105,7 @@ class Image(BaseImage, Renderable=_NoopRenderable):
         classes: str | None = None,
         disabled: bool = False,
         sixel_options: SixelOptions | None = None,
+        on_error: Callable[[Exception], Widget] | None = None,
     ) -> None:
         """Initialize the Image widget.
 
@@ -116,14 +118,9 @@ class Image(BaseImage, Renderable=_NoopRenderable):
             sixel_options: Sixel encoding options.  When ``None``, falls back to
                 ``self.DEFAULT_OPTIONS``.
         """
-        super().__init__(
-            image=image,
-            name=name,
-            id=id,
-            classes=classes,
-            disabled=disabled,
-        )
+        super().__init__(image=image, name=name, id=id, classes=classes, disabled=disabled, on_error=on_error)
         self._sixel_options = sixel_options if sixel_options is not None else self.DEFAULT_OPTIONS
+        self._is_failed: bool = False
 
     @override
     @BaseImage.image.setter  # type: ignore
@@ -134,6 +131,19 @@ class Image(BaseImage, Renderable=_NoopRenderable):
     def compose(self) -> ComposeResult:
         """Called by Textual to create child widgets."""
         yield _ImageSixelImpl(self.image, self._sixel_options)
+
+    def on__image_sixel_impl_failed(self, event: "_ImageSixelImpl.Failed") -> None:
+        event.stop()
+
+        if self._is_failed:
+            return  # can mount widget twice without it
+
+        self._is_failed = True
+        if self.on_error is not None:
+            self.remove_children(_ImageSixelImpl)
+            self.mount(self.on_error(event.exc))
+        else:
+            raise event.exc
 
 
 class _ImageSixelImpl(Widget, can_focus=False, inherit_css=False):
@@ -156,6 +166,11 @@ class _ImageSixelImpl(Widget, can_focus=False, inherit_css=False):
         height: 100%;
     }
     """
+
+    class Failed(Message):
+        def __init__(self, exc: Exception) -> None:
+            super().__init__()
+            self.exc = exc
 
     @override
     def __init__(
@@ -190,7 +205,12 @@ class _ImageSixelImpl(Widget, can_focus=False, inherit_css=False):
         else:
             logger.debug(f"encoding Sixel data for crop region {crop}")
 
-            image_data = PixelData(self.image)
+            try:
+                image_data = PixelData(self.image)
+            except OSError as e:
+                self.post_message(self.Failed(e))
+                return []
+
             image_data = self._scale_image(image_data, terminal_sizes)
             image_data = self._crop_image(image_data, crop, terminal_sizes)
 
@@ -244,10 +264,7 @@ class _ImageSixelImpl(Widget, can_focus=False, inherit_css=False):
     def _get_sixel_segments(self, sixel_data: str) -> Iterable[Segment]:
         visible_region = self.screen.find_widget(self).visible_region
         return [
-            Segment(
-                Control.move_to(visible_region.x, visible_region.y).segment.text,
-                style=_NULL_STYLE,
-            ),
+            Segment(Control.move_to(visible_region.x, visible_region.y).segment.text, style=_NULL_STYLE),
             Segment(sixel_data, style=_NULL_STYLE, control=((ControlType.CURSOR_FORWARD, 0),)),
             Segment(Control.move_to(visible_region.right, visible_region.bottom).segment.text, style=_NULL_STYLE),
         ]

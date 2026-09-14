@@ -90,6 +90,10 @@ from xpander_sdk.core.steering import (
 )
 from xpander_sdk.core.xpander_api_client import APIClient
 from xpander_sdk.models.generic import LLMCredentials
+from xpander_sdk.models.runtime_environments import (
+    ENVIRONMENT_CONTEXT_TAG,
+    render_environment_context,
+)
 from xpander_sdk.models.shared import OutputFormat, ThinkMode
 from xpander_sdk.modules.agents.agents_module import Agents
 from xpander_sdk.modules.agents.models.agent import (
@@ -2752,6 +2756,7 @@ async def build_agent_args(
             args["instructions"] = _compose_dynamic_prompt(
                 args.get("instructions") or "", dynamic_prompt_text, position
             )
+        _apply_environment_context(args, xpander_agent, task)
         channel_presence_text = await _aget_channel_presence_text(xpander_agent)
         if channel_presence_text:
             args["instructions"] = (
@@ -4926,6 +4931,55 @@ async def _aget_dynamic_prompt_text(agent: Agent) -> str:
     except Exception as e:
         logger.warning(f"dynamic prompt resolve failed for agent {agent.id}: {e}")
         return ""
+
+
+# The gateway's injected block opens with this exact tag; a mere mention of the word does not count.
+_ENVIRONMENT_CONTEXT_OPEN_RE = re.compile(
+    rf"<{ENVIRONMENT_CONTEXT_TAG}(?=[\s>])", re.IGNORECASE
+)
+
+
+def _environment_context_block(agent: Any, task: Optional[Any]) -> str:
+    """The org's runtime-environment context rendered for this run, or "" when it does not apply.
+
+    The resolved environment rides the agent payload's read-time ``runtime_environment`` field.
+    Skipped when the task carries an instructions override (a complete replacement) and when its
+    additional context already holds the block (the gateway injects it for dispatched children).
+    Fail-open: a malformed payload yields "" so agent construction never breaks.
+    """
+    if task is not None:
+        if getattr(task, "instructions_override", None):
+            return ""
+        additional = getattr(task, "additional_context", None) or ""
+        if _ENVIRONMENT_CONTEXT_OPEN_RE.search(additional):
+            return ""
+    resolved = getattr(agent, "runtime_environment", None)
+    layers = resolved.get("context_layers") if isinstance(resolved, dict) else None
+    if not layers:
+        return ""
+    try:
+        return render_environment_context(layers)
+    except Exception as e:
+        logger.warning(
+            f"environment context skipped for agent {getattr(agent, 'id', None)}: "
+            f"malformed runtime_environment.context_layers ({e!r})"
+        )
+        return ""
+
+
+def _apply_environment_context(
+    args: Dict[str, Any], agent: Any, task: Optional[Any]
+) -> None:
+    """Prepend the environment context block to ``args["instructions"]`` when it applies.
+
+    The block is stable per agent, so it lives at the head of the instructions - part of the
+    cached prompt prefix - rather than in per-turn context.
+    """
+    block = _environment_context_block(agent, task)
+    if not block:
+        return
+    base = args.get("instructions") or ""
+    args["instructions"] = f"{block}\n\n{base}" if base else block
 
 
 # The text lands inside <channel_presence>: its own tag must never close/reopen it.

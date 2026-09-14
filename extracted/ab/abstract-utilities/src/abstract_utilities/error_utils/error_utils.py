@@ -1,4 +1,6 @@
-from .imports import *
+from .imports import (
+    get_logger_callable,
+)
 def try_func(func, *args, logger=None, level='error', **kwargs):
     """
     Execute a function with try-except and log exceptions.

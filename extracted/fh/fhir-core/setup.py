@@ -43,7 +43,7 @@ test_requirements = [
     "types-simplejson",
     "types-requests",
     "setuptools==65.6.3;python_version>='3.7'",
-    "lxml",
+    "lxml" + (PY_VERSION_9_OR_EARLIER and "==6.1.2" or "==6.1.3"),
 ]
 if PY_VERSION_10_OR_LATER:
     test_requirements.append("importlib-metadata>=5.2.0")
@@ -102,7 +102,7 @@ setup(
         "dev": (test_requirements + development_requirements),
     },
     url="https://github.com/nazrulworld/fhir-core",
-    version="1.1.10",
+    version="1.1.11",
     zip_safe=False,
     python_requires=">=3.8",
     project_urls={

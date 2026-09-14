@@ -47,6 +47,8 @@ class UiControlHostClient:
                 "window_title": window_title,
                 "allow_raw_input": allow_raw_input,
                 "allow_recording": True,
+                # The Agent Host owns authorization; legacy native prompts stay disabled.
+                "allow_trusted_confirmation": False,
             }
             if self._supports_native_menu_path:
                 grant["allow_menu_invoke"] = allow_menu_invoke

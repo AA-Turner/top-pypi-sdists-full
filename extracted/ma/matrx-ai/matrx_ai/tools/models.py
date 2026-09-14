@@ -1123,6 +1123,22 @@ class CustomTool(CustomToolBase):
         )
 
 
+# JSON-Schema constraint keywords forwarded from a tool's parameter rows to the
+# provider schema (and stripped for OpenAI strict mode, which rejects them).
+# One list, both directions — adding a keyword here is the whole change.
+_FORWARDED_CONSTRAINT_KEYS: tuple[str, ...] = (
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "minimum",
+    "maximum",
+    "multipleOf",
+    "pattern",
+    "minLength",
+    "maxLength",
+)
+
+
 class ToolDefinition(BaseModel):
     name: str = Field(description="Unique tool identifier")
     tool_id: str | None = Field(default=None, description="Database UUID for this tool")
@@ -1160,6 +1176,7 @@ class ToolDefinition(BaseModel):
         if isinstance(value, dict):
             return [value]
         return value
+
     side_effect_class: str | None = Field(
         default=None,
         description=(
@@ -1259,7 +1276,11 @@ class ToolDefinition(BaseModel):
     max_calls_per_minute: int | None = None
     cost_cap_per_call: float | None = None
     dedupe_exempt: bool = False
-    timeout_seconds: float = 120.0
+    # None = "this tool declares no ceiling of its own", and the dispatch
+    # deadline resolves from the `agents.tool_dispatch` feature knob
+    # (`matrx_ai.tools.knobs`). A LIMIT IS A KNOB: the old literal 120.0 default
+    # was unturnable, and on 2026-09-12 it cancelled the agent-builder mid-build.
+    timeout_seconds: float | None = None
     must_complete: bool = Field(
         default=False,
         description=(
@@ -1352,9 +1373,7 @@ class ToolDefinition(BaseModel):
             )
             root_spec = self.parameters.get(key)
             variant_types = {
-                spec["type"]
-                for spec in variant_specs
-                if isinstance(spec.get("type"), str)
+                spec["type"] for spec in variant_specs if isinstance(spec.get("type"), str)
             }
             if len(variant_types) > 1:
                 # A generated dispatcher root can retain the first variant's
@@ -1363,12 +1382,12 @@ class ToolDefinition(BaseModel):
                 # field, so incompatible types stay unconstrained.
                 chosen = {
                     "description": (
-                        root_spec.get("description", "")
-                        if isinstance(root_spec, dict)
-                        else ""
+                        root_spec.get("description", "") if isinstance(root_spec, dict) else ""
                     )
                 }
-            elif isinstance(root_spec, dict) and "type" not in root_spec and "anyOf" not in root_spec:
+            elif (
+                isinstance(root_spec, dict) and "type" not in root_spec and "anyOf" not in root_spec
+            ):
                 # The generated root is the union contract.  An omitted type
                 # deliberately means that this field has incompatible shapes
                 # across actions (dataset.data is array on create and object
@@ -1446,15 +1465,13 @@ class ToolDefinition(BaseModel):
             }
             if raw_type == "array" and "items" in param:
                 prop["items"] = self._process_nested(param["items"], strip_openai_unsupported)
-            for f in (
-                "minItems",
-                "maxItems",
-                "uniqueItems",
-                "minimum",
-                "maximum",
-                "multipleOf",
-                "pattern",
-            ):
+            # Every constraint the DISPATCHER enforces must reach the MODEL.
+            # ``minLength``/``maxLength`` were missing from this list until
+            # 2026-09-13: the ``user`` tool's ``header`` (maxLength 12) was
+            # enforced by the browser's zod schema but never shown to the
+            # model, which wrote a 16-char header → the client rejected the
+            # already-suspended delegated call → a wasted suspend/resume cycle.
+            for f in _FORWARDED_CONSTRAINT_KEYS:
                 if f in param and not strip_openai_unsupported:
                     prop[f] = param[f]
             if "default" in param:
@@ -1549,15 +1566,7 @@ class ToolDefinition(BaseModel):
             return {"type": schema}
         processed = schema.copy()
         if strip_unsupported:
-            for f in (
-                "minItems",
-                "maxItems",
-                "uniqueItems",
-                "minimum",
-                "maximum",
-                "multipleOf",
-                "pattern",
-            ):
+            for f in _FORWARDED_CONSTRAINT_KEYS:
                 processed.pop(f, None)
         if processed.get("type") == "object" and "properties" in processed:
             processed["additionalProperties"] = False

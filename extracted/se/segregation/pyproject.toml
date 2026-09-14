@@ -40,6 +40,7 @@ dependencies = [
     "pyproj>=3",
     "scikit-learn>=1.5.0",
     "scipy>=1.14.0",
+    "statsmodels>=0.14.4",
     "seaborn",
     "tqdm",
 ]
@@ -51,12 +52,15 @@ Repository = "https://github.com/pysal/segregation"
 [project.optional-dependencies]
 dev = ["pre-commit"]
 docs = [
-    "nbsphinx",
+    "myst-nb",
+    "jupyter-cache",
+    "ipykernel",
     "numpydoc",
     "pandoc",
     "sphinx",
     "sphinxcontrib-bibtex",
     "sphinx_bootstrap_theme",
+    "watermark",
     "mkdocs-jupyter",
     "myst-parser"
 ]
@@ -69,7 +73,9 @@ tests = [
     "matplotlib",
     "matplotlib-scalebar",
     "watermark",
+    "pandana",
     "pandarm",
+    "pandana",
     "quilt3",
     "ipywidgets"
 ]

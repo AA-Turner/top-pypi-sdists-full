@@ -8,14 +8,20 @@ import pytensor.tensor as pt
 import pytest
 import statsmodels.api as sm
 
-from numpy.testing import assert_allclose, assert_array_less
+from numpy.testing import assert_allclose, assert_array_equal, assert_array_less
 from pymc.model.transform.optimization import freeze_dims_and_data
 from pymc.testing import mock_sample_setup_and_teardown
 
 from pymc_extras.statespace import BayesianVARMAX
+from pymc_extras.statespace.core.irf import DEFAULT_IRF_STEPS
+from pymc_extras.statespace.filters.distributions import KalmanFilterRV, StationaryVARRV
 from pymc_extras.statespace.utils.constants import SHORT_NAME_TO_LONG
 from tests.statespace.shared_fixtures import (  # pylint: disable=unused-import
     rng,
+)
+from tests.statespace.test_utilities import (
+    build_model_with_flat_priors,
+    compare_likelihood_to_filter,
 )
 
 mock_sample = pytest.fixture(scope="function")(mock_sample_setup_and_teardown)
@@ -68,7 +74,7 @@ def pymc_mod(varma_mod, data):
         )
         sigma_obs = pm.Exponential("sigma_obs", 1, dims=["observed_state"])
 
-        varma_mod.build_statespace_graph(data=data, save_kalman_filter_outputs_in_idata=True)
+        varma_mod.build_statespace_graph(data=data)
 
     return pymc_mod
 
@@ -151,53 +157,329 @@ def test_VARMAX_update_matches_statsmodels(data, order, rng):
         state_chol = np.zeros((mod.k_posdef, mod.k_posdef), dtype=floatX)
         state_chol[np.tril_indices(mod.k_posdef)] = np.array([param_d[var] for var in state_cov])
         state_cov = pm.Deterministic("state_cov", pt.as_tensor_variable(state_chol @ state_chol.T))
-        mod._insert_random_variables()
 
-        matrices = pm.draw(mod.subbed_ssm)
+        matrices = pm.draw(mod._insert_random_variables())
         matrix_dict = dict(zip(SHORT_NAME_TO_LONG.values(), matrices))
 
     for matrix in ["transition", "selection", "state_cov", "obs_cov", "design"]:
         assert_allclose(matrix_dict[matrix], sm_var.ssm[matrix])
 
 
-@pytest.mark.parametrize("filter_output", ["filtered", "predicted", "smoothed"])
-def test_all_prior_covariances_are_PSD(filter_output, pymc_mod, rng):
-    rv = pymc_mod[f"{filter_output}_covariances"]
-    cov_mats = pm.draw(rv, 100, random_seed=rng)
-    w, v = np.linalg.eig(cov_mats)
-    assert_array_less(0, w, err_msg=f"Smallest eigenvalue: {min(w.ravel())}")
+def test_measurement_error_enters_obs_cov_as_a_variance():
+    """``sigma_obs`` is a standard deviation, so the observation covariance holds its square."""
+    mod = BayesianVARMAX(
+        endog_names=["a", "b"],
+        order=(1, 0),
+        measurement_error=True,
+        stationary_initialization=False,
+        verbose=False,
+    )
+    sigma = np.array([0.5, 2.0], dtype=floatX)
+
+    with pm.Model():
+        pm.Deterministic("x0", pt.zeros(mod.k_states, dtype=floatX))
+        pm.Deterministic("P0", pt.eye(mod.k_states, dtype=floatX))
+        pm.Deterministic("ar_params", pt.zeros((mod.k_endog, mod.p, mod.k_endog), dtype=floatX))
+        pm.Deterministic("state_cov", pt.eye(mod.k_posdef, dtype=floatX))
+        pm.Deterministic("sigma_obs", pt.as_tensor_variable(sigma))
+        matrices = pm.draw(mod._insert_random_variables())
+
+    obs_cov = dict(zip(SHORT_NAME_TO_LONG.values(), matrices))["obs_cov"]
+    assert_allclose(obs_cov, np.diag(sigma**2))
 
 
-parameters = [
-    {"n_steps": 10, "shock_size": None},
-    {"n_steps": 10, "shock_size": 1.0},
-    {"n_steps": 10, "shock_size": np.array([1.0, 0.0, 0.0])},
-    {
-        "n_steps": 10,
-        "shock_cov": np.array([[1.38, 0.58, -1.84], [0.58, 0.99, -0.82], [-1.84, -0.82, 2.51]]),
-    },
-    {
-        "shock_trajectory": np.r_[
-            np.zeros((3, 3), dtype=floatX),
-            np.array([[1.0, 0.0, 0.0]]).astype(floatX),
-            np.zeros((6, 3), dtype=floatX),
-        ]
-    },
+def test_all_prior_covariances_are_PSD(varma_mod, idata, rng):
+    cov_names = [f"{output}_covariances" for output in ("filtered", "predicted", "smoothed")]
+    filter_idata = varma_mod.sample_filter_outputs(
+        idata, filter_output_names=cov_names, group="prior", random_seed=rng
+    )
+
+    for cov_name in cov_names:
+        cov_mats = filter_idata.posterior_predictive[cov_name].values.reshape(
+            -1, varma_mod.k_states, varma_mod.k_states
+        )
+        w, v = np.linalg.eig(cov_mats)
+        assert_array_less(0, w, err_msg=f"{cov_name}: smallest eigenvalue {min(w.ravel())}")
+
+
+@pytest.mark.skipif(floatX == "float32", reason="Impulse covariance not PSD if float32")
+@pytest.mark.parametrize(
+    "shock_kwargs",
+    [
+        {},
+        {"shock_cov": np.array([[1.38, 0.58, -1.84], [0.58, 0.99, -0.82], [-1.84, -0.82, 2.51]])},
+    ],
+    ids=["from-posterior-cov", "user-cov"],
+)
+def test_impulse_response_from_covariance(varma_mod, idata, rng, shock_kwargs):
+    """A covariance draws the impulse at random, so only states the shock cannot reach are known."""
+    irf = varma_mod.impulse_response_function(
+        idata, n_steps=10, group="prior", random_seed=rng, **shock_kwargs
+    )
+
+    # The selection matrix routes shocks to a subset of states; the rest can only move via the
+    # intercept in the impact period, whatever impulse was drawn.
+    R = varma_mod.ssm["selection"].eval()
+    c = varma_mod.ssm["state_intercept"].eval()
+    unreachable = ~R.any(axis=1)
+
+    assert unreachable.any(), "Fixture no longer has states outside the shock's reach"
+
+    impact = irf.irf.isel(chain=0, time=0).values[:, unreachable]
+    assert_allclose(impact, np.broadcast_to(c[unreachable], impact.shape), atol=1e-12)
+
+
+@pytest.mark.skipif(floatX == "float32", reason="Impulse covariance not PSD if float32")
+def test_impulse_response_of_fixed_shock(varma_mod, idata, rng):
+    """A fixed shock_size makes the impulse deterministic, so the impact period is known exactly."""
+    shock_size = np.array([1.0, 0.0, 0.0], dtype=floatX)
+    irf = varma_mod.impulse_response_function(
+        idata, n_steps=5, shock_size=shock_size, group="prior", random_seed=rng
+    )
+
+    R = varma_mod.ssm["selection"].eval()
+    impact = irf.irf.isel(chain=0, time=0).values
+    assert_allclose(impact, np.broadcast_to(R @ shock_size, impact.shape), atol=1e-8)
+
+    # The system is linear in the impulse, so doubling the shock doubles the whole path.
+    doubled = varma_mod.impulse_response_function(
+        idata, n_steps=5, shock_size=shock_size * 2, group="prior", random_seed=rng
+    )
+    assert_allclose(doubled.irf.values, 2 * irf.irf.values, rtol=1e-8)
+
+
+@pytest.mark.skipif(floatX == "float32", reason="Impulse covariance not PSD if float32")
+def test_impulse_response_respects_shock_trajectory_timing(varma_mod, idata, rng):
+    """Nothing may move before the trajectory's first non-zero entry."""
+    quiet_steps = 3
+    shock_trajectory = np.zeros((8, varma_mod.k_posdef), dtype=floatX)
+    shock_trajectory[quiet_steps, 0] = 1.0
+
+    irf = varma_mod.impulse_response_function(
+        idata, shock_trajectory=shock_trajectory, group="prior", random_seed=rng
+    )
+
+    # irf[t] is the state after shock t is applied, so the impulse lands on its own index.
+    before = irf.irf.isel(time=slice(None, quiet_steps)).values
+    assert_allclose(before, 0.0, atol=1e-12)
+
+    R = varma_mod.ssm["selection"].eval()
+    impact = irf.irf.isel(chain=0, time=quiet_steps).values
+    expected = np.broadcast_to(R @ shock_trajectory[quiet_steps], impact.shape)
+    assert_allclose(impact, expected, atol=1e-8)
+
+
+@pytest.mark.skipif(floatX == "float32", reason="Cholesky factor not accurate enough in float32")
+class TestOrthogonalizedImpulseResponse:
+    """Recursive (Cholesky) identification of the reduced-form VAR shocks.
+
+    VARMAX has a full state_cov, so the factorization has content and the ordering matters. The
+    identifying assumption lives entirely in the impact period, so that is what these tests pin
+    down; later periods follow from the transition matrix, which the tests above already cover.
+    """
+
+    @staticmethod
+    def impact(irf, states=None):
+        """Impact-period response, as (draw, state, structural_shock)."""
+        response = irf.irf.isel(chain=0, time=0)
+        if states is not None:
+            response = response.sel(state=states)
+        return response.transpose("draw", "state", "structural_shock").values
+
+    def test_impact_is_cholesky_factor(self, varma_mod, idata, rng):
+        irf = varma_mod.impulse_response_function(
+            idata, n_steps=8, orthogonalize_shocks=True, group="prior", random_seed=rng
+        )
+
+        assert irf.irf.dims == ("chain", "draw", "structural_shock", "time", "state")
+        assert list(irf.irf.coords["structural_shock"].values) == list(varma_mod.coords["shock"])
+
+        Q = idata.prior["state_cov"].values[0]
+        R = varma_mod.ssm["selection"].eval()
+        expected = np.stack([R @ np.linalg.cholesky(Q_draw) for Q_draw in Q])
+
+        assert_allclose(self.impact(irf), expected, atol=1e-8)
+
+    def test_is_deterministic_given_parameters(self, varma_mod, idata, rng):
+        """No random node in the graph, so the seed must not move the answer at all."""
+        kwargs = dict(n_steps=5, orthogonalize_shocks=True, group="prior")
+        first = varma_mod.impulse_response_function(idata, random_seed=rng, **kwargs)
+        second = varma_mod.impulse_response_function(idata, random_seed=12345, **kwargs)
+
+        assert_array_equal(first.irf.values, second.irf.values)
+
+    def test_shock_order_changes_identification(self, varma_mod, idata, rng):
+        reversed_order = list(varma_mod.coords["shock"])[::-1]
+        irf = varma_mod.impulse_response_function(
+            idata, n_steps=5, orthogonalize_shocks=True, group="prior", random_seed=rng
+        )
+        reordered = varma_mod.impulse_response_function(
+            idata,
+            n_steps=5,
+            orthogonalize_shocks=True,
+            shock_order=reversed_order,
+            group="prior",
+            random_seed=rng,
+        )
+
+        assert list(reordered.irf.coords["structural_shock"].values) == reversed_order
+        assert not np.allclose(irf.irf.values, reordered.irf.values)
+
+        # Whatever the ordering, the impact matrix must still reproduce the shock covariance --
+        # this is what catches a botched un-permutation, which a shape check would sail past.
+        Q = idata.prior["state_cov"].values[0]
+        B = self.impact(reordered, states=list(varma_mod.coords["observed_state"]))
+        assert_allclose(B @ B.transpose(0, 2, 1), Q, atol=1e-8)
+
+    @pytest.mark.parametrize(
+        "shock_order, expected",
+        [
+            ([...], ["realgdp", "realcons", "realinv"]),
+            (["realinv", ...], ["realinv", "realgdp", "realcons"]),
+            ([..., "realgdp"], ["realcons", "realinv", "realgdp"]),
+            (["realinv", ..., "realgdp"], ["realinv", "realcons", "realgdp"]),
+        ],
+        ids=["all", "leading-name", "trailing-name", "both-sides"],
+    )
+    def test_ellipsis_fills_unnamed_shocks(self, varma_mod, idata, rng, shock_order, expected):
+        """`...` takes whatever is left, in the order the fit dims give it."""
+        irf = varma_mod.impulse_response_function(
+            idata,
+            n_steps=3,
+            orthogonalize_shocks=True,
+            shock_order=shock_order,
+            group="prior",
+            random_seed=rng,
+        )
+
+        assert list(irf.irf.coords["structural_shock"].values) == expected
+
+        explicit = varma_mod.impulse_response_function(
+            idata,
+            n_steps=3,
+            orthogonalize_shocks=True,
+            shock_order=expected,
+            group="prior",
+            random_seed=rng,
+        )
+        assert_array_equal(irf.irf.values, explicit.irf.values)
+
+    def test_diagonal_covariance_is_order_invariant(self, varma_mod, idata, rng):
+        """With independent shocks the factorization is a rescaling, so ordering does nothing."""
+        shock_cov = np.diag(np.array([1.0, 4.0, 9.0], dtype=floatX))
+        kwargs = dict(
+            n_steps=3,
+            shock_cov=shock_cov,
+            orthogonalize_shocks=True,
+            group="prior",
+            random_seed=rng,
+        )
+        irf = varma_mod.impulse_response_function(idata, **kwargs)
+        reordered = varma_mod.impulse_response_function(
+            idata, shock_order=list(varma_mod.coords["shock"])[::-1], **kwargs
+        )
+
+        flipped = reordered.irf.isel(structural_shock=slice(None, None, -1))
+        assert_allclose(irf.irf.values, flipped.values, atol=1e-8)
+
+    @pytest.mark.parametrize(
+        "kwargs, error_msg",
+        [
+            ({"orthogonalize_shocks": True, "shock_size": 1.0}, "cannot be combined"),
+            (
+                {"orthogonalize_shocks": True, "shock_trajectory": np.zeros((3, 3))},
+                "cannot be combined",
+            ),
+            ({"shock_order": ["realgdp", "realcons", "realinv"]}, "only meaningful"),
+            (
+                {"orthogonalize_shocks": True, "shock_order": ["realgdp", "realcons"]},
+                "must name every shock",
+            ),
+            (
+                {"orthogonalize_shocks": True, "shock_order": ["realgdp", "realcons", "nope"]},
+                "does not have",
+            ),
+            (
+                {"orthogonalize_shocks": True, "shock_order": ["realgdp", "realgdp", ...]},
+                "more than once",
+            ),
+            (
+                {"orthogonalize_shocks": True, "shock_order": [..., "realgdp", ...]},
+                "at most one",
+            ),
+            (
+                {"orthogonalize_shocks": True, "use_posterior_cov": False},
+                "needs a shock covariance matrix",
+            ),
+        ],
+        ids=[
+            "with-shock-size",
+            "with-trajectory",
+            "order-without-flag",
+            "short-order",
+            "bad-name",
+            "duplicate-name",
+            "two-ellipsis",
+            "no-covariance",
+        ],
+    )
+    def test_invalid_arguments(self, varma_mod, idata, kwargs, error_msg):
+        with pytest.raises(ValueError, match=error_msg):
+            varma_mod.impulse_response_function(idata, n_steps=3, group="prior", **kwargs)
+
+
+# A single unit shock to the first variable at t=3, quiet before and after.
+SHOCK_TRAJECTORY = np.r_[
+    np.zeros((3, 3), dtype=floatX),
+    np.array([[1.0, 0.0, 0.0]]).astype(floatX),
+    np.zeros((6, 3), dtype=floatX),
 ]
 
-ids = ["from-posterior-cov", "scalar_shock_size", "array_shock_size", "user-cov", "trajectory"]
 
-
-@pytest.mark.parametrize("parameters", parameters, ids=ids)
 @pytest.mark.skipif(floatX == "float32", reason="Impulse covariance not PSD if float32")
-def test_impulse_response(parameters, varma_mod, idata, rng):
-    irf = varma_mod.impulse_response_function(idata.prior, random_seed=rng, **parameters)
+class TestImpulseResponseHorizon:
+    """The trajectory sets the horizon; n_steps is only a default when there is no trajectory."""
 
-    assert np.isfinite(irf.irf.values).all()
+    trajectory_length = SHOCK_TRAJECTORY.shape[0]
+
+    def test_trajectory_length_overrides_n_steps(self, varma_mod, idata, rng, caplog):
+        irf = varma_mod.impulse_response_function(
+            idata, n_steps=40, shock_trajectory=SHOCK_TRAJECTORY, group="prior", random_seed=rng
+        )
+
+        assert len(irf.irf.coords["time"]) == self.trajectory_length
+        assert any("do not agree" in message for message in caplog.messages)
+
+    def test_matching_n_steps_is_quiet(self, varma_mod, idata, rng, caplog):
+        irf = varma_mod.impulse_response_function(
+            idata,
+            n_steps=self.trajectory_length,
+            shock_trajectory=SHOCK_TRAJECTORY,
+            group="prior",
+            random_seed=rng,
+        )
+
+        assert len(irf.irf.coords["time"]) == self.trajectory_length
+        assert not any("do not agree" in message for message in caplog.messages)
+
+    def test_omitted_n_steps_is_quiet(self, varma_mod, idata, rng, caplog):
+        irf = varma_mod.impulse_response_function(
+            idata, shock_trajectory=SHOCK_TRAJECTORY, group="prior", random_seed=rng
+        )
+
+        # The trajectory wins over the default, which is longer than it is.
+        assert len(irf.irf.coords["time"]) == self.trajectory_length
+        assert not any("do not agree" in message for message in caplog.messages)
+
+    def test_default_applies_without_a_trajectory(self, varma_mod, idata, rng):
+        """Omitting n_steps entirely is the only way the module default is reached."""
+        irf = varma_mod.impulse_response_function(idata, group="prior", random_seed=rng)
+
+        assert len(irf.irf.coords["time"]) == DEFAULT_IRF_STEPS
 
 
 def test_forecast(varma_mod, idata, rng):
-    forecast = varma_mod.forecast(idata.prior, periods=10, random_seed=rng)
+    forecast = varma_mod.forecast(idata, periods=10, random_seed=rng, group="prior")
 
     assert np.isfinite(forecast.forecast_latent.values).all()
     assert np.isfinite(forecast.forecast_observed.values).all()
@@ -482,11 +764,12 @@ class TestVARMAXWithExogenous:
             match=r"This model was fit using exogenous data. Forecasting cannot be performed "
             r"without providing scenario data",
         ):
-            mod.forecast(prior.prior, periods=10, random_seed=rng)
+            mod.forecast(prior, periods=10, random_seed=rng, group="prior")
 
         forecast = mod.forecast(
-            prior.prior,
+            prior,
             periods=10,
+            group="prior",
             random_seed=rng,
             scenario={
                 "exogenous_data": pd.DataFrame(
@@ -499,3 +782,159 @@ class TestVARMAXWithExogenous:
 
         assert np.isfinite(forecast.forecast_latent.values).all()
         assert np.isfinite(forecast.forecast_observed.values).all()
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected_op",
+    [
+        ({"order": (2, 0), "stationary_initialization": True}, StationaryVARRV),
+        (
+            {
+                "order": (2, 0),
+                "stationary_initialization": True,
+                "exog_state_names": ["x1", "x2"],
+            },
+            StationaryVARRV,
+        ),
+        (
+            {
+                "order": (2, 0),
+                "stationary_initialization": True,
+                "exog_state_names": {"a": ["x1", "x2"], "b": ["x3"]},
+            },
+            StationaryVARRV,
+        ),
+        ({"order": (2, 1), "stationary_initialization": True}, KalmanFilterRV),
+        (
+            {"order": (2, 0), "stationary_initialization": True, "measurement_error": True},
+            KalmanFilterRV,
+        ),
+        ({"order": (2, 0)}, KalmanFilterRV),
+        ({"order": (0, 1), "stationary_initialization": True}, KalmanFilterRV),
+    ],
+    ids=[
+        "ar",
+        "ar_shared_exog",
+        "ar_per_series_exog",
+        "ma",
+        "measurement_error",
+        "no_stationary_init",
+        "no_ar",
+    ],
+)
+def test_likelihood_dispatch(kwargs, expected_op, rng):
+    mod = BayesianVARMAX(endog_names=["a", "b"], verbose=False, **kwargs)
+    data_dict = {
+        name: rng.normal(size=(40, mod.data_info[name]["shape"][-1])).astype(floatX)
+        for name in mod.data_names
+    }
+    pymc_model = build_model_with_flat_priors(
+        mod, np.zeros((40, 2), dtype=floatX), data_dict or None
+    )
+
+    assert isinstance(pymc_model["obs"].owner.op, expected_op)
+
+
+@pytest.mark.parametrize(
+    "exog_state_names",
+    [None, ["x1", "x2"], {"a": ["x1", "x2"], "b": ["x3"]}, {"a": ["x1"]}],
+    ids=["no_exog", "shared", "per_series", "one_series_only"],
+)
+def test_closed_form_likelihood_matches_the_kalman_filter(exog_state_names, rng):
+    """
+    The dict form joins per-series regressions into the observation intercept; the closed form
+    writes the same thing as one product against a block coefficient matrix.
+    """
+    mod = BayesianVARMAX(
+        order=(2, 0),
+        endog_names=["a", "b"],
+        exog_state_names=exog_state_names,
+        stationary_initialization=True,
+        verbose=False,
+    )
+    data = rng.normal(size=(60, 2)).astype(floatX)
+
+    params = {"ar_params": rng.normal(size=(2, 2, 2)) * 0.2, "state_cov": np.eye(2)}
+    data_dict = {
+        name: rng.normal(size=(60, mod.data_info[name]["shape"][-1])).astype(floatX)
+        for name in mod.data_names
+    }
+    for name in mod.param_names:
+        if name.startswith("beta"):
+            params[name] = rng.normal(size=mod.param_info[name]["shape"])
+
+    pymc_model, built, kalman = compare_likelihood_to_filter(mod, params, data, data_dict or None)
+
+    assert isinstance(pymc_model["obs"].owner.op, StationaryVARRV)
+    assert_allclose(built, kalman, atol=1e-8)
+
+
+@pytest.mark.parametrize(
+    "trend, expected_op",
+    [("c", StationaryVARRV), ("ct", KalmanFilterRV)],
+    ids=["constant", "linear"],
+)
+def test_trend_likelihood_matches_statsmodels(data, trend, expected_op, rng):
+    """
+    A constant folds into the closed form as a level shift; a time-varying trend is filtered.
+    Both agree with statsmodels' ``VARMAX``, which shares the timing of the state intercept.
+    """
+    sm_var = sm.tsa.VARMAX(data, order=(1, 0), trend=trend)
+
+    params = {
+        "trend_params": (rng.normal(size=(3, len(trend))) * 0.1).astype(floatX),
+        "ar_params": (rng.normal(size=(3, 1, 3)) * 0.2).astype(floatX),
+        "state_cov": np.eye(3, dtype=floatX),
+    }
+    sm_params = np.concatenate(
+        [
+            params["trend_params"].ravel(),
+            params["ar_params"].reshape(3, 3).ravel(),
+            np.eye(3)[np.tril_indices(3)],
+        ]
+    )
+    assert len(sm_params) == sm_var.k_params
+
+    mod = BayesianVARMAX(
+        endog_names=data.columns.tolist(),
+        order=(1, 0),
+        trend=trend,
+        stationary_initialization=True,
+        verbose=False,
+    )
+    assert mod.coords["trend"] == ("constant", "linear")[: len(trend)]
+
+    pymc_model, built, _ = compare_likelihood_to_filter(mod, params, data.values)
+
+    assert isinstance(pymc_model["obs"].owner.op, expected_op)
+    assert_allclose(built, sm_var.loglike(sm_params), rtol=1e-6)
+
+
+def test_forecast_continues_the_trend(rng):
+    """The trend is built from the symbolic timestep count, so a forecast needs no scenario."""
+    n_obs = 40
+    time_idx = pd.date_range(start="2020-01-01", periods=n_obs, freq="D")
+    df = pd.DataFrame(rng.normal(size=(n_obs, 2)), columns=["a", "b"], index=time_idx).astype(
+        floatX
+    )
+    trend_params = np.array([[1.0, 0.5], [0.0, -0.25]], dtype=floatX)
+
+    mod = BayesianVARMAX(endog_names=["a", "b"], order=(1, 0), trend="ct", verbose=False)
+    with pm.Model(coords=mod.coords) as m:
+        pm.Deterministic("x0", pt.zeros(mod.k_states), dims=mod.param_dims["x0"])
+        pm.Deterministic("P0", pt.eye(mod.k_states), dims=mod.param_dims["P0"])
+        pm.Deterministic("ar_params", pt.zeros((2, 1, 2)), dims=mod.param_dims["ar_params"])
+        pm.Deterministic("state_cov", 1e-8 * pt.eye(2), dims=mod.param_dims["state_cov"])
+        pm.Deterministic(
+            "trend_params", pt.as_tensor(trend_params), dims=mod.param_dims["trend_params"]
+        )
+        mod.build_statespace_graph(df)
+
+    with freeze_dims_and_data(m):
+        prior = pm.sample_prior_predictive(draws=1, random_seed=rng)
+    forecast = mod.forecast(prior, periods=5, group="prior", random_seed=rng)
+
+    # Observation i (1-based) receives A(i), and the forecast picks up at i = n_obs + 1.
+    time = np.arange(n_obs + 1, n_obs + 6)
+    expected = np.stack([trend_params[:, 0] + trend_params[:, 1] * t for t in time])
+    assert_allclose(forecast.forecast_observed.values[0, 0], expected, atol=1e-3)

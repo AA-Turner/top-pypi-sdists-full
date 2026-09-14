@@ -44,7 +44,9 @@ class AnalyzeTableQueryPlanRequest(BaseModel):
     full_text_query: Optional[QueryTableRequestFullTextQuery] = None
     k: Annotated[int, Field(strict=True, ge=0)] = Field(description="Number of results to return")
     lower_bound: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Lower bound for search")
-    nprobes: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Number of probes for IVF index")
+    maximum_nprobes: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Maximum number of IVF partitions to search. When omitted, all partitions may be searched if needed.")
+    minimum_nprobes: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Minimum number of IVF partitions to search before adaptive expansion.")
+    nprobes: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Legacy exact number of IVF partitions to search. Ignored when minimum_nprobes or maximum_nprobes is provided.")
     offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Number of results to skip")
     prefilter: Optional[StrictBool] = Field(default=None, description="Whether to apply filtering before vector search")
     refine_factor: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Refine factor for search")
@@ -53,7 +55,7 @@ class AnalyzeTableQueryPlanRequest(BaseModel):
     vector_column: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="Lance field path of the vector field to search. Nested fields use dot-separated segments; use backtick-quoted segments for literal dots and double backticks inside quoted segments. Use canonical full paths for display and errors; leaf names alone only identify top-level fields; invalid or unresolved paths should return InvalidInput or TableColumnNotFound.")
     version: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Table version to query")
     with_row_id: Optional[StrictBool] = Field(default=None, description="If true, return the row id as a column called `_rowid`")
-    __properties: ClassVar[List[str]] = ["identity", "context", "id", "branch", "bypass_vector_index", "columns", "distance_type", "ef", "fast_search", "filter", "full_text_query", "k", "lower_bound", "nprobes", "offset", "prefilter", "refine_factor", "upper_bound", "vector", "vector_column", "version", "with_row_id"]
+    __properties: ClassVar[List[str]] = ["identity", "context", "id", "branch", "bypass_vector_index", "columns", "distance_type", "ef", "fast_search", "filter", "full_text_query", "k", "lower_bound", "maximum_nprobes", "minimum_nprobes", "nprobes", "offset", "prefilter", "refine_factor", "upper_bound", "vector", "vector_column", "version", "with_row_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -131,6 +133,8 @@ class AnalyzeTableQueryPlanRequest(BaseModel):
             "full_text_query": QueryTableRequestFullTextQuery.from_dict(obj["full_text_query"]) if obj.get("full_text_query") is not None else None,
             "k": obj.get("k"),
             "lower_bound": obj.get("lower_bound"),
+            "maximum_nprobes": obj.get("maximum_nprobes"),
+            "minimum_nprobes": obj.get("minimum_nprobes"),
             "nprobes": obj.get("nprobes"),
             "offset": obj.get("offset"),
             "prefilter": obj.get("prefilter"),

@@ -3,6 +3,7 @@
 import os
 from unittest.mock import MagicMock, patch
 
+from agentic_devtools.cli.git.core import GitError
 from agentic_devtools.cli.git.operations import BranchSafetyCheckResult
 from agentic_devtools.cli.workflows.worktree_setup import (
     create_worktree,
@@ -11,6 +12,18 @@ from agentic_devtools.cli.workflows.worktree_setup import (
 
 class TestCreateWorktree:
     """Tests for create_worktree function."""
+
+    def setup_method(self):
+        """Default successful metadata verification for created worktrees."""
+        self._check_worktree_exists_patcher = patch(
+            "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+            return_value="/repos/PROJECT-1234",
+        )
+        self.mock_check_worktree_exists = self._check_worktree_exists_patcher.start()
+
+    def teardown_method(self):
+        """Stop the shared worktree-verification patch."""
+        self._check_worktree_exists_patcher.stop()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
     @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
@@ -57,6 +70,42 @@ class TestCreateWorktree:
         assert result.success is False
         assert "Could not determine" in result.error_message
 
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_returns_lookup_error_when_created_worktree_cannot_be_verified(
+        self, mock_exists, mock_parent, mock_run, mock_in_worktree, mock_get_branch
+    ):
+        """A Git metadata lookup failure must not be treated as an unregistered worktree."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        self.mock_check_worktree_exists.side_effect = GitError(
+            128, "fatal: not a git repository", ["worktree", "list", "--porcelain"]
+        )
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "Unable to verify created worktree" in result.error_message
+        assert "not a git repository" in result.error_message
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    @patch("os.path.exists", return_value=True)
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos")
+    def test_returns_lookup_error_when_existing_worktree_cannot_be_verified(self, mock_parent, mock_exists, mock_check):
+        """A Git metadata lookup failure must not be treated as a missing directory."""
+        mock_check.side_effect = GitError(128, "fatal: not a git repository", ["worktree", "list"])
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "Unable to verify existing worktree" in result.error_message
+
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
     @patch("agentic_devtools.cli.copilot.trust.seed_worktree_trust_result")
     @patch("os.path.exists")
@@ -65,8 +114,7 @@ class TestCreateWorktree:
         from agentic_devtools.cli.copilot.trust import TrustMutationResult
 
         mock_parent.return_value = "/repos"
-        # Both worktree path and .git file exist
-        mock_exists.side_effect = [True, True]
+        mock_exists.return_value = True
         mock_seed_trust.return_value = TrustMutationResult(True, added=True)
 
         result = create_worktree("PROJECT-1234", "feature")
@@ -83,8 +131,7 @@ class TestCreateWorktree:
     ):
         """Test AGDT cache/bootstrap propagation runs when worktree already exists."""
         mock_parent.return_value = "/repos"
-        # Worktree path exists and is a valid git worktree
-        mock_exists.side_effect = [True, True]
+        mock_exists.return_value = True
 
         result = create_worktree("PROJECT-1234", "feature")
 
@@ -92,19 +139,53 @@ class TestCreateWorktree:
         expected_worktree_path = os.path.join("/repos", "PROJECT-1234")
         mock_propagate_agdt_cache.assert_called_once_with(expected_worktree_path, worktree_key="PROJECT-1234")
 
+    @patch("agentic_devtools.cli.workflows.worktree_setup._propagate_agdt_cache")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos")
+    @patch("os.path.exists", return_value=False)
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    def test_returns_error_when_cache_propagation_fails(
+        self, mock_run, mock_exists, mock_parent, mock_propagate_agdt_cache
+    ):
+        """Return a verification error when post-create cache propagation raises GitError."""
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_propagate_agdt_cache.side_effect = GitError(128, "cache propagation failed", ["git"])
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "Post-create worktree setup failed" in (result.error_message or "")
+        assert "cache propagation failed" in (result.error_message or "")
+
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
     @patch("agentic_devtools.cli.copilot.trust.seed_worktree_trust_result")
     @patch("os.path.exists")
     def test_returns_error_for_directory_not_worktree(self, mock_exists, mock_seed_trust, mock_parent):
         """Test error when directory exists but isn't a git worktree."""
         mock_parent.return_value = "/repos"
-        # Worktree path exists, but .git file doesn't
-        mock_exists.side_effect = [True, False]
+        mock_exists.return_value = True
+        self.mock_check_worktree_exists.return_value = None
 
         result = create_worktree("PROJECT-1234", "feature")
 
         assert result.success is False
-        assert "not a git worktree" in result.error_message
+        assert "not a registered git worktree" in result.error_message
+        mock_seed_trust.assert_not_called()
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("agentic_devtools.cli.copilot.trust.seed_worktree_trust_result")
+    @patch("os.path.exists")
+    def test_returns_error_when_existing_directory_maps_to_other_registered_worktree(
+        self, mock_exists, mock_seed_trust, mock_parent
+    ):
+        """An existing conventional path must fail if git metadata points to a different worktree path."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = True
+        self.mock_check_worktree_exists.return_value = "/repos/PROJECT-1234-alt"
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "points to /repos/PROJECT-1234-alt" in (result.error_message or "")
         mock_seed_trust.assert_not_called()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
@@ -159,6 +240,98 @@ class TestCreateWorktree:
 
         assert result.success is True
         assert mock_run.call_count == 2
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_fails_when_git_metadata_does_not_register_created_worktree(
+        self, mock_exists, mock_parent, mock_run, mock_get_branch, mock_in_worktree, mock_main_repo
+    ):
+        """A zero-exit git worktree add must still fail when git metadata cannot verify the new worktree."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = "/repos/main"
+        mock_run.side_effect = [MagicMock(returncode=0), MagicMock(returncode=0), MagicMock(returncode=0)]
+        self.mock_check_worktree_exists.return_value = None
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "git worktree list --porcelain" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert mock_run.call_args_list[2][0][0] == ["git", "branch", "-D", "feature/PROJECT-1234/implementation"]
+
+    @patch("agentic_devtools.cli.git.operations.rename_local_branch")
+    @patch("agentic_devtools.cli.git.operations.check_branch_safe_to_recreate")
+    @patch("agentic_devtools.cli.git.operations.fetch_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_returns_lookup_error_and_restores_temp_branch_when_verification_fails(
+        self,
+        mock_exists,
+        mock_parent,
+        mock_run,
+        mock_get_branch,
+        mock_in_worktree,
+        mock_fetch,
+        mock_safety_check,
+        mock_rename,
+    ):
+        """A post-create metadata lookup failure preserves branch recovery state."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_safety_check.return_value = BranchSafetyCheckResult(
+            BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+            "Local branch has diverged from origin.",
+            "feature/PROJECT-1234/pr-review",
+        )
+        mock_run.return_value = MagicMock(returncode=0)
+        self.mock_check_worktree_exists.side_effect = GitError(128, "fatal: lookup failed", ["worktree", "list"])
+
+        result = create_worktree(
+            "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
+        )
+
+        assert result.success is False
+        assert "Unable to verify created worktree" in (result.error_message or "")
+        assert "lookup failed" in (result.error_message or "")
+        assert result.created_worktree is True
+        assert result.created_branch is True
+        assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_fails_when_git_metadata_registers_different_created_worktree(
+        self, mock_exists, mock_parent, mock_run, mock_get_branch, mock_in_worktree, mock_main_repo
+    ):
+        """A created worktree must fail if git metadata resolves the issue key to another path."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = "/repos/main"
+        mock_run.side_effect = [MagicMock(returncode=0), MagicMock(returncode=0), MagicMock(returncode=0)]
+        self.mock_check_worktree_exists.return_value = "/repos/PROJECT-1234-alt"
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "registered /repos/PROJECT-1234-alt instead of /repos/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
     @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
@@ -611,6 +784,7 @@ class TestCreateWorktree:
         mock_get_branch.return_value = "main"
         mock_in_worktree.return_value = False
         mock_main_repo.return_value = str(main_repo_dir)
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
 
         result = create_worktree("PROJECT-1234", "feature")
 
@@ -665,6 +839,7 @@ class TestCreateWorktree:
         mock_in_worktree.return_value = False
         mock_main_repo.return_value = str(main_repo_dir)
         mock_copy.side_effect = OSError("permission denied")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
 
         result = create_worktree("PROJECT-1234", "feature")
 
@@ -728,6 +903,96 @@ class TestCreateWorktree:
         second_call = mock_rename.call_args_list[1]
         assert "pr-review" in second_call[0][1]
         assert "abc1234" in second_call[0][1]
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.git.operations.rename_local_branch")
+    @patch("agentic_devtools.cli.git.operations.check_branch_safe_to_recreate")
+    @patch("agentic_devtools.cli.git.operations.fetch_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_diverged_branch_fails_when_git_metadata_registers_other_worktree(
+        self,
+        mock_exists,
+        mock_parent,
+        mock_run,
+        mock_get_branch,
+        mock_in_worktree,
+        mock_fetch,
+        mock_safety_check,
+        mock_rename,
+        mock_main_repo,
+    ):
+        """Temp-rename flow must stop when git metadata does not register the expected worktree path."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = "/repos/main"
+        mock_safety_check.return_value = BranchSafetyCheckResult(
+            BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+            "Local branch has diverged from origin.",
+            "feature/PROJECT-1234/pr-review",
+        )
+        mock_run.side_effect = [MagicMock(returncode=0), MagicMock(returncode=0), MagicMock(returncode=0)]
+        mock_rename.return_value = True
+        self.mock_check_worktree_exists.return_value = "/repos/PROJECT-1234-alt"
+
+        result = create_worktree(
+            "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
+        )
+
+        assert result.success is False
+        assert "registered /repos/PROJECT-1234-alt instead of /repos/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.git.operations.rename_local_branch")
+    @patch("agentic_devtools.cli.git.operations.check_branch_safe_to_recreate")
+    @patch("agentic_devtools.cli.git.operations.fetch_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_diverged_branch_fails_when_git_metadata_does_not_register_worktree(
+        self,
+        mock_exists,
+        mock_parent,
+        mock_run,
+        mock_get_branch,
+        mock_in_worktree,
+        mock_fetch,
+        mock_safety_check,
+        mock_rename,
+        mock_main_repo,
+    ):
+        """Temp-rename flow must fail when git metadata omits the expected worktree path entirely."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = "/repos/main"
+        mock_safety_check.return_value = BranchSafetyCheckResult(
+            BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+            "Local branch has diverged from origin.",
+            "feature/PROJECT-1234/pr-review",
+        )
+        mock_run.side_effect = [MagicMock(returncode=0), MagicMock(returncode=0), MagicMock(returncode=0)]
+        mock_rename.return_value = True
+        self.mock_check_worktree_exists.return_value = None
+
+        result = create_worktree(
+            "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
+        )
+
+        assert result.success is False
+        assert "did not register /repos/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
 
     # -------------------------------------------------------------------------
     # Diverged branch — temp-rename flow (worktree creation failure)
@@ -1592,6 +1857,7 @@ class TestCreateWorktree:
         mock_run.return_value = MagicMock(returncode=0)
         mock_hash.return_value = "abc1234"
         mock_rename.return_value = True
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
 
         result = create_worktree(
             "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
@@ -1647,6 +1913,7 @@ class TestCreateWorktree:
         mock_hash.return_value = "abc1234"
         mock_rename.return_value = True
         mock_copy.side_effect = OSError("permission denied")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
 
         result = create_worktree(
             "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True

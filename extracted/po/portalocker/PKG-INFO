@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: portalocker
-Version: 4.3.1
+Version: 4.3.2
 Summary: Cross-platform file locking, with Redis, PID-file and bounded-semaphore locks
 Keywords: locking,locks,with,statement,windows,linux,unix
 Author: Rick van Hattem
@@ -74,6 +74,7 @@ Description-Content-Type: text/markdown
 # Coordinate access. Keep your code simple.
 
 [![CI](https://github.com/wolph/portalocker/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/wolph/portalocker/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Coverage](https://coveralls.io/repos/github/wolph/portalocker/badge.svg?branch=master)](https://coveralls.io/github/wolph/portalocker?branch=master)
 [![PyPI](https://img.shields.io/pypi/v/portalocker)](https://pypi.org/project/portalocker/)
 [![Python versions](https://img.shields.io/pypi/pyversions/portalocker)](https://pypi.org/project/portalocker/)
 [![Documentation](https://readthedocs.org/projects/portalocker/badge/?version=latest)](https://portalocker.readthedocs.io/en/latest/)

@@ -74,13 +74,12 @@ def test_derived_figures_only_disagree_on_the_documented_figures() -> None:
         if derived[key] != derive.PRIOR_ANALYSIS[key]
     }
     assert mismatches == {
-        "Injected files": (259, 266),
-        "Agent files": (132, 141),
+        "Injected files": (259, 267),
+        "Agent files": (132, 142),
         "Prompt files": (127, 125),
         "Prompt registration stubs (delete)": (113, 111),
         "Prompt skills (9 plain + 2 `context: fork`)": (11, 8),
         "Prompt subagents": (1, 0),
-        "Agent deletions": (90, 89),
         "Agent merges": (15, 23),
         "Agent skills": (11, 12),
         "Agent collapses": (11, 12),
@@ -88,7 +87,7 @@ def test_derived_figures_only_disagree_on_the_documented_figures() -> None:
         "Surviving subagent names": (6, 5),
         "Retirement batch `stubs`": (113, 111),
         "Retirement batch `wrappers`": (87, 86),
-        "Retirement batch `residue`": (59, 69),
+        "Retirement batch `residue`": (59, 70),
     }
 
 

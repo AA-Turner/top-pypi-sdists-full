@@ -13,6 +13,7 @@ use std::io::{BufRead, BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use chrono::{TimeZone, Utc};
 use rusqlite::{
     params, params_from_iter, Connection, OpenFlags, OptionalExtension,
 };
@@ -22,17 +23,19 @@ use crate::agent_clan_tribe::ClanTribeMemberWire;
 use crate::agent_cleanup::AgentCleanupIdentityWire;
 use crate::agent_launch::list_workspace_claims_from_content;
 use crate::agent_runtime::{
-    is_real_monitor_member_record, parse_runtime_timestamp,
+    is_real_gate_member_record, is_real_monitor_member_record,
+    parse_runtime_timestamp,
 };
 
 use super::context::{
     clan_key_from_meta, represented_clan_keys, resolve_clan_context,
 };
 use super::scanner::{
-    project_allowed_by_filter, project_filter_for_scan,
-    scan_agent_artifact_dir, scan_agent_artifacts,
+    list_agent_artifact_dirs, project_allowed_by_filter,
+    project_filter_for_scan, scan_agent_artifact_dir, scan_agent_artifacts,
 };
 use super::wire::{
+    decode_agent_artifact_record_json, AgentArtifactIndexCompletenessWire,
     AgentArtifactIndexWindowWire, AgentArtifactRecordShapeWire,
     AgentArtifactRecordWire, AgentArtifactScanOptionsWire,
     AgentArtifactScanStatsWire, AgentArtifactScanWire, AgentMetaWire,
@@ -44,7 +47,7 @@ use super::wire::{
     AGENT_SCAN_WIRE_SCHEMA_VERSION,
 };
 
-pub const AGENT_ARTIFACT_INDEX_SCHEMA_VERSION: u32 = 28;
+pub const AGENT_ARTIFACT_INDEX_SCHEMA_VERSION: u32 = 31;
 
 /// Newest hidden terminal rows kept hot in the materialized SQLite view.
 ///
@@ -179,6 +182,8 @@ const MAX_RELATED_ARTIFACT_QUERY_ITERATIONS: usize = 32;
 const ABANDONED_DONE_OUTCOME: &str = "abandoned";
 const DEFAULT_INDEX_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 const DISMISSED_IDENTITY_SQL_BATCH: usize = 200;
+const SOURCE_RECONCILE_ROOT_META_KEY: &str = "source_reconcile_projects_root";
+const SOURCE_RECONCILE_OK_META_KEY: &str = "source_reconcile_ok";
 
 #[cfg(test)]
 thread_local! {
@@ -195,6 +200,29 @@ fn record_index_sql_statements(count: u64) {
 #[cfg(test)]
 fn last_index_sql_statements() -> u64 {
     LAST_INDEX_SQL_STATEMENTS.with(|cell| cell.get())
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Records decoded (`record_json` parses) by the last
+    /// [`find_gate_shell_by_gate_id`] call. A warm-cache lookup that stays
+    /// fast could still be decoding every historical row in Rust after an
+    /// unfiltered SQL scan; this proves the `WHERE gate_shell_id = ?`
+    /// predicate — not warm caches or an incidentally fast host — is what
+    /// keeps the lookup bounded as unrelated history grows.
+    static LAST_GATE_SHELL_LOOKUP_RECORDS_DECODED: std::cell::Cell<u64> =
+        const { std::cell::Cell::new(0) };
+}
+
+fn record_gate_shell_lookup_records_decoded(count: u64) {
+    let _ = count;
+    #[cfg(test)]
+    LAST_GATE_SHELL_LOOKUP_RECORDS_DECODED.with(|cell| cell.set(count));
+}
+
+#[cfg(test)]
+fn last_gate_shell_lookup_records_decoded() -> u64 {
+    LAST_GATE_SHELL_LOOKUP_RECORDS_DECODED.with(|cell| cell.get())
 }
 
 /// Freshness policy for persistent artifact index queries.
@@ -795,7 +823,7 @@ fn repair_abandoned_agent_artifact_index_rows(
                 row.get(2).map_err(|e| e.to_string())?;
             let record_json: String = row.get(3).map_err(|e| e.to_string())?;
             let Ok(mut record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+                decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -955,9 +983,9 @@ pub fn reconcile_agent_artifact_index_dismissed_family_members(
             candidate.project_name.clone(),
             candidate.workflow_dir_name.clone(),
         );
-        let Ok(record) = serde_json::from_str::<AgentArtifactRecordWire>(
-            &candidate.record_json,
-        ) else {
+        let Ok(record) =
+            decode_agent_artifact_record_json(&candidate.record_json)
+        else {
             report.rows_skipped_decode_errors += 1;
             continue;
         };
@@ -1064,7 +1092,7 @@ pub fn load_agent_artifact_records(
             let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
             let Ok(mut record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+                decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -1077,6 +1105,54 @@ pub fn load_agent_artifact_records(
         .into_iter()
         .filter_map(|dir| records_by_dir.get(&dir).cloned())
         .collect())
+}
+
+/// Return the newest real gate-shell member matching `gate_id`, if any.
+///
+/// Uses the indexed `gate_shell_id` column for a single-row `WHERE` lookup
+/// instead of decoding every historical record, the cost that made the
+/// previous full-history scan take seconds on a long-lived host. Only rows
+/// projected from a genuine gate-shell member carry a `gate_shell_id`
+/// (see [`gate_shell_id_from_record`]), so a later descendant that merely
+/// inherited the gate id can never shadow the owning shell here.
+///
+/// `project_name` of `None` searches every project, the same unscoped
+/// sweep the historical Python lookup performed for the reclaim chop.
+/// Ties (which should not occur for a durable gate id, but are possible
+/// for a replayed/duplicated bundle) resolve to the newest row by
+/// `timestamp`, then `artifact_dir`, mirroring the prior newest-first sort.
+pub fn find_gate_shell_by_gate_id(
+    index_path: &Path,
+    project_name: Option<&str>,
+    gate_id: &str,
+) -> Result<Option<AgentArtifactRecordWire>, String> {
+    let conn = open_index_read_only(index_path)?;
+    let record_json: Option<String> = match project_name {
+        Some(project) => conn
+            .query_row(
+                "SELECT record_json FROM agent_artifacts \
+                 WHERE gate_shell_id = ?1 AND project_name = ?2 \
+                 ORDER BY timestamp DESC, artifact_dir DESC LIMIT 1",
+                params![gate_id, project],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?,
+        None => conn
+            .query_row(
+                "SELECT record_json FROM agent_artifacts \
+                 WHERE gate_shell_id = ?1 \
+                 ORDER BY timestamp DESC, artifact_dir DESC LIMIT 1",
+                params![gate_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?,
+    };
+    record_gate_shell_lookup_records_decoded(record_json.is_some() as u64);
+    record_json
+        .map(|json| decode_agent_artifact_record_json(&json))
+        .transpose()
 }
 
 /// Return `(page_count, freelist_count, page_size)` for *conn*.
@@ -1168,8 +1244,8 @@ pub fn query_agent_artifact_index(
     query: AgentArtifactIndexQueryWire,
     options: AgentArtifactScanOptionsWire,
 ) -> Result<AgentArtifactScanWire, String> {
-    // Revalidate may write repaired rows back through repair_stale_rows_for_query;
-    // Cached never writes, so it can use the cheaper read-only open.
+    // Revalidate may write repaired or newly discovered rows; Cached never
+    // writes, so it can use the cheaper read-only open.
     let conn = if query.freshness == AgentArtifactIndexFreshnessWire::Revalidate
     {
         open_index(index_path)?
@@ -1179,13 +1255,28 @@ pub fn query_agent_artifact_index(
     let mut stats = AgentArtifactScanStatsWire::default();
     let mut by_dir: BTreeMap<String, AgentArtifactRecordWire> = BTreeMap::new();
     let project_filter = project_filter_for_scan(projects_root, &options);
+    let mut source_reconciled = false;
     if query.freshness == AgentArtifactIndexFreshnessWire::Revalidate {
+        if query.include_full_history {
+            reconcile_source_directories(
+                &conn,
+                projects_root,
+                &options,
+                &mut stats,
+            )?;
+            stamp_source_reconcile_watermark(&conn, projects_root)?;
+            source_reconciled = true;
+        }
         repair_stale_rows_for_query(
             &conn,
             &query,
             &options,
             project_filter.as_ref(),
+            &mut stats,
         )?;
+    } else if query.include_full_history {
+        source_reconciled =
+            source_reconcile_watermark_valid(&conn, projects_root)?;
     }
 
     let index_window = if should_use_windowed_candidate_query(&query) {
@@ -1286,6 +1377,15 @@ pub fn query_agent_artifact_index(
         }
     }
     let clan_context = select_clan_context(&conn, &records)?;
+    let index_completeness = Some(AgentArtifactIndexCompletenessWire {
+        complete_history: query.include_full_history && source_reconciled,
+        source_reconciled,
+        rows_discovered: stats.rows_discovered,
+        rows_removed: stats.rows_removed,
+        marker_signatures_checked: stats.marker_signatures_checked,
+        rows_repaired: stats.rows_repaired,
+        record_json_decoded: stats.record_json_decoded,
+    });
 
     Ok(AgentArtifactScanWire {
         schema_version: AGENT_SCAN_WIRE_SCHEMA_VERSION,
@@ -1295,6 +1395,7 @@ pub fn query_agent_artifact_index(
         index_window,
         records,
         clan_context,
+        index_completeness,
     })
 }
 
@@ -1597,9 +1698,7 @@ fn alias_run_from_sql_row(
         u32::try_from(row.get::<_, i64>(16).map_err(|e| e.to_string())?)
             .unwrap_or(0);
     let record_json: String = row.get(17).map_err(|e| e.to_string())?;
-    let Ok(record) =
-        serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
-    else {
+    let Ok(record) = decode_agent_artifact_record_json(&record_json) else {
         return Ok(None);
     };
     let meta = record.agent_meta.as_ref();
@@ -2525,7 +2624,7 @@ fn load_record_by_artifact_dir(
     let Some(record_json) = record_json else {
         return Ok(None);
     };
-    serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+    decode_agent_artifact_record_json(&record_json)
         .map(Some)
         .map_err(|e| e.to_string())
 }
@@ -2575,6 +2674,8 @@ fn open_index_with_busy_timeout(
             finished_at REAL,
             done_outcome TEXT,
             source_machine TEXT,
+            imported_owner_machine TEXT,
+            gate_shell_id TEXT,
             has_done_marker INTEGER NOT NULL,
             has_running_marker INTEGER NOT NULL,
             has_waiting_marker INTEGER NOT NULL,
@@ -2779,6 +2880,17 @@ fn open_index_with_busy_timeout(
         ensure_agent_artifacts_column(&conn, "source_machine", "TEXT")?;
         migrate_source_machine_projection_v28(&mut conn)?;
     }
+    if prior_version.map_or(true, |v| v < 29) {
+        migrate_record_json_refresh_v29(&mut conn)?;
+    }
+    if prior_version.map_or(true, |v| v < 30) {
+        ensure_agent_artifacts_column(&conn, "imported_owner_machine", "TEXT")?;
+        migrate_imported_owner_machine_projection_v30(&mut conn)?;
+    }
+    if prior_version.map_or(true, |v| v < 31) {
+        ensure_agent_artifacts_column(&conn, "gate_shell_id", "TEXT")?;
+        migrate_gate_shell_id_projection_v31(&mut conn)?;
+    }
     conn.execute_batch(
         "CREATE INDEX IF NOT EXISTS idx_agent_artifacts_agent_clan \
          ON agent_artifacts(agent_clan, timestamp); \
@@ -2786,8 +2898,12 @@ fn open_index_with_busy_timeout(
          ON agent_artifacts(done_outcome); \
          CREATE INDEX IF NOT EXISTS idx_agent_artifacts_source_machine \
          ON agent_artifacts(source_machine); \
+         CREATE INDEX IF NOT EXISTS idx_agent_artifacts_imported_owner_machine \
+         ON agent_artifacts(imported_owner_machine); \
          CREATE INDEX IF NOT EXISTS idx_agent_artifacts_clan_context \
-         ON agent_artifacts(agent_clan, agent_clan_generation, timestamp);",
+         ON agent_artifacts(agent_clan, agent_clan_generation, timestamp); \
+         CREATE INDEX IF NOT EXISTS idx_agent_artifacts_gate_shell_id \
+         ON agent_artifacts(gate_shell_id, project_name, timestamp);",
     )
     .map_err(|e| e.to_string())?;
 
@@ -2992,8 +3108,7 @@ fn migrate_recompute_hidden_v2(conn: &mut Connection) -> Result<(), String> {
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
-            let Ok(record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+            let Ok(record) = decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -3168,8 +3283,7 @@ fn migrate_model_alias_projection_v22(
             let projects_root: String =
                 row.get(1).map_err(|e| e.to_string())?;
             let record_json: String = row.get(2).map_err(|e| e.to_string())?;
-            let Ok(record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+            let Ok(record) = decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -3220,8 +3334,7 @@ fn migrate_done_outcome_projection_v24(
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
-            let Ok(record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+            let Ok(record) = decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -3272,10 +3385,9 @@ fn migrate_source_machine_projection_v28(
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
             let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
-            let from_record =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
-                    .ok()
-                    .and_then(|record| source_machine_from_record(&record));
+            let from_record = decode_agent_artifact_record_json(&record_json)
+                .ok()
+                .and_then(|record| source_machine_from_record(&record));
             let source_machine = from_record.or_else(|| {
                 source_machine_from_marker_files(Path::new(&artifact_dir))
             });
@@ -3288,6 +3400,100 @@ fn migrate_source_machine_projection_v28(
             "UPDATE agent_artifacts SET source_machine = ?1 \
              WHERE artifact_dir = ?2",
             params![source_machine, artifact_dir],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// v29 refreshes `record_json` with `agent_meta.queue_capacity` and
+/// `waiting.queue_capacity` so indexed running/history rows keep authored
+/// budgets after waiting markers disappear.
+fn migrate_record_json_refresh_v29(
+    conn: &mut Connection,
+) -> Result<(), String> {
+    conn.execute_batch("").map_err(|e| e.to_string())
+}
+
+/// v30 adds the imported-owner machine projection so candidate filters can
+/// match every live index-resident machine value, not only `source_machine`.
+fn migrate_imported_owner_machine_projection_v30(
+    conn: &mut Connection,
+) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let rows: Vec<(String, Option<String>, Option<String>)> = {
+        let mut stmt = tx
+            .prepare("SELECT artifact_dir, record_json FROM agent_artifacts")
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+        let mut machines = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
+            let record_json: String = row.get(1).map_err(|e| e.to_string())?;
+            let from_record = decode_agent_artifact_record_json(&record_json)
+                .ok()
+                .map(|record| machine_projection_from_record(&record))
+                .unwrap_or_default();
+            let from_markers =
+                machine_projection_from_marker_files(Path::new(&artifact_dir));
+            let projection = MachineProjection {
+                source_machine: from_record
+                    .source_machine
+                    .or(from_markers.source_machine),
+                imported_owner_machine: from_record
+                    .imported_owner_machine
+                    .or(from_markers.imported_owner_machine),
+            };
+            machines.push((
+                artifact_dir,
+                projection.source_machine,
+                projection.imported_owner_machine,
+            ));
+        }
+        machines
+    };
+    for (artifact_dir, source_machine, imported_owner_machine) in rows {
+        tx.execute(
+            "UPDATE agent_artifacts SET source_machine = ?1, \
+             imported_owner_machine = ?2 WHERE artifact_dir = ?3",
+            params![source_machine, imported_owner_machine, artifact_dir],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// v31 adds the indexed `gate_shell_id` projection so an exact gate-id
+/// lookup can use `WHERE gate_shell_id = ?` instead of decoding every
+/// historical row. Only rows that are a real gate-shell member (not a
+/// descendant that merely inherited the gate id) get a non-null value.
+fn migrate_gate_shell_id_projection_v31(
+    conn: &mut Connection,
+) -> Result<(), String> {
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let rows: Vec<(String, Option<String>)> = {
+        let mut stmt = tx
+            .prepare("SELECT artifact_dir, record_json FROM agent_artifacts")
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+        let mut projected = Vec::new();
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            let artifact_dir: String = row.get(0).map_err(|e| e.to_string())?;
+            let record_json: String = row.get(1).map_err(|e| e.to_string())?;
+            let gate_shell_id = decode_agent_artifact_record_json(&record_json)
+                .ok()
+                .and_then(|record| gate_shell_id_from_record(&record));
+            projected.push((artifact_dir, gate_shell_id));
+        }
+        projected
+    };
+    for (artifact_dir, gate_shell_id) in rows {
+        tx.execute(
+            "UPDATE agent_artifacts SET gate_shell_id = ?1 \
+             WHERE artifact_dir = ?2",
+            params![gate_shell_id, artifact_dir],
         )
         .map_err(|e| e.to_string())?;
     }
@@ -3312,8 +3518,7 @@ fn migrate_output_variable_projection_v21(
             let projects_root: String =
                 row.get(0).map_err(|e| e.to_string())?;
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
-            let Ok(record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+            let Ok(record) = decode_agent_artifact_record_json(&record_json)
             else {
                 continue;
             };
@@ -3359,13 +3564,14 @@ fn upsert_record(
             running_sig, waiting_sig, pending_question_sig,
             workflow_state_sig, plan_path_sig, prompt_steps_sig, xprompts_sig,
             agent_clan_generation, clan_tribe, clan_summary, record_json,
-            model_alias_origin, done_outcome, source_machine, indexed_at
+            model_alias_origin, done_outcome, source_machine,
+            imported_owner_machine, gate_shell_id, indexed_at
         ) VALUES (
             ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
             ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20,
             ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30,
             ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40,
-            ?41, ?42, ?43, ?44, ?45, ?46, ?47, CURRENT_TIMESTAMP
+            ?41, ?42, ?43, ?44, ?45, ?46, ?47, ?48, ?49, CURRENT_TIMESTAMP
         )
         ON CONFLICT(artifact_dir) DO UPDATE SET
             projects_root = excluded.projects_root,
@@ -3414,6 +3620,8 @@ fn upsert_record(
             model_alias_origin = excluded.model_alias_origin,
             done_outcome = excluded.done_outcome,
             source_machine = excluded.source_machine,
+            imported_owner_machine = excluded.imported_owner_machine,
+            gate_shell_id = excluded.gate_shell_id,
             indexed_at = CURRENT_TIMESTAMP
         "#,
         params![
@@ -3464,6 +3672,8 @@ fn upsert_record(
             summary.model_alias_origin,
             done_outcome,
             summary.source_machine,
+            summary.imported_owner_machine,
+            summary.gate_shell_id,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -3586,11 +3796,197 @@ fn output_variable_scalar_text(value: &OutputVariableValue) -> Option<String> {
     }
 }
 
+fn discovery_scan_options(
+    options: &AgentArtifactScanOptionsWire,
+) -> AgentArtifactScanOptionsWire {
+    let mut discovery = options.clone();
+    discovery.only_projects.clear();
+    discovery.max_records = None;
+    discovery.not_before_timestamp = None;
+    discovery.newest_first = false;
+    discovery.capacity_only = false;
+    discovery
+}
+
+fn projects_root_key(projects_root: &Path) -> String {
+    projects_root.to_string_lossy().into_owned()
+}
+
+fn source_reconcile_watermark_valid(
+    conn: &Connection,
+    projects_root: &Path,
+) -> Result<bool, String> {
+    let ok: Option<String> = conn
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            [SOURCE_RECONCILE_OK_META_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    if ok.as_deref() != Some("1") {
+        return Ok(false);
+    }
+    let stored_root: Option<String> = conn
+        .query_row(
+            "SELECT value FROM meta WHERE key = ?1",
+            [SOURCE_RECONCILE_ROOT_META_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(stored_root.as_deref()
+        == Some(projects_root_key(projects_root).as_str()))
+}
+
+fn stamp_source_reconcile_watermark(
+    conn: &Connection,
+    projects_root: &Path,
+) -> Result<(), String> {
+    conn.execute(
+        "INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)",
+        params![
+            SOURCE_RECONCILE_ROOT_META_KEY,
+            projects_root_key(projects_root)
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO meta(key, value) VALUES (?1, ?2)",
+        params![SOURCE_RECONCILE_OK_META_KEY, "1"],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn parse_indexed_at(raw: &str) -> Option<SystemTime> {
+    let naive =
+        chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S").ok()?;
+    let datetime = Utc.from_utc_datetime(&naive);
+    let secs = u64::try_from(datetime.timestamp()).ok()?;
+    Some(UNIX_EPOCH + Duration::new(secs, datetime.timestamp_subsec_nanos()))
+}
+
+fn artifact_dir_is_dirty(artifact_dir: &str, indexed_at: &str) -> bool {
+    let Some(indexed_at) = parse_indexed_at(indexed_at) else {
+        return true;
+    };
+    let Ok(mtime) = fs::metadata(artifact_dir).and_then(|meta| meta.modified())
+    else {
+        return true;
+    };
+    mtime > indexed_at
+}
+
+fn indexed_artifact_rows(
+    conn: &Connection,
+    projects_root: &Path,
+) -> Result<Vec<(String, String)>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT artifact_dir, indexed_at FROM agent_artifacts \
+             WHERE projects_root = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query([projects_root_key(projects_root)])
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        result.push((
+            row.get(0).map_err(|e| e.to_string())?,
+            row.get(1).map_err(|e| e.to_string())?,
+        ));
+    }
+    Ok(result)
+}
+
+fn reconcile_source_directories(
+    conn: &Connection,
+    projects_root: &Path,
+    options: &AgentArtifactScanOptionsWire,
+    stats: &mut AgentArtifactScanStatsWire,
+) -> Result<(), String> {
+    let discovery_options = discovery_scan_options(options);
+    let source_dirs: BTreeSet<String> =
+        list_agent_artifact_dirs(projects_root, &discovery_options)
+            .into_iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect();
+    let indexed_rows = indexed_artifact_rows(conn, projects_root)?;
+    let indexed_dirs: BTreeSet<String> =
+        indexed_rows.iter().map(|(dir, _)| dir.clone()).collect();
+
+    let missing: Vec<String> =
+        indexed_dirs.difference(&source_dirs).cloned().collect();
+    if !missing.is_empty() {
+        stats.rows_removed += missing.len() as u64;
+        delete_agent_artifact_projection_rows(conn, &missing)?;
+    }
+
+    let mut dirty_dirs = Vec::new();
+    for (artifact_dir, indexed_at) in &indexed_rows {
+        if missing.iter().any(|dir| dir == artifact_dir) {
+            continue;
+        }
+        if artifact_dir_is_dirty(artifact_dir, indexed_at) {
+            dirty_dirs.push(artifact_dir.clone());
+        }
+    }
+    if !dirty_dirs.is_empty() {
+        let placeholders = placeholders(dirty_dirs.len());
+        let where_sql = format!("WHERE artifact_dir IN ({placeholders})");
+        let pending = {
+            let mut stmt = conn
+                .prepare(&refresh_stale_rows_sql(&where_sql))
+                .map_err(|e| e.to_string())?;
+            let mut rows = stmt
+                .query(params_from_iter(dirty_dirs.iter()))
+                .map_err(|e| e.to_string())?;
+            let mut pending = Vec::new();
+            while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+                pending.push(pending_refresh_row_from_sql(row)?);
+            }
+            pending
+        };
+        for row in pending {
+            stats.marker_signatures_checked += 1;
+            let current =
+                MarkerSignatures::from_artifact_dir(&row.artifact_dir);
+            if row.stored == current {
+                continue;
+            }
+            let row_projects_root = PathBuf::from(&row.row_projects_root);
+            let artifact_dir = PathBuf::from(&row.artifact_dir);
+            if let Some(refreshed) = scan_agent_artifact_dir(
+                &row_projects_root,
+                &artifact_dir,
+                options,
+            ) {
+                let _ = upsert_record(conn, &row_projects_root, &refreshed);
+                stats.rows_repaired += 1;
+            }
+        }
+    }
+
+    for artifact_dir in source_dirs.difference(&indexed_dirs) {
+        let path = PathBuf::from(artifact_dir);
+        if let Some(record) =
+            scan_agent_artifact_dir(projects_root, &path, options)
+        {
+            upsert_record(conn, projects_root, &record)?;
+            stats.rows_discovered += 1;
+        }
+    }
+    Ok(())
+}
+
 fn repair_stale_rows_for_query(
     conn: &Connection,
     query: &AgentArtifactIndexQueryWire,
     options: &AgentArtifactScanOptionsWire,
     project_filter: Option<&BTreeSet<String>>,
+    stats: &mut AgentArtifactScanStatsWire,
 ) -> Result<(), String> {
     let mut clauses: Vec<&str> = Vec::new();
     if !query.include_hidden {
@@ -3610,7 +4006,7 @@ fn repair_stale_rows_for_query(
         format!("WHERE {}", clauses.join(" OR ")),
         project_filter,
     );
-    refresh_stale_rows(conn, &where_sql, options)
+    refresh_stale_rows(conn, &where_sql, options, stats)
 }
 
 fn select_terminalization_candidates(
@@ -3661,8 +4057,7 @@ fn terminalize_stale_candidate(
     let current = MarkerSignatures::from_artifact_dir(&row.artifact_dir);
     let projects_root = PathBuf::from(&row.row_projects_root);
     let record = if row.stored == current {
-        match serde_json::from_str::<AgentArtifactRecordWire>(&row.record_json)
-        {
+        match decode_agent_artifact_record_json(&row.record_json) {
             Ok(record) => record,
             Err(_) => return Ok(TerminalizationOutcome::Skipped),
         }
@@ -3832,6 +4227,7 @@ fn refresh_stale_rows(
     conn: &Connection,
     where_sql: &str,
     options: &AgentArtifactScanOptionsWire,
+    stats: &mut AgentArtifactScanStatsWire,
 ) -> Result<(), String> {
     let sql = refresh_stale_rows_sql(where_sql);
     let mut pending: Vec<PendingRefreshRow> = Vec::new();
@@ -3843,7 +4239,9 @@ fn refresh_stale_rows(
         }
     }
 
+    let mut missing = Vec::new();
     for row in pending {
+        stats.marker_signatures_checked += 1;
         let current = MarkerSignatures::from_artifact_dir(&row.artifact_dir);
         if row.stored == current {
             continue;
@@ -3854,7 +4252,14 @@ fn refresh_stale_rows(
             scan_agent_artifact_dir(&projects_root, &artifact_dir, options)
         {
             let _ = upsert_record(conn, &projects_root, &refreshed);
+            stats.rows_repaired += 1;
+        } else {
+            missing.push(row.artifact_dir);
         }
+    }
+    if !missing.is_empty() {
+        stats.rows_removed += missing.len() as u64;
+        delete_agent_artifact_projection_rows(conn, &missing)?;
     }
     Ok(())
 }
@@ -3876,24 +4281,21 @@ fn select_records(
     options: &AgentArtifactScanOptionsWire,
     project_filter: Option<&BTreeSet<String>>,
 ) -> Result<(), String> {
-    if query.candidate_filter.is_some()
-        && query.freshness == AgentArtifactIndexFreshnessWire::Revalidate
-    {
-        refresh_stale_rows(conn, &query.where_sql, options)?;
-    }
     let pending = if query.candidate_filter.is_some() {
         select_pending_rows_for_candidate_filter(conn, &query, by_dir)?
     } else {
         select_pending_rows_for_query(conn, &query, by_dir)?
     };
 
+    let mut missing = Vec::new();
     for row in pending {
         let record = match query.freshness {
             AgentArtifactIndexFreshnessWire::Cached => {
-                match serde_json::from_str::<AgentArtifactRecordWire>(
-                    &row.record_json,
-                ) {
-                    Ok(record) => record,
+                match decode_agent_artifact_record_json(&row.record_json) {
+                    Ok(record) => {
+                        stats.record_json_decoded += 1;
+                        record
+                    }
                     Err(_) => {
                         stats.json_decode_errors += 1;
                         continue;
@@ -3901,13 +4303,15 @@ fn select_records(
                 }
             }
             AgentArtifactIndexFreshnessWire::Revalidate => {
+                stats.marker_signatures_checked += 1;
                 let current =
                     MarkerSignatures::from_artifact_dir(&row.artifact_dir);
                 if row.stored == current {
-                    match serde_json::from_str::<AgentArtifactRecordWire>(
-                        &row.record_json,
-                    ) {
-                        Ok(record) => record,
+                    match decode_agent_artifact_record_json(&row.record_json) {
+                        Ok(record) => {
+                            stats.record_json_decoded += 1;
+                            record
+                        }
                         Err(_) => {
                             stats.json_decode_errors += 1;
                             continue;
@@ -3931,18 +4335,13 @@ fn select_records(
                             // return the refreshed record to the caller.
                             let _ =
                                 upsert_record(conn, &projects_root, &refreshed);
+                            stats.rows_repaired += 1;
                             refreshed
                         }
-                        None => match serde_json::from_str::<
-                            AgentArtifactRecordWire,
-                        >(&row.record_json)
-                        {
-                            Ok(record) => record,
-                            Err(_) => {
-                                stats.json_decode_errors += 1;
-                                continue;
-                            }
-                        },
+                        None => {
+                            missing.push(row.artifact_dir.clone());
+                            continue;
+                        }
                     }
                 }
             }
@@ -3959,6 +4358,10 @@ fn select_records(
         )? {
             by_dir.insert(row.artifact_dir, record);
         }
+    }
+    if !missing.is_empty() {
+        stats.rows_removed += missing.len() as u64;
+        delete_agent_artifact_projection_rows(conn, &missing)?;
     }
     Ok(())
 }
@@ -4028,6 +4431,9 @@ fn select_pending_rows_for_candidate_filter(
         {
             break;
         }
+    }
+    if candidate_filter_uses_machine(filter) {
+        artifact_dirs = expand_machine_tree_relatives(conn, &artifact_dirs)?;
     }
 
     select_pending_rows_by_artifact_dirs(conn, &artifact_dirs)
@@ -4167,6 +4573,7 @@ struct IndexedCandidateRow {
     model: Option<String>,
     llm_provider: Option<String>,
     source_machine: Option<String>,
+    imported_owner_machine: Option<String>,
     selection: CandidateSelection,
 }
 
@@ -4189,15 +4596,13 @@ impl IndexedCandidateRow {
                 self.llm_provider.as_deref().into_iter().collect()
             }
             AgentArtifactCandidateFieldWire::Machine => {
-                let mut values = vec!["here"];
-                if let Some(machine) = self
-                    .source_machine
-                    .as_deref()
-                    .filter(|machine| !machine.trim().is_empty())
-                {
-                    if !machine.eq_ignore_ascii_case("here") {
-                        values.push(machine);
-                    }
+                let mut values = Vec::new();
+                push_machine_value(&mut values, "here");
+                if let Some(machine) = self.source_machine.as_deref() {
+                    push_machine_value(&mut values, machine);
+                }
+                if let Some(machine) = self.imported_owner_machine.as_deref() {
+                    push_machine_value(&mut values, machine);
                 }
                 values
             }
@@ -4270,6 +4675,27 @@ fn select_windowed_records(
     let mut selected = active_candidates.clone();
     selected
         .extend(completed_candidates.iter().take(completed_budget).cloned());
+    if query
+        .candidate_filter
+        .as_ref()
+        .is_some_and(candidate_filter_uses_machine)
+    {
+        let selected_dirs: Vec<String> = selected
+            .iter()
+            .map(|row| row.artifact_dir.clone())
+            .collect();
+        let expanded_dirs =
+            expand_machine_tree_relatives(conn, &selected_dirs)?;
+        let extras: Vec<String> = expanded_dirs
+            .into_iter()
+            .filter(|dir| !selected.iter().any(|row| &row.artifact_dir == dir))
+            .collect();
+        selected.extend(select_candidate_rows_for_dirs(
+            conn,
+            &extras,
+            CandidateSelection::Visible,
+        )?);
+    }
     let selected_candidate_count = selected.len() as u64;
     let has_more = completed_candidates.len() > completed_budget;
     select_records_for_windowed_candidates(
@@ -4299,7 +4725,7 @@ fn select_candidate_rows(
 ) -> Result<Vec<IndexedCandidateRow>, String> {
     let sql = format!(
         "SELECT artifact_dir, project_name, agent_type, cl_name, model, llm_provider, \
-         source_machine \
+         source_machine, imported_owner_machine \
          FROM agent_artifacts {where_sql}"
     );
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
@@ -4314,10 +4740,211 @@ fn select_candidate_rows(
             model: row.get(4).map_err(|e| e.to_string())?,
             llm_provider: row.get(5).map_err(|e| e.to_string())?,
             source_machine: row.get(6).map_err(|e| e.to_string())?,
+            imported_owner_machine: row.get(7).map_err(|e| e.to_string())?,
             selection,
         });
     }
     Ok(result)
+}
+
+fn select_candidate_rows_for_dirs(
+    conn: &Connection,
+    artifact_dirs: &[String],
+    selection: CandidateSelection,
+) -> Result<Vec<IndexedCandidateRow>, String> {
+    if artifact_dirs.is_empty() {
+        return Ok(Vec::new());
+    }
+    const LOAD_RECORDS_BATCH_SIZE: usize = 500;
+    let mut result = Vec::new();
+    for chunk in artifact_dirs.chunks(LOAD_RECORDS_BATCH_SIZE) {
+        let placeholders = placeholders(chunk.len());
+        let sql = format!(
+            "SELECT artifact_dir, project_name, agent_type, cl_name, model, llm_provider, \
+             source_machine, imported_owner_machine \
+             FROM agent_artifacts WHERE artifact_dir IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query(params_from_iter(chunk.iter()))
+            .map_err(|e| e.to_string())?;
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            result.push(IndexedCandidateRow {
+                artifact_dir: row.get(0).map_err(|e| e.to_string())?,
+                project_name: row.get(1).map_err(|e| e.to_string())?,
+                agent_type: row.get(2).map_err(|e| e.to_string())?,
+                cl_name: row.get(3).map_err(|e| e.to_string())?,
+                model: row.get(4).map_err(|e| e.to_string())?,
+                llm_provider: row.get(5).map_err(|e| e.to_string())?,
+                source_machine: row.get(6).map_err(|e| e.to_string())?,
+                imported_owner_machine: row
+                    .get(7)
+                    .map_err(|e| e.to_string())?,
+                selection,
+            });
+        }
+    }
+    Ok(result)
+}
+
+fn expand_machine_tree_relatives(
+    conn: &Connection,
+    selected_dirs: &[String],
+) -> Result<Vec<String>, String> {
+    let mut dirs: BTreeSet<String> = selected_dirs.iter().cloned().collect();
+    if dirs.is_empty() {
+        return Ok(Vec::new());
+    }
+    for _ in 0..8 {
+        let keys = select_candidate_tree_keys(
+            conn,
+            &dirs.iter().cloned().collect::<Vec<_>>(),
+        )?;
+        let extra = select_related_tree_dirs(conn, &keys)?;
+        let before = dirs.len();
+        dirs.extend(extra);
+        if dirs.len() == before {
+            break;
+        }
+    }
+    let mut ordered = Vec::with_capacity(dirs.len());
+    let mut seen = BTreeSet::new();
+    for dir in selected_dirs {
+        if seen.insert(dir.clone()) {
+            ordered.push(dir.clone());
+        }
+    }
+    for dir in dirs {
+        if seen.insert(dir.clone()) {
+            ordered.push(dir);
+        }
+    }
+    Ok(ordered)
+}
+
+#[derive(Debug, Clone)]
+struct CandidateTreeKeys {
+    timestamp: String,
+    agent_family: Option<String>,
+    agent_clan: Option<String>,
+    parent_timestamp: Option<String>,
+}
+
+fn select_candidate_tree_keys(
+    conn: &Connection,
+    artifact_dirs: &[String],
+) -> Result<Vec<CandidateTreeKeys>, String> {
+    if artifact_dirs.is_empty() {
+        return Ok(Vec::new());
+    }
+    const LOAD_RECORDS_BATCH_SIZE: usize = 500;
+    let mut result = Vec::new();
+    for chunk in artifact_dirs.chunks(LOAD_RECORDS_BATCH_SIZE) {
+        let placeholders = placeholders(chunk.len());
+        let sql = format!(
+            "SELECT timestamp, agent_family, agent_clan, parent_timestamp \
+             FROM agent_artifacts WHERE artifact_dir IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query(params_from_iter(chunk.iter()))
+            .map_err(|e| e.to_string())?;
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            result.push(CandidateTreeKeys {
+                timestamp: row.get(0).map_err(|e| e.to_string())?,
+                agent_family: row.get(1).map_err(|e| e.to_string())?,
+                agent_clan: row.get(2).map_err(|e| e.to_string())?,
+                parent_timestamp: row.get(3).map_err(|e| e.to_string())?,
+            });
+        }
+    }
+    Ok(result)
+}
+
+fn select_related_tree_dirs(
+    conn: &Connection,
+    keys: &[CandidateTreeKeys],
+) -> Result<Vec<String>, String> {
+    if keys.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut families = BTreeSet::new();
+    let mut clans = BTreeSet::new();
+    let mut timestamps = BTreeSet::new();
+    for key in keys {
+        if let Some(family) = key
+            .agent_family
+            .as_deref()
+            .filter(|value| !value.is_empty())
+        {
+            families.insert(family.to_string());
+        }
+        if let Some(clan) =
+            key.agent_clan.as_deref().filter(|value| !value.is_empty())
+        {
+            clans.insert(clan.to_string());
+        }
+        timestamps.insert(key.timestamp.clone());
+        if let Some(parent) = key
+            .parent_timestamp
+            .as_deref()
+            .filter(|value| !value.is_empty())
+        {
+            timestamps.insert(parent.to_string());
+        }
+    }
+
+    let mut dirs = BTreeSet::new();
+    if !families.is_empty() {
+        dirs.extend(select_dirs_in_column(
+            conn,
+            "agent_family",
+            &families.into_iter().collect::<Vec<_>>(),
+        )?);
+    }
+    if !clans.is_empty() {
+        dirs.extend(select_dirs_in_column(
+            conn,
+            "agent_clan",
+            &clans.into_iter().collect::<Vec<_>>(),
+        )?);
+    }
+    if !timestamps.is_empty() {
+        let stamps: Vec<String> = timestamps.into_iter().collect();
+        dirs.extend(select_dirs_in_column(conn, "timestamp", &stamps)?);
+        dirs.extend(select_dirs_in_column(conn, "parent_timestamp", &stamps)?);
+    }
+    Ok(dirs.into_iter().collect())
+}
+
+fn select_dirs_in_column(
+    conn: &Connection,
+    column: &'static str,
+    values: &[String],
+) -> Result<Vec<String>, String> {
+    match column {
+        "agent_family" | "agent_clan" | "timestamp" | "parent_timestamp" => {}
+        _ => return Err(format!("unsupported tree column {column}")),
+    }
+    if values.is_empty() {
+        return Ok(Vec::new());
+    }
+    const LOAD_RECORDS_BATCH_SIZE: usize = 500;
+    let mut dirs = Vec::new();
+    for chunk in values.chunks(LOAD_RECORDS_BATCH_SIZE) {
+        let placeholders = placeholders(chunk.len());
+        let sql = format!(
+            "SELECT artifact_dir FROM agent_artifacts WHERE {column} IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let mut rows = stmt
+            .query(params_from_iter(chunk.iter()))
+            .map_err(|e| e.to_string())?;
+        while let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            dirs.push(row.get(0).map_err(|e| e.to_string())?);
+        }
+    }
+    Ok(dirs)
 }
 
 fn select_records_for_windowed_candidates(
@@ -4351,12 +4978,12 @@ fn select_records_for_windowed_candidates(
                 continue;
             };
             let record_json: String = row.get(1).map_err(|e| e.to_string())?;
-            let Ok(record) =
-                serde_json::from_str::<AgentArtifactRecordWire>(&record_json)
+            let Ok(record) = decode_agent_artifact_record_json(&record_json)
             else {
                 stats.json_decode_errors += 1;
                 continue;
             };
+            stats.record_json_decoded += 1;
             let selection = match candidate.selection {
                 CandidateSelection::Active => RecordSelection::Active,
                 CandidateSelection::Completed => RecordSelection::Completed,
@@ -4407,6 +5034,38 @@ fn candidate_filter_matches(
             .scalar_values(*field)
             .into_iter()
             .any(|candidate| scalar_equals(candidate, value)),
+    }
+}
+
+fn push_machine_value<'a>(values: &mut Vec<&'a str>, machine: &'a str) {
+    let trimmed = machine.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+    if values
+        .iter()
+        .any(|existing| existing.eq_ignore_ascii_case(trimmed))
+    {
+        return;
+    }
+    values.push(trimmed);
+}
+
+fn candidate_filter_uses_machine(
+    filter: &AgentArtifactCandidateFilterWire,
+) -> bool {
+    match filter {
+        AgentArtifactCandidateFilterWire::All { filters }
+        | AgentArtifactCandidateFilterWire::Any { filters } => {
+            filters.iter().any(candidate_filter_uses_machine)
+        }
+        AgentArtifactCandidateFilterWire::Not { filter } => {
+            candidate_filter_uses_machine(filter)
+        }
+        AgentArtifactCandidateFilterWire::Contains { field, .. }
+        | AgentArtifactCandidateFilterWire::Equals { field, .. } => {
+            *field == AgentArtifactCandidateFieldWire::Machine
+        }
     }
 }
 
@@ -5530,6 +6189,8 @@ struct RecordSummary {
     retry_attempt: Option<i64>,
     model_alias_origin: Option<String>,
     source_machine: Option<String>,
+    imported_owner_machine: Option<String>,
+    gate_shell_id: Option<String>,
 }
 
 impl RecordSummary {
@@ -5561,6 +6222,7 @@ impl RecordSummary {
         .to_string();
 
         let clan_key = meta.and_then(clan_key_from_meta);
+        let machines = machine_projection_from_record(record);
         Self {
             status,
             agent_type: if workflow_state.is_some() {
@@ -5622,17 +6284,45 @@ impl RecordSummary {
                 }),
             retry_attempt: meta.and_then(|m| m.retry_attempt),
             model_alias_origin: meta.and_then(|m| m.model_alias_origin.clone()),
-            source_machine: source_machine_from_record(record),
+            source_machine: machines.source_machine,
+            imported_owner_machine: machines.imported_owner_machine,
+            gate_shell_id: gate_shell_id_from_record(record),
         }
     }
 }
 
-fn source_machine_from_record(
+/// Return the durable gate id iff *record* is a real gate-shell member.
+///
+/// `gate_id` alone is inherited by later gate-associated follow-ups, so
+/// indexing it unconditionally would let a successor shadow the shell that
+/// actually owns the gate. Only [`is_real_gate_member_record`] rows project
+/// a value here, which is what makes an exact `gate_shell_id` match resolve
+/// the owning shell instead of an inheritor.
+fn gate_shell_id_from_record(
     record: &AgentArtifactRecordWire,
 ) -> Option<String> {
+    if !is_real_gate_member_record(record) {
+        return None;
+    }
+    record
+        .agent_meta
+        .as_ref()
+        .and_then(|meta| meta.family_shell.as_ref())
+        .and_then(|shell| shell.id.clone())
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct MachineProjection {
+    source_machine: Option<String>,
+    imported_owner_machine: Option<String>,
+}
+
+fn machine_projection_from_record(
+    record: &AgentArtifactRecordWire,
+) -> MachineProjection {
     let meta = record.agent_meta.as_ref();
     let done = record.done.as_ref();
-    first_source_machine([
+    machine_projection_from_parts(
         meta.and_then(|marker| marker.source_machine.as_deref()),
         meta.and_then(|marker| {
             marker
@@ -5647,41 +6337,80 @@ fn source_machine_from_record(
                 .as_ref()
                 .map(|owner| owner.machine_name.as_str())
         }),
-    ])
+    )
+}
+
+fn source_machine_from_record(
+    record: &AgentArtifactRecordWire,
+) -> Option<String> {
+    machine_projection_from_record(record).source_machine
 }
 
 fn source_machine_from_marker_files(artifact_dir: &Path) -> Option<String> {
-    ["agent_meta.json", "done.json"]
-        .into_iter()
-        .filter_map(|name| {
-            fs::read_to_string(artifact_dir.join(name))
-                .ok()
-                .and_then(|raw| {
-                    serde_json::from_str::<serde_json::Value>(&raw).ok()
-                })
-                .and_then(|value| source_machine_from_json_value(&value))
-        })
-        .find(|value| !value.is_empty())
+    machine_projection_from_marker_files(artifact_dir).source_machine
 }
 
-fn source_machine_from_json_value(value: &serde_json::Value) -> Option<String> {
-    first_source_machine([
-        value.get("source_machine").and_then(|value| value.as_str()),
-        value
-            .get("imported_source_owner")
-            .and_then(|owner| owner.get("machine_name"))
-            .and_then(|value| value.as_str()),
-    ])
+fn machine_projection_from_marker_files(
+    artifact_dir: &Path,
+) -> MachineProjection {
+    let meta = read_marker_json(artifact_dir, "agent_meta.json");
+    let done = read_marker_json(artifact_dir, "done.json");
+    machine_projection_from_parts(
+        json_machine_field(meta.as_ref(), "source_machine"),
+        json_owner_machine(meta.as_ref()),
+        json_machine_field(done.as_ref(), "source_machine"),
+        json_owner_machine(done.as_ref()),
+    )
 }
 
-fn first_source_machine<'a>(
-    values: impl IntoIterator<Item = Option<&'a str>>,
-) -> Option<String> {
-    values
-        .into_iter()
-        .flatten()
+fn read_marker_json(
+    artifact_dir: &Path,
+    name: &str,
+) -> Option<serde_json::Value> {
+    fs::read_to_string(artifact_dir.join(name))
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+}
+
+fn json_machine_field<'a>(
+    value: Option<&'a serde_json::Value>,
+    key: &str,
+) -> Option<&'a str> {
+    value
+        .and_then(|payload| payload.get(key))
+        .and_then(|value| value.as_str())
+}
+
+fn json_owner_machine(value: Option<&serde_json::Value>) -> Option<&str> {
+    value
+        .and_then(|payload| payload.get("imported_source_owner"))
+        .and_then(|owner| owner.get("machine_name"))
+        .and_then(|value| value.as_str())
+}
+
+fn machine_projection_from_parts(
+    meta_source: Option<&str>,
+    meta_owner: Option<&str>,
+    done_source: Option<&str>,
+    done_owner: Option<&str>,
+) -> MachineProjection {
+    let meta_owner = trim_machine(meta_owner);
+    let done_owner = trim_machine(done_owner);
+    MachineProjection {
+        // Match Python loader precedence: meta source, then the already-applied
+        // meta owner fallback, then done source, then done owner.
+        source_machine: trim_machine(meta_source)
+            .or_else(|| meta_owner.clone())
+            .or_else(|| trim_machine(done_source))
+            .or_else(|| done_owner.clone()),
+        imported_owner_machine: meta_owner.or(done_owner),
+    }
+}
+
+fn trim_machine(value: Option<&str>) -> Option<String> {
+    value
         .map(str::trim)
-        .find(|value| !value.is_empty())
+        .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
 }
 
@@ -5839,6 +6568,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(update.rows_indexed, 2);
+        assert_eq!(update.schema_version, AGENT_ARTIFACT_INDEX_SCHEMA_VERSION);
 
         let indexed = query_agent_artifact_index(
             &index,
@@ -5864,6 +6594,59 @@ mod tests {
             AgentArtifactScanOptionsWire::default(),
         );
         assert_eq!(indexed.records, source.records);
+    }
+
+    #[test]
+    fn index_rebuild_preserves_canonical_queue_capacity_without_waiting_marker()
+    {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let running = artifact(&projects, "20260913020000");
+        write_json(
+            &running.join("agent_meta.json"),
+            json!({
+                "name": "runner",
+                "queue_capacity": 100,
+                "queue_capacity_explicit": true,
+                "pid": 42
+            }),
+        );
+        write_json(&running.join("running.json"), json!({"pid": 42}));
+
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        let snapshot = query_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactIndexQueryWire {
+                include_active: true,
+                include_recent_completed: false,
+                include_full_history: false,
+                active_limit: None,
+                recent_completed_limit: None,
+                include_hidden: false,
+                freshness: AgentArtifactIndexFreshnessWire::Cached,
+                only_monitors: false,
+                record_shape: AgentArtifactRecordShapeWire::List,
+                window_limit: None,
+                candidate_filter: None,
+            },
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        assert_eq!(snapshot.records.len(), 1);
+        let meta = snapshot.records[0].agent_meta.as_ref().unwrap();
+        assert_eq!(meta.queue_capacity, Some(100));
+        assert!(meta.queue_capacity_explicit);
+        assert_eq!(
+            snapshot.records[0].record_shape,
+            AgentArtifactRecordShapeWire::List
+        );
     }
 
     #[test]
@@ -6353,6 +7136,325 @@ mod tests {
             timestamps,
             BTreeSet::from(["20260827103000", "20260827103200"])
         );
+    }
+
+    fn machine_index_query(
+        value: &str,
+        negated: bool,
+    ) -> AgentArtifactIndexQueryWire {
+        let equals = AgentArtifactCandidateFilterWire::Equals {
+            field: AgentArtifactCandidateFieldWire::Machine,
+            value: value.to_string(),
+        };
+        AgentArtifactIndexQueryWire {
+            include_active: false,
+            include_recent_completed: false,
+            include_full_history: true,
+            freshness: AgentArtifactIndexFreshnessWire::Cached,
+            candidate_filter: Some(if negated {
+                AgentArtifactCandidateFilterWire::Not {
+                    filter: Box::new(equals),
+                }
+            } else {
+                equals
+            }),
+            ..AgentArtifactIndexQueryWire::default()
+        }
+    }
+
+    fn query_timestamps(
+        index: &Path,
+        projects: &Path,
+        query: AgentArtifactIndexQueryWire,
+    ) -> BTreeSet<String> {
+        query_agent_artifact_index(
+            index,
+            projects,
+            query,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap()
+        .records
+        .into_iter()
+        .map(|record| record.timestamp)
+        .collect()
+    }
+
+    #[test]
+    fn machine_candidate_keeps_conflicting_source_and_owner_values() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let conflicting = artifact(&projects, "20260827105000");
+        write_json(
+            &conflicting.join("agent_meta.json"),
+            json!({
+                "name": "different-provenance",
+                "source_machine": "athena",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "apollo"
+                }
+            }),
+        );
+        write_json(
+            &conflicting.join("done.json"),
+            json!({
+                "outcome": "completed",
+                "name": "different-provenance",
+                "source_machine": "athena",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "apollo"
+                }
+            }),
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let conn = Connection::open(&index).unwrap();
+        let row: (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT source_machine, imported_owner_machine \
+                 FROM agent_artifacts WHERE artifact_dir = ?1",
+                [conflicting.to_string_lossy().as_ref()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            row,
+            (Some("athena".to_string()), Some("apollo".to_string()))
+        );
+
+        let apollo = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("apollo", false),
+        );
+        assert_eq!(apollo, BTreeSet::from(["20260827105000".to_string()]));
+        let athena = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("athena", false),
+        );
+        assert_eq!(athena, BTreeSet::from(["20260827105000".to_string()]));
+        let not_apollo = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("apollo", true),
+        );
+        assert!(not_apollo.is_empty());
+    }
+
+    #[test]
+    fn machine_candidate_uses_meta_then_done_machine_precedence() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact_dir = artifact(&projects, "20260827105100");
+        write_json(
+            &artifact_dir.join("agent_meta.json"),
+            json!({
+                "name": "meta-wins",
+                "source_machine": "  Athena ",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "apollo"
+                }
+            }),
+        );
+        write_json(
+            &artifact_dir.join("done.json"),
+            json!({
+                "outcome": "completed",
+                "name": "meta-wins",
+                "source_machine": "zeus",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "hera"
+                }
+            }),
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let conn = Connection::open(&index).unwrap();
+        let row: (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT source_machine, imported_owner_machine \
+                 FROM agent_artifacts WHERE artifact_dir = ?1",
+                [artifact_dir.to_string_lossy().as_ref()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            row,
+            (Some("Athena".to_string()), Some("apollo".to_string()))
+        );
+
+        let timestamps = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("athena", false),
+        );
+        assert_eq!(timestamps, BTreeSet::from(["20260827105100".to_string()]));
+        assert!(query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("zeus", false),
+        )
+        .is_empty());
+        assert!(query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("hera", false),
+        )
+        .is_empty());
+    }
+
+    #[test]
+    fn machine_candidate_includes_mixed_provenance_family_relatives() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let parent = artifact(&projects, "20260827105200");
+        let child = artifact(&projects, "20260827105201");
+        let unrelated = artifact(&projects, "20260827105202");
+        write_json(
+            &parent.join("agent_meta.json"),
+            json!({
+                "name": "crew--plan",
+                "agent_family": "crew",
+                "agent_family_role": "plan",
+                "source_machine": "athena"
+            }),
+        );
+        write_json(
+            &parent.join("done.json"),
+            json!({"outcome": "completed", "name": "crew--plan"}),
+        );
+        write_json(
+            &child.join("agent_meta.json"),
+            json!({
+                "name": "crew--code",
+                "agent_family": "crew",
+                "agent_family_role": "code",
+                "parent_timestamp": "20260827105200",
+                "source_machine": "athena",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "apollo"
+                }
+            }),
+        );
+        write_json(
+            &child.join("done.json"),
+            json!({"outcome": "completed", "name": "crew--code"}),
+        );
+        write_json(
+            &unrelated.join("agent_meta.json"),
+            json!({"name": "other", "source_machine": "hera"}),
+        );
+        write_json(
+            &unrelated.join("done.json"),
+            json!({"outcome": "completed", "name": "other"}),
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let apollo = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("apollo", false),
+        );
+        assert_eq!(
+            apollo,
+            BTreeSet::from([
+                "20260827105200".to_string(),
+                "20260827105201".to_string()
+            ])
+        );
+        let not_apollo = query_timestamps(
+            &index,
+            &projects,
+            machine_index_query("apollo", true),
+        );
+        assert_eq!(
+            not_apollo,
+            BTreeSet::from([
+                "20260827105200".to_string(),
+                "20260827105201".to_string(),
+                "20260827105202".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn schema_v29_upgrade_adds_imported_owner_machine_projection() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let artifact_dir = artifact(&projects, "20260827105300");
+        write_json(
+            &artifact_dir.join("agent_meta.json"),
+            json!({
+                "name": "legacy-owner",
+                "source_machine": "athena",
+                "imported_source_owner": {
+                    "username": "bryan",
+                    "machine_name": "apollo"
+                }
+            }),
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        {
+            let conn = Connection::open(&index).unwrap();
+            conn.execute_batch(
+                "DROP INDEX IF EXISTS idx_agent_artifacts_imported_owner_machine;
+                 ALTER TABLE agent_artifacts DROP COLUMN imported_owner_machine;
+                 INSERT OR REPLACE INTO meta(key, value)
+                 VALUES ('schema_version', '29');",
+            )
+            .unwrap();
+        }
+
+        drop(open_index(&index).unwrap());
+
+        let conn = Connection::open(&index).unwrap();
+        let owner: Option<String> = conn
+            .query_row(
+                "SELECT imported_owner_machine FROM agent_artifacts \
+                 WHERE artifact_dir = ?1",
+                [artifact_dir.to_string_lossy().as_ref()],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(owner.as_deref(), Some("apollo"));
+        let version: String = conn
+            .query_row(
+                "SELECT value FROM meta WHERE key = 'schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(version, AGENT_ARTIFACT_INDEX_SCHEMA_VERSION.to_string());
     }
 
     #[test]
@@ -9023,9 +10125,9 @@ mod tests {
         };
         let mut additions = BTreeSet::new();
         for candidate in candidates {
-            let Ok(record) = serde_json::from_str::<AgentArtifactRecordWire>(
-                &candidate.record_json,
-            ) else {
+            let Ok(record) =
+                decode_agent_artifact_record_json(&candidate.record_json)
+            else {
                 report.rows_skipped_decode_errors += 1;
                 continue;
             };
@@ -11274,5 +12376,523 @@ mod tests {
             .as_ref()
             .and_then(|m| m.name.as_deref());
         assert_eq!(returned_name, Some(sentinel_name));
+    }
+
+    fn full_history_revalidate_query() -> AgentArtifactIndexQueryWire {
+        AgentArtifactIndexQueryWire {
+            include_active: false,
+            include_recent_completed: false,
+            include_full_history: true,
+            active_limit: None,
+            recent_completed_limit: None,
+            include_hidden: false,
+            freshness: AgentArtifactIndexFreshnessWire::Revalidate,
+            only_monitors: false,
+            record_shape: AgentArtifactRecordShapeWire::Full,
+            window_limit: None,
+            candidate_filter: None,
+        }
+    }
+
+    fn full_history_cached_query() -> AgentArtifactIndexQueryWire {
+        AgentArtifactIndexQueryWire {
+            freshness: AgentArtifactIndexFreshnessWire::Cached,
+            ..full_history_revalidate_query()
+        }
+    }
+
+    fn write_completed_artifact(dir: &Path, name: &str) {
+        write_json(
+            &dir.join("agent_meta.json"),
+            json!({"name": name, "source_machine": "athena"}),
+        );
+        write_json(
+            &dir.join("done.json"),
+            json!({
+                "outcome": "completed",
+                "name": name,
+                "source_machine": "athena"
+            }),
+        );
+    }
+
+    #[test]
+    fn full_history_revalidate_discovers_unindexed_artifact_and_claims_complete(
+    ) {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let first = artifact(&projects, "20260912090000");
+        write_completed_artifact(&first, "indexed");
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let second = artifact(&projects, "20260912090100");
+        write_completed_artifact(&second, "unindexed");
+
+        let cached = query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_cached_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        let cached_names: BTreeSet<&str> = cached
+            .records
+            .iter()
+            .map(|record| record.timestamp.as_str())
+            .collect();
+        assert_eq!(cached_names, BTreeSet::from(["20260912090000"]));
+        let cached_complete = cached.index_completeness.unwrap();
+        assert!(!cached_complete.complete_history);
+        assert!(!cached_complete.source_reconciled);
+
+        let fresh = query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_revalidate_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        let fresh_names: BTreeSet<&str> = fresh
+            .records
+            .iter()
+            .map(|record| record.timestamp.as_str())
+            .collect();
+        assert_eq!(
+            fresh_names,
+            BTreeSet::from(["20260912090000", "20260912090100"])
+        );
+        let completeness = fresh.index_completeness.unwrap();
+        assert!(completeness.complete_history);
+        assert!(completeness.source_reconciled);
+        assert_eq!(fresh.stats.rows_discovered, 1);
+    }
+
+    #[test]
+    fn full_history_revalidate_drops_deleted_artifact_instead_of_stale_json() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let first = artifact(&projects, "20260912090000");
+        let second = artifact(&projects, "20260912090100");
+        write_completed_artifact(&first, "keep");
+        write_completed_artifact(&second, "delete-me");
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        fs::remove_dir_all(&second).unwrap();
+        let fresh = query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_revalidate_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        let names: BTreeSet<&str> = fresh
+            .records
+            .iter()
+            .map(|record| record.timestamp.as_str())
+            .collect();
+        assert_eq!(names, BTreeSet::from(["20260912090000"]));
+        assert_eq!(fresh.stats.rows_removed, 1);
+        assert!(fresh.index_completeness.unwrap().complete_history);
+    }
+
+    #[test]
+    fn cached_full_history_after_reconcile_reuses_watermark_without_discovery()
+    {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        write_completed_artifact(
+            &artifact(&projects, "20260912090000"),
+            "keep",
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_revalidate_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let cached = query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_cached_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        assert!(cached.index_completeness.unwrap().complete_history);
+        assert_eq!(cached.stats.rows_discovered, 0);
+        assert_eq!(cached.stats.marker_signatures_checked, 0);
+        assert_eq!(cached.stats.rows_repaired, 0);
+    }
+
+    #[test]
+    fn tier1_revalidate_with_candidate_filter_does_not_prefilter_all_rows() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        for index in 0..6 {
+            let dir = artifact(&projects, &format!("2026091210000{index}"));
+            write_json(
+                &dir.join("agent_meta.json"),
+                json!({
+                    "name": format!("row-{index}"),
+                    "model": if index == 5 { "keep-me" } else { "other" },
+                }),
+            );
+            write_json(
+                &dir.join("done.json"),
+                json!({
+                    "outcome": "completed",
+                    "name": format!("row-{index}")
+                }),
+            );
+        }
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let snapshot = query_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactIndexQueryWire {
+                include_active: false,
+                include_recent_completed: true,
+                include_full_history: false,
+                active_limit: None,
+                recent_completed_limit: Some(2),
+                include_hidden: false,
+                freshness: AgentArtifactIndexFreshnessWire::Revalidate,
+                only_monitors: false,
+                record_shape: AgentArtifactRecordShapeWire::Full,
+                window_limit: None,
+                candidate_filter: Some(
+                    AgentArtifactCandidateFilterWire::Contains {
+                        field: AgentArtifactCandidateFieldWire::Model,
+                        value: "keep".to_string(),
+                    },
+                ),
+            },
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        assert_eq!(snapshot.records.len(), 1);
+        assert!(
+            snapshot.stats.marker_signatures_checked <= 2,
+            "capped candidate revalidate must not signature-check the whole tier, got {}",
+            snapshot.stats.marker_signatures_checked
+        );
+    }
+
+    #[test]
+    fn full_history_revalidate_repairs_hidden_toggle_via_dirty_directory() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let dir = artifact(&projects, "20260912090000");
+        write_completed_artifact(&dir, "visible");
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_revalidate_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        write_json(
+            &dir.join("done.json"),
+            json!({
+                "outcome": "completed",
+                "name": "visible",
+                "hidden": true
+            }),
+        );
+        let fresh = query_agent_artifact_index(
+            &index,
+            &projects,
+            full_history_revalidate_query(),
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        assert!(fresh.records.is_empty());
+        assert!(fresh.stats.rows_repaired >= 1);
+    }
+
+    fn write_gate_shell_artifact(
+        projects: &Path,
+        project: &str,
+        ts: &str,
+        gate_id: &str,
+    ) -> PathBuf {
+        let dir = artifact_for_project(projects, project, ts);
+        write_json(
+            &dir.join("agent_meta.json"),
+            json!({
+                "name": format!("{project}--gate"),
+                "agent_family": "approvals",
+                "agent_family_role": "gate",
+                "gate_id": gate_id,
+                "gate_kind": "approval",
+                "gate_state": "pending",
+                "gate_start_status": "WAITING",
+                "gate_stop_status": "ANSWERED"
+            }),
+        );
+        dir
+    }
+
+    #[test]
+    fn find_gate_shell_by_gate_id_uses_indexed_lookup_not_full_decode() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        for n in 0..40 {
+            write_gate_shell_artifact(
+                &projects,
+                "proj",
+                &format!("2026081210{n:04}"),
+                &format!("unrelated-{n}"),
+            );
+        }
+        let target = write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812999999",
+            "gate-target",
+        );
+
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let found =
+            find_gate_shell_by_gate_id(&index, Some("proj"), "gate-target")
+                .unwrap()
+                .expect("gate-target must resolve");
+        assert_eq!(found.artifact_dir, target.to_string_lossy());
+        assert_eq!(
+            last_gate_shell_lookup_records_decoded(),
+            1,
+            "an indexed exact lookup must decode only the matched row, \
+             regardless of how many unrelated gate shells are indexed"
+        );
+    }
+
+    #[test]
+    fn find_gate_shell_by_gate_id_returns_none_for_unknown_id() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812100000",
+            "gate-1",
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let found =
+            find_gate_shell_by_gate_id(&index, Some("proj"), "no-such-gate")
+                .unwrap();
+        assert!(found.is_none());
+        assert_eq!(last_gate_shell_lookup_records_decoded(), 0);
+    }
+
+    #[test]
+    fn find_gate_shell_by_gate_id_ignores_inherited_id_on_descendant() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let owner = write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812100000",
+            "gate-1",
+        );
+        // A follow-up agent launched after the gate settles inherits the
+        // same on-disk `gate_id` but is not itself a gate-shell member: its
+        // `agent_family_role` is not "gate".
+        write_json(
+            &artifact_for_project(&projects, "proj", "20260812100100")
+                .join("agent_meta.json"),
+            json!({
+                "name": "follow-up",
+                "agent_family": "approvals",
+                "agent_family_role": "code",
+                "gate_id": "gate-1",
+                "gate_kind": "approval",
+                "gate_state": "answered"
+            }),
+        );
+
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let found = find_gate_shell_by_gate_id(&index, Some("proj"), "gate-1")
+            .unwrap()
+            .expect("gate-1 must resolve to its owning shell");
+        assert_eq!(found.artifact_dir, owner.to_string_lossy());
+    }
+
+    #[test]
+    fn find_gate_shell_by_gate_id_respects_project_scoping() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let alpha = write_gate_shell_artifact(
+            &projects,
+            "alpha",
+            "20260812100000",
+            "gate-shared",
+        );
+        write_gate_shell_artifact(
+            &projects,
+            "beta",
+            "20260812200000",
+            "gate-shared",
+        );
+
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let scoped =
+            find_gate_shell_by_gate_id(&index, Some("alpha"), "gate-shared")
+                .unwrap()
+                .expect(
+                    "alpha's gate must resolve even though beta's is newer",
+                );
+        assert_eq!(scoped.artifact_dir, alpha.to_string_lossy());
+        assert_eq!(scoped.project_name, "alpha");
+
+        let unscoped = find_gate_shell_by_gate_id(&index, None, "gate-shared")
+            .unwrap()
+            .expect("an unscoped search must still resolve one match");
+        assert_eq!(
+            unscoped.project_name, "beta",
+            "newest-first across projects"
+        );
+    }
+
+    #[test]
+    fn find_gate_shell_by_gate_id_prefers_newest_real_shell() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812100000",
+            "gate-dup",
+        );
+        let newest = write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812200000",
+            "gate-dup",
+        );
+
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+
+        let found =
+            find_gate_shell_by_gate_id(&index, Some("proj"), "gate-dup")
+                .unwrap()
+                .expect("gate-dup must resolve");
+        assert_eq!(found.artifact_dir, newest.to_string_lossy());
+    }
+
+    #[test]
+    fn schema_v30_upgrade_adds_and_backfills_gate_shell_id_projection() {
+        let tmp = tempdir().unwrap();
+        let projects = tmp.path().join("projects");
+        let owner = write_gate_shell_artifact(
+            &projects,
+            "proj",
+            "20260812100000",
+            "gate-legacy",
+        );
+        let index = tmp.path().join("agent_artifact_index.sqlite");
+        rebuild_agent_artifact_index(
+            &index,
+            &projects,
+            AgentArtifactScanOptionsWire::default(),
+        )
+        .unwrap();
+        {
+            let conn = Connection::open(&index).unwrap();
+            conn.execute_batch(
+                "DROP INDEX IF EXISTS idx_agent_artifacts_gate_shell_id;
+                 ALTER TABLE agent_artifacts DROP COLUMN gate_shell_id;
+                 INSERT OR REPLACE INTO meta(key, value)
+                 VALUES ('schema_version', '30');",
+            )
+            .unwrap();
+        }
+
+        let found =
+            find_gate_shell_by_gate_id(&index, Some("proj"), "gate-legacy")
+                .unwrap()
+                .expect(
+                    "an index predating the gate_shell_id column must \
+                     self-migrate and still resolve the gate",
+                );
+        assert_eq!(found.artifact_dir, owner.to_string_lossy());
+
+        let conn = Connection::open(&index).unwrap();
+        let version: String = conn
+            .query_row(
+                "SELECT value FROM meta WHERE key = 'schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(version, AGENT_ARTIFACT_INDEX_SCHEMA_VERSION.to_string());
     }
 }

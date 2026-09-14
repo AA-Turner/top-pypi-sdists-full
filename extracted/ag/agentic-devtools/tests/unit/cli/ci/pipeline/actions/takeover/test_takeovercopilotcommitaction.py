@@ -12,6 +12,7 @@ from agentic_devtools.cli.ci.pipeline.actions.takeover import (
 )
 from agentic_devtools.cli.ci.pipeline.exceptions import ForceWithLeaseError
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision
+from agentic_devtools.cli.ci.pipeline.runner import run_pipeline
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.ci.retry import ProviderRateLimitError
 
@@ -86,6 +87,20 @@ class TestTakeOverAutomationCommitAction:
         result = TakeOverAutomationCommitAction().evaluate(snapshot, DerivedState(snapshot))
         assert result.decision == ActionDecision.SKIP
         assert result.preconditions["no_active_session"] is False
+
+    @patch(_SESSION_PATH, return_value=None)
+    def test_evaluate_skip_when_session_inventory_is_unavailable(self, _mock_session) -> None:
+        """PR #4121-style unavailable task inventory blocks takeover."""
+        snapshot = self._make_snapshot(pr_number=4121, head_sha="7b40d53cd0da38f8db28de1ea8c4110db174e660")
+        provider = MagicMock()
+        summary = run_pipeline(provider, snapshot, [TakeOverAutomationCommitAction()])
+        result = summary.results[0]
+
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["head_authored_by_takeover_author"] is True
+        assert result.preconditions["no_active_session"] is False
+        assert "unavailable" in result.details
+        provider.reclaim_copilot_commit.assert_not_called()
 
     @patch(_SESSION_PATH, return_value=False)
     @pytest.mark.parametrize("head_author_login", ["copilot[bot]", "copilot-swe-agent[bot]", "github-actions[bot]"])

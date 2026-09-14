@@ -71,6 +71,7 @@ from langchain_azure_ai.agents.hosting import (
 )
 
 from ._converters import (
+    UsageAccumulator,
     build_messages_input,
     detect_approval_rejection,
     detect_pending_interrupts,
@@ -81,7 +82,10 @@ from ._converters import (
     track_pending_interrupts,
 )
 from ._responses import (
-    ConversationChainStorageManager,
+    CONVERSATION_CHECKPOINT_KEY,
+    CheckpointRef,
+    ConversationChainStoreProtocol,
+    FoundryConversationChainStore,
     HostingRunnableConfig,
     TaskStorageManager,
 )
@@ -288,9 +292,17 @@ class ResponsesHostServer:
             configured them on ``app`` itself.
         options: Optional :class:`ResponsesServerOptions` forwarded to
             :class:`ResponsesAgentServerHost`.
-        store: Optional :class:`ResponseProviderProtocol`. When ``None``,
-            the responses package defaults apply (in-memory provider, or
-            ``FoundryStorageProvider`` when running on Foundry).
+        store: Optional :class:`ResponseProviderProtocol`. This provider
+            owns Responses protocol data, including response objects, input and
+            output items, status, and history used by ``previous_response_id``.
+            When omitted, Agent Server uses :class:`FileResponseStore` locally
+            and :class:`FoundryStorageProvider` when hosted on Foundry.
+        conversation_chain_store: Optional :class:`ConversationChainStoreProtocol`
+            for dictionaries shared across turns. Implementations choose their
+            serialization and durability model and must support concurrent calls,
+            atomic replacement, and explicit failures. Defaults to
+            :class:`FoundryConversationChainStore`, which uses one
+            :class:`FoundryStateStore` namespace per conversation chain.
         prefix: URL prefix for response routes (e.g. ``"/v1"``).
         applicationinsights_connection_string: Forwarded to
             :class:`AgentServerHost`.
@@ -310,6 +322,7 @@ class ResponsesHostServer:
         app: Optional[ResponsesAgentServerHost] = None,
         options: Optional[ResponsesServerOptions] = None,
         store: Optional[ResponseProviderProtocol] = None,
+        conversation_chain_store: Optional[ConversationChainStoreProtocol] = None,
         prefix: str = "",
         applicationinsights_connection_string: Optional[str] = None,
         graceful_shutdown_timeout: Optional[int] = None,
@@ -317,6 +330,11 @@ class ResponsesHostServer:
         self._validate_graph_schema(graph)
         self._graph = graph
         self._graph_has_checkpointer = _uses_langgraph_checkpointer(graph)
+        self._conversation_chain_store = (
+            conversation_chain_store
+            if conversation_chain_store is not None
+            else FoundryConversationChainStore()
+        )
         if (
             app is None
             and options is not None
@@ -626,10 +644,16 @@ class ResponsesHostServer:
         ):
             return HostingRunnableConfig.create(thread_id, context).runnable_config
 
-        conversation_storage = ConversationChainStorageManager(
-            _scope_thread_id(context.conversation_chain_id, context)
+        conversation_chain_id = _scope_thread_id(
+            context.conversation_chain_id,
+            context,
         )
-        checkpoint_ref = await conversation_storage.get_checkpoint_ref()
+        checkpoint_ref = CheckpointRef.from_dict(
+            await self._conversation_chain_store.get(
+                conversation_chain_id,
+                CONVERSATION_CHECKPOINT_KEY,
+            )
+        )
         if checkpoint_ref is None:
             return HostingRunnableConfig.create(thread_id, context).runnable_config
 
@@ -815,8 +839,9 @@ class ResponsesHostServer:
         recovering = bool(context.is_recovery)
         stream = self._new_stream(request, context)
         task_storage = TaskStorageManager.from_stream(stream)
-        conversation_storage = ConversationChainStorageManager(
-            _scope_thread_id(context.conversation_chain_id, context)
+        conversation_chain_id = _scope_thread_id(
+            context.conversation_chain_id,
+            context,
         )
         yield stream.emit_created()
 
@@ -842,6 +867,7 @@ class ResponsesHostServer:
             # Persist handler admission before any provider or graph I/O.
             yield stream.checkpoint()
 
+        usage = UsageAccumulator()
         try:
             config = await self.build_runnable_config(request, context)
             # Attach transient execution state after the overridable config
@@ -857,26 +883,25 @@ class ResponsesHostServer:
             resume_command: Optional["Command"] = None
             consumed_call_ids: frozenset[str] = frozenset()
             graph_input: dict[str, Any] | Command | None
+            checkpoint_ref = task_storage.checkpoint_ref if recovering else None
 
-            if recovering:
+            if checkpoint_ref is not None:
                 # Crash-recovered re-entry. The graph's own persistent
                 # checkpointer holds the mid-turn state, so resume it (input
                 # ``None``) rather than re-injecting the original input. If the
-                # thread has no checkpoint yet (crash before the first node
-                # committed), fall back to a fresh run.
-                checkpoint_ref = task_storage.checkpoint_ref
-                if checkpoint_ref is None:
-                    logger.debug("Recovery: replaying request input")
-                    graph_input = await self.build_input(request, context)
-                else:
-                    logger.debug("Recovery: resuming graph from persisted checkpoint")
-                    config = (
-                        HostingRunnableConfig(config)
-                        .with_checkpoint_ref(checkpoint_ref)
-                        .runnable_config
-                    )
-                    graph_input = None
+                # response has no checkpoint yet, replay the request through
+                # the normal input / HITL parsing path below.
+                logger.debug("Recovery: resuming graph from persisted checkpoint")
+                config = (
+                    HostingRunnableConfig(config)
+                    .with_checkpoint_ref(checkpoint_ref)
+                    .runnable_config
+                )
+                graph_input = None
+
             else:
+                if recovering:
+                    logger.debug("Recovery: replaying request input")
                 # Detect a pause from a previous turn and try to resume it.
                 pending = await detect_pending_interrupts(self._graph, config)
                 if pending:
@@ -910,7 +935,11 @@ class ResponsesHostServer:
                     ref = HostingRunnableConfig(config).checkpoint_ref
                     if ref is not None:
                         task_storage.store_checkpoint_ref(ref)
-                        await conversation_storage.persist_checkpoint_ref(ref)
+                        await self._conversation_chain_store.set(
+                            conversation_chain_id,
+                            CONVERSATION_CHECKPOINT_KEY,
+                            ref.to_dict(),
+                        )
                     yield stream.emit_completed()
                     return
 
@@ -936,11 +965,16 @@ class ResponsesHostServer:
                 stream,
                 cancellation_signal=cancellation_signal,
                 shutdown_signal=context.shutdown,
+                usage=usage,
             ):
                 yield event
             checkpoint_ref = task_storage.checkpoint_ref
             if checkpoint_ref is not None:
-                await conversation_storage.persist_checkpoint_ref(checkpoint_ref)
+                await self._conversation_chain_store.set(
+                    conversation_chain_id,
+                    CONVERSATION_CHECKPOINT_KEY,
+                    checkpoint_ref.to_dict(),
+                )
             if context.shutdown.is_set():
                 await context.exit_for_recovery()
             if cancellation_signal.is_set():
@@ -948,12 +982,13 @@ class ResponsesHostServer:
                     yield stream.emit_failed(
                         code="cancelled",
                         message="Request was cancelled.",
+                        usage=usage.response_usage,
                     )
                 else:
                     # Steering supersedes this turn without cancelling it.
                     # Preserve its checkpointed partial output and let the
                     # queued turn begin from this response as its parent.
-                    yield stream.emit_completed()
+                    yield stream.emit_completed(usage=usage.response_usage)
                 return
 
             # The updates stream carries the exact active set for this run;
@@ -966,10 +1001,14 @@ class ResponsesHostServer:
                 async for event in emit_interrupts(new_pending, stream):
                     yield event
 
-            yield stream.emit_completed()
+            yield stream.emit_completed(usage=usage.response_usage)
         except Exception as exc:  # noqa: BLE001
             logger.exception("LangGraph response handler failed")
-            yield stream.emit_failed(code="internal_error", message=str(exc))
+            yield stream.emit_failed(
+                code="internal_error",
+                message=str(exc),
+                usage=usage.response_usage,
+            )
 
     # ------------------------------------------------------------------
     # Recovery helpers (resilient background responses)

@@ -51,6 +51,7 @@ pub mod fleet_contract;
 pub mod fleet_follow_promotion;
 pub mod fleet_mutation;
 pub mod fleet_presentation;
+pub mod gate_decision;
 pub mod gate_followup;
 pub mod git_query;
 pub mod glossary;
@@ -58,6 +59,7 @@ pub mod host_bridge;
 pub mod machine_hood;
 pub mod machine_setup;
 pub mod managed_origin;
+pub mod managed_tmp;
 pub mod markdown_link_refs;
 pub mod migration;
 pub mod model_completion;
@@ -269,7 +271,8 @@ pub use agent_runtime::{
 };
 pub use agent_scan::{
     agent_artifact_index_status, canonical_agent_artifact_path,
-    collect_workflow_artifact_candidates, delete_agent_artifact_index_row,
+    collect_workflow_artifact_candidates, decode_agent_artifact_record_json,
+    delete_agent_artifact_index_row,
     delete_agent_artifact_index_row_with_busy_timeout, is_artifact_timestamp,
     is_day_sharded_workflow, is_supported_workflow_dir,
     legacy_agent_artifact_path, load_agent_artifact_records,
@@ -289,17 +292,17 @@ pub use agent_scan::{
     write_agent_artifact_index_meta, AgentAliasHistoryGroupWire,
     AgentAliasHistoryLimitWire, AgentAliasHistoryQueryWire,
     AgentAliasHistoryWire, AgentAliasRunWire, AgentArtifactCandidateFieldWire,
-    AgentArtifactCandidateFilterWire, AgentArtifactIndexDismissalReconcileWire,
-    AgentArtifactIndexQueryWire, AgentArtifactIndexStatusWire,
-    AgentArtifactIndexUpdateWire, AgentArtifactIndexVacuumWire,
-    AgentArtifactIndexWindowWire, AgentArtifactPathInfo,
-    AgentArtifactRecordShapeWire, AgentArtifactRecordWire,
-    AgentArtifactScanOptionsWire, AgentArtifactScanStatsWire,
-    AgentArtifactScanWire, AgentClanContextWire, AgentMetaWire,
-    AgentOutputVariableHistoryQueryWire, AgentOutputVariableHistoryWire,
-    AgentOutputVariableKeyGroupWire, AgentOutputVariableLimitWire,
-    AgentOutputVariableOccurrenceWire, AgentOutputVariableSelectorMatchWire,
-    AgentOutputVariableSelectorQueryWire,
+    AgentArtifactCandidateFilterWire, AgentArtifactIndexCompletenessWire,
+    AgentArtifactIndexDismissalReconcileWire, AgentArtifactIndexQueryWire,
+    AgentArtifactIndexStatusWire, AgentArtifactIndexUpdateWire,
+    AgentArtifactIndexVacuumWire, AgentArtifactIndexWindowWire,
+    AgentArtifactPathInfo, AgentArtifactRecordShapeWire,
+    AgentArtifactRecordWire, AgentArtifactScanOptionsWire,
+    AgentArtifactScanStatsWire, AgentArtifactScanWire, AgentClanContextWire,
+    AgentMetaWire, AgentOutputVariableHistoryQueryWire,
+    AgentOutputVariableHistoryWire, AgentOutputVariableKeyGroupWire,
+    AgentOutputVariableLimitWire, AgentOutputVariableOccurrenceWire,
+    AgentOutputVariableSelectorMatchWire, AgentOutputVariableSelectorQueryWire,
     AgentOutputVariableSelectorResultWire, AgentOutputVariableValueGroupWire,
     DoneMarkerWire, FamilyDismissalLineageCandidateWire,
     FamilyDismissalLineageResultWire, FamilyShellGateWire,
@@ -689,10 +692,13 @@ pub use editor::{
     directive_allows_keywords as editor_directive_allows_keywords,
     directive_argument_candidates as editor_directive_argument_candidates,
     directive_contract as editor_directive_contract,
+    directive_contract_with_flags as editor_directive_contract_with_flags,
     directive_is_hidden_from_name_completion as editor_directive_is_hidden_from_name_completion,
     directive_is_hidden_from_name_completion_with_flags as editor_directive_is_hidden_from_name_completion_with_flags,
     directive_metadata as editor_directive_metadata,
+    directive_metadata_with_flags as editor_directive_metadata_with_flags,
     directive_snippet_recipes as editor_directive_snippet_recipes,
+    directive_snippet_recipes_with_flags as editor_directive_snippet_recipes_with_flags,
     extract_placeholder_spans as editor_extract_placeholder_spans,
     extract_token_at_position as editor_extract_token_at_position,
     filter_explicit_model_shortcut_entries as editor_filter_explicit_model_shortcut_entries,
@@ -701,6 +707,7 @@ pub use editor::{
     frontmatter_input_type_schema as editor_frontmatter_input_type_schema,
     fuzzy_match as editor_fuzzy_match,
     hover_at_position as editor_hover_at_position,
+    hover_at_position_with_flags as editor_hover_at_position_with_flags,
     is_path_like_token as editor_is_path_like_token,
     is_slash_skill_like_token as editor_is_slash_skill_like_token,
     is_snippet_trigger_token as editor_is_snippet_trigger_token,
@@ -1014,6 +1021,10 @@ pub use managed_origin::{
     MANAGED_ORIGIN_ACTION_NONE, MANAGED_ORIGIN_ACTION_REWRITE,
     MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION,
 };
+pub use managed_tmp::{
+    reap_managed_tmpdir, ManagedTmpReapError, ManagedTmpReapRequestWire,
+    ManagedTmpReapResultWire, MANAGED_TMP_REAP_WIRE_SCHEMA_VERSION,
+};
 pub use markdown_link_refs::{
     allocate_markdown_reference_label, append_markdown_reference_definitions,
     scan_markdown_reference_links, MarkdownReferenceDefinitionWire,
@@ -1238,10 +1249,15 @@ pub use query::{
 };
 pub use queue_directive::{
     collect_queue_fields, collect_queue_fields_with_flags,
-    format_queue_directive, parse_queue_capacity,
-    parse_queue_capacity_with_flags, queue_capacity_budget_enabled,
+    format_queue_directive, merge_queue_capacity_aliases,
+    merge_queue_capacity_aliases_in_capacity_request,
+    merge_queue_capacity_aliases_in_scan_record,
+    normalize_persisted_queue_capacity, parse_queue_capacity,
+    parse_queue_capacity_with_flags, queue_capacity_as_u32,
+    queue_capacity_budget_enabled, queue_capacity_from_map,
     queue_directive_disabled_message, queue_directive_enabled,
-    queue_directive_flag_key, QueueArgWire, QueueCollectResultWire,
+    queue_directive_flag_key, resolve_queue_capacity,
+    PersistedQueueCapacityNormWire, QueueArgWire, QueueCollectResultWire,
     QueueFieldsWire, QueueOccurrenceWire, QueueParseErrorWire,
     QUEUE_CAPACITY_BUDGET_FLAG, QUEUE_DIRECTIVE_FLAG,
 };

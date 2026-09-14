@@ -276,6 +276,7 @@ class AutoMemoryStep(BaseStep):
     # pylint: disable=too-many-return-statements
     async def execute(self):
         assert self.context is not None
+        self.context["changes"] = []
         raw_messages = self.context.get("messages") or []
         session_id: str = self.context.get("session_id", "")
         memory_hint: str = self.context.get("memory_hint", "")
@@ -402,6 +403,8 @@ class AutoMemoryStep(BaseStep):
                 return
 
         modified = self._note_modified(before_note_path, before_note_bytes, note_path)
+        if modified:
+            self.context["changes"] = [{"change": "added" if created else "modified", "path": note_path}]
         daily_dir = self.config_value("daily_dir")
         self.logger.info(f"[{self.name}] refresh index start date={day} daily_dir={daily_dir}")
         index_payload = await refresh_day_index(self.file_store, day, daily_dir)

@@ -36,7 +36,7 @@ class ManualComponent(_ComponentBase):
         self.max_span = max_span
         # Readable address ranges per table; a table left None falls back to
         # gap-based planning, like Component does.
-        self._ranges = DeviceRanges(
+        self._ranges = DeviceRanges.declared(
             {
                 "holding": holding_ranges,
                 "input": input_ranges,
@@ -48,7 +48,7 @@ class ManualComponent(_ComponentBase):
         self._bits: dict[str, CoilField | DiscreteInputField] = {}
         self._values: dict[str, Any] = {}
         # repeating_group support (counts read from holding); groups are added by
-        # key like any other target. base_offset stays 0 — addresses are absolute.
+        # key like any other target. base_offset stays 0 because addresses are absolute.
         self._static_groups: dict[str, RepeatingGroupField[Any]] = {}
         self._repeating_fields: dict[str, RepeatingGroupField[Any]] = {}
         self._build_groups()

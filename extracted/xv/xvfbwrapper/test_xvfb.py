@@ -216,7 +216,8 @@ class TestXvfb(XvfbCleanTestCase):
         unwriteable_dir = "/etc"
         xvfb = Xvfb(tempdir=unwriteable_dir)
         with self.assertRaisesRegex(
-            RuntimeError, f"Could not access writable temp directory: {unwriteable_dir}"
+            RuntimeError,
+            f"Could not access writable temp directory: {unwriteable_dir}",
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)
@@ -225,7 +226,8 @@ class TestXvfb(XvfbCleanTestCase):
         unknown_dir = "/tmp/some_unknown_path"
         xvfb = Xvfb(tempdir=unknown_dir)
         with self.assertRaisesRegex(
-            RuntimeError, f"Could not access writable temp directory: {unknown_dir}"
+            RuntimeError,
+            f"Could not access writable temp directory: {unknown_dir}",
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)
@@ -300,7 +302,7 @@ class TestXvfb(XvfbCleanTestCase):
         self.assertIsNotNone(xvfb.proc)
 
     def test_start_fails_with_unknown_kwargs(self):
-        xvfb = Xvfb(foo="bar", timeout=5)
+        xvfb = Xvfb(foo="bar", timeout=2)
         expected_cmd_args = [
             "Xvfb",
             r":\d",
@@ -311,7 +313,8 @@ class TestXvfb(XvfbCleanTestCase):
             "bar",
         ]
         with self.assertRaisesRegex(
-            RuntimeError, f"Xvfb display did not open: {expected_cmd_args}"
+            RuntimeError,
+            f"Xvfb display did not open: {expected_cmd_args}",
         ):
             xvfb.start()
         self.assertIsNone(xvfb.proc)

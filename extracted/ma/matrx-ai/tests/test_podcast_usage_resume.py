@@ -21,6 +21,8 @@ from matrx_ai.agent_runners.podcast_generator import (
 
 # Per-model buckets carry the full canonical AiModelUsage key-set (incl.
 # request_count / api defaults) — the shape AiUsage.model_dump() now emits.
+# ``reroutes`` is the model-substitution record (AiUsage.reroutes): empty here
+# because no stage was rerouted, and carried through the aggregate when one is.
 _USAGE_A = {
     "input_tokens": 100,
     "output_tokens": 50,
@@ -32,6 +34,7 @@ _USAGE_A = {
             "cost_usd": 0.01, "request_count": 0, "api": "",
         }
     },
+    "reroutes": [],
 }
 _USAGE_B = {
     "input_tokens": 200,
@@ -44,6 +47,7 @@ _USAGE_B = {
             "cost_usd": 0.02, "request_count": 0, "api": "",
         }
     },
+    "reroutes": [],
 }
 
 

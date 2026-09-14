@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: segregation
-Version: 2.5.5
+Version: 2.6.0
 Summary: Analytics for spatial and non-spatial segregation in Python.
 Author-email: Eli Knaap <ek@knaaptime.com>, Renan Xavier Cortes <renanxcortes@gmail.com>, Serge Rey <sjsrey@gmail.com>
 Maintainer: pysal contributors
@@ -27,17 +27,21 @@ Requires-Dist: pandas>=2.3.0
 Requires-Dist: pyproj>=3
 Requires-Dist: scikit-learn>=1.5.0
 Requires-Dist: scipy>=1.14.0
+Requires-Dist: statsmodels>=0.14.4
 Requires-Dist: seaborn
 Requires-Dist: tqdm
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: myst-nb; extra == "docs"
+Requires-Dist: jupyter-cache; extra == "docs"
+Requires-Dist: ipykernel; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
 Requires-Dist: pandoc; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
 Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Requires-Dist: watermark; extra == "docs"
 Requires-Dist: mkdocs-jupyter; extra == "docs"
 Requires-Dist: myst-parser; extra == "docs"
 Provides-Extra: tests
@@ -49,7 +53,9 @@ Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: matplotlib; extra == "tests"
 Requires-Dist: matplotlib-scalebar; extra == "tests"
 Requires-Dist: watermark; extra == "tests"
+Requires-Dist: pandana; extra == "tests"
 Requires-Dist: pandarm; extra == "tests"
+Requires-Dist: pandana; extra == "tests"
 Requires-Dist: quilt3; extra == "tests"
 Requires-Dist: ipywidgets; extra == "tests"
 Dynamic: license-file

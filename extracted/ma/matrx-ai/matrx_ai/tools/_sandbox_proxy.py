@@ -46,6 +46,7 @@ import asyncio
 import base64
 import binascii
 import logging
+import time
 from contextvars import ContextVar
 from dataclasses import dataclass, replace
 from typing import Any, Literal
@@ -69,6 +70,90 @@ DEFAULT_TIMEOUT_SECONDS = 60.0
 # giving up mid-swap. ~50 attempts x up to 5s ≈ several minutes of headroom.
 _MIGRATING_MAX_ATTEMPTS = 50
 _MIGRATING_MAX_DELAY = 5.0  # cap any single Retry-After backoff
+
+# ── Transient route outage ─────────────────────────────────────────────────
+# The orchestrator sits behind Traefik. While the orchestrator container is
+# restarting (a deploy, a crash-loop restart, a task replacement) the ROUTE is
+# briefly dead even though the sandbox box itself is perfectly alive: Traefik
+# answers 503 "no available server" in ~190ms and every proxied call fails
+# instantly. Before 2026-09-13 only the {"detail": {"status": "migrating"}}
+# flavour of 503 was retried, so a 30-60s orchestrator restart surfaced as a
+# hard, non-retryable-looking error. Observed cost (conversation 6d383f43,
+# 2026-09-13 06:40:45-06:41:02Z, box sbx-5515667942bd): eight consecutive shell
+# calls failed in 17 seconds, the agent retried the identical command seven
+# times, the loop guard tripped, tools were disabled, and the run ended having
+# done nothing.
+#
+# So: an outage of the ROUTE is ONE class, retried inside the single tool call
+# with capped exponential backoff until a budget is spent. Only then does ONE
+# honest, self-describing error reach the agent.
+_TRANSIENT_FIRST_DELAY = 1.0
+_TRANSIENT_MAX_DELAY = 8.0
+
+# A 502/503 from an edge proxy means the request never reached a backend, so
+# replaying it cannot duplicate work — safe for every method. A 504 (and a read
+# timeout) means the upstream WAS reached and may already be running the
+# command; replaying a POST /exec would run it twice. Those are retried only
+# for side-effect-free reads.
+_TRANSIENT_STATUSES_ANY_METHOD = (502, 503)
+_TRANSIENT_STATUSES_IDEMPOTENT_ONLY = (504,)
+_IDEMPOTENT_METHODS = ("GET", "HEAD")
+
+# Agent-set limit (blind approval). Set by a standard-lane agent session on
+# 2026-09-13. Basis: an orchestrator container restart/deploy cutover takes
+# ~30-60s; 45s of in-call waiting covers the common restart without holding a
+# tool call hostage for minutes, and the honest error that follows tells the
+# agent to wait a minute and try exactly once more. Platform-locked knob
+# `infrastructure.sandbox.transient_outage_retry_budget_seconds` in
+# `platform.feature_knob`; the host injects it at boot through
+# `configure_sandbox_transient_retry`. This module-level value is the KNOB
+# MIRROR a bare matrx-ai install (and any process the host never wired) runs
+# on. Review due 2026-11-12.
+DEFAULT_TRANSIENT_RETRY_BUDGET_SECONDS = 45.0
+
+_transient_retry_budget_seconds: float = DEFAULT_TRANSIENT_RETRY_BUDGET_SECONDS
+
+# How many transparent retries the most recent proxy call burned, per task.
+# Read it with ``last_transient_retries()`` right after a call returns; every
+# call resets it, so a 0 is as meaningful as a 3.
+_LAST_TRANSIENT_RETRIES: ContextVar[int] = ContextVar("sandbox_transient_retries", default=0)
+
+_WAIT_ONCE_INSTRUCTION = (
+    "wait about a minute, then retry this exact command ONCE; if it fails "
+    "again, stop and tell the user the sandbox is unreachable"
+)
+
+
+def configure_sandbox_transient_retry(*, budget_seconds: float) -> None:
+    """Host seam for the transient-outage retry budget (seconds).
+
+    The package never reads a knob row itself (it never imports the host, and a
+    DB read inside a package is the dependency the boundary forbids); the host
+    reads ``platform.feature_knob`` and injects the value here once at boot.
+    Unwired, the package runs on ``DEFAULT_TRANSIENT_RETRY_BUDGET_SECONDS``.
+    """
+    global _transient_retry_budget_seconds
+    if budget_seconds < 0:
+        raise ValueError(f"transient retry budget must be >= 0, got {budget_seconds}")
+    _transient_retry_budget_seconds = float(budget_seconds)
+
+
+def get_transient_retry_budget_seconds() -> float:
+    return _transient_retry_budget_seconds
+
+
+def last_transient_retries() -> int:
+    """Transparent retries burned by the most recent proxy call in this task."""
+    return _LAST_TRANSIENT_RETRIES.get()
+
+
+def _now() -> float:
+    # Seam: tests drive a fake clock instead of sleeping real seconds.
+    return time.monotonic()
+
+
+async def _sleep(seconds: float) -> None:
+    await asyncio.sleep(seconds)
 
 
 @dataclass(frozen=True)
@@ -216,11 +301,22 @@ class SandboxProxyError(RuntimeError):
     """
 
     def __init__(
-        self, message: str, *, status: int | None = None, error_type: str = "sandbox_error"
+        self,
+        message: str,
+        *,
+        status: int | None = None,
+        error_type: str = "sandbox_error",
+        is_retryable: bool = False,
+        suggested_action: str | None = None,
     ):
         super().__init__(message)
         self.status = status
         self.error_type = error_type
+        # Carried through to ``ToolError`` by every tool that maps this
+        # exception, so a transient route outage reaches the model flagged
+        # retryable WITH the one instruction that stops a retry storm.
+        self.is_retryable = is_retryable
+        self.suggested_action = suggested_action
 
 
 def _is_migrating(resp: httpx.Response) -> bool:
@@ -245,6 +341,55 @@ def _retry_after_seconds(resp: httpx.Response, *, default: float) -> float:
     return default
 
 
+def _is_transient_outage(resp: httpx.Response, *, method: str) -> bool:
+    """True when this response is the sandbox ROUTE being down, not the box.
+
+    Never true for a migrating 503 — that keeps its own, much longer retry
+    path (an image swap locks the box for minutes, not seconds).
+    """
+    if resp.status_code in _TRANSIENT_STATUSES_ANY_METHOD:
+        return not _is_migrating(resp)
+    if resp.status_code in _TRANSIENT_STATUSES_IDEMPOTENT_ONLY:
+        return method.upper() in _IDEMPOTENT_METHODS
+    return False
+
+
+def _is_transient_connection_error(exc: httpx.RequestError, *, method: str) -> bool:
+    """True when the connection itself failed in a way a retry can fix.
+
+    A connect failure/timeout means nothing was delivered, so replaying is safe
+    for any method. A READ timeout means the upstream already has the request —
+    replaying a POST /exec would run the command twice — so it is retried only
+    for side-effect-free reads.
+    """
+    if isinstance(exc, httpx.ConnectError | httpx.ConnectTimeout | httpx.PoolTimeout):
+        return True
+    if isinstance(exc, httpx.ReadTimeout | httpx.ReadError | httpx.RemoteProtocolError):
+        return method.upper() in _IDEMPOTENT_METHODS
+    return False
+
+
+def _unavailable_error(
+    binding: SandboxBinding,
+    *,
+    waited: float,
+    retries: int,
+    last_detail: str,
+) -> SandboxProxyError:
+    """The ONE honest error an exhausted transient-outage budget produces."""
+    return SandboxProxyError(
+        f"The sandbox route was unavailable for {waited:.0f}s across {retries} "
+        f"automatic retries (last failure: {last_detail}). This is almost "
+        "always an orchestrator restart or deploy, not a problem with the box: "
+        f"sandbox {binding.sandbox_id} and all of its files are intact. "
+        f"Do NOT keep retrying in a loop — {_WAIT_ONCE_INSTRUCTION}.",
+        status=503,
+        error_type="sandbox_unavailable",
+        is_retryable=True,
+        suggested_action=_WAIT_ONCE_INSTRUCTION[0].upper() + _WAIT_ONCE_INSTRUCTION[1:] + ".",
+    )
+
+
 async def _request(
     binding: SandboxBinding,
     method: str,
@@ -257,6 +402,39 @@ async def _request(
     url = f"{binding.base_url}{path}"
     attempt = 0
     reminted = False
+    # ONE retry loop is the chokepoint for every proxied call (fs_*, exec,
+    # search, and anything a host reads through this module). Two distinct
+    # transparent-retry policies live in it: the long migration wait, and the
+    # short transient route-outage budget below.
+    budget = get_transient_retry_budget_seconds()
+    started = _now()
+    deadline = started + budget
+    transient_retries = 0
+    transient_delay = _TRANSIENT_FIRST_DELAY
+    _LAST_TRANSIENT_RETRIES.set(0)
+
+    async def _wait_for_route(detail: str) -> bool:
+        """Sleep one backoff step if the budget allows. False = budget spent."""
+        nonlocal transient_retries, transient_delay
+        remaining = deadline - _now()
+        if remaining <= 0:
+            return False
+        delay = min(transient_delay, remaining)
+        transient_retries += 1
+        logger.warning(
+            "sandbox %s route unavailable (%s) — transient retry %d in %.1fs "
+            "(%.0fs of %.0fs budget left)",
+            binding.sandbox_id,
+            detail,
+            transient_retries,
+            delay,
+            remaining,
+            budget,
+        )
+        await _sleep(delay)
+        transient_delay = min(transient_delay * 2, _TRANSIENT_MAX_DELAY)
+        return True
+
     while True:
         attempt += 1
         try:
@@ -264,12 +442,22 @@ async def _request(
                 resp = await client.request(
                     method, url, params=params, json=json, headers=_headers(binding)
                 )
-        except httpx.TimeoutException as exc:
-            raise SandboxProxyError(
-                f"Sandbox call timed out after {timeout}s",
-                error_type="timeout",
-            ) from exc
         except httpx.RequestError as exc:
+            if _is_transient_connection_error(exc, method=method):
+                if await _wait_for_route(f"{type(exc).__name__}: {exc}"):
+                    continue
+                _LAST_TRANSIENT_RETRIES.set(transient_retries)
+                raise _unavailable_error(
+                    binding,
+                    waited=_now() - started,
+                    retries=transient_retries,
+                    last_detail=f"{type(exc).__name__}: {exc}",
+                ) from exc
+            if isinstance(exc, httpx.TimeoutException):
+                raise SandboxProxyError(
+                    f"Sandbox call timed out after {timeout}s",
+                    error_type="timeout",
+                ) from exc
             raise SandboxProxyError(
                 f"Sandbox unreachable: {exc}",
                 error_type="unreachable",
@@ -283,8 +471,22 @@ async def _request(
             logger.info(
                 "sandbox %s migrating — retry %d in %.1fs", binding.sandbox_id, attempt, delay
             )
-            await asyncio.sleep(delay)
+            await _sleep(delay)
             continue
+
+        # Transparent retry while the ROUTE to the box is down (orchestrator
+        # restart/deploy). The box is alive; only the edge proxy has no backend.
+        if _is_transient_outage(resp, method=method):
+            detail = f"HTTP {resp.status_code}: {(resp.text or '')[:120]}"
+            if await _wait_for_route(detail):
+                continue
+            _LAST_TRANSIENT_RETRIES.set(transient_retries)
+            raise _unavailable_error(
+                binding,
+                waited=_now() - started,
+                retries=transient_retries,
+                last_detail=detail,
+            )
 
         # Token expired mid-loop → re-mint ONCE (server-side, independent of the
         # client's token TTL and connectivity) and retry, so a long coding loop
@@ -297,6 +499,18 @@ async def _request(
                 binding = replace(binding, access_token=fresh)
                 continue
         break
+
+    # Announce the recovery: a call that quietly cost the user 12 seconds of
+    # waiting must be visible in the ledger, not invisible because it worked.
+    _LAST_TRANSIENT_RETRIES.set(transient_retries)
+    if transient_retries:
+        logger.warning(
+            "sandbox %s route recovered after %d transient retries (%s %s)",
+            binding.sandbox_id,
+            transient_retries,
+            method,
+            path,
+        )
 
     if resp.status_code == 404:
         raise SandboxProxyError(
@@ -572,14 +786,25 @@ async def exec_command(
     # Give the HTTP layer a few extra seconds beyond the command timeout so
     # graceful timeouts surface as ExecResponse, not as our own HTTP timeout.
     resp = await _request(binding, "POST", "/exec", json=body, timeout=float(timeout) + 10.0)
-    return resp.json()
+    data = resp.json()
+    # Stamp a recovered route outage onto the call's metadata so the ledger
+    # shows the seconds this call silently spent waiting out an orchestrator
+    # restart. Absent when the call went straight through.
+    retries = last_transient_retries()
+    if retries and isinstance(data, dict):
+        data = {**data, "transient_retries": retries}
+    return data
 
 
 __all__ = [
+    "DEFAULT_TRANSIENT_RETRY_BUDGET_SECONDS",
     "SandboxBinding",
     "SandboxReadResult",
     "SandboxProxyError",
+    "configure_sandbox_transient_retry",
     "get_active_sandbox",
+    "get_transient_retry_budget_seconds",
+    "last_transient_retries",
     "fs_list",
     "fs_stat",
     "fs_read",

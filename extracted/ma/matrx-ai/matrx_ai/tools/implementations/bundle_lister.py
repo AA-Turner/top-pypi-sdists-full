@@ -111,24 +111,66 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
 
     # If this is an MCP-auto-managed bundle, ensure the catalog is fresh
     # (cache-aware; sync_server short-circuits when last_synced_at is
-    # within discovery_ttl_seconds).
+    # within discovery_ttl_seconds). Discovery runs with the CALLING USER's
+    # connection auth when the host injected ``mcp_auth_resolver`` — a server
+    # whose auth_strategy is not ``none`` (GitHub) answers 401 to an anonymous
+    # ``tools/list``, so without this its catalog could never populate.
     server_slug = (bundle.get("metadata") or {}).get("server_slug")
+    sync_error: str | None = None
     if server_slug:
         try:
             from matrx_ai.tools.mcp_sync import sync_server
 
-            await sync_server(server_slug, force=False)
+            discovery_auth = await _resolve_user_discovery_auth(server_slug, ctx)
+            sync_result = await sync_server(
+                server_slug, force=False, discovery_auth=discovery_auth
+            )
+            sync_error = sync_result.error
         except Exception as exc:
             # Log but don't abort — fall through to read whatever members
             # are already cached. Better to expose stale tools than nothing.
+            sync_error = repr(exc)
             vcprint(
                 f"[bundle_lister] sync_server({server_slug}) failed: {exc!r} "
                 f"— serving cached members",
                 color="yellow",
             )
 
-    # Resolve bundle members through the RPC.
-    members = await _resolve_bundle_members(bundle_name)
+    # Resolve bundle members. An MCP-managed bundle's members are the server's
+    # live ``tool.definition`` rows (``managed_by_server_id``) — the catalog
+    # sync maintains those rows and writes no ``platform.associations``
+    # membership edge, so the edge walk below found 0 members for EVERY MCP
+    # bundle (2026-09-13 census: 0 edges across all synced servers).
+    if server_slug:
+        members = await _resolve_mcp_bundle_members(server_slug)
+    else:
+        members = await _resolve_bundle_members(bundle_name)
+
+    if server_slug and not members:
+        # Nothing to load — say so, with the reason, instead of returning a
+        # successful empty listing the model cannot act on.
+        reason = sync_error or (
+            f"the {server_slug!r} MCP server exposes no tools for this connection"
+        )
+        vcprint(
+            f"[bundle_lister] bundle={bundle_name} server_slug={server_slug} "
+            f"produced NO tools: {reason}",
+            color="red",
+        )
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="mcp_no_tools",
+                message=(
+                    f"The {server_slug} MCP is attached but produced no tools: {reason}. "
+                    "Tell the user; do not retry this lister."
+                ),
+            ),
+            started_at=started,
+            completed_at=time.time(),
+            tool_name=lister_name,
+            call_id=ctx.call_id,
+        )
 
     # Resolve each member to a ToolSpec. Members load under their CANONICAL
     # names (see the module docstring for why the <bundle>:<alias> rebranding
@@ -211,6 +253,66 @@ async def _fetch_bundle_by_name(name: str) -> dict[str, Any] | None:
         return None
     item = rows[0]
     return item.to_dict() if hasattr(item, "to_dict") else dict(item)
+
+
+async def _resolve_user_discovery_auth(server_slug: str, ctx: ToolContext) -> dict[str, Any] | None:
+    """The calling user's connection auth for ``server_slug`` via the host's
+    ``mcp_auth_resolver`` seam (``async (slug, user_id) -> dict | None``), or
+    ``None`` when the host injected no resolver / the user has no connection.
+    Never stored; used for this discovery call only."""
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext("mcp_auth_resolver"):
+        return None
+    try:
+        user_id = ctx.user_id
+    except Exception:  # noqa: BLE001 — no app context bound (headless call)
+        return None
+    if not user_id:
+        return None
+    try:
+        return await get_ext("mcp_auth_resolver")(server_slug, user_id)
+    except Exception as exc:  # noqa: BLE001 — discovery falls back to server-level auth
+        vcprint(
+            f"[bundle_lister] mcp_auth_resolver({server_slug!r}) failed: {exc!r} "
+            "— discovering with server-level auth",
+            color="yellow",
+        )
+        return None
+
+
+async def _resolve_mcp_bundle_members(server_slug: str) -> list[tuple[str, str]]:
+    """Members of an MCP-managed bundle: every active ``tool.definition`` row
+    whose ``managed_by_server_id`` is the server's id, as
+    ``[(canonical_name, local_alias), ...]``. Reloads the in-memory registry
+    when a freshly synced row is not in it yet (first sync of a server
+    inside a live request)."""
+    from matrx_ai.tools.registry import ToolRegistry
+
+    try:
+        from matrx_ai.db._registry import get_instance, get_model
+
+        server_mgr = get_instance("tool_mcp_server_manager_instance")
+        definition_model = get_model("ToolDefinition")
+    except Exception as exc:  # noqa: BLE001 — host did not inject the tool tables
+        vcprint(
+            f"[bundle_lister] MCP member resolution unavailable for {server_slug!r}: {exc!r}",
+            color="red",
+        )
+        return []
+    servers = await server_mgr.filter_items(slug=server_slug)
+    if not servers:
+        return []
+    server_id = str(servers[0].id)
+    rows = await definition_model.filter(managed_by_server_id=server_id, is_active=True).all()
+    names = sorted(str(row.name) for row in rows)
+    if not names:
+        return []
+    registry = ToolRegistry.get_instance()
+    if any(registry.get(name) is None for name in names):
+        await registry.reload_from_database()
+    prefix = f"mcp.{server_slug}."
+    return [(name, name[len(prefix):] if name.startswith(prefix) else name) for name in names]
 
 
 async def _resolve_bundle_members(bundle_name: str) -> list[tuple[str, str]]:

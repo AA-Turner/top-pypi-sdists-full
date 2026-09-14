@@ -2,15 +2,23 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
+from typing_extensions import Self
+
+from office365.runtime.client_request_exception import (
+    ClientRequestException,
+    ObjectNotFoundException,
+)
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.fields.calculated import FieldCalculated
+from office365.sharepoint.fields.choice import FieldChoice
 from office365.sharepoint.fields.creation_information import FieldCreationInformation
 from office365.sharepoint.fields.date_time import FieldDateTime
 from office365.sharepoint.fields.field import Field
 from office365.sharepoint.fields.geolocation import FieldGeolocation
+from office365.sharepoint.fields.multi_choice import FieldMultiChoice
 from office365.sharepoint.fields.multi_line_text import FieldMultiLineText
 from office365.sharepoint.fields.number import FieldNumber
 from office365.sharepoint.fields.text import FieldText
@@ -22,9 +30,21 @@ from office365.sharepoint.fields.xmlSchemaFieldCreationInformation import (
 )
 from office365.sharepoint.taxonomy.field import TaxonomyField
 from office365.sharepoint.taxonomy.sets.set import TermSet
-from office365.sharepoint.taxonomy.stores.store import TermStore
 
 T = TypeVar("T", bound=Field)
+
+_FIELD_TYPE_BY_KIND = {
+    "boolean": FieldType.Boolean,
+    "datetime": FieldType.DateTime,
+    "number": FieldType.Number,
+    "text": FieldType.Text,
+}
+
+
+def field_type_from_kind(kind: str) -> FieldType:
+    """Map a generic pandas dtype kind (see ``series_kind``) to a SharePoint ``FieldType``."""
+    return _FIELD_TYPE_BY_KIND[kind]
+
 
 if TYPE_CHECKING:
     from office365.sharepoint.lists.list import List
@@ -36,6 +56,60 @@ class FieldCollection(EntityCollection[Field]):
 
     def __init__(self, context, resource_path=None, parent=None):
         super().__init__(context, Field, resource_path, parent)
+
+    def from_dataframe(self, df, progress=None) -> Self:
+        """Define a field per DataFrame column, inferring the field type.
+
+        The schema counterpart of ``ClientObjectCollection.from_dataframe``
+        (which imports rows): here each column becomes a field definition.
+        Column names are sanitized into field internal names and the
+        ``FieldType`` is inferred from the pandas dtype (Boolean/DateTime/
+        Number/Text). Each field is ensured idempotently (looked up first,
+        created when missing). Deferred — run the lookups/creates with
+        ``execute_query()``:
+
+            >>> lst.fields.from_dataframe(df).execute_query()
+
+        Requires ``pip install office365-rest-python-client[pandas]``.
+
+        Args:
+            df: A pandas DataFrame whose columns become the field definitions.
+
+        Returns:
+            Self: The field collection, for method chaining.
+        """
+        from office365.runtime.converters.dataframe import require_pandas, series_kind
+        from office365.sharepoint.fields.name import internal_field_name
+
+        pd = require_pandas()
+        for column in df.columns:
+            field_type = field_type_from_kind(series_kind(pd, df[column]))
+            info = FieldCreationInformation(
+                Title=internal_field_name(str(column)),
+                FieldTypeKind=field_type,
+            )
+            self.ensure(info)
+        return self
+
+    def ensure(self, parameters: FieldCreationInformation) -> Field:
+        from office365.runtime.queries.deferred import DeferredOperationQuery
+
+        return_type = Field(self.context)
+        barrier = DeferredOperationQuery(self.context, return_type=return_type)
+
+        def _on_success(existing):
+            return_type.copy_from(existing)
+            barrier.resolve()
+
+        def _on_error(error: ClientRequestException):
+            if not isinstance(error, ObjectNotFoundException):
+                raise error
+
+            barrier.defer(self._build_add_field_query(parameters, return_type))
+
+        self.get_by_title(parameters.Title).get().after_execute(_on_success).on_error(_on_error)
+        self.context.add_query(barrier)
+        return return_type
 
     def add_calculated(self, title: str, formula: str, description: Optional[str] = None) -> FieldCalculated:
         """Creates a Calculated field
@@ -51,7 +125,8 @@ class FieldCollection(EntityCollection[Field]):
                 Formula=formula,
                 FieldTypeKind=FieldType.Calculated,
                 Description=description,
-            )
+            ),
+            FieldCalculated,
         )
         return return_type
 
@@ -67,7 +142,8 @@ class FieldCollection(EntityCollection[Field]):
                 Title=title,
                 Description=description,
                 FieldTypeKind=FieldType.DateTime,
-            )
+            ),
+            FieldDateTime,
         )
         return return_type
 
@@ -83,7 +159,8 @@ class FieldCollection(EntityCollection[Field]):
                 Title=title,
                 Description=description,
                 FieldTypeKind=FieldType.Geolocation,
-            )
+            ),
+            FieldGeolocation,
         )
         return return_type
 
@@ -99,7 +176,8 @@ class FieldCollection(EntityCollection[Field]):
                 Title=title,
                 Description=description,
                 FieldTypeKind=FieldType.Number,
-            )
+            ),
+            FieldNumber,
         )
         return return_type
 
@@ -111,7 +189,8 @@ class FieldCollection(EntityCollection[Field]):
             description (str or None):
         """
         return self.add_field(
-            FieldCreationInformation(Title=title, Description=description, FieldTypeKind=FieldType.URL)
+            FieldCreationInformation(Title=title, Description=description, FieldTypeKind=FieldType.URL),
+            FieldUrl,
         )
 
     def add_lookup_field(
@@ -141,7 +220,7 @@ class FieldCollection(EntityCollection[Field]):
                         ShowField="{lookup_field_name}" List="{{{lookup_list_id}}}" StaticName="{title}" Name="{title}">
                         </Field>
                         """.format(title=title, lookup_field_name=lookup_field_name, lookup_list_id=lookup_list_id)
-                self.create_field_as_xml(field_schema, return_type=return_type)
+                self.create_field_as_xml(field_schema, return_type)
             else:
                 self.add_field(
                     FieldCreationInformation(
@@ -150,7 +229,7 @@ class FieldCollection(EntityCollection[Field]):
                         LookupFieldName=lookup_field_name,
                         FieldTypeKind=FieldType.Lookup,
                     ),
-                    return_type=return_type,
+                    return_type,
                 )
 
         from office365.sharepoint.lists.list import List
@@ -167,7 +246,7 @@ class FieldCollection(EntityCollection[Field]):
             _add_lookup_field(lookup_list)
         return return_type
 
-    def add_choice_field(self, title: str, values: list[str], multiple_values: bool = False):
+    def add_choice_field(self, title: str, values: list[str], multiple_values: bool = False) -> Field:
         """Creates a Choice field
 
         Args:
@@ -176,8 +255,9 @@ class FieldCollection(EntityCollection[Field]):
             title (str): Specifies the display name of the field.
         """
         fld_type = FieldType.MultiChoice if multiple_values else FieldType.Choice
+        field_cls = FieldMultiChoice if multiple_values else FieldChoice
         create_field_info = FieldCreationInformation(Title=title, FieldTypeKind=fld_type, Choices=values)
-        return self.add_field(create_field_info)
+        return self.add_field(create_field_info, field_cls)
 
     def add_user_field(
         self,
@@ -194,8 +274,9 @@ class FieldCollection(EntityCollection[Field]):
             selection_mode (int or None):
             allow_multiple_values (bool):
         """
-        return self.add(  # type: ignore[returnType]
-            FieldType.User,
+        return self._create_field(
+            FieldUser,
+            FieldTypeKind=FieldType.User.value,
             Title=title,
             Description=description,
             SelectionMode=selection_mode,
@@ -208,11 +289,11 @@ class FieldCollection(EntityCollection[Field]):
         Args:
             title (str): specifies the display name of the field
         """
-        return self.add_field(FieldCreationInformation(title, FieldType.Text))
+        return self.add_field(FieldCreationInformation(title, FieldType.Text), FieldText)
 
     def add_note(self, title: str, description: Optional[str] = None) -> FieldMultiLineText:
         """Creates a text field that can contain multiple lines"""
-        return self.add_field(FieldCreationInformation(title, FieldType.Note, description))
+        return self.add_field(FieldCreationInformation(title, FieldType.Note, description), FieldMultiLineText)
 
     def add_dependent_lookup_field(self, display_name: str, primary_lookup_field_id: str, show_field: bool) -> Field:
         """Adds a secondary lookup field to a field collection (target).
@@ -237,29 +318,47 @@ class FieldCollection(EntityCollection[Field]):
 
     def add(self, field_type_kind: FieldType, **parameters: Any) -> Field:
         """Adds a fields to the fields collection."""
-        field_type = Field.resolve_field_type(field_type_kind.value)
-        return_type = field_type(self.context)
-        return_type.set_property("FieldTypeKind", field_type_kind.value)
+        return self._create_field(
+            Field.resolve_field_type(field_type_kind.value),
+            FieldTypeKind=field_type_kind.value,
+            **parameters,
+        )
+
+    def _new_field(self, target: Union[type[T], T]) -> T:
+        """Resolve a concrete field class (or reuse the given instance) on this context."""
+        return target(self.context) if isinstance(target, type) else target
+
+    def _create_field(self, field_type: Union[type[T], T], **parameters: Any) -> T:
+        """Create a field entity of the given type and queue its creation query."""
+        return_type = self._new_field(field_type)
         [return_type.set_property(k, v) for k, v in parameters.items() if v is not None]
         self.add_child(return_type)
         qry = CreateEntityQuery(self, return_type, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def add_field(self, parameters: FieldCreationInformation, return_type: Optional[T] = None) -> T:
+    def _build_add_field_query(
+        self,
+        parameters: FieldCreationInformation,
+        return_type: Field,
+    ) -> ServiceOperationQuery:
+        """Build (but do not queue) an AddField query for the given parameters."""
+        self.add_child(return_type)
+        payload = {"parameters": parameters}
+        return ServiceOperationQuery(self, "AddField", None, payload, None, return_type)
+
+    def add_field(self, parameters: FieldCreationInformation, return_type: Union[type[T], T] = Field) -> T:
         """Adds a fields to the fields collection.
 
         Args:
             parameters (FieldCreationInformation):
-            return_type (Field or None): Return type
+            return_type (type or Field): The concrete field class to create (e.g.
+              ``FieldDateTime``), or a ready field instance to bind the query to
+              (used for deferred/async creation).
         """
-        if return_type is None:
-            return_type = cast(T, Field(self.context))
-        self.add_child(return_type)
-        payload = {"parameters": parameters}
-        qry = ServiceOperationQuery(self, "AddField", None, payload, None, return_type)
-        self.context.add_query(qry)
-        return return_type
+        field = self._new_field(return_type)
+        self.context.add_query(self._build_add_field_query(parameters, field))
+        return field
 
     def create_taxonomy_field(
         self,
@@ -274,80 +373,79 @@ class FieldCollection(EntityCollection[Field]):
             term_set (str or TermSet): TermSet identifier or object
             allow_multiple_values (bool): Specifies whether the column will allow more than one value
         """
+        tax = self.context.taxonomy
+
+        # resolve the identifiers on the taxonomy service (``_api/v2.1``, OData V4)
+        term_store = tax.term_store.get().execute_query()
+        if isinstance(term_set, TermSet):
+            term_set.ensure_property("id").execute_query()
+            term_set_id = term_set.id
+        else:
+            term_set_id = term_set
+        term_store_id = term_store.id
+        if not term_store_id or not term_set_id:
+            raise ValueError("Unable to resolve the term store or term set identifier")
+
+        # the field creation itself runs on this (OData V3) context
         return_type = TaxonomyField(self.context)
-
-        def _create_taxonomy_field(term_store_id: str, term_set_id: str):
-            TaxonomyField.create(
-                self,
-                name,
-                term_set_id,
-                term_store_id,
-                allow_multiple_values,
-                return_type=return_type,
-            )
-
-        def _term_store_loaded(term_store: TermStore) -> None:
-            if isinstance(term_set, TermSet):
-                term_set_obj = term_set
-
-                def _term_set_loaded():
-                    ts_id = term_store.id
-                    ts_id2 = term_set_obj.id
-                    if ts_id is not None and ts_id2 is not None:
-                        _create_taxonomy_field(ts_id, ts_id2)
-
-                term_set.ensure_property("id").after_execute(lambda _: _term_set_loaded())
-            else:
-                ts_id = term_store.id
-                if ts_id is not None:
-                    _create_taxonomy_field(ts_id, term_set)
-
-        self.context.load(self.context.taxonomy.term_store).after_execute(_term_store_loaded)
-
+        TaxonomyField.create(
+            self,
+            name,
+            term_set_id,
+            term_store_id,
+            allow_multiple_values,
+            return_type=return_type,
+        )
         return return_type
 
-    def create_field_as_xml(self, schema_xml: str, return_type: Optional[T] = None) -> T:
+    def create_field_as_xml(self, schema_xml: str, return_type: Union[type[T], T] = Field) -> T:
         """Creates a field based on the values defined in the parameters input parameter.
 
         Args:
             schema_xml (str): Specifies the schema that defines the field
-            return_type (Field or None): Return type
+            return_type (type or Field): The concrete field class to create, or a
+              ready field instance to bind the query to (deferred/async creation).
         """
-        if return_type is None:
-            return_type = cast(T, Field(self.context))
-        self.add_child(return_type)
+        field = self._new_field(return_type)
+        self.add_child(field)
         payload = {"parameters": XmlSchemaFieldCreationInformation(schema_xml)}
-        qry = ServiceOperationQuery(self, "CreateFieldAsXml", None, payload, None, return_type)
+        qry = ServiceOperationQuery(self, "CreateFieldAsXml", None, payload, None, field)
         self.context.add_query(qry)
-        return return_type
+        return field
 
-    def get_by_id(self, id_: str) -> Field:
+    def get_by_id(self, id_: str, field_type: type[T] = Field) -> T:
         """Gets the fields with the specified ID.
 
         Args:
             id_ (str): The field identifier.
+            field_type (type): The concrete field class the column holds (e.g.
+              ``FieldDateTime``); defaults to ``Field``.
         """
-        return Field(self.context, ServiceOperationPath("getById", [id_], self.resource_path))
+        return field_type(self.context, ServiceOperationPath("getById", [id_], self.resource_path))
 
-    def get_by_internal_name_or_title(self, value: str) -> Field:
+    def get_by_internal_name_or_title(self, value: str, field_type: type[T] = Field) -> T:
         """Returns the first field in the collection based on the internal name or the title specified
         by the parameter.
 
         Args:
             value (str): The title or internal name to look up the field (2) by.
+            field_type (type): The concrete field class the column holds (e.g.
+              ``FieldDateTime``); defaults to ``Field``.
         """
-        return Field(
+        return field_type(
             self.context,
             ServiceOperationPath("getByInternalNameOrTitle", [value], self.resource_path),
         )
 
-    def get_by_title(self, title: str) -> Field:
+    def get_by_title(self, title: str, field_type: type[T] = Field) -> T:
         """Returns the first fields object in the collection based on the title of the specified fields.
 
         Args:
             title (str): The title to look up the field by
+            field_type (type): The concrete field class the column holds (e.g.
+              ``FieldDateTime``); defaults to ``Field``.
         """
-        return Field(
+        return field_type(
             self.context,
             ServiceOperationPath("getByTitle", [title], self.resource_path),
         )

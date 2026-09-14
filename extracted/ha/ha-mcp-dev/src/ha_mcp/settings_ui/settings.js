@@ -2546,6 +2546,8 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
     );
     const row = document.createElement('div');
     row.className = 'feature-row ' + cssClass + (lockedByGate ? ' dimmed' : '');
+    const multiline = f.field === 'extra_yaml_write_keys';
+    if (multiline) row.classList.add('yaml-keys-editor');
 
     const info = document.createElement('div');
     info.className = 'feature-info';
@@ -2589,7 +2591,11 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
     control.className = 'feature-control';
     const disabled = !f.editable || lockedByGate;
     let inputEl;
-    if (f.type === 'int' || f.type === 'float') {
+    if (multiline) {
+      inputEl = document.createElement('textarea');
+      inputEl.rows = 4;
+      inputEl.value = String(f.value ?? '').split(',').map(s => s.trim()).filter(Boolean).join('\n');
+    } else if (f.type === 'int' || f.type === 'float') {
       inputEl = document.createElement('input');
       inputEl.type = 'number';
       inputEl.value = f.value;
@@ -2609,6 +2615,7 @@ function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
       let v;
       if (f.type === 'int') v = parseInt(inputEl.value, 10);
       else if (f.type === 'float') v = parseFloat(inputEl.value);
+      else if (multiline) v = inputEl.value.split(/[,\r\n]+/).map(s => s.trim()).filter(Boolean).join(',');
       else v = inputEl.value;
       commitAdvancedEdit(f.field, v);
     });
@@ -3981,14 +3988,14 @@ const ADVANCED_FIELD_META = {
   environment:         { label: "Environment",                 help: "'development' or 'production'. Affects logging verbosity. Restart required." },
   log_level:           { label: "Log level",                   help: "DEBUG/INFO/WARNING/ERROR/CRITICAL. Set once at startup; restart required." },
   debug:               { label: "Debug mode",                  help: "Verbose request logging. Logs sensitive data; do not enable in production. Restart required." },
-  http_transport_diagnostics: { label: "HTTP transport diagnostics", help: "Experimental. Log MCP HTTP byte counts, timing and completion at INFO level, without payloads or credentials. Does not confirm client receipt. HTTP only; restart required." },
+  http_transport_diagnostics: { label: "HTTP transport diagnostics", help: "Experimental. Automatically enable INFO logging for HTTP diagnostics while the server runs, without payloads or credentials. Other loggers are unchanged; explicit Home Assistant logger overrides and filters still apply. Does not confirm client receipt. HTTP only; restart required." },
   http_json_response: { label: "JSON responses instead of streaming", help: "Experimental. Return a single JSON response instead of an SSE stream. Affects all HTTP clients on this server and disables streamed progress for these responses. HTTP only; restart required." },
   code_mode_max_duration:    { label: "Code-mode max duration (s)",   help: "Wall-clock budget per sandbox run. Range 1–300. Restart required." },
   code_mode_max_memory:      { label: "Code-mode max memory (bytes)", help: "RSS cap per sandbox run. Range 1 MB–256 MB. Restart required." },
   code_mode_max_recursion:   { label: "Code-mode max recursion",      help: "Recursion-depth cap per sandbox run. Restart required." },
   code_mode_max_invocations: { label: "Code-mode max invocations",    help: "API/tool-call cap per sandbox run. Restart required." },
   code_mode_saved_tools_path:{ label: "Saved-tools path",              help: "JSON file where ha_manage_custom_tool persists saved tools across restarts. Restart required." },
-  extra_yaml_write_keys:     { label: "Extra YAML write keys",        help: "Comma-separated top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Keys that redefine Home Assistant's own trust boundary can never be added and are ignored. Requires custom component 1.2.4 or newer." },
+  extra_yaml_write_keys:     { label: "Extra YAML write keys",        help: "Extra top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Enter one key per line or separate keys with commas. Keys that redefine Home Assistant's own trust boundary can never be added and are ignored. Requires custom component 1.2.4 or newer." },
   sidecar_pin_port:    { label: "Settings UI sidecar port",    help: "0 picks a free port on first start and keeps it for later restarts; 1024–65535 pins a preferred port (falls back to a free one if taken). Restart required." },
   enable_dev_mode:     { label: "Developer mode",               help: "⚠ DANGER: registers hidden developer tools (ha_dev_manage_server, ha_dev_manage_settings) that let AI agents change server settings and replace the running server version (e.g. install a PR build). For development and testing only. Restart required." },
   dev_tools_security_policy_access: { label: "Dev tools security policy access", help: "⚠ DANGER: while developer mode is on, lets the developer tools rewrite tool security policies, add or remove per-tool approval gates, and approve or deny pending approvals on your behalf — an AI agent can accept its own gated calls. For policy testing only. Takes effect without a restart." },

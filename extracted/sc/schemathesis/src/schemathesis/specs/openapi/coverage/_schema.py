@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from contextlib import ExitStack, contextmanager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
 from functools import partial
@@ -1659,7 +1659,7 @@ def _open_branch(ctx: CoverageContext, branch: JsonSchema, siblings: list) -> tu
 
 
 def _positive_for_leaves(
-    ctx: CoverageContext, schema: JsonSchemaObject, leaves: list[_Leaf]
+    ctx: CoverageContext, schema: JsonSchemaObject, leaves: list[_Leaf], allow_negative_fallback: bool
 ) -> Generator[GeneratedValue, None, None]:
     one_of = schema.get("oneOf")
     exclusivity = None
@@ -1674,14 +1674,28 @@ def _positive_for_leaves(
             else:
                 # No single flat spelling (two `pattern`s, two `format`s): one conforming value rather than none.
                 values = _drawn_positive(ctx, leaf.conjunction)
+            fallback = None
+            yielded = False
             for value in values:
                 if (
                     exclusivity is not None
                     and leaf.one_of is not None
                     and _matches_another_branch(value.value, leaf.one_of, exclusivity)
                 ):
+                    if fallback is None:
+                        fallback = value
                     continue
+                yielded = True
                 yield value
+            if not yielded and fallback is not None and allow_negative_fallback:
+                # Every value this branch could draw also satisfies a sibling branch, so it can never
+                # win `oneOf` exclusivity — the whole body is invalid, but the branch's own keywords
+                # (e.g. a property's `type`) still deserve to be exercised, so emit it as a negative case.
+                yield replace(
+                    fallback,
+                    generation_mode=GenerationMode.NEGATIVE,
+                    description=f"{fallback.description} (ambiguous with a sibling `oneOf` branch)",
+                )
 
 
 def _matches_another_branch(value: Any, index: int, branches: list[list[jsonschema_rs.Validator]]) -> bool:
@@ -2315,8 +2329,11 @@ def cover_schema_iter(
         types = [types]  # type: ignore[unreachable]
     leaves = _fold(schema, ctx) if GenerationMode.POSITIVE in ctx.generation_modes else None
     if leaves is not None:
+        allow_negative_fallback = GenerationMode.NEGATIVE in ctx.generation_modes
         with _ignore_unfixable():
-            yield from _filter_against_not(_positive_for_leaves(ctx.with_positive(), schema, leaves), schema, ctx)
+            yield from _filter_against_not(
+                _positive_for_leaves(ctx.with_positive(), schema, leaves, allow_negative_fallback), schema, ctx
+            )
     elif not types:
         with _ignore_unfixable():
             yield from _filter_against_not(_cover_positive_for_type(ctx, schema, None), schema, ctx)
@@ -2336,6 +2353,8 @@ def cover_schema_iter(
                 handler = _NEGATIVE_HANDLERS.get(key)
                 if handler is not None:
                     yield from handler(ctx, schema, value, seen)
+                    if key == "items" and types and "array" not in types and _implies_array_type(schema):
+                        yield from _negative_array_for_conflicting_type(ctx, schema)
                 elif key == "properties":
                     template = yield from _ensure_object_template_with_baseline(ctx, schema, template)
                     yield from _negative_properties(ctx, template, value)
@@ -2532,7 +2551,7 @@ def _filter_against_not(
         yield from cases
         return
     for case in cases:
-        if _is_valid_with_formats(case.value, schema, ctx):
+        if case.generation_mode == GenerationMode.NEGATIVE or _is_valid_with_formats(case.value, schema, ctx):
             yield case
 
 
@@ -3293,15 +3312,18 @@ def _iter_positive_object(
     # (Valid object, subset-of-optional, only-required) collapse to the same value.
     outer_seen = HashSet()
 
+    hint_accepted = False
     if example is not NOT_SET or examples or default is not NOT_SET:
         if example is not NOT_SET:
             accepted = _accept_object_hint(example, schema, ctx)
             if accepted is not NOT_SET:
+                hint_accepted = True
                 yield PositiveValue(accepted, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
         if examples:
             for example in examples:
                 accepted = _accept_object_hint(example, schema, ctx)
                 if accepted is not NOT_SET:
+                    hint_accepted = True
                     yield PositiveValue(accepted, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
         if (
             default is not NOT_SET
@@ -3310,8 +3332,10 @@ def _iter_positive_object(
         ):
             accepted = _accept_object_hint(default, schema, ctx)
             if accepted is not NOT_SET:
+                hint_accepted = True
                 yield PositiveValue(accepted, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
-    elif template_complete and (template or not ctx.wire.required_form_body()):
+    # Rejected annotations must not suppress the generated baseline.
+    if not hint_accepted and template_complete and (template or not ctx.wire.required_form_body()):
         outer_seen.insert(template)
         yield PositiveValue(template, scenario=CoverageScenario.VALID_OBJECT, description="Valid object")
 
@@ -3549,6 +3573,24 @@ def _negative_pattern_properties(
                     description=f"Object with invalid pattern key '{key}' ('{pattern}') value: {value.description}",
                     location=nctx.current_path,
                 )
+
+
+def _negative_array_for_conflicting_type(
+    ctx: CoverageContext, schema: JsonSchemaObject
+) -> Generator[GeneratedValue, None, None]:
+    # A declared `type` other than "array" paired with `items` (a schema inconsistency) makes every
+    # array value invalid overall, but `items`' own sub-schema should still see a valid draw.
+    # Forcing `type: array` keeps an `example`/`default` describing the declared (non-array) type
+    # from validating as a positive array value and leaking through unchanged below.
+    array_schema = {**schema, "type": "array"}
+    for value in _cover_positive_for_type(ctx.with_positive(), array_schema, "array"):
+        if value.generation_mode == GenerationMode.POSITIVE:
+            yield NegativeValue(
+                value.value,
+                scenario=CoverageScenario.INCORRECT_TYPE,
+                description="Array value for a schema whose declared type forbids arrays",
+                location=ctx.current_path,
+            )
 
 
 def _negative_items(
@@ -3960,7 +4002,12 @@ def _negative_type(
                         location=ctx.current_path,
                     )
             return
-    strategies = {ty: strategy for ty, strategy in STRATEGIES_FOR_TYPE.items() if ty not in types}
+    nullable = schema.get("nullable") is True
+    strategies = {
+        ty: strategy
+        for ty, strategy in STRATEGIES_FOR_TYPE.items()
+        if ty not in types and not (nullable and ty == "null")
+    }
     if "string" in strategies:
         strategies["string"] = NEGATIVE_STRING_STRATEGY
     # Rules kept per type, so a probe can be held to the same ones without drawing.

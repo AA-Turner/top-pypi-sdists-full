@@ -798,12 +798,93 @@ async def test_shell_python_nonzero_exit_is_expected_tool_feedback(
     )
 
 
-def test_cloud_browser_run_state_conflict_is_expected_tool_feedback() -> None:
-    assert _is_expected_domain_failure(
-        tool_name="cloud_browser",
-        error_type="run_state_conflict",
-    )
+@pytest.mark.parametrize(
+    "error_type",
+    ["run_state_conflict", "worker_shutting_down", "unknown_page"],
+)
+def test_cloud_browser_lifecycle_terminal_outcomes_are_expected_tool_feedback(
+    error_type: str,
+) -> None:
+    """A stale browser session is actionable feedback, not an executor incident."""
+    assert _is_expected_domain_failure(tool_name="cloud_browser", error_type=error_type)
     assert not _is_expected_domain_failure(
         tool_name="cloud_browser",
         error_type="worker_unreachable",
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", ["worker_shutting_down", "unknown_page"])
+async def test_cloud_browser_terminal_lifecycle_outcomes_do_not_capture_or_scream(
+    monkeypatch: pytest.MonkeyPatch, error_type: str
+) -> None:
+    """The real executor must preserve the typed result without an ERROR capture."""
+    from matrx_connect import AppContext
+    from matrx_connect.context.app_context import clear_app_context, set_app_context
+
+    from matrx_ai.tools.executor import ToolExecutor
+    from matrx_ai.tools.guardrails import GuardrailEngine
+    from matrx_ai.tools.lifecycle import ToolLifecycleManager
+    from matrx_ai.tools.logger import ToolExecutionLogger
+    from matrx_ai.tools.models import ToolContext, ToolError, ToolResult, ToolType
+    from matrx_ai.tools.registry import ToolRegistry
+    captures: list[dict[str, object]] = []
+    terminal_output: list[dict[str, object]] = []
+
+    async def capture_error(_exc: BaseException, **kwargs: object) -> None:
+        captures.append(kwargs)
+
+    def capture_terminal(_value: object, **kwargs: object) -> None:
+        terminal_output.append(kwargs)
+
+    async def lifecycle_result(_args: dict[str, object], ctx: ToolContext) -> ToolResult:
+        return ToolResult(
+            success=False,
+            error=ToolError(error_type=error_type, message="session is terminal"),
+            tool_name="cloud_browser",
+            call_id=ctx.call_id,
+        )
+
+    monkeypatch.setattr(
+        "matrx_connect.streaming.error_capture.capture_error", capture_error
+    )
+    monkeypatch.setattr("matrx_ai.tools.executor.vcprint", capture_terminal)
+
+    registry = ToolRegistry.get_instance()
+    saved_tools = dict(registry._tools)
+    definition = ToolDefinition(
+        name="cloud_browser",
+        description="Cloud Browser lifecycle fixture",
+        parameters={},
+        tool_type=ToolType.LOCAL,
+        source_kind="native",
+    )
+    definition._callable = lifecycle_result
+    registry._tools["cloud_browser"] = definition
+    app_context = AppContext(
+        emitter=None,
+        metadata={},
+        is_authenticated=True,
+        store=False,
+        request_id="request-lifecycle-proof",
+        conversation_id="conversation-lifecycle-proof",
+        user_id="user-lifecycle-proof",
+    )
+    token = set_app_context(app_context)
+    try:
+        _content, result = await ToolExecutor(
+            registry=registry,
+            guardrails=GuardrailEngine(),
+            execution_logger=ToolExecutionLogger(),
+            lifecycle=ToolLifecycleManager.get_instance(),
+        ).execute(
+            "cloud_browser", {}, ToolContext(call_id="lifecycle-proof", tool_name="cloud_browser")
+        )
+    finally:
+        clear_app_context(token)
+        registry._tools = saved_tools
+
+    assert result.success is False
+    assert result.error is not None and result.error.error_type == error_type
+    assert captures == []
+    assert terminal_output[-1]["color"] == "yellow"

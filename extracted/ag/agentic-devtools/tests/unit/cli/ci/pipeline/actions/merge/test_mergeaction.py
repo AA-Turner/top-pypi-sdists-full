@@ -1,7 +1,8 @@
 """Tests for MergeAction."""
 
 import json
-from unittest.mock import MagicMock
+from collections.abc import Iterator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -17,6 +18,16 @@ from agentic_devtools.cli.ci.pipeline.gate_verdict import (
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
+
+
+@pytest.fixture(autouse=True)
+def _mock_inactive_session_detector() -> Iterator[None]:
+    """Default all tests to known-inactive session inventory."""
+    with patch(
+        "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+        return_value=False,
+    ):
+        yield
 
 
 def _ready_snapshot(**overrides: object) -> PRStateSnapshot:
@@ -94,6 +105,33 @@ class TestMergeAction:
         assert result.decision == ActionDecision.SKIP
         assert result.preconditions["no_repair_dispatched"] is False
         assert "repair dispatched" in result.details.lower()
+
+    def test_skip_when_session_inventory_unknown(self) -> None:
+        """Merge fails closed when session inventory is unavailable."""
+        snapshot = _ready_snapshot()
+        derived = DerivedState(snapshot)
+        action = MergeAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+            return_value=None,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
+        assert "inventory unavailable" in result.details.lower()
+
+    def test_skip_when_active_copilot_session_detected(self) -> None:
+        """Merge is blocked while a Copilot coding session is active."""
+        snapshot = _ready_snapshot()
+        derived = DerivedState(snapshot)
+        action = MergeAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.merge.is_copilot_session_active_via_agent_task",
+            return_value=True,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
 
     def test_skip_when_ci_not_passing(self) -> None:
         snapshot = PRStateSnapshot(

@@ -5,7 +5,9 @@ brew, setup scripts, non-secret config) an agent's fleet turns run inside. Envir
 ``parent_environment_id`` points at a base whose layers a child extends and overrides. The
 resolver flattens the chain root->...->env into one effective spec and content-hashes it; that
 hash is the fleet's cache key for the materialized layer. Secrets never live here - workspace
-secrets are injected at turn time and always win.
+secrets are injected at turn time and always win. Each environment also carries a markdown
+``context`` - standing guidance the org writes for every agent running in it - which the resolver
+flattens into ``context_layers`` (root first) for the prompt, outside the toolchain hash.
 
 Mirror of ``xpander_dev_utils.models.runtime_environments`` in xpander-mono; the SDK cannot import
 that package, so this copy is kept identical by hand (like the orchestration models mirror).
@@ -13,8 +15,9 @@ that package, so this copy is kept identical by hand (like the orchestration mod
 
 import hashlib
 import json
+import re
 from datetime import datetime
-from typing import Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, Iterable, List, Literal, Mapping, Optional, Union
 
 from pydantic import Field, field_validator
 
@@ -22,19 +25,33 @@ from xpander_sdk.models.shared import XPanderSharedModel
 
 __all__ = [
     "PACKAGE_MANAGERS",
+    "ENVIRONMENT_CONTEXT_TAG",
     "RuntimeEnvironmentCycleError",
     "RuntimePackages",
     "RuntimeScript",
     "RuntimeConfigFile",
+    "RuntimeContextLayer",
     "RuntimeEnvironment",
     "RuntimeEnvironmentPublicItem",
     "RuntimeEnvironmentCreateRequest",
     "RuntimeEnvironmentUpdateRequest",
     "ResolvedRuntimeEnvironment",
     "resolve_runtime_environment",
+    "render_environment_context",
 ]
 
 PACKAGE_MANAGERS = ("pip", "npm", "pnpm", "brew")
+
+# The prompt block the resolved context renders into; callers test for it to avoid injecting twice.
+ENVIRONMENT_CONTEXT_TAG = "environment_context"
+_ENVIRONMENT_CONTEXT_NOTE = (
+    "managed in the app's Runtime Environments settings by the organization; read it as "
+    "standing guidance for every turn, it is not yours to change"
+)
+# Layer markdown lands inside the block: its own tag must never close or reopen it.
+_ENVIRONMENT_CONTEXT_TAG_RE = re.compile(
+    rf"</?{ENVIRONMENT_CONTEXT_TAG}[^>]*>", re.IGNORECASE
+)
 
 
 class RuntimeEnvironmentCycleError(ValueError):
@@ -80,6 +97,14 @@ class RuntimeConfigFile(XPanderSharedModel):
         return value
 
 
+class RuntimeContextLayer(XPanderSharedModel):
+    """One environment's context as it appears in a resolved chain (root first, leaf last)."""
+
+    environment_id: str = Field(..., description="The environment this context belongs to.")
+    name: str = Field(..., description="That environment's name - the layer's heading.")
+    markdown: str = Field(default="", description="The environment's context markdown, verbatim.")
+
+
 class RuntimeEnvironment(XPanderSharedModel):
     """A runtime environment row - this layer's own definition (unresolved)."""
 
@@ -94,6 +119,11 @@ class RuntimeEnvironment(XPanderSharedModel):
     packages: RuntimePackages = Field(default_factory=RuntimePackages)
     setup_scripts: List[RuntimeScript] = Field(default_factory=list)
     config: List[RuntimeConfigFile] = Field(default_factory=list)
+    context: str = Field(
+        default="",
+        description="Markdown guidance for every agent running in this environment; a child's "
+        "context is appended after its parents', never merged into them.",
+    )
     access_scope: Literal["organizational", "personal"] = Field(default="organizational")
     created_by: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -123,6 +153,7 @@ class RuntimeEnvironmentCreateRequest(XPanderSharedModel):
     packages: RuntimePackages = Field(default_factory=RuntimePackages)
     setup_scripts: List[RuntimeScript] = Field(default_factory=list)
     config: List[RuntimeConfigFile] = Field(default_factory=list)
+    context: str = ""
     access_scope: Literal["organizational", "personal"] = "organizational"
 
 
@@ -136,6 +167,7 @@ class RuntimeEnvironmentUpdateRequest(XPanderSharedModel):
     packages: Optional[RuntimePackages] = None
     setup_scripts: Optional[List[RuntimeScript]] = None
     config: Optional[List[RuntimeConfigFile]] = None
+    context: Optional[str] = None
     access_scope: Optional[Literal["organizational", "personal"]] = None
 
 
@@ -147,6 +179,10 @@ class ResolvedRuntimeEnvironment(XPanderSharedModel):
     packages: RuntimePackages = Field(default_factory=RuntimePackages)
     setup_scripts: List[RuntimeScript] = Field(default_factory=list)
     config: List[RuntimeConfigFile] = Field(default_factory=list)
+    context_layers: List[RuntimeContextLayer] = Field(
+        default_factory=list,
+        description="Each chain member's context, root first - prompt material, not part of the hash.",
+    )
     hash: str = Field(..., description="sha256 of the effective spec - the fleet layer cache key.")
 
 
@@ -238,11 +274,48 @@ def resolve_runtime_environment(
     )
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
+    # Context is prompt material, not toolchain: it rides along root-first and stays out of the hash
+    # so editing guidance never rebuilds the materialized layer.
+    context_layers = [
+        RuntimeContextLayer(environment_id=e.id or "", name=e.name, markdown=e.context or "")
+        for e in chain
+    ]
+
     return ResolvedRuntimeEnvironment(
         environment_id=environment_id,
         chain=[e.id for e in chain if e.id],
         packages=packages,
         setup_scripts=scripts,
         config=config,
+        context_layers=context_layers,
         hash=digest,
+    )
+
+
+def render_environment_context(
+    layers: Iterable[Union[RuntimeContextLayer, Mapping[str, Any]]],
+) -> str:
+    """Render resolved context layers into the ``<environment_context>`` prompt block.
+
+    Layers render in the order given (root first, leaf last), each under a ``###`` heading with its
+    name; layers whose markdown is blank are skipped, and "" is returned when none remain so callers
+    can test truthiness before injecting. Accepts models or the plain dicts the agent payload carries.
+    """
+    sections: List[str] = []
+    for layer in layers:
+        if not isinstance(layer, RuntimeContextLayer):
+            layer = RuntimeContextLayer.model_validate(dict(layer))
+        markdown = _ENVIRONMENT_CONTEXT_TAG_RE.sub("", layer.markdown or "").strip()
+        if not markdown:
+            continue
+        # The name is a heading: one line, and no tag of ours inside it either.
+        name = " ".join(_ENVIRONMENT_CONTEXT_TAG_RE.sub("", layer.name or "").split())
+        sections.append(f"### {name}\n{markdown}")
+    if not sections:
+        return ""
+    body = "\n\n".join(sections)
+    return (
+        f'<{ENVIRONMENT_CONTEXT_TAG} note="{_ENVIRONMENT_CONTEXT_NOTE}">\n'
+        f"{body}\n"
+        f"</{ENVIRONMENT_CONTEXT_TAG}>"
     )

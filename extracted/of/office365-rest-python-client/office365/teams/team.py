@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
 from typing_extensions import Self
@@ -23,8 +23,7 @@ from office365.teams.guest_settings import TeamGuestSettings
 from office365.teams.members.conversation_collection import ConversationMemberCollection
 from office365.teams.members.settings import TeamMemberSettings
 from office365.teams.messaging_settings import TeamMessagingSettings
-from office365.teams.operations.async_operation import TeamsAsyncOperation
-from office365.teams.operations.async_status import TeamsAsyncOperationStatus
+from office365.teams.operations.async_operation import TeamsAsyncOperation, wait_for_operation
 from office365.teams.schedule.schedule import Schedule
 from office365.teams.specialization import TeamSpecialization
 from office365.teams.summary import TeamSummary
@@ -41,24 +40,9 @@ class Team(Entity):
 
     def __init__(self, context, resource_path=None):
         super().__init__(context, resource_path)
-        self._pending_operation: TeamsAsyncOperation | None = None
 
     def __str__(self):
         return self.display_name or self.entity_type_name
-
-    def execute_query_and_wait(self) -> Self:
-        """
-        Submit request(s) to the server and waits until operation is completed
-        """
-
-        def _loaded():
-            if self._pending_operation is None:
-                raise RuntimeError("No pending async operation to wait for. Call clone() or create() first.")
-            self._pending_operation.poll_for_status(status_type=TeamsAsyncOperationStatus.succeeded)
-
-        self.ensure_property("id").after_execute(lambda _: _loaded())
-        self.execute_query()
-        return self
 
     def delete_object(self, permanent_delete=False):
         """Deletes a team"""
@@ -96,26 +80,26 @@ class Team(Entity):
         return self.properties.get("guestSettings", TeamMessagingSettings())
 
     @property
-    def display_name(self) -> Optional[str]:
+    def display_name(self) -> str | None:
         """The name of the team."""
-        return self.properties.get("displayName", None)
+        return self.properties.get("displayName")
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """An optional description for the team."""
-        return self.properties.get("description", None)
+        return self.properties.get("description")
 
     @property
-    def classification(self) -> Optional[str]:
+    def classification(self) -> str | None:
         """An optional label. Typically describes the data or business sensitivity of the team.
         Must match one of a pre-configured set in the tenant's directory.
         """
-        return self.properties.get("classification", None)
+        return self.properties.get("classification")
 
     @property
-    def is_archived(self) -> Optional[bool]:
+    def is_archived(self) -> bool | None:
         """Whether this team is in read-only mode."""
-        return self.properties.get("isArchived", None)
+        return self.properties.get("isArchived")
 
     @property
     def visibility(self) -> TeamVisibilityType:
@@ -123,17 +107,17 @@ class Team(Entity):
         return self.properties.get("visibility", TeamVisibilityType.unknown)
 
     @property
-    def web_url(self) -> Optional[str]:
+    def web_url(self) -> str | None:
         """A hyperlink that will go to the team in the Microsoft Teams client. This is the URL that you get when
         you right-click a team in the Microsoft Teams client and select Get link to team. This URL should be treated
         as an opaque blob, and not parsed."""
-        return self.properties.get("webUrl", None)
+        return self.properties.get("webUrl")
 
     @odata(name="createdDateTime")
     @property
     def created_datetime(self):
         """Timestamp at which the team was created."""
-        return self.properties.get("createdDateTime", None)
+        return self.properties.get("createdDateTime")
 
     @odata(name="allChannels")
     @property
@@ -214,9 +198,9 @@ class Team(Entity):
         return self.properties.get("summary", TeamSummary())
 
     @property
-    def tenant_id(self) -> Optional[str]:
+    def tenant_id(self) -> str | None:
         """The ID of the Azure Active Directory tenant."""
-        return self.properties.get("tenantId", None)
+        return self.properties.get("tenantId")
 
     @property
     def tags(self) -> EntityCollection[TeamworkTag]:
@@ -237,14 +221,14 @@ class Team(Entity):
         return self.properties.get("createdDateTime", datetime.min)
 
     @property
-    def first_channel_name(self) -> Optional[str]:
+    def first_channel_name(self) -> str | None:
         """Gets the firstChannelName property"""
-        return self.properties.get("firstChannelName", None)
+        return self.properties.get("firstChannelName")
 
     @property
-    def internal_id(self) -> Optional[str]:
+    def internal_id(self) -> str | None:
         """Gets the internalId property"""
-        return self.properties.get("internalId", None)
+        return self.properties.get("internalId")
 
     @property
     def specialization(self) -> TeamSpecialization:
@@ -287,17 +271,30 @@ class Team(Entity):
         visibility: TeamVisibilityType,
         description: str | None = None,
         classification: str | None = None,
-    ) -> Self:
-        """Create a copy of a team. This operation also creates a copy of the corresponding group.
+    ) -> TeamsAsyncOperation:
+        """Create a copy of a team (async) — returns the ``teamsAsyncOperation``.
+
+        The operation is submitted on ``execute_query()`` (HTTP 202). Poll the
+        returned operation (:meth:`TeamsAsyncOperation.poll_for_status`) to wait
+        for provisioning; ``target_resource_id`` then holds the cloned team id.
+        Use :meth:`clone_and_wait` for the convenience path that returns the
+        ready cloned team.
 
         Args:
+            mail_nickname: The mail nickname for the cloned team.
             display_name: The display name for the cloned team.
             parts_to_clone: The parts of the team to clone.
             visibility: The visibility of the cloned team.
             description: The description for the cloned team.
-            mail_nickname: The mail nickname for the cloned team.
             classification: The classification for the cloned team.
         """
+        return_type = TeamsAsyncOperation(self.context)
+
+        def _process_response(resp: requests.Response) -> None:
+            loc = resp.headers.get("Location")
+            if loc is not None:
+                return_type._resource_path = ODataPathBuilder.parse_url(loc)
+
         payload = {
             "displayName": display_name,
             "partsToClone": parts_to_clone.name,
@@ -310,17 +307,62 @@ class Team(Entity):
         if classification is not None:
             payload["classification"] = classification
         qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
+        self.context.add_query(qry).after_execute(_process_response, include_response=True)
+        return return_type
+
+    def clone_and_wait(
+        self,
+        mail_nickname: str,
+        display_name: str,
+        parts_to_clone: ClonableTeamParts,
+        visibility: TeamVisibilityType,
+        description: str | None = None,
+        classification: str | None = None,
+    ) -> Team:
+        """Clone a team and wait for provisioning (deferred).
+
+        Chains the async clone, the ``teamsAsyncOperation`` poll, and a full
+        ``GET`` of the cloned team through ``after_execute`` hooks — one
+        ``execute_query()`` returns the provisioned cloned :class:`Team` with its
+        properties loaded.
+
+        Args:
+            mail_nickname: The mail nickname for the cloned team.
+            display_name: The display name for the cloned team.
+            parts_to_clone: The parts of the team to clone.
+            visibility: The visibility of the cloned team.
+            description: The description for the cloned team.
+            classification: The classification for the cloned team.
+        """
+        return_type = Team(self.context)
+        self.context.teams.add_child(return_type)
 
         def _process_response(resp: requests.Response) -> None:
-            loc = resp.headers.get("Location", None)
-            if loc is not None:
-                operation_path = ODataPathBuilder.parse_url(loc)
-                operation = TeamsAsyncOperation(self.context, operation_path)
-                self.operations.add_child(operation)
-                self._pending_operation = operation
+            loc = resp.headers.get("Location")
+            assert loc is not None
+            operation = TeamsAsyncOperation(self.context, ODataPathBuilder.parse_url(loc))
 
+            def _on_succeeded(op: TeamsAsyncOperation) -> None:
+                if op.target_resource_id:
+                    return_type.set_property("id", op.target_resource_id, False)
+                return_type.get()  # queue a full GET to load the cloned team's properties
+
+            wait_for_operation(operation, success_callback=_on_succeeded)
+
+        payload = {
+            "displayName": display_name,
+            "partsToClone": parts_to_clone.name,
+            "visibility": visibility.name,
+        }
+        if description is not None:
+            payload["description"] = description
+        if mail_nickname is not None:
+            payload["mailNickname"] = mail_nickname
+        if classification is not None:
+            payload["classification"] = classification
+        qry = ServiceOperationQuery(self, "clone", None, payload, None, None)
         self.context.add_query(qry).after_execute(_process_response, include_response=True)
-        return self
+        return return_type
 
     def send_activity_notification(
         self,
@@ -328,7 +370,7 @@ class Team(Entity):
         activity_type: str,
         chain_id: str,
         preview_text: str,
-        template_parameters: Dict[str, Any],
+        template_parameters: dict[str, Any],
         recipient: TeamworkNotificationRecipient,
     ):
         """Send an activity feed notification in the scope of a team.

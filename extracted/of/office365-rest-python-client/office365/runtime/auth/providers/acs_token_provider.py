@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import threading
 from typing import Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -9,7 +11,6 @@ from office365.runtime.auth.authentication_provider import AuthenticationProvide
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.token_response import TokenResponse
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.utilities import urlparse
 
 
 class ACSTokenProvider(AuthenticationProvider):
@@ -36,11 +37,14 @@ class ACSTokenProvider(AuthenticationProvider):
         self._credential = credential
         self._cached_token: Optional[TokenResponse] = None
         self._environment = environment
+        self._lock = threading.Lock()
 
     def authenticate_request(self, request: RequestOptions) -> None:
         """Authenticate the request with an access token."""
         if self._cached_token is None:
-            self._cached_token = self.get_app_only_access_token()
+            with self._lock:
+                if self._cached_token is None:
+                    self._cached_token = self.get_app_only_access_token()
         request.set_header("Authorization", self._cached_token.authorization_header)
 
     def get_app_only_access_token(self) -> TokenResponse:

@@ -60,8 +60,9 @@ def test_two_vector():
     assert_awkward_allclose(a.dot(b), ak.Array([[86, 120], [], [158], [200]]))
     assert_awkward_allclose(b.dot(a), ak.Array([[86, 120], [], [158], [200]]))
 
-    assert ak.all(abs(a.unit.r - 1) < ATOL)
-    assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
+    assert isinstance(a.unit(), vector.TwoVector)
+    assert ak.all(abs(a.unit().r - 1) < ATOL)
+    assert ak.all(abs(a.unit().phi - a.phi) < ATOL)
 
 
 def test_polar_two_vector():
@@ -97,7 +98,8 @@ def test_polar_two_vector():
     assert ak.all(abs((-a).y + a.y) < ATOL)
     assert_record_arrays_equal(a * (-1), -a)
 
-    assert ak.all(ak.isclose(a.unit.phi, a.phi))
+    assert ak.all(ak.isclose(a.unit().rho, 1))
+    assert ak.all(ak.isclose(a.unit().phi, a.phi))
 
 
 def test_three_vector():
@@ -207,8 +209,21 @@ def test_three_vector():
         ),
     )
 
-    assert ak.all(abs(a.unit.rho - 1) < ATOL)
-    assert ak.all(abs(a.unit.phi - a.phi) < ATOL)
+    assert isinstance(a.unit(), vector.ThreeVector)
+    assert ak.all(abs(a.unit().p - 1) < ATOL)
+    assert ak.all(abs(a.unit().theta - a.theta) < ATOL)
+    assert ak.all(abs(a.unit().phi - a.phi) < ATOL)
+
+    # (3, 4, 12) has rho=5 and p=13; unit() normalizes by the 3D magnitude p.
+    c = ak.zip(
+        {"x": [3.0], "y": [4.0], "z": [12.0]},
+        with_name="ThreeVector",
+        behavior=vector.behavior,
+    )
+    assert ak.all(abs(c.unit().p - 1) < ATOL)
+    assert ak.all(abs(c.unit().x - 3.0 / 13.0) < ATOL)
+    assert ak.all(abs(c.unit().y - 4.0 / 13.0) < ATOL)
+    assert ak.all(abs(c.unit().z - 12.0 / 13.0) < ATOL)
 
 
 def test_spherical_three_vector():
@@ -226,6 +241,10 @@ def test_spherical_three_vector():
     assert ak.all(abs((-a).y + a.y) < ATOL)
     assert ak.all(abs((-a).z + a.z) < ATOL)
     assert_record_arrays_equal(a * (-1), -a, check_type=True)
+
+    assert ak.all(abs(a.unit().p - 1) < ATOL)
+    assert ak.all(abs(a.unit().theta - a.theta) < ATOL)
+    assert ak.all(abs(a.unit().phi - a.phi) < ATOL)
 
 
 def test_lorentz_vector():
@@ -319,6 +338,11 @@ def test_lorentz_vector():
         ),
     )
 
+    assert isinstance(a.unit(), vector.LorentzVector)
+    assert ak.all(abs(a.unit().tau - 1) < ATOL)
+    assert ak.all(abs(a.unit().eta - a.eta) < ATOL)
+    assert ak.all(abs(a.unit().phi - a.phi) < ATOL)
+
     boosted = a.boost(-a.boostvec)
     assert ak.all(abs(boosted.x) < ATOL)
     assert ak.all(abs(boosted.y) < ATOL)
@@ -365,6 +389,9 @@ def test_pt_eta_phi_m_lorentz_vector():
         ),
     )
     assert_record_arrays_equal(a * (-1), -a, check_type=True)
+
+    assert ak.all(abs(a.unit().mass - 1) < ATOL)
+    assert ak.all(abs(a.unit().eta - a.eta) < ATOL)
 
     boosted = a.boost(-a.boostvec)
     assert ak.all(abs(boosted.x) < ATOL)
@@ -1132,3 +1159,309 @@ def test_awkward_validation():
             with_name="SecondaryVertex",
             behavior=nanoaod.behavior,
         )
+
+
+def test_candidate_addition_propagates_charge():
+    """Regression test for scikit-hep/coffea#1578.
+
+    ``Candidate + Candidate`` (and any same-class candidate sum) must keep the
+    ``charge`` field and sum charges. Before the fix, a module-level
+    ``copy_behaviors`` call pre-registered LorentzVector's charge-less ``add``
+    for ``(Candidate, Candidate)`` (via ``setdefault`` in ``mixin_class``),
+    silently dropping charge.
+    """
+    from coffea.nanoevents.methods import candidate
+
+    # ---- Candidate + Candidate ----
+    c1 = ak.zip(
+        {"x": [1.0], "y": [0.0], "z": [0.0], "t": [10.0], "charge": [1]},
+        with_name="Candidate",
+        behavior=candidate.behavior,
+    )
+    c2 = ak.zip(
+        {"x": [0.0], "y": [1.0], "z": [0.0], "t": [20.0], "charge": [-1]},
+        with_name="Candidate",
+        behavior=candidate.behavior,
+    )
+    csum = c1 + c2
+    assert "charge" in csum.fields
+    assert ak.to_list(csum.charge) == [0]
+    assert ak.to_list(csum.x) == [1.0]
+    assert ak.to_list(csum.t) == [30.0]
+
+    same_sign = c1 + c1
+    assert ak.to_list(same_sign.charge) == [2]
+
+    # ---- PtEtaPhiMCandidate + PtEtaPhiMCandidate ----
+    m1 = ak.zip(
+        {"pt": [10.0], "eta": [0.5], "phi": [0.1], "mass": [0.105], "charge": [1]},
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    m2 = ak.zip(
+        {"pt": [20.0], "eta": [-0.5], "phi": [0.2], "mass": [0.105], "charge": [-1]},
+        with_name="PtEtaPhiMCandidate",
+        behavior=candidate.behavior,
+    )
+    msum = m1 + m2
+    assert "charge" in msum.fields
+    assert ak.to_list(msum.charge) == [0]
+
+    # ---- PtEtaPhiECandidate + PtEtaPhiECandidate ----
+    e1 = ak.zip(
+        {"pt": [10.0], "eta": [0.5], "phi": [0.1], "energy": [10.6], "charge": [1]},
+        with_name="PtEtaPhiECandidate",
+        behavior=candidate.behavior,
+    )
+    e2 = ak.zip(
+        {"pt": [20.0], "eta": [-0.5], "phi": [0.2], "energy": [20.6], "charge": [-1]},
+        with_name="PtEtaPhiECandidate",
+        behavior=candidate.behavior,
+    )
+    esum = e1 + e2
+    assert "charge" in esum.fields
+    assert ak.to_list(esum.charge) == [0]
+
+
+def test_genvistau_addition_propagates_charge():
+    """Regression test for scikit-hep/coffea#1578 (GenVisTau asymmetry).
+
+    ``GenVisTau + GenVisTau`` dropped charge while ``GenVisTau + Muon`` kept it,
+    because GenVisTau's module-level ``copy_behaviors`` (from
+    PtEtaPhiMLorentzVector) ran before its ``@mixin_class`` decorator and
+    shadowed the inherited charge-propagating ``Candidate.add``.
+    """
+    from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+    NanoAODSchema.warn_missing_crossrefs = False
+    events = NanoEventsFactory.from_root(
+        {"tests/samples/nano_dy.root": "Events"},
+        schemaclass=NanoAODSchema,
+        mode="eager",
+    ).events()
+
+    gvt = events.GenVisTau
+    pairs = gvt[ak.num(gvt) >= 2]
+    assert len(pairs) > 0, "sample must contain events with >=2 GenVisTau"
+    gg = pairs[:, 0] + pairs[:, 1]
+    assert "charge" in gg.fields
+    assert ak.all(gg.charge == (pairs[:, 0].charge + pairs[:, 1].charge))
+
+    # Cross-class sum must still keep charge (never regressed).
+    mu = events.Muon
+    common = (ak.num(gvt) >= 1) & (ak.num(mu) >= 1)
+    gm = gvt[common][:, 0] + mu[common][:, 0]
+    assert "charge" in gm.fields
+
+
+@pytest.mark.parametrize(
+    "name,kin1,kin2",
+    [
+        (
+            "Candidate",
+            {"x": 1.0, "y": 2.0, "z": 3.0, "t": 10.0},
+            {"x": 0.5, "y": 1.0, "z": 1.5, "t": 4.0},
+        ),
+        (
+            "PtEtaPhiMCandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "mass": 1.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "mass": 0.5},
+        ),
+        (
+            "PtEtaPhiECandidate",
+            {"pt": 10.0, "eta": 0.5, "phi": 0.1, "energy": 20.0},
+            {"pt": 5.0, "eta": -0.2, "phi": 1.0, "energy": 8.0},
+        ),
+        ("Muon", None, None),
+    ],
+)
+def test_candidate_subtraction_demotes_to_lorentz_vector(name, kin1, kin2):
+    """Candidate subtraction works and yields a plain LorentzVector.
+
+    Differencing charges is only meaningful for a composite candidate, so
+    subtraction drops the field rather than guessing.
+    """
+    from coffea.nanoevents.methods import candidate
+
+    if name == "Muon":
+        from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+        NanoAODSchema.warn_missing_crossrefs = False
+        events = NanoEventsFactory.from_root(
+            {"tests/samples/nano_dy.root": "Events"},
+            schemaclass=NanoAODSchema,
+            mode="eager",
+        ).events()
+        mu = events.Muon[ak.num(events.Muon) >= 2]
+        assert len(mu) > 0
+        a, b = mu[:, 0], mu[:, 1]
+    else:
+        a = ak.zip(
+            {**{k: [v] for k, v in kin1.items()}, "charge": [1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+        b = ak.zip(
+            {**{k: [v] for k, v in kin2.items()}, "charge": [-1]},
+            with_name=name,
+            behavior=candidate.behavior,
+        )
+    diff = a - b
+    assert diff.layout.parameter("__record__") == "LorentzVector"
+    assert diff.fields == ["x", "y", "z", "t"]
+    for c in ("x", "y", "z", "t"):
+        assert_allclose(
+            ak.to_list(getattr(diff, c)),
+            ak.to_list(getattr(a, c) - getattr(b, c)),
+            atol=ATOL,
+        )
+
+
+@pytest.mark.parametrize(
+    "name,kin,components,cartesian_name",
+    [
+        ("TwoVector", {"x": [1.0, 2.0], "y": [3.0, -4.0]}, ("x", "y"), "TwoVector"),
+        (
+            "PolarTwoVector",
+            {"rho": [1.0, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y"),
+            "TwoVector",
+        ),
+        (
+            "ThreeVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "SphericalThreeVector",
+            {"rho": [1.0, 2.0], "theta": [0.4, 2.0], "phi": [0.3, 2.5]},
+            ("x", "y", "z"),
+            "ThreeVector",
+        ),
+        (
+            "LorentzVector",
+            {"x": [1.0, 2.0], "y": [3.0, -4.0], "z": [5.0, 6.0], "t": [10.0, 20.0]},
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiMLorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "mass": [3.0, 4.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+        (
+            "PtEtaPhiELorentzVector",
+            {
+                "pt": [1.0, 2.0],
+                "eta": [1.2, -0.8],
+                "phi": [0.3, 2.5],
+                "energy": [10.0, 20.0],
+            },
+            ("x", "y", "z", "t"),
+            "LorentzVector",
+        ),
+    ],
+)
+def test_array_factor_matches_cartesian(name, kin, components, cartesian_name):
+    """Scaling by an array of mixed sign agrees with scaling the cartesian vector."""
+    a = ak.zip(kin, with_name=name, behavior=vector.behavior)
+    cart = ak.zip(
+        {c: getattr(a, c) for c in components},
+        with_name=cartesian_name,
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    one = factor[1:]
+    for scaled, ref in (
+        (a * factor, cart * factor),
+        (a / factor, cart / factor),
+        (a[:1] * one, cart[:1] * one),
+    ):
+        for c in components:
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )
+
+
+def test_ptetaphim_array_factor_dask():
+    dask_awkward = pytest.importorskip("dask_awkward")
+
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], "mass": [3.0, 4.0]},
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    factor = ak.Array([2.0, -3.0])
+    dak_a = dask_awkward.from_awkward(a, 1)
+    dak_factor = dask_awkward.from_awkward(factor, 1)
+    for scaled, ref in (
+        (dak_a * dak_factor, a * factor),
+        (dak_a / dak_factor, a / factor),
+    ):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c).compute()),
+                ak.to_list(getattr(ref, c)),
+                atol=ATOL,
+            )
+
+
+@pytest.mark.parametrize(
+    "name,temporal",
+    [("PtEtaPhiMLorentzVector", "mass"), ("PtEtaPhiELorentzVector", "energy")],
+)
+def test_polar_lorentz_negative_scalar_matches_cartesian(name, temporal):
+    """The time component transforms consistently with the Cartesian components
+    under negative scaling."""
+    a = ak.zip(
+        {"pt": [1.0, 2.0], "eta": [1.2, -0.8], "phi": [0.3, 2.5], temporal: [3.0, 4.0]},
+        with_name=name,
+        behavior=vector.behavior,
+    )
+    cart = ak.zip(
+        {"x": a.x, "y": a.y, "z": a.z, "t": a.t},
+        with_name="LorentzVector",
+        behavior=vector.behavior,
+    )
+    for scaled, ref in ((a * (-2), cart * (-2)), (-a, -cart), (a / (-2), cart / (-2))):
+        for c in ("x", "y", "z", "t"):
+            assert_allclose(
+                ak.to_list(getattr(scaled, c)), ak.to_list(getattr(ref, c)), atol=ATOL
+            )
+
+
+@pytest.mark.parametrize(
+    "name,fields,behavior",
+    [
+        ("TwoVector", ["x", "y"], "vector"),
+        ("ThreeVector", ["x", "y", "z"], "vector"),
+        ("LorentzVector", ["x", "y", "z", "t"], "vector"),
+        ("Candidate", ["x", "y", "z", "t", "charge"], "candidate"),
+    ],
+)
+def test_ak_reducers(name, fields, behavior):
+    """Regression test for scikit-hep/coffea#1620"""
+    from coffea.nanoevents.methods import candidate
+
+    a = ak.zip(
+        {f: [[1.0, 0.0], [], [2.0], [1.0, 2.0]] for f in fields},
+        with_name=name,
+        behavior={"vector": vector, "candidate": candidate}[behavior].behavior,
+    )
+    expected_sum = ak.zip(
+        {f: [1.0, 0.0, 2.0, 3.0] for f in fields},
+        with_name=name,
+        behavior={"vector": vector, "candidate": candidate}[behavior].behavior,
+    )
+    assert_record_arrays_equal(ak.sum(a, axis=1), a.sum(axis=1))
+    assert_record_arrays_equal(ak.sum(a, axis=1), expected_sum)
+    assert ak.to_list(ak.sum(a, axis=1, mask_identity=True))[1] is None
+    assert ak.to_list(ak.count(a, axis=1)) == [2, 0, 1, 2]
+    assert ak.to_list(ak.count_nonzero(a, axis=1)) == [1, 0, 1, 2]

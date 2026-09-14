@@ -1,30 +1,35 @@
 from abc import ABC
+from collections.abc import Iterable
 
 import numpy as np
 import pytensor
 import pytensor.tensor as pt
 
-from pymc.pytensorf import constant_fold
+from pytensor.assumptions import assume
+from pytensor.compile.builders import SymbolicOp
+from pytensor.compile.sharedvalue import SharedVariable
+from pytensor.gradient import disconnected_grad
 from pytensor.graph.basic import Variable
 from pytensor.raise_op import Assert
-from pytensor.tensor import TensorVariable
+from pytensor.scan.utils import until
+from pytensor.tensor import TensorConstant, TensorVariable
 from pytensor.tensor.linalg import solve_triangular
 
 from pymc_extras.statespace.filters.utilities import (
+    PARAM_NAMES,
+    dim_of,
+    mask_missing_values,
     quad_form_sym,
-    split_vars_into_seq_and_nonseq,
+    scan_sequence_names,
     stabilize,
 )
 from pymc_extras.statespace.utils.constants import (
     FILTER_OUTPUT_NAMES,
     JITTER_DEFAULT,
-    LONG_NAME_TO_SHORT,
-    MATRIX_NAMES,
     MISSING_FILL,
 )
 
 MVN_CONST = pt.log(2 * pt.constant(np.pi, dtype="float64"))
-PARAM_NAMES = MATRIX_NAMES[2:]
 
 assert_time_varying_dim_correct = Assert(
     "The first dimension of a time varying matrix (the time dimension) must be "
@@ -33,35 +38,33 @@ assert_time_varying_dim_correct = Assert(
 
 
 class BaseFilter(ABC):
-    def __init__(self):
+    def __init__(
+        self,
+        time_varying_names: Iterable[str] = (),
+        cov_jitter: float | None = None,
+        missing_fill_value: float | None = None,
+    ):
         """
-        Kalman Filter.
+        Abstract base class for Kalman filter implementations.
 
-        Notes
-        -----
-        The BaseFilter class is an abstract base class (ABC) for implementing kalman filters.
-        It defines common attributes and methods used by kalman filter implementations.
+        :meth:`build_graph` only reads these settings, so one filter builds any number of graphs.
 
-        Attributes
+        Parameters
         ----------
-        seq_names : list[str]
-            A list of name representing time-varying statespace matrices. That is, inputs that will need to be
-            provided to the `sequences` argument of `pytensor.scan`
-
-        non_seq_names : list[str]
-            A list of names representing static statespace matrices. That is, inputs that will need to be provided
-            to the `non_sequences` argument of `pytensor.scan`
+        time_varying_names : iterable of str, optional
+            Long names of the matrices the model declared time-varying, which the filter passes to
+            ``scan`` as sequences rather than non-sequences. Default is no time-varying matrices.
+        cov_jitter : float, optional
+            Jitter added to the diagonal of every covariance matrix at each step. Default 1e-8, or
+            1e-6 if ``pytensor.config.floatX`` is float32.
+        missing_fill_value : float, optional
+            Sentinel marking missing observations in the data. Default -9999.0.
         """
+        self.cov_jitter = JITTER_DEFAULT if cov_jitter is None else cov_jitter
+        self.missing_fill_value = MISSING_FILL if missing_fill_value is None else missing_fill_value
 
-        self.seq_names: list[str] = []
-        self.non_seq_names: list[str] = []
-
-        self.n_states = None
-        self.n_posdef = None
-        self.n_endog = None
-
-        self.missing_fill_value: float | None = None
-        self.cov_jitter = None
+        self.seq_names = scan_sequence_names(time_varying_names)
+        self.non_seq_names = [name for name in PARAM_NAMES if name not in self.seq_names]
 
     def check_params(self, data, a0, P0, c, d, T, Z, R, H, Q):
         """
@@ -149,9 +152,6 @@ class BaseFilter(ABC):
         R,
         H,
         Q,
-        missing_fill_value=None,
-        cov_jitter=None,
-        time_varying_names=(),
     ) -> list[TensorVariable]:
         """
         Construct the computation graph for the Kalman filter. See [1] for details.
@@ -186,31 +186,15 @@ class BaseFilter(ABC):
            Statistical Algorithms for Models in State Space Using SsfPack 2.2.
            Econometrics Journal 2 (1): 107-60. doi:10.1111/1368-423X.00023.
         """
-        if missing_fill_value is None:
-            missing_fill_value = MISSING_FILL
-        if cov_jitter is None:
-            cov_jitter = JITTER_DEFAULT
-
-        self.missing_fill_value = missing_fill_value
-        self.cov_jitter = cov_jitter
-
-        [R_shape] = constant_fold([R.shape], raise_not_constant=False)
-        [Z_shape] = constant_fold([Z.shape], raise_not_constant=False)
-
-        self.n_states, self.n_shocks = R_shape[-2:]
-        self.n_endog = Z_shape[-2]
-
         data, a0, P0, *params = self.check_params(data, a0, P0, c, d, T, Z, R, H, Q)
-        data = pt.specify_shape(data, (data.type.shape[0], self.n_endog))
-        # ``time_varying_names`` is keyed on long names ("transition", ...) but the filter
-        # tracks ordering with the short single-letter names. Translate.
-        time_varying_short = {LONG_NAME_TO_SHORT[n] for n in time_varying_names}
-        sequences, non_sequences, seq_names, non_seq_names = split_vars_into_seq_and_nonseq(
-            params, PARAM_NAMES, time_varying_short
-        )
-
-        self.seq_names = seq_names
-        self.non_seq_names = non_seq_names
+        k_states, k_endog = dim_of(a0, 0), dim_of(Z, -2)
+        data = pt.specify_shape(data, (data.type.shape[0], k_endog))
+        sequences = [
+            p for p, name in zip(params, PARAM_NAMES, strict=True) if name in self.seq_names
+        ]
+        non_sequences = [
+            p for p, name in zip(params, PARAM_NAMES, strict=True) if name in self.non_seq_names
+        ]
 
         if len(sequences) > 0:
             sequences = self.add_check_on_time_varying_shapes(data, sequences)
@@ -225,9 +209,35 @@ class BaseFilter(ABC):
             return_updates=False,
         )
 
-        return self._postprocess_scan_results(results, a0, P0, n=data.type.shape[0])
+        outputs = self._postprocess_scan_results(
+            results, a0, P0, n=data.type.shape[0], k_states=k_states, k_endog=k_endog
+        )
+        return self._declare_covariance_structure(outputs)
 
-    def _postprocess_scan_results(self, results, a0, P0, n) -> list[TensorVariable]:
+    def _declare_covariance_structure(self, outputs) -> list[TensorVariable]:
+        """
+        Declare the covariance outputs symmetric, and positive definite where the recursion stabilizes them.
+
+        The predicted sequence begins with ``P0``, which a stationary initialization can leave
+        singular, so it is declared symmetric only.
+        """
+        states, (filtered, predicted, observed), loglike = outputs[:3], outputs[3:6], outputs[6]
+        positive_definite = True if self.cov_jitter > 0 else None
+
+        covariances = [
+            assume(filtered, symmetric=True, positive_definite=positive_definite),
+            assume(predicted, symmetric=True),
+            assume(observed, symmetric=True, positive_definite=positive_definite),
+        ]
+        # assume returns a fresh variable, and the outputs are looked up by name downstream.
+        for declared, original in zip(covariances, (filtered, predicted, observed), strict=True):
+            declared.name = original.name
+
+        return [*states, *covariances, loglike]
+
+    def _postprocess_scan_results(
+        self, results, a0, P0, n, k_states, k_endog
+    ) -> list[TensorVariable]:
         """
         Transform the values returned by the Kalman Filter scan into a form expected by users. In particular:
         1. Append the initial state and covariance matrix to their respective Kalman predictions. This matches the
@@ -258,28 +268,22 @@ class BaseFilter(ABC):
             [pt.expand_dims(P0, axis=(0,)), predicted_covariances[:-1]], axis=0
         )
 
-        filtered_states = pt.specify_shape(filtered_states, (n, self.n_states))
+        filtered_states = pt.specify_shape(filtered_states, (n, k_states))
         filtered_states.name = FILTER_OUTPUT_NAMES[0]
 
-        predicted_states = pt.specify_shape(predicted_states, (n, self.n_states))
+        predicted_states = pt.specify_shape(predicted_states, (n, k_states))
         predicted_states.name = FILTER_OUTPUT_NAMES[1]
 
-        filtered_covariances = pt.specify_shape(
-            filtered_covariances, (n, self.n_states, self.n_states)
-        )
+        filtered_covariances = pt.specify_shape(filtered_covariances, (n, k_states, k_states))
         filtered_covariances.name = FILTER_OUTPUT_NAMES[2]
 
-        predicted_covariances = pt.specify_shape(
-            predicted_covariances, (n, self.n_states, self.n_states)
-        )
+        predicted_covariances = pt.specify_shape(predicted_covariances, (n, k_states, k_states))
         predicted_covariances.name = FILTER_OUTPUT_NAMES[3]
 
-        observed_states = pt.specify_shape(observed_states, (n, self.n_endog))
+        observed_states = pt.specify_shape(observed_states, (n, k_endog))
         observed_states.name = FILTER_OUTPUT_NAMES[4]
 
-        observed_covariances = pt.specify_shape(
-            observed_covariances, (n, self.n_endog, self.n_endog)
-        )
+        observed_covariances = pt.specify_shape(observed_covariances, (n, k_endog, k_endog))
         observed_covariances.name = FILTER_OUTPUT_NAMES[5]
 
         loglike_obs = pt.specify_shape(loglike_obs.squeeze(), (n,))
@@ -299,7 +303,7 @@ class BaseFilter(ABC):
 
     def handle_missing_values(
         self, y, Z, H, d
-    ) -> tuple[TensorVariable, TensorVariable, TensorVariable, TensorVariable, float]:
+    ) -> tuple[TensorVariable, TensorVariable, TensorVariable, TensorVariable, TensorVariable]:
         """
         Handle missing values in the observation data ``y``.
 
@@ -310,8 +314,8 @@ class BaseFilter(ABC):
         :math:`v = y - (Z a + d)` is exactly zero there, so missing observations contribute nothing to the
         state update.
 
-        Return a binary flag tensor ``all_nan_flag`` indicating whether every component of the observation
-        is missing. This flag is used for numerical adjustments in the update method.
+        Return the boolean mask of missing entries as well, so the update step can score only the
+        observed components.
 
         Parameters
         ----------
@@ -341,24 +345,15 @@ class BaseFilter(ABC):
             this masking, missing rows of the innovation become :math:`-d`, injecting a fake observation
             into the state update and inflating the log-likelihood by :math:`d^2 / \\text{jitter}`.
 
-        all_nan_flag : float
-            1 if every component of the observation is missing.
+        nan_mask : TensorVariable
+            Boolean vector that is True at the missing components of the observation.
 
         References
         ----------
         .. [1] Durbin, J., and S. J. Koopman. Time Series Analysis by State Space Methods.
                2nd ed, Oxford University Press, 2012.
         """
-        nan_mask = pt.or_(pt.isnan(y), pt.eq(y, self.missing_fill_value))
-        all_nan_flag = pt.all(nan_mask).astype(pytensor.config.floatX)
-        W = pt.diag(pt.bitwise_not(nan_mask).astype(pytensor.config.floatX))
-
-        Z_masked = W.dot(Z)
-        H_masked = W.dot(H).dot(W.mT)
-        d_masked = W.dot(d)
-        y_masked = pt.set_subtensor(y[nan_mask], 0.0)
-
-        return y_masked, Z_masked, H_masked, d_masked, all_nan_flag
+        return mask_missing_values(y, Z, H, d, self.missing_fill_value)
 
     @staticmethod
     def predict(a, P, c, T, R, Q) -> tuple[TensorVariable, TensorVariable]:
@@ -412,7 +407,7 @@ class BaseFilter(ABC):
 
     @staticmethod
     def update(
-        a, P, y, d, Z, H, all_nan_flag
+        a, P, y, d, Z, H, nan_mask
     ) -> tuple[TensorVariable, TensorVariable, TensorVariable, TensorVariable, TensorVariable]:
         """
         Perform the update step of the Kalman filter.
@@ -445,8 +440,8 @@ class BaseFilter(ABC):
             The matrix Z.
         H : TensorVariable
             The matrix H.
-        all_nan_flag : TensorVariable
-            A binary flag tensor indicating whether there are any missing values in the observation data.
+        nan_mask : TensorVariable
+            Boolean vector that is True at the missing components of the observation data.
 
         Returns
         -------
@@ -528,12 +523,10 @@ class BaseFilter(ABC):
                2nd ed, Oxford University Press, 2012.
         """
         y, a, P, c, d, T, Z, R, H, Q = self.unpack_args(args)
-        y_masked, Z_masked, H_masked, d_masked, all_nan_flag = self.handle_missing_values(
-            y, Z, H, d
-        )
+        y_masked, Z_masked, H_masked, d_masked, nan_mask = self.handle_missing_values(y, Z, H, d)
 
         a_filtered, P_filtered, obs_mu, obs_cov, ll = self.update(
-            y=y_masked, a=a, d=d_masked, P=P, Z=Z_masked, H=H_masked, all_nan_flag=all_nan_flag
+            y=y_masked, a=a, d=d_masked, P=P, Z=Z_masked, H=H_masked, nan_mask=nan_mask
         )
 
         P_filtered = stabilize(P_filtered, self.cov_jitter)
@@ -549,7 +542,7 @@ class StandardFilter(BaseFilter):
     Basic Kalman Filter
     """
 
-    def update(self, a, P, y, d, Z, H, all_nan_flag):
+    def update(self, a, P, y, d, Z, H, nan_mask):
         """
         Compute one-step forecasts for observed states conditioned on information up to, but not including, the current
         timestep, `y_hat`, along with the forcast covariance matrix, `F`. Marginalize over observed states to obtain
@@ -579,8 +572,8 @@ class StandardFilter(BaseFilter):
         H : TensorVariable
             Observation noise covariance matrix
 
-        all_nan_flag : TensorVariable
-            A flag indicating whether all elements in the data `y` are NaNs.
+        nan_mask : TensorVariable
+            Boolean vector that is True at the missing components of ``y``.
 
         Returns
         -------
@@ -600,10 +593,15 @@ class StandardFilter(BaseFilter):
         PZT = P.dot(Z.mT)
         F = Z.dot(PZT) + stabilize(H, self.cov_jitter)
 
-        F_chol = pt.linalg.cholesky(F, lower=True)
+        # A masked row of F holds only the stabilizing jitter, which log |F| would count as
+        # log(jitter). Put a one there instead; the gain and the innovation are zero on that row.
+        observed = pt.bitwise_not(nan_mask).astype(F.dtype)
+        F_scored = F * pt.outer(observed, observed) + pt.diag(1 - observed)
+
+        F_chol = pt.linalg.cholesky(F_scored, lower=True)
 
         K = pt.linalg.cho_solve((F_chol, True), PZT.mT).mT
-        I_KZ = pt.eye(self.n_states) - K.dot(Z)
+        I_KZ = pt.eye(dim_of(a, 0)) - K.dot(Z)
 
         a_filtered = a + K @ v
         P_filtered = quad_form_sym(I_KZ, P) + quad_form_sym(K, H)
@@ -613,11 +611,9 @@ class StandardFilter(BaseFilter):
 
         F_logdet = 2 * pt.log(pt.diag(F_chol)).sum()
 
-        ll = pt.switch(
-            all_nan_flag,
-            0.0,
-            -0.5 * (MVN_CONST + F_logdet + inner_term).ravel()[0],
-        )
+        # A fully missing observation scores zero: the count, the innovation and the
+        # log-determinant all vanish with it.
+        ll = -0.5 * (observed.sum() * MVN_CONST + F_logdet + inner_term).ravel()[0]
 
         return a_filtered, P_filtered, y_hat, F, ll
 
@@ -630,6 +626,11 @@ class SquareRootFilter(BaseFilter):
     inversion of the observation covariance matrix `F`.
 
     """
+
+    def check_params(self, data, a0, P0, c, d, T, Z, R, H, Q):
+        """Factor ``P0``, because this filter's recursion carries factors rather than covariances."""
+        P0_chol = pt.linalg.cholesky(stabilize(P0, self.cov_jitter), lower=True)
+        return data, a0, P0_chol, c, d, T, Z, R, H, Q
 
     def predict(self, a, P, c, T, R, Q):
         """
@@ -648,11 +649,12 @@ class SquareRootFilter(BaseFilter):
 
         M = pt.horizontal_stack(T @ P_chol, R @ Q_chol).mT
         R_decomp = pt.linalg.qr(M, mode="r")
-        P_chol_hat = R_decomp[..., : self.n_states, : self.n_states].mT
+        k_states = dim_of(P_chol, -1)
+        P_chol_hat = R_decomp[..., :k_states, :k_states].mT
 
         return a_hat, P_chol_hat
 
-    def update(self, a, P, y, d, Z, H, all_nan_flag):
+    def update(self, a, P, y, d, Z, H, nan_mask):
         """
         Compute posterior estimates of the hidden state distributions conditioned on the observed data, up to and
         including the present timestep. Also compute the log-likelihood of the data given the one-step forecasts.
@@ -676,29 +678,29 @@ class SquareRootFilter(BaseFilter):
         # more interested in B^T:
         # Structure of B^T = [[chol(F),     0              ],
         #                    [K @ chol(F), chol(P_filtered)]
-        zeros = pt.zeros((self.n_states, self.n_endog))
+        k_states, k_endog = dim_of(P_chol, -1), dim_of(Z, -2)
+        zeros = pt.zeros((k_states, k_endog))
         upper = pt.horizontal_stack(H_chol, Z @ P_chol)
         lower = pt.horizontal_stack(zeros, P_chol)
         A_T = pt.vertical_stack(upper, lower)
         B = pt.linalg.qr(A_T.mT, mode="r").mT
 
-        F_chol = B[: self.n_endog, : self.n_endog]
-        K_F_chol = B[self.n_endog :, : self.n_endog]
-        P_chol_filtered = B[self.n_endog :, self.n_endog :]
+        F_chol = B[:k_endog, :k_endog]
+        K_F_chol = B[k_endog:, :k_endog]
+        P_chol_filtered = B[k_endog:, k_endog:]
 
         def compute_non_degenerate(P_chol_filtered, F_chol, K_F_chol, v):
-            a_filtered = a + K_F_chol @ solve_triangular(F_chol, v, lower=True)
+            scaled_residual = solve_triangular(F_chol, v, lower=True)
+            a_filtered = a + K_F_chol @ scaled_residual
 
-            inner_term = solve_triangular(
-                F_chol, solve_triangular(F_chol, v, lower=True), lower=True
-            )
+            loss = pt.dot(scaled_residual, scaled_residual)
 
-            loss = (v.T @ inner_term).ravel()
-
+            # Missing dimensions carry only jitter, exclude them from the likelihood.
+            observed = pt.bitwise_not(nan_mask).astype(F_chol.dtype)
             # abs necessary because we're not guaranteed a positive diagonal from the schur decomposition
-            logdet = 2 * pt.log(pt.abs(pt.diag(F_chol))).sum()
+            logdet = 2 * (pt.log(pt.abs(pt.diag(F_chol))) * observed).sum()
 
-            ll = -0.5 * (self.n_endog * (MVN_CONST + logdet) + loss)[0]
+            ll = -0.5 * (observed.sum() * MVN_CONST + logdet + loss)
 
             return [a_filtered, P_chol_filtered, ll]
 
@@ -709,7 +711,7 @@ class SquareRootFilter(BaseFilter):
             """
             return [a, P_chol, pt.zeros(())]
 
-        degenerate = pt.eq(all_nan_flag, 1.0)
+        degenerate = pt.all(nan_mask)
         F_chol = pytensor.ifelse(degenerate, pt.eye(*F_chol.shape), F_chol)
         [a_filtered, P_chol_filtered, ll] = pytensor.ifelse(
             degenerate,
@@ -717,16 +719,18 @@ class SquareRootFilter(BaseFilter):
             compute_non_degenerate(P_chol_filtered, F_chol, K_F_chol, v),
         )
 
-        a_filtered = pt.specify_shape(a_filtered, (self.n_states,))
-        P_chol_filtered = pt.specify_shape(P_chol_filtered, (self.n_states, self.n_states))
+        a_filtered = pt.specify_shape(a_filtered, (k_states,))
+        P_chol_filtered = pt.specify_shape(P_chol_filtered, (k_states, k_states))
 
         return a_filtered, P_chol_filtered, y_hat, F_chol, ll
 
-    def _postprocess_scan_results(self, results, a0, P0, n) -> list[TensorVariable]:
+    def _postprocess_scan_results(
+        self, results, a0, P0, n, k_states, k_endog
+    ) -> list[TensorVariable]:
         """
         Convert the Cholesky factor of the covariance matrix back to the covariance matrix itself.
         """
-        results = super()._postprocess_scan_results(results, a0, P0, n)
+        results = super()._postprocess_scan_results(results, a0, P0, n, k_states, k_endog)
         (
             filtered_states,
             predicted_states,
@@ -737,14 +741,21 @@ class SquareRootFilter(BaseFilter):
             loglike_obs,
         ) = results
 
-        def square_sequnece(L, k):
-            X = pt.einsum("...ij,...kj->...ik", L, L.copy())
-            X = pt.specify_shape(X, (n, k, k))
-            return X
+        def square_sequence(L, k, name):
+            L = assume(L, lower_triangular=True)
+            covariance = pt.specify_shape(L @ L.mT, (n, k, k))
+            covariance.name = name
+            return covariance
 
-        filtered_covariances = square_sequnece(filtered_covariances_cholesky, k=self.n_states)
-        predicted_covariances = square_sequnece(predicted_covariances_cholesky, k=self.n_states)
-        observed_covariances = square_sequnece(observed_covariances_cholesky, k=self.n_endog)
+        filtered_covariances = square_sequence(
+            filtered_covariances_cholesky, k=k_states, name=FILTER_OUTPUT_NAMES[2]
+        )
+        predicted_covariances = square_sequence(
+            predicted_covariances_cholesky, k=k_states, name=FILTER_OUTPUT_NAMES[3]
+        )
+        observed_covariances = square_sequence(
+            observed_covariances_cholesky, k=k_endog, name=FILTER_OUTPUT_NAMES[5]
+        )
 
         return [
             filtered_states,
@@ -798,10 +809,7 @@ class UnivariateFilter(BaseFilter):
     def kalman_step(self, *args):
         y, a, P, c, d, T, Z, R, H, Q = self.unpack_args(args)
 
-        nan_mask = pt.or_(pt.isnan(y), pt.eq(y, self.missing_fill_value))
-        y_masked, Z_masked, H_masked, d_masked, all_nan_flag = self.handle_missing_values(
-            y, Z, H, d
-        )
+        y_masked, Z_masked, H_masked, d_masked, nan_mask = self.handle_missing_values(y, Z, H, d)
 
         result = pytensor.scan(
             self._univariate_inner_filter_step,
@@ -822,10 +830,531 @@ class UnivariateFilter(BaseFilter):
         P_filtered = stabilize(0.5 * (P_filtered + P_filtered.mT), self.cov_jitter)
         a_hat, P_hat = self.predict(a=a_filtered, P=P_filtered, c=c, T=T, R=R, Q=Q)
 
-        ll = pt.switch(
-            all_nan_flag,
-            0.0,
-            -0.5 * ((pt.neq(ll_inner, 0).sum()) * MVN_CONST + ll_inner.sum()),
-        )
+        ll = -0.5 * (pt.bitwise_not(nan_mask).sum() * MVN_CONST + ll_inner.sum())
 
         return a_filtered, a_hat, obs_mu, P_filtered, P_hat, obs_cov, ll
+
+
+class ConvergentFilter(StandardFilter):
+    """Kalman filter that exploits Riccati convergence to a fixed-gain steady state.
+
+    For a time-invariant system whose Riccati recursion reaches a steady state -- detectability and
+    stabilizability are sufficient, which is weaker than stationarity and admits unit-root models such
+    as the local level -- the predicted-covariance recursion
+    ``P_{t+1|t} = T (P_{t|t-1} - K_t F_t K_t^T) T^T + R Q R^T`` is data-independent and converges to the
+    discrete algebraic Riccati equation (DARE) fixed point ``P_star``. Once converged, the Kalman gain
+    ``K_t = P_{t|t-1} Z^T F_t^{-1}`` and innovation covariance ``F_t = Z P_{t|t-1} Z^T + H`` are constant
+    (``K_star``, ``F_star``) and the filter becomes a linear time-invariant recursion on the predicted
+    state ``a_{t|t-1}`` alone. ``ConvergentFilter`` splits the forward pass at the convergence step ``k``:
+
+    - **pre-convergence steps** (``t = 0..k-1``, the "transient"): full Kalman with update + Riccati predict.
+    - **post-convergence steps** (``t = k..n-1``, the "tail"): linear recursion on ``a`` with cached
+      ``K_star``, ``F_star``, ``log det F_star``. No per-step Cholesky; loss is ``log det F_star + v_t^T F_star^{-1} v_t``
+      evaluated via a pre-computed Cholesky of ``F_star`` and a per-step triangular solve.
+
+    The gradient comes from a custom pullback on a :class:`~pytensor.compile.builders.SymbolicOp`
+    rather than from autodiff. Autodiff is not merely slower here, it is wrong: an ``until``-scan
+    followed by a second scan depending on the first scan's *last* outputs yields incorrect parameter
+    gradients whenever the ``until`` clause fires, even though the likelihood itself is exact.
+
+    Constraints (validated at graph build time):
+
+    - All model matrices (``c, d, T, Z, R, H, Q``) must be time-invariant. Time-varying inputs raise
+      :class:`ValueError`: a constant steady-state gain only exists when the system matrices are
+      constant. This is a statement about time-invariance, not stationarity -- a time-invariant model
+      whose Riccati recursion never settles within the series simply never triggers the ``until``
+      clause, so ``k = n``, the post-convergence tail is empty, and the result reduces to
+      :class:`StandardFilter`.
+    - ``data`` must contain no missing values. A masked observation changes the effective ``Z_t`` (and
+      so ``K_t`` and ``F_t``), breaking the cached-``K_star`` assumption. The statespace core replaces
+      ``NaN`` with ``missing_fill_value`` before the filter runs, so both ``NaN`` and that sentinel are
+      rejected. For :class:`SharedVariable` or :class:`TensorConstant` data the check runs at build
+      time; fully symbolic data gets an :class:`~pytensor.raise_op.Assert` that fires at runtime.
+
+    Measurement-error-free models (singular or zero ``H``) are fully supported, gradients included;
+    the tail backward avoids forming ``H^{-1}``.
+
+    Only ``d loglike_obs`` is supported as an upstream gradient; other output adjoints are treated as
+    disconnected. For gradients of other filter outputs, use :class:`StandardFilter`.
+
+    Parameters
+    ----------
+    tol : float, optional
+        Convergence tolerance on the Frobenius norm of ``P_{t+1|t} - P_{t|t-1}`` in the pre-convergence
+        scan. The scan stops the first time this drops below ``tol``. Default ``1e-10``.
+    """
+
+    _MISSING_DATA_MSG = (
+        "ConvergentFilter does not support missing data in the observation series. "
+        "Use StandardFilter for data with missing values."
+    )
+
+    def __init__(
+        self,
+        time_varying_names: Iterable[str] = (),
+        cov_jitter: float | None = None,
+        missing_fill_value: float | None = None,
+        tol: float = 1e-10,
+    ):
+        super().__init__(
+            time_varying_names=time_varying_names,
+            cov_jitter=cov_jitter,
+            missing_fill_value=missing_fill_value,
+        )
+        if self.seq_names:
+            raise ValueError(
+                "ConvergentFilter requires time-invariant matrices; got time-varying: "
+                f"{sorted(time_varying_names)}. Use StandardFilter instead."
+            )
+        self.tol = tol
+
+    def _check_data(self, data):
+        """Reject data containing NaN or the missing-value sentinel.
+
+        The statespace core replaces NaN with ``missing_fill_value`` before the filter runs, so the
+        sentinel must be rejected alongside NaN. Concrete data (shared/constant) is checked at build
+        time; fully symbolic data gets a runtime :class:`~pytensor.raise_op.Assert`.
+        """
+        sentinel = self.missing_fill_value
+        if isinstance(data, SharedVariable | TensorConstant):
+            arr = data.get_value() if isinstance(data, SharedVariable) else data.data
+            if np.isnan(arr).any() or (arr == sentinel).any():
+                raise ValueError(self._MISSING_DATA_MSG)
+            return data
+        missing = pt.or_(pt.isnan(data), pt.eq(data, sentinel))
+        return Assert(self._MISSING_DATA_MSG)(data, pt.all(pt.bitwise_not(missing)))
+
+    def _kalman_step(self, y, a, P, c, d, T, Z, R, H, Q):
+        a_filt, P_filt, y_hat, F, ll = self.update(
+            a=a, P=P, y=y, d=d, Z=Z, H=H, nan_mask=pt.zeros((dim_of(Z, -2),), dtype=bool)
+        )
+        P_filt = stabilize(P_filt, self.cov_jitter)
+        a_hat, P_hat = self.predict(a=a_filt, P=P_filt, c=c, T=T, R=R, Q=Q)
+        return a_filt, a_hat, y_hat, P_filt, P_hat, F, ll
+
+    def _full_kalman_scan(self, data, a0, P0, c, d, T, Z, R, H, Q, stop_early):
+        def body(y, a_prev, P_prev, *params):
+            out = self._kalman_step(y, a_prev, P_prev, *params)
+            if stop_early:
+                return out, until(pt.sqrt(((out[4] - P_prev) ** 2).sum()) < self.tol)
+            return out
+
+        return pytensor.scan(
+            body,
+            sequences=[data],
+            outputs_info=[None, a0, None, None, P0, None, None],
+            non_sequences=[c, d, T, Z, R, H, Q],
+            strict=False,
+            return_updates=False,
+        )
+
+    def _convergent_forward(self, data, a0, P0, c, d, T, Z, R, H, Q):
+        """
+        Run the two-phase forward pass.
+
+        Phase 1 stops a standard Kalman scan once the Riccati recursion converges
+        (``||P_{t+1|t} - P_{t|t-1}||_F < tol``), fixing the DARE estimate ``P_star`` at step ``k``. Phase 2
+        reuses the constants derived from ``P_star`` in a cheaper scan whose step is one triangular solve
+        against ``F_chol_star`` plus two matvecs.
+
+        Returns
+        -------
+        a_filt : TensorVariable
+            Filtered states, shape ``(n, m)``.
+        a_hat : TensorVariable
+            Predicted states, shape ``(n, m)``.
+        y_hat : TensorVariable
+            Predicted observations, shape ``(n, p)``.
+        P_filt : TensorVariable
+            Filtered state covariances, shape ``(n, m, m)``. Constant from step ``k`` on.
+        P_hat : TensorVariable
+            Predicted state covariances, shape ``(n, m, m)``. Constant from step ``k`` on.
+        F : TensorVariable
+            Innovation covariances, shape ``(n, p, p)``. Constant from step ``k`` on.
+        loglike_obs : TensorVariable
+            Per-timestep log-likelihood, shape ``(n,)``.
+        k : TensorVariable
+            Scalar integer convergence step. The pullback splits the adjoint on it.
+        """
+        n = data.shape[0]
+        (a_filt_tr, a_hat_tr, y_hat_tr, P_filt_tr, P_hat_tr, F_tr, ll_tr) = self._full_kalman_scan(
+            data, a0, P0, c, d, T, Z, R, H, Q, stop_early=True
+        )
+
+        # Cap the split one step short of the series so the post-convergence tail always has at least
+        # one step.
+        k = pt.minimum(a_filt_tr.shape[0], n - 1)
+        a_star, P_star = a_hat_tr[k - 1], P_hat_tr[k - 1]
+
+        k_endog = dim_of(Z, -2)
+
+        # Tail constants from P*, hoisted so the tail scan body carries no Cholesky or solve.
+        F_star = Z @ P_star @ Z.mT + stabilize(H, self.cov_jitter)
+        F_chol_star = pt.linalg.cholesky(F_star, lower=True)
+        logdet_F_star = 2 * pt.log(pt.diag(F_chol_star)).sum()
+        K_star = pt.linalg.solve(
+            F_star.mT, (P_star @ Z.mT).mT, assume_a="pos", check_finite=False
+        ).mT
+        I_KZ_star = pt.eye(dim_of(P_star, -1)) - K_star @ Z
+        P_filt_star = stabilize(
+            quad_form_sym(I_KZ_star, P_star) + quad_form_sym(K_star, H), self.cov_jitter
+        )
+
+        # Tail scan: fixed K*, F* (no per-step Cholesky). Recurrent slot is a_hat.
+        def tail_body(y, a_prev):
+            y_hat = d + Z @ a_prev
+            v = y - y_hat
+            solved = solve_triangular(F_chol_star, v, lower=True)
+            ll = -0.5 * (k_endog * MVN_CONST + logdet_F_star + (solved * solved).sum())
+            a_filt = a_prev + K_star @ v
+            return a_filt, T @ a_filt + c, y_hat, ll
+
+        a_filt_fx, a_hat_fx, y_hat_fx, ll_fx = pytensor.scan(
+            tail_body,
+            sequences=[data[k:]],
+            outputs_info=[None, a_star, None, None],
+            strict=False,
+            return_updates=False,
+        )
+
+        # Stitch: in the tail, P_filt, P_hat, F are constants (broadcast).
+        n_fx = n - k
+        m_shape = (n_fx, dim_of(P_star, -1), dim_of(P_star, -1))
+        P_filt_fx = pt.broadcast_to(P_filt_star, m_shape)
+        P_hat_fx = pt.broadcast_to(P_star, m_shape)
+        F_fx = pt.broadcast_to(F_star, (n_fx, dim_of(Z, -2), dim_of(Z, -2)))
+
+        def cat(a, b):
+            return pt.concatenate([a, b], axis=0)
+
+        return (
+            cat(a_filt_tr[:k], a_filt_fx),
+            cat(a_hat_tr[:k], a_hat_fx),
+            cat(y_hat_tr[:k], y_hat_fx),
+            cat(P_filt_tr[:k], P_filt_fx),
+            cat(P_hat_tr[:k], P_hat_fx),
+            cat(F_tr[:k], F_fx),
+            cat(ll_tr[:k], ll_fx),
+            k,
+        )
+
+    def _fixed_k_tail_backward(
+        self,
+        data,
+        a_star,
+        c,
+        d,
+        T,
+        Z,
+        K_star,
+        F_star,
+        F_chol_star,
+        a_hat_fx,
+        dlogp,
+    ):
+        """
+        Run the analytic backward pass over the post-convergence segment.
+
+        The scan body is closed form -- matvecs and outer products only, no Cholesky or solve -- because
+        ``F^{-1}`` and the closed-loop transition ``A = T (I - K_star Z)`` are constant once the Riccati
+        recursion has converged.
+
+        Returns
+        -------
+        d_data : TensorVariable
+            Adjoint of the observations over the segment.
+        d_a_star : TensorVariable
+            Adjoint of the state entering the segment.
+        d_P_star : TensorVariable
+            Riccati adjoint at the segment entry, used as the terminal condition for the pre-convergence
+            backward.
+        d_T_alpha : TensorVariable
+            Alpha-path contribution to ``d_T``, summed over the segment. Its P-path contribution comes
+            from ``S``.
+        d_c : TensorVariable
+            Contribution to ``d_c``, summed over the segment.
+        d_Z_direct : TensorVariable
+            Alpha-path contribution to ``d_Z``, summed over the segment. Its P-path contribution comes
+            from ``S``.
+        d_d : TensorVariable
+            Contribution to ``d_d``, summed over the segment.
+        d_K_star : TensorVariable
+            Adjoint of ``K_star`` treated as an independent input. The caller chains it to
+            ``(P_star, Z, H)`` through ``K_star = P_star Z^T F_star^{-1}``.
+        d_F_star : TensorVariable
+            Adjoint of ``F_star`` treated as an independent input. The caller chains it through
+            ``F_star = Z P_star Z^T + H``.
+        S : TensorVariable
+            ``sum_t d_P_hat_t`` over the segment. ``P_t`` is the constant ``P_star`` there, so the P-path
+            contributions to ``d_T``, ``d_Z``, ``d_H``, ``d_R`` and ``d_Q`` are linear in it and can be
+            aggregated instead of scanned.
+        """
+        m = a_star.shape[0]
+        p_dim = F_chol_star.shape[0]
+        n_tail = data.shape[0]
+        a_prev_seq = pt.concatenate([a_star[None, :], a_hat_fx[:-1]], axis=0)
+
+        # Hoisted constants.
+        I_KZ = pt.eye(m) - K_star @ Z
+        A = T @ I_KZ
+        F_inv = pt.linalg.cho_solve((F_chol_star, True), pt.eye(p_dim))
+        ZtFinvZ = Z.T @ F_inv @ Z  # the data-independent half of direct_C
+
+        def bwd(y, a_prev, r_next, P_hat_next, c_, d_, T_, Z_, K_, F_inv_, A_, ZtFinvZ_):
+            v = y - Z_ @ a_prev - d_
+            Finv_v = F_inv_ @ v
+            a_filt = a_prev + K_ @ v
+            T_r_next = T_.T @ r_next
+            A_r_next = A_.T @ r_next
+            Zt_Finv_v = Z_.T @ Finv_v
+
+            dL_dv = K_.T @ T_r_next + 2 * Finv_v
+            r_t = A_r_next - 2 * Zt_Finv_v
+
+            # P-adjoint recursion, where A = T (I - K_star Z) is the closed-loop transition. The
+            # homogeneous part is a backward Lyapunov recursion; only the two correction terms depend
+            # on y_t and a_prev. cross_a routes what is naturally an H^{-1} term through F^{-1} via the
+            # identity Z(I - K Z) = H F^{-1} Z, which stays finite when H is singular.
+            cross_a = 0.5 * (pt.outer(A_r_next, Zt_Finv_v) + pt.outer(Zt_Finv_v, A_r_next))
+            direct_C = ZtFinvZ_ - pt.outer(Zt_Finv_v, Zt_Finv_v)
+            d_P_prev = A_.T @ P_hat_next @ A_ + cross_a + direct_C
+
+            dL_dT = pt.outer(r_next, a_filt)
+            dL_dc = r_next
+            dL_dZ = -pt.outer(dL_dv, a_prev)
+            dL_dd = -dL_dv
+            dL_dK = pt.outer(T_r_next, v)
+            vvT = pt.outer(v, v)
+
+            return r_t, d_P_prev, dL_dv, dL_dT, dL_dc, dL_dZ, dL_dd, dL_dK, vvT
+
+        (r_seq, dPp_seq, dy_seq, dT_seq, dc_seq, dZ_seq, dd_seq, dK_seq, vvT_seq) = pytensor.scan(
+            bwd,
+            sequences=[data, a_prev_seq],
+            outputs_info=[
+                pt.zeros_like(a_star),
+                pt.zeros((m, m), dtype="float64"),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            ],
+            non_sequences=[c, d, T, Z, K_star, F_inv, A, ZtFinvZ],
+            go_backwards=True,
+            strict=False,
+            return_updates=False,
+        )
+
+        # d_P_prev_seq in go_backwards order is [d_P_hat_{n-2}, ..., d_P_hat_{k-1}]; the last
+        # element is d_P_star (the handoff fed to the pre-convergence backward), so the aggregate
+        # S = sum_t d_P_hat_t over the post-convergence segment excludes it.
+        S = dlogp * dPp_seq[:-1].sum(axis=0)
+        sum_vvT = vvT_seq.sum(axis=0)
+        return (
+            dlogp * dy_seq[::-1],  # d_data
+            dlogp * r_seq[-1],  # d_a_star
+            dlogp * dPp_seq[-1],  # d_P_star (Riccati)
+            dlogp * dT_seq.sum(axis=0),  # d_T alpha-path
+            dlogp * dc_seq.sum(axis=0),  # d_c
+            dlogp * dZ_seq.sum(axis=0),  # d_Z direct
+            dlogp * dd_seq.sum(axis=0),  # d_d
+            dlogp * dK_seq.sum(axis=0),  # d_K_star
+            dlogp * (n_tail * F_inv - F_inv @ sum_vvT @ F_inv),  # d_F_star
+            S,
+        )
+
+    def build_graph(
+        self,
+        data,
+        a0,
+        P0,
+        c,
+        d,
+        T,
+        Z,
+        R,
+        H,
+        Q,
+    ):
+        data = self._check_data(data)
+        data, a0, P0, c, d, T, Z, R, H, Q = self.check_params(data, a0, P0, c, d, T, Z, R, H, Q)
+        k_states, k_endog = dim_of(a0, 0), dim_of(Z, -2)
+        data = pt.specify_shape(data, (data.type.shape[0], k_endog))
+
+        op = ConvergentKalmanOp(filt=self)
+        a_filt, a_hat, y_hat, P_filt, P_hat, F, ll, _k = op(data, a0, P0, c, d, T, Z, R, H, Q)
+        n = data.type.shape[0]
+        outputs = self._postprocess_scan_results(
+            (a_filt, a_hat, y_hat, P_filt, P_hat, F, ll[..., None]),
+            a0,
+            P0,
+            n=n,
+            k_states=k_states,
+            k_endog=k_endog,
+        )
+        return self._declare_covariance_structure(outputs)
+
+
+class ConvergentKalmanOp(SymbolicOp):
+    """Wrap :meth:`ConvergentFilter._convergent_forward` with its analytic pullback.
+
+    The inner graph is built from the caller's input types, so dtype and static shapes follow the
+    surrounding model rather than being fixed here.
+    """
+
+    inline = True
+
+    def __init__(self, input_types=None, *, filt, **kwargs):
+        self._filt = filt
+        kwargs.setdefault("name", "convergent_kf")
+        super().__init__(input_types=input_types, **kwargs)
+        self._init_kwargs["filt"] = filt
+
+    def build_inner_graph(self, *inputs):
+        return list(self._filt._convergent_forward(*inputs))
+
+    def pullback(self, inputs, outputs, output_grads):
+        # `outputs` are the 8 forward outputs of `_convergent_forward`:
+        # (a_filt, a_hat, y_hat, P_filt, P_hat, F, ll, k). Only the sequences we need for the
+        # backward are bound; the rest are `_`. Similarly, `output_grads[6]` is the adjoint on `ll`;
+        # all other output adjoints are assumed disconnected (see class docstring).
+        data_, a0_, P0_, c_, d_, T_, Z_, R_, H_, Q_ = inputs
+        _, a_hat_sym, _, _, P_hat_sym, _, _, k_sym = outputs
+        dll = output_grads[6]
+
+        # Split the recorded per-step sequences at the convergence step `k_sym`. The
+        # pre-convergence slice is `[:k_sym]` and the post-convergence slice is `[k_sym:]`;
+        # a_star and P_star are the handoff values flowing between them (a_{k|k-1}, P_{k|k-1}).
+        a_hat_tr, P_hat_tr = a_hat_sym[:k_sym], P_hat_sym[:k_sym]
+        data_tr, data_fx = data_[:k_sym], data_[k_sym:]
+        a_star, P_star = a_hat_tr[-1], P_hat_tr[-1]
+        a_hat_fx = a_hat_sym[k_sym:]
+        # Reduce the per-step ll adjoint to a scalar by averaging. This is correct for the
+        # standard use case loss = ll.sum() (dll is a broadcast of ones, average is 1.0) and
+        # punts on the more general case of per-step weights.
+        dlogp_up = dll.sum() / dll.shape[0]
+
+        # Pre-compute tail constants for readability.
+        F_star = Z_ @ P_star @ Z_.mT + stabilize(H_, self._filt.cov_jitter)
+        F_chol = pt.linalg.cholesky(F_star, lower=True)
+        K_star = pt.linalg.solve(
+            F_star.mT, (P_star @ Z_.mT).mT, assume_a="pos", check_finite=False
+        ).mT
+        F_inv = pt.linalg.cho_solve((F_chol, True), pt.eye(F_chol.shape[0]))
+
+        # Post-convergence backward. This is the source of the speedup: K, F, and P are constant
+        # across the segment, so the per-step backward drops to matvec/outer-product work.
+        # The factor of -0.5 on dlogp_up is a convention adjustment: the analytic formulas in
+        # `_fixed_k_tail_backward` are derived for ll = log |F| + v^T F^{-1} v (the "2 * negative
+        # log-likelihood" form), while our per-step ll is -0.5 * (MVN_CONST + log |F| + v^T F^{-1} v).
+        # So the caller's dlogp_up needs a -0.5 factor before being fed into the analytic formulas.
+        (
+            dd_fx,
+            da_star,
+            dP_star_ric,
+            dT_a,
+            dc_t,
+            dZ_dir,
+            dd_t,
+            dK_s,
+            dF_s,
+            S,
+        ) = self._filt._fixed_k_tail_backward(
+            data_fx,
+            a_star,
+            c_,
+            d_,
+            T_,
+            Z_,
+            K_star,
+            F_star,
+            F_chol,
+            a_hat_fx,
+            -0.5 * dlogp_up,
+        )
+
+        # Use chain rule to recover dZ and dH from dK*, dF*. Fully analytic.
+        dK, dF = disconnected_grad(dK_s), disconnected_grad(dF_s)
+        P_filt_s = (pt.eye(dim_of(P_star, -1)) - K_star @ Z_) @ P_star
+        d_Z_chain = (
+            F_inv @ dK.mT @ P_filt_s - K_star.mT @ dK @ K_star.mT + (dF + dF.mT) @ Z_ @ P_star
+        )
+        X = K_star.mT @ dK @ F_inv
+        d_H_chain = dF - 0.5 * (X + X.mT)
+
+        # P-path contributions to d_T, d_Z, d_H. Because P_t is the constant P_star across the
+        # post-convergence segment, each step's contribution is linear in d_P_hat_t, so the sum
+        # over the segment is obtained by substituting S = sum_t d_P_hat_t into the formulas.
+        TtST = T_.mT @ S @ T_
+        KtPg = K_star.mT @ TtST
+        FinvZP = F_inv @ Z_ @ P_star
+        KZP = (K_star @ Z_) @ P_star
+        d_T_P = (S @ T_) @ P_filt_s.mT + (S.mT @ T_) @ P_filt_s
+        d_Z_P = (
+            -FinvZP @ TtST.mT @ P_star
+            + KtPg @ P_star.mT @ Z_.mT @ K_star.mT
+            + FinvZP @ TtST.mT @ KZP
+            - KtPg @ P_star.mT
+        )
+        d_H_P = KtPg @ K_star
+        # Chain S through W = R Q R^T for (d_R, d_Q).
+        d_R_P = (S + S.mT) @ R_ @ Q_
+        d_Q_P = R_.mT @ S @ R_
+
+        # Pre-convergence backward. We rebuild the Kalman scan on the sliced pre-convergence data
+        # (data[:k_sym]) and autodiff through it. The surrogate loss has three parts: the
+        # pre-convergence log-likelihood itself, plus two inner products that encode the handoff
+        # adjoints (da_star for the last predicted state, dP_star_ric for the last predicted
+        # covariance). disconnected_grad on the adjoints keeps pt.grad from trying to chase their
+        # own parameter dependence (they are outputs of the post-convergence backward and are
+        # treated as constants here. If we connect their gradients we would be double-counting).
+        _, a_hat_rb, _, _, P_hat_rb, _, ll_rb = self._filt._full_kalman_scan(
+            data_tr,
+            a0_,
+            P0_,
+            c_,
+            d_,
+            T_,
+            Z_,
+            R_,
+            H_,
+            Q_,
+            stop_early=False,
+        )
+        loss_tr = (
+            dlogp_up * ll_rb.sum()
+            + (a_hat_rb[-1] * disconnected_grad(da_star)).sum()
+            + (P_hat_rb[-1] * disconnected_grad(dP_star_ric)).sum()
+        )
+        (
+            dd_full,
+            da0,
+            dP0,
+            dc_tr,
+            dd_tr,
+            dT_tr,
+            dZ_tr,
+            dR_tr,
+            dH_tr,
+            dQ_tr,
+        ) = pt.grad(
+            loss_tr,
+            [data_, a0_, P0_, c_, d_, T_, Z_, R_, H_, Q_],
+            disconnected_inputs="ignore",
+        )
+
+        return [
+            pt.concatenate([dd_full[:k_sym], dd_fx], axis=0),
+            da0,
+            dP0,
+            dc_tr + dc_t,
+            dd_tr + dd_t,
+            dT_tr + dT_a + d_T_P,
+            dZ_tr + dZ_dir + d_Z_chain + d_Z_P,
+            dR_tr + d_R_P,
+            dH_tr + d_H_chain + d_H_P,
+            dQ_tr + d_Q_P,
+        ]

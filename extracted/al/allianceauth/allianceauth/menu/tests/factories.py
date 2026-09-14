@@ -47,13 +47,18 @@ def create_menu_item_hook_function(**kwargs):
     return lambda: obj
 
 
-def create_link_menu_item(**kwargs) -> MenuItem:
+def create_link_menu_item(permissions=None, **kwargs) -> MenuItem:
     num = next(counter_menu_item)
     params = {
         "url": f"https://www.example.com/{num}",
     }
     params.update(kwargs)
-    return _create_menu_item(**params)
+    obj = _create_menu_item(**params)
+    if permissions:
+        obj.permissions.add(
+            *[AuthUtils.get_permission_by_name(perm) for perm in permissions]
+        )
+    return obj
 
 
 def create_app_menu_item(**kwargs) -> MenuItem:

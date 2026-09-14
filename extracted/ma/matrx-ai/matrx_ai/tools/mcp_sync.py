@@ -65,7 +65,12 @@ class SyncResult:
 # ---------------------------------------------------------------------------
 
 
-async def sync_server(slug: str, *, force: bool = False) -> SyncResult:
+async def sync_server(
+    slug: str,
+    *,
+    force: bool = False,
+    discovery_auth: dict[str, Any] | None = None,
+) -> SyncResult:
     """Synchronize one remote catalog as the named ``mcp_sync`` code actor.
 
     Every entry point — manual refresh, background sweep, bundle discovery,
@@ -73,14 +78,28 @@ async def sync_server(slug: str, *, force: bool = False) -> SyncResult:
     RPC writes ``tool.definition`` rows, so leaving its provenance to the
     database's unnamed-code fallback is invalid and must never be caller
     dependent.
+
+    ``discovery_auth`` is the auth mapping ``ExternalMCPClient`` consumes for
+    the ``tools/list`` call when the caller holds one (the bundle lister
+    resolves the calling user's connection through the host's
+    ``mcp_auth_resolver`` seam). Without it, a server whose
+    ``auth_strategy`` is not ``none`` cannot be discovered at all — GitHub's
+    remote MCP answers 401 to an anonymous ``tools/list`` — so its catalog
+    stayed empty forever (``last_synced_at`` NULL, 2026-09-13). The auth is
+    used for this one request and never stored.
     """
     from matrx_orm import declared_actor
 
     async with declared_actor("code", "mcp_sync"):
-        return await _sync_server(slug, force=force)
+        return await _sync_server(slug, force=force, discovery_auth=discovery_auth)
 
 
-async def _sync_server(slug: str, *, force: bool = False) -> SyncResult:
+async def _sync_server(
+    slug: str,
+    *,
+    force: bool = False,
+    discovery_auth: dict[str, Any] | None = None,
+) -> SyncResult:
     """Sync a single MCP server's tool catalog into ``public.tool_def`` +
     ``tool_binding``.
 
@@ -185,7 +204,7 @@ async def _sync_server(slug: str, *, force: bool = False) -> SyncResult:
         try:
             remote_tools = await client.discover_tools(
                 endpoint,
-                auth=_resolve_server_auth(server),
+                auth=discovery_auth if discovery_auth is not None else _resolve_server_auth(server),
                 transport=transport,
                 command=stdio_config.get("command") if stdio_config else None,
                 args=list(stdio_config.get("args") or []) if stdio_config else None,

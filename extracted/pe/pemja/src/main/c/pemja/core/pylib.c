@@ -188,10 +188,6 @@ JcpThread *JcpThread_Get(void) {
     }
   }
   Py_XDECREF(key);
-  if (!ret && !PyErr_Occurred()) {
-    PyErr_Format(PyExc_RuntimeError,
-                 "No JcpThread instance available on current thread.");
-  }
   return ret;
 }
 
@@ -293,6 +289,14 @@ void JcpPy_Initialize(JNIEnv *env, jstring python_home, jstring working_dir) {
   // Cache java classes
   Jcp_CacheClasses(env);
 
+  // Set python home
+  if (python_home) {
+    const char *python_home_chars =
+        (*env)->GetStringUTFChars(env, python_home, NULL);
+    Py_SetPythonHome(Py_DecodeLocale(python_home_chars, NULL));
+    (*env)->ReleaseStringUTFChars(env, python_home, python_home_chars);
+  }
+
   // Initialize Python
   Py_Initialize();
 
@@ -340,13 +344,7 @@ void JcpPy_Initialize(JNIEnv *env, jstring python_home, jstring working_dir) {
 
   PySys_SetArgv(1, argv);
 
-  if (python_home) {
-    const char *python_home_chars =
-        (*env)->GetStringUTFChars(env, python_home, NULL);
-    Py_SetPythonHome(Py_DecodeLocale(python_home_chars, NULL));
-    (*env)->ReleaseStringUTFChars(env, python_home, python_home_chars);
-  }
-
+  // Set working dir
   if (working_dir) {
     const char *working_dir_chars =
         (*env)->GetStringUTFChars(env, working_dir, NULL);

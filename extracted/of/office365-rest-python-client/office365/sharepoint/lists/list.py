@@ -25,8 +25,10 @@ from office365.sharepoint.eventreceivers.definition_collection import (
     EventReceiverDefinitionCollection,
 )
 from office365.sharepoint.fields.collection import FieldCollection
+from office365.sharepoint.fields.creation_information import FieldCreationInformation
 from office365.sharepoint.fields.field import Field
 from office365.sharepoint.fields.related_field_collection import RelatedFieldCollection
+from office365.sharepoint.fields.type import FieldType
 from office365.sharepoint.files.checked_out_file_collection import (
     CheckedOutFileCollection,
 )
@@ -72,6 +74,7 @@ from office365.sharepoint.views.view import View
 from office365.sharepoint.webhooks.subscription_collection import SubscriptionCollection
 
 if TYPE_CHECKING:
+    from office365.runtime.operations import ProgressCallback
     from office365.sharepoint.client_context import ClientContext
     from office365.sharepoint.documentmanagement.document_set import DocumentSet
     from office365.sharepoint.webs.web import Web
@@ -133,13 +136,21 @@ class List(SecurableObject):
         self.ensure_property("Title").after_execute(lambda _: _can_customize_forms())
         return return_type
 
-    def clear(self):
-        """Clears the list."""
+    def clear(self) -> Self:
+        """Clears the list (deletes all items).
 
-        def _clear(items):
-            [item.delete_object() for item in items]
+        Loads only the item IDs (paged) and queues a delete per item, so large
+        lists are cleared in full. The deletions run on ``execute_batch``:
 
-        self.items.get().after_execute(_clear, execute_first=True)
+            >>> target_list.clear().execute_batch()
+        """
+
+        def _delete_all(items) -> None:
+            # snapshot: delete_object removes items from the collection while iterating
+            [item.delete_object() for item in list(items)]
+
+        items = self.items.select(["Id"]).get_all().execute_query()
+        _delete_all(items)
         return self
 
     def create_document_set(self, name: str) -> DocumentSet:
@@ -279,11 +290,11 @@ class List(SecurableObject):
 
         return_type = ConnectorResult(self.context)
 
-        def _loaded():
-            assert self.title is not None
-            FlowPermissions.get_flow_permission_level_on_list(self.context, self.title, return_type)
+        def _get_flow_permission_level(title: str | None):
+            assert title is not None
+            FlowPermissions.get_flow_permission_level_on_list(self.context, title, return_type)
 
-        self.ensure_property("Title").after_execute(lambda _: _loaded())
+        self.ensure_property("Title").after_execute(lambda _: _get_flow_permission_level(self.title))
         return return_type
 
     def get_sharing_settings(self) -> ObjectSharingSettings:
@@ -655,6 +666,72 @@ class List(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
+    def ensure_field(self, name: str, field_type: FieldType = FieldType.Text, description: str | None = None) -> Self:
+        """Ensure a single column exists on the list, creating it if missing.
+
+        The check is deferred — the column is looked up and created when the
+        caller executes the query (e.g. ``list.ensure_field("Status").execute_query()``).
+
+        Args:
+            name: The column title
+            field_type: The field type to create it with if missing (Text by default)
+            description: The description of the column
+        """
+        self.fields.ensure(FieldCreationInformation(Title=name, FieldTypeKind=field_type, Description=description))
+        return self
+
+    def ensure_fields(self, columns: "Dict[str, FieldType] | list[str]") -> Self:
+        """Ensure the specified columns exist on the list, creating missing ones.
+
+        Reconciles the source schema with the target list before data import,
+        like migration tools do: existing fields are kept, missing ones are
+        created with the given type (Text by default).
+
+        The check is deferred — the fields are read and missing ones created
+        when the caller executes the query (e.g.
+        ``list.ensure_fields(...).execute_query()``).
+
+        Args:
+            columns: Either a list of field names (created as Text) or a mapping
+                of field name -> FieldType
+        """
+        spec = columns.items() if isinstance(columns, dict) else ((c, FieldType.Text) for c in columns)
+        for name, field_type in spec:
+            self.ensure_field(name, field_type)
+        return self
+
+    def from_dataframe(self, df, progress: "ProgressCallback | None" = None) -> Self:
+        """Import a pandas DataFrame into this list.
+
+        Defines a column per DataFrame column via ``fields.from_dataframe``
+        (type inferred from the dtype, created idempotently), then queues an
+        item create per row — fully deferred, run the whole import with
+        ``execute_query()``:
+
+            >>> lst = ctx.web.lists.ensure_list("My List").execute_query()
+            >>> lst.from_dataframe(df).execute_query()
+            >>> lst.from_dataframe(df, progress=my_callback).execute_query()
+
+        Column names are sanitized into SharePoint field internal names
+        (spaces/punctuation -> ``_``); NaN cells are skipped.
+
+        Args:
+            df: A pandas DataFrame (requires ``pip install
+                office365-rest-python-client[pandas]``).
+            progress: Optional hook invoked per row as its item create completes
+              during ``execute_query()``.
+
+        Returns:
+            Self: The list, for method chaining.
+        """
+        from office365.runtime.converters.dataframe import records_from_dataframe
+        from office365.sharepoint.fields.name import internal_field_name
+
+        records = records_from_dataframe(df, key_fn=internal_field_name)
+        self.fields.from_dataframe(df)
+        self.items.from_records(records, progress=progress)
+        return self
+
     def add_item(self, creation_information: Union[ListItemCreationInformation, Dict]) -> ListItem:
         """The recommended way to add a list item is to send a POST request to the ListItemCollection resource endpoint,
         as shown in ListItemCollection request examples."""
@@ -755,7 +832,7 @@ class List(SecurableObject):
         self.items.add_child(return_type)
 
         def _after_loaded(item):
-            [return_type.set_property(k, v, False) for k, v in item.properties.items()]
+            return_type.copy_from(item)
 
         def _get_item_by_url():
             assert self.root_folder.server_relative_url is not None
@@ -1185,7 +1262,7 @@ class List(SecurableObject):
     @property
     def fields(self) -> FieldCollection:
         """Gets a value that specifies the collection of all fields in the list."""
-        return self.properties.get(
+        return self.properties.setdefault(
             "Fields",
             FieldCollection(self.context, ResourcePath("Fields", self.resource_path), self),
         )
@@ -1312,31 +1389,29 @@ class List(SecurableObject):
 
     @odata(name="LastItemDeletedDate")
     @property
-    def last_item_deleted_date(self) -> datetime:
+    def last_item_deleted_date(self) -> Optional[datetime]:
         """
         Specifies the last time a list item was deleted from the list. It MUST return Created if no list item has
         been deleted from the list yet.
         """
-        return self.properties.get("LastItemDeletedDate", datetime.min)
+        return self.properties.get("LastItemDeletedDate", None)
 
     @odata(name="LastItemModifiedDate")
     @property
-    def last_item_modified_date(self) -> datetime:
+    def last_item_modified_date(self) -> Optional[datetime]:
         """
         Specifies the last time a list item, field, or property of the list was modified.
         It MUST return Created if the list has not been modified.
         """
-        return self.properties.get("LastItemModifiedDate", datetime.min)
+        return self.properties.get("LastItemModifiedDate", None)
 
     @odata(name="LastItemUserModifiedDate")
     @property
-    def last_item_user_modified_date(self) -> datetime:
+    def last_item_user_modified_date(self) -> Optional[datetime]:
         """
-        Specifies when an item of the list was last modified by a non-system update. A non-system update is a change
-        to a list item that is visible to end users. If no item has been created in the list, the list creation time
-        is returned.
+        Specifies the last time a list item was modified by a user.
         """
-        return self.properties.get("LastItemUserModifiedDate", datetime.min)
+        return self.properties.get("LastItemUserModifiedDate", None)
 
     @property
     def list_experience_options(self) -> Optional[int]:

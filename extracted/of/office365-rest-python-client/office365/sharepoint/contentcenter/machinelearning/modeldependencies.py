@@ -1,5 +1,4 @@
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
 
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -10,7 +9,9 @@ from office365.sharepoint.contentcenter.machinelearning.dependentmodel import (
 
 @dataclass
 class SPModelDependencies(ClientValue):
-    DependentModels: Optional[ClientValueCollection[SPDependentModel]] = None
+    DependentModels: ClientValueCollection[SPDependentModel] = field(
+        default_factory=lambda: ClientValueCollection(SPDependentModel)
+    )
 
     @property
     def entity_type_name(self):

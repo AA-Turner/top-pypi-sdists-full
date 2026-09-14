@@ -123,12 +123,31 @@ def update_character_chunk(character_ids_chunk: list) -> None:
     # fetch current characters
     characters = EveCharacter.objects.filter(
         character_id__in=character_ids_chunk
-    ).values('character_id', 'corporation_id', 'alliance_id', 'character_name')
+    ).values(
+        'character_id', 'corporation_id', 'alliance_id', 'character_name',
+        'corporation_name', 'alliance_name',
+    )
+
+    # Names of the corps/alliances ESI says these characters are in, so we can also
+    # catch rows whose IDs are current but whose cached names never got written.
+    # Unknown corps/alliances are left out on purpose; the ID diff below handles those.
+    # this is to catch anyone that is caught after issue #1465
+    corporation_names = dict(
+        EveCorporationInfo.objects.filter(
+            corporation_id__in={a.corporation_id for a in affiliations.values()}
+        ).values_list('corporation_id', 'corporation_name')
+    )
+    alliance_names = dict(
+        EveAllianceInfo.objects.filter(
+            alliance_id__in={a.alliance_id for a in affiliations.values() if getattr(a, 'alliance_id', None)}
+        ).values_list('alliance_id', 'alliance_name')
+    )
 
     for character in characters:
         character_id = character.get('character_id')
         if character_id in affiliations:
             affiliation = affiliations[character_id]
+            fetched_alliance_id = getattr(affiliation, 'alliance_id', None) or None
 
             corp_changed = (
                 character.get('corporation_id') != affiliation.corporation_id
@@ -137,14 +156,25 @@ def update_character_chunk(character_ids_chunk: list) -> None:
             alliance_id = character.get('alliance_id')
             if not alliance_id:
                 alliance_id = None
-            alliance_changed = alliance_id != affiliation.alliance_id
+            alliance_changed = alliance_id != fetched_alliance_id
 
             name_changed = False
             fetched_name = affiliation.name
             if fetched_name:
                 name_changed = character.get('character_name') != fetched_name
 
-            if corp_changed or alliance_changed or name_changed:
+            expected_corp_name = corporation_names.get(affiliation.corporation_id)
+            corp_name_stale = (
+                expected_corp_name is not None
+                and character.get('corporation_name') != expected_corp_name
+            )
+            expected_alliance_name = alliance_names.get(fetched_alliance_id, "") if fetched_alliance_id else ""
+            alliance_name_stale = (
+                (fetched_alliance_id is None or fetched_alliance_id in alliance_names)
+                and character.get('alliance_name') != expected_alliance_name
+            )
+
+            if corp_changed or alliance_changed or name_changed or corp_name_stale or alliance_name_stale:
                 update_character.apply_async(
                     args=(character.get('character_id'),),
                     priority=TASK_PRIORITY)

@@ -39,9 +39,12 @@ from matrx_ai.db import (
     ensure_user_request_exists,
     update_user_request_status,
 )
+from matrx_ai.db.message_parts import validate_message_content
 from matrx_ai.db.message_positions import APPEND_MESSAGE_POSITION
 from matrx_ai.db.persistence import persist_completed_request
 from matrx_ai.ops.issue_capture import capture_issue
+from matrx_ai.ops.provider_outage import note_provider_success, outage_watch_active
+from matrx_ai.orchestrator.change_claims import UNBACKED_CHANGE_CLAIM_META_KEY
 from matrx_ai.orchestrator.execution_state import (
     ExecutionState,
     ExecutionStateSnapshot,
@@ -55,6 +58,7 @@ from matrx_ai.orchestrator.mandate_carrier import (
     note_mandate_carrier,
 )
 from matrx_ai.orchestrator.requests import AIMatrixRequest, CompletedRequest
+from matrx_ai.orchestrator.reroute_alarm import record_provider_reroute
 from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
 from matrx_ai.providers.errors import RetryableError, classify_provider_error
 from matrx_ai.providers.snapshot_redactors import (
@@ -243,7 +247,7 @@ def _hide_interrupted_tail(messages: list, fence: int) -> int:
     them; the next run answers them.
     """
     hidden = 0
-    for msg in messages[max(fence, 0):]:
+    for msg in messages[max(fence, 0) :]:
         role = str(getattr(msg, "role", "")).lower()
         if role.endswith("user"):
             continue
@@ -539,21 +543,38 @@ async def _exit_with_loop_guard(
     """
     skipped = _build_skipped_tool_results(response, health, current_request)
     if skipped:
-
         current_request.config.messages.append(UnifiedMessage(role="tool", content=skipped))
 
+    from matrx_ai.orchestrator.loop_guard import loop_guard_evidence
+
+    _health_payload = {
+        "verdict": health.verdict,
+        "reason": health.reason,
+        "total_calls": health.total_calls,
+        "window_size": health.window_size,
+        "failures_in_window": health.failures_in_window,
+        "successes_in_window": health.successes_in_window,
+    }
     metadata: dict[str, Any] = {
         "status": status,
-        "loop_health": {
-            "verdict": health.verdict,
-            "reason": health.reason,
-            "total_calls": health.total_calls,
-            "window_size": health.window_size,
-            "failures_in_window": health.failures_in_window,
-            "successes_in_window": health.successes_in_window,
-        },
+        "loop_health": _health_payload,
         "iteration": iteration,
     }
+    # The reason travels here too: this is the backstop exit (still stuck after
+    # the tool-less turn, or the max-iterations ceiling), and it fails a
+    # workflow node exactly like the other one — so it owes the same evidence.
+    metadata.update(
+        _loop_guard_meta(
+            status=status,
+            health=_health_payload,
+            evidence=(
+                state.loop_guard_evidence
+                if state is not None and state.loop_guard_evidence
+                else loop_guard_evidence(current_request.tool_call_history)
+            ),
+        )
+    )
+    metadata["status"] = status
     if extra_metadata:
         metadata.update(extra_metadata)
 
@@ -769,8 +790,7 @@ def _terminal_response_problem(
         )
     return (
         "empty_assistant_response",
-        "The model ended without producing a visible answer. Please retry or "
-        "use another model.",
+        "The model ended without producing a visible answer. Please retry or use another model.",
     )
 
 
@@ -934,8 +954,10 @@ async def _flush_assistant_message_mid_loop(
                 user_role = user_storage.get("role", "user")
                 if hasattr(user_role, "value"):
                     user_role = user_role.value
-                user_content = user_storage.get("content", [])
+                user_content = validate_message_content(user_storage.get("content", []))
                 pristine_user_content = user_storage.get("user_content")
+                if pristine_user_content is not None:
+                    pristine_user_content = validate_message_content(pristine_user_content)
                 # This mid-loop flush bypasses persist_completed_request, so it
                 # must itself lift the per-turn call-record keys (model_context /
                 # tools_on_call) out of the stamped metadata into their columns —
@@ -1221,6 +1243,75 @@ async def _apply_turn_directives(
         )
 
 
+def _running_unattended() -> bool:
+    """Is this turn a workflow step — i.e. is there nobody watching it?
+
+    Same predicate the designated-member gate already uses (``origin_class ==
+    "workflow"``). It exists because the two resumable "pause for the user"
+    exits are only resumable when a user is THERE: inside an unattended step a
+    pause is a failure, and the metadata must say so.
+    """
+    from matrx_connect.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    if ctx is None:
+        return False
+    return str(getattr(ctx, "origin_class", "") or "") == "workflow"
+
+
+def _loop_guard_meta(
+    *,
+    health: dict[str, Any] | None,
+    evidence: dict[str, Any] | None,
+    status: str = "paused_loop_guard",
+) -> dict[str, Any]:
+    """The completion metadata a stalled tool loop must carry.
+
+    ``error`` is the person-and-agent-readable sentence naming the tool, the
+    count, the last error and the remedy; ``error_type`` is the machine word;
+    ``loop_health`` / ``loop_guard_evidence`` are the structured facts. When
+    there genuinely is no per-call error text, ``error`` says THAT, and why —
+    "no error detail recorded" alone is never acceptable (W66).
+    """
+    from matrx_ai.orchestrator.loop_guard import (
+        LOOP_STALL_ERROR_TYPE,
+        loop_guard_sentence,
+    )
+
+    unattended = _running_unattended()
+    meta: dict[str, Any] = {
+        "error_type": LOOP_STALL_ERROR_TYPE,
+        "unattended_step": unattended,
+    }
+    if health:
+        meta["loop_health"] = health
+    if evidence is not None:
+        meta["loop_guard_evidence"] = evidence
+    sentence = loop_guard_sentence(evidence, unattended=unattended)
+    if not sentence:
+        reason = str((health or {}).get("reason") or "repeated tool failures")
+        if status == "max_iterations_exceeded":
+            sentence = (
+                f"the turn hit its iteration ceiling before finishing ({reason}), and no "
+                f"tool call failed on the way — nothing is broken, the job did not fit. "
+                f"Raise the ceiling for this step or split the work."
+            )
+        else:
+            sentence = (
+                f"tools were disabled after {reason}, but not one of the failed calls "
+                f"recorded an error message — so the tool itself reported nothing. "
+                f"Check that tool's error handling: a failure that says nothing cannot "
+                f"be fixed from here."
+            )
+        if unattended:
+            sentence += (
+                " This ran as an unattended step, so there is nobody to review the"
+                " pause — it is a failure, not a wait."
+            )
+    meta["error"] = sentence
+    return meta
+
+
 def _required_member_gate(
     current_request: AIMatrixRequest,
     state: "ExecutionState | None",
@@ -1249,9 +1340,7 @@ def _required_member_gate(
     report = evaluate_required_members(
         metadata,
         current_request.tool_call_history,
-        active_tool_names=[
-            t for t in (current_request.config.tools or []) if isinstance(t, str)
-        ],
+        active_tool_names=[t for t in (current_request.config.tools or []) if isinstance(t, str)],
     )
     is_workflow = (
         str(getattr(ctx, "origin_class", "") or "") == "workflow" if ctx is not None else False
@@ -1263,6 +1352,80 @@ def _required_member_gate(
         is_workflow_step=is_workflow,
     )
     return action, report, is_workflow
+
+
+async def _change_claim_gate(
+    current_request: AIMatrixRequest,
+    api_response: UnifiedResponse | None,
+    state: "ExecutionState | None",
+) -> tuple[str, Any]:
+    """THE CHANGE-CLAIM GATE at a finishing exit — see ``change_claims.py``.
+
+    Returns ``(action, report)``, action one of ``proceed | force | disclose``.
+
+    Order matters and is the whole cost story: the claim patterns run FIRST, on
+    this turn's model text only, and the host is asked whether the mandate
+    authors anything ONLY when a claim was actually found — so a run that
+    reports honestly (the overwhelming majority) pays one bounded regex pass and
+    no host call at all. The host seam may read the database.
+    """
+    if state is None:
+        return "proceed", None
+
+    from matrx_ai._ext import get_authoring_mandate_policy
+    from matrx_ai.orchestrator.change_claims import (
+        AuthoringPolicy,
+        decide_change_claim_action,
+        evaluate_change_claims,
+        find_change_claims,
+    )
+
+    assistant_text = _assistant_text_from_response(api_response)
+    if not find_change_claims(assistant_text):
+        return "proceed", None
+
+    resolver = get_authoring_mandate_policy()
+    if resolver is None:
+        return "proceed", None
+
+    from matrx_connect.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    mandate_key = None
+    for source in (current_request.metadata, metadata):
+        if isinstance(source, dict):
+            candidate = source.get(MANDATE_KEY_METADATA_KEY)
+            if isinstance(candidate, str) and candidate.strip():
+                mandate_key = candidate.strip()
+                break
+    try:
+        payload = await resolver(
+            mandate_key=mandate_key,
+            agent_id=getattr(ctx, "agent_id", None) if ctx is not None else None,
+            agent_version_id=getattr(ctx, "agent_version_id", None) if ctx is not None else None,
+            user_id=getattr(ctx, "user_id", None) if ctx is not None else None,
+            organization_id=getattr(ctx, "organization_id", None) if ctx is not None else None,
+        )
+    except Exception as exc:  # noqa: BLE001 — an unanswered seam is "no gate", never a failed turn
+        vcprint(
+            f"[change-claim gate] authoring-mandate policy seam failed: "
+            f"{type(exc).__name__}: {exc} — no gate on this turn",
+            color="red",
+        )
+        return "proceed", None
+
+    report = evaluate_change_claims(
+        AuthoringPolicy.from_host(payload),
+        current_request.tool_call_history,
+        assistant_text,
+    )
+    action = decide_change_claim_action(
+        report,
+        corrections_used=state.change_claim_corrections,
+        loop_guard_intervened=state.loop_guard_intervened,
+    )
+    return action, report
 
 
 async def _finalize_handoff(
@@ -1431,9 +1594,7 @@ async def _finalize_handoff(
         from matrx_ai.tools.dynamic_drain import drain_pending_injections
 
         _n_before = len(updated_request.config.messages)
-        await drain_pending_injections(
-            updated_request.config, exec_ctx, include_turn_end=True
-        )
+        await drain_pending_injections(updated_request.config, exec_ctx, include_turn_end=True)
         if len(updated_request.config.messages) > _n_before:
             await exec_ctx.emitter.send_info(
                 InfoPayload(
@@ -1488,8 +1649,7 @@ async def _finalize_handoff(
                 else False
             )
             _handoff_meta["required_members_missing"] = [
-                {"agent_id": m.agent_id, "role_title": m.role_title}
-                for m in _rm_report.missing
+                {"agent_id": m.agent_id, "role_title": m.role_title} for m in _rm_report.missing
             ]
             if _rm_is_workflow:
                 _rm_msg = (
@@ -2232,12 +2392,12 @@ async def _emit_structured_output_if_schema(completed: CompletedRequest) -> Any:
             if isinstance(getattr(ctx, "metadata", None), dict)
             else {}
         )
-        contract_kind = (
-            contract_meta.get("kind") if isinstance(contract_meta, dict) else None
-        )
+        contract_kind = contract_meta.get("kind") if isinstance(contract_meta, dict) else None
         kind_errors = (
-            [] if extraction.success else [extraction.reason or "schema mismatch"]
-        ) if contract_kind else []
+            ([] if extraction.success else [extraction.reason or "schema mismatch"])
+            if contract_kind
+            else []
+        )
         payload = StructuredOutputPayload(
             schema_name=envelope.get("name") if isinstance(envelope.get("name"), str) else None,
             json_schema=schema,
@@ -2588,7 +2748,11 @@ async def _capture_missing_provider_usage(
         or getattr(exec_ctx, "conversation_id", None),
         route="orchestrator/provider_response",
         error_type=type(exc).__name__,
-        payload={"provider": provider, "model": current_request.config.model, "iteration": iteration},
+        payload={
+            "provider": provider,
+            "model": current_request.config.model,
+            "iteration": iteration,
+        },
     )
 
 
@@ -3083,9 +3247,7 @@ async def _write_request_snapshot_on_failure(
             color="red",
             log_level="ERROR",
         )
-        await _record_snapshot_capture_failure(
-            exc, {**failure_context, "path": "provider_failure"}
-        )
+        await _record_snapshot_capture_failure(exc, {**failure_context, "path": "provider_failure"})
 
 
 # ============================================================================
@@ -3229,9 +3391,7 @@ async def execute_until_complete(
                             "status": "cancelled",
                             "interrupted": True,
                             "partial_assistant_captured": bool(_partial_text.strip()),
-                            "provider_completed_after_cancellation": bool(
-                                _completed_response
-                            ),
+                            "provider_completed_after_cancellation": bool(_completed_response),
                             "error": (
                                 "Request cancelled mid-stream (client "
                                 "disconnect or server shutdown). Persisted the "
@@ -3289,11 +3449,7 @@ async def _execute_until_complete_inner(
     # execution boundary instead. Ephemeral test/tool runs remain available by
     # declaring store=False explicitly.
     persistence_request_id = current_request.request_id or exec_ctx.request_id
-    if (
-        exec_ctx.store
-        and persistence_request_id
-        and not _is_valid_uuid_str(persistence_request_id)
-    ):
+    if exec_ctx.store and persistence_request_id and not _is_valid_uuid_str(persistence_request_id):
         raise ValueError(
             "Stored AI executions require a UUID request_id; "
             "use store=False for synthetic or ephemeral execution contexts"
@@ -3470,8 +3626,14 @@ async def _execute_until_complete_inner(
                 if not _trigger_msg.is_ephemeral_only():
                     _reserve_user_row = True
                     _trigger_storage = _trigger_msg.to_storage_dict()
-                    _trigger_user_content = _trigger_storage.get("content") or []
+                    _trigger_user_content = validate_message_content(
+                        _trigger_storage.get("content") or []
+                    )
                     _trigger_pristine_user_content = _trigger_storage.get("user_content")
+                    if _trigger_pristine_user_content is not None:
+                        _trigger_pristine_user_content = validate_message_content(
+                            _trigger_pristine_user_content
+                        )
                     # Only flip to 'active' when we actually have content blocks
                     # to write. An empty list would leave the row equivalent to
                     # the legacy placeholder; let the downstream UPDATE finalize
@@ -3572,9 +3734,7 @@ async def _execute_until_complete_inner(
         # 2) the runtime-spine control row (durable + cross-process: POST /cancel
         #    stamps it, and the tree dollar budget / deadline live there too).
         _stop_reason: str | None = None
-        _poll_request_id = current_request.request_id or getattr(
-            exec_ctx, "request_id", None
-        )
+        _poll_request_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
         if _is_request_cancelled(_poll_request_id):
             _stop_reason = "Request cancelled before the next provider call."
         else:
@@ -3861,6 +4021,21 @@ async def _execute_until_complete_inner(
                     "provider_execute_complete",
                     "UnifiedAIClient.execute complete",
                 )
+
+                # THE PROVIDER-OUTAGE ALARM closes on recovery: a provider that
+                # answers is a provider that is back, so the open
+                # ``provider_outage`` row it earned gets resolved here. Gated on
+                # a process-local bool so the normal path costs one branch — the
+                # catalog lookup and the host round-trip only happen while an
+                # outage may be open (aidream/services/provider_outage/).
+                if outage_watch_active():
+                    try:
+                        await note_provider_success(
+                            provider=await _catalog_vendor_for(current_request.config),
+                            model=current_request.config.model,
+                        )
+                    except Exception:  # noqa: BLE001 — an alarm never fails a run
+                        pass
                 current_timing.api_call_duration = time.time() - t0
                 current_timing.model = current_request.config.model
 
@@ -4436,9 +4611,7 @@ async def _execute_until_complete_inner(
                             "provider": provider,
                             "iteration": iteration,
                             "provider_attempt": retry_attempt + 1,
-                            "exception_type": (
-                                f"{type(e).__module__}.{type(e).__qualname__}"
-                            ),
+                            "exception_type": (f"{type(e).__module__}.{type(e).__qualname__}"),
                             "message": str(e) or type(e).__name__,
                         },
                         "[AI REQUESTS EXECUTE UNTIL COMPLETE] Internal Exception Error",
@@ -4456,11 +4629,8 @@ async def _execute_until_complete_inner(
                             "retryable": error_info.is_retryable,
                             "iteration": iteration,
                             "provider_attempt": retry_attempt + 1,
-                            "exception_type": (
-                                f"{type(e).__module__}.{type(e).__qualname__}"
-                            ),
-                            "message": error_info.message
-                            or type(e).__name__,
+                            "exception_type": (f"{type(e).__module__}.{type(e).__qualname__}"),
+                            "message": error_info.message or type(e).__name__,
                         },
                         "[AI REQUESTS EXECUTE UNTIL COMPLETE] Provider Error",
                         color="yellow",
@@ -4592,6 +4762,15 @@ async def _execute_until_complete_inner(
                             current_request.metadata.setdefault("overload_reroutes", []).append(
                                 _note.model_dump()
                             )
+                            # A route we sell refused a call — a NAMED operator
+                            # alarm on the error surfaces, not just a log line.
+                            record_provider_reroute(
+                                _note.model_dump(),
+                                spec_type=str(current_request.metadata.get("spec_type") or "")
+                                or None,
+                                mandate_key=str(current_request.metadata.get("mandate_key") or "")
+                                or None,
+                            )
                         overload_state.record_offering_reroute(
                             from_offering_id=_ov_ladder.current_offering_id,
                             note=_note
@@ -4613,9 +4792,7 @@ async def _execute_until_complete_inner(
                         # restore the canonical model ref so resolution can't
                         # trip on a diverging provider_model_id. The sibling
                         # gets a full same-model budget.
-                        current_request.config.runtime_offering_id = (
-                            _ov_decision.to_offering_id
-                        )
+                        current_request.config.runtime_offering_id = _ov_decision.to_offering_id
                         current_request.config.model = _ov_ladder.canonical_model_id
                         retry_loop_ceiling = max(
                             retry_loop_ceiling,
@@ -4681,6 +4858,22 @@ async def _execute_until_complete_inner(
                         if _note is not None:
                             current_request.metadata.setdefault("overload_reroutes", []).append(
                                 _note.model_dump()
+                            )
+                            # 🚨 A DIFFERENT MODEL IS ABOUT TO ANSWER. The note
+                            # above is provenance the step's output now carries
+                            # (AiUsage.reroutes); this is the operator alarm —
+                            # an exhausted or throttled provider must be a named
+                            # row on the error surfaces, never a silent
+                            # downgrade. Live 2026-09-12: three runs authored
+                            # claude-sonnet-5 and ran on gpt-4.1 because the
+                            # Anthropic account had no credit, and no alarm
+                            # named the substitution.
+                            record_provider_reroute(
+                                _note.model_dump(),
+                                spec_type=str(current_request.metadata.get("spec_type") or "")
+                                or None,
+                                mandate_key=str(current_request.metadata.get("mandate_key") or "")
+                                or None,
                             )
                         overload_state.record_reroute(
                             from_model=current_request.config.model or "",
@@ -5231,9 +5424,7 @@ async def _execute_until_complete_inner(
                 for message in response.messages:
                     if getattr(message, "role", None) == "assistant":
                         message.status = "failed"
-                last_assistant = current_request.config.messages.get_last_by_role(
-                    "assistant"
-                )
+                last_assistant = current_request.config.messages.get_last_by_role("assistant")
                 if last_assistant is not None:
                     last_assistant.status = "failed"
 
@@ -5370,7 +5561,6 @@ async def _execute_until_complete_inner(
                     current_request.config.custom_tools = []
                     current_request.config.tool_choice = "required"
 
-
                     _rm_titles = ", ".join(m.display for m in _rm_report.missing)
                     _rm_notice = (
                         f"⚠️ SYSTEM NOTICE (not from the user): this Orchestra "
@@ -5502,6 +5692,100 @@ async def _execute_until_complete_inner(
                         )
                     )
 
+                # ── THE CHANGE-CLAIM GATE ─────────────────────────────────
+                # The run wants to finish. If its reply ASSERTS that the
+                # artefact changed (past tense, this turn's model text only)
+                # while no write-capable tool call succeeded, the runtime — not
+                # the prompt — refuses the claim: one forced turn with the tools
+                # still in hand ("make them or say plainly that you did not"),
+                # and when that budget is spent the PERSON is told, in the
+                # stream and in the run's record, that nothing was saved.
+                # Declared per mandate (``authoring=True``); nothing fires for
+                # any mandate that does not author. Lives AFTER the
+                # required-member gate so that gate keeps precedence, and BEFORE
+                # _finalize_and_persist because past it the turn is durable.
+                _cc_action, _cc_report = await _change_claim_gate(
+                    current_request, api_response, state
+                )
+                if _cc_action == "force" and _cc_report is not None and state is not None:
+                    from matrx_ai.orchestrator.change_claims import (
+                        CHANGE_CLAIM_CORRECTION_CODE,
+                        correction_notice,
+                    )
+
+                    state.change_claim_corrections += 1
+                    current_request.config.messages.append(
+                        UnifiedMessage(
+                            role="user",
+                            content=[TextContent(text=correction_notice(_cc_report))],
+                        )
+                    )
+                    vcprint(
+                        f"⚠️  Change-claim gate: the reply claims changes "
+                        f"({'; '.join(_cc_report.claims)}) but no write-capable tool "
+                        f"call succeeded — forcing one corrective turn "
+                        f"[{_cc_report.policy.mandate_key}].",
+                        "[AI REQUESTS EXECUTE UNTIL COMPLETE] Change Claim Gate",
+                        color="yellow",
+                    )
+                    await exec_ctx.emitter.send_phase("processing")
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code=CHANGE_CLAIM_CORRECTION_CODE,
+                            system_message=(
+                                "The reply asserts changes were made, but this turn "
+                                "wrote nothing through any tool. Forcing one turn to "
+                                "either make them or say plainly that it did not."
+                            ),
+                            user_message=(
+                                "Nothing has been saved yet — checking that the "
+                                "described changes are actually made before finishing."
+                            ),
+                            level="medium",
+                            recoverable=True,
+                            metadata={
+                                **_cc_report.as_metadata(),
+                                "iteration": iteration,
+                            },
+                        )
+                    )
+                    continue  # one forced turn — full toolset, honest exits only
+
+                _cc_unbacked: dict[str, Any] | None = None
+                if _cc_action == "disclose" and _cc_report is not None:
+                    from matrx_ai.orchestrator.change_claims import (
+                        CHANGE_CLAIM_UNBACKED_CODE,
+                        CHANGE_CLAIM_USER_DISCLOSURE,
+                    )
+
+                    _cc_unbacked = {
+                        **_cc_report.as_metadata(),
+                        "corrections_used": state.change_claim_corrections
+                        if state is not None
+                        else 0,
+                    }
+                    vcprint(
+                        f"🛑 Change-claim gate: turn finished still claiming changes it "
+                        f"never wrote [{_cc_report.policy.mandate_key}] — disclosing to "
+                        f"the user and recording it on the run.",
+                        "[AI REQUESTS EXECUTE UNTIL COMPLETE] Change Claim Gate",
+                        color="red",
+                    )
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code=CHANGE_CLAIM_UNBACKED_CODE,
+                            system_message=(
+                                "Turn completed with an unbacked change claim: the reply "
+                                "describes changes and no write-capable tool call "
+                                "succeeded this turn."
+                            ),
+                            user_message=CHANGE_CLAIM_USER_DISCLOSURE,
+                            level="high",
+                            recoverable=True,
+                            metadata={**_cc_unbacked, "iteration": iteration},
+                        )
+                    )
+
                 # Print accumulated usage for debugging
                 vcprint(
                     current_request.usage_history,
@@ -5551,6 +5835,11 @@ async def _execute_until_complete_inner(
                 )
 
                 _completion_meta: dict[str, Any] = {
+                    **(
+                        {UNBACKED_CHANGE_CLAIM_META_KEY: _cc_unbacked}
+                        if _cc_unbacked is not None
+                        else {}
+                    ),
                     "finish_reason": response.finish_reason,
                     "response_id": response.usage.response_id if response.usage else None,
                     "matrx_model_name": response.usage.matrx_model_name if response.usage else None,
@@ -5565,6 +5854,12 @@ async def _execute_until_complete_inner(
                 # 'completed'. The model's explanation streamed normally.
                 if state is not None and state.loop_guard_intervened:
                     _completion_meta["status"] = "paused_loop_guard"
+                    _completion_meta.update(
+                        _loop_guard_meta(
+                            health=state.loop_guard_health,
+                            evidence=state.loop_guard_evidence,
+                        )
+                    )
                 # Required-member terminal pause (C-26): the orchestrator still
                 # refused its required member after the forced turn. A distinct,
                 # resumable status — this run NEVER records a clean 'completed'.
@@ -5660,6 +5955,21 @@ async def _execute_until_complete_inner(
                     color="yellow",
                 )
                 state.loop_guard_intervened = True
+                # THE GUARD'S REASON TRAVELS (2026-09-12). Capture WHAT broke
+                # now, while the failed calls are still in the window: the
+                # finalizing turn runs with tools stripped and its own fresh
+                # verdict, so by then nothing downstream can name the tool.
+                from matrx_ai.orchestrator.loop_guard import loop_guard_evidence
+
+                state.loop_guard_health = {
+                    "verdict": health.verdict,
+                    "reason": health.reason,
+                    "total_calls": health.total_calls,
+                    "window_size": health.window_size,
+                    "failures_in_window": health.failures_in_window,
+                    "successes_in_window": health.successes_in_window,
+                }
+                state.loop_guard_evidence = loop_guard_evidence(current_request.tool_call_history)
                 # Hard precaution: strip every tool for the next turn so the model
                 # CANNOT make another call even if it tries. Clearing the tool
                 # lists is sufficient and provider-safe — every translator omits
@@ -5670,7 +5980,6 @@ async def _execute_until_complete_inner(
                 # 'none' when no tools are sent. Leaving it unset is the safe path.
                 current_request.config.tools = []
                 current_request.config.custom_tools = []
-
 
                 _directive = (
                     f"⚠️ SYSTEM NOTICE (not from the user): {health.failures_in_window} of your "

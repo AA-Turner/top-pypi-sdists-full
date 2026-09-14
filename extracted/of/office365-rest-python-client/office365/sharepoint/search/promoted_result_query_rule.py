@@ -26,8 +26,12 @@ class PromotedResultQueryRule(ClientValue):
     EndDate: datetime | None = None
     IsPromotedResultsOnly: bool | None = None
     LastModifiedDate: datetime | None = None
-    PromotedResults: ClientValueCollection[PromotedResults] | None = None
-    QueryConditions: ClientValueCollection[QueryCondition] | None = None
+    PromotedResults: ClientValueCollection[PromotedResults] = field(
+        default_factory=lambda: ClientValueCollection(PromotedResults)
+    )
+    QueryConditions: ClientValueCollection[QueryCondition] = field(
+        default_factory=lambda: ClientValueCollection(QueryCondition)
+    )
     ReviewDate: datetime | None = None
     StartDate: datetime | None = None
 

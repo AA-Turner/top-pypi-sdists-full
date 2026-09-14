@@ -37,6 +37,7 @@ from unittest.mock import patch
 
 import pytest
 
+from agentic_devtools.cli.git.core import GitError
 from agentic_devtools.cli.workflows.worktree_setup import (
     _WORKFLOW_AGNOSTIC_FALLBACK_PROMPT,
     WorktreeSetupResult,
@@ -74,6 +75,32 @@ class TestSetupWorktreeInBackgroundSync:
         mock_open.assert_not_called()
         mock_start.assert_called_once()
         assert mock_start.call_args.kwargs["headless"] is True
+
+    def test_returns_failure_result_when_worktree_lookup_fails(self):
+        """A metadata lookup failure returns a sanitized setup result."""
+        with (
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+                side_effect=GitError(128, "fatal: lookup failed", ["worktree", "list"]),
+            ),
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir",
+                return_value="/repos",
+            ),
+        ):
+            result = setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        assert result.success is False
+        assert result.worktree_path == "/repos/PROJECT-1234"
+        assert result.branch_name == "feature/PROJECT-1234/implementation"
+        assert result.error_message == (
+            "Unable to verify existing worktree: git worktree list failed with exit code 128: fatal: lookup failed"
+        )
 
     def test_headless_existing_worktree_skips_manual_fallback_output_after_successful_launch(self):
         """Successful headless reuse should not print manual continuation guidance."""

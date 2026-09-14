@@ -6,8 +6,6 @@ from urllib.parse import quote_plus
 
 import requests
 
-from django.core.cache import cache
-
 from allianceauth.hooks import get_hooks, register
 
 logger = logging.getLogger(__name__)
@@ -16,8 +14,6 @@ logger = logging.getLogger(__name__)
 REQUESTS_TIMEOUT = 5    # 5 seconds
 # max pages to be fetched from gitlab
 MAX_PAGES = 50
-# Cache time
-NOTIFICATION_CACHE_TIME = 300  # 5 minutes
 
 
 @dataclass
@@ -108,7 +104,7 @@ class AppAnnouncementHook:
 
 @register("app_announcement_hook")
 def alliance_auth_announcements_hook():
-    return AppAnnouncementHook("AllianceAuth", "allianceauth/allianceauth", AppAnnouncementHook.Service.GITLAB)
+    return AppAnnouncementHook("Alliance Auth", "allianceauth/allianceauth", AppAnnouncementHook.Service.GITLAB)
 
 def get_all_applications_announcements() -> list[Announcement]:
     """
@@ -120,11 +116,7 @@ def get_all_applications_announcements() -> list[Announcement]:
     for hook in hooks:
         logger.debug(hook)
         try:
-            application_notifications.extend(cache.get_or_set(
-                f"{hook.app_name}_notification_issues",
-                hook.get_announcement_list,
-                NOTIFICATION_CACHE_TIME,
-            ))
+            application_notifications.extend(hook.get_announcement_list())
         except requests.HTTPError:
             logger.warning("Error when getting %s notifications", hook, exc_info=True)
 

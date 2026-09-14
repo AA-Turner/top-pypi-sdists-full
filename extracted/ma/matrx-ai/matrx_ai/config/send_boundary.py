@@ -44,6 +44,9 @@ What it owns
 
 ``stage="loop"`` — every iteration, at the executor's actual send boundary:
   1. host reference-fence staging,
+  1a. the DOCUMENT OUTPUT-CEILING floor — a declared structured output whose
+     schema cannot bound its own size reaches the provider at the model's real
+     maximum, whatever a stored agent row says,
   2. the cache-gated context trim — SAME gate as the resolver's,
   3. record the audit as
      ``AppContext.metadata["trim_reports_by_iteration"][iteration]``,
@@ -163,6 +166,7 @@ async def prepare_for_send(
 
     if stage == STAGE_LOOP:
         await _stage_reference_fences(prep, config)
+        await _enforce_document_output_ceiling(prep, config)
 
     effective_cache_state = _resolve_cache_state(
         conversation_id=conversation_id,
@@ -382,6 +386,88 @@ async def _stage_reference_fences(prep: SendPrep, config: Any) -> None:
     except Exception as exc:  # noqa: BLE001
         vcprint(
             f"[send_boundary] reference fence stager failed (ignored): {type(exc).__name__}: {exc}",
+            color="yellow",
+        )
+
+
+async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
+    """THE DOCUMENT-CEILING FLOOR AT THE WIRE — the last place it can still hold.
+
+    Arman's ruling (2026-09-12, ``matrx_ai.config.output_ceiling``) says a
+    DOCUMENT output gets the model's real maximum, and until now it was enforced
+    only where a ceiling is AUTHORED: agent birth
+    (``agent_factory.directive``), the agent update surface
+    (``agent_service.crud``) and an authored workflow step
+    (``graph_nodes.mandates.hold_step``). Every call whose ceiling comes from a
+    STORED agent row instead — ``ai.agent.start``, ``ai.mandate.start``,
+    ``ai.agent.produce``, an assignment step, a batch job, any HTTP agent run —
+    reached the provider at whatever number the row happened to carry, because
+    nothing re-judged it at send time.
+
+    That is how workflow run ``d44f53b6-2e8e-49fc-a660-d43b835bbc49`` died
+    (2026-09-12 19:29Z, definition "Newsroom Desk", node ``n_cross``): its agent
+    row, minted 56 minutes earlier by the meta-builder, carried
+    ``max_output_tokens: 32000`` under a model whose real maximum is 128,000,
+    with an output schema of five arrays of free-text objects. The reply stopped
+    at exactly 32,000 tokens (``finish_reason: max_tokens``), the JSON never
+    closed, and $1.10 of run spend was lost. A birth-time-only guard cannot
+    save a row that was born before the ruling reached the server — and there
+    are years of such rows.
+
+    SCOPE, deliberately narrow: only a call that DECLARES a structured output
+    whose schema cannot bound its own size (an array, or a free-form string).
+    That case is total loss by construction — truncated JSON does not parse, so
+    nobody gets a partial answer — and it is the same judgement in a chat as in
+    a workflow. Free PROSE is left alone here: in a conversation a small prose
+    ceiling is a legitimate cost knob the organization chose (law 6), and the
+    author-time layers already treat prose-with-nowhere-to-continue as a
+    document. An ABSENT ceiling is untouched for the same reason as everywhere
+    else: the offering default applies and inventing a number here would be the
+    silent default the platform forbids.
+
+    Reconciles and screams, never raises — raising a ceiling is free (you are
+    billed for tokens generated, not permitted), and one repair quiets itself
+    for the rest of the loop because the canonical config now carries the
+    maximum.
+    """
+    try:
+        from matrx_ai.config.output_ceiling import (
+            as_int,
+            declared_output_schema,
+            enforce_document_ceiling,
+            model_output_maximum,
+        )
+
+        if as_int(getattr(config, "max_output_tokens", None)) is None:
+            return
+        schema = declared_output_schema(config)
+        if schema is None:
+            return
+        model = getattr(config, "matrx_model_name", None) or getattr(config, "model", None)
+        repairs = enforce_document_ceiling(
+            config,
+            model_max=await model_output_maximum(model),
+            output_schema=schema,
+            # Irrelevant with a declared schema (the schema decides), passed
+            # explicitly so the call reads the same as the other three.
+            continuable=False,
+            key="max_output_tokens",
+            label=f"the declared structured output of {model or 'this call'}",
+        )
+        if not repairs:
+            return
+        prep.steps.append("document_output_ceiling")
+        for repair in repairs:
+            vcprint(
+                f"[send_boundary/{prep.stage}] {repair}",
+                title="⚠️ SEND BOUNDARY: output ceiling raised to the model maximum",
+                color="yellow",
+                log_level="WARNING",
+            )
+    except Exception as exc:  # noqa: BLE001 — a guard's lookup never breaks a send
+        vcprint(
+            "[send_boundary] document output-ceiling floor failed (ignored): "
+            f"{type(exc).__name__}: {exc}",
             color="yellow",
         )
 

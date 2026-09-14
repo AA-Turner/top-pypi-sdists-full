@@ -1619,7 +1619,19 @@ pub fn fleet_api_v1_contract_snapshot() -> Value {
                 "defined_by": "sase_core::fleet_contract",
                 "path_privacy": "never includes local paths, PIDs, process groups, bearer tokens, or auth headers",
                 "identity": "logical and optional exact locators plus logical/exact keys",
-                "state": "lifecycle, liveness, connection health, freshness, status bucket, labels, capabilities, content metadata",
+                "published_fields": {
+                    "started_at_unix": "f64|null; owner lifecycle start time, distinct from observation freshness",
+                    "stopped_at_unix": "f64|null; owner lifecycle stop time",
+                    "workspace_num": "u32|null; owner workspace number",
+                    "labels.project_label": "string; owner human project display label, falling back to the portable project id",
+                    "agent_clan": "string|null; owner-projected clan name for remote clan/family rendering",
+                    "agent_clan_generation": "string|null; owner-projected clan generation identity",
+                    "clan_tribe": "string|null; owner-resolved clan tribe label",
+                    "tribe": "string|null; owner-resolved agent tribe label",
+                    "queue_capacity": "u32|null; canonical owner-projected queue capacity, normalized from queue_capacity or legacy wait_runners",
+                    "queue_capacity_explicit": "bool; true when queue_capacity was explicitly authored"
+                },
+                "state": "lifecycle, liveness, connection health, freshness, status bucket, labels, lifecycle timestamps, workspace number, clan/tribe identity, queue capacity, capabilities, content metadata",
                 "family": "normalized family_role (root/member/monitor/gate/proc/historical_shell) plus optional parent_timestamp lineage, for viewer folding"
             },
             "ResolvedAgentDetailWire": {

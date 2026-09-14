@@ -1,11 +1,12 @@
 """Tests for PublishAction."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from agentic_devtools.cli.ci.pipeline.actions.publish import PublishAction
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision
+from agentic_devtools.cli.ci.pipeline.runner import run_pipeline
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
@@ -45,11 +46,40 @@ class TestPublishAction:
             head_sha="abc123",
             base_branch="main",
             head_branch="feature/x",
+            base_repo_full_name="owner/repo",
         )
         derived = DerivedState(snapshot)
         action = PublishAction()
-        result = action.evaluate(snapshot, derived)
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.publish.is_copilot_session_active_via_agent_task",
+            return_value=False,
+        ):
+            result = action.evaluate(snapshot, derived)
         assert result.decision == ActionDecision.EXECUTE
+
+    @pytest.mark.parametrize("active_session", [True, None])
+    def test_skip_when_session_active_or_inventory_unavailable(self, active_session: bool | None) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            is_draft=True,
+            has_changes=True,
+            title="feat: add feature",
+            base_repo_full_name="owner/repo",
+        )
+        action = PublishAction()
+        provider = MagicMock()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.publish.is_copilot_session_active_via_agent_task",
+            return_value=active_session,
+        ) as mock_detector:
+            summary = run_pipeline(provider, snapshot, [action])
+        mock_detector.assert_called_once_with("owner/repo", 1)
+        result = summary.results[0]
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_active_session"] is False
+        assert "publish blocked" in result.details
+        provider.squash_before_publish.assert_not_called()
+        provider.publish_pr.assert_not_called()
 
     def test_execute_updates_derived_state(self) -> None:
         snapshot = PRStateSnapshot(

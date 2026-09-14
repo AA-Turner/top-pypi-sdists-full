@@ -1226,7 +1226,10 @@ class ToolRegistry:
             max_calls_per_conversation=guardrail_config.get("max_calls_per_conversation"),
             max_calls_per_minute=guardrail_config.get("max_calls_per_minute"),
             cost_cap_per_call=guardrail_config.get("cost_cap_per_call"),
-            timeout_seconds=guardrail_config.get("timeout_seconds", 120.0),
+            # No declared ceiling stays None on purpose: the dispatch deadline
+            # then comes from the `agents.tool_dispatch` knob, live, instead of a
+            # literal nobody could turn (matrx_ai.tools.knobs).
+            timeout_seconds=guardrail_config.get("timeout_seconds"),
             must_complete=bool(guardrail_config.get("must_complete", False)),
             max_client_wait_seconds=row.get("max_client_wait_seconds"),
         )

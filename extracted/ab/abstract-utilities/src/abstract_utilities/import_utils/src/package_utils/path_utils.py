@@ -1,4 +1,4 @@
-import os, sys
+import sys
 from pathlib import Path
 
 def find_top_package_dir(p: Path) -> Path | None:

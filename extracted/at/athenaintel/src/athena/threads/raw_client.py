@@ -19,6 +19,7 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.thread_batch_stop_request import ThreadBatchStopRequest
 from ..types.thread_batch_stop_response_out import ThreadBatchStopResponseOut
+from ..types.thread_status_batch_response_out import ThreadStatusBatchResponseOut
 from ..types.thread_status_response_out import ThreadStatusResponseOut
 from ..types.thread_stop_response_out import ThreadStopResponseOut
 
@@ -66,6 +67,85 @@ class RawThreadsClient:
                     ThreadBatchStopResponseOut,
                     parse_obj_as(
                         type_=ThreadBatchStopResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_status_batch(
+        self, *, thread_ids: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ThreadStatusBatchResponseOut]:
+        """
+        Read the lifecycle status of up to 200 threads in one call, whether they were started by `POST /aop/execute-async` or `POST /aop/execute-batch`. Returns aggregate counts plus one compact entry per thread (status, terminal flag, output availability, timestamps) without loading any messages; fetch results with `GET /threads/{thread_id}/status` once `output_available` is true. Only threads you launched are returned: unknown IDs and other users' threads are listed in `not_found` and are indistinguishable.
+
+        Parameters
+        ----------
+        thread_ids : typing.Sequence[str]
+            Thread IDs to check (1-200 per request), from `POST /aop/execute-async` or `POST /aop/execute-batch`. Duplicates are collapsed.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ThreadStatusBatchResponseOut]
+            Status of every requested thread you own
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v0/threads/status-batch",
+            method="POST",
+            json={
+                "thread_ids": thread_ids,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ThreadStatusBatchResponseOut,
+                    parse_obj_as(
+                        type_=ThreadStatusBatchResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -436,6 +516,85 @@ class AsyncRawThreadsClient:
                     ThreadBatchStopResponseOut,
                     parse_obj_as(
                         type_=ThreadBatchStopResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_status_batch(
+        self, *, thread_ids: typing.Sequence[str], request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ThreadStatusBatchResponseOut]:
+        """
+        Read the lifecycle status of up to 200 threads in one call, whether they were started by `POST /aop/execute-async` or `POST /aop/execute-batch`. Returns aggregate counts plus one compact entry per thread (status, terminal flag, output availability, timestamps) without loading any messages; fetch results with `GET /threads/{thread_id}/status` once `output_available` is true. Only threads you launched are returned: unknown IDs and other users' threads are listed in `not_found` and are indistinguishable.
+
+        Parameters
+        ----------
+        thread_ids : typing.Sequence[str]
+            Thread IDs to check (1-200 per request), from `POST /aop/execute-async` or `POST /aop/execute-batch`. Duplicates are collapsed.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ThreadStatusBatchResponseOut]
+            Status of every requested thread you own
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v0/threads/status-batch",
+            method="POST",
+            json={
+                "thread_ids": thread_ids,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ThreadStatusBatchResponseOut,
+                    parse_obj_as(
+                        type_=ThreadStatusBatchResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

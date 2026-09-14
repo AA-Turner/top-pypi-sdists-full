@@ -229,6 +229,11 @@ def _run_defer(provider: _FakeProvider, snapshot: PRStateSnapshot) -> tuple[Acti
 @pytest.fixture(autouse=True)
 def _enable_feature(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ENABLE_SUPPRESSED_DEFERRAL", "true")
+    for action_module in ("dispatch_repair", "approve", "merge"):
+        monkeypatch.setattr(
+            f"agentic_devtools.cli.ci.pipeline.actions.{action_module}.is_copilot_session_active_via_agent_task",
+            lambda _repo, _pr_number: False,
+        )
 
 
 class TestSpecsOnlyRoundIsDeferredAndMerges:

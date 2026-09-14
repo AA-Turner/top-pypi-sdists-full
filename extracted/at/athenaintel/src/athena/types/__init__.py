@@ -10,6 +10,12 @@ if typing.TYPE_CHECKING:
     from .activity_delta_out import ActivityDeltaOut
     from .activity_item_out import ActivityItemOut
     from .aop_async_execute_response_out import AopAsyncExecuteResponseOut
+    from .aop_batch_execute_response_out import AopBatchExecuteResponseOut
+    from .aop_batch_run_in import AopBatchRunIn
+    from .aop_batch_run_launch_out import AopBatchRunLaunchOut
+    from .aop_batch_run_status_out import AopBatchRunStatusOut
+    from .aop_batch_status_counts_out import AopBatchStatusCountsOut
+    from .aop_batch_status_response_out import AopBatchStatusResponseOut
     from .aop_config_response_out import AopConfigResponseOut
     from .aop_config_update_response_out import AopConfigUpdateResponseOut
     from .aop_create_response_out import AopCreateResponseOut
@@ -155,6 +161,8 @@ if typing.TYPE_CHECKING:
     from .thread_batch_stop_request import ThreadBatchStopRequest
     from .thread_batch_stop_response_out import ThreadBatchStopResponseOut
     from .thread_batch_stop_result_item import ThreadBatchStopResultItem
+    from .thread_status_batch_item_out import ThreadStatusBatchItemOut
+    from .thread_status_batch_response_out import ThreadStatusBatchResponseOut
     from .thread_status_response_out import ThreadStatusResponseOut
     from .thread_stop_response_out import ThreadStopResponseOut
     from .tool_result_content import ToolResultContent
@@ -176,6 +184,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ActivityDeltaOut": ".activity_delta_out",
     "ActivityItemOut": ".activity_item_out",
     "AopAsyncExecuteResponseOut": ".aop_async_execute_response_out",
+    "AopBatchExecuteResponseOut": ".aop_batch_execute_response_out",
+    "AopBatchRunIn": ".aop_batch_run_in",
+    "AopBatchRunLaunchOut": ".aop_batch_run_launch_out",
+    "AopBatchRunStatusOut": ".aop_batch_run_status_out",
+    "AopBatchStatusCountsOut": ".aop_batch_status_counts_out",
+    "AopBatchStatusResponseOut": ".aop_batch_status_response_out",
     "AopConfigResponseOut": ".aop_config_response_out",
     "AopConfigUpdateResponseOut": ".aop_config_update_response_out",
     "AopCreateResponseOut": ".aop_create_response_out",
@@ -321,6 +335,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThreadBatchStopRequest": ".thread_batch_stop_request",
     "ThreadBatchStopResponseOut": ".thread_batch_stop_response_out",
     "ThreadBatchStopResultItem": ".thread_batch_stop_result_item",
+    "ThreadStatusBatchItemOut": ".thread_status_batch_item_out",
+    "ThreadStatusBatchResponseOut": ".thread_status_batch_response_out",
     "ThreadStatusResponseOut": ".thread_status_response_out",
     "ThreadStopResponseOut": ".thread_stop_response_out",
     "ToolResultContent": ".tool_result_content",
@@ -366,6 +382,12 @@ __all__ = [
     "ActivityDeltaOut",
     "ActivityItemOut",
     "AopAsyncExecuteResponseOut",
+    "AopBatchExecuteResponseOut",
+    "AopBatchRunIn",
+    "AopBatchRunLaunchOut",
+    "AopBatchRunStatusOut",
+    "AopBatchStatusCountsOut",
+    "AopBatchStatusResponseOut",
     "AopConfigResponseOut",
     "AopConfigUpdateResponseOut",
     "AopCreateResponseOut",
@@ -511,6 +533,8 @@ __all__ = [
     "ThreadBatchStopRequest",
     "ThreadBatchStopResponseOut",
     "ThreadBatchStopResultItem",
+    "ThreadStatusBatchItemOut",
+    "ThreadStatusBatchResponseOut",
     "ThreadStatusResponseOut",
     "ThreadStopResponseOut",
     "ToolResultContent",

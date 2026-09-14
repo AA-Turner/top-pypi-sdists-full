@@ -82,7 +82,7 @@ from matrx_ai.config.name_gender import (
     normalize_gender,
 )
 from matrx_ai.config.tts_config import configure_multi_speaker_voice_pool
-from matrx_ai.graph_nodes.shared import AiUsage
+from matrx_ai.graph_nodes.shared import AiModelReroute, AiUsage
 from matrx_ai.media import public_media_scope
 
 # Optional live-progress hook. The host (aidream router) passes a coroutine
@@ -1226,7 +1226,19 @@ def _aggregate_stage_usage(
     total_tokens = sum(int(u.get("total_tokens") or 0) for u in stage_usages)
     cost_usd = sum(float(u.get("cost_usd") or 0.0) for u in stage_usages)
     models: dict[str, dict[str, object]] = {}
+    # A stage whose model was SUBSTITUTED carries the reroute notes in its own
+    # usage block (AiUsage.reroutes). Summing the numbers and dropping those
+    # would re-create, one layer up, exactly the silence they exist to end —
+    # the pipeline aggregate would name only the models that ran.
+    reroutes: list[dict[str, object]] = []
     for usage in stage_usages:
+        for note in usage.get("reroutes") or []:
+            if isinstance(note, dict):
+                # Keep only declared keys — AiUsage is a closed contract, and a
+                # provenance record must never be able to fail a settlement.
+                reroutes.append(
+                    {k: v for k, v in note.items() if k in AiModelReroute.model_fields}
+                )
         for model_name, model_usage in (usage.get("models") or {}).items():
             bucket = models.setdefault(
                 model_name,
@@ -1242,6 +1254,7 @@ def _aggregate_stage_usage(
         total_tokens=total_tokens,
         cost_usd=cost_usd,
         models=models,
+        reroutes=reroutes,
     ).model_dump()
 
 

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: shot-scraper
-Version: 1.11
+Version: 1.12
 Summary: A CLI utility for taking screenshots of websites, recording video demos and scraping sites using JavaScript
 Author: Simon Willison
 License-Expression: Apache-2.0
 Requires-Dist: click
 Requires-Dist: pyyaml
 Requires-Dist: pydantic
-Requires-Dist: playwright>=1.61.0
+Requires-Dist: playwright>=1.62.0
 Requires-Dist: click-default-group
 Requires-Python: >=3.10
 Project-URL: Homepage, https://shot-scraper.datasette.io/

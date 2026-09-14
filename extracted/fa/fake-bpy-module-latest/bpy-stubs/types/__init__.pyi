@@ -2560,6 +2560,7 @@ bpy.types.NodeGeometryViewerItem.rst
 bpy.types.NodeGeometryViewerItems.rst
 bpy.types.NodeIndexSwitchItems.rst
 bpy.types.NodeInputs.rst
+bpy.types.NodeInternalLink.rst
 bpy.types.NodeInternalSocketTemplate.rst
 bpy.types.NodeLink.rst
 bpy.types.NodeLinks.rst
@@ -72903,7 +72904,7 @@ class Node(bpy_struct):
     inputs: NodeInputs
     """ (default None, readonly)"""
 
-    internal_links: bpy_prop_collection[NodeLink]
+    internal_links: bpy_prop_collection[NodeInternalLink]
     """ Internal input-to-output connections for muting (default None, readonly)"""
 
     label: str
@@ -74359,6 +74360,45 @@ class NodeInternal(Node, bpy_struct):
         :param context: (never None)
         :param layout: Layout, Layout in the UI (never None)
         """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeInternalLink(bpy_struct):
+    """Internal link used by muted nodes to connect input to output sockets"""
+
+    @property
+    def from_socket(self) -> NodeSocket | None | None:
+        """(readonly)"""
+
+    @property
+    def to_socket(self) -> NodeSocket | None | None:
+        """(readonly)"""
 
     @classmethod
     def bl_rna_get_subclass(

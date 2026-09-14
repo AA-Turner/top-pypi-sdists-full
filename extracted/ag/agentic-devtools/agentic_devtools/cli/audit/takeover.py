@@ -136,8 +136,9 @@ def takeover_eval_prs(provider: CIPlatformProvider, *, repo: str, max_prs: int =
             )
             continue
 
-        if is_copilot_session_active_via_agent_task(repo, pr_number):
-            logger.info("PR #%d: Copilot session active — deferring takeover", pr_number)
+        active_session = is_copilot_session_active_via_agent_task(repo, pr_number)
+        if active_session is not False:
+            logger.info("PR #%d: Copilot session active or unknown — deferring takeover", pr_number)
             continue
 
         outcome = reclaim_one_eval_pr(

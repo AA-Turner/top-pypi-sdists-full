@@ -1,23 +1,27 @@
 from __future__ import annotations
 
 import copy
+from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Generic, Optional, TypeVar
 
 from typing_extensions import Self
 
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_value import ClientValue
+from office365.runtime.converters.value import deserialize_value
 from office365.runtime.http.request_options import RequestOptions
 
 if TYPE_CHECKING:
     from office365.runtime.client_runtime_context import ClientRuntimeContext
 
-ClientValueT = TypeVar("ClientValueT", bound=Union[int, float, str, bytes, bool, dict, list, Enum, ClientValue])
+ClientValueT = TypeVar("ClientValueT", bound=object)
 
 
 class ClientResult(Generic[ClientValueT]):
     """Client result"""
+
+    _value: Optional[ClientValueT]
 
     def __init__(
         self,
@@ -26,7 +30,7 @@ class ClientResult(Generic[ClientValueT]):
     ) -> None:
         """Client result"""
         self._context = context
-        self._value = cast(ClientValueT, copy.deepcopy(default_value))
+        self._value = copy.deepcopy(default_value)
 
     def before_execute(self, action: Callable[[RequestOptions], None]) -> Self:
         """Attach an event handler which is triggered before query is submitted to server"""
@@ -44,26 +48,24 @@ class ClientResult(Generic[ClientValueT]):
         return self
 
     def set_property(self, key: str, value: Any, persist_changes: bool = False) -> Self:
-        from office365.runtime.client_value import ClientValue  # noqa
-
-        if isinstance(self._value, ClientValue):
-            self._value.set_property(key, value, persist_changes)
-        elif isinstance(self._value, dict):
-            self._value[key] = value
-        elif isinstance(self._value, Enum):
-            enum_type = type(self._value)
-            try:
-                self._value = enum_type(value)
-            except ValueError:
-                pass
+        current = self._value
+        if isinstance(current, ClientValue):
+            current.set_property(key, value, persist_changes)
+        elif isinstance(current, dict):
+            current[key] = value
+        elif isinstance(current, (datetime, Enum)):
+            coerced = deserialize_value(None, value, current, persist_changes)
+            if coerced is not None:
+                self._value = coerced
         else:
             self._value = value
         return self
 
     @property
     def value(self) -> ClientValueT:
-        """Returns the value"""
-        return self._value  # type: ignore[return-value]
+        """Returns the value (populated after execution)."""
+        assert self._value is not None
+        return self._value
 
     def execute_query(self) -> ClientResult[ClientValueT]:
         """Submit request(s) to the server"""
@@ -74,6 +76,8 @@ class ClientResult(Generic[ClientValueT]):
         self,
         max_retry: int = 5,
         timeout_secs: int = 5,
+        max_delay: Optional[int] = None,
+        jitter: bool = True,
         success_callback: Optional[Callable[[Any], None]] = None,
         failure_callback: Optional[Callable[[int, Exception], None]] = None,
         exceptions: tuple[type[Exception], ...] = (ClientRequestException,),
@@ -84,7 +88,9 @@ class ClientResult(Generic[ClientValueT]):
 
          Args:
             max_retry: Maximum retry attempts
-            timeout_secs: Delay between retries in seconds
+            timeout_secs: Base delay for exponential backoff (seconds)
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay
             success_callback: Called on successful execution
             failure_callback: Called after failed retries
             exceptions: Exception types that trigger retries
@@ -96,6 +102,8 @@ class ClientResult(Generic[ClientValueT]):
         self._context.execute_query_retry(
             max_retry=max_retry,
             timeout_secs=timeout_secs,
+            max_delay=max_delay,
+            jitter=jitter,
             success_callback=success_callback,
             failure_callback=failure_callback,
             exceptions=exceptions,

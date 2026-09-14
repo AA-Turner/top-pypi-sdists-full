@@ -2,7 +2,14 @@
 # SPDX-License-Identifier: MIT
 
 
-"""Run a headless display inside X virtual framebuffer (Xvfb)."""
+"""Manage headless displays with Xvfb (X virtual framebuffer)
+
+This module provides a wrapper around Xvfb (X Virtual Framebuffer) for managing
+virtual X displays.
+
+- Releases: https://pypi.org/project/xvfbwrapper
+- Development: https://github.com/cgoldberg/xvfbwrapper
+"""
 
 import os
 import platform
@@ -25,6 +32,11 @@ except ImportError as e:
 
 
 class Xvfb:
+    """Manage an Xvfb (X Virtual Framebuffer) process.
+
+    Provides an interface for configuring and controlling a virtual X display.
+    """
+
     # Maximum value to use for a display. 32-bit maxint is the
     # highest Xvfb currently supports
     MAX_DISPLAY: int = 2147483647
@@ -39,46 +51,39 @@ class Xvfb:
         set_xdg_session_type: bool = False,
         environ: MutableMapping[str, str] | None = None,
         extra_args: Sequence[str] | None = None,
-        timeout: float = 10,
+        timeout: float | None = 10,
         **kwargs: str,
     ) -> None:
         self.width: int = width
         self.height: int = height
         self.colordepth: int = colordepth
         self._tempdir: Path | str = tempdir or tempfile.gettempdir()
-        self._timeout: float = timeout
+        self._timeout: float | None = timeout
         self.new_display: int | None = display
         self.environ: MutableMapping[str, str] = environ or os.environ
-
         if set_xdg_session_type:
             os.environ["XDG_SESSION_TYPE"] = "x11"
-
+            self.environ["XDG_SESSION_TYPE"] = "x11"
         if not self._xvfb_exists():
             raise FileNotFoundError(
                 "Could not find Xvfb. Please install it and try again"
             )
-
         self.xvfb_cmd: list[str] = []
-
         if not extra_args:
             extra_args = []
-
         self.extra_xvfb_args: list[str] = [
             "-screen",
             "0",
             f"{self.width}x{self.height}x{self.colordepth}",
             *extra_args,
         ]
-
         for key, value in kwargs.items():
             self.extra_xvfb_args += [f"-{key}", value]
-
         self.orig_display_var: str | None
         if "DISPLAY" in self.environ:
             self.orig_display_var = self.environ["DISPLAY"]
         else:
             self.orig_display_var = None
-
         self.proc: subprocess.Popen[bytes] | None = None
         self._lock_display_file: TextIO | None = None
 
@@ -95,6 +100,8 @@ class Xvfb:
         self.stop()
 
     def start(self) -> None:
+        """Start Xvfb."""
+
         if not os.access(self._tempdir, os.W_OK):
             raise RuntimeError(
                 f"Could not access writable temp directory: {self._tempdir}"
@@ -113,10 +120,11 @@ class Xvfb:
             close_fds=True,
             env=dict(self.environ),
         )
-        start = time.time()
+        start = time.monotonic()
         while not self._local_display_exists(self.new_display):
             time.sleep(1e-3)
-            if time.time() - start > self._timeout:
+            elapsed = time.monotonic() - start
+            if self._timeout is not None and elapsed > self._timeout:
                 self.stop()
                 raise RuntimeError(f"Xvfb display did not open: {self.xvfb_cmd}")
         ret_code = self.proc.poll()
@@ -127,6 +135,15 @@ class Xvfb:
             raise RuntimeError(f"Xvfb did not start ({ret_code}): {self.xvfb_cmd}")
 
     def stop(self) -> None:
+        """Stop Xvfb and clean up its resources.
+
+        Terminate the process, escalating to kill if it does not exit within the
+        timeout. If the process has already exited, termination is treated as
+        successful. If `self._timeout` is set, wait up to that duration for termination
+        and, if necessary, an additional duration of the same length after killing the
+        process. If `self._timeout` is `None`, wait indefinitely for the process to
+        exit and be reaped.
+        """
         if self.proc is None:
             return
         try:
@@ -134,13 +151,15 @@ class Xvfb:
                 self.environ.pop("DISPLAY", None)
             else:
                 self._set_display(self.orig_display_var)
-
-            with suppress(OSError):
+            with suppress(ProcessLookupError):
                 self.proc.terminate()
+            try:
                 self.proc.wait(self._timeout)
-
-            self.proc = None
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+                self.proc.wait(self._timeout)
         finally:
+            self.proc = None
             self._cleanup_lock_file()
 
     def _xvfb_exists(self) -> bool:
@@ -160,7 +179,6 @@ class Xvfb:
         """
         if self._lock_display_file is None:
             return
-
         self._lock_display_file.close()
         with suppress(OSError):
             Path(self._lock_display_file.name).unlink()

@@ -170,7 +170,13 @@ class DataTablesView(View):
             )
 
     def get(self, request: HttpRequest, *args, **kwargs):
-        table_conf = self.get_table_config(request.GET)
+        return self.handle_request(request, request.GET, *args, **kwargs)
+
+    def post(self, request: HttpRequest, *args, **kwargs):
+        return self.handle_request(request, request.POST, *args, **kwargs)
+
+    def handle_request(self, request: HttpRequest, params: dict, *args, **kwargs):
+        table_conf = self.get_table_config(params)
         draw = int(table_conf["draw"])
         start = int(table_conf["start"])
         length = int(table_conf["length"])

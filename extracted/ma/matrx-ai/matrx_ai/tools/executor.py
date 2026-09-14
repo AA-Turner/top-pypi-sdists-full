@@ -18,7 +18,9 @@ from pydantic_core import ErrorType
 from ._db_log import db_log_event as _db_log
 from ._debug_log import is_verbose as _debug_verbose
 from ._debug_log import log_event as _debug_log
+from .error_remedy import annotate_tool_error
 from .guardrails import GuardrailEngine
+from .knobs import dispatch_timeout_ceiling
 from .lifecycle import ToolLifecycleManager
 from .logger import ToolExecutionLogger
 from .models import ToolContext, ToolDefinition, ToolError, ToolResult, ToolType
@@ -43,6 +45,15 @@ TOOL_RESULT_SIZE_UNMANAGED_KIND = "tool_result_size_unmanaged"
 # its own implementation can enforce the declared deadline.
 _CALLER_BOUNDED_PROCESS_TOOLS = frozenset({"shell_execute", "shell_python"})
 
+# These are terminal facts about a Cloud Browser session, not failures of the
+# executor.  The next model turn can start/attach a fresh session; an ERROR
+# log or ``tool_execution_failed`` record would instead page operations for a
+# normal lifecycle race.  Keep real worker reachability and command failures
+# outside this set so they still scream and capture exactly once.
+_CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES = frozenset(
+    {"run_state_conflict", "worker_shutting_down", "unknown_page"}
+)
+
 
 def _dispatch_timeout_seconds(
     tool_def: ToolDefinition,
@@ -50,11 +61,22 @@ def _dispatch_timeout_seconds(
     *,
     is_delegated: bool,
 ) -> float:
-    """Return the executor deadline without undercutting process-tool input contracts."""
+    """Return the executor deadline without undercutting process-tool input contracts.
+
+    A tool row that declares its own ``guardrail_config.timeout_seconds`` keeps it.
+    Everything else resolves the ceiling from ``platform.feature_knob``
+    (``agents.tool_dispatch``) — the limit is a knob an admin turns, never the
+    literal that killed the Conductor's ``workflow_plan build_agent`` at 120s
+    (2026-09-12). See ``matrx_ai.tools.knobs``.
+    """
     if is_delegated:
         return _DELEGATED_DISPATCH_TIMEOUT_SECONDS
 
-    configured_timeout = tool_def.timeout_seconds
+    configured_timeout = (
+        float(tool_def.timeout_seconds)
+        if tool_def.timeout_seconds is not None
+        else dispatch_timeout_ceiling(tool_def.name)
+    )
     if tool_def.name not in _CALLER_BOUNDED_PROCESS_TOOLS:
         return configured_timeout
 
@@ -62,6 +84,41 @@ def _dispatch_timeout_seconds(
     if not isinstance(requested_timeout, (int, float)) or isinstance(requested_timeout, bool):
         return configured_timeout
     return max(configured_timeout, float(requested_timeout))
+
+
+def timeout_tool_error(
+    *,
+    tool_name: str,
+    dispatch_timeout: float,
+    user_message: str,
+) -> ToolError:
+    """THE HONEST TIMEOUT (2026-09-12).
+
+    The Conductor's `workflow_plan build_agent` died on "timed out after 120s"
+    with no word of what it had been doing, so neither the agent nor the Expert
+    could tell whether the agent it was building now half-existed — and the
+    generic "try with different parameters" that rode with it reads as a refusal
+    of the request. So the envelope names the work, says the call was cancelled
+    and nothing unfinished was written, and names the ceiling as the knob an
+    admin can raise. A function, not an inline literal, so a test can drive the
+    real envelope instead of reading the executor's source.
+    """
+    return ToolError(
+        error_type="timeout",
+        message=(
+            f"Tool '{tool_name}' timed out after {dispatch_timeout:.0f}s "
+            f"while: {user_message}. The call was cancelled and its work "
+            "abandoned — nothing it had not already finished was written."
+        ),
+        is_retryable=True,
+        suggested_action=(
+            "Retry the same call (it is safe to repeat), or break the work into "
+            "smaller steps. If this tool legitimately needs longer, the ceiling is "
+            "the platform.feature_knob 'agents.tool_dispatch' "
+            "(default_timeout_seconds / per_tool_timeout_seconds) an admin can "
+            "raise — it is not a refusal of the request."
+        ),
+    )
 
 
 def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
@@ -76,15 +133,16 @@ def _is_expected_domain_failure(*, tool_name: str, error_type: str) -> bool:
         "validation",
     } or normalized_error_type.endswith("_not_found"):
         return True
+    if (
+        tool_name == "cloud_browser"
+        and error_type in _CLOUD_BROWSER_EXPECTED_LIFECYCLE_OUTCOMES
+    ):
+        return True
     return (tool_name, error_type) in {
         ("code_execute_python", "python_error"),
         ("context", "context_not_attached"),
         ("context_patch", "patch_no_match"),
         ("context", "context_create_disabled"),
-        # The browser control plane returns this typed refusal when the caller's
-        # session lost a lifecycle CAS or is already terminal.  It is actionable
-        # tool feedback (reattach/navigate), not an executor implementation fault.
-        ("cloud_browser", "run_state_conflict"),
         ("shell_execute", "exit_code"),
         ("shell_python", "exit_code"),
     }
@@ -118,7 +176,9 @@ async def _capture_tool_argument_validation_failed(
 
     allowed_codes = frozenset(get_args(ErrorType))
     errors = validation_error.errors(include_url=False, include_context=False, include_input=False)
-    codes = sorted({e["type"] if e["type"] in allowed_codes else "custom_validation" for e in errors})
+    codes = sorted(
+        {e["type"] if e["type"] in allowed_codes else "custom_validation" for e in errors}
+    )
     exc = RuntimeError(f"Tool arguments failed declared validation: {tool_name}")
     await capture_error(
         exc,
@@ -128,10 +188,13 @@ async def _capture_tool_argument_validation_failed(
         conversation_id=ctx.conversation_id or None,
         route="tool_executor.argument_validation",
         error_type="ToolArgumentValidationError",
-        context={"tool_name": tool_name, "call_id": ctx.call_id,
-                 "validation_error_count": validation_error.error_count(),
-                 "validation_error_codes": codes[:20],
-                 "validation_error_codes_truncated": len(codes) > 20},
+        context={
+            "tool_name": tool_name,
+            "call_id": ctx.call_id,
+            "validation_error_count": validation_error.error_count(),
+            "validation_error_codes": codes[:20],
+            "validation_error_codes_truncated": len(codes) > 20,
+        },
     )
 
 
@@ -237,9 +300,7 @@ async def _capture_tool_result_kind_unavailable(
     )
 
 
-async def _capture_tool_result_size_unmanaged(
-    *, ctx: ToolContext, tool_name: str
-) -> None:
+async def _capture_tool_result_size_unmanaged(*, ctx: ToolContext, tool_name: str) -> None:
     """Capture an owned tool that reached the universal blunt size gate."""
     from matrx_connect.streaming.error_capture import capture_error
 
@@ -479,6 +540,50 @@ async def warn_member_depth_exhausted(
             f"[executor] member_depth_exhausted warning failed to emit: {warn_exc}",
             color="red",
         )
+
+
+def _validate_against_declared_schema(tool_def: ToolDefinition, args: dict[str, Any]) -> str | None:
+    """Return a human-readable schema violation for ``args``, or ``None``.
+
+    Uses the exact provider-facing JSON Schema the model was shown
+    (``ToolDefinition._build_json_schema``), so "valid here" == "valid for
+    the model" == "valid for the client dispatcher" — one contract.
+    ``jsonschema`` is an optional dependency of matrx-ai (the host installs
+    it); when it is absent this is a no-op, never a failure. Validation itself
+    never raises: an unexpected schema shape is logged and treated as valid so
+    a bad ROW can never block a tool call.
+    """
+    try:
+        import jsonschema
+    except Exception:
+        return None
+    try:
+        schema = dict(tool_def._build_json_schema())
+        # Extra top-level keys are the CLIENT's call (zod objects strip unknown
+        # keys; the alias recovery upstream already canonicalised the known
+        # ones). This check exists to catch constraint violations the client
+        # would REJECT — lengths, enums, ranges, required fields, item shapes —
+        # not to add a stricter door than the client has.
+        schema.pop("additionalProperties", None)
+        validator_cls = jsonschema.validators.validator_for(schema)
+        validator = validator_cls(schema)
+        errors = sorted(validator.iter_errors(args or {}), key=lambda e: list(e.path))
+    except Exception as exc:  # a malformed declared schema must not block execution
+        logger.warning(
+            "[ToolExecutor] could not validate args for %r against its declared schema: %s",
+            tool_def.name,
+            exc,
+        )
+        return None
+    if not errors:
+        return None
+    parts: list[str] = []
+    for err in errors[:5]:
+        path = ".".join(str(p) for p in err.absolute_path) or "<root>"
+        parts.append(f"{path}: {err.message}")
+    if len(errors) > 5:
+        parts.append(f"(+{len(errors) - 5} more)")
+    return "; ".join(parts)
 
 
 class ToolExecutor:
@@ -1470,11 +1575,10 @@ class ToolExecutor:
         except TimeoutError:
             result = ToolResult(
                 success=False,
-                error=ToolError(
-                    error_type="timeout",
-                    message=f"Tool '{tool_name}' timed out after {dispatch_timeout:.0f}s",
-                    is_retryable=True,
-                    suggested_action="Try with simpler parameters or break the task into smaller parts.",
+                error=timeout_tool_error(
+                    tool_name=tool_name,
+                    dispatch_timeout=dispatch_timeout,
+                    user_message=user_message,
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -1498,6 +1602,17 @@ class ToolExecutor:
             )
 
         result.compute_duration()
+
+        # THE REFUSAL REACHES THE PERSON HONESTLY. One place, after every
+        # dispatch path: a failure class we can NAME carries its cause and its
+        # remedy in front of the raw text, whether the tool RAISED (the branches
+        # above) or built its own failed envelope (`workflow_plan` and most host
+        # tools do). Without this the model paraphrases a database CHECK as
+        # policy — live 2026-09-12, a missing `app.actor_system` declaration
+        # became "edits to any agent's contract must come from an authorized
+        # human channel" for a non-technical Expert. See `error_remedy`.
+        if not result.success and result.error is not None:
+            annotate_tool_error(result.error)
 
         result.input_kind = input_contract.kind
         result.input_kind_version = input_contract.version
@@ -2134,11 +2249,88 @@ class ToolExecutor:
         row_id: str = "",
         authorization_metadata: dict[str, Any] | None = None,
     ) -> ToolResult:
+        """Route one tool call, with the AI that made it named on every write.
+
+        🚨 AN AGENT-TIER WRITE NAMES ITSELF. A tool call IS an AI acting: the
+        model chose the tool and the arguments. Nothing on this lane sets
+        ``app.user_id`` (a durable/background run has no request identity at all),
+        so an undeclared write resolves to tier ``code`` with a NULL
+        ``app.actor_system`` and ``wf_051``'s CHECK refuses it outright — live
+        2026-09-12 23:24, the Masterwork Conductor's ``workflow_plan build_agent``
+        could not change how a desk's Writer thinks, and the whole
+        teach-by-conversation loop was blocked behind it.
+
+        So the declaration lives HERE, at the one dispatch edge every tool of
+        every type passes through — the same shape as the MCP context edge
+        (``aidream/api/mcp/agent_service/context_edge.py``) — and every present
+        and future tool inherits it. ``declared_actor``, never ``actor_session``:
+        a dispatcher above handlers that open their own transactions
+        (``acting_as_user`` / ``rls_session`` refuse to nest) can only declare.
+        A tool that knows a better system name nests its own declaration and
+        wins (the ContextVar is innermost-first). Canonical account:
+        ``common-docs/systems/platform/provenance/FEATURE.md``.
+        """
+        from matrx_orm import declared_actor
+
+        async with declared_actor("ai", f"tool:{tool_def.name}"):
+            return await self._dispatch_declared(
+                tool_def,
+                args,
+                ctx,
+                stream,
+                client_tools,
+                row_id,
+                authorization_metadata=authorization_metadata,
+            )
+
+    async def _dispatch_declared(
+        self,
+        tool_def: ToolDefinition,
+        args: dict[str, Any],
+        ctx: ToolContext,
+        stream: ToolStreamManager,
+        client_tools: frozenset[str] | None = None,
+        row_id: str = "",
+        authorization_metadata: dict[str, Any] | None = None,
+    ) -> ToolResult:
         # Client-delegated tools take priority over all other dispatch paths.
         # The tool is NOT executed server-side; instead a tool_delegated event is
         # emitted over the SSE stream and the executor suspends until the client
         # POSTs the result back.
         if client_tools and tool_def.name in client_tools:
+            # Pre-suspend contract check. A delegated call hard-suspends the
+            # loop and hands the args to the client; if the CLIENT then
+            # rejects them against its own schema, the agent pays a full
+            # suspend → reject → resume cycle for a mistake the server could
+            # have caught in-line. Validate against the same schema the model
+            # was shown; a failure is an ordinary failed tool result the model
+            # corrects on its very next step (2026-09-13 incident: a 16-char
+            # ``header`` on the ``user`` tool).
+            schema_error = _validate_against_declared_schema(tool_def, args)
+            if schema_error is not None:
+                logger.warning(
+                    "[ToolExecutor] delegated call %r rejected before suspend: %s",
+                    tool_def.name,
+                    schema_error,
+                )
+                return ToolResult(
+                    success=False,
+                    error=ToolError(
+                        error_type="validation",
+                        message=(
+                            f"Arguments for {tool_def.name} do not match its schema "
+                            f"(checked before delegating to the client): {schema_error}"
+                        ),
+                        suggested_action=(
+                            "Fix the named field(s) to satisfy the tool's input schema "
+                            "and call the tool again."
+                        ),
+                    ),
+                    started_at=time.time(),
+                    completed_at=time.time(),
+                    tool_name=tool_def.name,
+                    call_id=ctx.call_id,
+                )
             return await self._execute_delegated(
                 tool_def,
                 args,
@@ -2386,7 +2578,13 @@ class ToolExecutor:
                             updates["mcp_server_url"] = endpoint
                         tool_def = tool_def.model_copy(update=updates)
 
-        client = ExternalMCPClient(timeout=tool_def.timeout_seconds)
+        client = ExternalMCPClient(
+            timeout=(
+                float(tool_def.timeout_seconds)
+                if tool_def.timeout_seconds is not None
+                else dispatch_timeout_ceiling(tool_def.name)
+            )
+        )
         return await client.call_tool(tool_def, args, ctx)
 
     async def _execute_agent(

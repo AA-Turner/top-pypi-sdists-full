@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
+from django.db import models, transaction
 from django.utils.translation import gettext_lazy as _
 
 from esi.exceptions import HTTPNotModified
@@ -553,46 +553,41 @@ class EveCharacter(models.Model):
         affiliation, response = open_api_provider.get_affiliations(character_ids=[self.character_id])
         affiliation = affiliation[0]
 
-        # This is the important affiliation data, update this first to ensure we dont fail on any of the less important models.
-        self.corporation_id = affiliation.corporation_id
-        self.alliance_id = getattr(affiliation, "alliance_id", None)
-        self.faction_id = getattr(affiliation, "faction_id", None)
-        self.last_updated_affiliations = datetime.strptime(response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
+        corporation_id = affiliation.corporation_id
+        alliance_id = getattr(affiliation, "alliance_id", None) or None
+        faction_id = getattr(affiliation, "faction_id", None) or None
+        last_updated_affiliations = datetime.strptime(response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
 
-        self.save(update_fields=["corporation_id", "alliance_id", "faction_id", "last_updated_affiliations"])
+        # Resolve the related models *before* touching this row. These may hit ESI and fail;
+        # if they do, nothing has been written and the next periodic run will retry.
+        corporation_obj = EveCorporationInfo.objects.get_or_create_esi(corporation_id=corporation_id)
+        alliance_obj = EveAllianceInfo.objects.get_or_create_esi(alliance_id=alliance_id) if alliance_id else None
+        faction_obj = EveFactionInfo.objects.get_or_create_esi(faction_id=faction_id) if faction_id else None
+
+        # Write the IDs and the cached name/ticker fields in one atomic save.
+        # Saving fires the state-change cascade (post_save -> assign_state -> state_changed -> service hooks
+        # and third party receivers). Doing it in a single transaction means anything raising in that cascade
+        # rolls the whole update back instead of leaving new IDs next to stale names, which nothing repairs.
+        with transaction.atomic():
+            self.corporation_id = corporation_id
+            self.alliance_id = alliance_id
+            self.faction_id = faction_id
+            self.corporation_name = corporation_obj.corporation_name
+            self.corporation_ticker = corporation_obj.corporation_ticker
+            self.alliance_name = alliance_obj.alliance_name if alliance_obj else ""
+            self.alliance_ticker = alliance_obj.alliance_ticker if alliance_obj else ""
+            self.faction_name = faction_obj.faction_name if faction_obj else ""
+            self.last_updated_affiliations = last_updated_affiliations
+            self.save(update_fields=[
+                "corporation_id", "alliance_id", "faction_id",
+                "corporation_name", "corporation_ticker",
+                "alliance_name", "alliance_ticker", "faction_name",
+                "last_updated_affiliations",
+            ])
+
         if self.is_biomassed:
             self._remove_tokens_of_biomassed_character()
 
-        # Attempt to populate the Corporation, Alliance, Faction models
-        try:
-            corporation_obj = EveCorporationInfo.objects.get(corporation_id=affiliation.corporation_id)
-        except EveCorporationInfo.DoesNotExist:
-            corporation_obj = EveCorporationInfo.objects.create_corporation(corporation_id=affiliation.corporation_id)
-
-        if affiliation.alliance_id:
-            try:
-                alliance_obj = EveAllianceInfo.objects.get(alliance_id=affiliation.alliance_id)
-            except EveAllianceInfo.DoesNotExist:
-                alliance_obj = EveAllianceInfo.objects.create_alliance(alliance_id=affiliation.alliance_id)
-        else:
-            alliance_obj = None
-
-        if affiliation.faction_id:
-            try:
-                faction_obj = EveFactionInfo.objects.get(faction_id=affiliation.faction_id)
-            except EveFactionInfo.DoesNotExist:
-                faction_obj = EveFactionInfo.objects.create_faction(faction_id=affiliation.faction_id)
-        else:
-            faction_obj = None
-
-        # populate cached name/ticker fields, legacy AA kinda
-        self.alliance_name = alliance_obj.alliance_name if alliance_obj else ""
-        self.alliance_ticker = alliance_obj.alliance_ticker if alliance_obj else ""
-        self.corporation_name = corporation_obj.corporation_name
-        self.corporation_ticker = corporation_obj.corporation_ticker
-        self.faction_name = faction_obj.faction_name if faction_obj else ""
-
-        self.save(update_fields=["alliance_name", "alliance_ticker", "corporation_name", "corporation_ticker", "faction_name"])
         return self
 
     def update_character_other(self, force_refresh: bool = False) -> "EveCharacter":

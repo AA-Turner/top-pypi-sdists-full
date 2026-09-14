@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Union
 
@@ -14,8 +15,9 @@ from office365.runtime.auth.providers.cookie_provider import CookieAuthProvider
 from office365.runtime.auth.providers.saml_token_provider import SamlTokenProvider
 from office365.runtime.auth.token_response import TokenResponse
 from office365.runtime.auth.user_credential import UserCredential
+from office365.runtime.decorators import deprecated
 from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.utilities import deprecated, get_absolute_url
+from office365.runtime.http.url import get_absolute_url
 
 
 def _get_authorization_header(token: Any) -> str:
@@ -31,6 +33,7 @@ class AuthenticationContext:
         environment: AzureEnvironment = AzureEnvironment.Global,
         allow_ntlm: bool = False,
         browser_mode: bool = False,
+        authority: str | None = None,
     ):
         """
         Initialize authentication context
@@ -40,14 +43,35 @@ class AuthenticationContext:
             environment: Office 365 Cloud Environment endpoint (default: AzureEnvironment.Global)
             allow_ntlm: Whether NTLM authentication is enabled (default: False)
             browser_mode: Enable browser authentication (default: False)
+            authority: Override the MSAL authority URL, e.g. for Entra External ID (CIAM):
+                https://<tenant>.ciamlogin.com
         """
         self.url = url.rstrip("/")
         self._authenticate = None
         self._cached_token = None
         self._environment = environment
+        self._lock = threading.RLock()
         self._allow_ntlm = allow_ntlm
         self._browser_mode = browser_mode
         self._token_expires = datetime.max.replace(tzinfo=timezone.utc)
+        self._authority = authority
+
+    def _get_authority_url(self, tenant: str) -> str:
+        """MSAL authority URL, overridable for Entra External ID (CIAM) tenants."""
+        if self._authority is not None:
+            return self._authority
+        return f"{get_login_authority(self._environment)}/{tenant}"
+
+    def with_authority(self, authority: str) -> Self:
+        """Override the MSAL authority URL, e.g. for Entra External ID (CIAM) tenants:
+
+            https://<tenant>.ciamlogin.com
+
+        Args:
+            authority: Full authority URL used by all subsequent token acquisitions
+        """
+        self._authority = authority
+        return self
 
     def with_client_secret(
         self,
@@ -72,7 +96,7 @@ class AuthenticationContext:
             scopes = [f"{resource}/.default"]
 
         def _acquire_token():
-            authority_url = f"{get_login_authority(self._environment)}/{tenant}"
+            authority_url = self._get_authority_url(tenant)
             import msal
 
             app = msal.ConfidentialClientApplication(
@@ -121,7 +145,7 @@ class AuthenticationContext:
                 private_key = f.read()
 
         def _acquire_token():
-            authority_url = f"{get_login_authority(self._environment)}/{tenant}"
+            authority_url = self._get_authority_url(tenant)
             credentials = {
                 "thumbprint": thumbprint,
                 "private_key": private_key,
@@ -161,7 +185,7 @@ class AuthenticationContext:
 
             app = msal.PublicClientApplication(
                 client_id,
-                authority=f"{get_login_authority(self._environment)}/{tenant}",
+                authority=self._get_authority_url(tenant),
                 client_credential=None,
             )
             result = app.acquire_token_interactive(scopes=scopes)
@@ -191,7 +215,7 @@ class AuthenticationContext:
 
             app = msal.PublicClientApplication(
                 client_id,
-                authority=f"{get_login_authority(self._environment)}/{tenant}",
+                authority=self._get_authority_url(tenant),
                 client_credential=None,
             )
 
@@ -223,15 +247,17 @@ class AuthenticationContext:
             request_time = datetime.now(timezone.utc)
 
             if self._cached_token is None or request_time > self._token_expires:
-                token_res = token_func()
-                if isinstance(token_res, TokenResponse):
-                    self._cached_token = token_res
-                else:
-                    self._cached_token = TokenResponse.from_json(token_res)
+                with self._lock:
+                    if self._cached_token is None or request_time > self._token_expires:
+                        token_res = token_func()
+                        if isinstance(token_res, TokenResponse):
+                            self._cached_token = token_res
+                        else:
+                            self._cached_token = TokenResponse.from_json(token_res)
 
-                if hasattr(self._cached_token, "expiresIn"):  # type: ignore[reportAttributeAccessIssue]
-                    expires_in = self._cached_token.expiresIn  # type: ignore[reportAttributeAccessIssue]
-                    self._token_expires = request_time + timedelta(seconds=int(expires_in))
+                        if hasattr(self._cached_token, "expiresIn"):  # type: ignore[reportAttributeAccessIssue]
+                            expires_in = self._cached_token.expiresIn  # type: ignore[reportAttributeAccessIssue]
+                            self._token_expires = request_time + timedelta(seconds=int(expires_in))
             request.set_header("Authorization", _get_authorization_header(self._cached_token))
 
         self._authenticate = _authenticate
@@ -271,7 +297,7 @@ class AuthenticationContext:
         """
         import msal
 
-        authority_url = f"{get_login_authority(self._environment)}/{tenant}"
+        authority_url = self._get_authority_url(tenant)
 
         app = msal.PublicClientApplication(
             authority=authority_url,

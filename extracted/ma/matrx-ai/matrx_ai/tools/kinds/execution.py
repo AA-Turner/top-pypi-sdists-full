@@ -28,6 +28,8 @@ richer provider payload being flattened away.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from matrx_graph.content_ir.model import KindModel
 from matrx_graph.content_ir.sdk import kind
 
@@ -69,6 +71,15 @@ class ShellExecution(KindModel):
     #: Full untruncated transcript on disk (``write_tool_call_log``), readable
     #: later via ``fs_read`` — sandbox branch only.
     log_path: str | None = None
+    #: WHERE the command actually ran. ``sandbox`` = the bound container (real
+    #: bash, git, everything the image has); ``durable_vfs`` = the in-process
+    #: coreutils emulator over the user's code_files store (no git, no loops,
+    #: no ``2>&1``); ``host`` = the aidream host's scoped workspace. A routing
+    #: defect once sent a sandbox-bound conversation to the emulator and the
+    #: agent could not tell — this field makes the backend visible on every
+    #: result so neither the agent nor an operator has to infer it from
+    #: "git: command not found".
+    backend: Literal["sandbox", "durable_vfs", "host"] | None = None
 
 
 @kind(

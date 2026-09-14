@@ -61,8 +61,11 @@ class ModbusTimeoutError(ModbusError, TimeoutError):
 
 
 class ModbusProtocolError(ModbusError):
-    """A response could not be used: a corrupt frame, or a well-formed answer
-    to a different request than the one sent."""
+    """A response could not be used.
+
+    Either the frame was corrupt, or a well-formed answer belonged to a
+    different request than the one sent.
+    """
 
 
 class ModbusDesyncError(ModbusProtocolError):
@@ -119,7 +122,9 @@ class ModbusExceptionError(ModbusError):
         block: ReadBlock | None = None,
     ) -> ModbusExceptionError:
         """Build the subclass matching ``exception_code``, or the base class."""
-        cls = _CODED_ERRORS.get(exception_code, ModbusExceptionError)  # type: ignore[arg-type]
+        cls: type[ModbusExceptionError] = ModbusExceptionError
+        if exception_code is not None:
+            cls = _CODED_ERRORS.get(exception_code, cls)
         return cls(exception_code, message, block=block)
 
 

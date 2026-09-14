@@ -142,6 +142,22 @@ class TestCleanupFailedWorktreeSetup:
         assert "retain the original target setup script failure" in capsys.readouterr().err
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value="/repos/main")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    def test_cleanup_failure_reports_supplied_failure_context(self, mock_run, mock_root, capsys):
+        """Report the supplied failure context when cleanup cannot remove the worktree."""
+        mock_run.return_value = MagicMock(returncode=1, stderr="cleanup failed")
+        result = WorktreeSetupResult(
+            success=False,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234",
+            created_worktree=True,
+        )
+
+        _cleanup_failed_worktree_setup(result, failure_context="worktree metadata verification failure")
+
+        assert "retain worktree metadata verification failure" in capsys.readouterr().err
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value="/repos/main")
     @patch(
         "agentic_devtools.cli.workflows.worktree_setup.subprocess.run",
         side_effect=OSError("git unavailable"),
@@ -158,6 +174,24 @@ class TestCleanupFailedWorktreeSetup:
         _cleanup_failed_worktree_setup(result)
 
         assert "Manual recovery may be required" in capsys.readouterr().err
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value="/repos/main")
+    @patch(
+        "agentic_devtools.cli.workflows.worktree_setup.subprocess.run",
+        side_effect=OSError("git unavailable"),
+    )
+    def test_cleanup_launcher_exception_preserves_failure_context(self, mock_run, mock_root, capsys):
+        """Use the supplied failure context when cleanup cannot start."""
+        result = WorktreeSetupResult(
+            success=False,
+            worktree_path="/repos/PROJECT-1234",
+            branch_name="feature/PROJECT-1234",
+            created_worktree=True,
+        )
+
+        _cleanup_failed_worktree_setup(result, failure_context="metadata verification failure")
+
+        assert "retain metadata verification failure" in capsys.readouterr().err
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value="/repos/main")
     @patch(

@@ -150,7 +150,15 @@ def _proxy_error(
     error_type = getattr(exc, "error_type", "sandbox_error")
     return ToolResult(
         success=False,
-        error=ToolError(error_type=error_type, message=str(exc)),
+        # is_retryable / suggested_action ride the exception (a transient
+        # orchestrator-restart outage is retryable and carries the wait-once
+        # instruction); anything else keeps the old non-retryable default.
+        error=ToolError(
+            error_type=error_type,
+            message=str(exc),
+            is_retryable=bool(getattr(exc, "is_retryable", False)),
+            suggested_action=getattr(exc, "suggested_action", None),
+        ),
         started_at=started_at,
         completed_at=time.time(),
         tool_name=tool_name,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from time import sleep
+from collections import deque
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, Type
 
 from requests import Response
@@ -17,6 +17,7 @@ from office365.runtime.queries.read_entity import ReadEntityQuery
 
 if TYPE_CHECKING:
     from office365.runtime.client_object import ClientObject
+    from office365.runtime.queries.batch import BatchQuery
 
 
 class ClientRuntimeContext(ABC):
@@ -26,7 +27,7 @@ class ClientRuntimeContext(ABC):
     """
 
     def __init__(self) -> None:
-        self._queries = []
+        self._queries: deque[ClientQuery] = deque()
         self._current_query = None
         self._pending_request: ClientRequest | None = None
 
@@ -48,32 +49,70 @@ class ClientRuntimeContext(ABC):
         self,
         max_retry: int = 5,
         timeout_secs: int = 5,
+        max_delay: Optional[int] = None,
+        jitter: bool = True,
         success_callback: Optional[Callable[[ClientObject | None], None]] = None,
-        failure_callback: Optional[Callable[[int, Exception], None]] = None,
+        failure_callback: Optional[Callable[[int, Exception], Optional[int]]] = None,
         exceptions: Tuple[Type[Exception], ...] = (ClientRequestException,),
-    ):
+    ) -> None:
         """Executes pending queries with retry logic.
+
+        Only transient failures (HTTP 408/429/500/502/503/504 or non-HTTP errors)
+        are retried. Permanent failures (e.g. HTTP 400/401/403/404) are re-raised
+        immediately, and the last exception is re-raised once retries are exhausted.
+
+        Delays between attempts use exponential backoff with jitter; a delay
+        returned by ``failure_callback`` (e.g. the server's ``Retry-After`` via
+        ``retry_after_delay``) overrides the backoff.
 
         Args:
             max_retry: Maximum number of retry attempts
-            timeout_secs: Delay between retries in seconds
+            timeout_secs: Base delay for exponential backoff (seconds)
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay (default True)
             success_callback: Called on successful execution
-            failure_callback: Called after each failed attempt
+            failure_callback: Called after each failed attempt; may return a
+                retry delay in seconds to override the backoff
             exceptions: Exception types that trigger retries
         """
+        from office365.runtime.retry import retry
 
-        for retry in range(1, max_retry + 1):
-            try:
-                self.execute_query()
-                if callable(success_callback) and self.current_query is not None:
-                    success_callback(self.current_query.return_type)
-                break
-            except exceptions as e:
-                if self.current_query is not None:
-                    self.add_query(self.current_query)
-                if callable(failure_callback):
-                    failure_callback(retry, e)
-                sleep(timeout_secs)
+        def _on_failure(_attempt: int, ex: Exception) -> Optional[int]:
+            # Re-queue the failed query for a retry, except on the last attempt —
+            # otherwise the context is left with a stale, un-executed query.
+            if _attempt < max_retry and self.current_query is not None:
+                self.add_query(self.current_query)
+            return failure_callback(_attempt, ex) if callable(failure_callback) else None
+
+        def _on_success(_) -> None:
+            if callable(success_callback) and self.current_query is not None:
+                success_callback(self.current_query.return_type)
+
+        try:
+            retry(
+                self.execute_query,
+                max_retry=max_retry,
+                timeout_secs=timeout_secs,
+                max_delay=max_delay,
+                jitter=jitter,
+                exceptions=exceptions,
+                on_failure=_on_failure,
+                on_success=_on_success,
+            )
+        except BaseException:
+            self._clear_retry_state()
+            raise
+
+    def _clear_retry_state(self) -> None:
+        """Undo any failed-query re-queue and reset the cursor after an error.
+
+        Called when ``execute_query_retry`` exits by exception so the context is
+        never left dirty (a re-queued query would otherwise be re-run on reuse).
+        """
+        current = self._current_query
+        if current is not None and self._queries and self._queries[-1] is current:
+            self._queries.pop()
+        self._current_query = None
 
     def __enter__(self) -> Self:
         return self
@@ -144,7 +183,7 @@ class ClientRuntimeContext(ABC):
         )
 
         if execute_first and len(self._queries) > 1:
-            self._queries.insert(0, self._queries.pop())
+            self._queries.appendleft(self._queries.pop())
 
         return self
 
@@ -179,11 +218,116 @@ class ClientRuntimeContext(ABC):
         """
         while self.has_pending_request:
             qry = self._get_next_query()
-            self.pending_request().execute_query(qry)
+            qry.execute_query(self.pending_request())
         return self
 
+    def execute_query_parallel(
+        self,
+        concurrency: int = 4,
+        progress: Optional[Callable[[Any], None]] = None,
+        max_retry: int = 5,
+        timeout_secs: int = 5,
+        max_delay: Optional[int] = None,
+        jitter: bool = True,
+    ) -> Self:
+        """Executes pending queries concurrently, overlapping their HTTP I/O.
+
+        Intended for **independent** queries (e.g. bulk downloads: queue each
+        ``item.download(f)`` then call this once). Query lifecycle stays on the
+        calling thread — ``before_execute``/``after_execute``/``on_error`` hooks
+        fire as usual — only the network round-trips run on the pool. Transient
+        failures (408/429/5xx) are retried per query, honoring ``Retry-After``.
+
+        Falls back to sequential :meth:`execute_query` when ``concurrency <= 1``
+        or when the context uses a non-standard request (e.g. an upload session).
+
+        Args:
+            concurrency: Maximum number of concurrent requests.
+            progress: Optional hook fired per completed query with a ``Progress``
+              snapshot (``done``/``total``).
+            max_retry: Maximum retry attempts per query.
+            timeout_secs: Base delay for exponential backoff (seconds).
+            max_delay: Optional cap on the exponential delay (seconds).
+            jitter: Whether to randomize the backoff delay.
+
+        Returns:
+            Self for method chaining
+        """
+        if concurrency <= 1 or not self.has_pending_request:
+            return self.execute_query()
+
+        request = self.pending_request()
+        if type(request).execute_query is not ClientRequest.execute_query:
+            return self.execute_query()
+
+        from office365.runtime.parallel import run_parallel
+
+        def _send(_ctx, task: Tuple[ClientQuery, RequestOptions]):
+            return self._send_with_retry(request, task[1], max_retry, timeout_secs, max_delay, jitter)
+
+        while self.has_pending_request:
+            prepared: List[Tuple[ClientQuery, RequestOptions]] = []
+            while self.has_pending_request:
+                qry = self._get_next_query()
+                if type(qry).execute_query is not ClientQuery.execute_query:
+                    qry.execute_query(request)  # deferred/no-op queries stay sequential
+                    continue
+                options = request.build_request(qry)
+                request.beforeExecute(options)
+                prepared.append((qry, options))
+            if not prepared:
+                break
+
+            responses = run_parallel(
+                _send,
+                prepared,
+                concurrency=concurrency,
+                progress=progress,
+                on_error=lambda _task, error: error,
+            )
+
+            for index, ((qry, _options), response) in enumerate(zip(prepared, responses)):
+                if isinstance(response, BaseException):
+                    for pending, _ in prepared[index:]:  # keep failed + unhandled queries
+                        self._queries.append(pending)
+                    self._current_query = None
+                    raise response
+                self._current_query = qry
+                request._raise_for_status(response)
+                request.process_response(response, qry)
+                request.afterExecute(response)
+        self._current_query = None
+        return self
+
+    @staticmethod
+    def _send_with_retry(
+        request: ClientRequest,
+        options: RequestOptions,
+        max_retry: int,
+        timeout_secs: int,
+        max_delay: Optional[int],
+        jitter: bool,
+    ):
+        """Send one prepared request, retrying transient failures per ``Retry-After``."""
+        from office365.runtime.retry import TRANSIENT_STATUS_CODES, response_retry_after, retry
+
+        def _attempt():
+            response = request.transport.execute(options)
+            if response.status_code in TRANSIENT_STATUS_CODES:
+                raise ClientRequestException.from_response(response)
+            return response
+
+        return retry(
+            _attempt,
+            max_retry=max_retry,
+            timeout_secs=timeout_secs,
+            max_delay=max_delay,
+            jitter=jitter,
+            on_failure=lambda _attempt_num, ex: response_retry_after(getattr(ex, "response", None)),
+        )
+
     def add_query(self, query: ClientQuery) -> Self:
-        """Adds query to the pending queue.
+        """Adds a query to the pending queue.
 
         Args:
             query: The query to add
@@ -200,7 +344,7 @@ class ClientRuntimeContext(ABC):
         A new request is created lazily on the next call to ``pending_request()``.
         """
         self._current_query = None
-        self._queries = []
+        self._queries = deque()
         self._pending_request = None
         return self
 
@@ -233,13 +377,76 @@ class ClientRuntimeContext(ABC):
             The next query to execute
         """
         if count == 1:
-            qry = self._queries.pop(0)
+            qry = self._queries.popleft()
         else:
             from office365.runtime.queries.batch import BatchQuery
 
             qry = BatchQuery(self)
             while self.has_pending_request and count > 0:
-                qry.add(self._queries.pop(0))
+                qry.add(self._queries.popleft())
                 count = count - 1
         self._current_query = qry
         return qry
+
+    def _split_batches(
+        self,
+        items_per_batch: int,
+        max_batch_bytes: Optional[int] = None,
+    ) -> list["BatchQuery"]:
+        """Drain the pending queue into independent batch units.
+
+        Unlike ``_get_next_query``, this does not mutate ``_current_query``,
+        making it safe to pre-split the queue before concurrent execution.
+        Batches are capped by item count and (when ``max_batch_bytes`` is given)
+        by estimated payload size — a single oversized query still goes alone.
+
+        Args:
+            items_per_batch: Maximum queries per batch
+            max_batch_bytes: Maximum estimated batch payload size in bytes
+
+        Returns:
+            List of BatchQuery objects preserving submission order
+        """
+        from office365.runtime.odata.batch_util import partition_by_limits
+        from office365.runtime.queries.batch import BatchQuery
+
+        queries = []
+        while self.has_pending_request:
+            queries.append(self._queries.popleft())
+
+        batches = []
+        for chunk in partition_by_limits(queries, items_per_batch, max_batch_bytes):
+            batches.append(BatchQuery(self, chunk))
+        return batches
+
+    def _execute_batches_in_parallel(
+        self,
+        batches: list["BatchQuery"],
+        concurrency: int,
+        success_callback: Optional[Callable[[List[Any]], None]] = None,
+    ) -> None:
+        """Execute batch units concurrently on a thread pool.
+
+        Reuses the generic :func:`~office365.runtime.parallel.run_parallel`
+        primitive; ``success_callback`` is invoked per batch in **input order**
+        (deterministic). On the first failure the exception is re-raised.
+
+        Args:
+            batches: Batch units to execute
+            concurrency: Maximum number of concurrent batch requests
+            success_callback: Called with each batch's return types
+        """
+        from office365.runtime.parallel import run_parallel
+
+        results = run_parallel(
+            lambda _ctx, batch_qry: self._execute_batch(batch_qry),
+            batches,
+            concurrency=concurrency,
+        )
+        if callable(success_callback):
+            for return_types in results:
+                success_callback(return_types)
+
+    def _execute_batch(self, batch_qry: "BatchQuery") -> List[Any]:
+        """Execute a single batch unit (implemented by concrete contexts)."""
+        raise NotImplementedError

@@ -29,14 +29,17 @@ use thiserror::Error;
 use crate::agent_scan::{
     AgentArtifactRecordWire, AgentMetaWire, DoneMarkerWire, RunningMarkerWire,
 };
-use crate::queue_directive::queue_weight_is_valid;
+use crate::queue_directive::{
+    queue_capacity_as_u32, queue_weight_is_valid, resolve_queue_capacity,
+};
 use crate::store_lock::{
     acquire_store_lock, holder_path_for, timeout_from_env, HeldStoreLock,
     LockMode, StoreLockError,
 };
 
 /// Schema version shared by the fleet contract surface.
-pub const FLEET_CONTRACT_SCHEMA_VERSION: u32 = 1;
+pub const FLEET_CONTRACT_SCHEMA_VERSION: u32 = 3;
+const FLEET_CONTRACT_MIN_READABLE_SCHEMA_VERSION: u32 = 1;
 /// Current fleet protocol version advertised by gateways and required by
 /// viewers. Discovery compatibility is derived from this constant.
 pub const FLEET_PROTOCOL_VERSION: u32 = 1;
@@ -451,6 +454,22 @@ pub struct OwnerResolutionFactsWire {
     pub connection_health: ConnectionHealthWire,
     pub freshness: ObservationFreshnessWire,
     pub observed_at_unix: f64,
+    #[serde(default)]
+    pub started_at_unix: Option<f64>,
+    #[serde(default)]
+    pub stopped_at_unix: Option<f64>,
+    #[serde(default)]
+    pub workspace_num: Option<u32>,
+    #[serde(default)]
+    pub project_label: Option<String>,
+    #[serde(default)]
+    pub agent_clan: Option<String>,
+    #[serde(default)]
+    pub agent_clan_generation: Option<String>,
+    #[serde(default)]
+    pub clan_tribe: Option<String>,
+    #[serde(default)]
+    pub tribe: Option<String>,
     #[serde(default = "default_row_kind")]
     pub row_kind: FleetRowKindWire,
     #[serde(default)]
@@ -517,6 +536,20 @@ pub struct ResolvedAgentSummaryWire {
     pub status_bucket: FleetStatusBucketWire,
     pub intent: Option<String>,
     pub observed_at_unix: f64,
+    #[serde(default)]
+    pub started_at_unix: Option<f64>,
+    #[serde(default)]
+    pub stopped_at_unix: Option<f64>,
+    #[serde(default)]
+    pub workspace_num: Option<u32>,
+    #[serde(default)]
+    pub agent_clan: Option<String>,
+    #[serde(default)]
+    pub agent_clan_generation: Option<String>,
+    #[serde(default)]
+    pub clan_tribe: Option<String>,
+    #[serde(default)]
+    pub tribe: Option<String>,
     pub row_revision: ResourceRevisionWire,
     pub lifecycle: FleetLifecycleWire,
     pub liveness: OwnerLivenessWire,
@@ -524,6 +557,10 @@ pub struct ResolvedAgentSummaryWire {
     pub freshness: ObservationFreshnessWire,
     pub capabilities: CapabilitySetWire,
     pub content: ContentMetadataWire,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub queue_capacity: Option<u32>,
+    #[serde(default)]
+    pub queue_capacity_explicit: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub queue_weight: Option<f64>,
     #[serde(default)]
@@ -1859,8 +1896,14 @@ pub fn project_resolved_agent_summary(
 ) -> Result<ResolvedAgentSummaryWire, FleetContractError> {
     validate_projection_request(request)?;
     let facts = normalized_owner_facts(&request.owner_facts)?;
-    let logical_key = logical_key_unchecked(&request.logical_locator);
-    let exact_key = facts.exact_locator.as_ref().map(instance_key_unchecked);
+    let logical_locator =
+        current_logical_locator_schema(&request.logical_locator);
+    let exact_locator = facts
+        .exact_locator
+        .as_ref()
+        .map(current_instance_locator_schema);
+    let logical_key = logical_key_unchecked(&logical_locator);
+    let exact_key = exact_locator.as_ref().map(instance_key_unchecked);
     let lifecycle = lifecycle_for_record(&request.record);
     reject_inconsistent_projection(&request.record, &facts, lifecycle)?;
     let status = status_for_record(&request.record);
@@ -1873,6 +1916,8 @@ pub fn project_resolved_agent_summary(
         queue_weight_invalid,
         queue_weight_error,
     ) = queue_weight_for_record(&request.record);
+    let (queue_capacity, queue_capacity_explicit) =
+        queue_capacity_for_record(&request.record);
     let family = meta
         .and_then(|value| value.family_shell.as_ref())
         .or_else(|| done.and_then(|value| value.family_shell.as_ref()));
@@ -1889,12 +1934,13 @@ pub fn project_resolved_agent_summary(
         facts.liveness,
         parent_timestamp.is_some(),
     );
+    let project_label = facts
+        .project_label
+        .as_deref()
+        .unwrap_or(request.record.project_name.as_str());
     let labels = HumanDisplayLabelsWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
-        project_label: trim_to_limit(
-            &request.record.project_name,
-            MAX_LABEL_BYTES,
-        ),
+        project_label: trim_to_limit(project_label, MAX_LABEL_BYTES),
         agent_label: first_non_empty([
             meta.and_then(|value| value.name.as_deref()),
             done.and_then(|value| value.name.as_deref()),
@@ -1911,8 +1957,8 @@ pub fn project_resolved_agent_summary(
     };
     let summary = ResolvedAgentSummaryWire {
         schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
-        logical_locator: request.logical_locator.clone(),
-        exact_locator: facts.exact_locator.clone(),
+        logical_locator,
+        exact_locator,
         logical_key,
         exact_key,
         row_kind: facts.row_kind,
@@ -1929,6 +1975,13 @@ pub fn project_resolved_agent_summary(
         status_bucket: bucket_for_lifecycle(lifecycle, facts.liveness),
         intent: intent_for_record(&request.record),
         observed_at_unix: facts.observed_at_unix,
+        started_at_unix: facts.started_at_unix,
+        stopped_at_unix: facts.stopped_at_unix,
+        workspace_num: facts.workspace_num,
+        agent_clan: facts.agent_clan.clone(),
+        agent_clan_generation: facts.agent_clan_generation.clone(),
+        clan_tribe: facts.clan_tribe.clone(),
+        tribe: facts.tribe.clone(),
         row_revision: facts.row_revision.clone(),
         lifecycle,
         liveness: facts.liveness,
@@ -1936,6 +1989,8 @@ pub fn project_resolved_agent_summary(
         freshness: facts.freshness,
         capabilities: facts.capabilities.clone(),
         content: content_metadata(&facts.content_handles)?,
+        queue_capacity,
+        queue_capacity_explicit,
         queue_weight,
         queue_weight_explicit,
         queue_weight_invalid,
@@ -1949,6 +2004,48 @@ pub fn project_resolved_agent_summary(
             .container_projected_concrete_agent,
     };
     validate_resolved_agent_summary(&summary)
+}
+
+fn current_origin_locator_schema(
+    origin: &OriginLocatorWire,
+) -> OriginLocatorWire {
+    OriginLocatorWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        installation_id: origin.installation_id.clone(),
+    }
+}
+
+fn current_project_locator_schema(
+    project: &ProjectLocatorWire,
+) -> ProjectLocatorWire {
+    ProjectLocatorWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        origin: current_origin_locator_schema(&project.origin),
+        project_id: project.project_id.clone(),
+    }
+}
+
+fn current_logical_locator_schema(
+    logical: &LogicalAgentLocatorWire,
+) -> LogicalAgentLocatorWire {
+    LogicalAgentLocatorWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        project: current_project_locator_schema(&logical.project),
+        agent_id: logical.agent_id.clone(),
+        family_id: logical.family_id.clone(),
+    }
+}
+
+fn current_instance_locator_schema(
+    exact: &AgentInstanceLocatorWire,
+) -> AgentInstanceLocatorWire {
+    AgentInstanceLocatorWire {
+        schema_version: FLEET_CONTRACT_SCHEMA_VERSION,
+        logical: current_logical_locator_schema(&exact.logical),
+        shell_id: exact.shell_id.clone(),
+        run_id: exact.run_id.clone(),
+        attempt_id: exact.attempt_id.clone(),
+    }
 }
 
 pub fn project_resolved_agent_detail(
@@ -2739,6 +2836,22 @@ pub fn validate_resolved_agent_summary(
         ));
     }
     validate_timestamp("observed_at_unix", summary.observed_at_unix)?;
+    if let Some(started_at) = summary.started_at_unix {
+        validate_timestamp("started_at_unix", started_at)?;
+    }
+    if let Some(stopped_at) = summary.stopped_at_unix {
+        validate_timestamp("stopped_at_unix", stopped_at)?;
+    }
+    if let (Some(started_at), Some(stopped_at)) =
+        (summary.started_at_unix, summary.stopped_at_unix)
+    {
+        if stopped_at < started_at {
+            return Err(FleetContractError::Validation(
+                "summary stopped_at_unix must be greater than or equal to started_at_unix"
+                    .to_string(),
+            ));
+        }
+    }
     validate_label("project_name", &summary.project_name, MAX_LABEL_BYTES)?;
     validate_label(
         "labels.project_label",
@@ -2749,6 +2862,13 @@ pub fn validate_resolved_agent_summary(
         ("model", summary.model.as_deref()),
         ("provider", summary.provider.as_deref()),
         ("intent", summary.intent.as_deref()),
+        ("agent_clan", summary.agent_clan.as_deref()),
+        (
+            "agent_clan_generation",
+            summary.agent_clan_generation.as_deref(),
+        ),
+        ("clan_tribe", summary.clan_tribe.as_deref()),
+        ("tribe", summary.tribe.as_deref()),
         ("labels.agent_label", summary.labels.agent_label.as_deref()),
         (
             "labels.family_label",
@@ -2785,6 +2905,12 @@ pub fn validate_resolved_agent_summary(
     if let Some(error) = &summary.queue_weight_error {
         validate_label("queue_weight_error", error, MAX_INTENT_BYTES)?;
         reject_secretish("queue_weight_error", error)?;
+    }
+    if summary.queue_capacity.is_none() && summary.queue_capacity_explicit {
+        return Err(FleetContractError::Validation(
+            "summary queue_capacity_explicit requires queue_capacity"
+                .to_string(),
+        ));
     }
     let normalized = summary.capabilities.normalized()?;
     if normalized != summary.capabilities {
@@ -3982,6 +4108,27 @@ fn normalized_owner_facts(
     }
     facts.row_revision.validate()?;
     validate_timestamp("observed_at_unix", facts.observed_at_unix)?;
+    if let Some(started_at) = facts.started_at_unix {
+        validate_timestamp("started_at_unix", started_at)?;
+    }
+    if let Some(stopped_at) = facts.stopped_at_unix {
+        validate_timestamp("stopped_at_unix", stopped_at)?;
+    }
+    for (field, value) in [
+        ("project_label", facts.project_label.as_deref()),
+        ("agent_clan", facts.agent_clan.as_deref()),
+        (
+            "agent_clan_generation",
+            facts.agent_clan_generation.as_deref(),
+        ),
+        ("clan_tribe", facts.clan_tribe.as_deref()),
+        ("tribe", facts.tribe.as_deref()),
+    ] {
+        if let Some(value) = value {
+            validate_label(field, value, MAX_LABEL_BYTES)?;
+            reject_secretish(field, value)?;
+        }
+    }
     let capabilities = facts.capabilities.normalized()?;
     let mut content_handles = facts.content_handles.clone();
     for handle in &content_handles {
@@ -4000,6 +4147,29 @@ fn normalized_owner_facts(
         connection_health: facts.connection_health,
         freshness: facts.freshness,
         observed_at_unix: facts.observed_at_unix,
+        started_at_unix: facts.started_at_unix,
+        stopped_at_unix: facts.stopped_at_unix,
+        workspace_num: facts.workspace_num,
+        project_label: facts
+            .project_label
+            .as_ref()
+            .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
+        agent_clan: facts
+            .agent_clan
+            .as_ref()
+            .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
+        agent_clan_generation: facts
+            .agent_clan_generation
+            .as_ref()
+            .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
+        clan_tribe: facts
+            .clan_tribe
+            .as_ref()
+            .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
+        tribe: facts
+            .tribe
+            .as_ref()
+            .map(|value| trim_to_limit(value, MAX_LABEL_BYTES)),
         row_kind: facts.row_kind,
         current_instance: facts.current_instance,
         dismissable: facts.dismissable,
@@ -4329,6 +4499,36 @@ fn queue_weight_for_record(
         }
     }
     (None, false, false, None)
+}
+
+fn queue_capacity_for_record(
+    record: &AgentArtifactRecordWire,
+) -> (Option<u32>, bool) {
+    if let Some(waiting) = &record.waiting {
+        if waiting.queue_capacity.is_some() || waiting.wait_runners.is_some() {
+            let (capacity, explicit) = resolve_queue_capacity(
+                waiting.queue_capacity,
+                waiting.wait_runners,
+                waiting.queue_capacity_explicit,
+                waiting.wait_runners_explicit,
+            );
+            let capacity = queue_capacity_as_u32(capacity);
+            return (capacity, explicit && capacity.is_some());
+        }
+    }
+    if let Some(meta) = &record.agent_meta {
+        if meta.queue_capacity.is_some() || meta.wait_runners.is_some() {
+            let (capacity, explicit) = resolve_queue_capacity(
+                meta.queue_capacity,
+                meta.wait_runners,
+                meta.queue_capacity_explicit,
+                meta.wait_runners_explicit,
+            );
+            let capacity = queue_capacity_as_u32(capacity);
+            return (capacity, explicit && capacity.is_some());
+        }
+    }
+    (None, false)
 }
 
 fn intent_for_record(record: &AgentArtifactRecordWire) -> Option<String> {
@@ -6429,9 +6629,12 @@ pub(crate) fn validate_schema(
     label: &str,
     version: u32,
 ) -> Result<(), FleetContractError> {
-    if version != FLEET_CONTRACT_SCHEMA_VERSION {
+    if !(FLEET_CONTRACT_MIN_READABLE_SCHEMA_VERSION
+        ..=FLEET_CONTRACT_SCHEMA_VERSION)
+        .contains(&version)
+    {
         return Err(FleetContractError::Validation(format!(
-            "{label} schema_version {version} is not supported (expected {FLEET_CONTRACT_SCHEMA_VERSION})"
+            "{label} schema_version {version} is not supported (expected {FLEET_CONTRACT_MIN_READABLE_SCHEMA_VERSION}..={FLEET_CONTRACT_SCHEMA_VERSION})"
         )));
     }
     Ok(())
@@ -7344,6 +7547,14 @@ mod tests {
                 connection_health: ConnectionHealthWire::Online,
                 freshness: ObservationFreshnessWire::Fresh,
                 observed_at_unix: 1000.0,
+                started_at_unix: None,
+                stopped_at_unix: None,
+                workspace_num: None,
+                project_label: None,
+                agent_clan: None,
+                agent_clan_generation: None,
+                clan_tribe: None,
+                tribe: None,
                 row_kind: FleetRowKindWire::AgentShell,
                 current_instance: true,
                 dismissable: false,
@@ -7654,6 +7865,145 @@ mod tests {
         assert_eq!(detail.content_handles.len(), 1);
         let detail_value = serde_json::to_value(&detail).unwrap();
         assert_no_forbidden_local_fields(&detail_value);
+    }
+
+    #[test]
+    fn projection_carries_owner_presentation_facts_for_remote_rendering() {
+        let locator = logical('a', "worker");
+        let exact_locator = exact('a', "worker", "run-1");
+        let mut request = projection_request(
+            locator,
+            Some(exact_locator),
+            1,
+            record_running(),
+        );
+        request.owner_facts.started_at_unix = Some(100.25);
+        request.owner_facts.stopped_at_unix = Some(125.5);
+        request.owner_facts.workspace_num = Some(17);
+        request.owner_facts.project_label = Some("sase".to_string());
+        request.owner_facts.agent_clan = Some("fleet".to_string());
+        request.owner_facts.agent_clan_generation =
+            Some("20260913".to_string());
+        request.owner_facts.clan_tribe = Some("parity".to_string());
+        request.owner_facts.tribe = Some("review".to_string());
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.labels.project_label, "sase");
+        assert_eq!(summary.started_at_unix, Some(100.25));
+        assert_eq!(summary.stopped_at_unix, Some(125.5));
+        assert_eq!(summary.workspace_num, Some(17));
+        assert_eq!(summary.agent_clan.as_deref(), Some("fleet"));
+        assert_eq!(summary.agent_clan_generation.as_deref(), Some("20260913"));
+        assert_eq!(summary.clan_tribe.as_deref(), Some("parity"));
+        assert_eq!(summary.tribe.as_deref(), Some("review"));
+
+        let mut invalid = summary;
+        invalid.stopped_at_unix = Some(99.0);
+        assert!(validate_resolved_agent_summary(&invalid).is_err());
+    }
+
+    #[test]
+    fn projection_carries_canonical_queue_capacity_from_metadata() {
+        let locator = logical('a', "capacity");
+        let exact_locator = exact('a', "capacity", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.queue_capacity = Some(100);
+            meta.wait_runners = Some(0);
+            meta.queue_capacity_explicit = true;
+            meta.wait_runners_explicit = true;
+        }
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.queue_capacity, Some(100));
+        assert!(summary.queue_capacity_explicit);
+        let value = serde_json::to_value(&summary).unwrap();
+        assert_eq!(value["queue_capacity"], json!(100));
+        assert_eq!(value["queue_capacity_explicit"], json!(true));
+        assert!(value.get("wait_runners").is_none());
+        let decoded: ResolvedAgentSummaryWire =
+            serde_json::from_value(value).unwrap();
+        assert_eq!(validate_resolved_agent_summary(&decoded).unwrap(), summary);
+    }
+
+    #[test]
+    fn projection_reads_legacy_queue_capacity_without_emitting_legacy_alias() {
+        let locator = logical('a', "legacy-capacity");
+        let exact_locator = exact('a', "legacy-capacity", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.wait_runners = Some(0);
+            meta.wait_runners_explicit = true;
+        }
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.queue_capacity, Some(0));
+        assert!(summary.queue_capacity_explicit);
+        let value = serde_json::to_value(&summary).unwrap();
+        assert_eq!(value["queue_capacity"], json!(0));
+        assert!(value.get("wait_runners").is_none());
+    }
+
+    #[test]
+    fn projection_prefers_waiting_queue_capacity_over_metadata() {
+        let locator = logical('a', "waiting-capacity");
+        let exact_locator = exact('a', "waiting-capacity", "run-1");
+        let mut record = record_running();
+        if let Some(meta) = record.agent_meta.as_mut() {
+            meta.queue_capacity = Some(100);
+            meta.queue_capacity_explicit = true;
+        }
+        record.waiting = Some(crate::agent_scan::WaitingMarkerWire {
+            queue_capacity: Some(0),
+            queue_capacity_explicit: true,
+            ..crate::agent_scan::WaitingMarkerWire::default()
+        });
+        let request =
+            projection_request(locator, Some(exact_locator), 1, record);
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.queue_capacity, Some(0));
+        assert!(summary.queue_capacity_explicit);
+    }
+
+    #[test]
+    fn projection_leaves_absent_queue_capacity_quiet_and_reads_schema_two() {
+        let locator = logical('a', "absent-capacity");
+        let exact_locator = exact('a', "absent-capacity", "run-1");
+        let request = projection_request(
+            locator,
+            Some(exact_locator),
+            1,
+            record_running(),
+        );
+
+        let summary = project_resolved_agent_summary(&request).unwrap();
+
+        assert_eq!(summary.queue_capacity, None);
+        assert!(!summary.queue_capacity_explicit);
+
+        let mut old_value = serde_json::to_value(&summary).unwrap();
+        let object = old_value.as_object_mut().unwrap();
+        object.insert("schema_version".to_string(), json!(2));
+        object.remove("queue_capacity");
+        object.remove("queue_capacity_explicit");
+        let old_summary: ResolvedAgentSummaryWire =
+            serde_json::from_value(old_value).unwrap();
+
+        assert_eq!(old_summary.queue_capacity, None);
+        assert!(!old_summary.queue_capacity_explicit);
+        assert_eq!(
+            validate_resolved_agent_summary(&old_summary).unwrap(),
+            old_summary
+        );
     }
 
     #[test]

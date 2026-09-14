@@ -11,7 +11,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::queue_directive::{
-    queue_capacity_budget_enabled, queue_weight_is_valid, DEFAULT_QUEUE_WEIGHT,
+    normalize_persisted_queue_capacity, queue_capacity_as_u32,
+    queue_capacity_budget_enabled, queue_weight_is_valid,
+    resolve_queue_capacity, DEFAULT_QUEUE_WEIGHT,
 };
 
 pub const RUNNER_CAPACITY_POLICY_SCHEMA_VERSION: u32 = 4;
@@ -83,10 +85,14 @@ pub struct RunnerCapacityRecordWire {
     pub queue_weight_invalid: bool,
     #[serde(default)]
     pub slot_requested_at: Option<String>,
-    #[serde(default, alias = "wait_runners")]
+    #[serde(default)]
     pub queue_capacity: Option<i64>,
-    #[serde(default, alias = "wait_runners_explicit")]
+    #[serde(default)]
     pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing)]
+    wait_runners: Option<i64>,
+    #[serde(default, skip_serializing)]
+    wait_runners_explicit: bool,
     #[serde(default)]
     pub wait_priority: Option<i64>,
     #[serde(default)]
@@ -241,9 +247,31 @@ pub fn runner_capacity_policy_schema_version() -> u32 {
     RUNNER_CAPACITY_POLICY_SCHEMA_VERSION
 }
 
+impl RunnerCapacityRecordWire {
+    fn normalize_queue_capacity_aliases(&mut self) {
+        let (capacity, explicit) = resolve_queue_capacity(
+            self.queue_capacity,
+            self.wait_runners.take(),
+            self.queue_capacity_explicit,
+            self.wait_runners_explicit,
+        );
+        self.queue_capacity = capacity;
+        self.queue_capacity_explicit = explicit;
+        self.wait_runners_explicit = false;
+    }
+}
+
 pub fn runner_capacity_snapshot(
     request: &RunnerCapacityRequestWire,
 ) -> RunnerCapacitySnapshotWire {
+    let mut request = request.clone();
+    for record in &mut request.records {
+        record.normalize_queue_capacity_aliases();
+    }
+    if let Some(candidate) = &mut request.candidate {
+        candidate.normalize_queue_capacity_aliases();
+    }
+    let request = &request;
     let mut diagnostics = Vec::new();
     let claim_records = records_excluding_candidate(request);
     let (mut claims, invalid_live_claim) =
@@ -366,7 +394,9 @@ fn candidate_record_with_effective_weight(
     let lineage = claim_lineage(candidate, &index);
     let inherited = claims
         .iter()
-        .find(|claim| claim.owner_key == lineage.owner_key)
+        .find(|claim| {
+            claim.owner_key == lineage.owner_key && claim_is_reusable(claim)
+        })
         .map(|claim| Ok(Some(claim.occupied_capacity)))
         .unwrap_or_else(|| inherited_lineage_weight(candidate, &index));
     match inherited {
@@ -558,23 +588,21 @@ fn waiter_admission_limit(
     capacity_budget: bool,
     diagnostics: &mut Vec<RunnerCapacityDiagnosticWire>,
 ) -> f64 {
-    if !capacity_budget || !record.queue_capacity_explicit {
-        return request.effective_limit;
+    let normalized = normalize_persisted_queue_capacity(
+        queue_capacity,
+        record.queue_capacity_explicit,
+        requested_weight,
+        request.effective_limit,
+        capacity_budget,
+    );
+    if normalized.legacy_zero {
+        diagnostics.push(diagnostic(
+            "legacy-capacity-zero",
+            "Persisted queue_capacity=0 was translated to this waiter's effective weight so it drains to zero before admission.",
+            Some(record.artifact_dir.clone()),
+        ));
     }
-    match record.queue_capacity {
-        Some(0) => {
-            diagnostics.push(diagnostic(
-                "legacy-capacity-zero",
-                "Persisted queue_capacity=0 was translated to this waiter's effective weight so it drains to zero before admission.",
-                Some(record.artifact_dir.clone()),
-            ));
-            requested_weight
-        }
-        Some(_) => queue_capacity
-            .map(f64::from)
-            .unwrap_or(request.effective_limit),
-        None => request.effective_limit,
-    }
+    normalized.admission_limit
 }
 
 fn waiter_blockers(
@@ -728,9 +756,9 @@ fn build_candidate_decision(
     let index = record_index(records);
     let lineage = claim_lineage(candidate, &index);
     let requested = effective_weight(candidate);
-    let active_claim = claims
-        .iter()
-        .find(|claim| claim.owner_key == lineage.owner_key);
+    let active_claim = claims.iter().find(|claim| {
+        claim.owner_key == lineage.owner_key && claim_is_reusable(claim)
+    });
     let inherited_result = active_claim
         .map(|claim| Ok(Some(claim.occupied_capacity)))
         .unwrap_or_else(|| inherited_lineage_weight(candidate, &index));
@@ -979,7 +1007,18 @@ fn weights_equal(left: f64, right: f64) -> bool {
 }
 
 fn active_claim_keys(claims: &[RunnerCapacityClaimWire]) -> BTreeSet<String> {
-    claims.iter().map(|claim| claim.owner_key.clone()).collect()
+    claims
+        .iter()
+        .filter(|claim| claim_is_reusable(claim))
+        .map(|claim| claim.owner_key.clone())
+        .collect()
+}
+
+/// A claim whose live occupiers are all explicit zero-weight records (e.g. an
+/// epic-launch monitor) holds no real capacity footprint: a successor must
+/// not reuse it for free and instead acquires its own capacity.
+fn claim_is_reusable(claim: &RunnerCapacityClaimWire) -> bool {
+    claim.occupied_capacity != 0.0
 }
 
 fn record_index(
@@ -1258,12 +1297,29 @@ fn effective_weight(record: &RunnerCapacityRecordWire) -> Result<f64, String> {
         ));
     }
     match record.queue_weight {
-        Some(weight) if queue_weight_is_valid(weight) => Ok(weight),
+        Some(weight)
+            if record_weight_is_valid(weight, record.queue_weight_explicit) =>
+        {
+            Ok(weight)
+        }
         Some(_) => Err(format!(
-            "{} has an invalid queue_weight; expected a positive finite capacity weight.",
+            "{} has an invalid queue_weight; expected a positive finite capacity weight, or an explicit zero.",
             record.artifact_dir
         )),
         None => Ok(DEFAULT_QUEUE_WEIGHT),
+    }
+}
+
+/// Record-weight validity for wire capacity records.
+///
+/// An explicit `0.0` is a valid non-occupying weight (e.g. the epic-launch
+/// monitor); every other value, and every implicit weight, still follows the
+/// strictly-positive `%queue`/`%q` weight contract in `queue_weight_is_valid`.
+fn record_weight_is_valid(weight: f64, explicit: bool) -> bool {
+    if explicit {
+        weight.is_finite() && weight >= 0.0
+    } else {
+        queue_weight_is_valid(weight)
     }
 }
 
@@ -1271,8 +1327,7 @@ fn explicit_queue_capacity(record: &RunnerCapacityRecordWire) -> Option<u32> {
     if !record.queue_capacity_explicit {
         return None;
     }
-    let runners = record.queue_capacity?;
-    u32::try_from(runners).ok()
+    queue_capacity_as_u32(record.queue_capacity)
 }
 
 fn normalize_wait_priority(value: Option<i64>) -> i32 {
@@ -1490,6 +1545,8 @@ mod tests {
             slot_requested_at: None,
             queue_capacity: None,
             queue_capacity_explicit: false,
+            wait_runners: None,
+            wait_runners_explicit: false,
             wait_priority: None,
             eligible_since: None,
         }
@@ -1821,7 +1878,7 @@ mod tests {
 
     #[test]
     fn legacy_wait_runners_aliases_deserialize_to_queue_capacity() {
-        let record: RunnerCapacityRecordWire =
+        let mut record: RunnerCapacityRecordWire =
             serde_json::from_value(serde_json::json!({
                 "artifact_dir": "/tmp/waiter",
                 "project_name": "proj",
@@ -1830,6 +1887,7 @@ mod tests {
                 "wait_runners_explicit": true
             }))
             .unwrap();
+        record.normalize_queue_capacity_aliases();
         assert_eq!(record.queue_capacity, Some(3));
         assert!(record.queue_capacity_explicit);
         let encoded = serde_json::to_value(&record).unwrap();
@@ -1850,6 +1908,44 @@ mod tests {
             }))
             .unwrap();
         assert_eq!(waiter.queue_capacity, Some(3));
+    }
+
+    #[test]
+    fn dual_written_capacity_fields_prefer_canonical_without_duplicate_error() {
+        let record: RunnerCapacityRecordWire =
+            serde_json::from_value(serde_json::json!({
+                "artifact_dir": "/tmp/waiter",
+                "project_name": "proj",
+                "timestamp": "waiter",
+                "queue_capacity": 100,
+                "wait_runners": 0,
+                "queue_capacity_explicit": true,
+                "wait_runners_explicit": true
+            }))
+            .unwrap();
+        let mut record = record;
+        record.normalize_queue_capacity_aliases();
+        assert_eq!(record.queue_capacity, Some(100));
+        assert!(record.queue_capacity_explicit);
+        assert!(record.wait_runners.is_none());
+
+        let mut waiting_agent =
+            waiting("waiter", "2026-09-10T00:00:00Z", Some(0.25));
+        waiting_agent.queue_capacity = Some(100);
+        waiting_agent.wait_runners = Some(0);
+        waiting_agent.queue_capacity_explicit = true;
+        waiting_agent.wait_runners_explicit = true;
+        let result = snapshot_with_flags(
+            1.0,
+            vec![running("busy", Some(1.0)), waiting_agent],
+            &capacity_budget_flags(),
+        );
+        assert_eq!(
+            result.first_eligible_artifact_dir.as_deref(),
+            Some("/tmp/waiter")
+        );
+        assert_eq!(result.waiters[0].queue_capacity, Some(100));
+        assert_eq!(result.waiters[0].admission_limit, 100.0);
     }
 
     #[test]
@@ -2342,5 +2438,105 @@ mod tests {
         lower.eligible_since = Some("2026-09-10T00:00:00Z".to_string());
         let satisfied = snapshot(1.0, vec![pending_better, lower]);
         assert!(satisfied.waiters[0].eligible);
+    }
+
+    #[test]
+    fn explicit_zero_weight_monitor_occupies_nothing_at_a_full_limit() {
+        let busy = running("busy", Some(1.0));
+        let mut zero_weight_monitor = running("monitor", Some(0.0));
+        zero_weight_monitor.queue_weight_explicit = true;
+
+        let result = snapshot(1.0, vec![busy, zero_weight_monitor]);
+        assert!(result.diagnostics.is_empty());
+        assert_eq!(result.occupied_lanes, 2);
+        assert_eq!(result.occupied_capacity, 1.0);
+        assert_eq!(
+            result
+                .claims
+                .iter()
+                .find(|claim| claim.artifact_dirs == ["/tmp/monitor"])
+                .unwrap()
+                .occupied_capacity,
+            0.0
+        );
+    }
+
+    #[test]
+    fn waiter_admits_when_only_other_records_are_zero_weight() {
+        let mut zero_weight_monitor = running("monitor", Some(0.0));
+        zero_weight_monitor.queue_weight_explicit = true;
+        let waiting_agent =
+            waiting("waiter", "2026-09-10T00:00:00Z", Some(1.0));
+
+        let result = snapshot(1.0, vec![zero_weight_monitor, waiting_agent]);
+        assert_eq!(result.occupied_capacity, 0.0);
+        assert_eq!(
+            result.first_eligible_artifact_dir.as_deref(),
+            Some("/tmp/waiter")
+        );
+        assert!(waiter(&result, "waiter").eligible);
+    }
+
+    #[test]
+    fn implicit_zero_negative_and_nan_record_weights_still_fail_closed() {
+        let implicit_zero =
+            waiting("implicit-zero", "2026-09-10T00:00:00Z", Some(0.0));
+
+        let mut negative =
+            waiting("negative", "2026-09-10T00:00:01Z", Some(-1.0));
+        negative.queue_weight_explicit = true;
+
+        let mut nan = waiting("nan", "2026-09-10T00:00:02Z", Some(f64::NAN));
+        nan.queue_weight_explicit = true;
+
+        for bad in [implicit_zero, negative, nan] {
+            let name = bad.timestamp.clone();
+            let result = snapshot(8.0, vec![bad]);
+            assert_eq!(
+                waiter(&result, &name).blockers[0].code,
+                "invalid-request-weight",
+                "{name}"
+            );
+            assert!(!waiter(&result, &name).eligible, "{name}");
+        }
+    }
+
+    #[test]
+    fn zero_weight_claim_is_not_reusable_by_a_serial_successor() {
+        let mut starter = running("starter", Some(2.0));
+        starter.agent_family = Some("fam".to_string());
+        starter.live = false;
+        let mut monitor = running("monitor", Some(0.0));
+        monitor.agent_family = Some("fam".to_string());
+        monitor.agent_family_role = Some("monitor".to_string());
+        monitor.family_shell_kind = Some("monitor".to_string());
+        monitor.family_shell_id = Some("mon-1".to_string());
+        monitor.parent_timestamp = Some("starter".to_string());
+        monitor.pid = Some(99);
+        monitor.run_started_at = None;
+        monitor.queue_weight_explicit = true;
+        let mut successor =
+            waiting("successor", "2026-09-10T00:00:00Z", Some(1.0));
+        successor.agent_family = Some("fam".to_string());
+        successor.parent_timestamp = Some("monitor".to_string());
+        successor.queue_weight_explicit = true;
+
+        let result = snapshot(
+            4.0,
+            vec![starter.clone(), monitor.clone(), successor.clone()],
+        );
+        assert_eq!(result.claims.len(), 1);
+        assert_eq!(result.claims[0].occupied_capacity, 0.0);
+        assert_eq!(result.occupied_capacity, 0.0);
+        assert_eq!(result.waiters.len(), 1);
+        assert!(result.waiters[0].eligible);
+        assert_eq!(result.waiters[0].requested_weight, 1.0);
+
+        let decision =
+            snapshot_with_candidate(4.0, vec![starter, monitor], successor)
+                .candidate_decision
+                .unwrap();
+        assert_eq!(decision.decision, "acquire_capacity");
+        assert_eq!(decision.effective_weight, 1.0);
     }
 }

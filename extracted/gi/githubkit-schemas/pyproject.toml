@@ -1,6 +1,6 @@
 [project]
 name = "GitHubKit-schemas"
-version = "26.8.28"
+version = "26.9.13"
 description = "GitHub Schemas for GitHubKit"
 license = "MIT"
 readme = "README.md"
@@ -11,7 +11,7 @@ keywords = [
 requires-python = ">=3.10, <4.0"
 dependencies = [
     "githubkit >=0.16.0",
-    "githubkit-schemas-2026-03-10 ==26.8.28",
+    "githubkit-schemas-2026-03-10 ==26.9.13",
 ]
 
 [[project.authors]]
@@ -19,24 +19,24 @@ name = "yanyongyu"
 email = "yyy@yyydl.top"
 
 [project.optional-dependencies]
-2022-11-28 = ["githubkit-schemas-2022-11-28 ==26.8.28"]
-2026-03-10 = ["githubkit-schemas-2026-03-10 ==26.8.28"]
-ghec-2022-11-28 = ["githubkit-schemas-ghec-2022-11-28 ==26.8.28"]
-ghec-2026-03-10 = ["githubkit-schemas-ghec-2026-03-10 ==26.8.28"]
-ghec = ["githubkit-schemas-ghec-2026-03-10 ==26.8.28"]
+2022-11-28 = ["githubkit-schemas-2022-11-28 ==26.9.13"]
+2026-03-10 = ["githubkit-schemas-2026-03-10 ==26.9.13"]
+ghec-2022-11-28 = ["githubkit-schemas-ghec-2022-11-28 ==26.9.13"]
+ghec-2026-03-10 = ["githubkit-schemas-ghec-2026-03-10 ==26.9.13"]
+ghec = ["githubkit-schemas-ghec-2026-03-10 ==26.9.13"]
 all-gh = [
-    "githubkit-schemas-2022-11-28 ==26.8.28",
-    "githubkit-schemas-2026-03-10 ==26.8.28",
+    "githubkit-schemas-2022-11-28 ==26.9.13",
+    "githubkit-schemas-2026-03-10 ==26.9.13",
 ]
 all-ghec = [
-    "githubkit-schemas-ghec-2022-11-28 ==26.8.28",
-    "githubkit-schemas-ghec-2026-03-10 ==26.8.28",
+    "githubkit-schemas-ghec-2022-11-28 ==26.9.13",
+    "githubkit-schemas-ghec-2026-03-10 ==26.9.13",
 ]
 all = [
-    "githubkit-schemas-2022-11-28 ==26.8.28",
-    "githubkit-schemas-2026-03-10 ==26.8.28",
-    "githubkit-schemas-ghec-2022-11-28 ==26.8.28",
-    "githubkit-schemas-ghec-2026-03-10 ==26.8.28",
+    "githubkit-schemas-2022-11-28 ==26.9.13",
+    "githubkit-schemas-2026-03-10 ==26.9.13",
+    "githubkit-schemas-ghec-2022-11-28 ==26.9.13",
+    "githubkit-schemas-ghec-2026-03-10 ==26.9.13",
 ]
 
 [project.urls]

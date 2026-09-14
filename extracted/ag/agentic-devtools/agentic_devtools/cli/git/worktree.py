@@ -223,7 +223,13 @@ def _is_valid_worktree_dir(path: Path, repo_root: str) -> bool:
     return candidate_abs == main_abs
 
 
-def detect_existing_worktree(issue_key: str, repo_root: str) -> DetectionResult:
+def detect_existing_worktree(
+    issue_key: str,
+    repo_root: str,
+    *,
+    require_porcelain: bool = False,
+    expected_path: str | None = None,
+) -> DetectionResult:
     """Detect an existing worktree for ``issue_key`` (FR-002, FR-010).
 
     Combines the porcelain scan and the conventional-path check. A valid porcelain
@@ -234,14 +240,34 @@ def detect_existing_worktree(issue_key: str, repo_root: str) -> DetectionResult:
     Args:
         issue_key: Raw issue key (normalized internally).
         repo_root: The main repository root directory.
+        require_porcelain: When True, only an explicit porcelain registration is
+            accepted; the conventional filesystem fallback is skipped.
+        expected_path: When provided with ``require_porcelain=True``, match the
+            porcelain entry by path instead of by branch issue-key segment.
+            Providing it without ``require_porcelain=True`` raises ``ValueError``.
 
     Returns:
         A :class:`DetectionResult` describing resume / corrupt / not_found.
     """
+    if expected_path is not None and not require_porcelain:
+        raise ValueError("expected_path requires require_porcelain=True")
+
     # 1. Porcelain scan (authoritative — takes precedence over the filesystem path).
     porcelain = run_git_safe(["worktree", "list", "--porcelain"], cwd=repo_root)
     entries = parse_worktree_list_porcelain(porcelain.stdout)
-    match = find_issue_worktree(issue_key, entries, repo_root=repo_root)
+    if require_porcelain and expected_path is not None:
+        expected_resolved = Path(expected_path).resolve()
+        match = next(
+            (
+                WorktreeMatch(path=entry.path, branch=entry.branch or "")
+                for entry in entries
+                if Path(entry.path).resolve() == expected_resolved
+                and Path(entry.path).resolve() != Path(repo_root).resolve()
+            ),
+            None,
+        )
+    else:
+        match = find_issue_worktree(issue_key, entries, repo_root=repo_root)
     if match is not None:
         # Validate the registered path exactly like the conventional-path fallback: a
         # porcelain entry whose path no longer exists on disk (stale/prunable) or whose
@@ -250,6 +276,9 @@ def detect_existing_worktree(issue_key: str, repo_root: str) -> DetectionResult:
         if not match_path.exists() or not _is_valid_worktree_dir(match_path, repo_root=repo_root):
             return DetectionResult(status="corrupt", path=match.path)
         return DetectionResult(status="resume", path=match.path, branch=match.branch)
+
+    if require_porcelain:
+        return DetectionResult(status="not_found")
 
     # 2. Conventional filesystem path fallback.
     conventional = check_conventional_path(repo_root, issue_key)

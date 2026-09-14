@@ -192,6 +192,7 @@ EXPLICIT_GROUPS = {
     "agdt.analyze-workflow": "analysis-and-fork",
     "agdt.create-issues-from-analysis": "analysis-and-fork",
     "agdt.suppressed-comment-triage.evaluate": "analysis-and-fork",
+    "agdt.ai-pr-loop-supervision.workflow-monitor": "ai-pr-loop-supervisor",
 }
 
 #: Phrases in a unit's own body that declare it is dispatched by another unit.
@@ -250,6 +251,8 @@ _PROVIDER_RE = re.compile(r"\b(jira|azure devops|azure-devops|github|gitlab)\b",
 
 _WORKFLOW_RE = re.compile(r"\bworkflow\b", re.IGNORECASE)
 _FRONTMATTER_NAME_RE = re.compile(r"^name:[ \t]*([^\n#]*?)[ \t]*(?:#.*)?$", re.MULTILINE)
+_SKILL_LINK_RE = re.compile(r"\[[^\]\n]+\]\(\.\./\.\./\.agents/skills/([^/\n]+)/SKILL\.md\)")
+_LINK_ONLY_WRAPPER_MAX_LINES = 15
 
 
 # --------------------------------------------------------------------------------------
@@ -273,6 +276,18 @@ def split_frontmatter(text: str) -> tuple[str, str]:
     if len(parts) != 3:
         return "", text
     return parts[1], parts[2]
+
+
+def _is_link_only_skill_wrapper(agent: Path, target: str) -> bool:
+    """Return whether *agent* is a short wrapper linking only to *target*'s skill."""
+    text = agent.read_text(encoding="utf-8")
+    if len(text.splitlines()) > _LINK_ONLY_WRAPPER_MAX_LINES:
+        return False
+    _, body = split_frontmatter(text)
+    if any(line.lstrip().startswith(("#", "-", "*", ">", "`")) for line in body.splitlines()):
+        return False
+    links = _SKILL_LINK_RE.findall(body)
+    return len(links) == 1 and links[0] == target
 
 
 def section(body: str, name: str) -> str | None:
@@ -1508,12 +1523,14 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
             raise ValueError(f"target {target!r} has incompatible dispositions requiring both {listed}")
 
     authored_paths_by_slug: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    skill_targets_on_disk: set[str] = set()
     for root in AUTHORED_SKILL_ROOTS:
         for skill in sorted((repo_root / root).glob("*/SKILL.md")):
             slug = skill.parent.name
             frontmatter, _ = split_frontmatter(skill.read_text(encoding="utf-8"))
             if _frontmatter_target_name(frontmatter) != slug:
                 continue
+            skill_targets_on_disk.add(slug)
             if slug in NATIVE_AGDT_SKILL_NAMES:
                 continue
             expected_kinds = expected_kinds_by_target.get(slug, set())
@@ -1536,6 +1553,13 @@ def verify_authored(rows: Sequence[Row], repo_root: Path) -> tuple[list[str], li
                 target = slug
             expected_kinds = expected_kinds_by_target.get(target, set())
             legacy_namespace = slug.startswith(("agdt.", "agdt-"))
+            if (
+                slug.startswith("agdt.")
+                and target in skill_targets_on_disk
+                and "subagent" not in expected_kinds
+                and _is_link_only_skill_wrapper(agent, target)
+            ):
+                continue
             if target.startswith("agdt-") or (declared_name and legacy_namespace):
                 pass
             elif "subagent" not in expected_kinds:

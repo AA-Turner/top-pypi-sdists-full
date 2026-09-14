@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: coffea
-Version: 2026.7.0
+Version: 2026.9.0
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
@@ -50,6 +50,7 @@ Requires-Dist: packaging
 Requires-Dist: pandas
 Requires-Dist: pyarrow>=6.0.0
 Requires-Dist: pydantic
+Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: rich
 Requires-Dist: scipy>=1.1.0
@@ -65,27 +66,12 @@ Requires-Dist: bokeh!=3.0.*,>=2.4.2; extra == 'dask'
 Requires-Dist: dask[dataframe]>=2024.3.0; extra == 'dask'
 Requires-Dist: distributed>=2024.3.0; extra == 'dask'
 Provides-Extra: dask-awkward
+Requires-Dist: bokeh!=3.0.*,>=2.4.2; extra == 'dask-awkward'
+Requires-Dist: bokeh<3.10; extra == 'dask-awkward'
 Requires-Dist: dask-awkward>=2025.9.0; extra == 'dask-awkward'
 Requires-Dist: dask-histogram>=2025.2.0; extra == 'dask-awkward'
-Provides-Extra: dev
-Requires-Dist: black; extra == 'dev'
-Requires-Dist: flake8; extra == 'dev'
-Requires-Dist: ipython; extra == 'dev'
-Requires-Dist: myst-nb; extra == 'dev'
-Requires-Dist: nbsphinx; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pydata-sphinx-theme; extra == 'dev'
-Requires-Dist: pyinstrument; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-asyncio; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-mock; extra == 'dev'
-Requires-Dist: pytest-mpl; extra == 'dev'
-Requires-Dist: pytest-xdist; extra == 'dev'
-Requires-Dist: sphinx-automodapi; extra == 'dev'
-Requires-Dist: sphinx-copybutton>=0.3.2; extra == 'dev'
-Requires-Dist: sphinx-rtd-theme; extra == 'dev'
-Requires-Dist: sphinx<8; extra == 'dev'
+Requires-Dist: dask[dataframe]>=2024.3.0; extra == 'dask-awkward'
+Requires-Dist: distributed>=2024.3.0; extra == 'dask-awkward'
 Provides-Extra: parsl
 Requires-Dist: parsl>=2024.12.09; extra == 'parsl'
 Provides-Extra: rucio
@@ -99,11 +85,16 @@ Description-Content-Type: text/x-rst
 .. image:: https://raw.githubusercontent.com/scikit-hep/coffea/refs/heads/master/docs/source/logo/coffea_logo.svg
     :align: center
     :width: 250px
-    :alt: logo
+    :alt: logo using common acroynym "coffea"
+    :class: dark-light
 
+..
+  future dev note: The doc site makes a copy of this README and inserts it into
+  the main intro page. Since the main intro page includes a top-level section
+  (underlined by ``=``), we start sections here with a second-level section (``-``).
 
-coffea - Columnar Object Framework For Effective Analysis
-=========================================================
+Columnar Object Framework For Effective Analysis
+------------------------------------------------
 
 .. image:: https://zenodo.org/badge/159673139.svg
    :target: https://zenodo.org/badge/latestdoi/159673139
@@ -129,11 +120,7 @@ coffea - Columnar Object Framework For Effective Analysis
 .. image:: https://static.mybinder.org/badge_logo.svg
    :target: https://mybinder.org/v2/gh/scikit-hep/coffea/master?filepath=binder/
 
-.. inclusion-marker-1-do-not-remove
-
 Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
-
-.. inclusion-marker-1-5-do-not-remove
 
 coffea is a prototype package for pulling together all the typical needs
 of a high-energy collider physics (HEP) experiment analysis using the scientific
@@ -158,10 +145,8 @@ and is currently a prototype. We welcome input to improve its quality as we prog
 a sensible refactorization into the scientific python ecosystem and a first release. Please
 feel free to contribute at our `GitHub repo <https://github.com/scikit-hep/coffea>`_!
 
-.. inclusion-marker-2-do-not-remove
-
 Installation
-============
+^^^^^^^^^^^^
 
 Install coffea like any other Python package:
 
@@ -169,11 +154,11 @@ Install coffea like any other Python package:
 
     pip install coffea
 
-or similar (use ``sudo``, ``--user``, ``virtualenv``, or pip-in-conda if you wish).
+or similar for your environment tooling (e.g. ``uv pip install coffea`` or ``pixi add coffea``).
 For more details, see the `Installing coffea <https://coffea-hep.readthedocs.io/en/latest/getting_started/installation.html>`_ section of the documentation.
 
 Strict dependencies
-===================
+^^^^^^^^^^^^^^^^^^^
 
 - `Python <https://docs.python-guide.org/starting/installation/>`__ (3.9+)
 
@@ -187,14 +172,12 @@ The following are installed automatically when you install coffea with pip:
 - `matplotlib <https://matplotlib.org/>`__ as a plotting backend;
 - and other utility packages, as enumerated in ``pyproject.toml``.
 
-.. inclusion-marker-3-do-not-remove
-
 Documentation
-=============
+^^^^^^^^^^^^^
 All documentation is hosted at https://coffea-hep.readthedocs.io/en/latest/
 
 Citation
-========
+^^^^^^^^
 If you would like to cite this code in your work, you can use the zenodo DOI indicated in ``CITATION.cff``, or the `latest DOI <https://zenodo.org/badge/latestdoi/159673139>`__. You may also cite the proceedings:
 
 - "N. Smith et al 2020 EPJ Web Conf. 245 06012"

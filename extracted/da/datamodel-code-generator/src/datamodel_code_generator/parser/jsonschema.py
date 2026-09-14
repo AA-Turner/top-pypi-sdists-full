@@ -2856,6 +2856,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         suffix: Literal["Request", "Response"],
         *,
         obj: JsonSchemaObject,
+        source_fields: Sequence[DataModelFieldBase] = (),
         is_root_model: bool = False,
     ) -> None:
         """Copy schema runtime rules and retarget their model references."""
@@ -2864,14 +2865,15 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             return
 
         available_names = {name for field in fields for name in self._field_input_names(field)}
+        declared_names = {name for field in source_fields for name in self._field_input_names(field)}
+
+        def keep_names(input_names: tuple[str, ...]) -> bool:
+            return bool(available_names.intersection(input_names)) or not declared_names.intersection(input_names)
 
         def filter_groups(
             groups: tuple[tuple[tuple[str, ...], ...], ...],
         ) -> tuple[tuple[tuple[str, ...], ...], ...]:
-            return tuple(
-                tuple(input_names for input_names in group if available_names.intersection(input_names))
-                for group in groups
-            )
+            return tuple(tuple(input_names for input_names in group if keep_names(input_names)) for group in groups)
 
         pattern_properties: list[PatternPropertiesRule] = []
         for rule in source.pattern_properties:
@@ -2909,7 +2911,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 else_groups=filter_groups(rule.else_groups),
             )
             for rule in source.conditional_required
-            if all(available_names.intersection(input_names) for input_names, _ in rule.condition)
+            if all(keep_names(input_names) for input_names, _ in rule.condition)
         ]
 
         target = _make_internal_schema_runtime_validation(
@@ -2926,13 +2928,15 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
     def _generate_forced_base_models(self) -> None:
         """Retain the late parser extension hook used by schema subclasses."""
 
-    def _create_variant_model(
+    def _create_variant_model(  # noqa: PLR0913
         self,
         base_reference: Reference,
         suffix: Literal["Request", "Response"],
         model_fields: list[DataModelFieldBase],
         obj: JsonSchemaObject,
         data_model_type_class: type[DataModel],
+        *,
+        source_fields: Sequence[DataModelFieldBase] = (),
     ) -> None:
         """Create a Request or Response model variant."""
         if not model_fields and self.read_only_write_only_model_type != ReadOnlyWriteOnlyModelType.RequestResponse:
@@ -2949,6 +2953,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             model_fields,
             suffix,
             obj=obj,
+            source_fields=source_fields,
         )
         model = self._create_data_model(
             model_type=data_model_type_class,
@@ -3007,6 +3012,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 model_fields,
                 obj,
                 data_model_type_class,
+                source_fields=all_fields,
             )
 
     def _build_neutral_object_field(  # noqa: PLR0913
@@ -3450,9 +3456,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             self._output_model_context.store_additional_properties_value(
                 self.extra_template_data[path],
                 value=obj.additionalProperties,
-                use_backport=(
-                    obj.additionalProperties is False and not self.target_python_version.has_typed_dict_closed
-                ),
+                target_python_version=self.target_python_version,
             )
         elif isinstance(obj.additionalProperties, JsonSchemaObject):
             # A schema-valued additionalProperties still means extra keys are accepted.
@@ -3480,7 +3484,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     additional_props_type.type_hint,
                     reference_classes,
                     imports=tuple(additional_props_type.all_imports),
-                    use_backport=not self.target_python_version.has_typed_dict_closed,
+                    target_python_version=self.target_python_version,
                 )
 
     def set_unevaluated_properties(self, path: str, obj: JsonSchemaObject) -> None:
@@ -7470,7 +7474,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         try:
             if data_type.reference and isinstance(data_type.reference.source, DataModel):
                 source = data_type.reference.source
-                runtime_validation = source._internal_template_data.get("schema_runtime_validation")  # noqa: SLF001
+                runtime_validation = source.schema_runtime_validation
                 if not _is_internal_schema_runtime_validation(runtime_validation):
                     runtime_validation = self.extra_template_data[data_type.reference.path].get(
                         "schema_runtime_validation"
@@ -8056,21 +8060,14 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             config.alias_generator,
         )):
             return False
-        if (get_types := self.data_model_type.PLAIN_PATTERN_ROOT_TYPES) is None:
+        if (check_annotations := self.data_model_type.PLAIN_PATTERN_ROOT_CHECKER) is None:
             return False
-        model_type, root_type, field_type, manager_type = get_types()
-        if (
-            self.data_model_type is not model_type
-            or self.data_model_root_type is not root_type
-            or self.data_model_field_type is not field_type
-            or type(self.data_type_manager) is not manager_type
-        ):
-            return False
-        return all(
-            type(model := data_type.reference.source) is model_type
-            and all(type(field) is field_type for field in cast("DataModel", model).fields)
-            for _, data_type in patterns
-            if data_type.reference is not None
+        return check_annotations(
+            self.data_model_type,
+            self.data_model_root_type,
+            self.data_model_field_type,
+            type(self.data_type_manager),
+            (data_type for _, data_type in patterns),
         )
 
     def _add_pattern_properties_validator(  # noqa: PLR0913, PLR0917
@@ -8736,6 +8733,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     variant_fields,
                     suffix,
                     obj=obj,
+                    source_fields=fields,
                     is_root_model=True,
                 )
                 self._rw_model_variant_requirement_cache[reference.path, suffix] = True
@@ -9713,7 +9711,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 if (
                     not root_model.IS_ROOT_MODEL
                     or root_model.decorators
-                    or root_model.extra_template_data.get("config")
+                    or root_model.has_model_config
                     or property_names.model_fields_set - {"allOf", "title", "description"}
                     or any(
                         not isinstance(item, JsonSchemaObject)

@@ -1,3 +1,30 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "abstract_utilities"
+version = "0.2.2.787"
+description = "Dependency-free, stdlib-only build of abstract_utilities. Heavy libs (pandas, geopandas, tiktoken, flask, werkzeug, dotenv, PDF stack) are optional and lazy — the package imports with none installed."
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "putkoff", email = "partners@abstractendeavors.com" }]
+license = { text = "MIT" }
+keywords = ["utilities", "stdlib", "helpers", "dependency-free"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+]
+# Intentionally EMPTY — this build imports with no third-party packages.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/AbstractEndeavors/abstract_essentials"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["abstract_utilities*"]

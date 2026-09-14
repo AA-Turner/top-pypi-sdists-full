@@ -1,4 +1,12 @@
-from .imports import *
+from .imports import (
+    imports,
+    os,
+    defaultdict,
+    hashlib,
+    safe_dump_to_json,
+    make_list,
+    get_files_and_dirs,
+)
 def full_hash(path):
     """Only called when quick hashes match"""
     sha256 = hashlib.sha256()

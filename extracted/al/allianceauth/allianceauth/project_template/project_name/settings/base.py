@@ -76,6 +76,11 @@ CELERYBEAT_SCHEDULE = {
         "task": "allianceauth.analytics.tasks.analytics_daily_stats",
         "schedule": crontab(minute="0", hour="2"),
     },
+    "admin_status_tasks": {
+        "task": "allianceauth.admin_status.tasks.run_admin_status_tasks",
+        "schedule": crontab(minute="0", hour="*"),
+        "apply_offset": True,
+    },
 }
 
 

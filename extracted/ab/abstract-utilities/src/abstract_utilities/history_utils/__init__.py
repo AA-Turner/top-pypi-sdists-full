@@ -1,1 +1,1 @@
-from .history_utils import *
+from .history_utils import HistoryManager

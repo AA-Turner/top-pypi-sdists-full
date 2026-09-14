@@ -1,8 +1,45 @@
 # attach_functions.py  — single helper you can import anywhere
 # attach_dynamic.py
 from __future__ import annotations
-from .find_collect import *
-from ..imports import *
+from .find_collect import (
+    re,
+    os,
+    textwrap,
+    importlib,
+    sys,
+    types,
+    pkgutil,
+    inspect,
+    Callable,
+    Optional,
+    Tuple,
+    Dict,
+    List,
+    ModuleType,
+    read_from_file,
+    write_to_file,
+    get_initial_caller_dir,
+    collect_filepaths,
+)
+from ..imports import (
+    re,
+    os,
+    textwrap,
+    importlib,
+    sys,
+    types,
+    pkgutil,
+    inspect,
+    Callable,
+    Optional,
+    Tuple,
+    Dict,
+    List,
+    ModuleType,
+    read_from_file,
+    write_to_file,
+    get_initial_caller_dir,
+)
 
 def caller_path():
     frame = inspect.stack()[1]

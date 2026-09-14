@@ -3,7 +3,6 @@ from unittest.mock import patch
 from django.db.models import QuerySet
 from django.test import TestCase
 
-from allianceauth.menu.constants import MenuItemType
 from allianceauth.menu.models import MenuItem
 
 from .factories import (
@@ -59,7 +58,7 @@ class TestMenuItemManagerSyncAll(TestCase):
         # then
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
-        self.assertEqual(obj.item_type, MenuItemType.APP)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.APP)
         self.assertEqual(obj.text, "Alpha")
 
     def test_should_update_existing_app_items_when_changed_only(self, mock_get_hooks):
@@ -77,11 +76,11 @@ class TestMenuItemManagerSyncAll(TestCase):
         self.assertEqual(MenuItem.objects.count(), 2)
 
         obj = MenuItem.objects.get(text="Alpha")
-        self.assertEqual(obj.item_type, MenuItemType.APP)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.APP)
         self.assertEqual(obj.order, 99)
 
         obj = MenuItem.objects.get(text="Bravo")
-        self.assertEqual(obj.item_type, MenuItemType.APP)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.APP)
         self.assertEqual(obj.order, 2)
 
     def test_should_remove_obsolete_app_items_but_keep_user_items(self, mock_get_hooks):
@@ -98,6 +97,6 @@ class TestMenuItemManagerSyncAll(TestCase):
         # then
         self.assertEqual(MenuItem.objects.count(), 3)
         obj = MenuItem.objects.get(text="Alpha")
-        self.assertTrue(obj.item_type, MenuItemType.APP)
+        self.assertTrue(obj.item_type, MenuItem.MenuItemType.APP)
         self.assertIn(link_item, MenuItem.objects.all())
         self.assertIn(folder_item, MenuItem.objects.all())

@@ -95,6 +95,40 @@ def test_outbound_user_input_normalizes_legacy_media_without_rejecting_inline_by
     }
 
 
+@pytest.mark.parametrize(
+    ("locator", "inline_key"),
+    [
+        ({"file_id": "file-123"}, "base64_data"),
+        ({"url": "https://cdn.example.test/image.png"}, "base64"),
+    ],
+)
+def test_persisted_media_strips_inline_bytes_and_preserves_durable_fields(
+    locator: dict[str, str],
+    inline_key: str,
+) -> None:
+    stored = validate_message_content(
+        [
+            {
+                "type": "media",
+                "kind": "image",
+                "origin": "matrx" if "file_id" in locator else "external",
+                **locator,
+                "mime_type": "image/png",
+                "size_bytes": 184,
+                inline_key: "captured-inline-png-bytes",
+                "metadata": {"display_title": "review-checker.png"},
+            }
+        ]
+    )[0]
+
+    assert stored.items() >= locator.items()
+    assert stored["mime_type"] == "image/png"
+    assert stored["size_bytes"] == 184
+    assert stored["metadata"] == {"display_title": "review-checker.png"}
+    assert "base64_data" not in stored
+    assert "base64" not in stored
+
+
 @pytest.mark.parametrize("part", [{}, {"type": "not_real"}, {"type": "media"}])
 def test_outbound_user_input_rejects_missing_unknown_or_malformed_discriminators(
     part: dict[str, object],
@@ -119,12 +153,12 @@ def test_reference_mode_resource_object_requires_an_id() -> None:
 def test_snapshot_resource_requires_real_inline_content() -> None:
     adapter = TypeAdapter(UserInputPart)
     with pytest.raises(ValidationError):
-        adapter.validate_python(
-            {"type": "input_notes", "note_ids": [{"mode": "snapshot"}]}
-        )
+        adapter.validate_python({"type": "input_notes", "note_ids": [{"mode": "snapshot"}]})
 
 
-@pytest.mark.parametrize("part_type,id_field", [("input_workbook", "workbook_ids"), ("input_document", "document_ids")])
+@pytest.mark.parametrize(
+    "part_type,id_field", [("input_workbook", "workbook_ids"), ("input_document", "document_ids")]
+)
 def test_opaque_resources_reject_snapshot_refs(part_type: str, id_field: str) -> None:
     with pytest.raises(ValidationError):
         TypeAdapter(UserInputPart).validate_python(
@@ -239,9 +273,7 @@ def test_web_sources_require_a_real_url_and_non_negative_character_count(
 )
 def test_table_bookmark_identity_fields_are_non_empty(bookmark: dict[str, str]) -> None:
     with pytest.raises(ValidationError):
-        TypeAdapter(UserInputPart).validate_python(
-            {"type": "input_table", "bookmarks": [bookmark]}
-        )
+        TypeAdapter(UserInputPart).validate_python({"type": "input_table", "bookmarks": [bookmark]})
 
 
 @pytest.mark.parametrize(
@@ -256,6 +288,4 @@ def test_table_bookmark_identity_fields_are_non_empty(bookmark: dict[str, str]) 
 )
 def test_list_bookmark_identity_fields_are_non_empty(bookmark: dict[str, str]) -> None:
     with pytest.raises(ValidationError):
-        TypeAdapter(UserInputPart).validate_python(
-            {"type": "input_list", "bookmarks": [bookmark]}
-        )
+        TypeAdapter(UserInputPart).validate_python({"type": "input_list", "bookmarks": [bookmark]})

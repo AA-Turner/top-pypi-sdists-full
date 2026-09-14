@@ -412,7 +412,6 @@ def _is_flat_cookie_dict(cookies: dict[Any, Any]) -> bool:
     )
 
 
-
 class AlexaLogin:
     """Class to handle login connection to Alexa. This class will not reconnect.
 
@@ -552,7 +551,7 @@ class AlexaLogin:
     def start_url(self) -> URL:
         """Return start url for this Login."""
         if self.oauth_login:
-            site: URL = URL("https://www.amazon.com/ap/register")
+            site: URL = URL("https://www.amazon.com/ap/signin")
             query = {
                 "openid.return_to": "https://www.amazon.com/ap/maplanding",
                 "openid.assoc_handle": "amzn_dp_project_dee_ios",
@@ -647,7 +646,7 @@ class AlexaLogin:
             _LOGGER.debug(
                 "Generated OTP: %s",
                 token[:2] + "**" + token[4:],
-             )
+            )
             return token
         _LOGGER.debug("Unable to generate OTP; 2FA app key not configured")
         return ""
@@ -904,7 +903,7 @@ class AlexaLogin:
             _LOGGER.debug(
                 "Testing whether logged in to alexa.%s (rebuild_session=%s)",
                 self._url,
-                rebuild_session
+                rebuild_session,
             )
             _LOGGER.debug("Cookies: %s", cookies)
             _LOGGER.debug("Session Cookies:\n%s", self._print_session_cookies())
@@ -1198,7 +1197,11 @@ class AlexaLogin:
                 )
 
                 if post_resp is not None and post_resp.status in (
-                    301, 302, 303, 307, 308,
+                    301,
+                    302,
+                    303,
+                    307,
+                    308,
                 ):
                     location = post_resp.headers.get("Location")
                     if location:
@@ -1270,31 +1273,37 @@ class AlexaLogin:
                 assert isinstance(cookie_jar, aiohttp.CookieJar)
                 if self._debug:
                     _LOGGER.debug("Saving cookie to %s", cookiefile)
-                temp_cookiefile = f"{self._cookiefile[0]}.{uuid4().hex}.tmp"
                 try:
                     serialized_cookie_jar = _serialize_cookie_jar(cookie_jar)
                     serialized_cookies = dumps(serialized_cookie_jar)
-                    async with aiofiles.open(temp_cookiefile, mode="w") as localfile:
-                        await localfile.write(serialized_cookies)
-                        await localfile.flush()
+                    temp_cookiefile = f"{self._cookiefile[0]}.{uuid4().hex}.tmp"
 
-                    # The temporary file is created beside the destination so
-                    # os.replace() is atomic on the same filesystem. The live
-                    # cookie file therefore remains valid until the replacement
-                    # is complete, even if shutdown interrupts the write.
-                    await asyncio.to_thread(
-                        os.replace, temp_cookiefile, self._cookiefile[0]
-                    )
+                    try:
+                        async with aiofiles.open(
+                            temp_cookiefile,
+                            mode="w",
+                        ) as localfile:
+                            await localfile.write(serialized_cookies)
+                            await localfile.flush()
+                            await asyncio.to_thread(os.fsync, localfile.fileno())
+
+                        # The temporary file is created beside the destination so
+                        # os.replace() is atomic on the same filesystem. The live
+                        # cookie file therefore remains valid until the replacement
+                        # is complete, even if shutdown interrupts the write.
+                        await asyncio.to_thread(
+                            os.replace, temp_cookiefile, self._cookiefile[0]
+                        )
+                    finally:
+                        with contextlib.suppress(OSError):
+                            if os.path.exists(temp_cookiefile):
+                                await aioos.remove(temp_cookiefile)
                 except (OSError, EOFError, TypeError, AttributeError) as ex:
                     _LOGGER.debug(
                         "Error saving serialized cookie to %s: %s",
                         self._cookiefile[0].replace(self.email, hide_email(self.email)),
                         EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
                     )
-                finally:
-                    with contextlib.suppress(OSError):
-                        if os.path.exists(temp_cookiefile):
-                            await aioos.remove(temp_cookiefile)
             elif (cookiefile) and os.path.exists(cookiefile):
                 _LOGGER.debug(
                     "Removing outdated cookiefile %s",
@@ -2236,7 +2245,7 @@ class AlexaLogin:
                 site = self.start_url
                 _LOGGER.debug("Restarting login process %s", site)
             elif formsite:
-                site = formsite
+                site = site_url.join(URL(formsite))
                 _LOGGER.debug("Found post url to %s", site)
         return str(site)
 

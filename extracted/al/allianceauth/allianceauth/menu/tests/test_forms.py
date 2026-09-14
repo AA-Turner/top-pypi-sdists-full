@@ -1,7 +1,11 @@
 from django.test import TestCase
 
 from allianceauth.menu.constants import DEFAULT_FOLDER_ICON_CLASSES
-from allianceauth.menu.forms import FolderMenuItemAdminForm
+from allianceauth.menu.forms import (
+    AppMenuItemAdminForm,
+    FolderMenuItemAdminForm,
+    LinkMenuItemAdminForm,
+)
 
 
 class TestFolderMenuItemAdminForm(TestCase):
@@ -26,3 +30,23 @@ class TestFolderMenuItemAdminForm(TestCase):
 
         # then
         self.assertEqual(obj.classes, "dummy")
+
+
+class TestPermissionFormFields(TestCase):
+    def test_link_form_should_include_permission_fields(self):
+        # given
+        form = LinkMenuItemAdminForm()
+
+        # then
+        self.assertIn("permissions", form.fields)
+        self.assertIn("permission_mode", form.fields)
+
+    def test_other_forms_should_not_include_permission_fields(self):
+        for form_class in [AppMenuItemAdminForm, FolderMenuItemAdminForm]:
+            with self.subTest(form=form_class.__name__):
+                # given
+                form = form_class()
+
+                # then
+                self.assertNotIn("permissions", form.fields)
+                self.assertNotIn("permission_mode", form.fields)

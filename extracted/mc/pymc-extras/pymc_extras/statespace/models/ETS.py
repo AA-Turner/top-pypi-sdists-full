@@ -19,6 +19,8 @@ from pymc_extras.statespace.utils.constants import (
     ALL_STATE_AUX_DIM,
     ALL_STATE_DIM,
     ETS_SEASONAL_DIM,
+    JITTER_DEFAULT,
+    MISSING_FILL,
     OBS_STATE_AUX_DIM,
     OBS_STATE_DIM,
 )
@@ -205,6 +207,15 @@ class BayesianETS(PyMCStateSpace):
         Regardless of whether a mode is specified, it can always be overwritten via the ``compile_kwargs`` argument
         to all sampling methods.
 
+    cov_jitter: float, optional
+        Jitter added to the diagonal of every covariance matrix at each filtering step, for numerical
+        stability. Post-estimation graphs are built with this same value. Default 1e-8, or 1e-6 if
+        ``pytensor.config.floatX`` is float32.
+
+    missing_fill_value: float, optional
+        Sentinel used to mask missing observations. Set this only if your data legitimately contains the
+        default sentinel. Post-estimation graphs are built with this same value. Default -9999.0.
+
 
     References
     ----------
@@ -225,8 +236,12 @@ class BayesianETS(PyMCStateSpace):
         stationary_initialization: bool = False,
         initialization_dampening: float = 0.8,
         filter_type: str = "standard",
+        smoother_type: str = "disturbance",
+        joint_smoothed_draws: bool = True,
         verbose: bool = True,
         mode: str | Mode | None = None,
+        cov_jitter: float = JITTER_DEFAULT,
+        missing_fill_value: float = MISSING_FILL,
     ):
         if order is not None:
             if len(order) != 3 or any(not isinstance(o, str) for o in order):
@@ -290,9 +305,13 @@ class BayesianETS(PyMCStateSpace):
             k_states,
             k_posdef,
             filter_type,
+            smoother_type=smoother_type,
+            joint_smoothed_draws=joint_smoothed_draws,
             verbose=verbose,
             measurement_error=measurement_error,
             mode=mode,
+            cov_jitter=cov_jitter,
+            missing_fill_value=missing_fill_value,
         )
 
     def set_parameters(self) -> Parameter | tuple[Parameter, ...] | None:
@@ -669,18 +688,16 @@ class BayesianETS(PyMCStateSpace):
             self.ssm["state_cov"] = state_cov
 
         else:
-            state_cov_idx = ("state_cov", *np.diag_indices(self.k_posdef))
-            state_cov = self.make_and_register_variable(
+            sigma_state = self.make_and_register_variable(
                 "sigma_state", shape=() if self.k_posdef == 1 else (self.k_posdef,), dtype=floatX
             )
-            self.ssm[state_cov_idx] = state_cov**2
+            self.ssm["state_cov"] = pt.diag(pt.atleast_1d(sigma_state**2))
 
         if self.measurement_error:
-            obs_cov_idx = ("obs_cov", *np.diag_indices(self.k_endog))
-            obs_cov = self.make_and_register_variable(
+            sigma_obs = self.make_and_register_variable(
                 "sigma_obs", shape=() if self.k_endog == 1 else (self.k_endog,), dtype=floatX
             )
-            self.ssm[obs_cov_idx] = obs_cov**2
+            self.ssm["obs_cov"] = pt.diag(pt.atleast_1d(sigma_obs**2))
 
         if self.stationary_initialization:
             T_stationary = graph_replace(T, {stationary_dampening: self.initialization_dampening})

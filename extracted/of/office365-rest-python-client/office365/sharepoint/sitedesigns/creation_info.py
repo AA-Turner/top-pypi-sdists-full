@@ -29,7 +29,7 @@ class SiteDesignCreationInfo(ClientValue):
     Title: str | None = None
     Description: str | None = None
     WebTemplate: str | None = None
-    SiteScriptIds: ClientValueCollection[uuid.UUID] | None = None
+    SiteScriptIds: ClientValueCollection[uuid.UUID] = field(default_factory=lambda: ClientValueCollection(uuid.UUID))
     SupportedWebTemplates: StringCollection | None = None
     ExpandedPreviewImages: ClientValueCollection[SiteDesignImage] = field(
         default_factory=lambda: ClientValueCollection(SiteDesignImage)

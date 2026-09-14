@@ -17,17 +17,36 @@ from __future__ import annotations
 
 # ---- core standard library (eager) -------------------------------------
 import re, shlex, os, json, tempfile
-import textwrap, math, hashlib, platform, textwrap as tw, glob, asyncio
+import textwrap, math, hashlib, glob
 import fnmatch, importlib, importlib.util, shutil, sys, time, threading, posixpath, types, logging
-import uuid, base64, string, subprocess, queue, functools, pathlib, pkgutil, inspect
-from typing import *
-from datetime import timedelta, datetime, date
-from logging.handlers import RotatingFileHandler
+import uuid, string, subprocess, queue, functools, pkgutil, inspect
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    Iterable,
+    Iterator,
+    Mapping,
+    Dict,
+    List,
+    Set,
+    get_args,
+)
+from datetime import (
+    datetime,
+    date,
+)
 from pathlib import Path
 from functools import reduce, lru_cache
 from types import MethodType, ModuleType
-from dataclasses import dataclass, field, asdict
-from pprint import pprint
+from dataclasses import (
+    dataclass,
+    field,
+)
 from difflib import SequenceMatcher
 
 
@@ -165,7 +184,6 @@ def _lazy_type(module, attr):
 # ============================================================
 
 # --- module aliases (resolve on first attribute access) ---
-requests = _lazy_module("requests")
 pexpect = _lazy_module("pexpect")
 ezodf = _lazy_module("ezodf")
 tiktoken = _lazy_module("tiktoken")
@@ -177,9 +195,49 @@ pytesseract = _lazy_module("pytesseract")
 
 # --- member callables (resolve on first call) ---
 convert_from_path = _LazyCallable("pdf2image", "convert_from_path")
-load_dotenv = _LazyCallable("dotenv", "load_dotenv")
-jsonify = _LazyCallable("flask", "jsonify")
-secure_filename = _LazyCallable("werkzeug.utils", "secure_filename")
+
+
+def load_dotenv(*args, **kwargs):
+    """Load a ``.env`` file into ``os.environ``.
+
+    Uses python-dotenv when installed, otherwise the vendored stdlib parser in
+    ``.load_dotenv`` — no hard dependency on python-dotenv.
+    """
+    try:
+        from dotenv import load_dotenv as _ld
+    except Exception:
+        from .load_dotenv import load_dotenv as _ld
+    return _ld(*args, **kwargs)
+
+
+def secure_filename(filename):
+    """Sanitise a filename for safe on-disk storage.
+
+    Uses werkzeug's ``secure_filename`` when werkzeug is installed, otherwise
+    the vendored stdlib copy in ``.secure_filename`` (identical behaviour) — no
+    hard dependency on werkzeug.
+    """
+    try:
+        from werkzeug.utils import secure_filename as _wz
+    except Exception:
+        from .secure_filename import secure_filename as _wz
+    return _wz(filename)
+
+
+def jsonify(*args, **kwargs):
+    """JSON response helper.
+
+    Uses Flask's ``jsonify`` when Flask is installed (a real ``Response`` with
+    ``Content-Type: application/json``), so Flask routes behave identically.
+    When Flask is absent, falls back to the stdlib implementation in
+    ``.jsonify`` (returns a JSON string) — no hard dependency on Flask.
+    """
+    try:
+        from flask import jsonify as _flask_jsonify
+    except Exception:
+        from .jsonify import jsonify as _fallback
+        return _fallback(*args, **kwargs)
+    return _flask_jsonify(*args, **kwargs)
 
 # --- member class used in isinstance() (resolve on demand) ---
 FileStorage = _lazy_type("werkzeug.datastructures", "FileStorage")

@@ -1,4 +1,22 @@
-from .predicate_utils import *
+from .predicate_utils import (
+    fnmatch,
+    Callable,
+    Path,
+    make_list,
+    DEFAULT_ALLOWED_EXCLUDE_MAP,
+    DEFAULT_CANONICAL_MAP,
+    ScanConfig,
+    combine_params,
+    get_safe_canonical_kwargs,
+    normalize_listlike,
+    ensure_exts,
+    ensure_patterns,
+    ensure_directories,
+    make_allowed_predicate,
+    derive_all_defaults,
+    derive_file_defaults,
+    define_defaults,
+)
 def _get_default_modular(value, default, add=False, typ=set):
     """Merge user and default values intelligently."""
     if value == None:

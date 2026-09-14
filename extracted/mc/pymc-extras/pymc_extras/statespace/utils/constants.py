@@ -6,6 +6,7 @@ OBS_STATE_DIM = "observed_state"
 OBS_STATE_AUX_DIM = "observed_state_aux"
 SHOCK_DIM = "shock"
 SHOCK_AUX_DIM = "shock_aux"
+STRUCTURAL_SHOCK_DIM = "structural_shock"
 TIME_DIM = "time"
 AR_PARAM_DIM = "lag_ar"
 MA_PARAM_DIM = "lag_ma"
@@ -15,6 +16,12 @@ ETS_SEASONAL_DIM = "seasonal_lag"
 FACTOR_DIM = "factor"
 ERROR_AR_PARAM_DIM = "error_lag_ar"
 EXOG_STATE_DIM = "exogenous"
+EXOG_COEF_STATE_DIM = "exogenous_coefficient"
+NON_EXOG_STATE_DIM = "non_exogenous_state"
+TREND_DIM = "trend"
+
+OBSERVED_DATA_NAME = "data"
+OBSERVED_LIKELIHOOD_NAME = "obs"
 
 MISSING_FILL = -9999.0
 JITTER_DEFAULT = 1e-8 if pytensor.config.floatX.endswith("64") else 1e-6
@@ -60,6 +67,34 @@ MATRIX_DIMS = {
     "H": (OBS_STATE_DIM, OBS_STATE_AUX_DIM),
     "Q": (SHOCK_DIM, SHOCK_AUX_DIM),
 }
+
+
+def static_matrix_shapes(m: int, p: int, r: int) -> dict[str, tuple[int, ...]]:
+    """Concrete shapes of the static (non-time-varying) state-space matrices.
+
+    Keys match the filter's parameter naming (``a0`` rather than ``x0``).
+
+    Parameters
+    ----------
+    m : int
+        State dimension.
+    p : int
+        Observation dimension.
+    r : int
+        Shock dimension.
+    """
+    return {
+        "a0": (m,),
+        "P0": (m, m),
+        "c": (m,),
+        "d": (p,),
+        "T": (m, m),
+        "Z": (p, m),
+        "R": (m, r),
+        "H": (p, p),
+        "Q": (r, r),
+    }
+
 
 FILTER_OUTPUT_DIMS = {
     "filtered_states": (TIME_DIM, ALL_STATE_DIM),

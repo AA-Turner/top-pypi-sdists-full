@@ -136,9 +136,7 @@ async def test_invalid_stored_request_id_refuses_before_provider_or_persistence(
     async def _persistence_gate_must_not_run(*args, **kwargs):
         raise AssertionError("invalid identity must refuse before persistence")
 
-    monkeypatch.setattr(
-        executor_mod, "ensure_conversation_exists", _persistence_gate_must_not_run
-    )
+    monkeypatch.setattr(executor_mod, "ensure_conversation_exists", _persistence_gate_must_not_run)
     request = AIMatrixRequest(
         conversation_id=_SyntheticStoredContext.conversation_id,
         config=UnifiedConfig(model="test-model", messages=MessageList()),
@@ -210,6 +208,18 @@ async def test_user_message_reservation_carries_real_content(monkeypatch):
         ]
     )
     messages.append_or_extend_user_text(user_text)
+    messages.append_or_extend_user_items(
+        [
+            {
+                "type": "image",
+                "file_id": "13c2a464-2ead-4611-9990-702a03e643c4",
+                "base64_data": "captured-inline-png-bytes",
+                "mime_type": "image/png",
+                "size_bytes": 184,
+                "metadata": {"display_title": "review-red-checker.png"},
+            }
+        ]
+    )
     cfg = UnifiedConfig(model="claude-haiku-4-5", messages=messages)
     req = AIMatrixRequest(
         conversation_id=_StubAppContext.conversation_id,
@@ -286,9 +296,13 @@ async def test_user_message_reservation_carries_real_content(monkeypatch):
     # The full provider payload remains in content, while the separate
     # user_content projection contains only what the human actually authored.
     assert "MACHINE TEMPLATE" in text_blocks[0].get("text", "")
-    assert user_call.get("user_content") == [
-        {"type": "text", "text": user_text}
-    ]
+    pristine = user_call.get("user_content")
+    assert pristine[0]["text"] == user_text
+    assert pristine[1]["file_id"] == "13c2a464-2ead-4611-9990-702a03e643c4"
+    assert pristine[1]["mime_type"] == "image/png"
+    assert pristine[1]["metadata"] == {"display_title": "review-red-checker.png"}
+    assert "base64_data" not in pristine[1]
+    assert "base64" not in pristine[1]
 
     # Status MUST be 'active', not 'pending'. The 'pending' placeholder is
     # what the watchdog later flipped to 'abandoned' when the UPDATE never
@@ -469,10 +483,19 @@ async def test_mid_loop_flush_appends_without_overwriting_reserved_position(monk
     cfg = UnifiedConfig(
         model="claude-haiku-4-5",
         messages=MessageList(
-            _messages=[
-                UnifiedMessage(role="user", content=[TextContent(text="delegate this")])
-            ]
+            _messages=[UnifiedMessage(role="user", content=[TextContent(text="delegate this")])]
         ),
+    )
+    cfg.messages.append_or_extend_user_items(
+        [
+            {
+                "type": "image",
+                "file_id": "13c2a464-2ead-4611-9990-702a03e643c4",
+                "base64_data": "captured-inline-png-bytes",
+                "mime_type": "image/png",
+                "metadata": {"display_title": "review-red-checker.png"},
+            }
+        ]
     )
     request = AIMatrixRequest(
         conversation_id=_StubAppContext.conversation_id,
@@ -480,9 +503,7 @@ async def test_mid_loop_flush_appends_without_overwriting_reserved_position(monk
         request_id=_StubAppContext.request_id,
     )
     response = executor_mod.UnifiedResponse(
-        messages=[
-            UnifiedMessage(role="assistant", content=[TextContent(text="delegating")])
-        ]
+        messages=[UnifiedMessage(role="assistant", content=[TextContent(text="delegating")])]
     )
 
     from matrx_ai.orchestrator.execution_state import ExecutionState
@@ -504,6 +525,12 @@ async def test_mid_loop_flush_appends_without_overwriting_reserved_position(monk
     assert message_id is not None
     assert updates[0][0] == "user-message-id"
     assert "position" not in updates[0][1]
+    pristine = updates[0][1]["user_content"]
+    assert pristine[0]["file_id"] == "13c2a464-2ead-4611-9990-702a03e643c4"
+    assert pristine[0]["mime_type"] == "image/png"
+    assert pristine[0]["metadata"] == {"display_title": "review-red-checker.png"}
+    assert "base64_data" not in pristine[0]
+    assert "base64" not in pristine[0]
     assert len(creates) == 1
     assert creates[0]["position"] == APPEND_MESSAGE_POSITION
     assert reserved[1] == message_id

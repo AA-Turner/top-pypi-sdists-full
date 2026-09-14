@@ -1,17 +1,15 @@
 import logging
-import warnings
 
 from collections.abc import Callable, Sequence
+from types import EllipsisType
 from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-import pymc as pm
 import pytensor
 import pytensor.tensor as pt
 
-from pymc.model import modelcontext
-from pymc.model.transform.optimization import freeze_dims_and_data
+from pymc.model import Model, modelcontext
 from pymc.util import RandomState
 from pytensor.graph.basic import Variable
 from pytensor.graph.replace import graph_replace
@@ -21,6 +19,8 @@ from rich.console import Console
 from rich.table import Table
 from xarray import DataTree
 
+from pymc_extras.statespace.core import dummy_graph, forecast, forward_sampling, irf
+from pymc_extras.statespace.core.fit_recovery import coords_from_idata, dims_from_idata
 from pymc_extras.statespace.core.properties import (
     Coord,
     CoordInfo,
@@ -39,30 +39,34 @@ from pymc_extras.statespace.core.properties import (
 )
 from pymc_extras.statespace.core.representation import PytensorRepresentation
 from pymc_extras.statespace.filters import (
-    KalmanSmoother,
+    ConvergentFilter,
+    DisturbanceSmoother,
+    RTSSmoother,
     SquareRootFilter,
     StandardFilter,
     UnivariateFilter,
 )
 from pymc_extras.statespace.filters.distributions import (
-    LinearGaussianStateSpace,
+    KalmanFilterRV,
     SequenceMvNormal,
+    StationaryVARRV,
 )
-from pymc_extras.statespace.filters.utilities import stabilize
+from pymc_extras.statespace.filters.kalman_filter import BaseFilter
 from pymc_extras.statespace.utils.constants import (
-    ALL_STATE_AUX_DIM,
-    ALL_STATE_DIM,
     FILTER_OUTPUT_DIMS,
-    FILTER_OUTPUT_TYPES,
     JITTER_DEFAULT,
-    MATRIX_DIMS,
-    MATRIX_NAMES,
+    MISSING_FILL,
     OBS_STATE_DIM,
-    SHOCK_DIM,
-    SHORT_NAME_TO_LONG,
+    OBSERVED_DATA_NAME,
+    OBSERVED_LIKELIHOOD_NAME,
+    SMOOTHER_OUTPUT_NAMES,
     TIME_DIM,
 )
-from pymc_extras.statespace.utils.data_tools import register_data_with_pymc
+from pymc_extras.statespace.utils.data_tools import (
+    add_data_to_active_model,
+    prepare_data_for_pymc,
+    update_data_in_active_model,
+)
 
 _log = logging.getLogger("pymc.experimental.statespace")
 
@@ -71,19 +75,13 @@ FILTER_FACTORY = {
     "standard": StandardFilter,
     "univariate": UnivariateFilter,
     "cholesky": SquareRootFilter,
+    "convergent": ConvergentFilter,
 }
 
-
-def _validate_filter_arg(filter_arg):
-    if filter_arg.lower() not in FILTER_OUTPUT_TYPES:
-        raise ValueError(
-            f"filter_output should be one of {', '.join(FILTER_OUTPUT_TYPES)}, received {filter_arg}"
-        )
-
-
-def _verify_group(group):
-    if group not in ["prior", "posterior"]:
-        raise ValueError(f'Argument "group" must be one of "prior" or "posterior", found {group}')
+SMOOTHER_FACTORY = {
+    "disturbance": DisturbanceSmoother,
+    "rts": RTSSmoother,
+}
 
 
 def _validate_property(props, property_name, expected_type):
@@ -100,6 +98,34 @@ def _validate_property(props, property_name, expected_type):
             f"All elements of the {property_name} property must be instances of "
             f"{expected_type.__name__}."
         )
+
+
+# Every op a statespace model registers as its observation likelihood. A variable named ``obs``
+# is only ours if one of these produced it, so a user's own variable is never mistaken for it.
+LIKELIHOOD_OPS = (KalmanFilterRV, StationaryVARRV)
+
+
+def _has_statespace_graph(model: Model) -> bool:
+    """
+    Return whether a state space build has already put an observation likelihood into ``model``.
+
+    A variable named ``obs`` is only ours if a Kalman filter produced it, so a user's own variable
+    of that name is never mistaken for a previous build.
+
+    Parameters
+    ----------
+    model : Model
+        PyMC model to inspect.
+
+    Returns
+    -------
+    has_graph : bool
+        True if the model already holds a state space graph.
+    """
+    likelihood = model.named_vars.get(OBSERVED_LIKELIHOOD_NAME, None)
+    if likelihood is None or likelihood.owner is None:
+        return False
+    return isinstance(likelihood.owner.op, LIKELIHOOD_OPS)
 
 
 class PyMCStateSpace:
@@ -124,6 +150,17 @@ class PyMCStateSpace:
         The type of Kalman filter to use. Valid options are "standard", "univariate", "single", "cholesky", and
         "steady_state". For more information, see the docs for each filter. Default is "standard".
 
+    smoother_type : str, optional
+        The type of Kalman smoother to use. Valid options are "disturbance" and "rts". Both return the same
+        smoothed moments; "rts" inverts a ``k_states`` matrix at every step and is retained for cross-checking.
+        Default is "disturbance".
+    joint_smoothed_draws : bool, optional
+        If True, ``sample_conditional_prior`` and ``sample_conditional_posterior`` draw the smoothed states as a
+        single trajectory from the simulation smoother, carrying their cross-time posterior covariance. If False,
+        each timestep is drawn from its own marginal, reproducing the smoothed means and per-step covariances but
+        not the correlation between timesteps. Marginal draws are also slower, because each timestep's covariance
+        must be factored; set this to False to compare against the marginals, not to save time. Default is True.
+
     verbose : bool, optional
         If True, displays information about the initialized model. Defaults to True.
 
@@ -138,6 +175,16 @@ class PyMCStateSpace:
 
         Regardless of whether a mode is specified, it can always be overwritten via the ``compile_kwargs`` argument
         to all sampling methods.
+
+    cov_jitter: float, optional
+        Value added to the diagonal of every covariance matrix at each filtering step, for numerical stability.
+        Post-estimation graphs -- ``forecast``, the conditional samplers, ``sample_filter_outputs`` -- are built
+        with this same value. Default 1e-8, or 1e-6 if ``pytensor.config.floatX`` is float32.
+
+    missing_fill_value: float, optional
+        Sentinel used to mask missing observations, so PyMC's imputation machinery is not triggered. Set this only
+        if your data legitimately contains the default sentinel. Post-estimation graphs are built with this same
+        value. Default -9999.0.
 
     Notes
     -----
@@ -259,16 +306,14 @@ class PyMCStateSpace:
         k_states: int,
         k_posdef: int,
         filter_type: str = "standard",
+        smoother_type: str = "disturbance",
+        joint_smoothed_draws: bool = True,
         verbose: bool = True,
         measurement_error: bool = False,
         mode: str | None = None,
+        cov_jitter: float = JITTER_DEFAULT,
+        missing_fill_value: float = MISSING_FILL,
     ):
-        self._fit_coords: dict[str, Sequence[str]] | None = None
-        self._fit_dims: dict[str, Sequence[str]] | None = None
-        self._fit_data: pt.TensorVariable | None = None
-        self._fit_exog_data: dict[str, dict] = {}
-        self._shared_timestep: pt.TensorVariable | None = None
-
         self._needs_exog_data = None
         self._tensor_variable_info = SymbolicVariableInfo()
         self._tensor_data_info = SymbolicDataInfo()
@@ -278,6 +323,8 @@ class PyMCStateSpace:
         self.k_posdef = k_posdef
         self.measurement_error = measurement_error
         self.mode = mode
+        self.cov_jitter = cov_jitter
+        self.missing_fill_value = missing_fill_value
 
         self._populate_properties()
 
@@ -287,9 +334,6 @@ class PyMCStateSpace:
         # All models contain a state space representation and a Kalman filter
         self.ssm = PytensorRepresentation(k_endog, k_states, k_posdef)
 
-        # This will be populated with PyMC random matrices after calling _insert_random_variables
-        self.subbed_ssm: list[pt.TensorVariable] | None = None
-
         if filter_type.lower() not in FILTER_FACTORY.keys():
             raise NotImplementedError(
                 "The following are valid filter types: " + ", ".join(list(FILTER_FACTORY.keys()))
@@ -298,8 +342,15 @@ class PyMCStateSpace:
         if filter_type == "single" and self.k_endog > 1:
             raise ValueError('Cannot use filter_type = "single" with multiple observed time series')
 
-        self.kalman_filter = FILTER_FACTORY[filter_type.lower()]()
-        self.kalman_smoother = KalmanSmoother()
+        if smoother_type.lower() not in SMOOTHER_FACTORY.keys():
+            raise NotImplementedError(
+                "The following are valid smoother types: "
+                + ", ".join(list(SMOOTHER_FACTORY.keys()))
+            )
+
+        self.filter_type = filter_type.lower()
+        self.smoother_type = smoother_type.lower()
+        self.joint_smoothed_draws = joint_smoothed_draws
         self.make_symbolic_graph()
 
         self.requirement_table = None
@@ -486,18 +537,81 @@ class PyMCStateSpace:
         return a0, P0, c, d, T, Z, R, H, Q
 
     def unpack_statespace(self) -> list[pt.TensorVariable]:
-        """
-        Helper function to quickly obtain all statespace matrices in the standard order.
-        """
+        r"""
+        Return the statespace matrices bound to the active model's variables and data.
 
-        if self.subbed_ssm is None:
+        Call inside the model context :meth:`build_statespace_graph` was called in, to derive
+        further quantities from the fitted system -- the eigenvalues of :math:`T`, a steady-state
+        covariance, and so on:
+
+        .. code:: python
+
+            with pm.Model() as model:
+                ...
+                ss_mod.build_statespace_graph(data)
+                x0, P0, c, d, T, Z, R, H, Q = ss_mod.unpack_statespace()
+                pm.Deterministic("T_eigenvalues", pt.linalg.eigvalsh(T))
+
+        Each call substitutes afresh, so the returned matrices are new graph nodes rather than the
+        ones the filter was built from. They evaluate identically.
+
+        Returns
+        -------
+        matrices : list of TensorVariable
+            ``x0``, ``P0``, ``c``, ``d``, ``T``, ``Z``, ``R``, ``H``, ``Q``.
+
+        Raises
+        ------
+        TypeError
+            If called outside a PyMC model context.
+        ValueError
+            If a matrix is built against ``n_timesteps`` and the active model holds no statespace
+            observation to take that length from.
+        """
+        pymc_model = modelcontext(None)
+        matrices = self._insert_random_variables()
+        matrices = self._insert_data_variables(matrices)
+
+        # Most models get their time axis from the exogenous data, which the substitution above
+        # already supplied. Only a matrix built directly against ``n_timesteps`` -- a seasonality
+        # with a duration, say -- still needs a length, and only that needs the observation.
+        if not self._free_n_timesteps(matrices):
+            return matrices
+
+        return self._insert_data_shape_into_n_timesteps(matrices, self._observed_data(pymc_model))
+
+    def _free_n_timesteps(self, matrices: list[pt.TensorVariable]) -> tuple[Variable, ...]:
+        """Return the ``n_timesteps`` inputs of ``matrices`` that no substitution has resolved."""
+        name = self.n_timesteps.name
+        return tuple(
+            variable for variable in explicit_graph_inputs(matrices) if variable.name == name
+        )
+
+    @staticmethod
+    def _observed_data(pymc_model: Model) -> pt.TensorVariable:
+        """Return the data ``build_statespace_graph`` registered as the filter's observation.
+
+        The observation is found by its ``Op`` rather than its name, so a user variable cannot be
+        mistaken for it. Its *value* is what gets returned, because that is a root of the model
+        graph -- taking the length off the observation itself would make every returned matrix
+        depend on the filter that produced it.
+        """
+        observed = [
+            variable
+            for variable in pymc_model.observed_RVs
+            if isinstance(variable.owner.op, LIKELIHOOD_OPS)
+        ]
+        if not observed:
             raise ValueError(
-                "Cannot unpack the complete statespace system until PyMC model variables have been "
-                "inserted. To build the random statespace matrices, call build_statespace_graph() inside"
-                "a PyMC model context. "
+                "The active PyMC model holds no statespace observation. Call "
+                "build_statespace_graph() inside this model context first."
             )
-
-        return self.subbed_ssm
+        if len(observed) > 1:
+            raise ValueError(
+                f"Found {len(observed)} statespace observations on the active PyMC model, so "
+                "which one supplies the number of timesteps is ambiguous."
+            )
+        return pymc_model.rvs_to_values[observed[0]]
 
     @property
     def n_timesteps(self) -> Variable:
@@ -662,7 +776,7 @@ class PyMCStateSpace:
         if name in self._tensor_variable_info:
             raise ValueError(
                 f"{name} is already a registered placeholder variable with shape "
-                f"{self._tensor_variable_info[name].type.shape}"
+                f"{self._tensor_variable_info[name].symbolic_variable.type.shape}"
             )
 
         placeholder = pt.tensor(name, shape=shape, dtype=dtype)
@@ -702,7 +816,7 @@ class PyMCStateSpace:
         if name in self._tensor_data_info:
             raise ValueError(
                 f"{name} is already a registered placeholder variable with shape "
-                f"{self._tensor_data_info[name].type.shape}"
+                f"{self._tensor_data_info[name].symbolic_data.type.shape}"
             )
 
         placeholder = pt.tensor(name, shape=shape, dtype=dtype)
@@ -767,57 +881,7 @@ class PyMCStateSpace:
         """
         raise NotImplementedError("The make_symbolic_statespace method has not been implemented!")
 
-    def _get_matrix_shape_and_dims(self, name: str) -> tuple[tuple[int] | None, tuple[str] | None]:
-        """
-        Get the shape and dimensions of a matrix associated with the specified name.
-
-        This method retrieves the shape and dimensions of a matrix associated with the given name. Importantly,
-        it will only find named dimension if they are the "default" dimension names defined in the
-        statespace.utils.constant.py file.
-
-        Parameters
-        ----------
-        name : str
-            The name of the matrix whose shape and dimensions need to be retrieved.
-
-        Returns
-        -------
-        shape: tuple or None
-            If no named dimension are found, the shape of the requested matrix, otherwise None.
-
-        dims: tuple or None
-            If named dimensions are found, a tuple of strings, otherwise None
-        """
-
-        pm_mod = modelcontext(None)
-        dims = MATRIX_DIMS.get(name, None)
-        dims = dims if all([dim in pm_mod.coords.keys() for dim in dims]) else None
-        data_len = len(self._fit_data)
-
-        if name in self.kalman_filter.seq_names:
-            shape = (data_len, *self.ssm[SHORT_NAME_TO_LONG[name]].type.shape)
-            dims = (TIME_DIM, *dims)
-        else:
-            shape = self.ssm[SHORT_NAME_TO_LONG[name]].type.shape
-
-        shape = shape if dims is None else None
-
-        return shape, dims
-
-    def _save_exogenous_data_info(self):
-        """
-        Store exogenous data required by posterior sampling functions
-        """
-        pymc_mod = modelcontext(None)
-        for data_name in self.data_names:
-            data = pymc_mod[data_name]
-            self._fit_exog_data[data_name] = {
-                "name": data_name,
-                "value": data.get_value(),
-                "dims": pymc_mod.named_vars_to_dims.get(data_name, None),
-            }
-
-    def _insert_random_variables(self):
+    def _insert_random_variables(self) -> list[pt.TensorVariable]:
         """
         Replace pytensor symbolic variables with PyMC random variables.
 
@@ -827,26 +891,17 @@ class PyMCStateSpace:
 
             ss_mod = pmss.BayesianSARIMAX(order=(2, 0, 2), verbose=False, stationary_initialization=True)
             with pm.Model():
-                 x0 = pm.Normal('x0', size=ss_mod.k_states)
-                 ar_params = pm.Normal('ar_params', size=ss_mod.p)
-                 ma_parama = pm.Normal('ma_params', size=ss_mod.q)
-                 sigma_state = pm.Normal('sigma_state')
+                x0 = pm.Normal("x0", size=ss_mod.k_states)
+                ar_params = pm.Normal("ar_params", size=ss_mod.p)
+                ma_params = pm.Normal("ma_params", size=ss_mod.q)
+                sigma_state = pm.Normal("sigma_state")
 
-                 ss_mod._insert_random_variables()
-                 matrics = ss_mod.unpack_statespace()
+                x0, P0, c, d, T, Z, R, H, Q = ss_mod._insert_random_variables()
 
-            pm.draw(matrices['transition'], random_seed=RANDOM_SEED)
-            >>> array([[-0.90590386,  1.        ,  0.        ],
-            >>>        [ 1.25190143,  0.        ,  1.        ],
-            >>>        [ 0.        ,  0.        ,  0.        ]])
-
-            pm.draw(matrices['selection'], random_seed=RANDOM_SEED)
-            >>> array([[ 1.        ],
-            >>>        [-2.46741039],
-            >>>        [-0.28947689]])
-
-            pm.draw(matrices['state_cov'], random_seed=RANDOM_SEED)
-            >>> array([[-1.69353533]])
+            pm.draw(T, random_seed=RANDOM_SEED)
+            # array([[-0.90590386,  1.        ,  0.        ],
+            #        [ 1.25190143,  0.        ,  1.        ],
+            #        [ 0.        ,  0.        ,  0.        ]])
         """
 
         pymc_model = modelcontext(None)
@@ -874,9 +929,9 @@ class PyMCStateSpace:
         matrices = list(self._unpack_statespace_with_placeholders())
 
         replacement_dict = {var: pymc_model[name] for name, var in self._name_to_variable.items()}
-        self.subbed_ssm = graph_replace(matrices, replace=replacement_dict, strict=True)
+        return graph_replace(matrices, replace=replacement_dict, strict=True)
 
-    def _insert_data_variables(self):
+    def _insert_data_variables(self, matrices: list[pt.TensorVariable]) -> list[pt.TensorVariable]:
         """
         Replace symbolic pytensor variables with PyMC data containers.
 
@@ -884,7 +939,7 @@ class PyMCStateSpace:
         """
         data_names = self.data_names
         if not data_names:
-            return
+            return matrices
 
         pymc_model = modelcontext(None)
         found_data = []
@@ -902,9 +957,11 @@ class PyMCStateSpace:
             )
 
         replacement_dict = {data: pymc_model[name] for name, data in self._name_to_data.items()}
-        self.subbed_ssm = graph_replace(self.subbed_ssm, replace=replacement_dict, strict=True)
+        return graph_replace(matrices, replace=replacement_dict, strict=True)
 
-    def _insert_data_shape_into_n_timesteps(self, data):
+    def _insert_data_shape_into_n_timesteps(
+        self, matrices: list[pt.TensorVariable], data: pt.TensorVariable
+    ) -> list[pt.TensorVariable]:
         """
         Replace any occurrence of the n_timesteps symbolic variable with the length of the data.
 
@@ -916,25 +973,18 @@ class PyMCStateSpace:
         # Otherwise, we don't get symbolic linkage between time-varying matrix shapes and the data when the user calls
         # pm.set_data
         assert isinstance(data, pt.TensorVariable)
-        matrices = (
-            self.subbed_ssm
-            if self.subbed_ssm is not None
-            else self._unpack_statespace_with_placeholders()
-        )
+        n_timestep_variables = self._free_n_timesteps(matrices)
+        if not n_timestep_variables:
+            return matrices
 
-        n_timestep_variables = tuple(
-            variable
-            for variable in explicit_graph_inputs(matrices)
-            if variable.name == "n_timesteps"
-        )
+        n_timesteps = data.shape[0].astype("int32")
+        replacement_dict = {var: n_timesteps for var in n_timestep_variables}
 
-        if n_timestep_variables:
-            self._shared_timestep = data.shape[0].astype("int32")
-            replacement_dict = {var: self._shared_timestep for var in n_timestep_variables}
+        return graph_replace(matrices, replace=replacement_dict, strict=False)
 
-            self.subbed_ssm = graph_replace(self.subbed_ssm, replace=replacement_dict, strict=False)
-
-    def _insert_constant_timestep(self, matrices, step: int | pt.TensorVariable):
+    def _insert_constant_timestep(
+        self, matrices: list[pt.TensorVariable], step: int | pt.TensorVariable
+    ) -> list[pt.TensorVariable]:
         """
         Replace any occurrence of the n_timesteps symbolic variable with a constant integer.
 
@@ -942,659 +992,357 @@ class PyMCStateSpace:
         """
         step = pt.as_tensor_variable(step).astype("int32")
 
-        n_timestep_variables = tuple(
-            variable
-            for variable in explicit_graph_inputs(matrices)
-            if variable.name == "n_timesteps"
-        )
-
+        n_timestep_variables = self._free_n_timesteps(matrices)
         if not n_timestep_variables:
             return matrices
 
         replacement_dict = {var: step for var in n_timestep_variables}
         return graph_replace(matrices, replace=replacement_dict, strict=False)
 
-    def _register_matrices_with_pymc_model(self) -> list[pt.TensorVariable]:
-        """
-        Add all statespace matrices to the PyMC model currently on the context stack as pm.Deterministic nodes, and
-        adds named dimensions if they are found.
-
-        Returns
-        -------
-        registered_matrices: list of pt.TensorVariable
-            list of statespace matrices, wrapped in pm.Deterministic
-        """
-
-        pm_mod = modelcontext(None)
-        matrices = self.unpack_statespace()
-        time_varying_names = self.ssm.time_varying_names
-
-        registered_matrices = []
-        for i, (matrix, name) in enumerate(zip(matrices, MATRIX_NAMES)):
-            if not getattr(pm_mod, name, None):
-                shape, dims = self._get_matrix_shape_and_dims(name)
-                has_dims = dims is not None
-
-                if SHORT_NAME_TO_LONG[name] in time_varying_names and has_dims:
-                    dims = (TIME_DIM, *dims)
-
-                x = pm.Deterministic(name, matrix, dims=dims)
-                registered_matrices.append(x)
-            else:
-                registered_matrices.append(matrices[i])
-
-        return registered_matrices
-
-    @staticmethod
-    def _register_kalman_filter_outputs_with_pymc_model(outputs: tuple[pt.TensorVariable]) -> None:
-        mod = modelcontext(None)
-        coords = mod.coords
-
-        states, covs = outputs[:4], outputs[4:]
-
-        state_names = [
-            "filtered_states",
-            "predicted_states",
-            "predicted_observed_states",
-            "smoothed_states",
-        ]
-        cov_names = [
-            "filtered_covariances",
-            "predicted_covariances",
-            "predicted_observed_covariances",
-            "smoothed_covariances",
-        ]
-
-        with mod:
-            for var, name in zip(states + covs, state_names + cov_names):
-                dim_names = FILTER_OUTPUT_DIMS.get(name, None)
-                dims = tuple([dim if dim in coords.keys() else None for dim in dim_names])
-                pm.Deterministic(name, var, dims=dims)
-
     def build_statespace_graph(
         self,
         data: np.ndarray | pd.DataFrame | pt.TensorVariable,
-        register_data: bool = True,
-        missing_fill_value: float | None = None,
-        cov_jitter: float | None = JITTER_DEFAULT,
-        mvn_method: Literal["cholesky", "eigh", "svd"] = "svd",
-        save_kalman_filter_outputs_in_idata: bool = False,
-        mode: str | None = None,
     ) -> None:
         """
         Given a parameter vector `theta`, constructs the full computational graph describing the state space model and
         the associated log probability of the data. Hidden states and log probabilities are computed via the Kalman
         Filter.
 
+        The filter is configured with the ``cov_jitter`` and ``missing_fill_value`` given to the model constructor,
+        which are also what post-estimation graphs use.
+
         Parameters
         ----------
-        data : Union[np.ndarray, pd.DataFrame, pt.TensorVariable]
+        data : numpy array, pandas DataFrame, or pytensor tensor
             The observed data used to fit the state space model. It can be a NumPy array, a Pandas DataFrame,
             or a Pytensor tensor variable.
-
-        register_data : bool, optional, default=True
-            If True, the observed data will be registered with PyMC as a pm.Data variable. In addition,
-            a "time" dim will be created an added to the model's coords.
-
-        mode : Optional[str], optional, default=None
-            The Pytensor mode used for the computation graph construction. If None, the default mode will be used.
-            Other options include "JAX" and "NUMBA".
-
-        missing_fill_value: float, optional, default=-9999
-            A value to mask in missing values. NaN values in the data need to be filled with an arbitrary value to
-            avoid triggering PyMC's automatic imputation machinery (missing values are instead filled by treating them
-            as hidden states during Kalman filtering).
-
-            In general this never needs to be set. But if by a wild coincidence your data includes the value -9999.0,
-            you will need to change the missing_fill_value to something else, to avoid incorrectly mark in
-            data as missing.
-
-        cov_jitter: float, default 1e-8 or 1e-6 if pytensor.config.floatX is float32
-            The Kalman filter is known to be numerically unstable, especially at half precision. This value is added to
-            the diagonal of every covariance matrix -- predicted, filtered, and smoothed -- at every step, to ensure
-            all matrices are strictly positive semi-definite.
-
-            Obviously, if this can be zero, that's best. In general:
-                - Having measurement error makes Kalman Filters more robust. A large source of numerical errors come
-                  from the Filtered and Smoothed covariance matrices having a zero in the (0, 0) position, which always
-                  occurs when there is no measurement error. You can lower this value in the presence of measurement
-                  error.
-
-                - The Univariate Filter is more robust than other filters, and can tolerate a lower jitter value
-
-        mvn_method: str, default "svd"
-            Method used to invert the covariance matrix when calculating the pdf of a multivariate normal
-            (or when generating samples). One of "cholesky", "eigh", or "svd". "cholesky" is fastest, but least robust
-            to ill-conditioned matrices, while "svd" is slow but extremely robust.
-
-            In general, if your model has measurement error, "cholesky" will be safe to use. Otherwise, "svd" is
-            recommended. "eigh" can also be tried if sampling with "svd" is very slow, but it is not as robust as "svd".
-
-        save_kalman_filter_outputs_in_idata: bool, optional, default=False
-            If True, Kalman Filter outputs will be saved in the model as deterministics. Useful for debugging, but
-            should not be necessary for the majority of users.
-
-        mode: str, optional
-            Pytensor mode to use when compiling the graph. This will be saved as a model attribute and used when
-            compiling sampling functions (e.g. ``sample_conditional_prior``).
-
-            .. deprecated:: 0.2.5
-                The `mode` argument is deprecated and will be removed in a future version. Pass ``mode`` to the
-                model constructor, or manually specify ``compile_kwargs`` in sampling functions instead.
         """
-        if mode is not None:
-            warnings.warn(
-                "The `mode` argument is deprecated and will be removed in a future version. "
-                "Pass `mode` to the model constructor, or manually specify `compile_kwargs` in sampling functions"
-                " instead.",
-                DeprecationWarning,
-            )
-            self.mode = mode
-
         pm_mod = modelcontext(None)
 
-        self._insert_random_variables()
-        self._save_exogenous_data_info()
-        self._insert_data_variables()
-
         obs_coords = pm_mod.coords.get(OBS_STATE_DIM, None)
-        self._fit_data = data
-
-        data, nan_mask = register_data_with_pymc(
+        filled_values, index, missing = prepare_data_for_pymc(
             data,
             n_obs=self.ssm.k_endog,
             obs_coords=obs_coords,
-            register_data=register_data,
-            missing_fill_value=missing_fill_value,
+            missing_fill_value=self.missing_fill_value,
         )
+
+        if _has_statespace_graph(pm_mod):
+            self._reenter_statespace_graph(filled_values, index, missing)
+            return
+
+        for name in (OBSERVED_DATA_NAME, OBSERVED_LIKELIHOOD_NAME):
+            if name in pm_mod.named_vars:
+                raise ValueError(
+                    f"The model already contains a variable named {name!r} that this state space "
+                    f"model did not create. Rename it, or build the state space graph into a "
+                    f"model that does not use that name."
+                )
+
+        matrices = self._insert_random_variables()
+        matrices = self._insert_data_variables(matrices)
+
+        data_variable = add_data_to_active_model(filled_values, index)
 
         # Order is important here: only call _insert_data_shape_into_n_timesteps after data has been registered.
-        self._insert_data_shape_into_n_timesteps(data)
-
-        filter_outputs = self.kalman_filter.build_graph(
-            pt.as_tensor_variable(data),
-            *self.unpack_statespace(),
-            missing_fill_value=missing_fill_value,
-            cov_jitter=cov_jitter,
-            time_varying_names=self.ssm.time_varying_names,
-        )
-
-        logp = filter_outputs.pop(-1)
-        states, covs = filter_outputs[:3], filter_outputs[3:]
-        filtered_states, predicted_states, observed_states = states
-        filtered_covariances, predicted_covariances, observed_covariances = covs
-        if save_kalman_filter_outputs_in_idata:
-            smooth_states, smooth_covariances = self._build_smoother_graph(
-                filtered_states, filtered_covariances, self.unpack_statespace()
-            )
-            all_kf_outputs = [*states, smooth_states, *covs, smooth_covariances]
-            self._register_kalman_filter_outputs_with_pymc_model(all_kf_outputs)
+        matrices = self._insert_data_shape_into_n_timesteps(matrices, data_variable)
 
         obs_dims = FILTER_OUTPUT_DIMS["predicted_observed_states"]
         obs_dims = obs_dims if all([dim in pm_mod.coords.keys() for dim in obs_dims]) else None
 
-        SequenceMvNormal(
-            "obs",
+        self.make_likelihood(data_variable, matrices, obs_dims, missing)
+        self._register_additional_statespace_variables()
+
+    def make_likelihood(
+        self,
+        data: pt.TensorVariable,
+        matrices: list[pt.TensorVariable],
+        dims: tuple[str, ...] | None,
+        missing: np.ndarray,
+    ) -> pt.TensorVariable:
+        """
+        Register the observation likelihood into the active model and return it.
+
+        The default runs this model's Kalman filter over ``data``. A subclass whose observation
+        density has a closed form overrides this to register that instead, deferring to
+        ``super()`` for the configurations its closed form does not cover.
+
+        Parameters
+        ----------
+        data : TensorVariable
+            Observed data, already registered in the active model.
+        matrices : list of TensorVariable
+            The state space matrices, with the model's variables and data substituted in.
+        dims : tuple of str, optional
+            Dims for the likelihood, or None when the model declares no matching coords.
+        missing : numpy array
+            Boolean mask over ``data``, true where an observation was missing. The Kalman filter
+            marginalizes those; a closed form generally cannot, so this is part of what decides
+            whether one applies.
+
+        Returns
+        -------
+        likelihood : TensorVariable
+            The registered observed variable.
+        """
+        kalman_filter, _ = self.make_filters()
+        filter_outputs = kalman_filter.build_graph(pt.as_tensor_variable(data), *matrices)
+
+        logp = filter_outputs.pop(-1)
+        *_, observed_states = filter_outputs[:3]
+        *_, observed_covariances = filter_outputs[3:]
+
+        return SequenceMvNormal(
+            OBSERVED_LIKELIHOOD_NAME,
             mus=observed_states,
             covs=observed_covariances,
             logp=logp,
             observed=data,
-            dims=obs_dims,
-            method=mvn_method,
+            dims=dims,
         )
 
-        self._fit_coords = pm_mod.coords.copy()
-        self._fit_dims = pm_mod.named_vars_to_dims.copy()
-
-    def _build_smoother_graph(
-        self,
-        filtered_states: pt.TensorVariable,
-        filtered_covariances: pt.TensorVariable,
-        matrices,
-        mode: str | None = None,
-        cov_jitter=JITTER_DEFAULT,
-    ):
+    def _reenter_statespace_graph(
+        self, filled_values: np.ndarray, index: pd.Index | np.ndarray, missing: np.ndarray
+    ) -> None:
         """
-        Build the computation graph for the Kalman smoother.
+        Point an already-built model at new data.
 
-        This method constructs the computation graph for applying the Kalman smoother to the filtered states
-        and covariances obtained from the Kalman filter. The Kalman smoother is used to generate smoothed
-        estimates of the latent states and their covariances in a state space model.
-
-        The Kalman smoother provides a more accurate estimate of the latent states by incorporating future
-        information in the backward pass, resulting in smoothed state trajectories.
+        The filter graph is left as the first build made it, so re-entry cannot change how the
+        model is constructed -- only which observations it is fit against.
 
         Parameters
         ----------
-        filtered_states : pytensor.tensor.TensorVariable
-            The filtered states obtained from the Kalman filter. Returned by the `build_statespace_graph` method.
+        filled_values : numpy array
+            New data, with missing values already filled.
+        index : pandas Index or numpy array
+            Time index of the new data.
+        missing : numpy array
+            Boolean mask over the new data, true where an observation is missing.
+        """
+        # Raises unless the model holds this template's parameters, so a template whose
+        # specification has changed cannot silently inherit the graph another one built.
+        self._insert_random_variables()
 
-        filtered_covariances : pytensor.tensor.TensorVariable
-            The filtered state covariances obtained from the Kalman filter. Returned by the `build_statespace_graph`
-            method.
+        self._verify_exogenous_data_spans(len(filled_values))
+        self._verify_likelihood_accepts_missing(missing)
 
-        mode : Optional[str], default=None
-            The mode used by pytensor for the construction of the logp graph. If None, the mode provided to
-            `build_statespace_graph` will be used.
+        update_data_in_active_model(filled_values, index)
+
+    def _verify_likelihood_accepts_missing(self, missing: np.ndarray) -> None:
+        """
+        Raise if the built likelihood cannot represent missing values the new data holds.
+
+        Re-entry repoints an existing graph at new data rather than rebuilding it, so a model
+        whose likelihood was chosen against complete data keeps that likelihood however the data
+        changes. Only the Kalman filter marginalizes missing observations; anything else would
+        score the fill sentinel as if it were real.
+
+        Parameters
+        ----------
+        missing : numpy array
+            Boolean mask over the new data, true where an observation is missing.
+        """
+        if not missing.any():
+            return
+
+        likelihood = modelcontext(None)[OBSERVED_LIKELIHOOD_NAME]
+        if isinstance(likelihood.owner.op, KalmanFilterRV):
+            return
+
+        raise ValueError(
+            "The new observed data has missing values, but this model was built against complete "
+            "data and uses a likelihood that cannot marginalize them. Build the model into a "
+            "fresh pm.Model to have the likelihood chosen against the new data."
+        )
+
+    def _verify_exogenous_data_spans(self, n_timesteps: int) -> None:
+        """
+        Raise unless every exogenous data variable in the active model spans ``n_timesteps``.
+
+        Exogenous data belongs to the user, so re-entry cannot resize it. Left stale it desyncs
+        from the observed data and the filter fails much later, when the log probability is built.
+
+        Parameters
+        ----------
+        n_timesteps : int
+            Number of time steps in the observed data about to be written.
+
+        Raises
+        ------
+        ValueError
+            If any exogenous data variable spans a different number of time steps.
+        """
+        pm_mod = modelcontext(None)
+
+        stale = {}
+        for name in self.data_names:
+            variable = pm_mod.named_vars.get(name, None)
+            get_value = getattr(variable, "get_value", None)
+            if get_value is None:
+                continue
+            found = get_value(borrow=True).shape[0]
+            if found != n_timesteps:
+                stale[name] = found
+
+        if not stale:
+            return
+
+        described = ", ".join(f"{name} ({found} steps)" for name, found in sorted(stale.items()))
+        raise ValueError(
+            f"The new observed data spans {n_timesteps} time steps, but the model's exogenous "
+            f"data still spans a different number: {described}. Update it with pm.set_data, "
+            f"passing new {TIME_DIM!r} coords, before rebuilding."
+        )
+
+    def make_filters(self) -> tuple[BaseFilter, DisturbanceSmoother | RTSSmoother]:
+        """
+        Return a Kalman filter and smoother configured for this model.
 
         Returns
         -------
-        Tuple[pytensor.tensor.TensorVariable, pytensor.tensor.TensorVariable]
-            A tuple containing TensorVariables representing the smoothed states and smoothed state covariances
-            obtained from the Kalman smoother.
+        kalman_filter : BaseFilter
+            Filter of the type this model was constructed with.
+        kalman_smoother : DisturbanceSmoother or RTSSmoother
+            Smoother carrying the same time-varying names and jitter.
         """
+        kalman_filter = FILTER_FACTORY[self.filter_type](
+            time_varying_names=self.ssm.time_varying_names,
+            cov_jitter=self.cov_jitter,
+            missing_fill_value=self.missing_fill_value,
+        )
+        smoother_class = SMOOTHER_FACTORY[self.smoother_type]
+        smoother_kwargs = dict(
+            time_varying_names=self.ssm.time_varying_names, cov_jitter=self.cov_jitter
+        )
+        if smoother_class is DisturbanceSmoother:
+            smoother_kwargs["missing_fill_value"] = self.missing_fill_value
 
-        pymc_model = modelcontext(None)
-        with pymc_model:
-            *_, T, Z, R, H, Q = matrices
+        kalman_smoother = smoother_class(**smoother_kwargs)
+        return kalman_filter, kalman_smoother
 
-            smooth_states, smooth_covariances = self.kalman_smoother.build_graph(
-                T,
-                R,
-                Q,
-                filtered_states,
-                filtered_covariances,
-                cov_jitter=cov_jitter,
-                time_varying_names=self.ssm.time_varying_names,
-            )
-            smooth_states.name = "smooth_states"
-            smooth_covariances.name = "smooth_covariances"
+    def make_filter_outputs(
+        self,
+        names: str | Sequence[str] | None = None,
+        data: np.ndarray | pt.TensorVariable | None = None,
+    ) -> dict[str, pt.TensorVariable]:
+        r"""
+        Return the Kalman filter and smoother output sequences as symbolic graphs.
 
-            return smooth_states, smooth_covariances
+        Call inside the model context :meth:`build_statespace_graph` was called in, to derive
+        further quantities from the inferred states -- a steady-state Kalman gain, an index built
+        from a filtered factor, and so on:
 
-    def _build_dummy_graph(self) -> None:
-        """
-        Build a dummy computation graph for the state space model matrices.
+        .. code:: python
 
-        This method creates "dummy" pm.Flat variables representing the deep parameters used in the state space model.
+            with pm.Model() as model:
+                ...
+                ss_mod.build_statespace_graph(data)
+                outputs = ss_mod.make_filter_outputs(names="smoothed_states")
+                pm.Deterministic("total_state", outputs["smoothed_states"].sum(axis=-1))
+
+        Each call builds the graph afresh, so the returned sequences are new nodes rather than the
+        ones the likelihood was built from. They evaluate identically. To draw values over an
+        existing set of parameter draws instead, use :meth:`sample_filter_outputs`.
+
+        Parameters
+        ----------
+        names : str or sequence of str, optional
+            Which outputs to build: ``filtered_states``, ``predicted_states``, ``smoothed_states``,
+            each of their ``_covariances`` counterparts, and ``predicted_observed_states`` with
+            ``predicted_observed_covariances``. Default None, which builds all of them.
+        data : numpy array or TensorVariable, optional
+            Observations to filter. Default None, which uses the observations
+            :meth:`build_statespace_graph` registered on the active model.
 
         Returns
         -------
-        list[pm.Flat]
-            A list of pm.Flat variables representing all parameters estimated by the model.
+        filter_outputs : dict mapping str to TensorVariable
+            The requested sequences, keyed by name.
         """
-
-        def infer_variable_shape(name):
-            shape = self._name_to_variable[name].type.shape
-            if not any(dim is None for dim in shape):
-                return shape
-
-            dim_names = self._fit_dims.get(name, None)
-            if dim_names is None:
+        if isinstance(names, str):
+            names = [names]
+        if names is None:
+            names = list(FILTER_OUTPUT_DIMS)
+        else:
+            unknown_names = set(names).difference(FILTER_OUTPUT_DIMS)
+            if unknown_names:
                 raise ValueError(
-                    f"Could not infer shape for {name}, because it was not given coords during model"
-                    f"fitting"
+                    f"{sorted(unknown_names)} are not filter outputs. Valid names are "
+                    f"{sorted(FILTER_OUTPUT_DIMS)}."
                 )
 
-            shape_from_coords = tuple([len(self._fit_coords[dim]) for dim in dim_names])
-            return tuple(
-                [
-                    shape[i] if shape[i] is not None else shape_from_coords[i]
-                    for i in range(len(shape))
-                ]
-            )
+        pymc_model = modelcontext(None)
 
-        for name in self.param_names:
-            pm.Flat(
-                name,
-                shape=infer_variable_shape(name),
-                dims=self._fit_dims.get(name, None),
+        if data is None:
+            if OBSERVED_DATA_NAME not in pymc_model.named_vars:
+                raise ValueError(
+                    f"The active model holds no {OBSERVED_DATA_NAME!r} variable to filter. Call "
+                    f"build_statespace_graph first, or pass data directly."
+                )
+            data = pymc_model[OBSERVED_DATA_NAME]
+
+        x0, P0, c, d, T, Z, R, H, Q = self.unpack_statespace()
+        kalman_filter, kalman_smoother = self.make_filters()
+
+        # The last output is the pointwise log-likelihood, which the likelihood term owns; every
+        # other output carries its canonical name, so key them by it rather than by position.
+        data = pt.as_tensor_variable(data)
+        *filter_outputs, _ = kalman_filter.build_graph(data, x0, P0, c, d, T, Z, R, H, Q)
+        outputs = {output.name: output for output in filter_outputs}
+
+        if not set(SMOOTHER_OUTPUT_NAMES).isdisjoint(names):
+            smoothed_states, smoothed_covariances = kalman_smoother.build_graph(
+                data, (x0, P0, c, d, T, Z, R, H, Q), filter_outputs
             )
+            outputs[smoothed_states.name] = smoothed_states
+            outputs[smoothed_covariances.name] = smoothed_covariances
+
+        return {name: outputs[name] for name in names}
+
+    def _register_additional_statespace_variables(self) -> None:
+        """
+        Register model-specific variables into the active PyMC model.
+
+        Override this hook in a subclass that adds its own ``pm.Deterministic`` or ``pm.Potential`` nodes, rather
+        than overriding :meth:`build_statespace_graph`. It runs inside the active model context, after the ``obs``
+        likelihood is registered. The base implementation registers nothing.
+        """
+
+    def _build_dummy_graph(self, idata: DataTree, group: str = "posterior") -> None:
+        """Register a ``pm.Flat`` stand-in for every model parameter, shaped as it was fit.
+
+        Parameters
+        ----------
+        idata : DataTree
+            Inference data from the fit, supplying the shapes and dims to recover.
+        group : str, optional
+            Group holding the sampled parameters. Default ``"posterior"``.
+        """
+        return dummy_graph.build_dummy_graph(
+            self,
+            coords=coords_from_idata(self, idata, "observed_data"),
+            dims=dims_from_idata(self, idata, group),
+        )
 
     def _kalman_filter_outputs_from_dummy_graph(
         self,
-        data: pt.TensorLike | None = None,
+        data: pt.TensorLike,
+        *,
+        coords: dict[str, Sequence],
+        dims: dict[str, list[str]],
+        exog: dict[str, dict],
         data_dims: str | tuple[str] | list[str] | None = None,
         scenario: dict[str, pd.DataFrame] | pd.DataFrame | None = None,
     ) -> tuple[list[pt.TensorVariable], list[tuple[pt.TensorVariable, pt.TensorVariable]]]:
-        """
-        Builds a Kalman filter graph using "dummy" pm.Flat distributions for the model variables and sorts the returns
-        into (mean, covariance) pairs for each of filtered, predicted, and smoothed output.
-
-        Parameters
-        ----------
-        data: pt.TensorLike, optional
-            Observed data on which to condition the model. If not provided, the function will use the data that was
-            provided when the model was built.
-        data_dims: str or tuple of str, optional
-            Dimension names associated with the model data. If None, defaults to ("time", "obs_state")
-        scenario: dict[str, pd.DataFrame], optional
-            Dictionary of out-of-sample scenario dataframes. If provided, it must have values for all data variables
-            in the model. pm.set_data is used to replace training data with new values.
-
-        Returns
-        -------
-        matrices: list of tensors
-            Statespace matrices with dummy parameters.
-
-        grouped_outputs: list of tuple of tensors
-            A list of tuples, each containing the mean and covariance of the filtered, predicted, and smoothed states.
-        """
-        if scenario is None:
-            scenario = dict()
-
-        pm_mod = modelcontext(None)
-        self._build_dummy_graph()
-        self._insert_random_variables()
-
-        for name in self.data_names:
-            if name not in pm_mod:
-                pm.Data(**self._fit_exog_data[name])
-
-        self._insert_data_variables()
-
-        for name in self.data_names:
-            if name in scenario.keys():
-                pm.set_data({name: scenario[name]})
-
-        matrices = self.unpack_statespace()
-
-        if data is None:
-            data = self._fit_data
-
-        # Replace n_timesteps with data length for time-varying matrices
-        data_len = data.shape[0] if hasattr(data, "shape") else len(data)
-        matrices = self._insert_constant_timestep(matrices, data_len)
-        x0, P0, c, d, T, Z, R, H, Q = matrices
-
-        obs_coords = pm_mod.coords.get(OBS_STATE_DIM, None)
-
-        data, nan_mask = register_data_with_pymc(
+        return dummy_graph.kalman_filter_outputs_from_dummy_graph(
+            self,
             data,
-            n_obs=self.ssm.k_endog,
-            obs_coords=obs_coords,
+            coords=coords,
+            dims=dims,
+            exog=exog,
             data_dims=data_dims,
-            register_data=True,
+            scenario=scenario,
         )
-
-        filter_outputs = self.kalman_filter.build_graph(
-            data,
-            x0,
-            P0,
-            c,
-            d,
-            T,
-            Z,
-            R,
-            H,
-            Q,
-            time_varying_names=self.ssm.time_varying_names,
-        )
-
-        filter_outputs.pop(-1)
-        states, covariances = filter_outputs[:3], filter_outputs[3:]
-
-        filtered_states, predicted_states, _ = states
-        filtered_covariances, predicted_covariances, _ = covariances
-
-        [smoothed_states, smoothed_covariances] = self.kalman_smoother.build_graph(
-            T,
-            R,
-            Q,
-            filtered_states,
-            filtered_covariances,
-            time_varying_names=self.ssm.time_varying_names,
-        )
-
-        grouped_outputs = [
-            (filtered_states, filtered_covariances),
-            (predicted_states, predicted_covariances),
-            (smoothed_states, smoothed_covariances),
-        ]
-
-        return [x0, P0, c, d, T, Z, R, H, Q], grouped_outputs
-
-    def _sample_conditional(
-        self,
-        idata: DataTree,
-        group: str,
-        random_seed: RandomState | None = None,
-        data: pt.TensorLike | None = None,
-        mvn_method: Literal["cholesky", "eigh", "svd"] = "svd",
-        **kwargs,
-    ):
-        """
-        Common functionality shared between `sample_conditional_prior` and `sample_conditional_posterior`. See those
-        methods for details.
-
-        Parameters
-        ----------
-        idata : DataTree
-            A DataTree object containing the posterior distribution over model parameters.
-
-        group : str
-            DataTree group from which to draw samples. Should be one of "prior" or "posterior".
-
-        random_seed : int, RandomState or Generator, optional
-            Seed for the random number generator.
-
-        data: pt.TensorLike, optional
-            Observed data on which to condition the model. If not provided, the function will use the data that was
-            provided when the model was built.
-
-        mvn_method: str, default "svd"
-            Method used to invert the covariance matrix when calculating the pdf of a multivariate normal
-            (or when generating samples). One of "cholesky", "eigh", or "svd". "cholesky" is fastest, but least robust
-            to ill-conditioned matrices, while "svd" is slow but extremely robust.
-
-            In general, if your model has measurement error, "cholesky" will be safe to use. Otherwise, "svd" is
-            recommended. "eigh" can also be tried if sampling with "svd" is very slow, but it is not as robust as "svd".
-
-        kwargs:
-            Additional keyword arguments are passed to pymc.sample_posterior_predictive
-
-        Returns
-        -------
-        DataTree
-            A DataTree object containing sampled trajectories from the requested conditional distribution,
-            with data variables "filtered_{group}", "predicted_{group}", and "smoothed_{group}".
-        """
-        if data is None and self._fit_data is None:
-            raise ValueError("No data provided to condition the model")
-
-        _verify_group(group)
-        group_idata = getattr(idata, group)
-
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        with pm.Model(coords=self._fit_coords) as forward_model:
-            (
-                [
-                    x0,
-                    P0,
-                    c,
-                    d,
-                    T,
-                    Z,
-                    R,
-                    H,
-                    Q,
-                ],
-                grouped_outputs,
-            ) = self._kalman_filter_outputs_from_dummy_graph(data=data)
-
-            for name, (mu, cov) in zip(FILTER_OUTPUT_TYPES, grouped_outputs):
-                dummy_ll = pt.zeros_like(mu)
-
-                state_dims = (
-                    (TIME_DIM, ALL_STATE_DIM)
-                    if all([dim in self._fit_coords for dim in [TIME_DIM, ALL_STATE_DIM]])
-                    else (None, None)
-                )
-                obs_dims = (
-                    (TIME_DIM, OBS_STATE_DIM)
-                    if all([dim in self._fit_coords for dim in [TIME_DIM, OBS_STATE_DIM]])
-                    else (None, None)
-                )
-
-                SequenceMvNormal(
-                    f"{name}_{group}",
-                    mus=mu,
-                    covs=cov,
-                    logp=dummy_ll,
-                    dims=state_dims,
-                    method=mvn_method,
-                )
-
-                obs_mu = d + (Z @ mu[..., None]).squeeze(-1)
-                obs_cov = Z @ cov @ pt.swapaxes(Z, -2, -1) + H
-
-                SequenceMvNormal(
-                    f"{name}_{group}_observed",
-                    mus=obs_mu,
-                    covs=obs_cov,
-                    logp=dummy_ll,
-                    dims=obs_dims,
-                    method=mvn_method,
-                )
-
-        # TODO: Remove this after pm.Flat initial values are fixed
-        forward_model.rvs_to_initial_values = {
-            rv: None for rv in forward_model.rvs_to_initial_values.keys()
-        }
-
-        frozen_model = freeze_dims_and_data(forward_model)
-        with frozen_model:
-            idata_conditional = pm.sample_posterior_predictive(
-                group_idata,
-                var_names=[
-                    f"{name}_{group}{suffix}"
-                    for name in FILTER_OUTPUT_TYPES
-                    for suffix in ["", "_observed"]
-                ],
-                random_seed=random_seed,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
-
-        return idata_conditional.posterior_predictive
-
-    def _sample_unconditional(
-        self,
-        idata: DataTree,
-        group: str,
-        steps: int | None = None,
-        use_data_time_dim: bool = False,
-        random_seed: RandomState | None = None,
-        mvn_method: Literal["cholesky", "eigh", "svd"] = "svd",
-        **kwargs,
-    ):
-        """
-        Draw unconditional sample trajectories according to state space dynamics, using random samples from the
-        a provided trace. The state space update equations are:
-
-            X[t+1] = T @ X[t] + R @ eta[t], eta ~ N(0, Q)
-            Y[t] = Z @ X[t] + nu[t], nu ~ N(0, H)
-            x[0] ~ N(a0, P0)
-
-        Parameters
-        ----------
-        idata : DataTree
-            A DataTree object with a posterior group containing samples from the
-            posterior distribution over model parameters.
-
-        steps : Optional[int], default=None
-            The number of time steps to sample for the unconditional trajectories. If not provided (None),
-            the function will sample trajectories for the entire available time dimension in the posterior.
-            Otherwise, it will generate trajectories for the specified number of steps.
-
-        use_data_time_dim : bool, default=False
-            If True, the function uses the time dimension present in the provided `idata` object to sample
-            unconditional trajectories. If False, a custom time dimension is created based on the number of steps
-            specified, or if steps is None, it uses the entire available time dimension in the posterior.
-
-        random_seed : int, RandomState or Generator, optional
-            Seed for the random number generator.
-
-        mvn_method: str, default "svd"
-            Method used to invert the covariance matrix when calculating the pdf of a multivariate normal
-            (or when generating samples). One of "cholesky", "eigh", or "svd". "cholesky" is fastest, but least robust
-            to ill-conditioned matrices, while "svd" is slow but extremely robust.
-
-            In general, if your model has measurement error, "cholesky" will be safe to use. Otherwise, "svd" is
-            recommended. "eigh" can also be tried if sampling with "svd" is very slow, but it is not as robust as "svd".
-
-        kwargs:
-            Additional keyword arguments are passed to pymc.sample_posterior_predictive
-
-        Returns
-        -------
-        DataTree
-            An Arviz InfereceData with two groups, posterior_latent and posterior_observed
-
-            - posterior_latent represents the latent state trajectories `X[t]`, which follows the dynamics:
-              `x[t+1] = T @ x[t] + R @ eta[t]`, where `eta ~ N(0, Q)`.
-
-            - posterior_observed represents the observed state trajectories `Y[t]`, which is obtained from
-              the latent state trajectories: `y[t] = Z @ x[t] + nu[t]`, where `nu ~ N(0, H)`.
-        """
-        _verify_group(group)
-
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        group_idata = getattr(idata, group)
-        dims = None
-        temp_coords = self._fit_coords.copy()
-
-        if not use_data_time_dim and steps is not None:
-            temp_coords.update({TIME_DIM: np.arange(1 + steps, dtype="int")})
-            steps = len(temp_coords[TIME_DIM]) - 1
-        elif steps is not None:
-            n_dimsteps = len(temp_coords[TIME_DIM])
-            if n_dimsteps != steps:
-                raise ValueError(
-                    f"Length of time dimension does not match specified number of steps, expected"
-                    f" {n_dimsteps} steps, or steps=None."
-                )
-        else:
-            steps = len(temp_coords[TIME_DIM]) - 1
-
-        if all([dim in self._fit_coords for dim in [TIME_DIM, ALL_STATE_DIM, OBS_STATE_DIM]]):
-            dims = [TIME_DIM, ALL_STATE_DIM, OBS_STATE_DIM]
-
-        with pm.Model(coords=temp_coords if dims is not None else None) as forward_model:
-            self._build_dummy_graph()
-            self._insert_random_variables()
-
-            for name in self.data_names:
-                pm.Data(**self._fit_exog_data[name])
-
-            self._insert_data_variables()
-            matrices = self._insert_constant_timestep(self.unpack_statespace(), step=steps)
-            x0, P0, c, d, T, Z, R, H, Q = matrices
-
-            if not self.measurement_error:
-                H_jittered = pm.Deterministic("H_jittered", stabilize(H))
-                matrices = [x0, P0, c, d, T, Z, R, H_jittered, Q]
-
-            LinearGaussianStateSpace(
-                group,
-                *matrices,
-                steps=steps,
-                dims=dims,
-                method=mvn_method,
-                sequence_names=self.kalman_filter.seq_names,
-                k_endog=self.k_endog,
-            )
-
-        # TODO: Remove this after pm.Flat has its initial_value fixed
-        forward_model.rvs_to_initial_values = {
-            rv: None for rv in forward_model.rvs_to_initial_values.keys()
-        }
-        frozen_model = freeze_dims_and_data(forward_model)
-
-        with frozen_model:
-            idata_unconditional = pm.sample_posterior_predictive(
-                group_idata,
-                var_names=[f"{group}_latent", f"{group}_observed"],
-                random_seed=random_seed,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
-
-        return idata_unconditional.posterior_predictive
 
     def sample_conditional_prior(
         self,
@@ -1636,12 +1384,8 @@ class PyMCStateSpace:
              "predicted_prior", and "smoothed_prior".
         """
 
-        return self._sample_conditional(
-            idata=idata,
-            group="prior",
-            random_seed=random_seed,
-            mvn_method=mvn_method,
-            **kwargs,
+        return forward_sampling.sample_conditional_prior(
+            self, idata=idata, random_seed=random_seed, mvn_method=mvn_method, **kwargs
         )
 
     def sample_conditional_posterior(
@@ -1683,12 +1427,8 @@ class PyMCStateSpace:
              "predicted_posterior", and "smoothed_posterior".
         """
 
-        return self._sample_conditional(
-            idata=idata,
-            group="posterior",
-            random_seed=random_seed,
-            mvn_method=mvn_method,
-            **kwargs,
+        return forward_sampling.sample_conditional_posterior(
+            self, idata=idata, random_seed=random_seed, mvn_method=mvn_method, **kwargs
         )
 
     def sample_unconditional_prior(
@@ -1749,9 +1489,9 @@ class PyMCStateSpace:
               the observation equation: `y[t] = Z @ x[t] + nu[t]`, where `nu ~ N(0, H)`.
         """
 
-        return self._sample_unconditional(
+        return forward_sampling.sample_unconditional_prior(
+            self,
             idata=idata,
-            group="prior",
             steps=steps,
             use_data_time_dim=use_data_time_dim,
             random_seed=random_seed,
@@ -1815,9 +1555,9 @@ class PyMCStateSpace:
               the latent state trajectories: `y[t] = Z @ x[t] + nu[t]`, where `nu ~ N(0, H)`.
         """
 
-        return self._sample_unconditional(
+        return forward_sampling.sample_unconditional_posterior(
+            self,
             idata=idata,
-            group="posterior",
             steps=steps,
             use_data_time_dim=use_data_time_dim,
             random_seed=random_seed,
@@ -1826,71 +1566,44 @@ class PyMCStateSpace:
         )
 
     def sample_statespace_matrices(
-        self, idata, matrix_names: str | list[str] | None, group: str = "posterior", **kwargs
+        self,
+        idata,
+        matrix_names: str | list[str] | None = None,
+        group: str = "posterior",
+        **kwargs,
     ):
         """
-        Draw samples of requested statespace matrices from provided idata
+        Draw samples of the statespace matrices implied by a model's parameter draws.
 
         Parameters
         ----------
-        matrix_names: str, list[str], optional
-            Statespace matrices to be sampled. Valid names are short names: x0, P0, c, d, T, Z, R, H, Q, or
-             "formal" names: initial_state, initial_state_cov, state_intercept, obs_intercept, transition, design,
-                             selection, obs_cov, state_cov
-        idata: DataTree
-            DataTree from which to sample
-
-        group: str, one of "posterior" or "prior"
-            Whether to sample from priors or posteriors
-
-        kwargs:
-            Additional keyword arguments are passed to ``pymc.sample_posterior_predictive``
+        idata : DataTree
+            Sampling results holding the parameter draws the matrices are built from.
+        matrix_names : str or list of str, optional
+            Matrices to sample, as short names (``x0``, ``P0``, ``c``, ``d``, ``T``, ``Z``, ``R``, ``H``, ``Q``)
+            or long names (``initial_state``, ``initial_state_cov``, ``state_intercept``, ``obs_intercept``,
+            ``transition``, ``design``, ``selection``, ``obs_cov``, ``state_cov``). Each sampled matrix takes the
+            name it was requested by, so short names can collide with model parameters called ``x0`` or ``P0``.
+            Default None, which samples every matrix under its long name.
+        group : str, optional
+            Which group of ``idata`` to draw from, ``"posterior"`` or ``"prior"``. Default "posterior".
+        **kwargs
+            Additional keyword arguments are passed to :func:`pymc.sample_posterior_predictive`.
 
         Returns
         -------
-        idata_matrices: az.InterenceData
+        idata_matrices : DataTree
+            Sampled matrices, in the ``posterior_predictive`` group. A time-varying matrix carries a leading
+            time dimension; the others carry only the dimensions declared for them.
+
+        Raises
+        ------
+        ValueError
+            If any requested name is neither a short nor a long statespace matrix name.
         """
-        _verify_group(group)
-
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        if matrix_names is None:
-            matrix_names = MATRIX_NAMES
-        elif isinstance(matrix_names, str):
-            matrix_names = [matrix_names]
-
-        with pm.Model(coords=self._fit_coords) as forward_model:
-            self._build_dummy_graph()
-            self._insert_random_variables()
-
-            for name in self.data_names:
-                pm.Data(**self.data_info[name])
-
-            self._insert_data_variables()
-            matrices = self.unpack_statespace()
-            for short_name, matrix in zip(MATRIX_NAMES, matrices):
-                long_name = SHORT_NAME_TO_LONG[short_name]
-                if (long_name in matrix_names) or (short_name in matrix_names):
-                    name = long_name if long_name in matrix_names else short_name
-                    dims = [x if x in self._fit_coords else None for x in MATRIX_DIMS[short_name]]
-                    pm.Deterministic(name, matrix, dims=dims)
-
-        # TODO: Remove this after pm.Flat has its initial_value fixed
-        forward_model.rvs_to_initial_values = {
-            rv: None for rv in forward_model.rvs_to_initial_values.keys()
-        }
-        frozen_model = freeze_dims_and_data(forward_model)
-        with frozen_model:
-            matrix_idata = pm.sample_posterior_predictive(
-                idata if group == "posterior" else idata["prior"],
-                var_names=matrix_names,
-                extend_inferencedata=False,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
-
-        return matrix_idata
+        return forward_sampling.sample_statespace_matrices(
+            self, idata, matrix_names=matrix_names, group=group, **kwargs
+        )
 
     def sample_filter_outputs(
         self,
@@ -1899,80 +1612,34 @@ class PyMCStateSpace:
         group: str = "posterior",
         **kwargs,
     ):
-        if isinstance(filter_output_names, str):
-            filter_output_names = [filter_output_names]
+        """
+        Draw samples of the Kalman filter and smoother outputs from a model's parameter draws.
 
-        if filter_output_names is None:
-            filter_output_names = list(FILTER_OUTPUT_DIMS.keys())
-        else:
-            unknown_filter_output_names = np.setdiff1d(
-                filter_output_names, list(FILTER_OUTPUT_DIMS.keys())
-            )
-            if unknown_filter_output_names.size > 0:
-                raise ValueError(f"{unknown_filter_output_names} not a valid filter output name!")
-            filter_output_names = [x for x in FILTER_OUTPUT_DIMS.keys() if x in filter_output_names]
+        Parameters
+        ----------
+        idata : DataTree
+            Sampling results holding the parameter draws the outputs are computed from.
+        filter_output_names : str or list of str, optional
+            Which outputs to sample: ``filtered_states``, ``predicted_states``, ``smoothed_states``, each of
+            their ``_covariances`` counterparts, and ``predicted_observed_states`` with
+            ``predicted_observed_covariances``. Default None, which samples all of them.
+        group : str, optional
+            Which group of ``idata`` to draw from, ``"posterior"`` or ``"prior"``. Default "posterior".
+        **kwargs
+            Additional keyword arguments are passed to :func:`pymc.sample_posterior_predictive`.
 
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        with pm.Model(coords=self.coords) as m:
-            self._build_dummy_graph()
-            self._insert_random_variables()
-
-            if self.data_names:
-                for name in self.data_names:
-                    pm.Data(**self._fit_exog_data[name])
-
-            self._insert_data_variables()
-
-            x0, P0, c, d, T, Z, R, H, Q = self.unpack_statespace()
-            data = self._fit_data
-
-            obs_coords = m.coords.get(OBS_STATE_DIM, None)
-
-            data, nan_mask = register_data_with_pymc(
-                data,
-                n_obs=self.ssm.k_endog,
-                obs_coords=obs_coords,
-                register_data=True,
-            )
-
-            filter_outputs = self.kalman_filter.build_graph(
-                data,
-                x0,
-                P0,
-                c,
-                d,
-                T,
-                Z,
-                R,
-                H,
-                Q,
-                time_varying_names=self.ssm.time_varying_names,
-            )
-
-            smoother_outputs = self.kalman_smoother.build_graph(
-                T,
-                R,
-                Q,
-                filter_outputs[0],
-                filter_outputs[3],
-                time_varying_names=self.ssm.time_varying_names,
-            )
-
-            filter_outputs = filter_outputs[:-1] + list(smoother_outputs)
-            for output in filter_outputs:
-                if output.name in filter_output_names:
-                    dims = FILTER_OUTPUT_DIMS[output.name]
-                    pm.Deterministic(output.name, output, dims=dims)
-
-        with freeze_dims_and_data(m):
-            return pm.sample_posterior_predictive(
-                idata if group == "posterior" else idata["prior"],
-                var_names=filter_output_names,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
+        Returns
+        -------
+        idata_filter_outputs : DataTree
+            Sampled outputs, in the ``posterior_predictive`` group.
+        """
+        return forward_sampling.sample_filter_outputs(
+            self,
+            idata,
+            filter_output_names=filter_output_names,
+            group=group,
+            **kwargs,
+        )
 
     @staticmethod
     def _validate_forecast_args(
@@ -1984,196 +1651,27 @@ class PyMCStateSpace:
         use_scenario_index: bool = False,
         verbose: bool = True,
     ):
-        if isinstance(start, pd.Timestamp) and start not in time_index:
-            raise ValueError("Datetime start must be in the data index used to fit the model.")
-        elif isinstance(start, int):
-            if abs(start) > len(time_index):
-                raise ValueError(
-                    "Integer start must be within the range of the data index used to fit the model."
-                )
-        if periods is None and end is None and not use_scenario_index:
-            raise ValueError(
-                "Must specify one of either periods or end unless use_scenario_index=True"
-            )
-        if periods is not None and end is not None:
-            raise ValueError("Must specify exactly one of either periods or end")
-        if scenario is None and use_scenario_index:
-            raise ValueError("use_scenario_index=True requires a scenario to be provided.")
-        if scenario is not None and use_scenario_index:
-            if isinstance(scenario, dict):
-                first_df = next(
-                    (df for df in scenario.values() if isinstance(df, pd.DataFrame | pd.Series)),
-                    None,
-                )
-                if first_df is None:
-                    raise ValueError(
-                        "use_scenario_index=True requires a scenario to be a DataFrame or Series."
-                    )
-            elif not isinstance(scenario, pd.DataFrame | pd.Series):
-                raise ValueError(
-                    "use_scenario_index=True requires a scenario to be a DataFrame or Series."
-                )
-        if use_scenario_index and any(arg is not None for arg in [start, end, periods]) and verbose:
-            _log.warning(
-                "start, end, and periods arguments are ignored when use_scenario_index is True. Pass only "
-                "one or the other to avoid this warning, or pass verbose = False."
-            )
+        return forecast._validate_forecast_args(
+            time_index,
+            start,
+            periods=periods,
+            end=end,
+            scenario=scenario,
+            use_scenario_index=use_scenario_index,
+            verbose=verbose,
+        )
 
-    def _get_fit_time_index(self) -> pd.RangeIndex | pd.DatetimeIndex:
-        time_index = self._fit_coords.get(TIME_DIM, None) if self._fit_coords is not None else None
-        if time_index is None:
-            raise ValueError(
-                "No time dimension found on coordinates used to fit the model. Has this model been fit?"
-            )
-
-        if isinstance(time_index[0], pd.Timestamp):
-            time_index = pd.DatetimeIndex(time_index)
-            time_index.freq = time_index.inferred_freq
-        else:
-            time_index = np.array(time_index)
-
-        return time_index
+    def _get_fit_time_index(self, idata: DataTree) -> pd.RangeIndex | pd.DatetimeIndex:
+        return forecast._get_fit_time_index(self, idata)
 
     def _validate_scenario_data(
         self,
         scenario: pd.DataFrame | np.ndarray | dict[str, pd.DataFrame | np.ndarray] | None,
+        coords: dict[str, Sequence],
         name: str | None = None,
         verbose=True,
     ):
-        """
-        Validate the scenario data provided to the forecast method by checking that it has the correct shape and
-        dimensions.
-
-        Parameters
-        ----------
-        scenario
-        name
-        verbose
-
-        Returns
-        -------
-        scenario: pd.DataFrame | np.ndarray | dict[str, pd.DataFrame | np.ndarray]
-            Scenario data, validated and potentially modified.
-
-        """
-        if not self._needs_exog_data:
-            return scenario
-
-        var_to_dims = {key: info["dims"][1:] for key, info in self.data_info.items()}
-
-        if any(len(dims) > 1 for dims in var_to_dims.values()):
-            raise NotImplementedError(">2d exogenous data is not yet supported.")
-        coords = {
-            var: self._fit_coords[dim[0]]
-            for var, dim in var_to_dims.items()
-            if dim[0] in self._fit_coords
-        }
-
-        if self._needs_exog_data and scenario is None:
-            exog_str = ",".join(self.data_names)
-            suffix = "s" if len(exog_str) > 1 else ""
-            raise ValueError(
-                f"This model was fit using exogenous data. Forecasting cannot be performed without "
-                f"providing scenario data for the following variable{suffix}: {exog_str}"
-            )
-
-        if isinstance(scenario, dict):
-            for name, data in scenario.items():
-                if name not in self.data_names:
-                    raise ValueError(
-                        f"Scenario data provided for variable '{name}', which is not an exogenous variable "
-                        f"used to fit the model."
-                    )
-
-                # Recursively call this function to trigger the non-dictionary branch of the checks on each object
-                # inside the dictionary
-                scenario[name] = self._validate_scenario_data(data, name)
-
-            # The provided dictionary might be a mix of numpy arrays and dataframes if the user is truly horrible.
-            # For checking shapes, the first object will always be good enough. But we also need to make sure all the
-            # indices agree, so we grab the first dataframe (which might not exist, but that's OK)
-            first_scenario = next(iter(scenario.values()))
-            first_df = next((df for df in scenario.values() if isinstance(df, pd.DataFrame)), None)
-
-            if not all(data.shape[0] == first_scenario.shape[0] for data in scenario.values()):
-                raise ValueError(
-                    "Scenario data must have the same number of time steps for all variables."
-                )
-
-            if first_df is not None and not all(
-                df.index.equals(first_df.index)
-                for df in scenario.values()
-                if isinstance(df, pd.DataFrame)
-            ):
-                raise ValueError("Scenario data must have the same index for all variables.")
-
-            return scenario
-
-        elif isinstance(scenario, pd.Series | pd.DataFrame | np.ndarray | list | tuple):
-            # A user might be lazy and pass a simple list when there is only one exogenous variable.
-            if isinstance(scenario, list | tuple) or (
-                isinstance(scenario, np.ndarray) and scenario.ndim == 1
-            ):
-                scenario = np.array(scenario).reshape(-1, 1)
-
-            if name is None:
-                # name should only be None on the first non-recursive call. We only arrive to this branch in that case
-                # if a non-dictionary was passed, which in turn should only happen if only a single exogenous data
-                # needs to be set.
-                if len(self.data_names) > 1:
-                    raise ValueError(
-                        "Multiple exogenous variables were used to fit the model. Provide a dictionary of "
-                        "scenario data instead."
-                    )
-                name = self.data_names[0]
-
-            # Omit dataframe from this basic shape check so we can give more detailed information about missing columns
-            # in the next check
-            if not isinstance(scenario, pd.DataFrame | pd.Series) and scenario.shape[1] != len(
-                coords[name]
-            ):
-                raise ValueError(
-                    f"Scenario data for variable '{name}' has the wrong number of columns. Expected "
-                    f"{len(coords[name])}, got {scenario.shape[1]}"
-                )
-
-            if isinstance(scenario, pd.Series):
-                if len(coords[name]) > 1:
-                    raise ValueError(
-                        f"Scenario data for variable '{name}' has the wrong number of columns. Expected "
-                        f"{len(coords[name])}, got 1"
-                    )
-
-            if isinstance(scenario, pd.DataFrame):
-                expected_cols = coords[name]
-                cols = scenario.columns
-                missing_columns = sorted(list(set(expected_cols) - set(cols)))
-                if len(missing_columns) > 0:
-                    suffix = "s" if len(missing_columns) > 1 else ""
-                    raise ValueError(
-                        f"Scenario data for variable '{name}' is missing the following column{suffix}: "
-                        f"{', '.join(missing_columns)}"
-                    )
-
-                extra_columns = sorted(list(set(cols) - set(expected_cols)))
-                if len(extra_columns) > 0:
-                    suffix = "s" if len(extra_columns) > 1 else ""
-                    verb = "is" if len(extra_columns) == 1 else "are"
-                    raise ValueError(
-                        f"Scenario data for variable '{name}' contains the following extra column{suffix} "
-                        f"that {verb} not used by the model: "
-                        f"{', '.join(extra_columns)}"
-                    )
-
-                if not (a == b for a, b in zip(expected_cols, cols)) and verbose:
-                    _log.warning(
-                        f"Scenario data for {name} has a different column order than the data used to fit the "
-                        f"model. Columns will be automatically re-ordered. Ensure consistent ordering to avoid "
-                        f"silent errors."
-                    )
-                    scenario = scenario[expected_cols]
-
-            return scenario
+        return forecast._validate_scenario_data(self, scenario, coords, name=name, verbose=verbose)
 
     @staticmethod
     def _build_forecast_index(
@@ -2184,268 +1682,32 @@ class PyMCStateSpace:
         use_scenario_index: bool = False,
         scenario: pd.DataFrame | np.ndarray | None = None,
     ) -> tuple[int | pd.Timestamp, pd.RangeIndex | pd.DatetimeIndex]:
-        """
-        Construct a pandas Index for the requested forecast horizon.
-
-        Parameters
-        ----------
-        time_index: pd.RangeIndex or pd.DatetimeIndex
-            Index of the data used to fit the model
-        start: int or pd.Timestamp, optional
-            Date from which to begin forecasting. If using a datetime index, integer start will be interpreted
-            as a positional index. Otherwise, start must be found inside the time_index
-        end: int or pd.Timestamp, optional
-            Date at which to end forecasting. If using a datetime index, end must be a timestamp.
-        periods: int, optional
-            Number of periods to forecast
-        scenario:  pd.DataFrame, np.ndarray, optional
-            Scenario data to use for forecasting. If provided, the index of the scenario data will be used as the
-            forecast index. If provided, start, end, and periods will be ignored.
-        use_scenario_index: bool, default False
-            If True, the index of the scenario data will be used as the forecast index.
-
-
-        Returns
-        -------
-        start: int | pd.TimeStamp
-            The starting date index or time step from which to generate the forecasts.
-
-        forecast_index: pd.DatetimeIndex or pd.RangeIndex
-            Index for the forecast results
-        """
-
-        def get_or_create_index(x, time_index, start=None):
-            if isinstance(x, pd.DataFrame | pd.Series):
-                return x.index
-            elif isinstance(x, dict):
-                return get_or_create_index(next(iter(x.values())), time_index, start)
-            elif isinstance(x, np.ndarray | list | tuple):
-                if start is None:
-                    raise ValueError(
-                        "Provided scenario has no index and no start date was provided. This combination "
-                        "is ambiguous. Please provide a start date, or add an index to the scenario."
-                    )
-                is_datetime_index = isinstance(time_index, pd.DatetimeIndex)
-                n = x.shape[0] if isinstance(x, np.ndarray) else len(x)
-
-                if isinstance(start, int):
-                    start = time_index[start]
-                if is_datetime_index:
-                    return pd.date_range(start, periods=n, freq=time_index.freq)
-                return pd.RangeIndex(start, n + start, step=1, dtype="int")
-
-            else:
-                raise ValueError(f"{type(x)} is not a valid type for scenario data.")
-
-        x0_idx = None
-
-        if use_scenario_index:
-            forecast_index = get_or_create_index(scenario, time_index, start)
-            is_datetime = isinstance(forecast_index, pd.DatetimeIndex)
-
-            # If the user provided an index, we want to take it as-is (without removing the start value). Instead,
-            # step one back and use this as the start value.
-            delta = forecast_index.freq if is_datetime else 1
-            x0_idx = forecast_index[0] - delta
-
-        else:
-            # Otherwise, build an index. It will be a DateTime index if we have all the necessary information, otherwise
-            # use a range index.
-            is_datetime = isinstance(time_index, pd.DatetimeIndex)
-            forecast_index = None
-
-            if is_datetime:
-                freq = time_index.freq
-                if isinstance(start, int):
-                    start = time_index[start]
-                if isinstance(end, int):
-                    raise ValueError(
-                        "end must be a timestamp if using a datetime index. To specify a number of "
-                        "timesteps from the start date, use the periods argument instead."
-                    )
-                if end is not None:
-                    forecast_index = pd.date_range(start, end=end, freq=freq)
-                if periods is not None:
-                    # date_range includes both the start and end date, but we're going to pop off the start later
-                    # (it will be interpreted as x0). So we need to add 1 to the periods so the user gets "periods"
-                    # number of forecasts back
-                    forecast_index = pd.date_range(start, periods=periods + 1, freq=freq)
-
-            else:
-                # If the user provided a positive integer as start, directly interpret it as the start time. If its
-                # negative, interpret it as a positional index.
-                if start < 0:
-                    start = time_index[start]
-                if end is not None:
-                    forecast_index = pd.RangeIndex(start, end, step=1, dtype="int")
-                if periods is not None:
-                    forecast_index = pd.RangeIndex(start, start + periods + 1, step=1, dtype="int")
-
-        if is_datetime:
-            if forecast_index.freq != time_index.freq:
-                raise ValueError(
-                    "The frequency of the forecast index must match the frequency on the data used "
-                    f"to fit the model. Got {forecast_index.freq}, expected {time_index.freq}"
-                )
-
-        if x0_idx is None:
-            x0_idx, forecast_index = forecast_index[0], forecast_index[1:]
-        if x0_idx in forecast_index:
-            raise ValueError("x0_idx should not be in the forecast index")
-        if x0_idx not in time_index:
-            raise ValueError("start must be in the data index used to fit the model.")
-
-        # The starting value should not be included in the forecast index. It will be used only to define x0 and P0,
-        # and no forecast will be associated with it.
-        return x0_idx, forecast_index
+        return forecast._build_forecast_index(
+            time_index,
+            start=start,
+            end=end,
+            periods=periods,
+            use_scenario_index=use_scenario_index,
+            scenario=scenario,
+        )
 
     def _finalize_scenario_initialization(
         self,
         scenario: pd.DataFrame | np.ndarray | dict[str, pd.DataFrame | np.ndarray] | None,
         forecast_index: pd.RangeIndex | pd.DatetimeIndex,
+        coords: dict[str, Sequence],
         name=None,
     ):
-        if not self.data_info:
-            return scenario
-
-        var_to_dims = {key: info["dims"][1:] for key, info in self.data_info.items()}
-
-        if any(len(dims) > 1 for dims in var_to_dims.values()):
-            raise NotImplementedError(">2d exogenous data is not yet supported.")
-        coords = {
-            var: self._fit_coords[dim[0]]
-            for var, dim in var_to_dims.items()
-            if dim[0] in self._fit_coords
-        }
-
-        if scenario is None:
-            return scenario
-
-        if isinstance(scenario, dict):
-            for name, data in scenario.items():
-                scenario[name] = self._finalize_scenario_initialization(data, forecast_index, name)
-            return scenario
-
-        # This was already checked as valid
-        name = self.data_names[0] if name is None else name
-
-        # Small tidying up in the case we just have a single scenario that's already a dataframe.
-        if isinstance(scenario, pd.DataFrame | pd.Series):
-            if isinstance(scenario, pd.Series):
-                scenario = scenario.to_frame(name=coords[name][0])
-            if not scenario.index.equals(forecast_index):
-                scenario.index = forecast_index
-
-        # lists and tuples were handled during validation, along with shape check, so just cast arrays to dataframes
-        # with the correct index and columns
-        if isinstance(scenario, np.ndarray):
-            scenario = pd.DataFrame(scenario, index=forecast_index, columns=coords[name])
-
-        return scenario
+        return forecast._finalize_scenario_initialization(
+            self, scenario, forecast_index, coords, name=name
+        )
 
     def _build_forecast_model(
-        self, time_index, t0, forecast_index, scenario, filter_output, mvn_method
+        self, idata, group, time_index, t0, forecast_index, scenario, filter_output, mvn_method
     ):
-        filter_time_dim = TIME_DIM
-        temp_coords = self._fit_coords.copy()
-
-        dims = None
-        if all([dim in temp_coords for dim in [filter_time_dim, ALL_STATE_DIM, OBS_STATE_DIM]]):
-            dims = [TIME_DIM, ALL_STATE_DIM, OBS_STATE_DIM]
-
-        t0_idx = np.flatnonzero(time_index == t0)[0]
-
-        temp_coords["data_time"] = time_index
-        temp_coords[TIME_DIM] = forecast_index
-
-        mu_dims, cov_dims = None, None
-        if all([dim in self._fit_coords for dim in [TIME_DIM, ALL_STATE_DIM, ALL_STATE_AUX_DIM]]):
-            mu_dims = ["data_time", ALL_STATE_DIM]
-            cov_dims = ["data_time", ALL_STATE_DIM, ALL_STATE_AUX_DIM]
-
-        with pm.Model(coords=temp_coords) as forecast_model:
-            _, grouped_outputs = self._kalman_filter_outputs_from_dummy_graph(
-                data_dims=["data_time", OBS_STATE_DIM],
-            )
-
-            group_idx = FILTER_OUTPUT_TYPES.index(filter_output)
-            mu, cov = grouped_outputs[group_idx]
-
-            sub_dict = {
-                data_var: pt.as_tensor_variable(data_var.get_value(), name="data")
-                for data_var in forecast_model.data_vars
-            }
-
-            missing_data_vars = np.setdiff1d(
-                ar1=[*self.data_names, "data"], ar2=[k.name for k, _ in sub_dict.items()]
-            )
-            if missing_data_vars.size > 0:
-                raise ValueError(f"{missing_data_vars} data used for fitting not found!")
-
-            mu_frozen, cov_frozen = graph_replace([mu, cov], replace=sub_dict, strict=True)
-
-            x0 = pm.Deterministic(
-                "x0_slice", mu_frozen[t0_idx], dims=mu_dims[1:] if mu_dims is not None else None
-            )
-            P0 = pm.Deterministic(
-                "P0_slice", cov_frozen[t0_idx], dims=cov_dims[1:] if cov_dims is not None else None
-            )
-
-            # Get fresh matrices with n_timesteps placeholder still intact.
-            # Build for the full timeline (training + forecast) so that time-varying matrices
-            # continue at the correct phase, then slice to keep only the forecast portion.
-            n_train = len(time_index)
-            n_total = n_train + len(forecast_index)
-
-            full_matrices = self._insert_constant_timestep(self.unpack_statespace(), n_total)
-            _, _, *forecast_matrices = full_matrices
-
-            # For exogenous-data-driven matrices the time dimension comes from the
-            # data shared variable, not from the n_timesteps symbolic.  Replace the
-            # shared variables with concatenated training + scenario tensors so the
-            # [n_train:] slice below yields the correct forecast portion.
-            # TODO: Is there a way to handle this in a fully symbolic way, without having to
-            #  run the full scan on training data to get the system's state at the start date?
-            if scenario is not None and self._needs_exog_data:
-                exog_replace = {}
-                for name in self.data_names:
-                    if name not in scenario:
-                        continue
-                    forecast_data = scenario[name]
-                    train_val = self._fit_exog_data[name]["value"]
-                    fc_val = (
-                        forecast_data.values
-                        if isinstance(forecast_data, pd.DataFrame)
-                        else np.asarray(forecast_data)
-                    )
-                    combined = np.concatenate([train_val, fc_val], axis=0)
-                    exog_replace[forecast_model[name]] = pt.as_tensor_variable(combined, name=name)
-                if exog_replace:
-                    forecast_matrices = graph_replace(
-                        forecast_matrices, replace=exog_replace, strict=False
-                    )
-
-            forecast_names = MATRIX_NAMES[2:]  # c, d, T, Z, R, H, Q
-            time_varying_names = self.ssm.time_varying_names
-            forecast_matrices = [
-                m[n_train:] if SHORT_NAME_TO_LONG[name] in time_varying_names else m
-                for m, name in zip(forecast_matrices, forecast_names)
-            ]
-
-            _ = LinearGaussianStateSpace(
-                "forecast",
-                x0,
-                P0,
-                *forecast_matrices,
-                steps=len(forecast_index),
-                dims=dims,
-                sequence_names=self.kalman_filter.seq_names,
-                k_endog=self.k_endog,
-                append_x0=False,
-                method=mvn_method,
-            )
-
-        return forecast_model
+        return forecast._build_forecast_model(
+            self, idata, group, time_index, t0, forecast_index, scenario, filter_output, mvn_method
+        )
 
     def forecast(
         self,
@@ -2459,6 +1721,7 @@ class PyMCStateSpace:
         random_seed: RandomState | None = None,
         verbose: bool = True,
         mvn_method: Literal["cholesky", "eigh", "svd"] = "svd",
+        group: str = "posterior",
         **kwargs,
     ) -> DataTree:
         """
@@ -2523,6 +1786,11 @@ class PyMCStateSpace:
             In general, if your model has measurement error, "cholesky" will be safe to use. Otherwise, "svd" is
             recommended. "eigh" can also be tried if sampling with "svd" is very slow, but it is not as robust as "svd".
 
+        group: str, default "posterior"
+            Inference data group to draw parameters from, either "prior" or "posterior". Pass the whole
+            ``idata`` and name the group rather than passing a single group: recovering the time index
+            needs the observed data, which a lone group does not carry.
+
         kwargs:
             Additional keyword arguments are passed to pymc.sample_posterior_predictive
 
@@ -2539,98 +1807,38 @@ class PyMCStateSpace:
                   the latent state trajectories: `y[t] = Z @ x[t] + nu[t]`, where `nu ~ N(0, H)`.
 
         """
-        _validate_filter_arg(filter_output)
-
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        time_index = self._get_fit_time_index()
-
-        if start is None and verbose:
-            _log.warning(
-                "No start date provided. Using the last date in the data index. To silence this warning, "
-                "explicitly pass a start date or set verbose = False"
-            )
-            start = time_index[-1]
-
-        if self._needs_exog_data and not isinstance(scenario, dict):
-            if len(self.data_names) > 1:
-                raise ValueError(
-                    "Model needs more than one exogenous data to do forecasting. In this case, you must "
-                    "pass a dictionary of scenario data."
-                )
-            [data_name] = self.data_names
-            scenario = {data_name: scenario}
-
-        scenario: dict = self._validate_scenario_data(scenario, verbose=verbose)
-
-        self._validate_forecast_args(
-            time_index=time_index,
+        return forecast.forecast(
+            self,
+            idata,
             start=start,
-            end=end,
             periods=periods,
+            end=end,
             scenario=scenario,
             use_scenario_index=use_scenario_index,
-            verbose=verbose,
-        )
-
-        t0, forecast_index = self._build_forecast_index(
-            time_index=time_index,
-            start=start,
-            end=end,
-            periods=periods,
-            scenario=scenario,
-            use_scenario_index=use_scenario_index,
-        )
-        scenario = self._finalize_scenario_initialization(scenario, forecast_index)
-
-        forecast_model = self._build_forecast_model(
-            time_index=time_index,
-            t0=t0,
-            forecast_index=forecast_index,
-            scenario=scenario,
             filter_output=filter_output,
+            random_seed=random_seed,
+            verbose=verbose,
             mvn_method=mvn_method,
+            group=group,
+            **kwargs,
         )
-
-        with forecast_model:
-            if scenario is not None:
-                dummy_obs_data = np.zeros((len(forecast_index), self.k_endog))
-                pm.set_data(
-                    scenario | {"data": dummy_obs_data},
-                    coords={"data_time": np.arange(len(forecast_index))},
-                )
-
-        forecast_model.rvs_to_initial_values = {
-            k: None for k in forecast_model.rvs_to_initial_values.keys()
-        }
-        frozen_model = freeze_dims_and_data(forecast_model)
-
-        with frozen_model:
-            idata_forecast = pm.sample_posterior_predictive(
-                idata,
-                var_names=["forecast_latent", "forecast_observed"],
-                random_seed=random_seed,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
-
-        return idata_forecast.posterior_predictive
 
     def impulse_response_function(
         self,
         idata,
-        n_steps: int = 40,
+        n_steps: int | None = None,
         use_posterior_cov: bool = True,
         shock_size: float | np.ndarray | None = None,
         shock_cov: np.ndarray | None = None,
         shock_trajectory: np.ndarray | None = None,
         orthogonalize_shocks: bool = False,
+        shock_order: list[str | EllipsisType] | None = None,
         random_seed: RandomState | None = None,
         mvn_method: Literal["cholesky", "eigh", "svd"] = "svd",
+        group: str = "posterior",
         **kwargs,
     ):
-        """
+        r"""
         Generate impulse response functions (IRF) from state space model dynamics.
 
         An impulse response function represents the dynamic response of the state space model
@@ -2642,191 +1850,113 @@ class PyMCStateSpace:
         idata : DataTree
             A DataTree object containing the posterior distribution over model parameters.
 
-        n_steps: int
-            The number of time steps to calculate the impulse response. Default is 40.
+        n_steps : int, optional
+            The number of time steps to calculate the impulse response. If ``shock_trajectory`` is
+            provided its length is used instead, and passing a conflicting ``n_steps`` logs a
+            warning. Default 40.
 
-            If `shock_trajectory` is provided, the length of the shock trajectory will override this value.
+        use_posterior_cov : bool, optional
+            Whether to use the covariance matrix of the posterior distribution to generate the
+            impulse response.
 
-        use_posterior_cov: bool, default=True
-            Whether to use the covariance matrix of the posterior distribution to generate the impulse response.
+            Only one of ``use_posterior_cov``, ``shock_cov``, ``shock_size``, or
+            ``shock_trajectory`` can be specified. Default True.
 
-            Only one of `use_posterior_cov`, `shock_cov`, `shock_size`, or `shock_trajectory` can be specified.
-
-        shock_size : Optional[Union[float, np.ndarray]], default=None
-            The size of the shock applied to the system. If specified, it will create a covariance
-            matrix for the shock with diagonal elements equal to `shock_size`. If float, the diagonal will be filled
-            with `shock_size`. If an array, `shock_size` must match the number of shocks in the state space model.
-
-            Only one of `use_posterior_cov`, `shock_cov`, `shock_size`, or `shock_trajectory` can be specified.
-
-        shock_cov : Optional[np.ndarray], default=None
-            A user-specified covariance matrix for the shocks. It should be a 2D numpy array with
-            dimensions (n_shocks, n_shocks), where n_shocks is the number of shocks in the state space model.
-
-            Only one of `use_posterior_cov`, `shock_cov`, `shock_size`, or `shock_trajectory` can be specified.
-
-        shock_trajectory : Optional[np.ndarray], default=None
-            A pre-defined trajectory of shocks applied to the system. It should be a 2D numpy array
-            with dimensions (n, n_shocks), where n is the number of time steps and k_posdef is the
+        shock_size : float or ndarray, optional
+            The size of the shock applied to the system. If specified, it creates a covariance
+            matrix for the shock with diagonal elements equal to ``shock_size``. If float, the
+            diagonal is filled with ``shock_size``. If an array, ``shock_size`` must match the
             number of shocks in the state space model.
 
-            Only one of `use_posterior_cov`, `shock_cov`, `shock_size`, or `shock_trajectory` can be specified.
+            Only one of ``use_posterior_cov``, ``shock_cov``, ``shock_size``, or
+            ``shock_trajectory`` can be specified. Default None.
 
-        orthogonalize_shocks : bool, default=False
-            If True, orthogonalize the shocks using Cholesky decomposition when generating the impulse
-            response. This option is ignored if `shock_trajectory` or `shock_size` are used.
+        shock_cov : ndarray, optional
+            A user-specified covariance matrix for the shocks, with shape (n_shocks, n_shocks),
+            where n_shocks is the number of shocks in the state space model.
+
+            Only one of ``use_posterior_cov``, ``shock_cov``, ``shock_size``, or
+            ``shock_trajectory`` can be specified. Default None.
+
+        shock_trajectory : ndarray, optional
+            A pre-defined trajectory of shocks applied to the system, with shape (n, n_shocks),
+            where n is the number of time steps and n_shocks is the number of shocks in the state
+            space model.
+
+            Only one of ``use_posterior_cov``, ``shock_cov``, ``shock_size``, or
+            ``shock_trajectory`` can be specified. Default None.
+
+        orthogonalize_shocks : bool, optional
+            If True, identify structural shocks by a recursive (Cholesky) scheme and return one
+            impulse response per structural shock. See Notes. Incompatible with ``shock_size`` and
+            ``shock_trajectory``, which each describe a single impulse. Default False.
+
+        shock_order : list of str or ellipsis, optional
+            Recursive ordering imposed by the Cholesky identification, given as shock names. Earlier
+            shocks are the ones allowed to move later shocks contemporaneously. A single ``...``
+            entry stands for every shock not named elsewhere, kept in the model's own order, so
+            ``["realinv", ...]`` orders investment first and leaves the rest alone. Without an
+            ``...``, every shock must be named. Only valid when ``orthogonalize_shocks`` is True.
+            Defaults to the model's own shock order.
 
         random_seed : int, RandomState or Generator, optional
             Seed for the random number generator.
 
-        mvn_method: str, default "svd"
-            Method used to invert the covariance matrix when calculating the pdf of a multivariate normal
-            (or when generating samples). One of "cholesky", "eigh", or "svd". "cholesky" is fastest, but least robust
-            to ill-conditioned matrices, while "svd" is slow but extremely robust.
+        mvn_method : str, optional
+            Method used to invert the covariance matrix when calculating the pdf of a multivariate
+            normal (or when generating samples). One of "cholesky", "eigh", or "svd". "cholesky" is
+            fastest, but least robust to ill-conditioned matrices, while "svd" is slow but extremely
+            robust.
 
-            In general, if your model has measurement error, "cholesky" will be safe to use. Otherwise, "svd" is
-            recommended. "eigh" can also be tried if sampling with "svd" is very slow, but it is not as robust as "svd".
+            In general, if your model has measurement error, "cholesky" will be safe to use.
+            Otherwise, "svd" is recommended. "eigh" can also be tried if sampling with "svd" is very
+            slow, but it is not as robust as "svd". Default "svd".
 
-        kwargs:
-            Additional keyword arguments are passed to pymc.sample_posterior_predictive
+        **kwargs
+            Additional keyword arguments are passed to :func:`~pymc.sample_posterior_predictive`.
 
         Returns
         -------
         DataTree
-            A DataTree object containing impulse response function in a variable named "irf".
+            A DataTree object containing the impulse response function in a variable named "irf",
+            with dims ``(time, state)``, or ``(structural_shock, time, state)`` when
+            ``orthogonalize_shocks`` is True.
 
         Notes
         -----
-        For models with time-varying transition matrices, the IRF is computed starting at phase 0 of the
-        time-varying cycle. This means the response represents the effect of a shock occurring at the first
-        modeled state, T(0).
+        For models with time-varying transition matrices, the IRF is computed starting at phase 0
+        of the time-varying cycle. This means the response represents the effect of a shock
+        occurring at the first modeled state, :math:`T(0)`.
+
+        Reduced-form shocks are correlated whenever the shock covariance :math:`Q` has off-diagonal
+        entries, so shocking one of them in isolation describes an event the model itself considers
+        unlikely. Setting ``orthogonalize_shocks=True`` instead factors :math:`Q = B B^\top` with
+        :math:`B` lower triangular, which imposes a recursive contemporaneous ordering: the first
+        shock in ``shock_order`` moves every variable within the period, the second moves all but
+        the first, and so on. Column :math:`j` of :math:`B` is the impact of a
+        one-standard-deviation innovation to structural shock :math:`j`, and the returned IRF
+        carries a ``structural_shock`` axis holding one response per shock.
+
+        The ordering is an identifying assumption, not a detail: permuting ``shock_order`` yields
+        different impulse responses from the same posterior. A diagonal :math:`Q` is the exception,
+        where the factorization only rescales each shock to unit standard deviation.
+
+        An orthogonalized IRF is deterministic given the parameters, so its posterior spread
+        reflects parameter uncertainty alone. The default draws a random impulse per posterior draw
+        instead.
         """
-        options = [shock_size, shock_cov, shock_trajectory]
-        n_options = sum(x is not None for x in options)
-        Q = None  # No covariance matrix needed if a trajectory is provided. Will be overwritten later if needed.
-
-        compile_kwargs = kwargs.pop("compile_kwargs", {})
-        compile_kwargs.setdefault("mode", self.mode)
-
-        if n_options > 1:
-            raise ValueError("Specify exactly 0 or 1 of shock_size, shock_cov, or shock_trajectory")
-        elif n_options == 1:
-            # If the user passed an alternative parameterization for the shocks of the IRF, don't use the posterior
-            use_posterior_cov = False
-
-        if shock_trajectory is not None:
-            # Validate the shock trajectory
-            n, k = shock_trajectory.shape
-            steps = n
-
-            if k != self.k_posdef:
-                raise ValueError(
-                    "If shock_trajectory is provided, there must be a trajectory provided for each shock. "
-                    f"Model has {self.k_posdef} shocks, but shock_trajectory has only {k} columns"
-                )
-            if steps is not None and steps != n:
-                _log.warning(
-                    "Both steps and shock_trajectory were provided but do not agree. Length of "
-                    "shock_trajectory will take priority, and steps will be ignored."
-                )
-            n_steps = n  # Overwrite steps with the length of the shock trajectory
-            shock_trajectory = pt.as_tensor_variable(shock_trajectory)
-
-        simulation_coords = self._fit_coords.copy()
-        simulation_coords[TIME_DIM] = np.arange(n_steps, dtype="int")
-
-        with pm.Model(coords=simulation_coords):
-            self._build_dummy_graph()
-            self._insert_random_variables()
-
-            matrices = self._insert_constant_timestep(self.unpack_statespace(), step=n_steps)
-            P0, _, c, d, T, Z, R, H, post_Q = matrices
-            x0 = pm.Deterministic("x0_new", pt.zeros(self.k_states), dims=[ALL_STATE_DIM])
-
-            if use_posterior_cov:
-                Q = post_Q
-                if orthogonalize_shocks:
-                    Q = pt.linalg.cholesky(Q) / pt.diag(Q)
-            elif shock_cov is not None:
-                Q = pt.as_tensor_variable(shock_cov)
-                if orthogonalize_shocks:
-                    Q = pt.linalg.cholesky(Q) / pt.diag(Q)
-
-            if shock_trajectory is None:
-                shock_trajectory = pt.zeros((n_steps, self.k_posdef))
-                if Q is not None:
-                    init_shock = pm.MvNormal(
-                        "initial_shock", mu=0, cov=Q, dims=[SHOCK_DIM], method=mvn_method
-                    )
-                else:
-                    init_shock = pm.Deterministic(
-                        "initial_shock",
-                        pt.as_tensor_variable(np.atleast_1d(shock_size)),
-                        dims=[SHOCK_DIM],
-                    )
-                shock_trajectory = pt.set_subtensor(shock_trajectory[0], init_shock)
-
-            else:
-                shock_trajectory = pt.as_tensor_variable(shock_trajectory)
-
-            time_varying_T = "transition" in self.ssm.time_varying_names
-
-            def irf_step(*args):
-                if time_varying_T:
-                    shock, T, x, c, R = args
-                else:
-                    shock, x, c, T, R = args
-
-                next_x = c + T @ x + R @ shock
-                return next_x
-
-            sequences = [shock_trajectory, T] if time_varying_T else [shock_trajectory]
-            non_sequences = [c, R] if time_varying_T else [c, T, R]
-
-            irf = pytensor.scan(
-                irf_step,
-                sequences=sequences,
-                outputs_info=[x0],
-                non_sequences=non_sequences,
-                n_steps=n_steps,
-                strict=True,
-                return_updates=False,
-            )
-
-            pm.Deterministic("irf", irf, dims=[TIME_DIM, ALL_STATE_DIM])
-
-            irf_idata = pm.sample_posterior_predictive(
-                idata,
-                var_names=["irf"],
-                random_seed=random_seed,
-                compile_kwargs=compile_kwargs,
-                **kwargs,
-            )
-
-            return irf_idata["posterior_predictive"]
-
-    def _sort_obs_inputs_by_time_varying(self, d, Z):
-        seqs = []
-        non_seqs = []
-
-        for matrix, name in zip([d, Z], ["d", "Z"]):
-            if name in self.kalman_filter.seq_names:
-                seqs.append(matrix)
-            else:
-                non_seqs.append(matrix)
-
-        return seqs, non_seqs
-
-    @staticmethod
-    def _sort_obs_scan_args(args):
-        args = list(args)
-
-        # If a matrix is time-varying, pytensor will put a [t] on the name
-        arg_names = [x.name.replace("[t]", "") for x in args]
-        ordered_args = []
-
-        for name in ["d", "Z"]:
-            idx = arg_names.index(name)
-            ordered_args.append(args[idx])
-
-        return ordered_args
+        return irf.impulse_response_function(
+            self,
+            idata,
+            n_steps=n_steps,
+            use_posterior_cov=use_posterior_cov,
+            shock_size=shock_size,
+            shock_cov=shock_cov,
+            shock_trajectory=shock_trajectory,
+            orthogonalize_shocks=orthogonalize_shocks,
+            shock_order=shock_order,
+            random_seed=random_seed,
+            mvn_method=mvn_method,
+            group=group,
+            **kwargs,
+        )

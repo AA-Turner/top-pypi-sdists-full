@@ -394,3 +394,75 @@ class SealedCaseToolResult(KindModel):
 
 
 __all__ += ["SealedCaseToolResult"]
+
+
+@kind(
+    "rulebook_read_result",
+    label="Rulebook Read Result",
+    family="masterwork",
+    example={
+        "action": "list",
+        "rulebook_id": "b4ebbfb4-ccb3-46ac-9bde-2741891b46e8",
+        "rulebook_name": "Newsroom Desk",
+        "rulebook_version": 11,
+        "rulebook_status": "active",
+        "include_drafts": False,
+        "matched": 3,
+        "offset": 0,
+        "limit": 25,
+        "has_more": False,
+        "approved_rule_count": 416,
+        "rules": [
+            {
+                "id": "attribute-every-claim",
+                "name": "Attribute every claim",
+                "section": "D",
+                "statement": "Every factual claim names the source in the same sentence.",
+                "severity": "critical",
+                "draft": False,
+            }
+        ],
+    },
+    # PLACEHOLDER — the run-time READ door onto a Masterwork's own Rulebook
+    # (aidream/services/masterworks/rulebook_read_tool.py): the list / get /
+    # sections union. Distinct from `rulebook_tool_result` (the Scout's
+    # AUTHORING union) on purpose: this one has no write receipt of any kind,
+    # and its whole shape is a PAGE — matched/offset/has_more — because a read
+    # that hides how much it did not return is how an agent invents the rest.
+    maturity="placeholder",
+)
+class RulebookReadToolResult(KindModel):
+    action: str = ""
+    rulebook_id: str = ""
+    rulebook_name: str = ""
+    rulebook_version: int = 0
+    rulebook_status: str = ""
+    include_drafts: bool = False
+    #: Every branch: the rules this call returned, in the shared rule projection.
+    rules: list[dict] | None = None
+    matched: int | None = None
+    #: ``list`` paging — never omitted when there is more, never guessed.
+    offset: int | None = None
+    limit: int | None = None
+    has_more: bool | None = None
+    next_offset: int | None = None
+    limit_capped_to: int | None = None
+    limit_note: str | None = None
+    paging_note: str | None = None
+    filters: dict | None = None
+    #: Standing counts, so a filtered page can be read against the whole book.
+    approved_rule_count: int | None = None
+    draft_rule_count: int | None = None
+    #: ``get`` — ids that are not on the book, and ids that are but are not law.
+    not_found: list[str] | None = None
+    not_found_note: str | None = None
+    withheld_drafts: list[str] | None = None
+    withheld_note: str | None = None
+    #: ``sections`` — the complete filter vocabulary.
+    sections: list[dict] | None = None
+    severity_counts: dict | None = None
+    policy_rule_count: int | None = None
+    note: str | None = None
+
+
+__all__ += ["RulebookReadToolResult"]

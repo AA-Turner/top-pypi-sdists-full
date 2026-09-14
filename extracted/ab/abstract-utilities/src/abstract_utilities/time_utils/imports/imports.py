@@ -1,3 +1,5 @@
 from ...imports import os,time
-from typing import *
+from typing import (
+    Union,
+)
 from datetime import datetime, timedelta

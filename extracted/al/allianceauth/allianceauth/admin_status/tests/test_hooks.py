@@ -1,194 +1,208 @@
+import requests
 import requests_mock
 
-from allianceauth.admin_status.hooks import Announcement
-from allianceauth.services.hooks import AppAnnouncementHook
+from allianceauth.admin_status.hooks import (
+    Announcement,
+    AppAnnouncementHook,
+    get_all_applications_announcements,
+    _fetch_list_from_gitlab,
+    _fetch_list_from_github,
+)
 from allianceauth.utils.testing import NoSocketsTestCase
+from unittest.mock import patch
 
 
-class TestHooks(NoSocketsTestCase):
+class TestAnnouncementDataclass(NoSocketsTestCase):
+    def test_build_from_gitlab_issue_dict_and_hash_is_stable(self):
+        gitlab_issue = {
+            "web_url": "https://gitlab.example/1",
+            "iid": 42,
+            "title": "Fix bug",
+        }
+        ann = Announcement.build_from_gitlab_issue_dict("MyApp", gitlab_issue)
+        self.assertEqual(ann.application_name, "MyApp")
+        self.assertEqual(ann.announcement_url, "https://gitlab.example/1")
+        self.assertEqual(ann.announcement_number, 42)
+        self.assertEqual(ann.announcement_text, "Fix bug")
+        # hash should be deterministic for same app and issue number
+        expected_hash = Announcement(
+            "MyApp", gitlab_issue["web_url"], gitlab_issue["iid"], gitlab_issue["title"]
+        ).get_hash()
+        self.assertEqual(ann.get_hash(), expected_hash)
+
+    def test_build_from_github_issue_dict_and_hash_is_stable(self):
+        github_issue = {
+            "html_url": "https://github.example/2",
+            "number": 7,
+            "title": "New feature",
+        }
+        ann = Announcement.build_from_github_issue_dict("OtherApp", github_issue)
+        self.assertEqual(ann.application_name, "OtherApp")
+        self.assertEqual(ann.announcement_url, "https://github.example/2")
+        self.assertEqual(ann.announcement_number, 7)
+        self.assertEqual(ann.announcement_text, "New feature")
+        expected_hash = Announcement(
+            "OtherApp",
+            github_issue["html_url"],
+            github_issue["number"],
+            github_issue["title"],
+        ).get_hash()
+        self.assertEqual(ann.get_hash(), expected_hash)
+
+
+class TestAppAnnouncementHookIntegration(NoSocketsTestCase):
+    @requests_mock.mock()
+    def test_gitlab_hook_fetches_and_builds_announcements(self, requests_mocker):
+        namespace = "owner/repo"
+        url = f"https://gitlab.com/api/v4/projects/owner%2Frepo/issues?labels=announcement&state=opened"
+        gitlab_payload = [
+            {
+                "web_url": "https://gitlab.example/issue/1",
+                "iid": 1,
+                "title": "Issue One",
+            }
+        ]
+        requests_mocker.get(url, json=gitlab_payload)
+        hook = AppAnnouncementHook(
+            "MyApp", namespace, AppAnnouncementHook.Service.GITLAB
+        )
+        announcements = hook.get_announcement_list()
+        self.assertEqual(len(announcements), 1)
+        ann = announcements[0]
+        self.assertEqual(ann.application_name, "MyApp")
+        self.assertEqual(ann.announcement_url, "https://gitlab.example/issue/1")
+        self.assertEqual(ann.announcement_number, 1)
+        self.assertEqual(ann.announcement_text, "Issue One")
 
     @requests_mock.mock()
-    def test_fetch_gitlab(self, requests_mocker):
-        # given
-        announcement_hook = AppAnnouncementHook("test GitLab app", "r0kym/allianceauth-example-plugin",
-                                                AppAnnouncementHook.Service.GITLAB)
-        requests_mocker.get(
-            "https://gitlab.com/api/v4/projects/r0kym%2Fallianceauth-example-plugin/issues?labels=announcement&state=opened",
-            json=[
-                {
-                    "id": 166279127,
-                    "iid": 1,
-                    "project_id": 67653102,
-                    "title": "Test GitLab issue",
-                    "description": "Test issue",
-                    "state": "opened",
-                    "created_at": "2025-04-20T21:26:57.914Z",
-                    "updated_at": "2025-04-21T11:04:30.501Z",
-                    "closed_at": None,
-                    "closed_by": None,
-                    "labels": [
-                        "announcement"
-                    ],
-                    "milestone": None,
-                    "assignees": [],
-                    "author": {
-                        "id": 14491514,
-                        "username": "r0kym",
-                        "public_email": "",
-                        "name": "T'rahk Rokym",
-                        "state": "active",
-                        "locked": False,
-                        "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/14491514/avatar.png",
-                        "web_url": "https://gitlab.com/r0kym"
-                    },
-                    "type": "ISSUE",
-                    "assignee": None,
-                    "user_notes_count": 0,
-                    "merge_requests_count": 0,
-                    "upvotes": 0,
-                    "downvotes": 0,
-                    "due_date": None,
-                    "confidential": False,
-                    "discussion_locked": None,
-                    "issue_type": "issue",
-                    "web_url": "https://gitlab.com/r0kym/allianceauth-example-plugin/-/issues/1",
-                    "time_stats": {
-                        "time_estimate": 0,
-                        "total_time_spent": 0,
-                        "human_time_estimate": None,
-                        "human_total_time_spent": None
-                    },
-                    "task_completion_status": {
-                        "count": 0,
-                        "completed_count": 0
-                    },
-                    "blocking_issues_count": 0,
-                    "has_tasks": True,
-                    "task_status": "0 of 0 checklist items completed",
-                    "_links": {
-                        "self": "https://gitlab.com/api/v4/projects/67653102/issues/1",
-                        "notes": "https://gitlab.com/api/v4/projects/67653102/issues/1/notes",
-                        "award_emoji": "https://gitlab.com/api/v4/projects/67653102/issues/1/award_emoji",
-                        "project": "https://gitlab.com/api/v4/projects/67653102",
-                        "closed_as_duplicate_of": None
-                    },
-                    "references": {
-                        "short": "#1",
-                        "relative": "#1",
-                        "full": "r0kym/allianceauth-example-plugin#1"
-                    },
-                    "severity": "UNKNOWN",
-                    "moved_to_id": None,
-                    "imported": False,
-                    "imported_from": "none",
-                    "service_desk_reply_to": None
-                }
-            ]
+    def test_github_hook_fetches_and_builds_announcements(self, requests_mocker):
+        namespace = "owner/repo"
+        url = f"https://api.github.com/repos/{namespace}/issues?labels=announcement"
+        github_payload = [
+            {
+                "html_url": "https://github.example/issue/2",
+                "number": 2,
+                "title": "Issue Two",
+            }
+        ]
+        requests_mocker.get(url, json=github_payload)
+        hook = AppAnnouncementHook(
+            "GHApp", namespace, AppAnnouncementHook.Service.GITHUB
         )
-        # when
-        announcements = announcement_hook.get_announcement_list()
-        # then
+        announcements = hook.get_announcement_list()
         self.assertEqual(len(announcements), 1)
-        self.assertIn(Announcement(
-            application_name="test GitLab app",
-            announcement_url="https://gitlab.com/r0kym/allianceauth-example-plugin/-/issues/1",
-            announcement_number=1,
-            announcement_text="Test GitLab issue"
-        ), announcements)
+        ann = announcements[0]
+        self.assertEqual(ann.application_name, "GHApp")
+        self.assertEqual(ann.announcement_url, "https://github.example/issue/2")
+        self.assertEqual(ann.announcement_number, 2)
+        self.assertEqual(ann.announcement_text, "Issue Two")
+
+
+class TestFetchListHelpers(NoSocketsTestCase):
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_handles_pagination_and_combines_pages(
+        self, requests_mocker
+    ):
+        url = "https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth/repository/tags"
+        tags = [{"name": "v1"}, {"name": "v2"}, {"name": "v3"}]
+
+        # callback that simulates paging
+        def callback(request, context):
+            page = int(request.qs["page"][0])
+            page_size = 1
+            start = (page - 1) * page_size
+            end = start + page_size
+            if page > 3:
+                context.status_code = 200
+                return []
+            context.headers["x-total-pages"] = "3"
+            return tags[start:end]
+
+        requests_mocker.get(url, json=callback, headers={"x-total-pages": "3"})
+        result = _fetch_list_from_gitlab(url, max_pages=5)
+        self.assertEqual(result, tags)
 
     @requests_mock.mock()
-    def test_fetch_github(self, requests_mocker):
-        # given
-        announcement_hook = AppAnnouncementHook("test GitHub app", "r0kym/test", AppAnnouncementHook.Service.GITHUB)
-        requests_mocker.get(
-            "https://api.github.com/repos/r0kym/test/issues?labels=announcement",
-            json=[
-                {
-                    "url": "https://api.github.com/repos/r0kym/test/issues/1",
-                    "repository_url": "https://api.github.com/repos/r0kym/test",
-                    "labels_url": "https://api.github.com/repos/r0kym/test/issues/1/labels{/name}",
-                    "comments_url": "https://api.github.com/repos/r0kym/test/issues/1/comments",
-                    "events_url": "https://api.github.com/repos/r0kym/test/issues/1/events",
-                    "html_url": "https://github.com/r0kym/test/issues/1",
-                    "id": 3007269496,
-                    "node_id": "I_kwDOOc2YvM6zP0p4",
-                    "number": 1,
-                    "title": "GitHub issue",
-                    "user": {
-                        "login": "r0kym",
-                        "id": 56434393,
-                        "node_id": "MDQ6VXNlcjU2NDM0Mzkz",
-                        "avatar_url": "https://avatars.githubusercontent.com/u/56434393?v=4",
-                        "gravatar_id": "",
-                        "url": "https://api.github.com/users/r0kym",
-                        "html_url": "https://github.com/r0kym",
-                        "followers_url": "https://api.github.com/users/r0kym/followers",
-                        "following_url": "https://api.github.com/users/r0kym/following{/other_user}",
-                        "gists_url": "https://api.github.com/users/r0kym/gists{/gist_id}",
-                        "starred_url": "https://api.github.com/users/r0kym/starred{/owner}{/repo}",
-                        "subscriptions_url": "https://api.github.com/users/r0kym/subscriptions",
-                        "organizations_url": "https://api.github.com/users/r0kym/orgs",
-                        "repos_url": "https://api.github.com/users/r0kym/repos",
-                        "events_url": "https://api.github.com/users/r0kym/events{/privacy}",
-                        "received_events_url": "https://api.github.com/users/r0kym/received_events",
-                        "type": "User",
-                        "user_view_type": "public",
-                        "site_admin": False
-                    },
-                    "labels": [
-                        {
-                            "id": 8487814480,
-                            "node_id": "LA_kwDOOc2YvM8AAAAB-enFUA",
-                            "url": "https://api.github.com/repos/r0kym/test/labels/announcement",
-                            "name": "announcement",
-                            "color": "aaaaaa",
-                            "default": False,
-                            "description": None
-                        }
-                    ],
-                    "state": "open",
-                    "locked": False,
-                    "assignee": None,
-                    "assignees": [],
-                    "milestone": None,
-                    "comments": 0,
-                    "created_at": "2025-04-20T22:41:10Z",
-                    "updated_at": "2025-04-21T11:05:08Z",
-                    "closed_at": None,
-                    "author_association": "OWNER",
-                    "active_lock_reason": None,
-                    "sub_issues_summary": {
-                        "total": 0,
-                        "completed": 0,
-                        "percent_completed": 0
-                    },
-                    "body": None,
-                    "closed_by": None,
-                    "reactions": {
-                        "url": "https://api.github.com/repos/r0kym/test/issues/1/reactions",
-                        "total_count": 0,
-                        "+1": 0,
-                        "-1": 0,
-                        "laugh": 0,
-                        "hooray": 0,
-                        "confused": 0,
-                        "heart": 0,
-                        "rocket": 0,
-                        "eyes": 0
-                    },
-                    "timeline_url": "https://api.github.com/repos/r0kym/test/issues/1/timeline",
-                    "performed_via_github_app": None,
-                    "state_reason": None
-                }
-            ]
-        )
-        # when
-        announcements = announcement_hook.get_announcement_list()
-        # then
-        self.assertEqual(len(announcements), 1)
-        self.assertIn(Announcement(
-            application_name="test GitHub app",
-            announcement_url="https://github.com/r0kym/test/issues/1",
-            announcement_number=1,
-            announcement_text="GitHub issue"
-        ), announcements)
+    def test_fetch_list_from_gitlab_returns_empty_on_http_error(self, requests_mocker):
+        url = "https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth/repository/tags"
+        requests_mocker.get(url, status_code=500)
+        result = _fetch_list_from_gitlab(url)
+        self.assertEqual(result, [])
+
+    @requests_mock.mock()
+    def test_fetch_list_from_github_handles_pagination_link_header(
+        self, requests_mocker
+    ):
+        url = "https://api.github.com/repos/owner/repo/issues?labels=announcement"
+        page1 = [{"id": 1}]
+        page2 = [{"id": 2}]
+
+        # serve different pages based on the `page` query parameter
+        def callback(request, context):
+            page = int(request.qs.get("page", ["1"])[0])
+            if page == 1:
+                context.headers["link"] = (
+                    '<https://api.github.com/repos/owner/repo/issues?page=2>; rel="next"'
+                )
+                return page1
+            if page == 2:
+                return page2
+            return []
+
+        requests_mocker.get(url, json=callback)
+        result = _fetch_list_from_github(url, max_pages=5)
+        ids = {item.get("id") for item in result}
+        self.assertTrue({1, 2}.issubset(ids))
+
+    @requests_mock.mock()
+    def test_fetch_list_from_github_returns_empty_on_request_exception(
+        self, requests_mocker
+    ):
+        url = "https://api.github.com/repos/owner/repo/issues?labels=announcement"
+        requests_mocker.get(url, exc=requests.exceptions.Timeout)
+        result = _fetch_list_from_github(url)
+        self.assertEqual(result, [])
+
+
+class TestGetAllApplicationsAnnouncements(NoSocketsTestCase):
+    def test_get_all_applications_announcements_uses_cache_and_limits_results(self):
+        # prepare a hook object with an app_name and a callable get_announcement_list
+        class DummyHook:
+            def __init__(self, app_name, anns):
+                self.app_name = app_name
+                self._anns = anns
+
+            def get_announcement_list(self):
+                return self._anns
+
+        anns = [
+            Announcement("App", f"https://example/{i}", i, f"title {i}")
+            for i in range(15)
+        ]
+        hook = DummyHook("App", anns)
+
+        with patch(
+            "allianceauth.admin_status.hooks.get_hooks", return_value=[lambda: hook]
+        ):
+            result = get_all_applications_announcements()
+            self.assertEqual(len(result), 10)
+            self.assertEqual(result[0].announcement_number, 0)
+
+    def test_get_all_applications_announcements_handles_http_error_and_skips_hook(
+        self,
+    ):
+        class DummyHook:
+            def __init__(self, app_name):
+                self.app_name = app_name
+
+            def get_announcement_list(self):
+                raise requests.HTTPError()
+
+        hook = DummyHook("AppErr")
+
+        with patch(
+            "allianceauth.admin_status.hooks.get_hooks",
+            return_value=[lambda: hook],
+        ):
+            result = get_all_applications_announcements()
+            self.assertEqual(result, [])

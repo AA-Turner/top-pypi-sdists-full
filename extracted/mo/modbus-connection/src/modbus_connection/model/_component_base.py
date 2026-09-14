@@ -14,9 +14,10 @@ from ._planning import (
     ResolvedField,
     _merge_raw,
     _Readable,
-    undeclared_claims,
+    claimed_ranges,
+    unmapped_items,
 )
-from ._ranges import DeviceRanges, _coalesce
+from ._ranges import DeviceRanges
 from .fields import CoilField, DiscreteInputField, RegisterField, _BitField
 
 if TYPE_CHECKING:
@@ -97,9 +98,9 @@ class _ComponentBase(_Readable):
     ) -> list[Component]:
         # instances inherit the parent's block position (base_offset, which
         # also moves scale registers); their own per-instance shift applies to
-        # fields only, so shared scale factors stay in the parent's fixed block —
-        # unless the sub-unit sets ``scale_in_block``, which moves each instance's
-        # scale registers with its shift too (a block carrying its own factors)
+        # fields only, so shared scale factors stay in the parent's fixed block.
+        # A sub-unit that sets ``scale_in_block`` carries its own factors, so its
+        # instances' scale registers move with their shift too.
         instances = [
             field.component_class(
                 self._unit,
@@ -199,19 +200,44 @@ class _ComponentBase(_Readable):
         A ``repeating_group``'s instances are read from this component's own
         plan, so their declared maps only mean something if they reach it.
 
-        Where the merged map constrains a space, a part that declares nothing
-        for it stands for the addresses it reads by itself — like an undeclared
-        member of a ``ComponentGroup``.
+        Where the merged map constrains a space, the parts that have no map
+        for it claim the addresses they read, planned together: the parts are
+        all inside this one component, so a read may bridge between instances.
+        A space no part maps stays unconstrained for the plan to gap-plan, or
+        for an enclosing component or group to claim.
 
         Raises ``ValueError`` if the maps conflict.
         """
         instances = self._instances()
         if not instances:
             return own
+        parts = [
+            (own, self._own_items),
+            # an instance's own repeating groups are merged into its map
+            *(
+                (instance._resolved_ranges(), instance._read_items)
+                for instance in instances
+            ),
+        ]
+        constrained = {
+            space
+            for ranges, _ in parts
+            for space, space_map in ranges.maps.items()
+            if space_map is not None
+        }
+        claims = claimed_ranges(
+            [
+                item
+                for ranges, items in parts
+                for item in unmapped_items(ranges, items)
+                if item.resolved.space in constrained
+            ],
+            max_gap=self.max_gap,
+            max_span=self.max_span,
+        )
         try:
-            merged = DeviceRanges.merged(
-                # an instance's own repeating groups are merged into its map
-                [own, *(instance._resolved_ranges() for instance in instances)],
+            return DeviceRanges.merged(
+                [*(ranges for ranges, _ in parts), claims],
                 whose="a component and its repeating_group instances",
             )
         except ValueError as err:
@@ -223,24 +249,6 @@ class _ComponentBase(_Readable):
                 f"leaves its readable ranges unset and lets the parent's map cover "
                 f"the repeated addresses"
             ) from err
-        claims = undeclared_claims(
-            [
-                (own, self._own_items, self.max_gap, self.max_span),
-                *(
-                    (i._resolved_ranges(), i._read_items, i.max_gap, i.max_span)
-                    for i in instances
-                ),
-            ]
-        )
-        # The parts are all inside this one component, so their claims join
-        # across max_gap and a read may bridge between instances.
-        return merged.widened(
-            {
-                s: _coalesce(r, within=self.max_gap)
-                for s, r in claims.items()
-                if merged.for_space(s) is not None
-            }
-        )
 
     def _invalidate_caches(self) -> None:
         # Owns the group read-target caches; the plan is the base's.

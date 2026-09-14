@@ -82,6 +82,17 @@ class TestTakeoverEvalPrs:
         assert result["processed"] == []
         provider.squash_before_publish.assert_not_called()
 
+    @patch.object(takeover_mod, "is_copilot_session_active_via_agent_task", return_value=None)
+    def test_skips_when_session_inventory_unavailable(self, _session: MagicMock) -> None:
+        provider = MagicMock()
+        provider.list_open_copilot_pr_briefs.return_value = [_brief(16)]
+        provider.list_pr_files.return_value = ["audit-batches/a/agent-output/x.md"]
+        provider.get_pr_metadata.return_value = _meta()
+        provider.get_commit_author_login.return_value = "copilot-swe-agent[bot]"
+        result = takeover_eval_prs(provider, repo="o/r", max_prs=1)
+        assert result["processed"] == []
+        provider.squash_before_publish.assert_not_called()
+
     @patch.object(takeover_mod, "is_copilot_session_active_via_agent_task", return_value=False)
     def test_respects_max_prs(self, _session: MagicMock) -> None:
         provider = MagicMock()

@@ -1,13 +1,35 @@
 #pragma once
 
 #include <atomic>
+#include <any>
+#include <cstdint>
+#include <functional>
 #include <instant_tensor/common.hpp>
+#include <instant_tensor/function_executor.hpp>
 
 namespace instanttensor {
 
 using chunk_id_t = ssize_t;
 
-using AsyncExecutor = SPSCAsyncExecutor<MAX_PREFETCH_CHUNKS, MAX_PREFETCH_CHUNKS>;
+inline size_t rank_logical_size(
+    size_t chunk_size, size_t rank_offset, size_t padded_rank_size) {
+    return chunk_size > rank_offset
+        ? std::min(chunk_size - rank_offset, padded_rank_size)
+        : 0;
+}
+
+using SingleThreadTaskExecutor = SingleWorkerFunctionExecutor<MAX_IO_DEPTH, MAX_IO_DEPTH>;
+using ThreadPoolTaskExecutor = MultiWorkerFunctionExecutor<MAX_IO_DEPTH, MAX_IO_DEPTH>;
+
+struct IOOperation {
+    std::function<void()> start;
+    std::function<bool()> poll;
+};
+
+using IOExecutorBase = SingleWorkerDriverExecutor<IOOperation, std::any,
+                                                MAX_IO_DEPTH, MAX_IO_DEPTH>;
+
+class IOExecutor;
 
 // NOTE: edit 
 enum Backend {
@@ -17,6 +39,12 @@ enum Backend {
     URING_BUFFERED,
     CUFILE,
     MMAP,
+};
+
+struct BackendStatus {
+    bool available;
+    string reason;
+    string warning;
 };
 
 inline bool is_valid_backend(Backend backend) {
@@ -49,14 +77,14 @@ struct OpenArgs {
     int world_size;
     size_t buffer_size;
     size_t chunk_size;
-    size_t num_threads;
+    size_t concurrency;
     size_t io_depth;
     Backend backend;
     vector<pair<size_t, size_t>> tensor_offsets;
     OpenArgs(const vector<string> &filenames, int device_idx, ncclComm_t group_communicator, int rank,
-        int world_size, size_t buffer_size, size_t chunk_size, size_t num_threads, size_t io_depth, Backend backend, const vector<pair<size_t, size_t>>& tensor_offsets)
+        int world_size, size_t buffer_size, size_t chunk_size, size_t concurrency, size_t io_depth, Backend backend, const vector<pair<size_t, size_t>>& tensor_offsets)
         : filenames(filenames), device_idx(device_idx), group_communicator(group_communicator), rank(rank), world_size(world_size),
-        buffer_size(buffer_size), chunk_size(chunk_size), num_threads(num_threads), io_depth(io_depth), backend(backend), tensor_offsets(tensor_offsets)
+        buffer_size(buffer_size), chunk_size(chunk_size), concurrency(concurrency), io_depth(io_depth), backend(backend), tensor_offsets(tensor_offsets)
         {}
 };
 
@@ -97,11 +125,24 @@ struct TensorMetadate {
 };
 
 struct ChunkExtraData {
-    size_t unfinished_cnt;
+    size_t total_logical_size;
+    size_t bytes_completed;
+    size_t request_file_offset;
+    size_t request_buffer_offset;
+    size_t request_logical_size;
+    // IO-driver-owned handle: AIO last-page submit or cuFile/MMAP read task.
+    // EXECUTOR_STOP_REQUEST_ID means no worker result is pending.
+    int pending_worker_request_id = EXECUTOR_STOP_REQUEST_ID;
+};
+
+struct IORequest {
+    IOExecutor* executor;
+    int wait_handle;
+    bool loaded_to_device;
 };
 
 struct ChunkRequest {
-    AsyncExecutor* executor;
+    SingleThreadTaskExecutor* executor;
     int wait_handle;
 };
 

@@ -1,4 +1,13 @@
-from abstract_utilities import *
+from abstract_utilities import (
+    os,
+    defaultdict,
+    get_files_and_dirs,
+    is_file,
+    eatAll,
+    FROM_TAG,
+    get_all_imports,
+    get_dot_fro_line,
+)
 import os
 from collections import defaultdict
 

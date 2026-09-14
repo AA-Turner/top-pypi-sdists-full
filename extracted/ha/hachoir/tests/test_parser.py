@@ -348,6 +348,16 @@ class TestParsers(unittest.TestCase):
         self.checkDesc(parser, "/group[0]/inode_table/inode[12]",
                        "Inode 13: Symbolic link (-> XYZ), size=3 bytes, mode=lrwxrwxrwx")
 
+    def test_ext2_various_inode_sizes(self):
+        for bsize, isize in [(1024, 1024), (2048, 512), (4096, 128)]:
+            fname = "bsize-%d-isize-%d.ext2" % (bsize, isize)
+            parser = self.parse(fname)
+            self.checkValue(parser, "/superblock/inode_size", isize)
+            self.checkValue(parser, "/group[0]/inode_table/inode[11]/size", 6)
+            self.checkDesc(parser, "/group[0]/inode_table/inode[12]",
+                           "Inode 13: Symbolic link (-> source), size=6 bytes, mode=lrwxrwxrwx")
+            self.checkValue(parser, "/group[0]/inode[11]block[0]", b"hello\n" + b'\0' * (bsize - 6))
+
     def test_bmp2(self):
         parser = self.parse("article01.bmp")
         self.checkDisplay(parser, "/header/red_mask", '0x00ff0000')
@@ -872,6 +882,84 @@ class TestParsers(unittest.TestCase):
         self.checkValue(parser, "/header/filename", "example4.arj")
         self.checkValue(parser, "/file_header[15]/filename", "usr/bin/groups")
         self.checkValue(parser, "/file_header[15]/original_size", 35000)
+
+    def test_xcf1(self):
+        parser = self.parse("minimal_xcf1.xcf")
+        self.checkValue(parser, "/signature", "gimp xcf file\0")
+        self.checkValue(parser, "/layer[0]/width", 1)
+        self.checkValue(parser, "/layer[0]/height", 1)
+        self.checkValue(parser, "/layer[0]/name", "Background")
+        self.checkValue(parser, "/layer[0]/hierarchy/bpp", 3)
+        self.checkValue(parser, "/layer[0]/hierarchy/level[0]/offset", 196)
+
+    def test_xcf3(self):
+        parser = self.parse("minimal_xcf3.xcf")
+        self.checkValue(parser, "/signature", "gimp xcf v003\0")
+        self.checkValue(parser, "/layer[0]/width", 1)
+        self.checkValue(parser, "/layer[0]/height", 1)
+        self.checkValue(parser, "/layer[0]/name", "Background")
+        self.checkValue(parser, "/layer[0]/hierarchy/bpp", 3)
+        self.checkValue(parser, "/layer[0]/hierarchy/level[0]/offset", 196)
+
+    def test_xcf10(self):
+        parser = self.parse("minimal_xcf10.xcf")
+        self.checkValue(parser, "/signature", "gimp xcf v010\0")
+        self.checkValue(parser, "/layer[0]/width", 1)
+        self.checkValue(parser, "/layer[0]/height", 1)
+        self.checkValue(parser, "/layer[0]/name", "Background")
+        self.checkValue(parser, "/layer[0]/hierarchy/bpp", 3)
+        self.checkValue(parser, "/layer[0]/hierarchy/level[0]/offset", 200)
+
+    def test_xcf11(self):
+        parser = self.parse("1024x1024-better-compression.xcf")
+        self.checkValue(parser, "/signature", "gimp xcf v011\0")
+        self.checkValue(parser, "/layer[0]/width", 512)
+        self.checkValue(parser, "/layer[0]/height", 512)
+        self.checkValue(parser, "/layer[0]/name", "Layer 2")
+        self.checkValue(parser, "/layer[0]/hierarchy/level[2]/width", 128)
+        self.checkValue(parser, "/layer[1]/name", "Layer 1")
+        self.checkValue(parser, "/layer[1]/hierarchy/level[2]/width", 128)
+        self.checkValue(parser, "/layer[2]/name", "Background")
+        self.checkValue(parser, "/layer[2]/hierarchy/level[1]/width", 256)
+
+    def test_zlib(self):
+        parser = self.parse("usa_railroad.jpg.6.zlib")
+        self.checkValue(parser, "/compression_method", 8)
+        self.checkValue(parser, "/compression_info", 7)
+        self.checkValue(parser, "/flag_check_bits", 30)
+        self.checkValue(parser, "/flag_dictionary_present", False)
+        self.checkValue(parser, "/flag_compression_level", 1)
+        self.checkValue(parser, "/data/compressed_block[0]/final", False)
+        self.checkValue(parser, "/data/compressed_block[0]/compression_type", 2)
+        self.checkValue(parser, "/data/compressed_block[0]/huff_num_length_codes", 29)
+        self.checkValue(parser, "/data/compressed_block[0]/length_code[16383]", 16380)
+        self.checkValue(parser, "/data/compressed_block[5]/final", True)
+        self.checkValue(parser, "/data/compressed_block[5]/compression_type", 0)
+        self.checkValue(parser, "/data/compressed_block[5]/len", 8844)
+        self.checkValue(parser, "/data/compressed_block[5]/nlen", 56691)
+        self.checkValue(parser, "/data_checksum", 0xe85c1f89)
+
+    def test_zlib_large_uncompressed_block(self):
+        parser = self.parse("usa_railroad.jpg.0.zlib")
+        self.checkValue(parser, "/data/compressed_block[0]/final", False)
+        self.checkValue(parser, "/data/compressed_block[0]/compression_type", 0)
+        self.checkValue(parser, "/data/compressed_block[0]/padding[0]", 0)
+        self.checkValue(parser, "/data/compressed_block[0]/len", 65535)
+        self.checkValue(parser, "/data/compressed_block[0]/nlen", 0)
+        self.checkValue(parser, "/data/compressed_block[1]/final", True)
+        self.checkValue(parser, "/data/compressed_block[1]/compression_type", 0)
+        self.checkValue(parser, "/data/compressed_block[1]/padding[0]", 0)
+        self.checkValue(parser, "/data/compressed_block[1]/len", 38213)
+        self.checkValue(parser, "/data/compressed_block[1]/nlen", 27322)
+        self.checkValue(parser, "/data_checksum", 0xe85c1f89)
+
+    def test_git_pack(self):
+        parser = self.parse("pack-31c691f659cbc7841ca55a26a342fdaf0b89c533.pack")
+        self.checkValue(parser, "/version", 2)
+        self.checkValue(parser, "/num_objects", 7)
+        self.checkDesc(parser, "/object[0]", "type=OBJ_COMMIT, decompressed size=244")
+        # FIXME: also check parsing of objects (with sub-parsers)
+        self.checkValue(parser, "/checksum", 0x31c691f659cbc7841ca55a26a342fdaf0b89c533)
 
 
 class TestParserRandomStream(unittest.TestCase):

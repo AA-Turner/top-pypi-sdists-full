@@ -134,8 +134,18 @@ def m2m_changed_state_permissions(sender, instance, action, pk_set, *args, **kwa
 def check_service_accounts_state_changed(sender, user, state, **kwargs):
     logger.debug(f"Received state_changed from {user} to state {state}")
     for svc in ServicesHook.get_services():
-        svc.validate_user(user)
-        svc.update_groups(user)
+        # One broken service hook must not abort the state change (and the
+        # character update that triggered it) for every other service.
+        # we are going to scream int the logs instead and let everyhitng else continue
+        try:
+            svc.validate_user(user)
+            svc.update_groups(user)
+        except Exception:
+            logger.exception(
+                "Exception running validate_user/update_groups for services module %s on user %s",
+                svc,
+                user,
+            )
 
 
 @receiver(pre_delete, sender=User)

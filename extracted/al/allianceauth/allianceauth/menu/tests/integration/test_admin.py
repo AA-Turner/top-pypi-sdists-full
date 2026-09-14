@@ -3,7 +3,6 @@ from http import HTTPStatus
 from django.test import TestCase
 from django.urls import reverse
 
-from allianceauth.menu.constants import MenuItemType
 from allianceauth.menu.forms import (
     AppMenuItemAdminForm,
     FolderMenuItemAdminForm,
@@ -17,6 +16,7 @@ from allianceauth.menu.tests.factories import (
     create_user,
 )
 from allianceauth.menu.tests.utils import extract_html
+from allianceauth.tests.auth_utils import AuthUtils
 
 
 def extract_menu_item_texts(response):
@@ -60,7 +60,12 @@ class TestAdminSite(TestCase):
         # when
         response = self.client.post(
             self.add_url,
-            {"text": "alpha", "url": "http://www.example.com", "order": 99},
+            {
+                "text": "alpha",
+                "url": "http://www.example.com",
+                "order": 99,
+                "permission_mode": MenuItem.PermissionMode.ANY.value,
+            },
         )
         # then
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
@@ -68,7 +73,31 @@ class TestAdminSite(TestCase):
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
         self.assertEqual(obj.text, "alpha")
-        self.assertEqual(obj.item_type, MenuItemType.LINK)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.LINK)
+
+    def test_should_create_new_link_item_with_permissions(self):
+        # given
+        self.client.force_login(self.user)
+        permission = AuthUtils.get_permission_by_name("auth.add_group")
+
+        # when
+        response = self.client.post(
+            self.add_url,
+            {
+                "text": "alpha",
+                "url": "http://www.example.com",
+                "order": 99,
+                "permissions": [permission.pk],
+                "permission_mode": MenuItem.PermissionMode.ALL.value,
+            },
+        )
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertEqual(response.url, self.changelist_url)
+        self.assertEqual(MenuItem.objects.count(), 1)
+        obj = MenuItem.objects.first()
+        self.assertEqual(obj.permission_mode, MenuItem.PermissionMode.ALL)
+        self.assertListEqual(list(obj.permissions.all()), [permission])
 
     def test_should_create_new_folder_item(self):
         # given
@@ -84,7 +113,7 @@ class TestAdminSite(TestCase):
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
         self.assertEqual(obj.text, "alpha")
-        self.assertEqual(obj.item_type, MenuItemType.FOLDER)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.FOLDER)
 
     def test_should_change_app_item(self):
         # given
@@ -103,7 +132,7 @@ class TestAdminSite(TestCase):
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
         self.assertEqual(obj.order, 99)
-        self.assertEqual(obj.item_type, MenuItemType.APP)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.APP)
 
     def test_should_change_link_item(self):
         # given
@@ -122,7 +151,27 @@ class TestAdminSite(TestCase):
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
         self.assertEqual(obj.text, "bravo")
-        self.assertEqual(obj.item_type, MenuItemType.LINK)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.LINK)
+
+    def test_should_change_link_item_permissions(self):
+        # given
+        self.client.force_login(self.user)
+        item = create_link_menu_item(text="alpha")
+        permission = AuthUtils.get_permission_by_name("auth.add_group")
+        form_data = LinkMenuItemAdminForm(instance=item).initial
+        form_data["parent"] = ""
+        form_data["permissions"] = [permission.pk]
+        form_data["permission_mode"] = MenuItem.PermissionMode.ALL.value
+
+        # when
+        response = self.client.post(self.change_url(item.id), form_data)
+
+        # then
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+        self.assertEqual(response.url, self.changelist_url)
+        item.refresh_from_db()
+        self.assertEqual(item.permission_mode, MenuItem.PermissionMode.ALL)
+        self.assertListEqual(list(item.permissions.all()), [permission])
 
     def test_should_change_folder_item(self):
         # given
@@ -140,7 +189,7 @@ class TestAdminSite(TestCase):
         self.assertEqual(MenuItem.objects.count(), 1)
         obj = MenuItem.objects.first()
         self.assertEqual(obj.text, "bravo")
-        self.assertEqual(obj.item_type, MenuItemType.FOLDER)
+        self.assertEqual(obj.item_type, MenuItem.MenuItemType.FOLDER)
 
     def test_should_move_item_into_folder(self):
         # given

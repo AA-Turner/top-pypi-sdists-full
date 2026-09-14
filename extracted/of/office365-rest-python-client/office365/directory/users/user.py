@@ -53,6 +53,7 @@ from office365.onedrive.sites.site import Site
 from office365.onenote.onenote import Onenote
 from office365.outlook.calendar.attendees.base import AttendeeBase
 from office365.outlook.calendar.calendar import Calendar
+from office365.outlook.calendar.collection import CalendarCollection
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.outlook.calendar.email_address import EmailAddress
 from office365.outlook.calendar.events.event import Event
@@ -212,7 +213,7 @@ class User(DirectoryObject):
         def _assign_manager(user_id: str | None) -> None:
             if user_id is None:
                 return
-            payload = {"@odata.id": f"https://graph.microsoft.com/v1.0/users/{user_id}"}
+            payload = {"@odata.id": f"{self.context.users.resource_url}/{user_id}"}
             qry = ServiceOperationQuery(self.manager, "$ref", None, payload)
             self.context.add_query(qry).before_execute(_construct_request)
 
@@ -820,10 +821,10 @@ class User(DirectoryObject):
         return self.properties.get("calendar", Calendar(self.context, ResourcePath("calendar", self.resource_path)))
 
     @property
-    def calendars(self) -> EntityCollection[Calendar]:
+    def calendars(self) -> CalendarCollection:
         """The user's calendar groups. Read-only. Nullable."""
         return self.properties.get(
-            "calendars", EntityCollection(self.context, Calendar, ResourcePath("calendars", self.resource_path))
+            "calendars", CalendarCollection(self.context, ResourcePath("calendars", self.resource_path))
         )
 
     @property

@@ -58,6 +58,8 @@ __all__ = [
     "schema_body",
     "unbounded_reason",
     "document_output_reason",
+    "declared_output_schema",
+    "model_output_maximum",
     "enforce_document_ceiling",
 ]
 
@@ -131,6 +133,68 @@ def unbounded_reason(schema: Any) -> str | None:
     if "free-text" in found:
         return "free-text"
     return None
+
+
+def declared_output_schema(source: Any) -> Any:
+    """The JSON Schema a call forces its answer into, or ``None`` for prose.
+
+    ONE reader for every consumer, because a step dict, an agent's settings and
+    a live ``UnifiedConfig`` all spell the same declaration the same two ways:
+    the built ``response_format`` (``{"type": "json_schema", "json_schema":
+    {"name": …, "schema": {...}}}``) and the bare ``output_schema`` some nodes
+    carry. Accepts a mapping or any object carrying those attributes, so the
+    workflow step holder and the send boundary ask the same question.
+
+    ``None`` means free prose — which ``document_output_reason`` treats as a
+    document wherever the caller has nowhere to continue.
+    """
+
+    def _get(key: str) -> Any:
+        if isinstance(source, dict):
+            return source.get(key)
+        return getattr(source, key, None)
+
+    fmt = _get("response_format")
+    if isinstance(fmt, dict):
+        inner = fmt.get("json_schema")
+        if isinstance(inner, dict):
+            return inner
+        if fmt.get("type") not in (None, "text"):
+            return fmt
+    schema = _get("output_schema")
+    return schema if isinstance(schema, dict) and schema else None
+
+
+async def model_output_maximum(model_id_or_name: Any) -> int | None:
+    """The model's REAL output maximum (``ai.model_definition.max_tokens``), or
+    ``None`` when the catalog cannot say.
+
+    ONE lookup for every consumer of this predicate — the workflow step holder,
+    the agent birth path, the agent update surface and the send boundary — so a
+    "what is this model's maximum?" answer can never differ between the layer
+    that authors a ceiling and the layer that sends it.
+
+    ``None`` is a deliberate no-op for the document-ceiling floor: inventing a
+    maximum it could not read would be worse than staying quiet, and the
+    release-health audit still catches the row. The DB import is lazy so this
+    module stays importable (and pure) inside the release-health scripts.
+    """
+    if not model_id_or_name:
+        return None
+    try:
+        from matrx_ai.db.ai_models.ai_model_manager import ai_model_manager_instance
+
+        row = await ai_model_manager_instance.load_model(str(model_id_or_name))
+        value = getattr(row, "max_tokens", None)
+        return int(value) if isinstance(value, int | float) and value > 0 else None
+    except Exception as exc:  # noqa: BLE001 — never fail a call over a guard's lookup
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"document-ceiling floor could not read max_tokens for {model_id_or_name}: {exc}",
+            color="yellow",
+        )
+        return None
 
 
 def document_output_reason(

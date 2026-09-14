@@ -4,7 +4,7 @@ import os
 
 class SmdaConfig:
     # keep this in sync with smda.__version__
-    VERSION = "4.6.0"
+    VERSION = "4.7.0"
     # Bump this whenever any architecture's InstructionEscaper changes its
     # output (mnemonic groups or escaped operands). Downstream indexes such as
     # MCRIT treat reports whose smda_version is below this value as stale.
@@ -59,6 +59,23 @@ class SmdaConfig:
     # record with the X bit clear or no .xdata at all, so they are not exception funclets and
     # nothing in the unwind data distinguishes them. clang/llvm-mingw emits one record per function
     # symbol and does not split them, so a from-source ARM64 PE is unaffected either way.
+    #
+    # That over-reporting is a trade taken deliberately, not a gap waiting on a better test.
+    # Chunks are ordinary MSVC output rather than a peculiarity of the three system binaries:
+    # across thirteen MSVC ARM64 images with private-PDB extents, 3,473 classified chunks. The
+    # entry-shape filter already refuses 2,829 of them (81.5%), and 643 of the 644 that survive
+    # into seeding open with a genuine routine shape - a recognised prologue, a BTI pad, a
+    # single-register `str Xt, [sp, #-imm]!`, or a bare `sub sp, sp, #imm`. Shape is applied and
+    # the remainder is 643-to-1 against it. A packed record is never a chunk at all: 6,763 of
+    # them, none, so seeding those is right.
+    # What is left to read is the space between adjacent functions, and that cannot be read
+    # portably. The three system binaries pad between functions and these images pack them back
+    # to back, so a rule testing whether a record begins where another's extent ends inverts
+    # between them: refusing an unreferenced, unaligned record that abuts an extent end removes
+    # 51 of the 78 for 2 real functions on ping/robocopy/bcrypt, and over the six packed images
+    # carrying PDB extents removes nothing at all while losing 712 of 3,026. Every removal in
+    # the first figure comes from one of the three binaries, which is the tell before the second
+    # is measured at all.
     USE_PE_ARM64_PDATA_CANDIDATES = True
     # do not read `bti j` as a function entry on AArch64. The four BTI forms are not
     # interchangeable: J permits a target reached by `br` - an indirect jump, which is what a
@@ -120,6 +137,21 @@ class SmdaConfig:
     # an analysis that ran past the end of the routine the address sat inside and absorbed
     # the small aligned functions after it. On the cell examined, all eight functions
     # recovered sit 11 to 79 bytes past a declared extent's end.
+    # The same extents also answer for a candidate from any other source, at the point analysis
+    # would begin on it, under the guards the .eh_frame arm carries: the record's own function
+    # has to be recovered and its recovered extent has to surround the address. A fragment is
+    # not the shortcut it is in the gap scan - its start is not the function covering the
+    # address, so it declines here rather than refusing.
+    # Worth much less than the .eh_frame arm, and the numbers are why it is a change of its own:
+    #   120 MinGW PE x64 cells   -47 FP at identical TP and FN, 109 of 120 bit-identical
+    #   2 Rust windows-gnu-x64    -2 FP at identical TP and FN
+    # Nothing else moves at all. The 140 x86-64 ELF cells, 72 AArch64 ELF cells, 23 Go cells,
+    # 11 ARM64 Mach-O cells, the 32-bit and ELF Rust cells and all 57 malpedia dumps are
+    # bit-identical. The dumps are the reading worth keeping, and not because the evidence is
+    # absent: three of the 57 do declare an exception directory, 282 to 430 records each, and on
+    # all three the rule is consulted and refuses nothing - every address its guards see is
+    # declined. Reachable and declining is the stronger control; an earlier note here claimed
+    # none of the dumps carried a directory, which is not so.
     USE_PE_X64_PDATA_INTERIOR_GAPS = True
     # Refuse a gap candidate that an ARM64 PE image's own exception directory places inside a
     # routine. The same evidence and the same rule as the x64 flag above, reached differently:
@@ -194,6 +226,21 @@ class SmdaConfig:
     # table names `dispatch`, and aarch64_static drops 0x400350 and 0x40DF30, both mid-function
     # instructions inside a declared FDE. None of the six carries a symbol or is a declared
     # start, so both baselines moved toward the truth.
+    # The same evidence also refuses a candidate from any other source, at the point analysis
+    # would begin on it, since the gap pointer reaches only what the gap scan walks to and the
+    # seeding scans reach the rest. That arm carries a third condition the gap scan does not
+    # need: the owner's own recovered extent has to surround the address. A declared range can
+    # reach past everything its function's control flow arrives at, and refusing an address out
+    # there discards bytes nothing else claims along with any reference only those bytes carry
+    # - without it the AArch64 corpus loses three functions reached through exactly that shape.
+    # Measured against compiler symbol tables, no corpus losing a true positive:
+    #   72 AArch64 ELF cells   PPV 95.994 -> 97.063  -683 FP at identical TP and FN
+    #   140 built C/C++ ELF    PPV 98.903 -> 98.969   -77 FP at identical TP and FN
+    # The 120 MinGW PE cells, 23 Go cells, 11 ARM64 Mach-O cells and all 57 malpedia dumps are
+    # bit-identical, the control that it reaches only images carrying an .eh_frame. Rust is too,
+    # and not because the rule is inert there: its images decode their ranges and 25 of 26 false
+    # positives on the first cell are interior to one, but the two conditions above decline all
+    # of them - 78 of 94 on the owner's extent, the rest on the owner not being recovered.
     USE_ELF_FDE_INTERIOR_GAPS = True
     RESOLVE_REGISTER_CALLS = True
     # resolve "call/jmp dword ptr [<reg> + <disp>]" against a runtime-built import table and

@@ -1,5 +1,6 @@
-from ...imports import *
-import re
+from ...imports import (
+    CANONICAL_MAP,
+)
 def combine_params(*values,typ=None):
     nu_values = None
     for value in values:

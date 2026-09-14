@@ -22,6 +22,7 @@ from datetime import UTC
 from pathlib import Path
 from typing import Any
 
+from agentic_devtools.cli.git.core import GitError
 from agentic_devtools.cli.vscode_tasks import remove_auto_start_task
 from agentic_devtools.file_locking import FileLockError, locked_file
 from agentic_devtools.state import BOOTSTRAP_FILENAME, IDENTITY_CACHE_FILENAME
@@ -583,6 +584,26 @@ def create_worktree(
 
         return seed_worktree_trust_result(worktree_path, repos_parent=repos_parent).added
 
+    def _restore_temp_branch_name(error_msg: str, temp_name: str, original_name: str) -> str:
+        try:
+            revert_ok = rename_local_branch(temp_name, original_name)
+        except (FileNotFoundError, OSError) as rename_exc:
+            revert_ok = False
+            error_msg += f" (revert also failed: {rename_exc})"
+        if not revert_ok:
+            error_msg += (
+                f"\nWarning: Failed to revert branch rename. "
+                f"Branch is still named '{temp_name}'. "
+                f"Manually rename it back with: git branch -m {temp_name} {original_name}"
+            )
+        return error_msg
+
+    def _cleanup_created_worktree(
+        result: WorktreeSetupResult,
+        failure_context: str = "the original target setup script failure",
+    ) -> None:
+        _cleanup_failed_worktree_setup(result, failure_context=failure_context)
+
     # Determine the branch name to use
     if branch_name:
         resolved_branch_name = branch_name
@@ -591,9 +612,19 @@ def create_worktree(
 
     # Check if worktree already exists
     if os.path.exists(worktree_path):
-        # Verify it's a valid git worktree
-        git_file = os.path.join(worktree_path, ".git")
-        if os.path.exists(git_file):
+        try:
+            registered_worktree_path = check_worktree_exists(issue_key)
+        except (GitError, FileNotFoundError, OSError) as exc:
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=f"Unable to verify existing worktree: {_sanitize_worktree_setup_diagnostic(exc)}",
+            )
+        if registered_worktree_path and (
+            os.path.normcase(os.path.realpath(registered_worktree_path))
+            == os.path.normcase(os.path.realpath(worktree_path))
+        ):
             # Keep reused worktrees aligned with current scoped runtime bootstrap
             # so re-invocations do not fall back to _unscoped state.
             _propagate_agdt_cache(worktree_path, worktree_key=issue_key)
@@ -604,13 +635,25 @@ def create_worktree(
                 branch_name=resolved_branch_name,
                 error_message=None,
             )
-        else:
+        if registered_worktree_path:
             return WorktreeSetupResult(
                 success=False,
                 worktree_path=worktree_path,
                 branch_name=resolved_branch_name,
-                error_message=f"Directory {worktree_path} exists but is not a git worktree",
+                error_message=(
+                    f"Directory {worktree_path} already exists, but git worktree metadata points to "
+                    f"{registered_worktree_path}. Manual cleanup may be required."
+                ),
             )
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path=worktree_path,
+            branch_name=resolved_branch_name,
+            error_message=(
+                f"Directory {worktree_path} exists but is not a git worktree that can be resumed; "
+                "it is not a registered git worktree eligible for resume in current Git metadata"
+            ),
+        )
 
     current_branch = get_current_branch()
     in_worktree = is_in_worktree()
@@ -727,17 +770,7 @@ def create_worktree(
                     # Revert the rename before propagating the error.
                     # If the revert also fails, include the recovery command in the error message.
                     error_msg = f"Error creating worktree: {e}"
-                    try:
-                        revert_ok = rename_local_branch(temp_branch_name, branch_name)
-                    except (FileNotFoundError, OSError) as rename_exc:
-                        revert_ok = False
-                        error_msg += f" (revert also failed: {rename_exc})"
-                    if not revert_ok:
-                        error_msg += (
-                            f"\nWarning: Failed to revert branch rename. "
-                            f"Branch is still named '{temp_branch_name}'. "
-                            f"Manually rename it back with: git branch -m {temp_branch_name} {branch_name}"
-                        )
+                    error_msg = _restore_temp_branch_name(error_msg, temp_branch_name, branch_name)
                     return WorktreeSetupResult(
                         success=False,
                         worktree_path=worktree_path,
@@ -750,23 +783,68 @@ def create_worktree(
                     # If the revert also fails, include the recovery command in the error message.
                     print("Worktree creation failed. Reverting temp rename...")
                     error_msg = f"Failed to create worktree: {worktree_result.stderr.strip()}"
-                    try:
-                        revert_ok = rename_local_branch(temp_branch_name, branch_name)
-                    except (FileNotFoundError, OSError) as rename_exc:
-                        revert_ok = False
-                        error_msg += f" (revert also failed: {rename_exc})"
-                    if not revert_ok:
-                        error_msg += (
-                            f"\nWarning: Failed to revert branch rename. "
-                            f"Branch is still named '{temp_branch_name}'. "
-                            f"Manually rename it back with: git branch -m {temp_branch_name} {branch_name}"
-                        )
+                    error_msg = _restore_temp_branch_name(error_msg, temp_branch_name, branch_name)
                     return WorktreeSetupResult(
                         success=False,
                         worktree_path=worktree_path,
                         branch_name=resolved_branch_name,
                         error_message=error_msg,
                     )
+
+                try:
+                    verified_worktree_path = check_worktree_exists(
+                        issue_key,
+                        require_registered=True,
+                        expected_path=worktree_path,
+                    )
+                except (GitError, FileNotFoundError, OSError) as exc:
+                    failure_result = WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=f"Unable to verify created worktree: {_sanitize_worktree_setup_diagnostic(exc)}",
+                        created_worktree=True,
+                        created_branch=True,
+                    )
+                    _cleanup_created_worktree(
+                        failure_result, failure_context="the worktree metadata verification failure"
+                    )
+                    failure_result.error_message = _restore_temp_branch_name(
+                        failure_result.error_message or "Unable to verify created worktree",
+                        temp_branch_name,
+                        branch_name,
+                    )
+                    return failure_result
+                if not verified_worktree_path or (
+                    os.path.normcase(os.path.realpath(verified_worktree_path))
+                    != os.path.normcase(os.path.realpath(worktree_path))
+                ):
+                    expected_path = worktree_path
+                    if verified_worktree_path:
+                        verification_error = (
+                            "git worktree add returned success, but git worktree list --porcelain "
+                            f"registered {verified_worktree_path} instead of {expected_path}"
+                        )
+                    else:
+                        verification_error = (
+                            "git worktree add returned success, but git worktree list --porcelain "
+                            f"did not register {expected_path}"
+                        )
+                    failure_result = WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=verification_error,
+                        created_worktree=True,
+                        created_branch=True,
+                    )
+                    _cleanup_created_worktree(
+                        failure_result, failure_context="the worktree metadata verification failure"
+                    )
+                    failure_result.error_message = _restore_temp_branch_name(
+                        failure_result.error_message or verification_error, temp_branch_name, branch_name
+                    )
+                    return failure_result
 
                 # Worktree created successfully — rename temp branch to final PR review name.
                 # Wrap in try/except so an unexpected git error here doesn't crash
@@ -949,6 +1027,48 @@ def create_worktree(
                 error_message=f"Failed to create worktree: {result.stderr.strip()}",
             )
 
+        try:
+            verified_worktree_path = check_worktree_exists(
+                issue_key,
+                require_registered=True,
+                expected_path=worktree_path,
+            )
+        except (GitError, FileNotFoundError, OSError) as exc:
+            failure_result = WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=f"Unable to verify created worktree: {_sanitize_worktree_setup_diagnostic(exc)}",
+                created_worktree=True,
+                created_branch=created_branch,
+            )
+            _cleanup_created_worktree(failure_result, failure_context="the worktree metadata verification failure")
+            return failure_result
+        if not verified_worktree_path or (
+            os.path.normcase(os.path.realpath(verified_worktree_path))
+            != os.path.normcase(os.path.realpath(worktree_path))
+        ):
+            if verified_worktree_path:
+                verification_error = (
+                    "git worktree add returned success, but git worktree list --porcelain "
+                    f"registered {verified_worktree_path} instead of {worktree_path}"
+                )
+            else:
+                verification_error = (
+                    "git worktree add returned success, but git worktree list --porcelain "
+                    f"did not register {worktree_path}"
+                )
+            failure_result = WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=verification_error,
+                created_worktree=True,
+                created_branch=created_branch,
+            )
+            _cleanup_created_worktree(failure_result, failure_context="the worktree metadata verification failure")
+            return failure_result
+
         print(f"Worktree created successfully at {worktree_path}")
 
         _propagate_agdt_cache(worktree_path, worktree_key=issue_key)
@@ -963,6 +1083,17 @@ def create_worktree(
             copilot_trust_added=copilot_trust_added,
         )
 
+    except GitError as e:
+        failure_result = WorktreeSetupResult(
+            success=False,
+            worktree_path=worktree_path,
+            branch_name=resolved_branch_name,
+            error_message=f"Post-create worktree setup failed: {_sanitize_worktree_setup_diagnostic(e)}",
+            created_worktree=True,
+            created_branch=created_branch,
+        )
+        _cleanup_created_worktree(failure_result, failure_context="the post-create Git failure")
+        return failure_result
     except (FileNotFoundError, OSError) as e:
         return WorktreeSetupResult(
             success=False,
@@ -2182,8 +2313,8 @@ def run_worktree_setup_script(
 
     Returns:
         A ``WorktreeSetupScriptResult`` with ``missing``, ``succeeded``, or
-        ``failed`` status. Failure diagnostics contain stderr only and are
-        bounded and credential-redacted.
+        ``failed`` status. Failure diagnostics prefer stderr, fall back to
+        stdout when needed, and remain bounded and credential-redacted.
     """
     if timeout_seconds < 0:
         raise ValueError("timeout_seconds must be non-negative")
@@ -2260,7 +2391,7 @@ def run_worktree_setup_script(
             proc = subprocess.Popen(
                 [sys.executable, str(resolved_script_path), str(worktree_root)],
                 cwd=str(worktree_root),
-                stdout=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 encoding="utf-8",
                 errors="replace",
@@ -2270,40 +2401,48 @@ def run_worktree_setup_script(
             proc = subprocess.Popen(
                 [sys.executable, str(resolved_script_path), str(worktree_root)],
                 cwd=str(worktree_root),
-                stdout=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 encoding="utf-8",
                 errors="replace",
                 start_new_session=True,
             )
+        stdout_chunks: list[str] = []
         stderr_chunks: list[str] = []
-        stderr_limit = _get_worktree_setup_stderr_capture_limit()
-        captured_length = 0
+        capture_limit = _get_worktree_setup_stderr_capture_limit()
+        stdout_lock = threading.Lock()
         stderr_lock = threading.Lock()
+        stdout_pipe = proc.stdout
         stderr_pipe = proc.stderr
 
-        def _drain_stderr() -> None:
-            nonlocal captured_length
-            if stderr_pipe is None:
-                return
-            while True:
-                try:
-                    chunk = stderr_pipe.read(1024)
-                except (OSError, ValueError):
-                    break
-                if not chunk:
-                    break
-                with stderr_lock:
-                    remaining = stderr_limit - captured_length
-                    if remaining <= 0:
-                        continue
-                    kept = chunk[:remaining]
-                    stderr_chunks.append(kept)
-                    captured_length += len(kept)
+        def _make_pipe_reader(pipe: Any, chunks: list[str], pipe_lock: threading.Lock) -> Any:
+            def _drain_pipe() -> None:
+                captured_length = 0
+                if pipe is None:
+                    return
+                while True:
+                    try:
+                        chunk = pipe.read(1024)
+                    except (OSError, ValueError):
+                        break
+                    if not chunk:
+                        break
+                    with pipe_lock:
+                        remaining = capture_limit - captured_length
+                        if remaining <= 0:
+                            continue
+                        kept = chunk[:remaining]
+                        chunks.append(kept)
+                        captured_length += len(kept)
 
-        stderr_reader = threading.Thread(target=_drain_stderr, daemon=True)
+            return _drain_pipe
+
+        stdout_reader = threading.Thread(target=_make_pipe_reader(stdout_pipe, stdout_chunks, stdout_lock), daemon=True)
+        stderr_reader = threading.Thread(target=_make_pipe_reader(stderr_pipe, stderr_chunks, stderr_lock), daemon=True)
+        stdout_reader.start()
         stderr_reader.start()
 
+        stdout_text = ""
         stderr_text = ""
         try:
             proc.wait(timeout=timeout_seconds)
@@ -2315,18 +2454,34 @@ def run_worktree_setup_script(
                 pass
             raise
         finally:
-            # Do not close stderr_pipe here: BufferedReader.close() acquires the
-            # same lock that read() holds in _drain_stderr, so calling close()
+            # Do not close stdout/stderr pipes here: BufferedReader.close() acquires the
+            # same lock that read() holds in _drain_pipe(), so calling close()
             # while the reader is blocked would deadlock.  The bounded join()
             # below is the only gate needed — the daemon reader thread will exit
             # once the pipe reaches EOF (all writers closed) or when the
             # background task process itself exits.
+            stdout_reader.join(timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS)
             stderr_reader.join(timeout=_SETUP_SCRIPT_KILL_WAIT_SECONDS)
+            with stdout_lock:
+                stdout_text = "".join(stdout_chunks)
             with stderr_lock:
                 stderr_text = "".join(stderr_chunks)
         returncode = proc.returncode
         if returncode != 0:
             diagnostic = _sanitize_worktree_setup_diagnostic(stderr_text)
+            stdout_diagnostic = _sanitize_worktree_setup_diagnostic(stdout_text)
+            if diagnostic and stdout_diagnostic:
+                stderr_prefix = "stderr: "
+                stdout_prefix = "\nstdout: "
+                stream_budget = _SETUP_STDERR_READ_LIMIT - len(stderr_prefix) - len(stdout_prefix)
+                stdout_reservation = min(len(stdout_diagnostic), stream_budget // 2)
+                stderr_budget = min(len(diagnostic), stream_budget - stdout_reservation)
+                stdout_budget = min(len(stdout_diagnostic), stream_budget - stderr_budget)
+                diagnostic = (
+                    f"{stderr_prefix}{diagnostic[:stderr_budget]}{stdout_prefix}{stdout_diagnostic[:stdout_budget]}"
+                )
+            elif not diagnostic and stdout_diagnostic:
+                diagnostic = _sanitize_worktree_setup_diagnostic(f"stdout: {stdout_text}")
             if not diagnostic:
                 diagnostic = "setup script exited without diagnostic output"
             message = f"{diagnostic}"
@@ -2496,7 +2651,11 @@ def _remove_invocation_trust_if_worktree_gone(result: WorktreeSetupResult) -> No
         remove_trusted_folder(result.worktree_path)
 
 
-def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
+def _cleanup_failed_worktree_setup(
+    result: WorktreeSetupResult,
+    *,
+    failure_context: str = "the original target setup script failure",
+) -> None:
     """Best-effort cleanup of invocation-owned worktree and created local branch."""
     if not result.created_worktree:
         return
@@ -2515,7 +2674,7 @@ def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
             )
         except subprocess.TimeoutExpired as exc:
             print(
-                "Cleanup failed; retain the original target setup script failure. "
+                f"Cleanup failed; retain {failure_context}. "
                 f"Manual recovery may be required for worktree {result.worktree_path}: "
                 f"{' '.join(str(a) for a in exc.cmd) if exc.cmd else 'git worktree remove'} "
                 f"timed out after {_SETUP_CLEANUP_TIMEOUT_SECONDS}s",
@@ -2531,7 +2690,7 @@ def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
             )
             if os.path.exists(result.worktree_path):
                 print(
-                    "Cleanup failed; retain the original target setup script failure. "
+                    f"Cleanup failed; retain {failure_context}. "
                     f"Manual recovery may be required for worktree {result.worktree_path}: "
                     "git worktree remove reported success but path still exists",
                     file=sys.stderr,
@@ -2552,7 +2711,7 @@ def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
                     )
                 except subprocess.TimeoutExpired as exc:
                     print(
-                        "Cleanup failed; retain the original target setup script failure. "
+                        f"Cleanup failed; retain {failure_context}. "
                         f"Manual recovery may be required for branch {result.branch_name}: "
                         f"{' '.join(str(a) for a in exc.cmd) if exc.cmd else 'git branch -D'} "
                         f"timed out after {_SETUP_CLEANUP_TIMEOUT_SECONDS}s",
@@ -2564,7 +2723,7 @@ def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
                         _sanitize_worktree_setup_diagnostic(branch_cleanup.stderr or "") or "git branch cleanup failed"
                     )
                     print(
-                        "Cleanup failed; retain the original target setup script failure. "
+                        f"Cleanup failed; retain {failure_context}. "
                         f"Manual recovery may be required for branch {result.branch_name}: {diagnostic}",
                         file=sys.stderr,
                     )
@@ -2573,41 +2732,70 @@ def _cleanup_failed_worktree_setup(result: WorktreeSetupResult) -> None:
                 _sanitize_worktree_setup_diagnostic(cleanup_result.stderr or "") or "git worktree remove failed"
             )
             print(
-                "Cleanup failed; retain the original target setup script failure. "
+                f"Cleanup failed; retain {failure_context}. "
                 f"Manual recovery may be required for worktree {result.worktree_path}: {diagnostic}",
                 file=sys.stderr,
             )
     except (FileNotFoundError, OSError) as exc:
         print(
-            "Cleanup failed; retain the original target setup script failure. "
+            f"Cleanup failed; retain {failure_context}. "
             f"Manual recovery may be required for worktree {result.worktree_path}: "
             f"{_sanitize_worktree_setup_diagnostic(exc)}",
             file=sys.stderr,
         )
 
 
-def check_worktree_exists(issue_key: str) -> str | None:
+def check_worktree_exists(
+    issue_key: str,
+    *,
+    require_registered: bool = False,
+    expected_path: str | None = None,
+) -> str | None:
     """
     Check if a worktree for the given issue key already exists.
 
     Args:
         issue_key: The issue key to check for
+        require_registered: If True, require an explicit Git porcelain registration
+            instead of accepting the conventional filesystem fallback.
+        expected_path: When requiring registration, optionally match the exact
+            expected path in Git porcelain rather than the branch name.
 
     Returns:
         The worktree path if it exists, None otherwise
     """
-    repos_parent = get_repos_parent_dir()
-    if not repos_parent:
-        return None
+    main_repo_root = get_main_repo_root()
+    if not main_repo_root:
+        raise GitError(
+            1,
+            "unable to resolve main repository root",
+            ["rev-parse", "--git-common-dir"],
+        )
 
-    worktree_path = os.path.join(repos_parent, issue_key)
+    try:
+        from ..git.worktree import detect_existing_worktree
 
-    if os.path.exists(worktree_path):
-        # Verify it's a valid git worktree
-        git_file = os.path.join(worktree_path, ".git")
-        if os.path.exists(git_file):
-            return worktree_path
+        detection = detect_existing_worktree(
+            issue_key,
+            main_repo_root,
+            require_porcelain=require_registered,
+            expected_path=expected_path,
+        )
+    except GitError as exc:
+        raise GitError(
+            exc.returncode,
+            _sanitize_worktree_setup_diagnostic(exc.stderr),
+            exc.args_list,
+        ) from exc
 
+    if detection.status == "resume":
+        return detection.path
+    if detection.status == "corrupt":
+        raise GitError(
+            1,
+            _sanitize_worktree_setup_diagnostic(f"git worktree candidate {detection.path} is invalid"),
+            ["worktree", "list", "--porcelain"],
+        )
     return None
 
 
@@ -4500,7 +4688,19 @@ def setup_worktree_in_background_sync(
     defer_workspace_path_settings = headless or auto_execute_command is not None
 
     # Check if worktree already exists
-    existing_path = check_worktree_exists(issue_key)
+    try:
+        existing_path = check_worktree_exists(issue_key)
+    except (GitError, FileNotFoundError, OSError) as exc:
+        worktree_path = os.path.join(get_repos_parent_dir() or "", issue_key)
+        branch_name = branch_name or f"{branch_prefix}/{issue_key}/implementation"
+        error_message = f"Unable to verify existing worktree: {_sanitize_worktree_setup_diagnostic(exc)}"
+        print(f"\n❌ {error_message}", file=sys.stderr)
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path=worktree_path,
+            branch_name=branch_name,
+            error_message=error_message,
+        )
     if existing_path:
         print(f"\nWorktree already exists at: {existing_path}")
         _propagate_agdt_cache(existing_path, worktree_key=issue_key)
@@ -5118,7 +5318,12 @@ def create_placeholder_and_setup_worktree(
     print("\n🔧 Step 2: Setting up worktree environment...")
 
     # Check if worktree already exists (unlikely for new issue, but check anyway)
-    existing_path = check_worktree_exists(issue_key)
+    try:
+        existing_path = check_worktree_exists(issue_key)
+    except (GitError, FileNotFoundError, OSError) as exc:
+        error_message = f"Unable to verify existing worktree: {_sanitize_worktree_setup_diagnostic(exc)}"
+        print(f"\n❌ {error_message}", file=sys.stderr)
+        return False, issue_key
     if existing_path:
         print(f"   Worktree already exists at: {existing_path}")
         return True, issue_key

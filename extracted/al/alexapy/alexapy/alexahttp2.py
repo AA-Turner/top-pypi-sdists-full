@@ -108,6 +108,7 @@ class HTTP2EchoClient:
         self._last_ping = datetime.datetime(1, 1, 1)
         self._last_activity: datetime.datetime | None = None
         self._read_timeout = read_timeout
+        self._pending_line: str = ""
         self._tasks = set()
         self._opened: asyncio.Event = asyncio.Event()
         self._closing: bool = False
@@ -233,11 +234,19 @@ class HTTP2EchoClient:
                 self.on_close("HTTP2 stream ended")
 
     async def on_message(self, message: str) -> None:
-        """Handle New Message."""
+        """Handle New Message.
+
+        A chunk is an arbitrary slice of the multipart stream, not a whole
+        part, so a directive longer than one chunk arrives split across
+        several calls. Each line is only parsed once its terminating newline
+        has arrived; the unterminated tail is carried over to the next chunk.
+        """
         reauth_required = "Unable to authenticate the request. Please provide a valid authorization token."  # noqa: E501
         _LOGGER.debug("Received raw message: %s", message)
         self._last_activity = datetime.datetime.now(datetime.UTC)
-        for line in message.splitlines():
+        *lines, self._pending_line = (self._pending_line + message).split("\n")
+        for raw_line in lines:
+            line = raw_line.rstrip("\r")
             if line.startswith("------"):
                 if not self.boundary:  # set boundary character
                     self.boundary = line
@@ -249,6 +258,12 @@ class HTTP2EchoClient:
             elif line and not line.startswith(self.boundary):
                 with contextlib.suppress(json.decoder.JSONDecodeError):
                     self._schedule(self.msg_callback(json.loads(line)))
+        # An auth failure body is not part of the multipart stream and may
+        # never be newline-terminated, so don't hold it for the next chunk.
+        if self._pending_line.startswith(reauth_required):
+            _LOGGER.debug("HTTP2 login error: %s", message)
+            self._pending_line = ""
+            await self.handle_login_error("HTTP2 Message Parsing reauth")
 
     def _schedule(self, coro: Coroutine[Any, Any, Any]) -> None:
         """Schedule a coroutine on the target loop safely."""

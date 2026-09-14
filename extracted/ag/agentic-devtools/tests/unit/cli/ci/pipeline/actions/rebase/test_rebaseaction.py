@@ -96,6 +96,20 @@ class TestRebaseAction:
 
     @patch(
         "agentic_devtools.cli.ci.pipeline.actions.rebase.is_copilot_session_active_via_agent_task",
+        return_value=None,
+    )
+    def test_evaluate_skip_when_session_inventory_unavailable(self, _mock_session) -> None:
+        """evaluate() returns SKIP when session inventory is unavailable."""
+        snapshot = self._make_snapshot(commits_behind=2)
+        derived = DerivedState(snapshot)
+        action = RebaseAction()
+        result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_active_session"] is False
+        assert "inventory unavailable" in result.details.lower()
+
+    @patch(
+        "agentic_devtools.cli.ci.pipeline.actions.rebase.is_copilot_session_active_via_agent_task",
         return_value=False,
     )
     def test_evaluate_preconditions_structure(self, _mock_session) -> None:

@@ -13,6 +13,7 @@ from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.function import FunctionQuery
@@ -140,7 +141,7 @@ class File(AbstractFile):
     def get_content(self) -> ClientResult[bytes]:
         """Downloads a file content"""
         return_type = ClientResult(self.context, bytes())
-        qry = FunctionQuery(self, "$value", return_type=return_type)
+        qry = FunctionQuery(self, "$value", return_type=return_type, return_raw_content=True)
         self.context.add_query(qry)
         return return_type
 
@@ -435,6 +436,50 @@ class File(AbstractFile):
         self.ensure_properties(["ServerRelativePath", "Name"]).after_execute(lambda _: _source_file_resolved())
         return self
 
+    def move_by_path(
+        self,
+        destination: Union[str, Folder],
+        flag: MoveOperations = MoveOperations.overwrite,
+    ) -> Self:
+        """Moves the file to the specified destination using ``MoveCopyUtil.MoveFileByPath``.
+
+        Unlike :meth:`move_to_using_path` (``File/MoveToUsingPath``), both paths
+        travel in the request body, so deep folder structures don't hit
+        SharePoint's URL length limit.
+
+        Args:
+            destination (str or office365.sharepoint.folders.folder.Folder): Specifies the
+                destination folder path or an existing folder object.
+            flag (MoveOperations): Specifies the kind of move operation
+                (defaults to ``overwrite``).
+        """
+        from office365.sharepoint.utilities.move_copy_options import MoveCopyOptions
+        from office365.sharepoint.utilities.move_copy_util import MoveCopyUtil
+
+        def _move_by_path(destination_folder: Folder) -> None:
+            assert self.name is not None
+            assert self.server_relative_path is not None
+            file_path = "/".join([str(destination_folder.server_relative_path), self.name])
+            options = MoveCopyOptions(KeepBoth=flag != MoveOperations.overwrite)
+            MoveCopyUtil.move_file_by_path(self.context, str(self.server_relative_path), file_path, options)
+
+            def _update_file(_) -> None:
+                self.set_property("ServerRelativePath", file_path)
+
+            self.context.after_execute(_update_file)
+
+        def _source_file_resolved() -> None:
+            if isinstance(destination, Folder):
+                dest = destination
+                destination.ensure_property("ServerRelativePath").after_execute(lambda _: _move_by_path(dest))
+            else:
+                self.context.web.ensure_folder_path(destination).get().select(["ServerRelativePath"]).after_execute(
+                    _move_by_path
+                )
+
+        self.ensure_properties(["ServerRelativePath", "Name"]).after_execute(lambda _: _source_file_resolved())
+        return self
+
     def publish(self, comment: str) -> Self:
         """Submits the file for content approval with the specified comment.
 
@@ -635,9 +680,11 @@ class File(AbstractFile):
     def save_binary(context: ClientContext, server_relative_url: str, content: bytes):
         """Uploads a file"""
         try:
-            decoded_server_relative_url = unquote(server_relative_url)
+            decoded = unquote(server_relative_url)
         except (ValueError, AttributeError, TypeError):
-            decoded_server_relative_url = server_relative_url
+            decoded = server_relative_url
+        # OData literals escape embedded single quotes by doubling them (' -> '')
+        decoded_server_relative_url = decoded.replace("'", "''")
 
         url = quote(
             rf"{context.service_root_url}/web/getFileByServerRelativePath"
@@ -658,9 +705,11 @@ class File(AbstractFile):
         Returns the file object located at the specified server-relative URL.
         """
         try:
-            decoded_server_relative_url = unquote(server_relative_url)
+            decoded = unquote(server_relative_url)
         except (ValueError, AttributeError, TypeError):
-            decoded_server_relative_url = server_relative_url
+            decoded = server_relative_url
+        # OData literals escape embedded single quotes by doubling them (' -> '')
+        decoded_server_relative_url = decoded.replace("'", "''")
 
         url = quote(
             rf"{context.service_root_url}/web/getFileByServerRelativePath("
@@ -692,7 +741,14 @@ class File(AbstractFile):
         self.ensure_property("ServerRelativePath").after_execute(lambda _: _download_inner())
         return self
 
-    def download_session(self, file_object, chunk_downloaded=None, chunk_size=1024 * 1024, use_path=True):
+    def download_session(
+        self,
+        file_object,
+        chunk_downloaded=None,
+        chunk_size=1024 * 1024,
+        use_path=True,
+        progress=None,
+    ):
         """Download a file content. Use this method to download a content of a large size
 
         Args:
@@ -700,6 +756,9 @@ class File(AbstractFile):
             chunk_downloaded ((int)->None or None):
             chunk_size (int):
             use_path (bool): File addressing by path flag
+            progress (office365.runtime.operations.ProgressCallback): Optional hook
+              invoked per chunk with a ``Progress`` snapshot (``done`` = bytes
+              downloaded so far, ``total`` = content length when known).
         """
 
         def _download_as_stream():
@@ -714,11 +773,14 @@ class File(AbstractFile):
 
             def _process_response(response: requests.Response) -> None:
                 self.context.pending_request().beforeExecute -= _construct_request
+                total = int(response.headers.get("Content-Length", 0)) or None
                 bytes_read = 0
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     bytes_read += len(chunk)
                     if callable(chunk_downloaded):
                         chunk_downloaded(bytes_read)
+                    if callable(progress):
+                        progress(Progress(done=bytes_read, total=total, stage="downloading"))
                     file_object.write(chunk)
 
             self.context.add_query(qry).before_execute(_construct_request, once=False).after_execute(

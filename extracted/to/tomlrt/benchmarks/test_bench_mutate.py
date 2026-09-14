@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 
+from copy import copy
 from typing import TYPE_CHECKING
 
 import pytest
@@ -86,6 +87,18 @@ def test_parse_and_render_pyproject(
 def test_render_only_pyproject(benchmark: BenchmarkFixture, pyproject_src: str) -> None:
     doc = tomlrt.loads(pyproject_src)
     benchmark(tomlrt.dumps, doc)
+
+
+@pytest.mark.parametrize("operation", ["copy", "export"])
+def test_copy_or_export_formatted_table(
+    benchmark: BenchmarkFixture, operation: str
+) -> None:
+    values = ",".join(str(i) for i in range(1000))
+    table = tomlrt.loads(f"t = {{\n  values = [ {values} ] # values\n}}\n").table("t")
+    if operation == "copy":
+        benchmark(copy, table)
+    else:
+        benchmark(table.to_dict)
 
 
 def test_iterate_root_comments_over_nested_sections(
@@ -287,6 +300,44 @@ def test_attach_aot_factory(
         doc["items"] = factory
 
     benchmark.pedantic(work, setup=setup, rounds=100)
+
+
+@pytest.mark.parametrize(
+    ("entries", "width", "annotated"),
+    [(1, 5, False), (1, 1000, False), (100, 5, False), (1, 1000, True)],
+)
+def test_repeat_and_attach_aot_factory(
+    benchmark: BenchmarkFixture, entries: int, width: int, *, annotated: bool
+) -> None:
+    def setup() -> tuple[tuple[Document, tomlrt.AoT], dict[str, object]]:
+        factory = tomlrt.AoT([{"values": list(range(width))} for _ in range(entries)])
+        if annotated:
+            factory[0].comments["values"] = "retain"
+        return (tomlrt.Document(), factory), {}
+
+    def work(doc: Document, factory: tomlrt.AoT) -> None:
+        factory *= 3
+        doc["items"] = factory
+
+    benchmark.pedantic(work, setup=setup, rounds=100)
+
+
+@pytest.mark.parametrize("entries", [100, 1000, 3000])
+def test_clone_implicit_with_empty_aot_entries(
+    benchmark: BenchmarkFixture, entries: int
+) -> None:
+    source = tomlrt.loads(
+        "source.marker = 0\n"
+        + _aot_doc(entries).replace("[[items]]", "[[source.rows]]")
+    )
+    for entry in source.aot("source.rows"):
+        entry["pending"] = tomlrt.AoT()
+    table = source.table("source")
+
+    def work(doc: Document) -> None:
+        doc["copy"] = table
+
+    benchmark.pedantic(work, setup=_parsed(""), rounds=20)
 
 
 @pytest.mark.parametrize("source", ["section", "aot"])
@@ -521,11 +572,17 @@ def test_sort_nested_sections(benchmark: BenchmarkFixture) -> None:
     benchmark.pedantic(work, setup=_parsed(src), rounds=20)
 
 
-def test_sort_forward_declared_table(benchmark: BenchmarkFixture) -> None:
-    def work(doc: Document) -> None:
-        doc.table("target").sort()
+@pytest.mark.parametrize("implicit", [False, True])
+def test_sort_forward_declared_table(
+    benchmark: BenchmarkFixture, *, implicit: bool
+) -> None:
+    path = "target.inner" if implicit else "target"
+    key = "inner.a" if implicit else "a"
 
-    src = "[target.z]\nvalue = 1\n[target]\na = 2\n" + "".join(
+    def work(doc: Document) -> None:
+        doc.table(path).sort()
+
+    src = f"root_value = 0\n[{path}.z]\nvalue = 1\n[target]\n{key} = 2\n" + "".join(
         f"[trailing_{i}]\nvalue = {i}\n" for i in range(10_000)
     )
     benchmark.pedantic(work, setup=_parsed(src), rounds=50)

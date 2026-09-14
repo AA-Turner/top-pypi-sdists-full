@@ -23,7 +23,10 @@ def _workspace_dir(ctx: ToolContext) -> Path:
 
 async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_ai.tools._generated_declarations import CodeExecutePythonArgs
-    parsed = CodeExecutePythonArgs.model_validate(args)  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
+
+    parsed = CodeExecutePythonArgs.model_validate(
+        args
+    )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
     code_input = parsed.code_input
     timeout = parsed.timeout_seconds
 
@@ -61,9 +64,7 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         )
 
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=timeout
-            )
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
         except TimeoutError:
             process.kill()
             return ToolResult(
@@ -88,13 +89,19 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         if len(stdout_text) > _MAX_OUTPUT:
             log_path = workspace / "_python_stdout.log"
             log_path.write_text(stdout_text)
-            stdout_str = f"...(Truncated {len(stdout_text)} bytes. Full output written to {log_path})...\n" + stdout_text[-_MAX_OUTPUT:]
-            
+            stdout_str = (
+                f"...(Truncated {len(stdout_text)} bytes. Full output written to {log_path})...\n"
+                + stdout_text[-_MAX_OUTPUT:]
+            )
+
         stderr_str = stderr_text
         if len(stderr_text) > _MAX_OUTPUT:
             err_path = workspace / "_python_stderr.log"
             err_path.write_text(stderr_text)
-            stderr_str = f"...(Truncated {len(stderr_text)} bytes. Full output written to {err_path})...\n" + stderr_text[-_MAX_OUTPUT:]
+            stderr_str = (
+                f"...(Truncated {len(stderr_text)} bytes. Full output written to {err_path})...\n"
+                + stderr_text[-_MAX_OUTPUT:]
+            )
         success = process.returncode == 0
 
         return ToolResult(
@@ -104,6 +111,7 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
                 stdout=stdout_str,
                 stderr=stderr_str,
                 exit_code=process.returncode,
+                backend="host",
             ).model_dump(mode="json"),
             error=ToolError(
                 error_type="python_error",
@@ -124,7 +132,10 @@ async def code_execute_python(args: dict[str, Any], ctx: ToolContext) -> ToolRes
 
 async def code_store_html(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_ai.tools._generated_declarations import CodeStoreHtmlArgs
-    CodeStoreHtmlArgs.model_validate(args)  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
+
+    CodeStoreHtmlArgs.model_validate(
+        args
+    )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
     html_input = args.get("html_input", "")
     if not html_input:
         return ToolResult(
@@ -141,9 +152,7 @@ async def code_store_html(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     except httpx.HTTPError as e:
         return ToolResult(
             success=False,
-            error=ToolError(
-                error_type="execution", message=f"Failed to store HTML: {e}"
-            ),
+            error=ToolError(error_type="execution", message=f"Failed to store HTML: {e}"),
         )
 
 
@@ -170,7 +179,10 @@ async def code_fetch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     Use "clean" or "original" for focused editing or review of small modules.
     """
     from matrx_ai.tools._generated_declarations import CodeFetchCodeArgs
-    CodeFetchCodeArgs.model_validate(args)  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
+
+    CodeFetchCodeArgs.model_validate(
+        args
+    )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
     from matrx_utils.code_context import CodeContextBuilder
 
     project_root_raw = args.get("project_root", "")
@@ -246,7 +258,10 @@ async def code_fetch_tree(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     which subdirectory to fetch in full with code_fetch_code.
     """
     from matrx_ai.tools._generated_declarations import CodeFetchTreeArgs
-    CodeFetchTreeArgs.model_validate(args)  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
+
+    CodeFetchTreeArgs.model_validate(
+        args
+    )  # enforce the declared arg contract (common-docs/systems/agents/agent-tools/HANDOFF.md)
     from matrx_utils.code_context import CodeContextBuilder
 
     project_root_raw = args.get("project_root", "")

@@ -181,38 +181,10 @@ def test_a_directive_slug_still_routes_to_matrx_not_to_kind(warm_snapshot):
     body = json.dumps({"__kind": "directive_v1_action_create_project_with_tasks", "items": []})
     assert detect_json_block_type(body) == "matrx"
 
-
 # ---------------------------------------------------------------------------
-# The live registry — the half a hand-copied schema cannot prove
+# The live registry — the half a hand-copied schema cannot prove — is proven on
+# the HOST side: aidream/services/kind_records/tests/test_live_registry_wine_tasting.py
+# imports WINE / WINE_SCHEMA / TASTING from here and wires the real catalog
+# through aidream.package_integration. A package test never imports the app
+# (scripts/check_package_boundaries.py), so that half cannot live in this file.
 # ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_the_live_registry_types_wine_tasting_and_agrees_with_this_guards_schema():
-    """Against the real catalog: wine_tasting is registered, and its schema still matches.
-
-    Skips (loudly, never silently passing) when the host has not wired the kind manager —
-    that is an infra condition, not a verdict.
-    """
-    from aidream.package_integration import _configure_matrx_ai, _configure_matrx_runtime
-
-    _configure_matrx_runtime()
-    # wire_package_db() lives here: it is what registers content_ir's
-    # kind_definition_manager into matrx-graph's DI seam.
-    _configure_matrx_ai()
-    kind_catalog.invalidate()
-    await kind_catalog.prime_registered_kinds()
-
-    if not kind_catalog.snapshot_is_warm():
-        pytest.skip("kind catalog unreachable from this process — not a verdict on the code")
-
-    assert kind_catalog.is_registered_kind(WINE), (
-        "wine_tasting is not in the live registry snapshot, so the chat stream cannot type it"
-    )
-    live = kind_catalog.registered_kind_schema(WINE)
-    assert live is not None, "wine_tasting is registered with no usable emitted_json_schema"
-    assert set(live.get("properties") or {}) == set(WINE_SCHEMA["properties"]), (
-        "the live wine_tasting schema no longer matches the copy this guard validates "
-        "against — update WINE_SCHEMA and re-read what changed"
-    )
-    assert detect_json_block_type(json.dumps(TASTING, indent=2)) == KIND_BLOCK_TYPE

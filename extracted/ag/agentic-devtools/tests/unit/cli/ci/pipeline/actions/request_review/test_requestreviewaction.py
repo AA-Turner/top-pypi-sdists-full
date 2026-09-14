@@ -134,6 +134,25 @@ class TestRequestReviewAction:
         assert result.decision == ActionDecision.SKIP
         assert "session active" in result.details.lower()
 
+    def test_skip_when_session_inventory_unavailable(self) -> None:
+        """Review request is blocked when session inventory is unavailable."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            is_draft=False,
+            ci_status="passing",
+            review_state="",
+            copilot_review_id=0,
+            copilot_review_pending=False,
+            base_repo_full_name="owner/repo",
+        )
+        derived = DerivedState(snapshot)
+        action = RequestReviewAction()
+        with patch(_PATCH_DETECTOR, return_value=None) as mock_detector:
+            result = action.evaluate(snapshot, derived)
+            mock_detector.assert_called_once_with("owner/repo", 1)
+        assert result.decision == ActionDecision.SKIP
+        assert "inventory unavailable" in result.details.lower()
+
     def test_skip_when_unresolved_threads(self) -> None:
         """Review request is blocked when unresolved threads exist."""
         snapshot = PRStateSnapshot(

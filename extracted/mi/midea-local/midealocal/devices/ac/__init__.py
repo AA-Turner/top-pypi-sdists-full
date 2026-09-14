@@ -3,13 +3,17 @@
 import json
 import logging
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, ClassVar, Unpack, cast, override
 
 from midealocal.base_classes.climate import (
+    DEFAULT_MAX_TARGET_TEMPERATURE,
+    DEFAULT_MIN_TARGET_TEMPERATURE,
     MideaClimateDevice,
     MideaFanMode,
     MideaHVACMode,
+    MideaPreset,
     MideaSwingMode,
 )
 from midealocal.const import DeviceType
@@ -210,6 +214,19 @@ class MideaACDevice(MideaClimateDevice):
         (ACFanSpeed.SILENT, ACFanSpeed.LOW),
     )
 
+    # BB (sub-protocol) devices: MessageSubProtocolSet doesn't serialize
+    # comfort_mode/frost_protect, so comfort/away are excluded for them below.
+    _all_preset_attributes: ClassVar[dict[MideaPreset, str]] = {
+        MideaPreset.COMFORT: DeviceAttributes.comfort_mode,
+        MideaPreset.ECO: DeviceAttributes.eco_mode,
+        MideaPreset.BOOST: DeviceAttributes.boost_mode,
+        MideaPreset.SLEEP: DeviceAttributes.sleep_mode,
+        MideaPreset.AWAY: DeviceAttributes.frost_protect,
+    }
+    _bb_unsupported_presets: ClassVar[frozenset[MideaPreset]] = frozenset(
+        {MideaPreset.COMFORT, MideaPreset.AWAY},
+    )
+
     _swing_modes: ClassVar[dict[ACSwingMode, tuple[bool, bool]]] = {
         ACSwingMode.OFF: (False, False),
         ACSwingMode.VERTICAL: (True, False),
@@ -325,6 +342,23 @@ class MideaACDevice(MideaClimateDevice):
         # fields to avoid brief UI flicker caused by query ordering.
         self._prefer_new_protocol_temperature: bool = False
         self.set_customize(customize)
+
+    @property
+    @override
+    def _preset_attributes(self) -> Mapping[MideaPreset, str]:
+        """Presets supported by this unit.
+
+        BB (sub-protocol) devices drop comfort/away: MessageSubProtocolSet
+        doesn't serialize comfort_mode/frost_protect, so those commands
+        would have no effect.
+        """
+        if self._used_subprotocol:
+            return {
+                preset: attr
+                for preset, attr in MideaACDevice._all_preset_attributes.items()
+                if preset not in MideaACDevice._bb_unsupported_presets
+            }
+        return MideaACDevice._all_preset_attributes
 
     @property
     @override
@@ -453,6 +487,22 @@ class MideaACDevice(MideaClimateDevice):
     def temperature_step(self) -> float | None:
         """Midea AC device temperature step."""
         return self._temperature_step
+
+    @override
+    def min_temperature(self, zone: int | None = None) -> float:
+        """Midea AC device minimum target temperature."""
+        value = self._attributes[DeviceAttributes.min_temperature]
+        if isinstance(value, (int, float)):
+            return float(value)
+        return DEFAULT_MIN_TARGET_TEMPERATURE
+
+    @override
+    def max_temperature(self, zone: int | None = None) -> float:
+        """Midea AC device maximum target temperature."""
+        value = self._attributes[DeviceAttributes.max_temperature]
+        if isinstance(value, (int, float)):
+            return float(value)
+        return DEFAULT_MAX_TARGET_TEMPERATURE
 
     @property
     def fresh_air_fan_speeds(self) -> list[str]:
@@ -676,7 +726,7 @@ class MideaACDevice(MideaClimateDevice):
         self._capabilities.update(new_capabilities)
         for cap in MideaACDevice._capabilities_attr:
             if not self._capabilities.get(cap, False):
-                self._attributes.pop(MideaACDevice._capabilities_attr[cap])
+                self._attributes.pop(MideaACDevice._capabilities_attr[cap], None)
         return {"capabilities": dict(self._capabilities)}
 
     def _refresh_self_clean_status(self, message: MessageACResponse) -> dict[str, Any]:

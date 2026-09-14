@@ -194,3 +194,50 @@ def test_a_doubly_emitted_unanswered_call_is_repaired_exactly_once() -> None:
     messages.sanitize()
     results = _result_blocks(list(messages))
     assert len(results) == 1, "a second synthetic result would 400 the whole request"
+
+
+# ── A PENDING call is not an orphan (2026-09-13) ─────────────────────────────
+#
+# Conversation 99d5b990: the agent called the client-delegated ``user`` tool.
+# At the instant of delegation a UnifiedConfig was hydrated over the transcript
+# (``__post_init__`` → ``sanitize(allow_empty=True)``), whose LAST message was
+# that assistant call — legitimately waiting for the browser. The sanitizer
+# "repaired" it: a synthesized "TOOL NEVER ANSWERED" error result plus a red
+# ERROR banner and a durable repair row, for a call that was answered 8 minutes
+# later. Hydration is not a provider send: a trailing call is pending, and the
+# strict pass right before any provider request still repairs a real orphan.
+
+
+def test_hydration_pass_leaves_a_trailing_pending_call_alone(monkeypatch: Any) -> None:
+    import matrx_ai.config.message_config as mc
+
+    reports: list[Any] = []
+    monkeypatch.setattr(
+        mc, "report_orphan_tool_uses_repaired", lambda **kw: reports.append(kw)
+    )
+    messages = _delegated_write_turn()
+    messages.sanitize(allow_empty=True)
+    out = list(messages)
+
+    assert [c.id for c in _call_blocks(out)] == ["toolu_w49"], "pending call was erased"
+    assert _result_blocks(out) == [], "a pending call got a fabricated error result"
+    assert reports == [], "a pending call raised a false 'never answered' alarm"
+
+
+def test_strict_pass_still_repairs_the_same_trailing_call() -> None:
+    messages = _delegated_write_turn()
+    messages.sanitize(allow_empty=True)
+    messages.sanitize()  # the provider-send pass
+    results = _result_blocks(list(messages))
+    assert [r.tool_use_id for r in results] == ["toolu_w49"]
+    assert results[0].is_error is True
+
+
+def test_hydration_pass_still_repairs_a_non_trailing_orphan() -> None:
+    messages = _delegated_write_turn()
+    messages.append(
+        UnifiedMessage(role=Role.USER, content=[TextContent(text="Did it work?")])
+    )
+    messages.sanitize(allow_empty=True)
+    results = _result_blocks(list(messages))
+    assert [r.tool_use_id for r in results] == ["toolu_w49"]

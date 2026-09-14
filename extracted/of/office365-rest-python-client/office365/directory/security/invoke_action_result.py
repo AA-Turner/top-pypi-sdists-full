@@ -9,7 +9,6 @@ from office365.runtime.client_value import ClientValue
 class InvokeActionResult(ClientValue):
     accountId: str | None = None
     correlationId: str | None = None
-    # identityProvider: IdentityProvider = field(default_factory=IdentityProvider)
 
     @property
     def entity_type_name(self) -> str:

@@ -24,8 +24,8 @@ esi = ESIClientProvider(
     ])
 
 
-def get_characters_character_id(character_id: int) -> "CharactersDetail":
-    return esi.client.Character.GetCharactersCharacterId(character_id=character_id).result()
+def get_characters_character_id(character_id: int, use_etag=True) -> "CharactersDetail":
+    return esi.client.Character.GetCharactersCharacterId(character_id=character_id).result(use_etag=use_etag)
 
 
 def get_corporations_corporation_id_members(corporation_id: int, token: Token) -> "CorporationsCorporationIdMembersGet":

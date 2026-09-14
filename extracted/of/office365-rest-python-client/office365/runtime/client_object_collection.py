@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import IO, Any, Callable, Dict, Generic, Iterator, List, Optional, Type
+from os import PathLike
+from typing import IO, TYPE_CHECKING, Any, Callable, Dict, Generic, Iterator, List, Optional, Type, Union, cast
 
 from typing_extensions import Self
 
@@ -8,9 +9,14 @@ from office365.runtime.client_object import ClientObject, ClientObjectT
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.json_format import ODataJsonFormat
+from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.event_handler import EventHandler
 from office365.runtime.types.exceptions import NotFoundException
+
+if TYPE_CHECKING:
+    from office365.runtime.converters.dataframe import DataFrameResult
+    from office365.runtime.operations import ProgressCallback
 
 
 class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
@@ -45,8 +51,10 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         self._item_type: Type[ClientObjectT] = item_type
         self._page_loaded: EventHandler = EventHandler(False)
         self._paged_mode: bool = False
+        self._page_size: int | None = None
         self._current_pos: int | None = None
         self._next_request_url: str | None = None
+        self._page_headers: dict[str, str] | None = None
         self._parent = parent
 
     def clear_state(self) -> Self:
@@ -62,6 +70,7 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         if not self._paged_mode:
             self._data = []
         self._next_request_url = None
+        self._page_headers = None
         self._current_pos = len(self._data)
         return self
 
@@ -168,9 +177,13 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         """Get an item by its index position."""
         return self._data[index]
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> list[dict[str, Any]]:  # type: ignore[override]
+    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> list[dict[str, Any]]:
         """
-        Serialize the collection to JSON format.
+        Serialize the collection to OData JSON format.
+
+        This is **payload serialization** (for request bodies, includes type
+        metadata when requested) — for data export use :meth:`to_records` /
+        :meth:`to_csv` instead.
 
         Args:
             json_format: Serialization options
@@ -178,7 +191,7 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Returns:
             JSON-serializable list of item dictionaries
         """
-        return [item.to_json(json_format) for item in self._data]
+        return [cast(Dict[str, Any], item.to_json(json_format)) for item in self._data]
 
     def filter(self, expression: str) -> Self:
         """
@@ -247,6 +260,7 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             self: Supports fluent method chaining
         """
         self._paged_mode = True
+        self._page_size = page_size
         if callable(page_loaded):
             self._page_loaded += page_loaded
         if page_size:
@@ -264,29 +278,47 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         def _loaded(col: Any) -> None:
             self._page_loaded(self)
 
-        self.context.load(self).after_execute(_loaded)
+        def _capture_headers(resp: Any) -> None:
+            # remember the headers of the first page so subsequent page
+            # requests can re-apply them (e.g. ConsistencyLevel on Graph)
+            request = getattr(resp, "request", None)
+            if self._paged_mode and self._page_headers is None and request is not None:
+                self._page_headers = dict(request.headers)
+
+        self.context.load(self).after_execute(_capture_headers, include_response=True).after_execute(_loaded)
         return self
 
-    def get_all(self, page_size: int | None = None, page_loaded: Callable[[Self], None] | None = None) -> Self:
+    def get_all(
+        self,
+        page_size: int | None = None,
+        page_loaded: Callable[[Self], None] | None = None,
+        progress: "ProgressCallback | None" = None,
+    ) -> Self:
         """
         Load all items in the collection, automatically handling paging.
 
         Args:
             page_size: Items per page (uses server default if None)
-            page_loaded: Callback when each page loads
+            page_loaded: Legacy callback invoked with the loaded collection after
+              each page.
+            progress: Optional hook invoked per page with a ``Progress`` snapshot
+              (``done`` = items loaded so far; ``total`` unknown for server-driven
+              paging, so the bar is indeterminate).
 
         Returns:
             self: Supports fluent method chaining
         """
 
         def _page_loaded(col: ClientObjectCollection) -> None:
+            if callable(progress):
+                progress(Progress(done=len(self._data), stage="loading"))
             if self.has_next:
                 self._get_next().after_execute(_page_loaded)
 
         self.paged(page_size, page_loaded).get().after_execute(_page_loaded)
         return self
 
-    def to_csv(self, file: IO) -> Self:
+    def to_csv(self, file: IO[str]) -> Self:
         """Export collection items to CSV using ``.select()`` and ``.expand()``.
 
         Plain select fields (e.g. ``"displayName"``) produce one column.
@@ -300,19 +332,265 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             ...     .to_csv(f) \\
             ...     .execute_query()
         """
-        from office365.runtime.csv_writer import CollectionCsvWriter
+        from office365.runtime.converters.csv_writer import write_csv
 
-        writer = CollectionCsvWriter(self, file)
-        return self.after_execute(lambda _: writer.write())
+        return self.after_execute(lambda _: write_csv(self, file))
+
+    def from_csv(
+        self,
+        file: IO[str],
+        delimiter: str = ",",
+        progress: "ProgressCallback | None" = None,
+    ) -> Self:
+        """Import CSV rows by queueing a create per row (deferred).
+
+        The symmetric counterpart of ``to_csv``: parsing happens immediately and
+        each record becomes an entity of this collection's item type (via
+        ``create_typed_object`` + the shared ``set_property`` coercion), queued
+        for creation. The creates run on ``execute_query()``.
+
+        Args:
+            file: A readable CSV stream.
+            delimiter: CSV field delimiter.
+            progress: Optional hook invoked per imported row as its create
+              completes during ``execute_query()``.
+
+        Usage:
+            >>> client.users.from_csv(f).execute_query()
+            >>> client.users.from_csv(f, progress=my_callback).execute_query()
+        """
+        from office365.runtime.converters.csv_reader import read_csv_records
+
+        return self.from_records(read_csv_records(file, delimiter), progress=progress)
+
+    def from_json(self, records: List[dict], progress: "ProgressCallback | None" = None) -> Self:
+        """Import JSON records (``to_json`` output) by queueing a create per record.
+
+        Like ``from_csv`` but takes a list of dicts instead of a file. Deferred
+        until ``execute_query()``.
+
+        Args:
+            records: Plain dict records to import.
+            progress: Optional hook invoked per record as its create completes
+              during ``execute_query()``.
+
+        Usage:
+            >>> client.users.from_json(client.users.to_json()).execute_query()
+        """
+        return self.from_records(records, progress=progress)
+
+    def to_records(self) -> List[Dict[str, Any]]:
+        """Project loaded items into plain dict records — the neutral export form.
+
+        Same projection as ``to_csv``/``to_dataframe``: ``.select()``/``.expand()``
+        columns, one record per expanded child item, native JSON-safe values.
+        Every format adapter (``to_csv``, ``to_ndjson``, ``to_excel``,
+        ``to_dataframe``) builds on this projection.
+
+        Unlike ``to_csv`` this returns a value directly, so load first:
+
+            >>> records = client.users.get_all() \\
+            ...     .select(["displayName", "mail"]) \\
+            ...     .execute_query() \\
+            ...     .to_records()
+
+        Note: this is **data export** — for OData *payload* serialization (request
+        bodies with type metadata) use :meth:`to_json`.
+        """
+        from office365.runtime.converters.records import iter_records
+
+        return iter_records(self)
+
+    def from_records(self, records: List[dict], progress: "ProgressCallback | None" = None) -> Self:
+        """Import plain dict records by queueing a create per record (deferred).
+
+        The neutral import counterpart of :meth:`to_records`. Every import
+        adapter (``from_csv``, ``from_ndjson``, ``from_excel``, ``from_json``,
+        ``from_dataframe``) routes through here: records are normalized to the
+        item type (dotted keys re-nested, ``"; "`` collections split, unknown
+        columns skipped) and each becomes an entity queued for creation, which
+        runs on ``execute_query()``.
+
+        Args:
+            records: Plain dict records to import.
+            progress: Optional hook invoked per queued create as it completes
+              during ``execute_query()`` (a ``Progress`` snapshot per record).
+
+        Usage:
+            >>> client.users.from_records(records).execute_query()
+            >>> client.users.from_records(records, progress=my_callback).execute_query()
+        """
+        from office365.runtime.converters.csv_reader import coerce_records
+
+        return self._import_records(coerce_records(self._item_type, records), progress=progress)
+
+    def to_dataframe(self) -> "DataFrameResult":
+        """Build a pandas DataFrame from the loaded items.
+
+        Returns a ``DataFrameResult`` whose ``.value`` holds the DataFrame after
+        ``execute_query()`` — fully deferred, so chain it like ``to_csv``:
+
+            >>> df = client.users.get_all() \\
+            ...     .select(["displayName", "mail"]) \\
+            ...     .to_dataframe() \\
+            ...     .execute_query() \\
+            ...     .value
+
+        Requires the optional dependency (``pip install
+        office365-rest-python-client[pandas]``). The projection is the same as
+        ``to_csv``: ``.select()``/``.expand()`` columns, one row per expanded
+        child item.
+        """
+        from office365.runtime.converters.dataframe import DataFrameResult, require_pandas, write_dataframe
+
+        require_pandas()  # fail fast on a missing optional dependency
+        result = DataFrameResult(self.context)
+        self.after_execute(lambda _: write_dataframe(self, result))
+        return result
+
+    def from_dataframe(self, df, progress: "ProgressCallback | None" = None) -> Self:
+        """Import a pandas DataFrame by queueing a create per row (deferred).
+
+        The symmetric counterpart of ``to_dataframe``: each row is parsed
+        immediately into an entity and queued for creation, which runs on
+        ``execute_query()``.
+
+        Args:
+            df: A pandas DataFrame.
+            progress: Optional hook invoked per row as its create completes
+              during ``execute_query()``.
+
+        Usage:
+            >>> client.users.from_dataframe(df).execute_query()
+            >>> client.users.from_dataframe(df, progress=my_callback).execute_query()
+        """
+        from office365.runtime.converters.dataframe import read_dataframe
+
+        return self.from_records(read_dataframe(df), progress=progress)
+
+    def to_ndjson(self, file: IO[str]) -> Self:
+        """Export loaded items as NDJSON (JSON Lines) — one record per line.
+
+        Deferred like ``to_csv`` — the records are written on ``execute_query()``:
+
+            >>> client.users.get_all().select(["displayName", "mail"]).to_ndjson(f).execute_query()
+        """
+        from office365.runtime.converters.ndjson import write_ndjson
+        from office365.runtime.converters.records import iter_records
+
+        return self.after_execute(lambda _: write_ndjson(iter_records(self), file))
+
+    def from_ndjson(self, file: IO[str], progress: "ProgressCallback | None" = None) -> Self:
+        """Import NDJSON (JSON Lines) by queueing a create per line (deferred).
+
+        The symmetric counterpart of ``to_ndjson``:
+
+            >>> client.users.from_ndjson(f).execute_query()
+        """
+        from office365.runtime.converters.ndjson import read_ndjson
+
+        return self.from_records(read_ndjson(file), progress=progress)
+
+    def to_json_file(self, file: IO[str]) -> Self:
+        """Export loaded items as a JSON array file.
+
+        Deferred like ``to_csv`` — the records are written on ``execute_query()``.
+        Note this is the file format; :meth:`to_json` is OData *payload*
+        serialization for request bodies:
+
+            >>> client.users.get_all().select(["displayName", "mail"]).to_json_file(f).execute_query()
+        """
+        from office365.runtime.converters.json_file import write_json
+        from office365.runtime.converters.records import iter_records
+
+        return self.after_execute(lambda _: write_json(iter_records(self), file))
+
+    def from_json_file(self, file: IO[str], progress: "ProgressCallback | None" = None) -> Self:
+        """Import a JSON array file by queueing a create per record (deferred).
+
+        The symmetric counterpart of ``to_json_file``:
+
+            >>> client.users.from_json_file(f).execute_query()
+        """
+        from office365.runtime.converters.json_file import read_json
+
+        return self.from_records(read_json(file), progress=progress)
+
+    def to_excel(self, path: Union[str, PathLike]) -> Self:
+        """Export loaded items to an Excel (.xlsx) worksheet.
+
+        Deferred like ``to_csv`` — the workbook is written on ``execute_query()``.
+        Requires the optional dependency (``pip install
+        office365-rest-python-client[excel]``):
+
+            >>> client.users.get_all().select(["displayName", "mail"]).to_excel("users.xlsx").execute_query()
+        """
+        from office365.runtime.converters.excel import write_excel
+        from office365.runtime.converters.records import iter_records
+
+        return self.after_execute(lambda _: write_excel(iter_records(self), path))
+
+    def from_excel(self, path: Union[str, PathLike], progress: "ProgressCallback | None" = None) -> Self:
+        """Import an Excel (.xlsx) worksheet by queueing a create per row (deferred).
+
+        The symmetric counterpart of ``to_excel`` (reads the first worksheet):
+
+            >>> client.users.from_excel("users.xlsx").execute_query()
+        """
+        from office365.runtime.converters.excel import read_excel
+
+        return self.from_records(read_excel(path), progress=progress)
+
+    def _import_records(self, records: List[dict], progress: "ProgressCallback | None" = None) -> Self:
+        """Queue a create per record, appending the pending entities to this collection."""
+        from office365.runtime.operations import query_progress_hook
+        from office365.runtime.queries.create_entity import CreateEntityQuery
+
+        hook = query_progress_hook(len(records), progress) if callable(progress) else None
+        for record in records:
+            entity = self.create_typed_object(record)
+            self.add_child(entity)
+            qry = CreateEntityQuery(self, entity, entity)
+            self.context.add_query(qry)
+            if hook is not None:
+                self.context.after_execute(hook)
+        return self
+
+    def _can_offset_next(self) -> bool:
+        """Whether the next page can be fetched with a client-driven offset request.
+
+        Some SharePoint endpoints (e.g. ``SP.Publishing.SitePageService/pages``)
+        never emit a server-side ``__next`` link, even when more items exist.
+        When the client requested an explicit page size and the last page came
+        back full, fall back to ``$skip``/``$top`` paging. Graph is excluded:
+        it always reports ``@odata.nextLink`` and does not honor ``$skip``.
+        """
+        if not self._paged_mode or not self._page_size or self._next_request_url is not None:
+            return False
+        from office365.runtime.odata.v3.json_light_format import JsonLightFormat
+
+        json_format = getattr(self.context.pending_request(), "json_format", None)
+        if not isinstance(json_format, JsonLightFormat):
+            return False
+        return len(self.current_page) == self._page_size
 
     def _get_next(self) -> Self:
         """Submit a request to retrieve next collection of items"""
 
+        _PAGE_EXCLUDED_HEADERS = ("authorization", "content-length")
+
         def _construct_request(request: RequestOptions) -> None:
             request.url = self._next_request_url  # type: ignore[assignment]
+            if self._page_headers:
+                request.headers.update(
+                    {k: v for k, v in self._page_headers.items() if k.lower() not in _PAGE_EXCLUDED_HEADERS}
+                )
 
         if self._next_request_url is None:
-            raise ValueError("Next page not available")
+            if not self._can_offset_next():
+                raise ValueError("Next page not available")
+            self.skip(len(self._data))
+            return self.get()
         return self.get().before_execute(_construct_request)
 
     def first(self, expression: str) -> ClientObjectT:
@@ -373,8 +651,13 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
 
     @property
     def has_next(self) -> bool:
-        """Check if more pages are available in server-driven paging."""
-        return self._next_request_url is not None
+        """Check if more pages are available.
+
+        True when the server signalled a next page (``__next``/``@odata.nextLink``)
+        or when a SharePoint collection loaded a full explicit page and the next
+        one can still be fetched via ``$skip``.
+        """
+        return self._next_request_url is not None or self._can_offset_next()
 
     @property
     def current_page(self) -> List[ClientObjectT]:

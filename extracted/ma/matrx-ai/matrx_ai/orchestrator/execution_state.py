@@ -142,6 +142,16 @@ class ExecutionState:
     loop_guard_intervened: bool = False
     loop_guard_warned: bool = False
 
+    # THE GUARD'S REASON TRAVELS. The guard knows WHICH tool failed, HOW MANY
+    # times and WHAT it said; captured here at the moment it trips so the
+    # finalizing turn — which runs with tools already stripped and a fresh
+    # health verdict — can still put that evidence in the completion metadata.
+    # Without it the run recorded ``paused_loop_guard: no error detail
+    # recorded`` while the executor held the whole diagnosis (live 2026-09-12,
+    # workflow run ``6fa6ad90``, node ``n_check``).
+    loop_guard_health: dict[str, Any] | None = None
+    loop_guard_evidence: dict[str, Any] | None = None
+
     # Required-member (designated member, C-26) intervention flags. When the
     # run tries to finish without successfully calling a member its Orchestra
     # declared required, the executor injects a course-correction notice and
@@ -155,6 +165,14 @@ class ExecutionState:
     required_member_intervened: bool = False
     required_member_forced_pending: bool = False
     required_member_saved_tools: Any | None = None
+
+    # THE CHANGE-CLAIM GATE (``orchestrator/change_claims.py``). How many forced
+    # correction turns this run has already spent because a reply asserted a
+    # change the turn never wrote. Bounded by the mandate's own budget knob
+    # (``mandate_honesty.change_claim_correction_turns``), which the host hands
+    # over with the authoring declaration; when it is spent the person is TOLD
+    # nothing was saved rather than the run quietly accepting the claim.
+    change_claim_corrections: int = 0
 
     def snapshot(self) -> ExecutionStateSnapshot:
         """Return a frozen copy safe to hand to a background task."""

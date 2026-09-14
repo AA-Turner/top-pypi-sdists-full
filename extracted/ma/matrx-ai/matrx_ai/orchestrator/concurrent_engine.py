@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from typing import Any, TypeVar
 
-from matrx_utils import vcprint
+from matrx_utils import classification_text, vcprint
 from pydantic import BaseModel, Field, model_validator
 
 from matrx_ai.providers.errors import RetryableError, _extract_status_code, classify_provider_error
@@ -237,8 +237,13 @@ class WorkerResultError(Exception):
 
 
 def _default_is_retryable(exc: Exception) -> bool:
+    # Every keyword match below reads ``classification_text`` (matrx-utils), never
+    # the raw string: matrx-orm renders a failing statement's ARGS into its
+    # message, and those args are the request's own content. A document that says
+    # "not found" must not turn a retryable database failure into a terminal one
+    # (2026-09-12, workflow run 053e8b72 — the class, not the instance).
     if isinstance(exc, WorkerResultError):
-        error_str = str(exc).lower()
+        error_str = classification_text(str(exc)).lower()
         retryable_keywords = ("database", "db ", "connection", "timeout", "timed out", "pool", "network")
         non_retryable_keywords = ("parse", "invalid", "not found", "validation")
         if any(kw in error_str for kw in non_retryable_keywords):
@@ -256,7 +261,7 @@ def _default_is_retryable(exc: Exception) -> bool:
         info = classify_provider_error("unknown", exc)
         return info.is_retryable
 
-    error_str = str(exc).lower()
+    error_str = classification_text(str(exc)).lower()
     if any(kw in error_str for kw in ("429", "rate limit", "quota", "timeout", "timed out", "connection")):
         return True
     if any(kw in error_str for kw in ("401", "403", "invalid api key", "400", "invalid request")):
@@ -272,7 +277,7 @@ def _is_rate_limit(exc: Exception) -> bool:
     status_code = _extract_status_code(exc)
     if status_code == 429:
         return True
-    error_str = str(exc).lower()
+    error_str = classification_text(str(exc)).lower()
     return any(kw in error_str for kw in ("429", "rate limit", "quota"))
 
 

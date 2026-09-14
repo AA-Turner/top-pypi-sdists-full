@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ua-generator
-Version: 2.1.4
+Version: 2.1.5
 Summary: A random user-agent generator
 Home-page: https://github.com/iamdual/ua-generator
 Author: Ekin Karadeniz
@@ -129,10 +129,10 @@ ua = ua_generator.generate(browser=['chrome', 'edge'])
 r = requests.get('https://httpbin.org/get', headers=ua.headers.get())
 ```
 
-## Integrating into the [httpx](https://pypi.org/project/httpx/):
+## Integrating into the [httpx](https://pypi.org/project/httpx2/):
 
 ```python
-import httpx
+import httpx2
 import ua_generator
 
 ua = ua_generator.generate(browser=['chrome', 'edge'])

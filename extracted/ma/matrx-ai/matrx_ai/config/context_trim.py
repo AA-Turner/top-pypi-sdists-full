@@ -1,11 +1,26 @@
-"""In-memory context trimmer for tool-result content blocks.
+"""In-memory context trimmer for tool-call and tool-result content blocks.
 
 Purpose
 -------
-As a conversation grows, old tool results bloat what the model has to
-read on every turn. This module exposes a single function,
-``trim_messages_context``, that walks a ``list[UnifiedMessage]`` and
-replaces the ``content`` of any tool_result block that is BOTH:
+As a conversation grows, old tool traffic bloats what the model has to
+read on every turn — and it bloats it from BOTH sides: the result the tool
+returned, and the ARGUMENTS the assistant sent to call it. This module
+exposes a single function, ``trim_messages_context``, that walks a
+``list[UnifiedMessage]`` and compacts both, under the same two tiers and
+the same cache gate.
+
+Why both sides (measured 2026-09-13 in ``chat.request`` / ``chat.message``)
+--------------------------------------------------------------------------
+Until 2026-09-13 this trimmer rewrote tool_result blocks ONLY. The Masterwork
+Conductor saves workflow definitions through the ``workflow_author`` tool with
+25-73K-char argument payloads, and those payloads live in assistant messages
+forever: one conversation reached 1.5M chars of assistant content against 19K
+of tool results, average request context 362K tokens, peak 559K, $95 on Opus 5.
+408 of 419 Conductor requests reported the trimmer had run and freed NOTHING
+(``est_savings_tokens: 0``) because nothing eligible existed on the result
+side. Arguments are now trimmed too (``TrimPolicy.trim_tool_call_arguments``).
+
+It replaces the ``content`` of any tool_result block that is BOTH:
 
   * far enough back (positional distance from the current head), AND
   * large enough (output_chars exceeds the tier's threshold), AND
@@ -13,7 +28,12 @@ replaces the ``content`` of any tool_result block that is BOTH:
     will lose if we mutate the content),
 
 with a compact augmented preview that tells the model the original
-output is recoverable.
+output is recoverable — and, when
+``TrimPolicy.trim_tool_call_arguments`` is on (the default), the
+``arguments`` of any tool_call block far enough back and large enough
+(measured as ``len(json.dumps(arguments))``) with a compact stub naming
+the top-level keys and the original size. The tool's stored state is
+authoritative; the model re-reads it (e.g. ``get_workflow``) when needed.
 
 Two tiers (Arman's ruling 2026-09-09, from the re-fetch measurements in
 ``chat.vw_tool_refetch``; the 2026-06 defaults of 5/500 and 15/200 cleared a
@@ -34,9 +54,14 @@ What this function is NOT
 * It does NOT write to the database. Originals remain authoritative.
 * It does NOT change the position, id, role, status, metadata, or any
   other field on a UnifiedMessage. Only the ``content`` of qualifying
-  tool_result blocks is rewritten.
-* It does NOT touch the call_id / tool_use_id / name / is_error fields
-  on the block — provider tool_use ↔ tool_result pairing stays intact.
+  tool_result blocks and the ``arguments`` of qualifying tool_call
+  blocks are rewritten.
+* It does NOT touch the id / call_id / tool_use_id / name / type /
+  is_error fields on either block — provider tool_use ↔ tool_result
+  pairing stays intact, and the rewritten ``arguments`` stays a plain
+  dict so every provider serializer keeps working (Anthropic ``input``
+  is an object, OpenAI ``arguments`` is ``json.dumps`` of it, Google
+  ``args`` is the object).
 * Freshly appended in-memory turns whose ``position`` is ``None`` are ordered
   after persisted messages for distance calculations. Their position field is
   never mutated.
@@ -53,6 +78,11 @@ from matrx_ai.config.message_config import UnifiedMessage
 
 _DEFAULT_SUBSTITUTE = (
     "[tool result cleared] Replaced with keys and chars -- Fetch again when necessary"
+)
+
+_DEFAULT_ARGUMENTS_SUBSTITUTE = (
+    "[tool arguments cleared] Large arguments removed from context after this call scrolled "
+    "back -- the tool's stored state is authoritative; re-read it (e.g. get_workflow) when needed"
 )
 
 # Phase 2: cache-aware gate constants.
@@ -109,6 +139,14 @@ class TrimPolicy:
     # Marker text inserted at the top of the augmented preview.
     substitute_message: str = _DEFAULT_SUBSTITUTE
 
+    # Trim the ASSISTANT side too: stale, large tool_call ``arguments``
+    # payloads (2026-09-13 — see module docstring). Same tiers, same cache
+    # gate; set False to restore the result-only behaviour.
+    trim_tool_call_arguments: bool = True
+
+    # Marker text inserted as the stub's ``result`` key.
+    substitute_arguments_message: str = _DEFAULT_ARGUMENTS_SUBSTITUTE
+
     def to_snapshot(self) -> dict[str, Any]:
         """Plain-dict snapshot for persistence (cx_request.trim_summary)."""
         return {
@@ -117,6 +155,7 @@ class TrimPolicy:
             "tier_2_min_positions_back": self.tier_2_min_positions_back,
             "tier_2_min_output_chars": self.tier_2_min_output_chars,
             "skip_media_results": self.skip_media_results,
+            "trim_tool_call_arguments": self.trim_tool_call_arguments,
         }
 
 
@@ -129,13 +168,19 @@ class TrimReport:
     policy was) without diffing snapshots.
 
     Fields:
-      * blocks_rewritten — count of tool_result blocks whose content was
-        replaced with the augmented preview.
+      * blocks_rewritten — count of blocks rewritten by this pass: tool_result
+        contents replaced with the augmented preview PLUS tool_call arguments
+        replaced with the compact stub. Persistence and the cache-state
+        accounting read this field, so argument rewrites count here too.
+      * arguments_rewritten — how many of ``blocks_rewritten`` were tool_call
+        argument payloads (0 before 2026-09-13).
       * freed_chars — chars removed from the in-memory payload (before - after).
       * before_total_chars / after_total_chars — JSON-string size of the trimmed
         slice (only tool_result blocks counted) before and after the pass.
       * rewritten_blocks — per-block detail: list of {message_position,
-        call_id, tool_name, before_chars, after_chars}.
+        call_id, tool_name, before_chars, after_chars}. An argument rewrite
+        additionally carries ``"block": "tool_call"``; result entries are
+        unchanged (no ``block`` key).
       * eligible_but_skipped_reason — one of None | "cache_protect" |
         "no_eligible_messages". Distinguishes "ran but nothing matched" from
         "didn't run because of the cache gate."
@@ -143,6 +188,7 @@ class TrimReport:
     """
 
     blocks_rewritten: int = 0
+    arguments_rewritten: int = 0
     freed_chars: int = 0
     before_total_chars: int = 0
     after_total_chars: int = 0
@@ -159,6 +205,7 @@ class TrimReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             "blocks_rewritten": self.blocks_rewritten,
+            "arguments_rewritten": self.arguments_rewritten,
             "freed_chars": self.freed_chars,
             "before_total_chars": self.before_total_chars,
             "after_total_chars": self.after_total_chars,
@@ -173,12 +220,13 @@ def trim_messages_context(
     policy: TrimPolicy | None = None,
     cache_state: dict[str, Any] | None = None,
 ) -> TrimReport:
-    """Trim tool_result content in-place. Returns a TrimReport.
+    """Trim tool_result content and tool_call arguments in-place. Returns a TrimReport.
 
     Safe to call on any message list — non-qualifying blocks are
     skipped silently. Idempotent: re-running on the same list does
     nothing new (the augmented preview's own size is well below either
-    tier's threshold, so it won't re-qualify).
+    tier's threshold, so it won't re-qualify; the argument stub is
+    additionally recognised by its marker and never re-rewritten).
 
     Cache-aware gate (Phase 2): when ``cache_state`` is provided and indicates
     that the prompt cache is likely still alive AND the eligible savings on
@@ -232,7 +280,40 @@ def trim_messages_context(
         else:
             min_chars = policy.tier_1_min_output_chars
 
+        tier = "tier_2" if positions_back >= policy.tier_2_min_positions_back else "tier_1"
+
         for block in msg.content:
+            if policy.trim_tool_call_arguments and _is_tool_call_block(block):
+                before_len = _tool_call_argument_chars(block)
+                if before_len < min_chars:
+                    continue
+                if _already_trimmed_arguments(block):
+                    continue
+
+                _rewrite_tool_call_arguments(block, policy.substitute_arguments_message)
+                after_len = _tool_call_argument_chars(block)
+
+                report.blocks_rewritten += 1
+                report.arguments_rewritten += 1
+                report.before_total_chars += before_len
+                report.after_total_chars += after_len
+                report.freed_chars += max(0, before_len - after_len)
+                report.rewritten_blocks.append(
+                    {
+                        "block": "tool_call",
+                        "message_position": (
+                            int(msg.position) if msg.position is not None else effective_position
+                        ),
+                        "call_id": _get_call_identifier(block),
+                        "tool_name": _get_block_attr(block, "name"),
+                        "before_chars": before_len,
+                        "after_chars": after_len,
+                        "positions_back": positions_back,
+                        "tier": tier,
+                    }
+                )
+                continue
+
             if not _is_tool_result_block(block):
                 continue
             block_chars_before = _get_output_chars(block)
@@ -271,9 +352,7 @@ def trim_messages_context(
                     "before_chars": before_len,
                     "after_chars": after_len,
                     "positions_back": positions_back,
-                    "tier": "tier_2"
-                    if positions_back >= policy.tier_2_min_positions_back
-                    else "tier_1",
+                    "tier": tier,
                 }
             )
 
@@ -336,8 +415,12 @@ def _estimate_savings_tokens(
 ) -> int:
     """Estimate how many tokens this pass would free.
 
-    Walks the same eligibility predicate as the main loop but sums
-    ``output_chars`` instead of mutating. Conservative — uses
+    Walks the same eligibility predicate as the main loop but sums sizes
+    instead of mutating — tool_result ``output_chars`` AND, since
+    2026-09-13, stale tool_call argument payloads, so the cache gate makes
+    the right call on a conversation whose weight is all on the call side
+    (the Conductor case: 408 of 419 requests measured ``est_savings_tokens:
+    0`` while assistant content held 1.5M chars). Conservative — uses
     CHARS_PER_TOKEN_ESTIMATE divisor (under-estimates real tokens, which
     is the safe direction: makes the gate more cautious about firing).
     """
@@ -360,6 +443,14 @@ def _estimate_savings_tokens(
         else:
             min_chars = policy.tier_1_min_output_chars
         for block in msg.content:
+            if policy.trim_tool_call_arguments and _is_tool_call_block(block):
+                arg_chars = _tool_call_argument_chars(block)
+                if arg_chars < min_chars:
+                    continue
+                if _already_trimmed_arguments(block):
+                    continue
+                total_chars += arg_chars
+                continue
             if not _is_tool_result_block(block):
                 continue
             chars = _get_output_chars(block)
@@ -389,6 +480,90 @@ def _is_tool_result_block(block: Any) -> bool:
     if block_type is None and isinstance(block, dict):
         block_type = block.get("type")
     return block_type == "tool_result"
+
+
+def _is_tool_call_block(block: Any) -> bool:
+    """True only for assistant tool_call / function_call content blocks.
+
+    Same dataclass-or-dict tolerance as ``_is_tool_result_block``.
+    """
+    block_type = getattr(block, "type", None)
+    if block_type is None and isinstance(block, dict):
+        block_type = block.get("type")
+    return block_type in ("tool_call", "function_call")
+
+
+def _get_arguments(block: Any) -> Any:
+    value = getattr(block, "arguments", None)
+    if value is None and isinstance(block, dict):
+        value = block.get("arguments")
+    return value
+
+
+def _set_arguments(block: Any, new_arguments: dict[str, Any]) -> None:
+    if isinstance(block, dict):
+        block["arguments"] = new_arguments
+    else:
+        block.arguments = new_arguments
+
+
+def _tool_call_argument_chars(block: Any) -> int:
+    """Serialized size of the block's ``arguments`` — 0 when unmeasurable.
+
+    Measured the way the payload actually reaches a provider
+    (``json.dumps``), so the threshold means what it says on the wire.
+    """
+    arguments = _get_arguments(block)
+    if not isinstance(arguments, dict) or not arguments:
+        return 0
+    try:
+        return len(json.dumps(arguments, default=str))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _already_trimmed_arguments(block: Any) -> bool:
+    """True if this call's arguments were already replaced by an earlier pass."""
+    arguments = _get_arguments(block)
+    if not isinstance(arguments, dict):
+        return False
+    marker = arguments.get("result")
+    return isinstance(marker, str) and marker.startswith("[tool arguments cleared]")
+
+
+def _rewrite_tool_call_arguments(block: Any, marker: str) -> None:
+    """Replace a stale tool call's ``arguments`` with a compact stub.
+
+    Shape (a plain dict — NOT a JSON string — so ``to_anthropic`` keeps an
+    object ``input``, ``to_openai`` keeps ``json.dumps(...)`` of an object,
+    and ``to_google`` keeps an object ``args``)::
+
+        {"result": "<marker>", "keys": [...top-level keys...], "chars": <before>}
+
+    The block's id / call_id / name / type / metadata are untouched, so the
+    provider's tool_use ↔ tool_result pairing survives intact.
+    """
+    arguments = _get_arguments(block)
+    before_chars = _tool_call_argument_chars(block)
+    keys = [str(k) for k in arguments.keys()] if isinstance(arguments, dict) else []
+    _set_arguments(
+        block,
+        {
+            "result": marker,
+            "keys": keys,
+            "chars": before_chars,
+        },
+    )
+
+
+def _get_call_identifier(block: Any) -> str:
+    """Join key of a tool_call block — ``id`` on ToolCallContent, ``call_id``
+    on the raw-dict form emitted by ``to_dict()``."""
+    for attr in ("id", "call_id"):
+        value = _get_block_attr(block, attr)
+        if value:
+            return value
+    return ""
 
 
 def _get_output_chars(block: Any) -> int:

@@ -18,3 +18,19 @@ class Audio(ClientValue):
     albumArtist: str | None = None
     artist: str | None = None
     bitrate: int | None = None
+    composers: str | None = None
+    copyright: str | None = None
+    duration: int | None = None
+    genre: str | None = None
+    hasDrm: bool | None = None
+    isVariableBitrate: bool | None = None
+    title: str | None = None
+    track: int | None = None
+    trackCount: int | None = None
+    year: int | None = None
+    disc: int | None = None
+    discCount: int | None = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.Audio"

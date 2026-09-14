@@ -2,11 +2,22 @@
 
 from types import SimpleNamespace
 
+import pytest
+
 from agentic_devtools.cli.git import worktree
 
 
 class TestDetectExistingWorktree:
     """Tests for detect_existing_worktree."""
+
+    def test_rejects_expected_path_without_porcelain_requirement(self, tmp_path):
+        """An exact path must not be accepted without authoritative porcelain matching."""
+        with pytest.raises(ValueError, match="expected_path requires require_porcelain=True"):
+            worktree.detect_existing_worktree(
+                "PR123",
+                str(tmp_path),
+                expected_path=str(tmp_path / "PR123"),
+            )
 
     def test_returns_resume_for_porcelain_match(self, monkeypatch, tmp_path):
         """A porcelain branch match whose path is a valid worktree returns resume details."""
@@ -71,6 +82,62 @@ class TestDetectExistingWorktree:
         assert result.status == "corrupt"
         assert result.path == str(wt_path)
 
+    def test_matches_registered_path_when_branch_has_no_issue_key(self, monkeypatch, tmp_path):
+        """An explicitly expected path can resume from an arbitrary branch name."""
+        repo_root = tmp_path / "main"
+        repo_root.mkdir()
+        wt_path = tmp_path / "PR123"
+        wt_path.mkdir()
+        (wt_path / ".git").write_text("gitdir: ../.git/worktrees/PR123", encoding="utf-8")
+        porcelain = f"worktree {wt_path}\nbranch refs/heads/feature/foo\n"
+        monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=porcelain))
+
+        shared_git_dir = str(repo_root / ".git")
+
+        def fake_run_git_capture(args, cwd=None):
+            if args == ["rev-parse", "--git-dir"]:
+                return SimpleNamespace(returncode=0, stdout=".git")
+            if args == ["rev-parse", "--git-common-dir"]:
+                return SimpleNamespace(returncode=0, stdout=shared_git_dir)
+            return SimpleNamespace(returncode=128, stdout="")
+
+        monkeypatch.setattr(worktree, "run_git_capture", fake_run_git_capture)
+
+        result = worktree.detect_existing_worktree(
+            "PR123",
+            str(repo_root),
+            require_porcelain=True,
+            expected_path=str(wt_path),
+        )
+
+        assert result.status == "resume"
+        assert result.path == str(wt_path)
+        assert result.branch == "feature/foo"
+
+    def test_reports_corrupt_expected_registered_path(self, monkeypatch, tmp_path):
+        """An expected registered path remains distinguishable when validation fails."""
+        repo_root = tmp_path / "main"
+        repo_root.mkdir()
+        wt_path = tmp_path / "PR123"
+        wt_path.mkdir()
+        porcelain = f"worktree {wt_path}\nbranch refs/heads/feature/foo\n"
+        monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=porcelain))
+        monkeypatch.setattr(
+            worktree,
+            "run_git_capture",
+            lambda args, cwd=None: SimpleNamespace(returncode=128, stdout=""),
+        )
+
+        result = worktree.detect_existing_worktree(
+            "PR123",
+            str(repo_root),
+            require_porcelain=True,
+            expected_path=str(wt_path),
+        )
+
+        assert result.status == "corrupt"
+        assert result.path == str(wt_path)
+
     def test_returns_resume_for_valid_conventional_path_when_no_porcelain_match(self, monkeypatch, tmp_path):
         """A conventional directory with a .git entry that git validates resumes with branch None."""
         repo_root = tmp_path / "main"
@@ -99,6 +166,20 @@ class TestDetectExistingWorktree:
         assert result.status == "resume"
         assert result.path == str(conventional)
         assert result.branch is None
+
+    def test_returns_not_found_when_porcelain_registration_is_required(self, monkeypatch, tmp_path):
+        """A valid conventional fallback is rejected when explicit registration is required."""
+        repo_root = tmp_path / "main"
+        repo_root.mkdir()
+        conventional = tmp_path / "1900"
+        conventional.mkdir()
+        (conventional / ".git").write_text("gitdir: ../.git/worktrees/1900", encoding="utf-8")
+        monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
+
+        result = worktree.detect_existing_worktree("#1900", str(repo_root), require_porcelain=True)
+
+        assert result.status == "not_found"
+        assert result.path is None
 
     def test_returns_corrupt_for_stale_gitdir_file(self, monkeypatch, tmp_path):
         """A conventional directory with a .git file that git rejects is reported as corrupt (FR-010)."""

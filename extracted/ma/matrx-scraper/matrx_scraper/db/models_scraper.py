@@ -1,5 +1,5 @@
 # File: matrx_scraper/db/models_scraper.py
-from matrx_orm import BooleanField, CharField, DateTimeField, ForeignKey, IntegerField, JSONBField, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BooleanField, CharField, DateTimeField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -40,7 +40,7 @@ class ScrapeFailureLog(Model):
     _table_name = "scrape_failure_log"
     _db_schema = "scraper"
 
-class ScrapeParsedPage(Model):
+class ScrapeParsedPage(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     page_name = CharField(null=False)
     validity = CharField(null=False)
@@ -48,8 +48,8 @@ class ScrapeParsedPage(Model):
     local_path = CharField()
     scraped_at = DateTimeField()
     user_id = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    created_at = DateTimeField()
-    updated_at = DateTimeField()
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
     is_public = BooleanField(default=False)
     expires_at = DateTimeField()
     url = TextField()
@@ -57,10 +57,20 @@ class ScrapeParsedPage(Model):
     content = JSONBField()
     char_count = IntegerField()
     content_type = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    metadata = JSONBField(null=False, default={})
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    version = IntegerField(null=False, default=1)
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_parsed_page"
     _db_schema = "scraper"
+    _entity_token = "scrape_parsed_page"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = True
+    _rls_variant = "restricted"
 
 class ScrapeDomainSettings(Model):
     id = UUIDField(primary_key=True, null=False)

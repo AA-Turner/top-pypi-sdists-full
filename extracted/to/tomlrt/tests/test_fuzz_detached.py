@@ -39,7 +39,7 @@ import pytest
 import tomli
 
 import tomlrt
-from _helpers import fuzz_context, fuzz_seeds
+from _helpers import fuzz_context, fuzz_seeds, td
 from tomlrt import AoT, Array, Table
 from tomlrt._container import Container, _is_section
 from tomlrt._slots import KVSlot, StructuralHeaderSlot
@@ -77,6 +77,35 @@ _SHAPES = (
     "root.c.y.x = 1\n",
     "root.a.b.c = 1\nroot.a.b.d = 2\n\n[dest]\nz = 0\n",
     "root.a.b.c = 1\n\n# comment\nroot.e.f = 2\n\n[dest]\nz = 0\n",
+    td("""
+        root.a.x=0x02 # body
+        root.a.nested.value = [ 1,2 ]
+        root.a.last = 3
+
+        [root.a.deep]
+        z = 0x01 # child
+
+        [[root.a.rows]]
+        id = 4
+
+        [dest]
+        z = 0
+        """),
+    td("""
+        [root.a.deep]
+        z = 0x01 # forward
+
+        [root]
+        a.x=0x02 # body
+        a.nested.value = [ 1,2 ]
+        a.last = 3
+
+        [[root.a.rows]]
+        id = 4
+
+        [dest]
+        z = 0
+        """),
 )
 
 # One random operation per step, drawn uniformly; ``adopt`` appears
@@ -97,6 +126,7 @@ _OPS = (
     "delete_doc",
     "mutate_array",
     "mutate_aot",
+    "attach_commented",
     "attach_empty",
 )
 
@@ -351,6 +381,21 @@ def _run_program(src: str, seed: int) -> None:
                     aot.pop(rng.randrange(len(aot)))
                 else:
                     aot.append({f"e{step}": step})
+        elif op == "attach_commented":
+            target = _resolve(orphan, rng.choice([*paths, ()]))
+            inline = isinstance(target, Array) or (
+                isinstance(target, tomlrt.Table) and target.is_inline
+            )
+            factory = (
+                tomlrt.Table.inline({"value": step})
+                if inline
+                else tomlrt.Table.section({"value": step})
+            )
+            factory.comments["value"] = f"created {step}"
+            if isinstance(target, Container):
+                target[f"n{step}"] = factory
+            else:
+                target.append(factory)
         elif op == "attach_empty":
             # A section (or AoT entry) attached with no body of its own
             # is header-only: the one shape whose body-region cache has

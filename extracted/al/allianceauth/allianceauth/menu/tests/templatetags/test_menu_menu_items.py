@@ -2,7 +2,6 @@ from typing import NamedTuple
 from unittest.mock import patch
 
 from bs4 import BeautifulSoup
-
 from django.test import RequestFactory, TestCase
 
 from allianceauth.menu.templatetags.menu_menu_items import (
@@ -17,6 +16,7 @@ from allianceauth.menu.tests.factories import (
     create_menu_item_hook_class,
     create_menu_item_hook_function,
     create_rendered_menu_item,
+    create_user,
 )
 from allianceauth.menu.tests.utils import (
     PACKAGE_PATH,
@@ -57,6 +57,16 @@ class TestRenderDefaultMenu(TestCase):
         super().setUpClass()
         cls.factory = RequestFactory()
 
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.user = create_user()
+
+    def make_request(self, user=None):
+        """Create a request for rendering the menu."""
+        request = self.factory.get("/")
+        request.user = user if user else self.user
+        return request
+
     def test_should_render_app_menu_items(self, mock_get_hooks):
         # given
         menu = [
@@ -68,7 +78,7 @@ class TestRenderDefaultMenu(TestCase):
         for hook in menu:
             create_menu_item_from_hook(hook)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -87,11 +97,11 @@ class TestRenderDefaultMenu(TestCase):
     def test_should_render_link_menu_items(self, mock_get_hooks):
         # given
         mock_get_hooks.return_value = []
-        create_link_menu_item(text="Charlie"),
-        create_link_menu_item(text="Alpha", order=1),
-        create_link_menu_item(text="Bravo", order=2),
+        create_link_menu_item(text="Charlie")
+        create_link_menu_item(text="Alpha", order=1)
+        create_link_menu_item(text="Bravo", order=2)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -113,7 +123,7 @@ class TestRenderDefaultMenu(TestCase):
         create_link_menu_item(text="Bravo", order=3)
         create_link_menu_item(text="Charlie", parent=folder)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -143,7 +153,7 @@ class TestRenderDefaultMenu(TestCase):
         for hook in menu:
             create_menu_item_from_hook(hook, parent=folder)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -167,7 +177,7 @@ class TestRenderDefaultMenu(TestCase):
         create_link_menu_item(text="Alpha", order=1)
         create_link_menu_item(text="Bravo", order=3)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -206,7 +216,7 @@ class TestRenderDefaultMenu(TestCase):
         create_menu_item_from_hook(hooks[0], parent=folder)
         create_link_menu_item(text="Bravo", order=3)  # this is all that should show
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -219,11 +229,11 @@ class TestRenderDefaultMenu(TestCase):
     def test_should_not_include_hidden_items(self, mock_get_hooks):
         # given
         mock_get_hooks.return_value = []
-        create_link_menu_item(text="Charlie"),
-        create_link_menu_item(text="Alpha", order=1),
-        create_link_menu_item(text="Bravo", order=2, is_hidden=True),
+        create_link_menu_item(text="Charlie")
+        create_link_menu_item(text="Alpha", order=1)
+        create_link_menu_item(text="Bravo", order=2, is_hidden=True)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -247,7 +257,7 @@ class TestRenderDefaultMenu(TestCase):
         for hook in menu:
             create_menu_item_from_hook(hook, parent=folder)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -259,10 +269,10 @@ class TestRenderDefaultMenu(TestCase):
     def test_should_allow_several_items_with_same_text(self, mock_get_hooks):
         # given
         mock_get_hooks.return_value = []
-        create_link_menu_item(text="Alpha", order=1),
-        create_link_menu_item(text="Alpha", order=2),
+        create_link_menu_item(text="Alpha", order=1)
+        create_link_menu_item(text="Alpha", order=2)
 
-        request = self.factory.get("/")
+        request = self.make_request()
 
         # when
         result = render_menu(request)
@@ -272,6 +282,77 @@ class TestRenderDefaultMenu(TestCase):
         self.assertEqual(len(menu), 2)
         self.assertEqual(menu[0].menu_item.text, "Alpha")
         self.assertEqual(menu[1].menu_item.text, "Alpha")
+
+    def test_should_not_render_link_items_user_has_no_access_to(self, mock_get_hooks):
+        # given
+        mock_get_hooks.return_value = []
+        create_link_menu_item(text="Alpha", order=1)
+        create_link_menu_item(text="Bravo", order=2, permissions=["auth.add_group"])
+
+        request = self.make_request()
+
+        # when
+        result = render_menu(request)
+
+        # then
+        menu = list(result)
+        self.assertEqual(len(menu), 1)
+        self.assertEqual(menu[0].menu_item.text, "Alpha")
+
+    def test_should_render_link_items_user_has_access_to(self, mock_get_hooks):
+        # given
+        mock_get_hooks.return_value = []
+        create_link_menu_item(text="Alpha", order=1)
+        create_link_menu_item(text="Bravo", order=2, permissions=["auth.add_group"])
+        user = create_user(permissions=["auth.add_group"])
+
+        request = self.make_request(user)
+
+        # when
+        result = render_menu(request)
+
+        # then
+        menu = list(result)
+        self.assertEqual(len(menu), 2)
+        self.assertEqual(menu[0].menu_item.text, "Alpha")
+        self.assertEqual(menu[1].menu_item.text, "Bravo")
+
+    def test_should_render_restricted_link_items_to_superuser(self, mock_get_hooks):
+        # given
+        mock_get_hooks.return_value = []
+        create_link_menu_item(text="Alpha", permissions=["auth.add_group"])
+        user = create_user(is_superuser=True)
+
+        request = self.make_request(user)
+
+        # when
+        result = render_menu(request)
+
+        # then
+        menu = list(result)
+        self.assertEqual(len(menu), 1)
+        self.assertEqual(menu[0].menu_item.text, "Alpha")
+
+    def test_should_remove_folders_with_link_items_user_has_no_access_to(
+        self, mock_get_hooks
+    ):
+        # given
+        mock_get_hooks.return_value = []
+        folder = create_folder_menu_item(text="Folder", order=2)
+        create_link_menu_item(
+            text="Alpha", parent=folder, permissions=["auth.add_group"]
+        )
+        create_link_menu_item(text="Bravo", order=3)  # this is all that should show
+
+        request = self.make_request()
+
+        # when
+        result = render_menu(request)
+
+        # then
+        menu = list(result)
+        self.assertEqual(len(menu), 1)
+        self.assertEqual(menu[0].menu_item.text, "Bravo")
 
 
 class TestRenderedMenuItem(TestCase):

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Self
+from typing import TYPE_CHECKING, Any, Optional
+
+from typing_extensions import Self
 
 from office365.directory.permissions.identity_set import IdentitySet
 from office365.entity import Entity
 from office365.onedrive.listitems.item_reference import ItemReference
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 if TYPE_CHECKING:
     from office365.directory.users.user import User
@@ -21,6 +24,7 @@ class BaseItem(Entity):
         """ETag for the item."""
         return self.properties.get("eTag", None)
 
+    @odata(name="createdBy")
     @property
     def created_by(self) -> IdentitySet:
         """Identity of the user, device, or application which created the item."""
@@ -40,11 +44,13 @@ class BaseItem(Entity):
             "createdByUser", User(self.context, ResourcePath("createdByUser", self.resource_path))
         )
 
+    @odata(name="lastModifiedBy")
     @property
     def last_modified_by(self) -> IdentitySet:
         """Identity of the user, device, and application which last modified the item."""
         return self.properties.get("lastModifiedBy", IdentitySet())
 
+    @odata(name="lastModifiedByUser")
     @property
     def last_modified_by_user(self) -> User:
         """Identity of the user who last modified the item."""
@@ -88,11 +94,13 @@ class BaseItem(Entity):
         """URL that displays the resource in the browser"""
         return self.properties.get("webUrl", "")
 
+    @odata(name="parentReference")
     @property
     def parent_reference(self) -> ItemReference:
         """Parent information, if the item has a parent."""
         return self.properties.setdefault("parentReference", ItemReference())
 
+    @odata(name="createdDateTime")
     @property
     def created_date_time(self) -> datetime:
         """Gets the createdDateTime property"""
@@ -103,6 +111,7 @@ class BaseItem(Entity):
         """Gets the eTag property"""
         return self.properties.get("eTag", None)
 
+    @odata(name="lastModifiedDateTime")
     @property
     def last_modified_date_time(self) -> datetime:
         """Gets the lastModifiedDateTime property"""
@@ -113,20 +122,6 @@ class BaseItem(Entity):
         if name == "parentReference":
             pass
         return self
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "createdBy": self.created_by,
-                "createdByUser": self.created_by_user,
-                "createdDateTime": self.created_datetime,
-                "lastModifiedDateTime": self.last_modified_datetime,
-                "lastModifiedBy": self.last_modified_by,
-                "lastModifiedByUser": self.last_modified_by_user,
-                "parentReference": self.parent_reference,
-            }
-            default_value = property_mapping.get(name, None)
-        return super().get_property(name, default_value)
 
     @property
     def entity_type_name(self) -> str:

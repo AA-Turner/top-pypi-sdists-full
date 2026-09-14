@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: notebooklm-mcp-cli
-Version: 0.11.3
+Version: 0.11.4
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/gemini-notebook-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/gemini-notebook-mcp-cli
@@ -128,7 +128,7 @@ Then use natural language: _"Create a notebook about quantum computing and gener
 | Configure AI tools                            | `nlm setup add/remove/list`     | —                                    |
 | Install AI Skills                             | `nlm skill install/update`      | —                                    |
 | Diagnose issues                               | `nlm doctor`                    | —                                    |
-| Check remaining plan usage                    | `nlm usage`                     | `usage_get`                          |
+| Check remaining plan usage                    | `nlm usage [--profile <name>]`  | `usage_get`                          |
 
 📚 **More Documentation:**
 

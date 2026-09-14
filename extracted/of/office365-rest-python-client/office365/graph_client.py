@@ -65,7 +65,7 @@ from office365.outlook.calendar.rooms.list import RoomList
 from office365.planner.planner import Planner
 from office365.reports.root import ReportRoot
 from office365.runtime.client_runtime_context import ClientRuntimeContext
-from office365.runtime.odata.v4.batch_request import ODataV4BatchRequest
+from office365.runtime.odata.v4.batch_request import DEFAULT_MAX_BATCH_BYTES, ODataV4BatchRequest
 from office365.runtime.odata.v4.json_format import V4JsonFormat
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.search.entity import SearchEntity
@@ -87,6 +87,7 @@ if TYPE_CHECKING:
     from office365.directory.groups.setting import GroupSetting
     from office365.directory.rolemanagement.templates.collection import DirectoryRoleTemplateCollection
     from office365.runtime.client_result import ClientResult
+    from office365.runtime.queries.batch import BatchQuery
     from office365.runtime.types.collections import StringCollection
 
 
@@ -100,6 +101,7 @@ class GraphClient(ClientRuntimeContext):
         scopes: Optional[List[str]] = None,
         token_cache: Any = None,
         environment: AzureEnvironment = AzureEnvironment.Global,
+        authority: Optional[str] = None,
     ):
         """
         Initialize Microsoft Graph client
@@ -111,6 +113,7 @@ class GraphClient(ClientRuntimeContext):
             token_cache: Token cache implementation. Refer
                 https://msal-python.readthedocs.io/en/latest/#msal.SerializableTokenCache
             environment: Azure environment (default: AzureEnvironment.Global)
+            authority: Override the MSAL authority URL (e.g. https://<tenant>.ciamlogin.com)
         """
 
         super().__init__()
@@ -120,6 +123,7 @@ class GraphClient(ClientRuntimeContext):
         self._environment = environment
         self._scopes = scopes
         self._directory: Optional[Directory] = None
+        self._authority = authority
 
     def with_certificate(self, client_id: str, thumbprint: str, private_key: str) -> Self:
         """
@@ -186,9 +190,9 @@ class GraphClient(ClientRuntimeContext):
         self.pending_request().with_device_flow(client_id)
         return self
 
-    def require_application_permission(self, scope: str) -> Self:
+    def require_application_permission(self, *scopes: str) -> Self:
         """
-        Exit if the application lacks the required Graph application permission.
+        Exit if the application lacks at least one of the required Graph application permissions.
 
         Typical usage at the top of example scripts:
 
@@ -198,21 +202,94 @@ class GraphClient(ClientRuntimeContext):
                 .require_application_permission("DeviceManagementConfiguration.Read.All")
             )
 
+            client = (
+                GraphClient(tenant=tenant)
+                .with_client_secret(client_id, secret)
+                .require_application_permission("RoleManagement.Read.Directory", "Directory.Read.All")
+            )
+
         Args:
-            scope: Application permission name (e.g. "DeviceManagementConfiguration.Read.All")
+            *scopes: Application permission names (e.g. "DeviceManagementConfiguration.Read.All");
+                at least one must be granted to the app
         """
         from office365.runtime.client_request_exception import ClientRequestException
 
+        if not scopes:
+            return self
         client_id = self.pending_request().authentication_context.client_id
         try:
             assert client_id is not None
             result = self.get_application_permissions(client_id).execute_query()
-            has_perms = any(role.value == scope for role in result.value)
+            granted = {role.value for role in result.value}
+            has_perms = any(scope in granted for scope in scopes)
             if not has_perms:
-                print(f"Missing required application permission: {scope}")
+                print(f"Missing required application permission: need at least one of: {', '.join(scopes)}")
                 sys.exit(1)
         except ClientRequestException:
-            print(f"Could not verify permission '{scope}' — ensure Application.Read.All is granted.")
+            print(f"Could not verify permissions {scopes}: ensure Application.Read.All is granted.")
+            sys.exit(1)
+        return self
+
+    def require_delegated_permission(self, *scopes: str) -> Self:
+        """
+        Exit if the application lacks at least one of the required Graph delegated permissions.
+
+        Typical usage at the top of example scripts that call delegated APIs (e.g. ``/me``):
+
+            client = (
+                GraphClient(tenant=tenant)
+                .with_username_and_password(client_id, username, password)
+                .require_delegated_permission("User.Read")
+            )
+
+        Args:
+            *scopes: Delegated permission names (e.g. "User.Read");
+                at least one must be granted to the app
+        """
+        from office365.runtime.client_request_exception import ClientRequestException
+
+        if not scopes:
+            return self
+        client_id = self.pending_request().authentication_context.client_id
+        try:
+            assert client_id is not None
+            result = self.get_delegated_permissions(client_id).execute_query()
+            granted = set(result.value)
+            has_perms = any(scope in granted for scope in scopes)
+            if not has_perms:
+                print(f"Missing required delegated permission: need at least one of: {', '.join(scopes)}")
+                sys.exit(1)
+        except ClientRequestException:
+            print(f"Could not verify permissions {scopes}: ensure Application.Read.All is granted.")
+            sys.exit(1)
+        return self
+
+    def require_license(self, *keywords: str) -> Self:
+        """Exit if the tenant has no subscribed SKU matching any of the given keywords.
+
+        Typical usage at the top of example scripts that require a paid
+        add-on license:
+
+            client = (
+                GraphClient(tenant=tenant)
+                .with_client_secret(client_id, client_secret)
+                .require_license("BACKUP")
+            )
+
+        Args:
+            *keywords: Substrings to match against SKU part numbers
+                (case-insensitive); at least one must match
+        """
+        if not keywords:
+            return self
+        skus = self.subscribed_skus.get().execute_query()
+        matched = [
+            s.sku_part_number
+            for s in skus
+            if s.sku_part_number and any(keyword.lower() in s.sku_part_number.lower() for keyword in keywords)
+        ]
+        if not matched:
+            print(f"Missing required license: no subscribed SKU matches: {', '.join(keywords)}")
             sys.exit(1)
         return self
 
@@ -280,27 +357,54 @@ class GraphClient(ClientRuntimeContext):
         self,
         items_per_batch: int = 20,
         success_callback: Optional[Callable[[List[Any]], None]] = None,
-    ):
+        concurrency: int = 1,
+        max_batch_bytes: Optional[int] = None,
+    ) -> Self:
         """
         Execute batched requests
+
+        With ``concurrency`` > 1 the batches run on a thread pool; each batch
+        is an independent HTTP request. Batches are capped by item count
+        (``items_per_batch``) and by estimated payload size (``max_batch_bytes``).
+        Throttled sub-requests (HTTP 429/503) are retried individually, honoring
+        ``Retry-After`` — only the failed sub-requests are re-sent, so successful
+        writes aren't re-applied. ``success_callback`` runs on the caller thread
+        in completion order (not submission order).
 
         Args:
             items_per_batch: Maximum items per batch (default: 20)
             success_callback: Optional callback for successful requests
+            concurrency: Maximum number of concurrent batch requests (default 1)
+            max_batch_bytes: Maximum estimated batch payload size (default ~3 MB)
         """
+        max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
+        batches = self._split_batches(items_per_batch, max_bytes)
+        if concurrency <= 1:
+            batch_request = ODataV4BatchRequest("", V4JsonFormat())
+            batch_request.beforeExecute += self.pending_request().authenticate_request
+            for qry in batches:
+                batch_request.execute_query_with_retry(qry)
+                if callable(success_callback) and qry.return_type is not None:
+                    success_callback(qry.return_type)
+            return self
+
+        self.pending_request()
+        self._execute_batches_in_parallel(batches, concurrency, success_callback)
+        return self
+
+    def _execute_batch(self, batch_qry: "BatchQuery") -> list[Any]:
+        """Execute a single batch unit on a worker thread (with per-request retry)."""
         batch_request = ODataV4BatchRequest("", V4JsonFormat())
         batch_request.beforeExecute += self.pending_request().authenticate_request
-        while self.has_pending_request:
-            qry = self._get_next_query(items_per_batch)
-            batch_request.execute_query(qry)
-            if callable(success_callback) and qry.return_type is not None:
-                success_callback(qry.return_type)
-        return self
+        batch_request.execute_query_with_retry(batch_qry)
+        return batch_qry.return_types
 
     def pending_request(self) -> GraphRequest:
         """Get or create the pending request"""
         if self._pending_request is None:
-            self._pending_request = GraphRequest(tenant=self._tenant, environment=self._environment)
+            self._pending_request = GraphRequest(
+                tenant=self._tenant, environment=self._environment, authority=self._authority
+            )
             if callable(self._token_callback):
                 self._pending_request.with_access_token(self._token_callback)
         return self._pending_request  # type: ignore[return-value]

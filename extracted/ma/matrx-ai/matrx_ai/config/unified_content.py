@@ -850,20 +850,41 @@ UnifiedContent = (
 )
 
 
-def reconstruct_content(block: dict[str, Any]) -> UnifiedContent:
+def reconstruct_content(block: Any) -> UnifiedContent:
     """
-    Reconstruct a content object from a stored JSONB block (cx_message.content).
+    THE ONE tolerant block decoder (DD-187b). Every caller that needs to turn a single
+    stored content item into a UnifiedContent object calls this — never a second, parallel
+    copy of the shape rules. `from_cx_message`'s container-level reconstruction
+    (``UnifiedMessage._reconstruct_stored_content`` in message_config.py) delegates to this
+    function per item instead of re-implementing the string/dict/refusal branches itself.
 
-    This is the deserialization counterpart to each content class's to_storage_dict() method.
-    Handles all storage block types: text, thinking, media, tool_call, tool_result,
-    code_exec, code_result, web_search.
+    Tolerates every shape a writer has ever produced for ONE item (DD-187/DD-187b):
+    a bare string becomes one text part; a dict is decoded by its 'type' discriminator
+    (below); anything else — or an internal decode failure on a well-formed dict — becomes
+    a named refusal ``TextContent`` instead of raising and killing the whole conversation
+    load. Before this guard, a non-dict block reaching this function called ``.get`` on a
+    string/int/etc. and raised, exactly like the bug DD-187 fixed one level up.
 
     Args:
-        block: A dict from the cx_message.content JSONB array with a 'type' discriminator.
+        block: One item from the ``cx_message.content`` JSONB array — normally a dict with
+            a 'type' discriminator, but tolerated in every shape a writer has produced.
 
     Returns:
-        The appropriate UnifiedContent instance.
+        The appropriate UnifiedContent instance, or a named refusal TextContent.
     """
+    if isinstance(block, str):
+        return TextContent(text=block)
+    if not isinstance(block, dict):
+        return TextContent(text=f"[unrecoverable content item shape: {type(block).__name__}]")
+    try:
+        return _decode_content_block(block)
+    except Exception as exc:  # noqa: BLE001 - named refusal, never a crash
+        return TextContent(text=f"[unrecoverable content block: {exc}]")
+
+
+def _decode_content_block(block: dict[str, Any]) -> UnifiedContent:
+    """The real per-type dispatch, dict-only. Only `reconstruct_content` calls this —
+    it is the internal half of the ONE tolerant decoder, not a second entry point."""
     block_type = block.get("type", "text")
 
     if block_type == "text":

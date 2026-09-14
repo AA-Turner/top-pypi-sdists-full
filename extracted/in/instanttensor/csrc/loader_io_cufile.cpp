@@ -16,7 +16,6 @@ void Loader::open_file_cufile(FileInfo &f) {
     f.size = st.st_size;
 
     this->need_worker_threads = true;
-    this->need_cuda_thread = true;
 
     cufile_context_initializer->initialize();
 
@@ -41,68 +40,58 @@ void Loader::deregister_device_buffer_cufile() {
     CUFILE_CHECK(cuFileBufDeregister(this->device_buffer));
 }
 
-ChunkRequest Loader::post_read_chunk_cufile(const ChunkIOParams &p) {
+IORequest Loader::post_read_chunk_cufile(const ChunkIOParams &p) {
     chunk_id_t chunk_id = p.chunk_id;
-    vector<int> req_ids(this->num_threads);
-    std::vector<ssize_t> expect_return(this->num_threads);
-    size_t worker_cnt = 0;
-    for(size_t i = 0; i < this->num_threads; i++) {
-        size_t thread_offset = p.padded_thread_size * i;
-        size_t thread_size = std::min((size_t)std::max((ssize_t)(p.chunk.size - p.rank_offset - thread_offset), (ssize_t)0), p.padded_thread_size);
-
-        if(thread_size == 0) continue;
-
-        CUfileHandle_t cufile_handle = p.file.cufile_handle;
-        size_t file_offset = p.chunk.file_offset + p.rank_offset + thread_offset;
-        size_t buf_offset = p.chunk.device_buffer_offset + p.rank_offset + thread_offset;
-        auto read_weight = [=]() -> ssize_t {
-            ssize_t ret = cuFileRead(cufile_handle, this->device_buffer, thread_size,
-                file_offset, buf_offset);
-            if(ret == -1) {
-                perror("cuFileRead");
-                throw std::runtime_error("");
-            }
-            else if(ret < 0) {
-                std::cerr << CUFILE_ERRSTR(-ret) << '\n';
-            }
-            return ret;
-        };
-        req_ids[i] = this->worker_threads[i]->post(std::move(read_weight));
-        expect_return[i] = thread_size;
-        worker_cnt++;
-    }
-
-    void *rank_dst = p.rank_dst;
-    void *all_dst = p.all_dst;
-    size_t padded_rank_size = p.padded_rank_size;
-    cudaEvent_t event = p.event;
-    int rank = this->rank;
-    auto cuda_func = [=, req_ids=std::move(req_ids), expect_return=std::move(expect_return)]() {
-        for(size_t i = 0; i < worker_cnt; i++) {
-            ssize_t bytes_read;
-            this->worker_threads[i]->pop(req_ids[i], bytes_read);
-            if(bytes_read != expect_return[i]) {// bytes_read < 0 on error
-                fprintf(stderr, "chunk_id=%zd, rank=%d, thread_id=%zu, bytes_read=%zd, expect_read=%zd\n",
-                    chunk_id, rank, i, bytes_read, expect_return[i]);
-                print_and_throw(std::runtime_error("Internal error: bytes_read(" + std::to_string(bytes_read) + ") != thread_size(" + std::to_string(expect_return[i]) + ")."));
-            }
-        }
-        if(this->world_size > 1) {
-            NCCL_CHECK(ncclAllGather(rank_dst, all_dst, padded_rank_size, ncclInt8, this->group_communicator, this->nccl_stream));// 320GB/s for 8 GPUs
-            CUDA_CHECK(cudaEventRecord(event, this->nccl_stream));
+    CUfileHandle_t handle = p.file.cufile_handle;
+    size_t file_offset = p.chunk.file_offset + p.rank_offset;
+    size_t device_offset = p.chunk.device_buffer_offset + p.rank_offset;
+    size_t logical_size = p.rank_size;
+    ChunkExtraData &initial_state = this->chunks[chunk_id].extra_data;
+    initial_state.pending_worker_request_id = EXECUTOR_STOP_REQUEST_ID;
+    auto io_start = [=]() {
+        ChunkExtraData &state = this->chunks[chunk_id].extra_data;
+        if (logical_size > 0) {
+            state.pending_worker_request_id = this->next_io_worker_task_id();
+            this->worker_threads->submit(state.pending_worker_request_id, [=]() {
+                size_t bytes_completed = 0;
+                while (bytes_completed < logical_size) {
+                    size_t remaining = logical_size - bytes_completed;
+                    // cuFile supports unaligned ranges on O_DIRECT files, including retry tails.
+                    ssize_t ret = cuFileRead(handle, this->device_buffer, remaining,
+                        file_offset + bytes_completed, device_offset + bytes_completed);
+                    if (ret < 0) {
+                        std::string detail = ret == -1 ? std::strerror(errno) : CUFILE_ERRSTR(-ret);
+                        throw std::runtime_error("cuFileRead failed: " + detail);
+                    }
+                    if (ret == 0) {
+                        throw std::runtime_error(
+                            "Unexpected cuFile short read at EOF: chunk_id=" +
+                            std::to_string(chunk_id) + ", bytes_completed=" +
+                            std::to_string(bytes_completed) + ", logical_size=" +
+                            std::to_string(logical_size));
+                    }
+                    if (static_cast<size_t>(ret) > remaining) {
+                        throw std::runtime_error("cuFileRead returned too many bytes");
+                    }
+                    bytes_completed += static_cast<size_t>(ret);
+                }
+            });
         }
     };
-    int cuda_req_id = this->cuda_thread->post(std::move(cuda_func));
-
-    auto wait_func = [=]() mutable {
-        this->cuda_thread->pop(cuda_req_id);
-        CUDA_CHECK(cudaEventSynchronize(event));
+    auto io_func = [=]() -> bool {
+        ChunkExtraData &state = this->chunks[chunk_id].extra_data;
+        if (state.pending_worker_request_id != EXECUTOR_STOP_REQUEST_ID) {
+            std::any result;
+            if (!this->worker_threads->try_reap(state.pending_worker_request_id, result)) {
+                return false;
+            }
+            state.pending_worker_request_id = EXECUTOR_STOP_REQUEST_ID;
+        }
+        return true;
     };
-
-    int completion_req_id = this->wait_thread->post(std::move(wait_func));
-    AsyncExecutor *completion_thread = this->wait_thread.get();
-
-    return ChunkRequest{completion_thread, completion_req_id};
+    int io_req_id = this->next_loader_task_id();
+    this->io_thread->submit(io_req_id, IOOperation{std::move(io_start), std::move(io_func)});
+    return IORequest{this->io_thread.get(), io_req_id, true};
 }
 
 } // namespace instanttensor

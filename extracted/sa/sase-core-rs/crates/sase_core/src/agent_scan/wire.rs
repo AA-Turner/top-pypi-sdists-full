@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 
 /// Schema version mirrored from
 /// `agent_scan_wire.py::AGENT_SCAN_WIRE_SCHEMA_VERSION`.
-pub const AGENT_SCAN_WIRE_SCHEMA_VERSION: u32 = 8;
+pub const AGENT_SCAN_WIRE_SCHEMA_VERSION: u32 = 9;
 
 /// Workflow directory categories the scanner walks.
 ///
@@ -114,6 +114,43 @@ pub struct AgentArtifactScanStatsWire {
     pub json_decode_errors: u64,
     pub os_errors: u64,
     pub prompt_step_markers_parsed: u64,
+    /// Marker-signature comparisons against indexed rows.
+    #[serde(default)]
+    pub marker_signatures_checked: u64,
+    /// Indexed rows rewritten from a source rescan.
+    #[serde(default)]
+    pub rows_repaired: u64,
+    /// Previously unindexed source directories upserted during discovery.
+    #[serde(default)]
+    pub rows_discovered: u64,
+    /// Indexed rows deleted because the source directory is gone.
+    #[serde(default)]
+    pub rows_removed: u64,
+    /// `record_json` blobs decoded for this query.
+    #[serde(default)]
+    pub record_json_decoded: u64,
+}
+
+/// Completeness of one artifact-index snapshot relative to the source tree.
+///
+/// Marker revalidation repairs rows the index already stores. It does not
+/// discover previously unindexed directories or drop deleted ones. A
+/// snapshot may claim `complete_history` only after a source-directory
+/// reconciliation (or a still-valid watermark from one).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentArtifactIndexCompletenessWire {
+    pub complete_history: bool,
+    pub source_reconciled: bool,
+    #[serde(default)]
+    pub rows_discovered: u64,
+    #[serde(default)]
+    pub rows_removed: u64,
+    #[serde(default)]
+    pub marker_signatures_checked: u64,
+    #[serde(default)]
+    pub rows_repaired: u64,
+    #[serde(default)]
+    pub record_json_decoded: u64,
 }
 
 /// Metadata for an intentionally bounded artifact-index window.
@@ -588,6 +625,14 @@ pub struct AgentMetaWire {
     #[serde(default)]
     pub wait_priority: Option<i64>,
     #[serde(default)]
+    pub queue_capacity: Option<i64>,
+    #[serde(default)]
+    pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing)]
+    pub(crate) wait_runners: Option<i64>,
+    #[serde(default, skip_serializing)]
+    pub(crate) wait_runners_explicit: bool,
+    #[serde(default)]
     pub queue_weight: Option<f64>,
     #[serde(default)]
     pub queue_weight_explicit: bool,
@@ -649,6 +694,21 @@ pub struct AgentMetaWire {
     pub shell_kind: Option<String>,
     #[serde(default)]
     pub proc_id: Option<String>,
+}
+
+impl AgentMetaWire {
+    pub fn normalize_queue_capacity_aliases(&mut self) {
+        let (capacity, explicit) =
+            crate::queue_directive::resolve_queue_capacity(
+                self.queue_capacity,
+                self.wait_runners.take(),
+                self.queue_capacity_explicit,
+                self.wait_runners_explicit,
+            );
+        self.queue_capacity = capacity;
+        self.queue_capacity_explicit = explicit;
+        self.wait_runners_explicit = false;
+    }
 }
 
 /// Monitor-only fields of a `family_shell` record.
@@ -805,7 +865,7 @@ pub struct WaitingMarkerWire {
     #[serde(default)]
     pub wait_until: Option<String>,
     #[serde(default)]
-    pub wait_runners: Option<i64>,
+    pub queue_capacity: Option<i64>,
     #[serde(default)]
     pub wait_priority: Option<i64>,
     #[serde(default)]
@@ -819,11 +879,30 @@ pub struct WaitingMarkerWire {
     #[serde(default)]
     pub wait_priority_explicit: bool,
     #[serde(default)]
-    pub wait_runners_explicit: bool,
+    pub queue_capacity_explicit: bool,
+    #[serde(default, skip_serializing)]
+    pub(crate) wait_runners: Option<i64>,
+    #[serde(default, skip_serializing)]
+    pub(crate) wait_runners_explicit: bool,
     #[serde(default)]
     pub slot_requested_at: Option<String>,
     #[serde(default)]
     pub eligible_since: Option<String>,
+}
+
+impl WaitingMarkerWire {
+    pub fn normalize_queue_capacity_aliases(&mut self) {
+        let (capacity, explicit) =
+            crate::queue_directive::resolve_queue_capacity(
+                self.queue_capacity,
+                self.wait_runners.take(),
+                self.queue_capacity_explicit,
+                self.wait_runners_explicit,
+            );
+        self.queue_capacity = capacity;
+        self.queue_capacity_explicit = explicit;
+        self.wait_runners_explicit = false;
+    }
 }
 
 /// Compact projection of `pending_question.json`.
@@ -1048,6 +1127,33 @@ pub struct AgentArtifactRecordWire {
     pub record_shape: AgentArtifactRecordShapeWire,
 }
 
+impl AgentArtifactRecordWire {
+    pub fn normalize_queue_capacity_aliases(&mut self) {
+        if let Some(meta) = &mut self.agent_meta {
+            meta.normalize_queue_capacity_aliases();
+        }
+        if let Some(waiting) = &mut self.waiting {
+            waiting.normalize_queue_capacity_aliases();
+        }
+    }
+}
+
+/// Deserialize a cached scan record, accepting canonical, legacy, and dual
+/// capacity spellings without duplicate-field errors.
+pub fn decode_agent_artifact_record_json(
+    record_json: &str,
+) -> Result<AgentArtifactRecordWire, String> {
+    let mut value: serde_json::Value =
+        serde_json::from_str(record_json).map_err(|err| err.to_string())?;
+    crate::queue_directive::merge_queue_capacity_aliases_in_scan_record(
+        &mut value,
+    );
+    let mut record: AgentArtifactRecordWire =
+        serde_json::from_value(value).map_err(|err| err.to_string())?;
+    record.normalize_queue_capacity_aliases();
+    Ok(record)
+}
+
 /// Authoritative resolved attributes for one represented clan generation.
 ///
 /// These values are semantic context for visible records, not additional
@@ -1087,6 +1193,8 @@ pub struct AgentArtifactScanWire {
     pub records: Vec<AgentArtifactRecordWire>,
     #[serde(default)]
     pub clan_context: Vec<AgentClanContextWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_completeness: Option<AgentArtifactIndexCompletenessWire>,
 }
 
 /// Return true iff `name` is one of the workflow folder names the

@@ -16,6 +16,7 @@ from uuid import NAMESPACE_URL, uuid5
 from matrx_assignment import (
     AssignmentBatchResult,
     AssignmentCoordinator,
+    AssignmentExecutionFailure,
     AssignmentExecutionOutput,
     AssignmentPlan,
     AssignmentPlanner,
@@ -28,7 +29,7 @@ from matrx_graph.actions import register_node
 from matrx_graph.contract_kinds import ContractDirection, ContractFamily, contract_from_model
 from matrx_graph.types.context import NodeExecutionContext
 from matrx_graph.types.primitives import ActionTier, NodeCategory
-from matrx_graph.types.result import NodeResult, success
+from matrx_graph.types.result import Failure, NodeResult, success
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
@@ -38,7 +39,11 @@ from matrx_ai.graph_nodes.agent_action import (
     _resolve_conversation_start_fields,
     resolve_step_agent,
 )
-from matrx_ai.graph_nodes.shared import AiExecutionResult, normalize_completed
+from matrx_ai.graph_nodes.shared import (
+    ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY,
+    AiExecutionResult,
+    normalize_completed_result,
+)
 
 
 class AssignmentAgentInput(AgentStartStrictInput, MandateSelectorInput):
@@ -95,6 +100,18 @@ class AgentAssignmentBatchInput(BaseModel):
     metadata: dict[str, JsonValue] = Field(
         default_factory=dict,
         description="Caller metadata preserved on the durable assignment session.",
+    )
+    # THE SAME KNOB ``ai.agent.start`` CARRIES, for the same reason. A batch is
+    # N invocations of one saved agent, so the all-zero refusal applies per
+    # ITEM; an author whose batch legitimately answers with nothing for some
+    # rows says so once, here. ``None`` defers to the organization's
+    # ``ai_structured_output.allow_empty`` knob (platform default: refuse).
+    allow_empty_structured_output: bool | None = Field(
+        default=None,
+        description=(
+            "Allow an item's answer to come back with every declared field empty. "
+            "Omit to follow the organization's setting (refuse by default)."
+        ),
     )
 
     @model_validator(mode="after")
@@ -217,7 +234,37 @@ async def run_agent_assignment_batch(
             completed = await agent_runner(agent_id, agent_request, child_ctx)
         finally:
             clear_app_context(token)
-        result = await asyncio.to_thread(normalize_completed, completed)
+        # THE ONE ACCEPTANCE SEAM, FOR ITEMS TOO. This node is "``ai.agent.start``
+        # once per row" (module docstring), so it must inherit every refusal that
+        # seam owns — a failed turn, a salvaged partial from a turn cut off at the
+        # output ceiling, and the all-zero answer that is schema-valid and carries
+        # nothing (W59). It called bare ``normalize_completed`` instead, which only
+        # raises on a terminal provider failure: an item whose agent returned
+        # ``{"cuts": [], "verdict": "", …}`` was written down as a SUCCEEDED
+        # assignment, and a batch of 200 rows could deliver 200 hollow objects with
+        # nothing anywhere saying so. Found 2026-09-12 censusing the sibling call
+        # sites of the W59 fix, off live workflow run 7e155d1a… whose ``n_audit``
+        # step shipped exactly that shape from the guarded path's twin.
+        #
+        # The verdict becomes an ``AssignmentExecutionFailure`` so it travels the
+        # coordinator's OWN ladder: the item is marked failed with this code and
+        # message, and retried up to ``max_attempts`` (retryable, like the raise it
+        # replaces — a second sample of a non-deterministic model is the right
+        # response, and the run is not told the row succeeded either way).
+        outcome = normalize_completed_result(
+            completed,
+            step_config={
+                ALLOW_EMPTY_STRUCTURED_OUTPUT_KEY: inputs.allow_empty_structured_output
+            },
+        )
+        if isinstance(outcome, Failure):
+            raise AssignmentExecutionFailure(
+                outcome.error.message,
+                code=outcome.error.code,
+                retryable=True,
+                details=dict(outcome.error.details or {}),
+            )
+        result = outcome.result
         return AssignmentExecutionOutput(
             value=result.model_dump(mode="json"),
             kind=_AGENT_OUTPUT_KIND,

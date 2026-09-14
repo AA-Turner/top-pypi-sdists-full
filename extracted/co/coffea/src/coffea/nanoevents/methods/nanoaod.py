@@ -199,10 +199,6 @@ GenParticleRecord.ProjectionClass3D = vector.ThreeVectorRecord  # noqa: F821
 GenParticleRecord.ProjectionClass4D = GenParticleRecord  # noqa: F821
 GenParticleRecord.MomentumClass = vector.LorentzVectorRecord  # noqa: F821
 
-behavior.update(
-    awkward._util.copy_behaviors("PtEtaPhiMLorentzVector", "GenVisTau", behavior)
-)
-
 
 @awkward.mixin_class(behavior)
 class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
@@ -219,6 +215,18 @@ class GenVisTau(candidate.PtEtaPhiMCandidate, base.NanoCollection):
         return dask_array._events().GenPart._apply_global_index(
             dask_array.genPartIdxMotherG
         )
+
+
+# Fill in cross-class LorentzVector behaviors for GenVisTau without overwriting
+# the charge-propagating Candidate.add the decorator just registered. Running
+# ``copy_behaviors`` before the decorator would pre-seed
+# ``(add, GenVisTau, GenVisTau)`` -> LorentzVector.add and silently drop charge
+# on ``GenVisTau + GenVisTau`` (see scikit-hep/coffea#1578).
+for _key, _value in awkward._util.copy_behaviors(
+    "PtEtaPhiMLorentzVector", "GenVisTau", behavior
+).items():
+    behavior.setdefault(_key, _value)
+del _key, _value
 
 
 _set_repr_name("GenVisTau")
@@ -544,7 +552,7 @@ class FsrPhoton(candidate.PtEtaPhiMCandidate, base.NanoCollection):
 
     @matched_muon.dask
     def matched_muon(self, dask_array):
-        return dask_array._events().Jet._apply_global_index(dask_array.muonIdxG)
+        return dask_array._events().Muon._apply_global_index(dask_array.muonIdxG)
 
 
 _set_repr_name("FsrPhoton")
@@ -825,7 +833,7 @@ class AssociatedPFCand(base.NanoCollection):
     @jet.dask
     def jet(self, dask_array):
         collection = self.collection_map[self._collection_name()][0]
-        return dask_array.events()[collection]._apply_global_index(dask_array.jetIdxG)
+        return dask_array._events()[collection]._apply_global_index(dask_array.jetIdxG)
 
     @dask_property
     def pf(self):
@@ -857,12 +865,12 @@ class AssociatedSV(base.NanoCollection):
 
     @dask_property
     def jet(self):
-        collection = self._events()[self.collection_map[self._collection_name()][0]]
+        collection = self.collection_map[self._collection_name()][0]
         return self._events()[collection]._apply_global_index(self.jetIdxG)
 
     @jet.dask
     def jet(self, dask_array):
-        collection = self._events()[self.collection_map[self._collection_name()][0]]
+        collection = self.collection_map[self._collection_name()][0]
         return dask_array._events()[collection]._apply_global_index(dask_array.jetIdxG)
 
     @dask_property

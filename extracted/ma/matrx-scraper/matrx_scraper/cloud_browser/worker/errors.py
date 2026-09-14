@@ -29,6 +29,7 @@ WorkerErrorCode = Literal[
     "queue_draining",
     "worker_shutting_down",
     "not_bootstrapped",
+    "bootstrap_in_progress",
     "already_bootstrapped",
     "run_mismatch",
     "profile_mismatch",
@@ -73,6 +74,11 @@ _ERROR_META: dict[str, tuple[int, bool]] = {
     "queue_draining": (409, True),
     "worker_shutting_down": (409, False),
     "not_bootstrapped": (409, True),
+    # A bootstrap is being applied right now. Distinct from ``not_bootstrapped``
+    # on purpose: the control plane's reaper treats the latter as proof that
+    # nothing ever started and writes the run off — which, against an
+    # in-flight bootstrap, produced an orphaned live worker (2026-09-13).
+    "bootstrap_in_progress": (409, True),
     "already_bootstrapped": (409, False),
     "run_mismatch": (409, False),
     "profile_mismatch": (409, False),

@@ -15,6 +15,11 @@ class GeneralAgentConfig(UniversalBaseModel):
     enabled_tools: typing.Optional[typing.List[GeneralAgentConfigEnabledToolsItem]] = None
     knowledge_base_asset_ids: typing.Optional[typing.List[str]] = None
     model: typing.Optional[str] = None
+    structured_output: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    """
+    A JSON Schema (type: object) the agent's final answer must conform to. When set, the response carries the validated payload in `structured_output` and the request fails with a 500 rather than returning prose that does not match the schema.
+    """
+
     system_prompt: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

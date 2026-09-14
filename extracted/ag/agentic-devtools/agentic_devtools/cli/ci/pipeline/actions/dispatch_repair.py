@@ -24,6 +24,7 @@ from agentic_devtools.cli.ci.pipeline.gate_verdict import (
     is_copilot_or_synthetic_review,
 )
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+from agentic_devtools.cli.ci.pipeline.session_detector import is_copilot_session_active_via_agent_task
 from agentic_devtools.cli.ci.pipeline.snapshot import (
     REPAIRABLE_REVIEW_STATES,
     DerivedState,
@@ -379,6 +380,16 @@ class DispatchRepairAction:
                 details="CI still pending — waiting",
             )
         preconditions["ci_not_pending"] = True
+
+        active_session = is_copilot_session_active_via_agent_task(snapshot.base_repo_full_name, snapshot.pr_number)
+        preconditions["no_active_session"] = active_session is False
+        if active_session is not False:
+            return ActionResult(
+                name=self.name,
+                decision=ActionDecision.SKIP,
+                preconditions=preconditions,
+                details="Copilot session active or inventory unavailable — repair dispatch blocked",
+            )
 
         return ActionResult(
             name=self.name,

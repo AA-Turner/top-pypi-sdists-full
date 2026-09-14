@@ -43,7 +43,16 @@ class LinkMenuItemAdminForm(_BasedMenuItemAdminForm):
 
     class Meta:
         model = MenuItem
-        fields = ["text", "url", "classes", "order", "parent", "is_hidden"]
+        fields = [
+            "text",
+            "url",
+            "classes",
+            "order",
+            "parent",
+            "is_hidden",
+            "permissions",
+            "permission_mode",
+        ]
         widgets = {
             "url": forms.TextInput(attrs={"size": "100"}),
         }

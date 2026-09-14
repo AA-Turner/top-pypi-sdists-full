@@ -22,8 +22,8 @@ class ResolvedField:
     """Where a component's field sits on the device.
 
     The addresses are absolute: the declared address plus everything that
-    places the layout — ``base_offset``, a repeated instance's shift, and a
-    per-field ``stride``.
+    places the layout, which is ``base_offset``, a repeated instance's shift,
+    and a per-field ``stride``.
     """
 
     field: RegisterField[Any] | CoilField | DiscreteInputField
@@ -111,43 +111,31 @@ def _spans(items: Iterable[ReadItem]) -> dict[Space, list[tuple[int, int]]]:
     return spans
 
 
-def own_ranges(
+def unmapped_items(ranges: DeviceRanges, items: Iterable[ReadItem]) -> list[ReadItem]:
+    """The items read from a space ``ranges`` leaves unconstrained."""
+    return [item for item in items if ranges.for_space(item.resolved.space) is None]
+
+
+def claimed_ranges(
     items: Iterable[ReadItem], *, max_gap: int, max_span: int
-) -> dict[Space, tuple[Range, ...]]:
-    """The addresses these items cover when read on their own, per space.
+) -> DeviceRanges:
+    """Claim the addresses these items cover when read on their own.
 
     This stands in for a readable map a component did not declare: it claims
     exactly what the component reads by itself, so pooling it with others
     cannot bridge into addresses no component claims.
     """
-    return {
-        space: tuple(
-            (start, start + count - 1)
-            for start, count in _plan_blocks(
-                space_spans, None, max_gap=max_gap, max_span=max_span
+    return DeviceRanges.claims(
+        {
+            space: tuple(
+                (start, start + count - 1)
+                for start, count in _plan_blocks(
+                    space_spans, None, max_gap=max_gap, max_span=max_span
+                )
             )
-        )
-        for space, space_spans in _spans(items).items()
-    }
-
-
-def undeclared_claims(
-    parts: Iterable[tuple[DeviceRanges, list[ReadItem], int, int]],
-) -> dict[Space, tuple[Range, ...]]:
-    """What each part that declared no map for a space reads on its own.
-
-    Each part is ``(declared map, read items, max_gap, max_span)``. The result
-    is claims, not a device map: they only widen what a plan may cover, so
-    unlike declared maps they are not checked against each other.
-    """
-    claimed: dict[Space, tuple[Range, ...]] = {}
-    for declared, items, max_gap, max_span in parts:
-        for space, ranges in own_ranges(
-            items, max_gap=max_gap, max_span=max_span
-        ).items():
-            if declared.for_space(space) is None:
-                claimed[space] = claimed.get(space, ()) + ranges
-    return claimed
+            for space, space_spans in _spans(items).items()
+        }
+    )
 
 
 def _reader(
@@ -247,6 +235,11 @@ def _merge_raw(
         into.setdefault(space, {}).update(values)
 
 
+def _sorted_raw(raw: Raw) -> Raw:
+    """The same raw map with every space's addresses ascending."""
+    return {space: dict(sorted(values.items())) for space, values in raw.items()}
+
+
 class _Readable:
     """Share read-plan execution between component types."""
 
@@ -298,4 +291,4 @@ class _Readable:
         Raises ``ModbusExceptionError`` if the device rejects a block.
         """
         raw = await self._refresh(collect_raw=True, notify=notify)
-        return {space: dict(sorted(values.items())) for space, values in raw.items()}
+        return _sorted_raw(raw)

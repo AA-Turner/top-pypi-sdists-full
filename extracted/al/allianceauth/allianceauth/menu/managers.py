@@ -1,5 +1,3 @@
-from __future__ import annotations  # Still needed for Python 3.8, replaced with better implementations in Py39+
-
 import logging
 from typing import TYPE_CHECKING
 
@@ -8,7 +6,6 @@ from django.db.models import Case, Q, Value, When
 
 from allianceauth.hooks import get_hooks
 
-from .constants import MenuItemType
 from .core.menu_item_hooks import MenuItemHookParams, gather_params
 
 if TYPE_CHECKING:
@@ -18,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class MenuItemQuerySet(models.QuerySet):
+class MenuItemQuerySet(models.QuerySet["MenuItem"]):
     def filter_folders(self):
         """Add filter to include folders only."""
         return self.filter(hook_hash__isnull=True, url="")
@@ -27,14 +24,28 @@ class MenuItemQuerySet(models.QuerySet):
         """Add calculated field with item type."""
         return self.annotate(
             item_type_2=Case(
-                When(~Q(hook_hash__isnull=True), then=Value(MenuItemType.APP.value)),
-                When(url="", then=Value(MenuItemType.FOLDER.value)),
-                default=Value(MenuItemType.LINK.value),
+                When(
+                    ~Q(hook_hash__isnull=True),
+                    then=Value(self.model.MenuItemType.APP.value),
+                ),
+                When(url="", then=Value(self.model.MenuItemType.FOLDER.value)),
+                default=Value(self.model.MenuItemType.LINK.value),
             )
         )
 
 
-class MenuItemManagerBase(models.Manager):
+class MenuItemManager(models.Manager["MenuItem"]):
+    def get_queryset(self) -> MenuItemQuerySet:
+        return MenuItemQuerySet(self.model, using=self._db)
+
+    def filter_folders(self):
+        """Add filter to include folders only."""
+        return self.get_queryset().filter_folders()
+
+    def annotate_item_type_2(self):
+        """Add calculated field with item type."""
+        return self.get_queryset().annotate_item_type_2()
+
     def sync_all(self):
         """Sync all menu items from hooks."""
         hook_params = self._gather_menu_item_hook_params()
@@ -62,6 +73,3 @@ class MenuItemManagerBase(models.Manager):
                     obj.save()
 
         logger.debug("Updated menu items from %d menu item hooks", len(params))
-
-
-MenuItemManager = MenuItemManagerBase.from_queryset(MenuItemQuerySet)

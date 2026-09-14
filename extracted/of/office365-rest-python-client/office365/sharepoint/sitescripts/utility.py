@@ -90,7 +90,7 @@ class SiteScriptUtility(Entity):
             return_type: Optional pre-built return type
         """
         if return_type is None:
-            return_type = ClientResult(context)
+            return_type = ClientResult[str](context)
         payload = {"listUrl": list_url, "options": options}
         utility = SiteScriptUtility(context)
         qry = ServiceOperationQuery(utility, "GetSiteScriptFromList", None, payload, None, return_type, True)

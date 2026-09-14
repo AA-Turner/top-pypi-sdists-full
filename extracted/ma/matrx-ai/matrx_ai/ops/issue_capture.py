@@ -95,6 +95,31 @@ async def _capture_impl(
     request_id: str | None,
     detail: dict[str, Any],
 ) -> None:
+    # THE PROVIDER-OUTAGE ALARM hangs off this writer because this is the ONE
+    # place every classified provider error is counted: hooking the executor
+    # instead would mean hooking six call sites and missing the seventh. Its own
+    # try/except so neither half can break the other, and it never raises.
+    # aidream/services/provider_outage/detector.py carries the law.
+    try:
+        from matrx_ai.ops.provider_outage import note_provider_failure
+
+        _reroute = detail.get("overload_reroute")
+        _to_model = _reroute.get("to_model") if isinstance(_reroute, dict) else None
+
+        await note_provider_failure(
+            provider=provider,
+            model=model,
+            error_type=error_type,
+            status_code=status_code,
+            error_text=str(detail.get("error") or detail.get("message") or "") or None,
+            rerouted_to=str(_to_model) if _to_model else None,
+        )
+    except Exception as outage_exc:  # noqa: BLE001 — a broken alarm never breaks capture
+        vcprint(
+            f"[OpsIssueCapture] provider-outage detection failed: {outage_exc}",
+            color="yellow",
+        )
+
     try:
         from matrx_ai.ops.issue_registry import auto_register_class, get_issue_class
 

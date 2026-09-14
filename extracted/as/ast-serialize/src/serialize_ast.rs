@@ -359,10 +359,12 @@ pub(crate) fn serialize_python_file(
     ))
 }
 
-// Bit flags for import statement metadata
+// Bit flags for import statement metadata. Deserializers ignore unknown bits,
+// so adding a flag here doesn't require a cache version bump.
 const IMPORT_FLAG_TOP_LEVEL: u8 = 1 << 0; // true if import is not within a function
 const IMPORT_FLAG_UNREACHABLE: u8 = 1 << 1; // true if import is in unreachable code
 const IMPORT_FLAG_MYPY_ONLY: u8 = 1 << 2; // true if import is mypy-only (e.g., in TYPE_CHECKING block)
+const IMPORT_FLAG_LAZY: u8 = 1 << 3; // true if this is a lazy import (PEP 810), e.g. 'lazy import x'
 
 // Used to report which imports are used in a file
 pub(crate) enum ImportStatement {
@@ -1571,7 +1573,7 @@ impl Ser for ast::Stmt {
                 } else if let Some(ParsedTypeComment::Invalid(error)) = type_expr {
                     ser.add_error(error, a.range(), false);
                     ser.write_bool(true);
-                    serialize_invalid_type(ser, None);
+                    serialize_invalid_type(ser, None, None, None);
                     ser.write_location(a.range());
                     ser.write_end_tag();
                 } else {
@@ -1616,7 +1618,7 @@ impl Ser for ast::Stmt {
                 ser.write_location(a.range());
             }
             ast::Stmt::Import(i) => {
-                let flags = make_import_flags(ser);
+                let flags = make_import_flags(ser, i.is_lazy);
                 ser.write_tag(TAG_IMPORT);
                 // Write number of imports
                 ser.write_tagged_int(i.names.len() as i64);
@@ -1644,7 +1646,7 @@ impl Ser for ast::Stmt {
                 }
             }
             ast::Stmt::ImportFrom(ifrom) => {
-                let flags = make_import_flags(ser);
+                let flags = make_import_flags(ser, ifrom.is_lazy);
                 // Check if this is a wildcard import (from m import *)
                 if ifrom.names.len() == 1 && ifrom.names[0].name.as_str() == "*" {
                     // Serialize as ImportAll
@@ -2897,10 +2899,24 @@ fn serialize_fstring_elements(ser: &mut Serializer, elems: Vec<&ast::Interpolate
 
 /// Helper to serialize an invalid type annotation as RawExpressionType with typing.Any.
 /// This is used for expressions that are not valid in type contexts (e.g., 3.14, int + str).
-fn serialize_invalid_type(ser: &mut Serializer, note: Option<&[u8]>) {
+fn serialize_invalid_type(
+    ser: &mut Serializer,
+    note: Option<&[u8]>,
+    original_str_expr: Option<&str>,
+    original_str_fallback: Option<&str>,
+) {
     ser.write_tag(TAG_RAW_EXPRESSION_TYPE);
-    ser.write_bytes(b"typing.Any");
-    ser.write_tag(TAG_LITERAL_NONE);
+    if let Some(original_str_expr) = original_str_expr {
+        // Whenever this is called from parsing a string literal as type,
+        // convert it back to a regular (valid) RawExpressionType.
+        // This is needed for literal types (and matches old parser behavior).
+        ser.write_bytes(original_str_fallback.unwrap().as_bytes());
+        ser.write_bytes(original_str_expr.as_bytes());
+        return;
+    } else {
+        ser.write_bytes(b"typing.Any");
+        ser.write_tag(TAG_LITERAL_NONE);
+    }
     if ser.options.cache_version() >= CV_RAW_EXPRESSION_TYPE_NOTES {
         if let Some(note) = note {
             ser.write_bytes(note);
@@ -2988,12 +3004,12 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
                     ser.write_tagged_int(int_val);
                 } else {
                     // Integer too large for i64 - serialize as invalid type
-                    serialize_invalid_type(ser, None);
+                    serialize_invalid_type(ser, None, None, None);
                 }
             } else {
                 // Float/complex number literals are not valid in type annotations
                 // Serialize as invalid type
-                serialize_invalid_type(ser, None);
+                serialize_invalid_type(ser, None, None, None);
             }
         }
         ast::Expr::BinOp(e) => {
@@ -3004,7 +3020,7 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
             } else {
                 // Other binary operators are not valid in type annotations
                 // Serialize as invalid type
-                serialize_invalid_type(ser, None);
+                serialize_invalid_type(ser, None, None, None);
             }
         }
         ast::Expr::List(e) => {
@@ -3056,7 +3072,7 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
                     serialize_type(ser, &item.value);
                 }
             } else {
-                serialize_invalid_type(ser, None);
+                serialize_invalid_type(ser, None, None, None);
             }
         }
         ast::Expr::Call(c) => {
@@ -3078,7 +3094,7 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
             } else {
                 None
             };
-            serialize_invalid_type(ser, note.as_deref());
+            serialize_invalid_type(ser, note.as_deref(), None, None);
         }
         ast::Expr::EllipsisLiteral(_) => {
             ser.write_tag(TAG_ELLIPSIS_TYPE);
@@ -3104,7 +3120,7 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
                     return;
                 } else {
                     // Negative number too large - serialize as invalid type
-                    serialize_invalid_type(ser, None);
+                    serialize_invalid_type(ser, None, None, None);
                 }
             } else if matches!(e.op, ast::UnaryOp::UAdd) {
                 // Positive unary operator (+) - preserve the underlying value
@@ -3119,12 +3135,12 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
                     return;
                 } else {
                     // Number too large or not an integer - serialize as invalid type
-                    serialize_invalid_type(ser, None);
+                    serialize_invalid_type(ser, None, None, None);
                 }
             } else {
                 // Other unary operators (not, ~, etc.) are not valid in type annotations
                 // Serialize as invalid type
-                serialize_invalid_type(ser, None);
+                serialize_invalid_type(ser, None, None, None);
             }
         }
         ast::Expr::StringLiteral(s) => {
@@ -3155,7 +3171,7 @@ fn serialize_type(ser: &mut Serializer, t: &ast::Expr) {
         _ => {
             // Unsupported expression type in type annotation
             // Serialize as invalid type
-            serialize_invalid_type(ser, None);
+            serialize_invalid_type(ser, None, None, None);
         }
     }
     ser.write_location(t.range());
@@ -3320,7 +3336,7 @@ fn serialize_attribute_type(
     let mut v = Vec::new();
     if !get_qualified_type_name(&mut v, expr) {
         // Invalid expression for qualified name - serialize as invalid type
-        serialize_invalid_type(ser, None);
+        serialize_invalid_type(ser, None, original_str_expr, original_str_fallback);
         return;
     }
     ser.write_tag(TAG_UNBOUND_TYPE);
@@ -3353,7 +3369,7 @@ fn serialize_subscript_type(
     let mut v = Vec::new();
     if !get_qualified_type_name(&mut v, &subscript.value) {
         // Invalid expression for qualified name - serialize as invalid type
-        serialize_invalid_type(ser, None);
+        serialize_invalid_type(ser, None, original_str_expr, original_str_fallback);
         return;
     }
     ser.write_tag(TAG_UNBOUND_TYPE);
@@ -3445,8 +3461,8 @@ fn extract_int_literal_value(expr: &ast::Expr) -> Option<i64> {
     }
 }
 
-/// Build import flags from current serializer state
-fn make_import_flags(ser: &Serializer) -> u8 {
+/// Build import flags from current serializer state and the `lazy` modifier of the statement
+fn make_import_flags(ser: &Serializer, is_lazy: bool) -> u8 {
     (if !ser.in_function {
         IMPORT_FLAG_TOP_LEVEL
     } else {
@@ -3459,7 +3475,7 @@ fn make_import_flags(ser: &Serializer) -> u8 {
         IMPORT_FLAG_MYPY_ONLY
     } else {
         0
-    })
+    }) | (if is_lazy { IMPORT_FLAG_LAZY } else { 0 })
 }
 
 /// Serialize a list of import statements to bytes.
@@ -4049,6 +4065,44 @@ mod tests {
         ];
 
         assert_eq!(bytes, expected);
+    }
+
+    /// Serialize `text` and return the import flags of each encountered import statement.
+    fn import_flags(text: &str) -> Vec<u8> {
+        let ast = parse_unchecked(text, ParseOptions::from(PySourceType::Python)).into_syntax();
+        let mut ser = make_ser(text);
+        ast.serialize(&mut ser);
+        ser.imports
+            .iter()
+            .map(|import| match import {
+                ImportStatement::Import { flags, .. }
+                | ImportStatement::ImportFrom { flags, .. }
+                | ImportStatement::ImportAll { flags, .. } => *flags,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_lazy_import_flag() {
+        // Lazy imports (PEP 810) set IMPORT_FLAG_LAZY.
+        let lazy = IMPORT_FLAG_TOP_LEVEL | IMPORT_FLAG_LAZY;
+        assert_eq!(import_flags("lazy import foo\n"), [lazy]);
+        assert_eq!(import_flags("lazy import foo as bar\n"), [lazy]);
+        assert_eq!(import_flags("lazy import foo, bar\n"), [lazy, lazy]);
+        assert_eq!(import_flags("lazy from foo import bar\n"), [lazy]);
+        assert_eq!(import_flags("lazy from foo import bar as baz\n"), [lazy]);
+        assert_eq!(import_flags("lazy from . import foo\n"), [lazy]);
+        // 'lazy from foo import *' is invalid, but we still serialize the flag.
+        assert_eq!(import_flags("lazy from foo import *\n"), [lazy]);
+
+        // Regular imports don't set the flag.
+        let plain = IMPORT_FLAG_TOP_LEVEL;
+        assert_eq!(import_flags("import foo\n"), [plain]);
+        assert_eq!(import_flags("from foo import bar\n"), [plain]);
+        assert_eq!(import_flags("from foo import *\n"), [plain]);
+        // 'lazy' is a soft keyword, so it can still be used as a name.
+        assert_eq!(import_flags("import foo as lazy\n"), [plain]);
+        assert_eq!(import_flags("from lazy import foo\n"), [plain]);
     }
 
     fn extract_mypy_comments(source: &str) -> Vec<(usize, String)> {

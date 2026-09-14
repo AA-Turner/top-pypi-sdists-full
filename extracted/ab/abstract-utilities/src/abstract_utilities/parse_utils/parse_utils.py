@@ -1,4 +1,12 @@
-from .imports import *
+from .imports import (
+    os,
+    re,
+    List,
+    write_to_file,
+    make_list,
+    get_class_inputs,
+    ChunkParams,
+)
 def detect_language_from_text(text: str):
     patterns = {
         'javascript': [
@@ -92,21 +100,22 @@ def search_code(code_languages, parts):
     return [data for datas in parts for data in make_list(datas)
             if detect_language_from_text(data) in code_languages]
 def get_token_encoder(model_name: str = "gpt-4", encoding_name: str = None):
-    import tiktoken
     """
     Retrieves the encoder for a given model or encoding name.
-    
+
+    Uses tiktoken when it is installed (exact BPE tokens); otherwise falls back
+    to a dependency-free approximate encoder (see :mod:`.token_utils`).
+
     Args:
         model_name (str): The name of the model. Defaults to "gpt-4".
         encoding_name (str, optional): The encoding name to use. If not provided, it defaults based on the model.
 
     Returns:
-        Encoder: A tiktoken encoder object.
+        Encoder: a tiktoken encoding, or an ApproxEncoder with the same
+        ``encode``/``decode`` interface.
     """
-    if encoding_name:
-        return tiktoken.get_encoding(encoding_name)
-    else:
-        return tiktoken.encoding_for_model(model_name)
+    from .token_utils import get_token_encoder as _impl
+    return _impl(model_name, encoding_name)
 
 def num_tokens_from_string(string: str, model_name: str = "gpt-4", encoding_name: str = None) -> int:
     """
@@ -287,10 +296,7 @@ def chunk_html_by_tag_blocks(
     tags = tags or ["section", "article", "div", "form", "main"]
     soup = BeautifulSoup(html, "html.parser")
 
-    encoding = (
-        tiktoken.get_encoding(task_params.encoding_name)
-        if encoding_name else tiktoken.encoding_for_model(task_params.model_name)
-    )
+    encoding = get_token_encoder(task_params.model_name, task_params.encoding_name)
 
     def count_tokens(text):
         return len(encoding.encode(text))
@@ -372,10 +378,7 @@ def chunk_by_braces(text,
                              model_name=model_name,
                              encoding_name=encoding_name
                             )
-    encoding = (
-        tiktoken.get_encoding(task_params.encoding_name)
-        if encoding_name else tiktoken.encoding_for_model(task_params.model_name)
-    )
+    encoding = get_token_encoder(task_params.model_name, task_params.encoding_name)
 
     tokens = encoding.encode(text)
     decoded = encoding.decode(tokens)
@@ -453,10 +456,7 @@ def chunk_source_code(source_code: str,
                              encoding_name=encoding_name,
                              reverse=reverse
                             )
-    encoding = (
-        tiktoken.get_encoding(task_params.encoding_name)
-        if task_params.encoding_name else tiktoken.encoding_for_model(task_params.model_name)
-    )
+    encoding = get_token_encoder(task_params.model_name, task_params.encoding_name)
 
     def token_count(text): return len(encoding.encode(text))
 
@@ -511,11 +511,7 @@ def strict_token_chunking(data: str,
                              overlap=overlap,
                              verbose=verbose
                             )
-    encoding = (
-        tiktoken.get_encoding(task_params.encoding_name)
-        if task_params.encoding_name
-        else tiktoken.encoding_for_model(task_params.model_name)
-    )
+    encoding = get_token_encoder(task_params.model_name, task_params.encoding_name)
 
     def count_tokens(text):
         return len(encoding.encode(text))

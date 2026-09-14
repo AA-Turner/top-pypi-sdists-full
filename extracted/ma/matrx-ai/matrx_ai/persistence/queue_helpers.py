@@ -715,6 +715,19 @@ def _declaring_role_actor(role: Any) -> Iterator[None]:
 
 
 def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str:
+    # DD-187: chat.message.content is a JSON ARRAY of content blocks, never a
+    # bare string. A caller that passes ``content="some text"`` (a test lane
+    # did, producing a row `reconstruct_content` could not read back) writes a
+    # scalar into the jsonb column, and every reader downstream — including
+    # `UnifiedMessage.from_cx_message` — is entitled to assume an array. Refuse
+    # here, at the one write funnel, with a sentence, instead of letting a bad
+    # shape reach the database and kill the conversation on its next load.
+    if "content" in fields and isinstance(fields["content"], str):
+        raise ValueError(
+            "chat.message.content must be a list of content blocks (e.g. "
+            '[{"type": "text", "text": ...}]), never a bare string — wrap it '
+            "before calling queue_message_create."
+        )
     with _declaring_role_actor(fields.get("role")):
         return _queue_or_drop(
             "chat.message",
@@ -725,6 +738,14 @@ def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str
 
 
 def queue_message_update(id: str, **fields: Any) -> str:
+    # DD-187: same refusal as queue_message_create — an UPDATE can corrupt a
+    # previously-well-formed row's content just as easily as an INSERT can.
+    if "content" in fields and isinstance(fields["content"], str):
+        raise ValueError(
+            "chat.message.content must be a list of content blocks (e.g. "
+            '[{"type": "text", "text": ...}]), never a bare string — wrap it '
+            "before calling queue_message_update."
+        )
     # An UPDATE that names the role re-declares the row's author; one that
     # doesn't stays silent and keeps whatever the INSERT declared (coalescing
     # preserves the last DECLARED author for the row).

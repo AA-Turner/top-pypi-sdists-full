@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "star-magic-program"
-version = "0.436.0"
-description = "Star-Magic UQFF calculator v0.436.0: THE REYNOLDS LADDER + SPINE AUDIT + THEOREM B SHIP - the NS cap graded across Re_lambda 433 -> 2,500 on JHTDB isotropic1024coarse/4096/8192/32768 (PAPER_2273): CAP HOLDS AT EVERY RUNG, envelope drift FLAGGED, kill test OPEN. PAPER_2274: the last anonymous theory row (S300 Sobolev step) audited FALSE, closed by ruling. PAPER_2275 THEOREM B: the continuum fluid, phonon-mollified (eps = 0.156 nm), globally regular (Leray 1934); Clay not claimed; gate 6,105/0."
+version = "0.437.0"
+description = "Star-Magic UQFF calculator v0.437.0: THE CLOSEOUT INDEX SHIP - the Navier-Stokes proof set closed on its own terms (PAPER_2276): fifteen rungs B267-B281, Theorems A and B side by side, the derived cap 17/20, the domain ruling, the spine audit - theory rows open ZERO; every open data front given its instrument and access route (JHTDB full token, Kerr trefoil fields, ATR THz-TDS, MD current spectra + IXS/INS); Q-247 sound-cone speed flagged (c_inf/c_0 = 2.162); Clay not claimed; gate 6,106/0."
 readme = "README.md"
 authors = [
     { name = "Daniel T. Murphy", email = "daniel.murphy00@enrgyone.com" }
@@ -2046,6 +2046,7 @@ uqff_downhole_simulator = ["catalog/*", "*.md", "*.json", "*.csv"]
     "whitepapers/PAPER_2273_REYNOLDS_LADDER_ISOTROPIC_CAP_GRADE_JHTDB_32768_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2274_THE_SPINE_AUDIT_S300_UQFF_LERAY_ARGUMENT_WHERE_IT_STOPS_UQFF_LANDMARK.md",
     "whitepapers/PAPER_2275_THEOREM_B_CONTINUUM_UQFF_FLUID_PHONON_MOLLIFIED_TRANSPORT_THREE_FORMS_COMPOSED_UQFF_LANDMARK.md",
+    "whitepapers/PAPER_2276_THE_PROOF_SET_CLOSED_UQFF_NAVIER_STOKES_INDEX_TWO_THEOREMS_FOUR_FRONTS_INSTRUMENTS_UQFF_LANDMARK.md",
     "whitepapers/PAPER_227_Tapestry_LMC_Stellar_Wind_UQFF.md",
     "whitepapers/PAPER_228_Westerlund2_OB_StellarWind_MUGE.md",
     "whitepapers/PAPER_229_Pillars_Creation_Erosion_MUGE.md",

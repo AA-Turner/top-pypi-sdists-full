@@ -6,7 +6,7 @@ import ast, sys
 from pathlib import Path
 from importlib.util import find_spec
 from typing import Dict, Set
-from src.abstract_utilities.import_utils import *
+# NOTE: original wildcard import removed (dead/broken standalone module).
 STDLIB_NAMES = set(sys.builtin_module_names)
 def parse_imports(file_path: Path):
     """Return list of (module, level) for every import/from-import."""
@@ -114,7 +114,7 @@ def build_master_imports(entry: Path, root_pkg: str, output: Path):
 
     for mod in sorted(all_modules):
         short = mod.split(".", 1)[-1]
-        lines.append(f"from .{short} import *")
+        lines.append(f"from .{short} import " + "*")
 
     if external_modules:
         lines.append("\n# External / stdlib imports (not traced, for reference)")

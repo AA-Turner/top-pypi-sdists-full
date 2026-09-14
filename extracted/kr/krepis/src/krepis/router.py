@@ -1532,6 +1532,55 @@ def served_model_for_deployment(deployment_name: str) -> Optional[str]:
     return None
 
 
+def registry_groups() -> tuple[str, ...]:
+    """Return every model group name the registry declares.
+
+    The PUBLIC enumerator over ``model_groups`` — the set that
+    :func:`resolve_group`, :func:`resolve_group_structured`,
+    :func:`get_group_primary` and :func:`group_supports_explicit_cache_breakpoints`
+    all take as an unvalidated input, with no way for a caller to check a
+    name against the real set first. Consumers needing membership
+    validation had no choice but to approximate it — ``crucible/llm.py``
+    unioned :data:`TIER_GROUPS` (a *tier* → *group* map, not the group set
+    itself) with its keys and values, which admits ``mid`` (a tier, not a
+    group) and drops ``ultra`` (a real group absent from that table)
+    (alpha-engine-config-I9971).
+
+    Resolved through the exact same :func:`_find_registry` /
+    :func:`krepis.model_registry.load_registry` path every other
+    group-facing function in this module uses, so it reads the one
+    registry-to-config derivation this module already owns rather than a
+    second copy (krepis-I64: the registry→config mapping must exist in
+    exactly one place).
+
+    Returns
+    -------
+    tuple[str, ...]
+        Every key of the registry's ``model_groups`` mapping. Never empty
+        when it returns at all — an empty tuple would make every
+        membership check vacuously pass while looking healthy, which is
+        worse than failing loud.
+
+    Raises
+    ------
+    FileNotFoundError
+        No registry file could be located. A caller validating a group
+        name has no honest answer to give when the registry itself cannot
+        be read, so this refuses rather than returning ``()``.
+    """
+    reg_path = _find_registry()
+    if not reg_path:
+        raise FileNotFoundError(
+            "LLM_MODEL_REGISTRY.yaml not found — cannot enumerate model "
+            "groups. Set LLM_MODEL_REGISTRY_PATH or run from within a repo "
+            "whose private-docs/ directory contains the file."
+        )
+    from . import model_registry as _mr
+
+    registry = _mr.load_registry(reg_path)
+    return tuple(registry.groups.keys())
+
+
 def _upstream_model_for(router: Any, model_name: str) -> Optional[str]:
     """Get the upstream model identifier for a Router model_name."""
     for m in router.model_list:
@@ -2539,6 +2588,24 @@ def _route_to_spec(
         # deployment that refuses it (alpha-engine-config-I7904, I8164).
         supports_streaming=bool(
             (route.get("capabilities") or {}).get("streaming", False)
+        ),
+        # Which CACHING MECHANISM the served model uses. Both flags were
+        # resolved, emitted on the contract, and then dropped on the floor
+        # here: `_caching_flags` has derived them from the group's PRIMARY
+        # since PR69 (alpha-engine-config-I4463), the resolve contract has
+        # carried them since, and this adapter read neither — so every
+        # router-resolved spec reached `krepis.llm` declaring no mechanism at
+        # all, and marker emission fell back to a transport check. That check
+        # gave an Anthropic (M1) model reached over an OpenAI-shaped route
+        # zero caching, silently, at roughly 10x the cached input rate
+        # (krepis-I67).
+        #
+        # Taken from the TOP-LEVEL contract fields, not from `capabilities`:
+        # `capabilities` is the raw per-entry registry block, while these two
+        # are the resolver's answer for the entry that will actually serve.
+        supports_prompt_caching=bool(route.get("supports_prompt_caching", False)),
+        supports_automatic_prefix_caching=bool(
+            route.get("automatic_prefix_caching", False)
         ),
         # The route already knows which registry entry it picked; discarding it
         # here is what made a cost record unable to name it. For a proxy route

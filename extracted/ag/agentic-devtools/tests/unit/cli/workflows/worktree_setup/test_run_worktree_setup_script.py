@@ -10,10 +10,12 @@ import pytest
 from agentic_devtools.cli.workflows.worktree_setup import run_worktree_setup_script
 
 
-def _make_popen_mock(returncode=0, stderr="", communicate_side_effect=None):
-    """Return (popen_cls_mock, proc_mock) configured for bounded stderr + wait()."""
+def _make_popen_mock(returncode=0, stdout="", stderr="", communicate_side_effect=None):
+    """Return (popen_cls_mock, proc_mock) configured for bounded output capture + wait()."""
     mock_proc = MagicMock()
     mock_proc.returncode = returncode
+    mock_proc.stdout = MagicMock()
+    mock_proc.stdout.read.side_effect = [stdout, ""]
     mock_proc.stderr = MagicMock()
     mock_proc.stderr.read.side_effect = [stderr, ""]
     mock_popen = MagicMock()
@@ -93,7 +95,7 @@ class TestRunWorktreeSetupScript:
         script = script_dir / "agentic-devtools-worktree-setup.py"
         script.write_text("print('setup')", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=0)
 
         with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
             result = run_worktree_setup_script(str(tmp_path))
@@ -104,7 +106,7 @@ class TestRunWorktreeSetupScript:
         args, kwargs = mock_popen.call_args
         assert args == ([sys.executable, str(script.resolve()), str(tmp_path.resolve())],)
         assert kwargs["cwd"] == str(tmp_path.resolve())
-        assert kwargs["stdout"] == subprocess.DEVNULL
+        assert kwargs["stdout"] == subprocess.PIPE
         assert kwargs["encoding"] == "utf-8"
         assert kwargs["errors"] == "replace"
         assert kwargs["stderr"] == subprocess.PIPE
@@ -120,7 +122,7 @@ class TestRunWorktreeSetupScript:
         script = script_dir / "agentic-devtools-worktree-setup.py"
         script.write_text("print('setup')", encoding="utf-8")
 
-        mock_popen, mock_proc = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, mock_proc = _make_popen_mock(returncode=0)
 
         with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
             result = run_worktree_setup_script(str(tmp_path), timeout_seconds=120)
@@ -135,7 +137,7 @@ class TestRunWorktreeSetupScript:
         script = script_dir / "agentic-devtools-worktree-setup.py"
         script.write_text("print('setup')", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=0)
 
         with (
             patch("agentic_devtools.cli.workflows.worktree_setup.platform.system", return_value="Windows"),
@@ -155,7 +157,7 @@ class TestRunWorktreeSetupScript:
         script = script_dir / "agentic-devtools-worktree-setup.py"
         script.write_text("print('setup')", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=0)
 
         with (
             patch("agentic_devtools.cli.workflows.worktree_setup.platform.system", return_value="Linux"),
@@ -174,7 +176,7 @@ class TestRunWorktreeSetupScript:
         script_dir.mkdir()
         (script_dir / "agentic-devtools-worktree-setup.py").write_text("", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=0)
 
         with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
             result = run_worktree_setup_script(str(tmp_path))
@@ -229,6 +231,8 @@ class TestRunWorktreeSetupScript:
         (script_dir / "agentic-devtools-worktree-setup.py").write_text("", encoding="utf-8")
 
         mock_proc = MagicMock()
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.side_effect = ["", ""]
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.side_effect = ["", ""]
         mock_proc.wait.side_effect = [
@@ -247,18 +251,49 @@ class TestRunWorktreeSetupScript:
         assert result.category == "timeout"
         assert "1800 seconds" in (result.error_message or "")
 
-    def test_nonzero_without_stderr_uses_fallback_diagnostic(self, tmp_path):
-        """Test that a non-zero script without stderr still has an actionable summary."""
+    def test_nonzero_without_stderr_uses_stdout_diagnostic(self, tmp_path):
+        """Test that a non-zero script falls back to captured stdout when stderr is empty."""
         script_dir = tmp_path / ".agdt"
         script_dir.mkdir()
         (script_dir / "agentic-devtools-worktree-setup.py").write_text("", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=1, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=1, stdout="provider setup failed")
 
         with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
             result = run_worktree_setup_script(str(tmp_path))
 
-        assert result.error_message == "setup script exited without diagnostic output"
+        assert result.error_message == "stdout: provider setup failed"
+
+    def test_nonzero_with_stdout_and_stderr_reports_both_streams(self, tmp_path):
+        """Test that both stderr and stdout are preserved when the setup script emits both."""
+        script_dir = tmp_path / ".agdt"
+        script_dir.mkdir()
+        (script_dir / "agentic-devtools-worktree-setup.py").write_text("", encoding="utf-8")
+
+        mock_popen, _ = _make_popen_mock(returncode=1, stdout="stdout details", stderr="stderr summary")
+
+        with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
+            result = run_worktree_setup_script(str(tmp_path))
+
+        assert result.error_message == "stderr: stderr summary\nstdout: stdout details"
+
+    def test_nonzero_with_long_stdout_and_stderr_preserves_both_labels(self, tmp_path):
+        """Test that bounded diagnostics retain both stream labels and content."""
+        script_dir = tmp_path / ".agdt"
+        script_dir.mkdir()
+        (script_dir / "agentic-devtools-worktree-setup.py").write_text("", encoding="utf-8")
+
+        mock_popen, _ = _make_popen_mock(returncode=1, stdout="o" * 4096, stderr="e" * 4096)
+
+        with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
+            result = run_worktree_setup_script(str(tmp_path))
+
+        diagnostic = result.error_message or ""
+        assert len(diagnostic) == 4096
+        assert diagnostic.startswith("stderr: ")
+        assert "\nstdout: " in diagnostic
+        stdout_budget = (4096 - len("stderr: ") - len("\nstdout: ")) // 2
+        assert diagnostic.endswith("o" * stdout_budget)
 
     def test_nonzero_with_missing_stderr_pipe_uses_fallback_diagnostic(self, tmp_path):
         """Test fallback diagnostic when the process has no stderr pipe."""
@@ -268,6 +303,7 @@ class TestRunWorktreeSetupScript:
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
+        mock_proc.stdout = None
         mock_proc.stderr = None
         mock_proc.wait.return_value = 0
         mock_popen = MagicMock(side_effect=lambda *a, **kw: mock_proc)
@@ -286,6 +322,8 @@ class TestRunWorktreeSetupScript:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.side_effect = OSError("read failed")
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.side_effect = OSError("read failed")
         mock_popen = MagicMock(side_effect=lambda *a, **kw: mock_proc)
@@ -318,6 +356,8 @@ class TestRunWorktreeSetupScript:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.side_effect = ["", ""]
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.side_effect = ["x" * 5000, "y" * 50, ""]
         mock_proc.stderr.fileno.return_value = -1
@@ -341,6 +381,8 @@ class TestRunWorktreeSetupScript:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.side_effect = ["", ""]
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.side_effect = ["x" * (4096 - len(long_secret_prefix)) + long_secret, ""]
         mock_popen = MagicMock(side_effect=lambda *a, **kw: mock_proc)
@@ -361,6 +403,8 @@ class TestRunWorktreeSetupScript:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.return_value = ""
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.return_value = ""
         mock_popen = MagicMock(side_effect=lambda *a, **kw: mock_proc)
@@ -385,6 +429,8 @@ class TestRunWorktreeSetupScript:
         mock_proc = MagicMock()
         mock_proc.returncode = 1
         mock_proc.wait.return_value = 0
+        mock_proc.stdout = MagicMock()
+        mock_proc.stdout.read.side_effect = ["", ""]
         mock_proc.stderr = MagicMock()
         mock_proc.stderr.read.side_effect = ["provider setup failed", ""]
         mock_popen = MagicMock(side_effect=lambda *a, **kw: mock_proc)
@@ -454,7 +500,7 @@ class TestRunWorktreeSetupScript:
         script = script_dir / "agentic-devtools-worktree-setup.py"
         script.write_text("", encoding="utf-8")
 
-        mock_popen, _ = _make_popen_mock(returncode=0, stderr="")
+        mock_popen, _ = _make_popen_mock(returncode=0)
 
         with patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.Popen", mock_popen):
             result = run_worktree_setup_script(str(tmp_path))

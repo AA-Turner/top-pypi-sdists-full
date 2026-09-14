@@ -9,9 +9,12 @@ import pytest
 import statsmodels.api as sm
 
 from numpy.testing import assert_allclose, assert_array_less
+from pymc.model.transform.optimization import freeze_dims_and_data
 from pymc.testing import mock_sample_setup_and_teardown
 
 from pymc_extras.statespace import BayesianSARIMAX
+from pymc_extras.statespace.core.fit_recovery import exog_from_idata
+from pymc_extras.statespace.filters.distributions import KalmanFilterRV, StationaryVARRV
 from pymc_extras.statespace.models.utilities import (
     make_harvey_state_names,
     make_SARIMA_transition_matrix,
@@ -24,6 +27,8 @@ from tests.statespace.shared_fixtures import (  # pylint: disable=unused-import
     rng,
 )
 from tests.statespace.test_utilities import (
+    build_model_with_flat_priors,
+    compare_likelihood_to_filter,
     load_nile_test_data,
     make_stationary_params,
     simulate_from_numpy_model,
@@ -190,7 +195,7 @@ def pymc_mod(arima_mod):
         ar_params = pm.Normal("ar_params", sigma=0.1, dims=["lag_ar"])
         ma_params = pm.Normal("ma_params", sigma=1, dims=["lag_ma"])
         sigma_state = pm.Exponential("sigma_state", 0.5)
-        arima_mod.build_statespace_graph(data=data, save_kalman_filter_outputs_in_idata=True)
+        arima_mod.build_statespace_graph(data=data)
 
     return pymc_mod
 
@@ -221,7 +226,7 @@ def pymc_mod_interp(arima_mod_interp):
         sigma_state = pm.Exponential("sigma_state", 0.5)
         sigma_obs = pm.Exponential("sigma_obs", 0.1)
 
-        arima_mod_interp.build_statespace_graph(data=data, save_kalman_filter_outputs_in_idata=True)
+        arima_mod_interp.build_statespace_graph(data=data)
 
     return pymc_mod
 
@@ -318,8 +323,7 @@ def test_SARIMAX_update_matches_statsmodels(p, d, q, P, D, Q, S, data, rng):
 
         pm.Deterministic("sigma_state", pt.as_tensor_variable(np.sqrt(param_d["sigma2"])))
 
-        mod._insert_random_variables()
-        matrices = pm.draw(mod.subbed_ssm)
+        matrices = pm.draw(mod._insert_random_variables())
         matrix_dict = dict(zip(SHORT_NAME_TO_LONG.values(), matrices))
 
     for matrix in ["transition", "selection", "state_cov", "obs_cov", "design"]:
@@ -328,12 +332,21 @@ def test_SARIMAX_update_matches_statsmodels(p, d, q, P, D, Q, S, data, rng):
         assert_allclose(matrix_dict[matrix], sm_sarimax.ssm[matrix], err_msg=f"{matrix} not equal")
 
 
-@pytest.mark.parametrize("filter_output", ["filtered", "predicted", "smoothed"])
-def test_all_prior_covariances_are_PSD(filter_output, pymc_mod, rng):
-    rv = pymc_mod[f"{filter_output}_covariances"]
-    cov_mats = pm.draw(rv, 100, random_seed=rng)
-    w, v = np.linalg.eig(cov_mats)
-    assert_array_less(0, w, err_msg=f"Smallest eigenvalue: {min(w.ravel())}")
+def test_all_prior_covariances_are_PSD(arima_mod, pymc_mod, rng):
+    with pymc_mod:
+        idata = pm.sample_prior_predictive(draws=10, random_seed=rng)
+
+    cov_names = [f"{output}_covariances" for output in ("filtered", "predicted", "smoothed")]
+    filter_idata = arima_mod.sample_filter_outputs(
+        idata, filter_output_names=cov_names, group="prior", random_seed=rng
+    )
+
+    for cov_name in cov_names:
+        cov_mats = filter_idata.posterior_predictive[cov_name].values.reshape(
+            -1, arima_mod.k_states, arima_mod.k_states
+        )
+        w, v = np.linalg.eig(cov_mats)
+        assert_array_less(0, w, err_msg=f"{cov_name}: smallest eigenvalue {min(w.ravel())}")
 
 
 def test_interpretable_raises_if_d_nonzero():
@@ -402,7 +415,7 @@ def test_representations_are_equivalent(p, d, q, P, D, Q, S, data, rng):
         shared_params.update(
             {
                 "x0": np.zeros(mod.k_states, dtype=floatX),
-                "initial_state_cov": np.eye(mod.k_states, dtype=floatX) * 100,
+                "P0": np.eye(mod.k_states, dtype=floatX) * 100,
             }
         )
         x, y = simulate_from_numpy_model(mod, rng, shared_params)
@@ -459,16 +472,20 @@ def test_SARIMA_with_exogenous(rng, mock_sample):
 
         sigma_state = pm.Exponential("sigma_state", 1.0)
 
-        ss_mod.build_statespace_graph(data=data_df, save_kalman_filter_outputs_in_idata=True)
+        ss_mod.build_statespace_graph(data=data_df)
         idata = pm.sample(chains=2, draws=100)
 
     assert "exogenous_data" in idata.constant_data
+    # Observed data is always registered as a pm.Data, so post-estimation can recover it.
+    assert "data" in idata.constant_data
     assert idata.posterior.beta_exog.shape == (
         2,
         100,
         2,
     )
-    np.testing.assert_allclose(ss_mod._fit_exog_data["exogenous_data"]["value"], data_val)
+    np.testing.assert_allclose(
+        exog_from_idata(ss_mod, idata, "constant_data")["exogenous_data"]["value"], data_val
+    )
 
 
 def test_sarimax_workflow(mock_sample):
@@ -505,3 +522,186 @@ def test_sarimax_workflow(mock_sample):
     irf = ss_mod.impulse_response_function(idata, n_steps=10, random_seed=42)
     assert "irf" in irf
     assert np.isfinite(irf.irf.values).all()
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected_op",
+    [
+        ({"order": (2, 0, 0)}, StationaryVARRV),
+        ({"order": (1, 0, 0), "seasonal_order": (1, 0, 0, 4)}, StationaryVARRV),
+        ({"order": (2, 0, 1)}, KalmanFilterRV),
+        ({"order": (2, 0, 0), "seasonal_order": (0, 0, 1, 4)}, KalmanFilterRV),
+        ({"order": (2, 0, 0), "measurement_error": True}, KalmanFilterRV),
+        ({"order": (2, 0, 0), "stationary_initialization": False}, KalmanFilterRV),
+        ({"order": (0, 0, 0)}, KalmanFilterRV),
+        ({"order": (2, 0, 0), "state_structure": "interpretable"}, KalmanFilterRV),
+    ],
+    ids=[
+        "ar",
+        "seasonal_ar",
+        "ma",
+        "seasonal_ma",
+        "measurement_error",
+        "no_stationary_init",
+        "no_ar",
+        "interpretable",
+    ],
+)
+def test_likelihood_dispatch(kwargs, expected_op):
+    mod = BayesianSARIMAX(verbose=False, **kwargs)
+    pymc_model = build_model_with_flat_priors(mod, np.zeros((40, 1), dtype=floatX))
+
+    assert isinstance(pymc_model["obs"].owner.op, expected_op)
+
+
+@pytest.mark.parametrize(
+    "kwargs, params",
+    [
+        ({"order": (2, 0, 0)}, {"ar_params": [0.5, -0.2], "sigma_state": 1.3}),
+        (
+            {"order": (1, 0, 0), "seasonal_order": (1, 0, 0, 4)},
+            {"ar_params": [0.4], "seasonal_ar_params": [0.5], "sigma_state": 0.8},
+        ),
+    ],
+    ids=["ar2", "seasonal"],
+)
+def test_closed_form_likelihood_matches_the_kalman_filter(kwargs, params, rng):
+    """
+    The filter takes the stationary covariance of the Harvey state, whose entries are partial
+    sums rather than lags, while the closed form takes it of the lag stack. Agreeing here is
+    what says those describe the same distribution over the observations.
+    """
+    mod = BayesianSARIMAX(verbose=False, **kwargs)
+    data = rng.normal(size=(60, 1)).astype(floatX)
+
+    pymc_model, built, kalman = compare_likelihood_to_filter(mod, params, data)
+
+    assert isinstance(pymc_model["obs"].owner.op, StationaryVARRV)
+    assert_allclose(built, kalman, atol=1e-8)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Provided data contains missing values:pymc.exceptions.ImputationWarning"
+)
+def test_missing_data_falls_back_to_the_filter(rng):
+    """
+    Only the filter marginalizes missing observations.
+
+    The closed form would score the fill sentinel as if it were an observation, which is finite,
+    smooth, and wrong by seven orders of magnitude.
+    """
+    mod = BayesianSARIMAX(order=(2, 0, 0), verbose=False)
+    data = rng.normal(size=(60, 1)).astype(floatX)
+    data[20:23] = np.nan
+
+    pymc_model, built, kalman = compare_likelihood_to_filter(
+        mod, {"ar_params": [0.5, -0.2], "sigma_state": 1.3}, data
+    )
+
+    assert isinstance(pymc_model["obs"].owner.op, KalmanFilterRV)
+    assert_allclose(built, kalman, atol=1e-8)
+
+
+@pytest.mark.filterwarnings(
+    "ignore:Provided data contains missing values:pymc.exceptions.ImputationWarning"
+)
+def test_rebuilding_with_missing_data_raises(rng):
+    """Re-entry repoints the graph without rebuilding, so it cannot change which likelihood runs."""
+    mod = BayesianSARIMAX(order=(2, 0, 0), verbose=False)
+    gappy = rng.normal(size=(60, 1)).astype(floatX)
+    gappy[20:23] = np.nan
+
+    pymc_model = build_model_with_flat_priors(mod, rng.normal(size=(60, 1)).astype(floatX))
+
+    with pymc_model, pytest.raises(ValueError, match="cannot marginalize"):
+        mod.build_statespace_graph(gappy)
+
+
+@pytest.mark.parametrize(
+    "order, trend, k_exog, expected_op",
+    [
+        ((2, 0, 0), "c", 0, StationaryVARRV),
+        ((2, 0, 0), "c", 2, StationaryVARRV),
+        ((2, 0, 0), "ct", 0, KalmanFilterRV),
+        ((1, 1, 1), "c", 0, KalmanFilterRV),
+        ((1, 0, 0), [1, 0, 1], 0, KalmanFilterRV),
+    ],
+    ids=["constant", "constant_with_exog", "linear", "drift_with_differencing", "flags"],
+)
+def test_trend_likelihood_matches_statsmodels(order, trend, k_exog, expected_op, rng):
+    """
+    A constant folds into the closed form as a level shift; anything else is filtered.
+
+    statsmodels' ``SARIMAX`` indexes the trend one period earlier than this model, so it needs
+    ``trend_offset`` one higher to describe the same trend.
+    """
+    p, d, q = order
+    data = rng.normal(size=(60, 1)).astype(floatX)
+    exog = rng.normal(size=(60, k_exog)).astype(floatX) if k_exog else None
+    initialization = {} if d == 0 else {"initialization": "approximate_diffuse"}
+    sm_sarimax = sm.tsa.SARIMAX(
+        data, exog=exog, order=order, trend=trend, trend_offset=2, **initialization
+    )
+
+    mod = BayesianSARIMAX(
+        order=order,
+        trend=trend,
+        exog_state_names=[f"x{i}" for i in range(k_exog)] or None,
+        stationary_initialization=d == 0,
+        verbose=False,
+    )
+    k_trend = mod.param_info["trend_params"]["shape"][0]
+
+    params = {
+        "trend_params": (rng.normal(size=(k_trend,)) * 0.1).astype(floatX),
+        "ar_params": [0.5, -0.2][:p],
+        "sigma_state": 1.3,
+    }
+    if q:
+        params["ma_params"] = [0.3]
+    if k_exog:
+        params["beta_exog"] = [0.7, -1.1]
+    if d:
+        params["x0"] = np.zeros(mod.k_states)
+        params["P0"] = (
+            np.eye(mod.k_states) * sm_sarimax.ssm.initialization.approximate_diffuse_variance
+        )
+
+    sm_params = np.r_[
+        params["trend_params"],
+        params.get("beta_exog", []),
+        params["ar_params"],
+        params.get("ma_params", []),
+        params["sigma_state"] ** 2,
+    ]
+    assert len(sm_params) == sm_sarimax.k_params
+
+    pymc_model, built, _ = compare_likelihood_to_filter(
+        mod, params, data, {"exogenous_data": exog} if k_exog else None
+    )
+
+    assert isinstance(pymc_model["obs"].owner.op, expected_op)
+    assert_allclose(built, sm_sarimax.loglike(sm_params), rtol=1e-6)
+
+
+def test_constant_with_differencing_forecasts_as_drift(rng):
+    n_obs = 40
+    time_idx = pd.date_range(start="2020-01-01", periods=n_obs, freq="D")
+    df = pd.DataFrame(rng.normal(size=(n_obs, 1)), columns=["y"], index=time_idx).astype(floatX)
+
+    mod = BayesianSARIMAX(
+        order=(1, 1, 0), trend="c", stationary_initialization=False, verbose=False
+    )
+    with pm.Model(coords=mod.coords) as m:
+        pm.Deterministic("x0", pt.zeros(mod.k_states), dims=mod.param_dims["x0"])
+        pm.Deterministic("P0", pt.eye(mod.k_states), dims=mod.param_dims["P0"])
+        pm.Deterministic("ar_params", pt.zeros(1), dims=mod.param_dims["ar_params"])
+        pm.Deterministic("sigma_state", pt.as_tensor(1e-4))
+        pm.Deterministic("trend_params", pt.as_tensor([0.5]), dims=mod.param_dims["trend_params"])
+        mod.build_statespace_graph(df)
+
+    with freeze_dims_and_data(m):
+        prior = pm.sample_prior_predictive(draws=1, random_seed=rng)
+    forecast = mod.forecast(prior, periods=5, group="prior", random_seed=rng)
+
+    assert_allclose(np.diff(forecast.forecast_observed.values[0, 0, :, 0]), 0.5, atol=1e-3)

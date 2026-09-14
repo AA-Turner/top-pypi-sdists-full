@@ -21523,6 +21523,27 @@ def test_validator_finalized_model_import(output_dir: Path, entrypoint: str, exa
         )
 
 
+def test_custom_model_field_name_binding_policy(output_file: Path) -> None:
+    """Keep import aliases chosen by a custom model's existing naming policy."""
+    from datamodel_code_generator.model.pydantic_v2 import BaseModel
+    from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
+    from datamodel_code_generator.reference import ModelType
+
+    class CustomModel(BaseModel):
+        FIELD_NAME_MODEL_TYPE = ModelType.MSGSPEC
+
+    parser = JsonSchemaParser(
+        (JSON_SCHEMA_DATA_PATH / "field_name_bindings/required.json").resolve(),
+        data_model_type=CustomModel,
+        formatters=[Formatter.BUILTIN],
+    )
+    output_file.write_text(parser.parse(), encoding="utf-8")
+    assert_output(
+        output_file.read_text(encoding="utf-8"),
+        EXPECTED_JSON_SCHEMA_PATH / "field_name_bindings/custom_naming_policy.py",
+    )
+
+
 @pytest.mark.parametrize("entrypoint", ["cli", "api"])
 @pytest.mark.parametrize(
     ("backend", "case", "union", "target"),
@@ -24217,6 +24238,57 @@ def test_undeclared_required(
     )
 
 
+@pytest.mark.parametrize("mode", ["all", "request-response"])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_undeclared_required_variants(output_file: Path, mode: str, *, enabled: bool) -> None:
+    """Retain undeclared required keys in both variants only when validators are enabled."""
+    source = UNDECLARED_REQUIRED_FIXTURES / "variants.json"
+    run_main_and_assert(
+        input_path=source,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--read-only-write-only-model-type",
+            mode,
+            "--disable-timestamp",
+            *(["--schema-validator-type", "pydantic-v2"] if enabled else []),
+        ],
+    )
+    api_output = output_file.with_name("api.py")
+    run_generate_and_assert(
+        input_=source,
+        expected_file=output_file,
+        config=GenerateConfig(
+            output=api_output,
+            input_file_type=InputFileType.JsonSchema,
+            read_only_write_only_model_type=mode,
+            schema_validator_type=SchemaValidatorType.PydanticV2 if enabled else None,
+            disable_timestamp=True,
+        ),
+    )
+    payloads = json.loads((DATA_PATH / "payloads/variant_required.json").read_text())
+    results = {}
+    for suffix in ("Request", "Response"):
+        with (
+            _generated_model(api_output, "variant_required_generated", f"Document{suffix}") as model,
+            assert_inputs_not_mutated({"payloads": payloads}),
+        ):
+            records = []
+            for payload in payloads:
+                record = {}
+                for name, validate, value in (
+                    ("python", model.model_validate, payload),
+                    ("json", model.model_validate_json, json.dumps(payload)),
+                ):
+                    try:
+                        record[name] = validate(value).model_dump(mode="json")
+                    except ValidationError:  # noqa: PERF203
+                        record[name] = "rejected"
+                records.append(record)
+            results[suffix] = {"fields": list(model.model_fields), "validation": records}
+    assert_output(json.dumps(results, indent=2), UNDECLARED_REQUIRED_EXPECTED / f"variants_{enabled}_runtime.txt")
+
+
 UNKNOWN_PATTERN_FIXTURES = JSON_SCHEMA_DATA_PATH / "unknown_pattern_annotations"
 
 
@@ -24321,7 +24393,8 @@ def test_unknown_pattern_root_annotations(
 
 
 @pytest.mark.parametrize(
-    "custom", ["parser", "parser_other", "schema", "model", "unproven_model", "root", "field", "manager"]
+    "custom",
+    ["parser", "parser_other", "schema", "model", "unproven_model", "unchecked_model", "root", "field", "manager"],
 )
 def test_custom_pattern_annotation_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, custom: str) -> None:
     """Keep existing custom extension code, raw metadata and accepted dumps intact."""
@@ -24333,12 +24406,14 @@ def test_custom_pattern_annotation_context(tmp_path: Path, monkeypatch: pytest.M
         CustomModel,
         CustomRoot,
         CustomSchema,
+        CustomUncheckedModel,
         CustomUnprovenModel,
     )
 
     options = {
         "model": {"data_model_type": CustomModel},
         "unproven_model": {"data_model_type": CustomUnprovenModel},
+        "unchecked_model": {"data_model_type": CustomUncheckedModel},
         "root": {"data_model_root_type": CustomRoot},
         "field": {"data_model_field_type": CustomField},
         "manager": {"data_type_manager_type": CustomManager},
@@ -24350,7 +24425,7 @@ def test_custom_pattern_annotation_context(tmp_path: Path, monkeypatch: pytest.M
     parser = parser_type(source, generate_schema_validators=True, formatters=[Formatter.BUILTIN], **options)
     output = tmp_path / "output.py"
     output.write_text(parser.parse())
-    expected_case = "model" if custom == "unproven_model" else custom
+    expected_case = "model" if custom in {"unproven_model", "unchecked_model"} else custom
     assert_output(output.read_text(), UNKNOWN_PATTERN_EXPECTED / f"custom_{expected_case}.py")
     contexts = [value["extensions"] for value in parser.extra_template_data.values() if "extensions" in value]
     records = []

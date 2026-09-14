@@ -3,6 +3,7 @@ from collections.abc import Sequence
 import numpy as np
 import pytensor.tensor as pt
 
+from pymc.model import modelcontext
 from pytensor.compile.mode import Mode
 from pytensor.tensor.linalg import solve_discrete_lyapunov
 
@@ -14,6 +15,7 @@ from pymc_extras.statespace.core.properties import (
     State,
 )
 from pymc_extras.statespace.core.statespace import PyMCStateSpace, floatX
+from pymc_extras.statespace.filters.distributions import StationaryVAR
 from pymc_extras.statespace.models.utilities import (
     make_harvey_state_names,
     make_SARIMA_transition_matrix,
@@ -24,12 +26,66 @@ from pymc_extras.statespace.utils.constants import (
     ALL_STATE_DIM,
     AR_PARAM_DIM,
     EXOG_STATE_DIM,
+    JITTER_DEFAULT,
     MA_PARAM_DIM,
+    MISSING_FILL,
+    OBSERVED_LIKELIHOOD_NAME,
     SARIMAX_STATE_STRUCTURES,
     SEASONAL_AR_PARAM_DIM,
     SEASONAL_MA_PARAM_DIM,
     TIME_DIM,
+    TREND_DIM,
 )
+from pymc_extras.statespace.utils.trend import (
+    TrendSpec,
+    constant_as_regressor,
+    parse_trend,
+    trend_design,
+    trend_names,
+)
+
+
+def _fill_axis(
+    base: np.ndarray,
+    index: int,
+    positions: Sequence[np.ndarray],
+    values: Sequence[pt.TensorVariable],
+    axis: int,
+) -> pt.TensorVariable:
+    """
+    Write ``values`` into one row or column of ``base``, in a single assignment.
+
+    Parameters
+    ----------
+    base : ndarray
+        Constant matrix the parameters are written into.
+    index : int
+        Row (``axis=0``) or column (``axis=1``) receiving the values.
+    positions : sequence of ndarray
+        Index arrays giving the offsets along the other axis, one per block of values.
+    values : sequence of TensorVariable
+        Parameter blocks, aligned with ``positions``.
+    axis : int
+        0 to fill a row, 1 to fill a column.
+
+    Returns
+    -------
+    filled : TensorVariable
+        ``base`` with the parameters written in.
+    """
+    base = pt.as_tensor_variable(base)
+    if not values:
+        return base
+
+    offsets = np.concatenate(positions)
+    # Blocks write to disjoint lags -- ``_verify_order`` rejects the orders that would overlap --
+    # so one assignment is equivalent to writing each block in turn.
+    assert len(np.unique(offsets)) == len(offsets), "parameter blocks overlap"
+
+    block = pt.concatenate([pt.atleast_1d(value) for value in values])
+    key = (index, offsets) if axis == 0 else (offsets, index)
+
+    return pt.set_subtensor(base[key], block)
 
 
 def _verify_order(p, d, q, P, D, Q, S):
@@ -97,7 +153,8 @@ class BayesianSARIMAX(PyMCStateSpace):
         (1- \phi_1 B - \cdots - \phi_p B^p) (1-B)^d \eta_{t} &= (1 + \theta_1 B + \cdots + \theta_q B^q) \varepsilon_t
         \end{align}
 
-    Where the design matrix `X` can include a constant, trends, or exogenous regressors.
+    Where the design matrix :math:`X` holds exogenous regressors. Deterministic terms are specified through ``trend``
+    and enter the ARMA equation of the differenced series instead, so a constant is a drift under differencing.
 
     ARIMA models can be represented in statespace form, as described in [1]. For more details, see chapters 3.4, 3.6,
     and 8.4.
@@ -137,12 +194,18 @@ class BayesianSARIMAX(PyMCStateSpace):
         order: tuple[int, int, int],
         seasonal_order: tuple[int, int, int, int] | None = None,
         exog_state_names: Sequence[str] | None = None,
+        trend: TrendSpec = None,
+        trend_offset: int = 1,
         stationary_initialization: bool = True,
         filter_type: str = "standard",
+        smoother_type: str = "disturbance",
+        joint_smoothed_draws: bool = True,
         state_structure: str = "fast",
         measurement_error: bool = False,
         verbose=True,
         mode: str | Mode | None = None,
+        cov_jitter: float = JITTER_DEFAULT,
+        missing_fill_value: float = MISSING_FILL,
     ):
         """
         Initialize a BayesianSARIMAX model.
@@ -169,6 +232,17 @@ class BayesianSARIMAX(PyMCStateSpace):
 
         exog_state_names : Sequence of str, optional
             Names of the exogenous state variables.
+
+        trend : {None, "n", "c", "ct", "ctt"} or sequence of int, optional
+            Deterministic polynomial trend :math:`A(t)` added to the ARMA equation of the differenced series, as in
+            statsmodels. ``"c"`` is a constant, ``"ct"`` adds a linear term, ``"ctt"`` a quadratic. A sequence of ints
+            gives presence flags per power, so ``[1, 1, 0, 1]`` includes :math:`1, t, t^3`. With differencing, a
+            constant is a drift in levels. Coefficients are registered as ``trend_params``. Default None, no trend.
+
+        trend_offset : int, default 1
+            Value of :math:`t` at the first observation, so the linear term runs ``1, 2, ..., n``. This is the
+            convention of statsmodels' ``VARMAX``. statsmodels' ``SARIMAX`` indexes the trend one period earlier, so
+            its ``trend_offset`` is this one plus one.
 
         stationary_initialization : bool, default True
             If true, the initial state and initial state covariance will not be assigned priors. Instead, their steady
@@ -206,6 +280,15 @@ class BayesianSARIMAX(PyMCStateSpace):
 
             Regardless of whether a mode is specified, it can always be overwritten via the ``compile_kwargs`` argument
             to all sampling methods.
+
+        cov_jitter : float, optional
+            Jitter added to the diagonal of every covariance matrix at each filtering step, for numerical
+            stability. Post-estimation graphs are built with this same value. Default 1e-8, or 1e-6 if
+            ``pytensor.config.floatX`` is float32.
+
+        missing_fill_value : float, optional
+            Sentinel used to mask missing observations. Set this only if your data legitimately contains the
+            default sentinel. Post-estimation graphs are built with this same value. Default -9999.0.
         """
         # Model order
         self.p, self.d, self.q = order
@@ -219,6 +302,8 @@ class BayesianSARIMAX(PyMCStateSpace):
 
         self.exog_state_names = tuple(exog_state_names) if exog_state_names is not None else None
         self.k_exog = k_exog
+        self.trend_powers = parse_trend(trend)
+        self.trend_offset = trend_offset
 
         self.P, self.D, self.Q, self.S = seasonal_order
         _verify_order(self.p, self.d, self.q, self.P, self.D, self.Q, self.S)
@@ -266,9 +351,13 @@ class BayesianSARIMAX(PyMCStateSpace):
             k_states,
             k_posdef,
             filter_type,
+            smoother_type=smoother_type,
+            joint_smoothed_draws=joint_smoothed_draws,
             verbose=verbose,
             measurement_error=measurement_error,
             mode=mode,
+            cov_jitter=cov_jitter,
+            missing_fill_value=missing_fill_value,
         )
         self._needs_exog_data = self.k_exog > 0
 
@@ -340,6 +429,16 @@ class BayesianSARIMAX(PyMCStateSpace):
                     name="beta_exog",
                     shape=(self.k_exog,),
                     dims=(EXOG_STATE_DIM,),
+                    constraints=None,
+                )
+            )
+
+        if self.trend_powers:
+            parameters.append(
+                Parameter(
+                    name="trend_params",
+                    shape=(len(self.trend_powers),),
+                    dims=(TREND_DIM,),
                     constraints=None,
                 )
             )
@@ -424,6 +523,9 @@ class BayesianSARIMAX(PyMCStateSpace):
         if self.k_exog > 0:
             coords.append(Coord(dimension=EXOG_STATE_DIM, labels=tuple(self.exog_state_names)))
 
+        if self.trend_powers:
+            coords.append(Coord(dimension=TREND_DIM, labels=trend_names(self.trend_powers)))
+
         return tuple(coords)
 
     def _stationary_initialization(self):
@@ -432,11 +534,81 @@ class BayesianSARIMAX(PyMCStateSpace):
         R = self.ssm["selection"]
         Q = self.ssm["state_cov"]
         c = self.ssm["state_intercept"]
+        if "state_intercept" in self.ssm.time_varying_names:
+            c = c[0]
 
         x0 = pt.linalg.solve(pt.identity_like(T) - T, c, assume_a="gen", check_finite=False)
         P0 = solve_discrete_lyapunov(T, pt.linalg.matrix_dot(R, Q, R.T), method="bilinear")
 
         return x0, P0
+
+    def make_likelihood(self, data, matrices, dims, missing):
+        """
+        Register a :class:`~pymc_extras.statespace.filters.distributions.StationaryVAR`.
+
+        The closed form covers a pure autoregression, seasonal or not, with no measurement error,
+        a stationary initialization -- which also rules out differencing, since the two cannot be
+        combined -- and at most a constant trend. Anything else is filtered, including data with
+        missing values, which only the filter marginalizes.
+        """
+        if self.q > 0 or self.Q > 0 or self.p + self.P == 0 or self.measurement_error:
+            return super().make_likelihood(data, matrices, dims, missing)
+        if not self.stationary_initialization or self.state_structure != "fast":
+            return super().make_likelihood(data, matrices, dims, missing)
+        if self.trend_powers not in ((), (0,)):
+            return super().make_likelihood(data, matrices, dims, missing)
+        if missing.any():
+            return super().make_likelihood(data, matrices, dims, missing)
+
+        pymc_model = modelcontext(None)
+        *_, transition, _, _, _, state_cov = matrices
+
+        # For a pure autoregression the Harvey representation carries the expanded multiplicative
+        # AR polynomial in the first column of the transition.
+        coefficients = transition[:, 0][None, :]
+
+        exog = pymc_model["exogenous_data"] if self.k_exog > 0 else None
+        exog_coefficients = pymc_model["beta_exog"][None, :] if self.k_exog > 0 else None
+
+        if self.trend_powers == (0,):
+            mean = pymc_model["trend_params"][0] / (1 - coefficients.sum())
+            exog, exog_coefficients = constant_as_regressor(
+                mean, exog, exog_coefficients, data.shape[0]
+            )
+
+        return StationaryVAR(
+            OBSERVED_LIKELIHOOD_NAME,
+            coefficients,
+            state_cov,
+            data,
+            exog=exog,
+            exog_coefficients=exog_coefficients,
+            observed=data,
+            dims=dims,
+        )
+
+    def _register_trend(self):
+        r"""
+        Write the polynomial trend into the state intercept on the first ARMA state.
+
+        The filter applies the intercept of step ``t`` to the transition into ``t + 1``, so the
+        design starts one period past ``trend_offset`` for the term to reach ``y_t`` at
+        :math:`A(t + \text{offset})`. A constant keeps the intercept static.
+        """
+        trend_params = self.make_and_register_variable(
+            "trend_params", shape=(len(self.trend_powers),), dtype=floatX
+        )
+        row = self._k_diffs
+
+        if self.trend_powers == (0,):
+            intercept = pt.zeros((self.k_states,), dtype=floatX)
+            self.ssm["state_intercept"] = pt.set_subtensor(intercept[row], trend_params[0])
+            return
+
+        design = trend_design(self.trend_powers, self.n_timesteps, self.trend_offset + 1)
+        intercept = pt.zeros((self.n_timesteps, self.k_states), dtype=floatX)
+        self.ssm["state_intercept"] = pt.set_subtensor(intercept[:, row], design @ trend_params)
+        self.ssm.declare_time_varying("state_intercept")
 
     def make_symbolic_graph(self) -> None:
         p, d, q = self.p, self.d, self.q
@@ -449,7 +621,7 @@ class BayesianSARIMAX(PyMCStateSpace):
                 "P0", shape=(self.k_states, self.k_states), dtype=floatX
             )
 
-            self.ssm["initial_state", :] = x0
+            self.ssm["initial_state"] = x0
             self.ssm["initial_state_cov"] = P0
 
         # Design matrix has no RVs
@@ -465,112 +637,99 @@ class BayesianSARIMAX(PyMCStateSpace):
                 [0] * self._k_diffs, [1.0], np.zeros(self.k_states - self._k_diffs - 1)
             ][:, None]
 
-            ar_param_idx = np.s_[
-                "transition", self._k_diffs : self._k_diffs + self.p, self._k_diffs
-            ]
-            ma_param_idx = np.s_["selection", 1 + self._k_diffs : 1 + self._k_diffs + self.q, 0]
-
-            self.ssm["transition"] = transition
-            self.ssm["selection"] = selection
+            ar_rows, ar_values = [], []
+            ma_rows, ma_values = [], []
 
             if p > 0:
                 ar_params = self.make_and_register_variable("ar_params", shape=(p,), dtype=floatX)
-                self.ssm[ar_param_idx] = ar_params
+                ar_rows.append(np.arange(self._k_diffs, self._k_diffs + p))
+                ar_values.append(ar_params)
 
             if P > 0:
                 seasonal_ar_params = self.make_and_register_variable(
                     "seasonal_ar_params", shape=(P,), dtype=floatX
                 )
                 idx_rows = self._k_diffs + (np.arange(1, P + 1) * S) - 1
-                S_ar_param_idx = np.s_["transition", idx_rows, self._k_diffs]
-                self.ssm[S_ar_param_idx] = seasonal_ar_params
+                ar_rows.append(idx_rows)
+                ar_values.append(seasonal_ar_params)
 
                 if p > 0:
-                    cross_term_idx = np.s_[
-                        "transition",
-                        idx_rows.repeat(p) + np.tile(np.arange(p), P) + 1,
-                        self._k_diffs,
-                    ]
-                    self.ssm[cross_term_idx] = -pt.repeat(seasonal_ar_params, p) * pt.tile(
-                        ar_params, P
-                    )
+                    ar_rows.append(idx_rows.repeat(p) + np.tile(np.arange(p), P) + 1)
+                    ar_values.append(-pt.repeat(seasonal_ar_params, p) * pt.tile(ar_params, P))
 
             if q > 0:
                 ma_params = self.make_and_register_variable("ma_params", shape=(q,), dtype=floatX)
-                self.ssm[ma_param_idx] = ma_params
+                ma_rows.append(np.arange(1 + self._k_diffs, 1 + self._k_diffs + q))
+                ma_values.append(ma_params)
 
             if Q > 0:
                 seasonal_ma_params = self.make_and_register_variable(
                     "seasonal_ma_params", shape=(Q,), dtype=floatX
                 )
                 idx_rows = self._k_diffs + np.arange(1, Q + 1) * S
-                S_ma_param_idx = np.s_["selection", idx_rows, 0]
-                self.ssm[S_ma_param_idx] = seasonal_ma_params
+                ma_rows.append(idx_rows)
+                ma_values.append(seasonal_ma_params)
 
                 if q > 0:
-                    cross_term_idx = np.s_[
-                        "selection", idx_rows.repeat(q) + np.tile(np.arange(q), Q) + 1, 0
-                    ]
-                    self.ssm[cross_term_idx] = pt.repeat(seasonal_ma_params, q) * pt.tile(
-                        ma_params, Q
-                    )
+                    ma_rows.append(idx_rows.repeat(q) + np.tile(np.arange(q), Q) + 1)
+                    ma_values.append(pt.repeat(seasonal_ma_params, q) * pt.tile(ma_params, Q))
+
+            # Every AR term lands in one column of T, and every MA term in one column of R.
+            self.ssm["transition"] = _fill_axis(
+                transition, self._k_diffs, ar_rows, ar_values, axis=1
+            )
+            self.ssm["selection"] = _fill_axis(selection, 0, ma_rows, ma_values, axis=1)
 
         elif self.state_structure == "interpretable":
-            ar_param_idx = np.s_["transition", 0, : max(1, p)]
-            ma_param_idx = np.s_["transition", 0, self._p_max : self._p_max + max(1, q)]
-
             transition = np.eye(self.k_states, k=-1)
             transition[-self._q_max, self._p_max - 1] = 0
 
             selection = np.r_[[1.0], np.zeros(self.k_states - 1)][:, None]
             selection[-self._q_max, 0] = 1
 
-            self.ssm["transition"] = transition
-            self.ssm["selection"] = selection
+            param_cols, param_values = [], []
 
             if self.p > 0:
                 ar_params = self.make_and_register_variable(
                     "ar_params", shape=(self.p,), dtype=floatX
                 )
-                self.ssm[ar_param_idx] = ar_params
+                param_cols.append(np.arange(max(1, p)))
+                param_values.append(ar_params)
 
             if self.P > 0:
                 seasonal_ar_params = self.make_and_register_variable(
                     "seasonal_ar_params", shape=(P,), dtype=floatX
                 )
                 idx_cols = np.arange(1, P + 1) * S - 1
-                S_ar_param_idx = np.s_["transition", 0, idx_cols]
-                self.ssm[S_ar_param_idx] = seasonal_ar_params
+                param_cols.append(idx_cols)
+                param_values.append(seasonal_ar_params)
 
                 if p > 0:
-                    cross_term_idx = np.s_[
-                        "transition", 0, idx_cols.repeat(p) + np.tile(np.arange(p), P) + 1
-                    ]
-                    self.ssm[cross_term_idx] = -pt.repeat(seasonal_ar_params, p) * pt.tile(
-                        ar_params, P
-                    )
+                    param_cols.append(idx_cols.repeat(p) + np.tile(np.arange(p), P) + 1)
+                    param_values.append(-pt.repeat(seasonal_ar_params, p) * pt.tile(ar_params, P))
 
             if self.q > 0:
                 ma_params = self.make_and_register_variable(
                     "ma_params", shape=(self.q,), dtype=floatX
                 )
-                self.ssm[ma_param_idx] = ma_params
+                param_cols.append(np.arange(self._p_max, self._p_max + max(1, q)))
+                param_values.append(ma_params)
 
             if Q > 0:
                 seasonal_ma_params = self.make_and_register_variable(
                     "seasonal_ma_params", shape=(Q,), dtype=floatX
                 )
                 idx_cols = self._p_max + np.arange(1, Q + 1) * S - 1
-                S_ma_param_idx = np.s_["transition", 0, idx_cols]
-                self.ssm[S_ma_param_idx] = seasonal_ma_params
+                param_cols.append(idx_cols)
+                param_values.append(seasonal_ma_params)
 
                 if q > 0:
-                    cross_term_idx = np.s_[
-                        "transition", 0, idx_cols.repeat(q) + np.tile(np.arange(q), Q) + 1
-                    ]
-                    self.ssm[cross_term_idx] = pt.repeat(seasonal_ma_params, q) * pt.tile(
-                        ma_params, Q
-                    )
+                    param_cols.append(idx_cols.repeat(q) + np.tile(np.arange(q), Q) + 1)
+                    param_values.append(pt.repeat(seasonal_ma_params, q) * pt.tile(ma_params, Q))
+
+            # In this parameterization every AR and MA term lands in the first row of T.
+            self.ssm["transition"] = _fill_axis(transition, 0, param_cols, param_values, axis=0)
+            self.ssm["selection"] = selection
 
         # If exogenous regressors are present, register them as data and include a regression term
         # in the observation intercept
@@ -585,23 +744,24 @@ class BayesianSARIMAX(PyMCStateSpace):
             self.ssm["obs_intercept"] = (exog_data @ exog_beta)[:, None]
             self.ssm.declare_time_varying("obs_intercept")
 
+        if self.trend_powers:
+            self._register_trend()
+
         # Set up the state covariance matrix
-        state_cov_idx = ("state_cov", *np.diag_indices(self.k_posdef))
         state_cov = self.make_and_register_variable(
             "sigma_state", shape=() if self.k_posdef == 1 else (self.k_posdef,), dtype=floatX
         )
-        self.ssm[state_cov_idx] = state_cov**2
+        self.ssm["state_cov"] = pt.diag(pt.atleast_1d(state_cov**2))
 
         if self.measurement_error:
-            obs_cov_idx = ("obs_cov", *np.diag_indices(self.k_endog))
             obs_cov = self.make_and_register_variable(
                 "sigma_obs", shape=() if self.k_endog == 1 else (self.k_endog,), dtype=floatX
             )
-            self.ssm[obs_cov_idx] = obs_cov**2
+            self.ssm["obs_cov"] = pt.diag(pt.atleast_1d(obs_cov**2))
 
         # The initial conditions have to be done last in the case of stationary initialization, because it will depend
         # on c, T, R and Q
         if self.stationary_initialization:
             x0, P0 = self._stationary_initialization()
-            self.ssm["initial_state", :] = x0
-            self.ssm["initial_state_cov", :, :] = P0
+            self.ssm["initial_state"] = x0
+            self.ssm["initial_state_cov"] = P0

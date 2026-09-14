@@ -3,7 +3,6 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 from datetime import datetime
-from typing import Optional
 
 from typing_extensions import Self
 
@@ -12,6 +11,40 @@ from office365.runtime.types.odata_property import odata
 from office365.teams.operations.async_status import TeamsAsyncOperationStatus
 from office365.teams.operations.error import OperationError
 from office365.teams.operations.type import TeamsAsyncOperationType
+
+_NOT_FOUND_STATUS = 404
+
+
+def wait_for_operation(
+    operation: "TeamsAsyncOperation",
+    *,
+    success_callback: Callable[["TeamsAsyncOperation"], None] | None = None,
+    timeout_sec: int = 180,
+    interval: int = 15,
+) -> None:
+    """Schedule polling of an async operation until ``succeeded`` (deferred).
+
+    Queues the operation status GETs via ``after_execute``; the caller's
+    ``execute_query()`` drives them. Raises when the operation fails or times
+    out.
+
+    Args:
+        operation: The async operation to poll.
+        success_callback: Called with the populated operation once succeeded.
+        timeout_sec: Maximum seconds to wait.
+        interval: Seconds between status polls.
+    """
+
+    def _on_failed(op) -> None:
+        raise RuntimeError(f"Async operation failed: {op.status}")
+
+    operation.poll_for_status(
+        TeamsAsyncOperationStatus.succeeded,
+        timeout_sec=timeout_sec,
+        polling_interval=interval,
+        success_callback=success_callback,
+        failure_callback=_on_failed,
+    )
 
 
 class TeamsAsyncOperation(Entity):
@@ -46,8 +79,27 @@ class TeamsAsyncOperation(Entity):
         """
         deadline = time.time() + timeout_sec
 
-        def _poll():
-            self.get().after_execute(_verify_status, execute_first=True)
+        def _not_found(exc: Exception) -> bool:
+            # The operation's location can be briefly unavailable right after the
+            # 202 (e.g. "No workflow found with supplied ID") — treat it as a
+            # polling gap, not a permanent failure.
+            return getattr(getattr(exc, "response", None), "status_code", None) == _NOT_FOUND_STATUS
+
+        def _fail() -> None:
+            if callable(failure_callback):
+                failure_callback(self)
+
+        def _poll() -> None:
+            qry = self.get()
+
+            def _on_error(exc: Exception) -> None:
+                if _not_found(exc) and time.time() < deadline:
+                    time.sleep(polling_interval)
+                    _poll()
+                else:
+                    _fail()
+
+            qry.after_execute(_verify_status, execute_first=True).on_error(_on_error)
 
         def _verify_status(return_type: TeamsAsyncOperation):
             if return_type.status == status_type:
@@ -59,8 +111,7 @@ class TeamsAsyncOperation(Entity):
                     failure_callback(return_type)
                 return
             if time.time() >= deadline:
-                if callable(failure_callback):
-                    failure_callback(self)
+                _fail()
                 return
             time.sleep(polling_interval)
             _poll()
@@ -70,7 +121,7 @@ class TeamsAsyncOperation(Entity):
 
     @odata(name="attemptsCount")
     @property
-    def attempts_count(self) -> Optional[int]:
+    def attempts_count(self) -> int | None:
         """Number of times the operation was attempted before being marked as succeeded or failed."""
         return self.properties.get("attemptsCount", None)
 
@@ -103,12 +154,12 @@ class TeamsAsyncOperation(Entity):
         return self.properties.get("status", TeamsAsyncOperationStatus.invalid)
 
     @property
-    def target_resource_id(self) -> Optional[str]:
+    def target_resource_id(self) -> str | None:
         """The ID of the object that's created or modified as result of this async operation, typically a team."""
         return self.properties.get("targetResourceId", None)
 
     @property
-    def target_resource_location(self) -> Optional[str]:
+    def target_resource_location(self) -> str | None:
         """The location of the object that's created or modified as result of this async operation.
         This URL should be treated as an opaque value and not parsed into its component paths.
         """

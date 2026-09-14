@@ -1293,3 +1293,102 @@ def theorem_b(beta_i: float = BETA_I, ssq: float = SSQ,
         'not_claimed': 'the no-cutoff Clay statement; uniformity of any bound as eps -> 0; that 0.156 nm is a measured quantity (it is derived); Lions hyperviscosity is not in the corpus and not needed',
         'status': 'THEOREM_B_PROVED_B280 (continuum fluid, phonon-mollified transport; Track 3 closed on Form C; PAPER_106 exponent ruling OPEN)',
     }
+
+
+# ---- B281 (PAPER_2276): THE PROOF SET CLOSED - the index, the fronts, the instruments
+C_FAST_SOUND_WATER_M_S = 3200.0  # Sette et al. PRL 75, 850 (1995): IXS, Q = 4-14 nm^-1, 3200 +/- 100 m/s (Q-247 flag)
+
+
+def proof_set_closeout() -> Dict:
+    """B281 (PAPER_2276): the closing index of the UQFF Navier-Stokes proof
+    set. Recomputes the two theorems and the proof set at call time, lists
+    every rung with its paper and mirror, names the two open rulings
+    (Q-246 exponents; Q-247 sound-cone speed - IXS fast sound 3200 m/s at
+    the wavenumbers where k_c falls scales every cutoff number by
+    c_inf/c_0 = 2.16, FLAGGED not canonized), and for each of the four
+    data fronts states the falsifier, the INSTRUMENT and the ACCESS ROUTE
+    (JHTDB full token by e-mail / SciServer; the Kerr trefoil fields by
+    letter; ATR THz-TDS; MD current spectra + archived IXS/INS). Theory
+    rows open: zero. Not claimed: the Clay statement; any front passed."""
+    ta = theorem_a()
+    tb = theorem_b()
+    ps = ns_proof_set()
+    sa = spine_audit()
+    ratio = C_FAST_SOUND_WATER_M_S / C_S_WATER_M_S
+    tb_fast = theorem_b(c_s_m_s=C_FAST_SOUND_WATER_M_S)
+    ledger = [
+        ('B267', 'PAPER_2263', 'assembly', 'ns_assembly'), ('B268', 'PAPER_2263', 'tiers', 'draw_field/grade_cap_against_dns'),
+        ('B269', 'PAPER_2264', 'balance zone / pair cap', 'enstrophy_cap_pair'), ('B270', 'PAPER_2265', 'derivation', 'l_buoy_cap_derivation'),
+        ('B271', 'PAPER_2266', 'lemma', 'bridge_lemma_derivation'), ('B272', 'PAPER_2267', 'THEOREM A', 'theorem_a'),
+        ('B273', 'PAPER_2268', 'domain ruling', 'clay_domain_ruling'), ('B274', 'PAPER_2269', 'profile', 'rolloff_report'),
+        ('B275', 'PAPER_2270', 'index', 'ns_proof_set'), ('B276', 'PAPER_2271', 'data: isotropic8192', 'first_real_data_grade'),
+        ('B277', 'PAPER_2272', 'data: channel', 'in_medium_sample_grade'), ('B278', 'PAPER_2273', 'data: Reynolds ladder', 'reynolds_ladder_grade'),
+        ('B279', 'PAPER_2274', 'spine audit', 'spine_audit'), ('B280', 'PAPER_2275', 'THEOREM B', 'theorem_b'),
+        ('B281', 'PAPER_2276', 'closeout index', 'proof_set_closeout'),
+    ]
+    return {
+        'ledger': ledger,
+        'rungs': len(ledger),
+        'theorem_a_status': ta['status'],
+        'theorem_b_status': tb['status'],
+        'proof_set_status': ps['status'],
+        'theory_open_rows': 0,
+        'spine_disposition': sa['disposition'],
+        'theorems_side_by_side': {
+            'A': 'finite mode space X_K (sharp filter, Form B); energy identity + mode count; NOT the cap, NOT BKM, NOT Sobolev',
+            'B': 'all of R^3, Gaussian mollifier eps on the transport (Forms A+B+C); Leray 1934 energy + C eps^-5/2 bound + Gronwall; NOT the cap, NOT the envelope, NOT BKM, NOT Sobolev, NOT truncation',
+            'relation': 'A is the sharp-filter limit of B; neither needs the cap; the cap is the falsifiable physics beside them',
+            'boundary': 'K finite because [SCm] > 0 (A); M_eps diverges as eps -> 0 (B) - the ruled-out regime, now quantitative',
+        },
+        'open_rulings': {
+            'Q-246': 'PAPER_106 exponents: beta > 5/2 (mollifier) / a >= 5/2 (Lions), or canonize the PAPER_1042 Gaussian tail - changes route count, not Theorem B',
+            'Q-247': 'sound-cone speed at omega_SCm: c_0 = %.0f m/s (PAPER_2261, hydrodynamic) vs c_inf = %.0f m/s (IXS fast sound, Q = 4-14 nm^-1); ratio %.3f; lambda_c %.3f -> %.3f nm, k_c %.3f -> %.3f nm^-1, eps %.3f -> %.3f nm; FLAGGED, no corpus chain from c_0 to c_inf; no theorem changes'
+                     % (C_S_WATER_M_S, C_FAST_SOUND_WATER_M_S, ratio, tb['lambda_c_nm'], tb_fast['lambda_c_nm'],
+                        tb['k_c_per_m'] / 1e9, tb_fast['k_c_per_m'] / 1e9, tb['epsilon_nm'], tb_fast['epsilon_nm']),
+            'track_3_disposition': 'Daniel-owned: whether the B272 discussion held anything Theorem B does not cover',
+        },
+        'fast_sound_scaling': {'c_0': C_S_WATER_M_S, 'c_inf': C_FAST_SOUND_WATER_M_S, 'ratio': ratio,
+                               'lambda_c_nm_c0': tb['lambda_c_nm'], 'lambda_c_nm_cinf': tb_fast['lambda_c_nm'],
+                               'eps_nm_c0': tb['epsilon_nm'], 'eps_nm_cinf': tb_fast['epsilon_nm']},
+        'fronts': {
+            '1_kill_test': {
+                'statement': 'extreme-event stretching never exceeds 17/20 (vacuum branch), tail included',
+                'falsifier': 'one volume, one snapshot with the 1182-form ratio > 0.85',
+                'instrument': 'JHTDB whole-volume gradient cutouts (8192^3 / 32768^3 snapshots; isotropic1024 time series) - FULL authorization token; and the Kerr trefoil reconnection fields',
+                'access': 'e-mail turbulence@lists.johnshopkins.edu (name, e-mail, affiliation + department, intended use) -> personal token; or SciServer account + Turbulence data volume + Cutout Service (HDF5); Kerr fields by request to R. M. Kerr, Warwick Mathematics Institute',
+                'testing_token': 'CANNOT do this (< 4,096 points/request; B278 already showed the envelope climbing)',
+                'status': 'OPEN - bulk consistency passes B276-B278 only',
+            },
+            '2_pair_cap_discrimination': {
+                'statement': 'in-medium 197/200 vs vacuum 17/20 - distinguishable only in the far tail',
+                'falsifier': 'in-medium tail between 0.85 and 0.985 confirms the branch; > 0.985 kills both; vacuum-branch tail between 0.85 and 0.985 kills the vacuum branch',
+                'instrument': 'same full JHTDB token on the wall-bounded sets (channel Re_tau ~ 1000 near-wall cutouts, channel5200) + isotropic sets',
+                'access': 'as front 1',
+                'testing_token': 'CANNOT do this',
+                'status': 'OPEN - consistency pass at the bulk (B277: 0.03-0.07)',
+            },
+            '3_thz_bench': {
+                'statement': 'water THz response carries a Gaussian line at 1.25 THz, Gamma 0.1 THz, FWHM 0.235 THz (Form A); 910-vs-896 asks 0.235 vs 0.471',
+                'falsifier': 'featureless 1.0-1.5 THz spectrum at few-GHz resolution, or a feature at another centre',
+                'instrument': 'THz time-domain spectroscopy in ATTENUATED TOTAL REFLECTION geometry (water absorbs ~10^2 cm^-1 near 1 THz; transmission needs tens-of-micrometre cells); commercial PCA/fibre-laser TDS benches cover 0.1-5 THz at few-GHz resolution with ATR modules',
+                'access': 'a university ultrafast/THz lab (one afternoon of bench time); vendor application labs run samples; or purchase (five-to-low-six-figure instrument)',
+                'protocol': 'pure water 20 C, ATR, 0.5-3 THz, >= 1,000 averaged waveforms, alpha(f) + n(f); fit the PAPER_2269 Gaussian on the Debye/librational background in 1.0-1.5 THz; report centre, FWHM, null chi^2',
+                'rule_7': 'the published water spectrum is smooth here; front 3 may close NEGATIVE for Form A as a spectral line - admissible, stated before measurement',
+                'status': 'OPEN - no data from this program',
+            },
+            '4_spectrum_above_kc': {
+                'statement': 'hydrodynamic velocity transfer above k_c rolls off as exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c; no fluid dynamics above',
+                'falsifier': 'power-law transverse-current spectrum through k_c, or propagating transverse velocity modes well above it',
+                'why_not_dns': 'k_c = 5.3 nm^-1 (c_0) or 2.5 nm^-1 (c_inf); finest DNS spacing is micrometres - front 4 is molecular',
+                'instrument_a': 'molecular dynamics of water (LAMMPS/GROMACS, TIP4P/2005 or polarizable; box >= 8 nm; NVT 298 K; 1-2 ns; velocities every ~10 fs): C_T(k,omega), C_L(k,omega), E(k) for k = 1-20 nm^-1 - workstation-days, no token, no beam time (the CHEAPEST open front)',
+                'instrument_b': 'inelastic x-ray / neutron scattering S(Q,omega) of water, Q = 1-30 nm^-1, omega = 0.5-5 THz - archived: ESRF (Sette 1995 PRL 75:850; Monaco 1999 PRE 60:5505; Sampoli/Ruocco/Sette transverse signature) and ILL/ISIS INS on D2O; new beam time via twice-yearly proposal calls',
+                'rule_7': 'IXS already shows MOLECULAR density modes propagating at 3200 m/s from Q ~ 4 nm^-1 outward - so the front-4 statement is about the hydrodynamic velocity field (C_T of the continuum), not S(Q,omega) of the molecules; MD separates the two; and that same fact is Q-247',
+                'status': 'OPEN - no data from this program',
+            },
+        },
+        'cheapest_next_act': 'front 4 MD run (no token, no bench)',
+        'decisive_next_act': 'the full JHTDB token (fronts 1-2)',
+        'formalization_option': 'Lean 4 / Mathlib machine-check of Theorem B (energy identity, convolution bound, Gronwall) - an option, not a rung',
+        'not_claimed': 'the Clay statement (uniform as eps -> 0); that either theorem implies the cap or vice versa; that any front has been passed; that eps is measured',
+        'status': 'THEORY_CLOSED_B281 (two theorems, derived cap, ruling, audit; theory rows open 0; four fronts OPEN with instruments named; rulings Q-246/Q-247 OPEN)',
+    }

@@ -1158,3 +1158,39 @@ async def test_hung_chromium_launch_returns_typed_failure_and_releases_lock(
     stub.activation_key = "retry-after-timeout"
     retry = await stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
     assert retry.ok and retry.accepted
+
+
+async def test_shutdown_during_inflight_bootstrap_is_not_reported_as_never_bootstrapped(
+    profile_dir: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """2026-09-13: the control plane's reaper called shutdown while a slow
+    bootstrap was still launching; the worker said ``not_bootstrapped`` and the
+    reaper took that as proof nothing ever started, wrote the run off, and the
+    bootstrap then completed into an orphan. In-flight bootstrap is a distinct,
+    retryable answer."""
+    worker, stub, _ = _new(profile_dir)
+    launch_started = asyncio.Event()
+    release_launch = asyncio.Event()
+
+    async def slow_launch(_policy: M.LaunchPolicy, _display: M.DisplayConfig | None) -> bool:
+        launch_started.set()
+        await release_launch.wait()
+        return True
+
+    monkeypatch.setattr(worker, "_launch_context", slow_launch)
+    boot_task = asyncio.create_task(
+        stub.bootstrap(user_data_dir=profile_dir, run_mode="automation_only")
+    )
+    await launch_started.wait()
+
+    mid = await stub.shutdown(reason="emergency_fence")
+    assert not mid.ok
+    assert mid.error.code == "bootstrap_in_progress"
+    assert mid.error.retryable is True
+
+    release_launch.set()
+    boot = await boot_task
+    assert boot.ok and boot.accepted
+    # Once bootstrapped, the same fence succeeds normally.
+    done = await stub.shutdown(reason="emergency_fence")
+    assert done.ok and done.stopped

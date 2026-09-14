@@ -1,358 +1,452 @@
-from math import ceil
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import patch, MagicMock
 
-import requests
 import requests_mock
 from packaging.version import Version as Pep440Version
 
-from django.core.cache import cache
-from django.test import TestCase
+from allianceauth.admin_status.templatetags import admin_status
+from allianceauth.admin_status.templatetags.admin_status import decimal_widthratio
+from allianceauth.utils.testing import NoSocketsTestCase
 
-from allianceauth.admin_status.models import ApplicationAnnouncement
-from allianceauth.admin_status.templatetags.admin_status import (
-    _current_notifications,
-    _current_version_summary,
-    _fetch_list_from_gitlab,
-    _latests_versions,
-    status_overview,
-)
-
-MODULE_PATH = 'allianceauth.admin_status.templatetags'
+MODULE_PATH = "allianceauth.admin_status.templatetags.admin_status"
 
 
-def create_tags_list(tag_names: list):
-    return [{'name': str(tag_name)} for tag_name in tag_names]
+class TestCurrentVersionSummary(NoSocketsTestCase):
+    def test_handles_empty_stored_versions_and_returns_false_flags(self):
+        dummy = type(
+            "S", (), {"latest_stable_version": "", "latest_development_version": ""}
+        )()
 
-def get_app_announcement_as_dict(app_announcement: ApplicationAnnouncement) -> dict:
-    """Transforms an app announcement object in a dict easy to compare"""
-    return {
-        "application_name": app_announcement.application_name,
-        "announcement_number": app_announcement.announcement_number,
-        "announcement_text": app_announcement.announcement_text,
-        "announcement_url": app_announcement.announcement_url,
-    }
+        with (
+            patch(MODULE_PATH + ".SoftwareVersion.get_solo", return_value=dummy),
+            patch(MODULE_PATH + ".__version__", "2.0.0"),
+        ):
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _current_version_summary,
+            )
 
+            result = _current_version_summary()
+            self.assertEqual(result["latest_patch"], False)
+            self.assertEqual(result["latest_beta"], False)
+            self.assertEqual(result["current_version"], "2.0.0")
+            self.assertIsNone(result["latest_patch_version"])
+            self.assertIsNone(result["latest_beta_version"])
 
-GITHUB_TAGS = create_tags_list(['v2.4.6a1', 'v2.4.5', 'v2.4.0', 'v2.0.0', 'v1.1.1'])
-STORED_NOTIFICATIONS = [
-    ApplicationAnnouncement(
-        application_name="Test GitHub Application",
-        announcement_number=1,
-        announcement_text="GitHub issue",
-        announcement_url="https://github.com/r0kym/test/issues/1",
-        announcement_hash="hash1",
-    ),
-    ApplicationAnnouncement(
-        application_name="Test Gitlab Application",
-        announcement_number=1,
-        announcement_text="GitLab issue",
-        announcement_url="https://gitlab.com/r0kym/allianceauth-example-plugin/-/issues/1",
-        announcement_hash="hash2",
-    ),
-]
-ANNOUNCEMENT_DICT = [
-    {
-        "application_name": "Test GitHub Application",
-        "announcement_number": 1,
-        "announcement_text": "GitHub issue",
-        "announcement_url": "https://github.com/r0kym/test/issues/1",
-    }, {
-        "application_name": "Test Gitlab Application",
-        "announcement_number": 1,
-        "announcement_text": "GitLab issue",
-        "announcement_url": "https://gitlab.com/r0kym/allianceauth-example-plugin/-/issues/1",
-    }
-]
-GITHUB_NOTIFICATION_ISSUES = [
-    {
-        'id': 1,
-        'title': 'first issue'
-    },
-    {
-        'id': 2,
-        'title': 'second issue'
-    },
-    {
-        'id': 3,
-        'title': 'third issue'
-    },
-    {
-        'id': 4,
-        'title': 'forth issue'
-    },
-    {
-        'id': 5,
-        'title': 'fifth issue'
-    },
-    {
-        'id': 6,
-        'title': 'sixth issue'
-    },
-]
-TEST_VERSION = '2.6.5'
-GITLAB_AUTH_ANNOUNCEMENT_ISSUES_URL = (
-    'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth/issues'
-    '?labels=announcement&state=opened'
-)
+    def test_reports_latest_patch_when_current_is_at_or_above_stable(self):
+        dummy = type(
+            "S",
+            (),
+            {"latest_stable_version": "2.0.0", "latest_development_version": ""},
+        )()
 
+        with (
+            patch(MODULE_PATH + ".SoftwareVersion.get_solo", return_value=dummy),
+            patch(MODULE_PATH + ".__version__", "2.0.1"),
+        ):
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _current_version_summary,
+            )
 
-class TestStatusOverviewTag(TestCase):
-    @patch(MODULE_PATH + '.admin_status.__version__', TEST_VERSION)
-    @patch(MODULE_PATH + '.admin_status._current_version_summary')
-    @patch(MODULE_PATH + '.admin_status._current_notifications')
-    def test_status_overview(
-        self, mock_current_notifications, mock_current_version_info
+            result = _current_version_summary()
+            self.assertTrue(result["latest_patch"])
+            self.assertEqual(result["latest_patch_version"], Pep440Version("2.0.0"))
+            self.assertIsNone(result["latest_beta_version"])
+
+    def test_reports_beta_when_dev_present_and_current_is_at_or_below_dev_and_dev_is_after_stable(
+        self,
     ):
-        # given
-        notifications = {
-            'notifications': GITHUB_NOTIFICATION_ISSUES[:5]
+        dummy = type(
+            "S",
+            (),
+            {
+                "latest_stable_version": "1.0.0",
+                "latest_development_version": "2.0.0a1",
+            },
+        )()
+
+        with (
+            patch(MODULE_PATH + ".SoftwareVersion.get_solo", return_value=dummy),
+            patch(MODULE_PATH + ".__version__", "1.5.0"),
+        ):
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _current_version_summary,
+            )
+
+            result = _current_version_summary()
+            self.assertTrue(result["latest_beta"])
+            self.assertEqual(result["latest_patch_version"], Pep440Version("1.0.0"))
+            self.assertEqual(result["latest_beta_version"], Pep440Version("2.0.0a1"))
+
+    def test_ignores_invalid_version_strings_and_does_not_raise(self):
+        dummy = type(
+            "S",
+            (),
+            {
+                "latest_stable_version": "invalid",
+                "latest_development_version": "also-invalid",
+            },
+        )()
+        with (
+            patch(MODULE_PATH + ".SoftwareVersion.get_solo", return_value=dummy),
+            patch(MODULE_PATH + ".__version__", "1.0.0"),
+        ):
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _current_version_summary,
+            )
+
+            result = _current_version_summary()
+            self.assertFalse(result["latest_patch"])
+            self.assertFalse(result["latest_beta"])
+            self.assertIsNone(result["latest_patch_version"])
+            self.assertIsNone(result["latest_beta_version"])
+
+
+class TestDecimalWidthRatio(NoSocketsTestCase):
+    def test_decimal_widthratio_returns_zero_when_max_value_is_zero(self):
+        self.assertEqual(decimal_widthratio(5, 0, 10), "0")
+
+    def test_decimal_widthratio_calculates_and_rounds_for_integer_inputs(self):
+        expected = str(round(2 / 4 * 100, 2))
+        self.assertEqual(decimal_widthratio(2, 4, 100), expected)
+
+    def test_decimal_widthratio_handles_float_inputs_and_rounds_two_decimals(self):
+        expected = str(round(1.234 / 3.0 * 50.0, 2))
+        self.assertEqual(decimal_widthratio(1.234, 3.0, 50.0), expected)
+
+    def test_decimal_widthratio_handles_negative_max_value(self):
+        expected = str(round(1 / -2 * 100, 2))
+        self.assertEqual(decimal_widthratio(1, -2, 100), expected)
+
+
+class TestStatusOverviewAdditional(NoSocketsTestCase):
+    @patch(MODULE_PATH + "._current_notifications")
+    @patch(MODULE_PATH + "._current_version_summary")
+    @patch(MODULE_PATH + "._celery_stats")
+    def test_status_overview_merges_all_sections_and_handles_empty_notifications(
+        self, mock_celery, mock_version, mock_notifications
+    ):
+        mock_notifications.return_value = {"notifications": []}
+        mock_version.return_value = {"current_version": "9.9.9", "latest_patch": True}
+        mock_celery.return_value = {
+            "tasks_succeeded": 1,
+            "tasks_retried": 0,
+            "tasks_failed": 0,
+            "tasks_total": 1,
+            "tasks_hours": 24,
+            "earliest_task": None,
         }
-        mock_current_notifications.return_value = notifications
-        version_info = {
-            'latest_major': True,
-            'latest_minor': True,
-            'latest_patch': True,
-            'latest_beta': False,
-            'current_version': TEST_VERSION,
-            'latest_major_version': '2.4.5',
-            'latest_minor_version': '2.4.0',
-            'latest_patch_version': '2.4.5',
-            'latest_beta_version': '2.4.4a1',
-        }
-        mock_current_version_info.return_value = version_info
-        # when
+
+        from allianceauth.admin_status.templatetags.admin_status import status_overview
+
         result = status_overview()
-        # then
-        self.assertEqual(result["notifications"], GITHUB_NOTIFICATION_ISSUES[:5])
-        self.assertTrue(result["latest_major"])
-        self.assertTrue(result["latest_minor"])
+        self.assertIn("notifications", result)
+        self.assertEqual(result["notifications"], [])
+        self.assertEqual(result["current_version"], "9.9.9")
         self.assertTrue(result["latest_patch"])
-        self.assertFalse(result["latest_beta"])
-        self.assertEqual(result["current_version"], TEST_VERSION)
-        self.assertEqual(result["latest_major_version"], '2.4.5')
-        self.assertEqual(result["latest_minor_version"], '2.4.0')
-        self.assertEqual(result["latest_patch_version"], '2.4.5')
-        self.assertEqual(result["latest_beta_version"], '2.4.4a1')
+        self.assertEqual(result["tasks_succeeded"], 1)
+
+    def test_status_overview_honors_display_debug_setting(self):
+        with (
+            patch(
+                MODULE_PATH + "._current_notifications",
+                return_value={"notifications": []},
+            ),
+            patch(MODULE_PATH + "._current_version_summary", return_value={}),
+            patch(MODULE_PATH + "._celery_stats", return_value={}),
+            patch(MODULE_PATH + ".settings") as mock_settings,
+        ):
+            mock_settings.DISPLAY_DEBUG = False
+            mock_settings.DEBUG = True
+            from allianceauth.admin_status.templatetags.admin_status import (
+                status_overview,
+            )
+
+            result = status_overview()
+
+            self.assertIn("debug", result)
+            self.assertFalse(result["debug"])
 
 
-class TestNotifications(TestCase):
-
-    def setUp(self) -> None:
-        cache.clear()
-
-    @requests_mock.mock()
-    def test_fetch_notification_issues_from_gitlab(self, requests_mocker):
-        # given
-        url = (
-            'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth/issues'
-            '?labels=announcement'
-        )
-        requests_mocker.get(url, json=GITHUB_NOTIFICATION_ISSUES)
-        # when
-        result = _fetch_list_from_gitlab(GITLAB_AUTH_ANNOUNCEMENT_ISSUES_URL, 10)
-        # then
-        self.assertEqual(result, GITHUB_NOTIFICATION_ISSUES)
-
-    @patch(MODULE_PATH + '.admin_status.ApplicationAnnouncement')
-    def test_current_notifications_normal(self, mock_application_announcement):
-        # given
-        mock_application_announcement.object.sync_and_return.return_value = STORED_NOTIFICATIONS
-        # when
-        result = _current_notifications()
-        # then
-        for notification in result["notifications"]:
-            self.assertIn(get_app_announcement_as_dict(notification), ANNOUNCEMENT_DICT)
-
-    @requests_mock.mock()
-    def test_current_notifications_failed(self, requests_mocker):
-        # given
-        url = (
-            'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth/issues'
-            '?labels=announcement'
-        )
-        requests_mocker.get(url, status_code=404)
-        # when
-        result = _current_notifications()
-        # then
-        self.assertEqual(list(result['notifications']), [])
-
-
-class TestCeleryQueueLength(TestCase):
-
-    def test_get_celery_queue_length(self):
-        pass
-
-
-class TestVersionTags(TestCase):
-
-    def setUp(self) -> None:
-        cache.clear()
-
-    @patch(MODULE_PATH + '.admin_status.__version__', TEST_VERSION)
-    @patch(MODULE_PATH + '.admin_status.cache')
-    def test_current_version_info_normal(self, mock_cache):
-        # given
-        mock_cache.get_or_set.return_value = GITHUB_TAGS
-        # when
-        result = _current_version_summary()
-        # then
-        self.assertTrue(result['latest_patch'])
-        self.assertEqual(result['latest_patch_version'], '2.4.5')
-        self.assertEqual(result['latest_beta_version'], '2.4.6a1')
-
-    @patch(MODULE_PATH + '.admin_status.__version__', TEST_VERSION)
-    @requests_mock.mock()
-    def test_current_version_info_failed(self, requests_mocker):
-        # given
-        url = (
-            'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth'
-            '/repository/tags'
-        )
-        requests_mocker.get(url, status_code=500)
-        # when
-        result = _current_version_summary()
-        # then
-        self.assertEqual(result, {})
-
-    @requests_mock.mock()
-    def test_fetch_tags_from_gitlab(self, requests_mocker):
-        # given
-        url = (
-            'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth'
-            '/repository/tags'
-        )
-        requests_mocker.get(url, json=GITHUB_TAGS)
-        # when
-        result = _current_version_summary()
-        # then
-        self.assertTrue(result)
-
-    @patch(MODULE_PATH + '.admin_status.__version__', TEST_VERSION)
-    @patch(MODULE_PATH + '.admin_status.cache')
-    def test_current_version_info_return_no_data(self, mock_cache):
-        # given
-        mock_cache.get_or_set.return_value = None
-        # when
-        result = _current_version_summary()
-        # then
-        self.assertEqual(result, {})
-
-
-class TestLatestsVersion(TestCase):
-
-    def test_all_version_types_defined(self):
-
-        tags = create_tags_list(
-            ['2.1.1', '2.1.0', '2.0.0', '2.1.1a1', '1.1.1', '1.1.0', '1.0.0']
-        )
-        patch, beta = _latests_versions(tags)
-        self.assertEqual(patch, Pep440Version('2.1.1'))
-        self.assertEqual(beta, Pep440Version('2.1.1a1'))
-
-    def test_major_and_minor_not_defined_with_zero(self):
-
-        tags = create_tags_list(
-            ['2.1.2', '2.1.1', '2.0.1', '2.1.1a1', '1.1.1', '1.1.0', '1.0.0']
-        )
-        patch, beta = _latests_versions(tags)
-        self.assertEqual(patch, Pep440Version('2.1.2'))
-        self.assertEqual(beta, Pep440Version('2.1.1a1'))
-
-    def test_can_ignore_invalid_versions(self):
-
-        tags = create_tags_list(
-            ['2.1.1', '2.1.0', '2.0.0', '2.1.1a1', 'invalid']
-        )
-        patch, beta = _latests_versions(tags)
-        self.assertEqual(patch, Pep440Version('2.1.1'))
-        self.assertEqual(beta, Pep440Version('2.1.1a1'))
-
-
-class TestFetchListFromGitlab(TestCase):
-
-    page_size = 2
-
-    def setUp(self):
-        self.url = (
-            'https://gitlab.com/api/v4/projects/allianceauth%2Fallianceauth'
-            '/repository/tags'
-        )
-
-    @classmethod
-    def my_callback(cls, request, context):
-        page = int(request.qs['page'][0])
-        start = (page - 1) * cls.page_size
-        end = start + cls.page_size
-        return GITHUB_TAGS[start:end]
-
-    @requests_mock.mock()
-    def test_can_fetch_one_page_with_header(self, requests_mocker):
-        headers = {
-            'x-total-pages': '1'
-        }
-        requests_mocker.get(self.url, json=GITHUB_TAGS, headers=headers)
-        result = _fetch_list_from_gitlab(self.url)
-        self.assertEqual(result, GITHUB_TAGS)
-        self.assertEqual(requests_mocker.call_count, 1)
-
-    @requests_mock.mock()
-    def test_can_fetch_one_page_wo_header(self, requests_mocker):
-        requests_mocker.get(self.url, json=GITHUB_TAGS)
-        result = _fetch_list_from_gitlab(self.url)
-        self.assertEqual(result, GITHUB_TAGS)
-        self.assertEqual(requests_mocker.call_count, 1)
-
-    @requests_mock.mock()
-    def test_can_fetch_one_page_and_ignore_invalid_header(self, requests_mocker):
-        headers = {
-            'x-total-pages': 'invalid'
-        }
-        requests_mocker.get(self.url, json=GITHUB_TAGS, headers=headers)
-        result = _fetch_list_from_gitlab(self.url)
-        self.assertEqual(result, GITHUB_TAGS)
-        self.assertEqual(requests_mocker.call_count, 1)
-
-    @requests_mock.mock()
-    def test_can_fetch_multiple_pages(self, requests_mocker):
-        total_pages = ceil(len(GITHUB_TAGS) / self.page_size)
-        headers = {
-            'x-total-pages': str(total_pages)
-        }
-        requests_mocker.get(self.url, json=self.my_callback, headers=headers)
-        result = _fetch_list_from_gitlab(self.url)
-        self.assertEqual(result, GITHUB_TAGS)
-        self.assertEqual(requests_mocker.call_count, total_pages)
-
-    @requests_mock.mock()
-    def test_can_fetch_given_number_of_pages_only(self, requests_mocker):
-        total_pages = ceil(len(GITHUB_TAGS) / self.page_size)
-        headers = {
-            'x-total-pages': str(total_pages)
-        }
-        requests_mocker.get(self.url, json=self.my_callback, headers=headers)
-        max_pages = 2
-        result = _fetch_list_from_gitlab(self.url, max_pages=max_pages)
-        self.assertEqual(result, GITHUB_TAGS[:4])
-        self.assertEqual(requests_mocker.call_count, max_pages)
-
-    @requests_mock.mock()
-    @patch(MODULE_PATH + '.admin_status.logger')
-    def test_should_not_raise_any_exception_from_github_request_but_log_as_warning(
-        self, requests_mocker, mock_logger
+class TestCeleryStatsHelpers(NoSocketsTestCase):
+    def test_returns_mapped_task_stats_from_dashboard_results_with_custom_hours_setting(
+        self,
     ):
-        for my_exception in [
-            requests.exceptions.ConnectionError,
-            requests.exceptions.HTTPError,
-            requests.exceptions.URLRequired,
-            requests.exceptions.TooManyRedirects,
-            requests.exceptions.ConnectTimeout,
-            requests.exceptions.Timeout,
+        dummy = SimpleNamespace(
+            succeeded=5,
+            retried=1,
+            failed=2,
+            total=8,
+            hours=12,
+            earliest_task="2020-01-01T00:00:00",
+        )
+        with (
+            patch(MODULE_PATH + ".dashboard_results", return_value=dummy) as mock_dr,
+            patch(MODULE_PATH + ".settings") as mock_settings,
+        ):
+            mock_settings.ALLIANCEAUTH_DASHBOARD_TASKS_MAX_HOURS = 12
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _celery_stats,
+            )
 
-        ]:
-            requests_mocker.get(self.url, exc=my_exception)
-            try:
-                result = _fetch_list_from_gitlab(self.url)
-            except Exception as ex:
-                self.fail(f"Unexpected exception raised: {ex}")
-            self.assertTrue(mock_logger.warning.called)
-            self.assertListEqual(result, [])
+            result = _celery_stats()
+            mock_dr.assert_called_once_with(hours=12)
+            self.assertEqual(result["tasks_succeeded"], 5)
+            self.assertEqual(result["tasks_retried"], 1)
+            self.assertEqual(result["tasks_failed"], 2)
+            self.assertEqual(result["tasks_total"], 8)
+            self.assertEqual(result["tasks_hours"], 12)
+            self.assertEqual(result["earliest_task"], "2020-01-01T00:00:00")
+
+    def test_uses_default_hours_when_setting_missing_and_calls_dashboard_results_with_default(
+        self,
+    ):
+        dummy = SimpleNamespace(
+            succeeded=0, retried=0, failed=0, total=0, hours=24, earliest_task=None
+        )
+        with (
+            patch(MODULE_PATH + ".dashboard_results", return_value=dummy) as mock_dr,
+            patch(MODULE_PATH + ".settings") as mock_settings,
+        ):
+            # ensure the attribute is not present on settings
+            if hasattr(mock_settings, "ALLIANCEAUTH_DASHBOARD_TASKS_MAX_HOURS"):
+                delattr(mock_settings, "ALLIANCEAUTH_DASHBOARD_TASKS_MAX_HOURS")
+            from allianceauth.admin_status.templatetags.admin_status import (
+                _celery_stats,
+            )
+
+            result = _celery_stats()
+            mock_dr.assert_called_once_with(hours=24)
+            self.assertEqual(result["tasks_total"], 0)
+            self.assertEqual(result["tasks_hours"], 24)
+
+
+class TestCurrentNotifications(NoSocketsTestCase):
+    def test_returns_notifications_from_applicationannouncement_objects_all(self):
+        mock_ann = MagicMock()
+        mock_list = [mock_ann]
+        with patch(MODULE_PATH + ".ApplicationAnnouncement") as mock_model:
+            # The implementation calls .objects.annotate(...).order_by(...)
+            mock_model.objects.annotate.return_value.order_by.return_value = mock_list
+            result = admin_status._current_notifications()
+
+            expected_notifications = [
+                {
+                    "application_name": mock_ann.application_name,
+                    "announcements": [
+                        {
+                            "announcement_number": mock_ann.announcement_number,
+                            "announcement_text": mock_ann.announcement_text,
+                            "announcement_url": mock_ann.announcement_url,
+                            "hide_announcement": mock_ann.hide_announcement,
+                        }
+                    ],
+                }
+            ]
+
+            self.assertIn("notifications", result)
+            self.assertEqual(result["notifications"], expected_notifications)
+
+    def test_returns_empty_notifications_when_none_saved(self):
+        with patch(MODULE_PATH + ".ApplicationAnnouncement") as mock_model:
+            mock_model.objects.annotate.return_value.order_by.return_value = []
+            result = admin_status._current_notifications()
+            self.assertIn("notifications", result)
+            self.assertEqual(list(result["notifications"]), [])
+
+    def test_if_name_not_in_grouped_is_false_on_second_iteration(self):
+        ann1 = MagicMock()
+        ann1.application_name = "Same App"
+        ann1.announcement_number = 5
+        ann1.announcement_text = "First"
+
+        ann2 = MagicMock()
+        ann2.application_name = "Same App"
+        ann2.announcement_number = 4
+        ann2.announcement_text = "Second"
+
+        with patch(MODULE_PATH + ".ApplicationAnnouncement") as mock_model:
+            mock_model.objects.annotate.return_value.order_by.return_value = [
+                ann1,
+                ann2,
+            ]
+            result = admin_status._current_notifications()
+            self.assertIn("notifications", result)
+            notifications = result["notifications"]
+            # the grouped logic should produce a single application entry (if condition false on second)
+            self.assertEqual(len(notifications), 1)
+            self.assertEqual(notifications[0]["application_name"], "Same App")
+            # and both announcements should be present under that single application
+            self.assertEqual(len(notifications[0]["announcements"]), 2)
+            self.assertEqual(
+                [a["announcement_number"] for a in notifications[0]["announcements"]],
+                [5, 4],
+            )
+
+
+class TestFetchTagsFromGitlab(NoSocketsTestCase):
+    @requests_mock.mock()
+    def test_fetch_tags_from_gitlab_returns_tags(self, requests_mocker):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_tags_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        tags = [{"name": "v1.0.0"}, {"name": "v1.1.0"}]
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, json=tags)
+        result = _fetch_tags_from_gitlab()
+        self.assertEqual(result, tags)
+
+    @requests_mock.mock()
+    def test_fetch_tags_from_gitlab_returns_empty_on_error(self, requests_mocker):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_tags_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, status_code=500)
+        result = _fetch_tags_from_gitlab()
+        self.assertEqual(result, [])
+
+    @requests_mock.mock()
+    def test_fetch_tags_from_gitlab_combines_paginated_results(self, requests_mocker):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_tags_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        all_tags = [{"name": "v1.0.0"}, {"name": "v1.1.0"}, {"name": "v2.0.0"}]
+
+        def callback(request, context):
+            page = int(request.qs.get("page", ["1"])[0])
+            per_page = 1
+            start = (page - 1) * per_page
+            end = start + per_page
+            context.headers["x-total-pages"] = "3"
+            return all_tags[start:end]
+
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, json=callback)
+        result = _fetch_tags_from_gitlab()
+        self.assertEqual(result, all_tags)
+
+
+class TestLatestsVersions(NoSocketsTestCase):
+    def test_raises_when_no_stable_versions_available(self):
+        tags = [{"name": "2.1.1a1"}, {"name": "1.0.0a1"}]
+        with self.assertRaises(ValueError):
+            admin_status._latests_versions(tags)
+
+    def test_raises_when_no_beta_versions_available(self):
+        tags = [{"name": "2.1.1"}, {"name": "2.0.0"}]
+        with self.assertRaises(ValueError):
+            admin_status._latests_versions(tags)
+
+    def test_ignores_invalid_entries_and_returns_correct_max_versions(self):
+        tags = [
+            {"name": "invalid"},
+            {"name": "1.0.0"},
+            {"name": "1.2.0a1"},
+            {"name": "1.1.0"},
+        ]
+        latest_patch, latest_beta = admin_status._latests_versions(tags)
+        self.assertEqual(
+            latest_patch,
+            (
+                Pep440Version("1.1.0")
+                if Pep440Version("1.1.0") > Pep440Version("1.0.0")
+                else Pep440Version("1.0.0")
+            ),
+        )
+        self.assertEqual(latest_beta, Pep440Version("1.2.0a1"))
+
+
+class TestFetchListFromGitlab(NoSocketsTestCase):
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_combines_pages_using_x_total_pages(
+        self, requests_mocker
+    ):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_list_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        all_items = [{"name": "v1"}, {"name": "v2"}, {"name": "v3"}]
+
+        def callback(request, context):
+            page = int(request.qs.get("page", ["1"])[0])
+            per_page = 1
+            start = (page - 1) * per_page
+            end = start + per_page
+            context.headers["x-total-pages"] = "3"
+            return all_items[start:end]
+
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, json=callback)
+        result = _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL, max_pages=10)
+        self.assertEqual(result, all_items)
+
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_returns_single_page_when_no_header(
+        self, requests_mocker
+    ):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_list_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        payload = [{"name": "v1"}, {"name": "v2"}]
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, json=payload)
+        result = _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL)
+        self.assertEqual(result, payload)
+        self.assertEqual(requests_mocker.call_count, 1)
+
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_ignores_invalid_header_and_stops(
+        self, requests_mocker
+    ):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_list_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        payload = [{"name": "v1"}]
+        requests_mocker.get(
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+            json=payload,
+            headers={"x-total-pages": "invalid"},
+        )
+        result = _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL)
+        self.assertEqual(result, payload)
+        self.assertEqual(requests_mocker.call_count, 1)
+
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_respects_max_pages_limit(self, requests_mocker):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_list_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        all_items = [{"name": f"v{i}"} for i in range(1, 6)]
+
+        def callback(request, context):
+            page = int(request.qs.get("page", ["1"])[0])
+            per_page = 1
+            start = (page - 1) * per_page
+            end = start + per_page
+            context.headers["x-total-pages"] = "5"
+            return all_items[start:end]
+
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, json=callback)
+        result = _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL, max_pages=2)
+        self.assertEqual(result, all_items[:2])
+
+    @requests_mock.mock()
+    def test_fetch_list_from_gitlab_returns_empty_on_request_error(
+        self, requests_mocker
+    ):
+        from allianceauth.admin_status.templatetags.admin_status import (
+            _fetch_list_from_gitlab,
+            GITLAB_AUTH_REPOSITORY_TAGS_URL,
+        )
+
+        requests_mocker.get(GITLAB_AUTH_REPOSITORY_TAGS_URL, status_code=500)
+        result = _fetch_list_from_gitlab(GITLAB_AUTH_REPOSITORY_TAGS_URL)
+        self.assertEqual(result, [])

@@ -22,7 +22,6 @@ from ...helpers.yaml import (
     upsert_api_encryption_key,
 )
 from ...models import ErrorCode
-from ..editor import ValidatorUnavailableError
 from .encryption_key_lookup import get_resolved_api_and_ota_keys
 from .mutations_simple import _read_device_yaml_or_raise
 from .resolve import resolve_config_subprocess
@@ -98,7 +97,9 @@ async def set_encryption_key(
 
 
 def _match_devices(controller: DevicesController, name: str, mac: str) -> list[Device]:
-    """Match by name, disambiguating duplicate-name buckets (and misses) by MAC."""
+    """Match by name, disambiguating duplicates (and misses) by MAC; none while adopting."""
+    if name in controller.state.adopting:
+        return []
     devices = controller._scanner.get_by_name(name)
     if mac and len(devices) > 1:
         by_mac = [d for d in devices if d.mac_address == mac]
@@ -147,12 +148,14 @@ async def _apply_to_device(
             ErrorCode.INTERNAL_ERROR, "Edited YAML doesn't round-trip through the reader"
         )
 
-    try:
-        await controller._validate_rewritten_yaml_or_raise(
-            configuration, new_content, action="update encryption key"
+    verdict = await controller._validate_rewritten_yaml_or_raise(
+        configuration, new_content, action="update encryption key", tolerate_unavailable=True
+    )
+    if verdict.unavailable:
+        reason = (
+            "the rewritten configuration could not be validated (the validator was "
+            f"unavailable); {_KEPT_FOR_LATER}"
         )
-    except (TimeoutError, ValidatorUnavailableError):
-        reason = f"the rewritten configuration could not be validated in time; {_KEPT_FOR_LATER}"
         return KeyHandoffResult.NOT_WRITABLE, reason
     await controller._persist_yaml_mutation(
         configuration, new_content, message=f"Update API encryption key in {configuration}"

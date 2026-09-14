@@ -20,12 +20,14 @@ attributes and their kin - the platform declares them, the sources only mention 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from xbsl import metamodel
 from xbsl.lexer import tokens
-from xbsl.engine import SourceFile
+from xbsl.engine import RESOURCE_DIRS, SourceFile
+from xbsl.rules.yaml_schema import _parsed, object_kind, value_of
 
 #: `Имя:` / `Name:` of a yaml node, any nesting (a list item dash counts as indent).
 _NAME_LINE_RE = re.compile(
@@ -203,6 +205,57 @@ def _next_name(toks: list, index: int, skip_keywords: bool = False) -> str:
     return ""
 
 
+def declared_types(source: SourceFile) -> set[str]:
+    """Names this source declares as a TYPE: the element a yaml describes, the structures,
+    exceptions and enumerations of a module.
+
+    Told apart from the rest of the declarations because a type is the one thing a project
+    can name after a platform type and mean by that name wherever a type stands. A field, an
+    attribute, a method or a property spelled like a platform type is never what a type
+    expression names: `Пользователи.Ссылка` is the platform's users catalog even in a project
+    whose structure has a field spelled like the catalog.
+    """
+    if source.kind == "yaml":
+        data, error = _parsed(source)
+        kind = object_kind(data) if error is None else None
+        if not kind:
+            return set()
+        name = value_of(data, "Имя", kind)
+        return {name} if isinstance(name, str) and name and not name.isascii() else set()
+    if source.kind != "xbsl":
+        return set()
+    out: set[str] = set()
+    toks = tokens(source)
+    for index, tok in enumerate(toks[:-1]):
+        if tok.kind != "KEYWORD" or tok.canonical not in ("STRUCTURE", "ENUMERATION", "EXCEPTION"):
+            continue
+        prev = toks[index - 1] if index else None
+        name = toks[index + 1]
+        # A declaration opens its line and names the type on the same line; the keyword
+        # elsewhere is a type word in an expression (`поймать Ошибка: Исключение`), and the
+        # name on the next line has nothing to do with it.
+        if prev is not None and prev.line == tok.line:
+            continue
+        if name.kind == "IDENT" and name.line == tok.line and not name.value.isascii():
+            out.add(name.value)
+    return out
+
+
+def collect_types(root: Path, loader) -> frozenset[str]:
+    """Every TYPE name declared under the project root (see declared_types)."""
+    out: set[str] = set()
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix not in (".yaml", ".xbsl"):
+            continue
+        if any(part.startswith(".") for part in path.relative_to(root).parts):
+            continue
+        try:
+            out |= declared_types(loader(path))
+        except OSError:
+            continue
+    return frozenset(out)
+
+
 def declared(source: SourceFile) -> set[str]:
     """Names this source declares in the PROJECT-WIDE namespace (yaml names, module methods).
 
@@ -244,6 +297,103 @@ def component_names(root: Path, loader) -> frozenset[str]:
             continue
         out |= declared_in_yaml(source)
     return frozenset(out)
+
+
+def resource_keys(root: Path) -> frozenset[str]:
+    """Every file below a folder of resources of the project as a reference addresses it - the
+    path relative to that folder - and every folder on the way: `Значки`, `Значки/Флаг.svg`.
+
+    A reference to a name outside this set is not a file of the project. The platform ships a
+    library of pictures a project may name the same way (`Время.svg`), and those carry names
+    of their own in each language; the project dictionary has nothing to say about them.
+    """
+    out: set[str] = set()
+    for folder in (path for name in RESOURCE_DIRS for path in root.rglob(name)):
+        hidden = any(part.startswith(".") for part in folder.relative_to(root).parts)
+        if hidden or not folder.is_dir():
+            continue
+        for path in folder.rglob("*"):
+            if not path.is_file():
+                continue
+            parts = path.relative_to(folder).parts
+            for end in range(1, len(parts) + 1):
+                out.add("/".join(parts[:end]))
+    return frozenset(out)
+
+
+def component_methods(root: Path, loader) -> dict[str, frozenset[str]]:
+    """{interface component of the project: the methods its module declares}.
+
+    What a form calls on a node of such a component (`Компоненты.<Node>.<Method>()`) is then
+    told apart from a built-in command of a platform component spelled the same way: a
+    component of the project declared a method spelled like the refresh command, and the call
+    took the platform's `Refresh` while the declaration waited for a dictionary entry.
+    """
+    out: dict[str, frozenset[str]] = {}
+    for path in sorted(root.rglob("*.yaml")):
+        if any(part.startswith(".") for part in path.relative_to(root).parts):
+            continue
+        module = path.with_suffix(".xbsl")
+        if not module.is_file():
+            continue
+        try:
+            source = loader(path)
+        except OSError:
+            continue
+        if not _COMPONENT_KIND_RE.search(source.text):
+            continue
+        data, error = _parsed(source)
+        name = value_of(data, "Имя", object_kind(data)) if error is None else None
+        if not isinstance(name, str) or not name:
+            continue
+        try:
+            toks = tokens(loader(module))
+        except OSError:
+            continue
+        out[name] = frozenset(
+            toks[index + 1].value
+            for index, tok in enumerate(toks[:-1])
+            if tok.kind == "KEYWORD" and tok.canonical == "METHOD"
+            and toks[index + 1].kind == "IDENT"
+        )
+    return out
+
+
+def form_nodes(path: Path, loader) -> dict[str, str]:
+    """{node name: the component its node is} of the component tree the module at `path` pairs with.
+
+    The type is the one the node names - its head, without the namespace and the type
+    arguments. A module that pairs with no interface component has no nodes.
+    """
+    if not path.name.endswith(".xbsl"):
+        return {}
+    pair = path.with_name(f"{path.name[: -len('.xbsl')]}.yaml")
+    if not pair.is_file():
+        return {}
+    try:
+        data, error = _parsed(loader(pair))
+    except OSError:
+        return {}
+    if error is not None or object_kind(data) != _COMPONENT_KIND:
+        return {}
+    out: dict[str, str] = {}
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            name = node.get("Имя", node.get("Name"))
+            kind = node.get("Тип", node.get("Type"))
+            if isinstance(name, str) and isinstance(kind, str):
+                out.setdefault(name, kind.split("<", 1)[0].rsplit("::", 1)[-1].strip())
+            for key, value in node.items():
+                # A declared property names a TYPE too, and it is not a node of the tree.
+                if key not in ("Свойства", "Properties"):
+                    walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(data)
+    return out
 
 
 def dictionary_scopes(root: Path, loader) -> frozenset[str]:
@@ -290,6 +440,102 @@ def collect_structure_fields(root: Path, loader) -> dict[str, str]:
         field: next(iter(group)) if len(group) == 1 else ""
         for field, group in owners.items()
     }
+
+
+#: The element kinds whose OBJECT module works on the record: the attributes and the tabular
+#: sections of the element are bare names in every method of that module.
+_RECORD_KINDS = frozenset(("Справочник", "Документ", "Обработка"))
+_RECORD_SECTIONS = ("Реквизиты", "ТабличныеЧасти")
+_COMPONENT_KIND = "КомпонентИнтерфейса"
+_STRUCTURE_KIND = "Структура"
+#: The tail of an object module, in both spellings the platform accepts
+#: (`Задачи.Объект.xbsl`, `Tasks.Object.xbsl`); either pairs with the yaml of the element.
+_OBJECT_MODULE_TAILS = (".Объект", ".Object")
+
+
+@dataclass(frozen=True)
+class ModuleOwner:
+    """The names the element of a module puts in scope of that module's methods.
+
+    A method of an interface component works on the component, and its own properties are bare
+    names there; so are the attributes and the tabular sections of the record in the object
+    module of a catalog, a document or a processing, and the fields in the module of a
+    structure element. Such a name may be spelled like a platform type, and then `Имя.Член`
+    reads the property, not the type - the translator has to know that, or the uses of the
+    property take the type's spelling while its declaration takes the dictionary's.
+
+    Only the names the PROJECT declares are here: an inherited property is a platform word and
+    reads the same either way. Two methods see less. A static method has no instance at all, and
+    a method a component compiles on the server alone works on the CONTEXT of the component,
+    which holds only the properties marked contextual - `contextual` lists those, and stays None
+    for an owner that is not a component.
+    """
+
+    names: frozenset[str] = frozenset()
+    contextual: frozenset[str] | None = None
+
+    def visible(self, *, static: bool, server_only: bool) -> frozenset[str]:
+        """The names a method of the module sees: none for a static one, fewer on the server."""
+        if static:
+            return frozenset()
+        if server_only and self.contextual is not None:
+            return self.contextual
+        return self.names
+
+
+def _item_names(data: dict, section: str, kind: str) -> list[tuple[str, dict]]:
+    """(name, item) of every named item of a yaml list section."""
+    items = value_of(data, section, kind)
+    if not isinstance(items, list):
+        return []
+    out: list[tuple[str, dict]] = []
+    for item in items:
+        name = value_of(item, "Имя") if isinstance(item, dict) else None
+        if isinstance(name, str) and name:
+            out.append((name, item))
+    return out
+
+
+def _is_true(value: object) -> bool:
+    """A yaml flag written either way: the Russian spelling of `True` loads as a string."""
+    return value is True or value in ("Истина", "True", "true")
+
+
+def module_owner(path: Path, loader) -> ModuleOwner:
+    """The owner of the module at `path`, read off the yaml it pairs with; empty when none.
+
+    `Имя.xbsl` pairs with `Имя.yaml` and speaks for an interface component or a structure
+    element; `Имя.Объект.xbsl` pairs with the same yaml and speaks for the record of a catalog,
+    a document or a processing. Any other module - a common module, the manager module of a
+    catalog - has no instance to work on, and its owner is empty.
+    """
+    stem = path.name[: -len(".xbsl")] if path.name.endswith(".xbsl") else ""
+    if not stem:
+        return ModuleOwner()
+    facet = next((tail for tail in _OBJECT_MODULE_TAILS if stem.endswith(tail)), "")
+    pair = path.with_name(f"{stem[: len(stem) - len(facet)]}.yaml")
+    if not pair.is_file():
+        return ModuleOwner()
+    try:
+        data, error = _parsed(loader(pair))
+    except OSError:
+        return ModuleOwner()
+    kind = object_kind(data) if error is None else None
+    if not kind:
+        return ModuleOwner()
+    if facet:
+        if kind not in _RECORD_KINDS:
+            return ModuleOwner()
+        return ModuleOwner(frozenset(
+            name for section in _RECORD_SECTIONS for name, _item in _item_names(data, section, kind)
+        ))
+    if kind == _COMPONENT_KIND:
+        properties = _item_names(data, "Свойства", kind)
+        contextual = (name for name, item in properties if _is_true(value_of(item, "Контекстное")))
+        return ModuleOwner(frozenset(name for name, _item in properties), frozenset(contextual))
+    if kind == _STRUCTURE_KIND:
+        return ModuleOwner(frozenset(name for name, _item in _item_names(data, "Поля", kind)))
+    return ModuleOwner()
 
 
 def collect(root: Path, loader) -> frozenset[str]:

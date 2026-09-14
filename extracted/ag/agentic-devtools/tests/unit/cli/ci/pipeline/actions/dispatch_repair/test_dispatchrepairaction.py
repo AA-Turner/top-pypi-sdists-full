@@ -1,5 +1,6 @@
 """Tests for DispatchRepairAction."""
 
+from collections.abc import Iterator
 from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +23,16 @@ from agentic_devtools.cli.ci.pipeline.gate_verdict import (
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
+
+
+@pytest.fixture(autouse=True)
+def _mock_inactive_session_detector() -> Iterator[None]:
+    """Default all tests to known-inactive session inventory."""
+    with patch(
+        "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+        return_value=False,
+    ):
+        yield
 
 
 class TestDispatchRepairAction:
@@ -487,35 +498,49 @@ class TestDispatchRepairAction:
         assert result.decision == ActionDecision.EXECUTE
         provider.dispatch_repair.assert_called_once()
 
-    def test_execute_when_ci_failing_even_with_active_session(self) -> None:
-        """Session gate removed: active_session=True does NOT cause skip."""
-        snapshot = PRStateSnapshot(pr_number=1, active_session=True, ci_status="failing")
-        derived = DerivedState(snapshot)
-        action = DispatchRepairAction()
-        result = action.evaluate(snapshot, derived)
-        assert result.decision == ActionDecision.EXECUTE
-
-    def test_preconditions_do_not_contain_no_active_session(self) -> None:
-        """no_active_session key must be absent from preconditions."""
+    def test_skip_when_ci_failing_with_active_session(self) -> None:
+        """Fail closed when session inventory shows an active Copilot session."""
         snapshot = PRStateSnapshot(pr_number=1, ci_status="failing")
         derived = DerivedState(snapshot)
         action = DispatchRepairAction()
-        result = action.evaluate(snapshot, derived)
-        assert "no_active_session" not in result.preconditions
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+            return_value=True,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
 
-    def test_execute_when_review_actionable_with_active_session(self) -> None:
-        """Session gate removed: actionable review + active_session=True returns EXECUTE."""
+    def test_skip_when_ci_failing_with_unknown_session_inventory(self) -> None:
+        """Fail closed when session inventory is unavailable/unknown."""
+        snapshot = PRStateSnapshot(pr_number=1, ci_status="failing")
+        derived = DerivedState(snapshot)
+        action = DispatchRepairAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+            return_value=None,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
+
+    def test_skip_when_review_actionable_with_active_session(self) -> None:
+        """Actionable review still blocks dispatch while a session is active."""
         snapshot = PRStateSnapshot(
             pr_number=1,
             ci_status="passing",
-            active_session=True,
             review_state="CHANGES_REQUESTED",
             copilot_review_id=100,
         )
         derived = DerivedState(snapshot)
         action = DispatchRepairAction()
-        result = action.evaluate(snapshot, derived)
-        assert result.decision == ActionDecision.EXECUTE
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.dispatch_repair.is_copilot_session_active_via_agent_task",
+            return_value=True,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
 
     def test_skip_when_ci_passing_and_no_review(self) -> None:
         snapshot = PRStateSnapshot(

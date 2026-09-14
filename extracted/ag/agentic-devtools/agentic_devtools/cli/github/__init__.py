@@ -48,6 +48,17 @@ from .review_reply import (
     reply_to_review_comments,
     reply_to_review_comments_command,
 )
+from .single_finding_dispatch import (
+    BRANCH_WRITE_RESOURCE,
+    AcceptedTaskIdentity,
+    AmbiguousTaskCreationError,
+    SingleFindingDispatchAdapter,
+    SingleFindingDispatchHost,
+    SingleFindingDispatchResult,
+    SingleFindingHandoff,
+    TaskAcceptance,
+    finding_payload_digest,
+)
 from .state_helpers import (
     GITHUB_ISSUE_STATE_NAMESPACE,
     get_issue_value,
@@ -105,4 +116,13 @@ __all__ = [
     "search_by_marker",
     "resolve_review_threads_command",
     "set_issue_value",
+    "BRANCH_WRITE_RESOURCE",
+    "AcceptedTaskIdentity",
+    "AmbiguousTaskCreationError",
+    "SingleFindingDispatchAdapter",
+    "SingleFindingDispatchHost",
+    "SingleFindingDispatchResult",
+    "SingleFindingHandoff",
+    "TaskAcceptance",
+    "finding_payload_digest",
 ]

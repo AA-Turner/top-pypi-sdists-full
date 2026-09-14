@@ -798,21 +798,39 @@ def test_cross_doc_section_assign_does_not_drag_source_preamble() -> None:
     assert tomlrt.dumps(dst) == "# pre\n\n[a]\nx = 1\n"
 
 
-def test_clone_section_drops_above_blank_block() -> None:
-    """Same-doc clone shares ``_install_cloned_section`` with cross-doc
-    assign and so must apply the same positional-vs-travelling-trivia
-    split: any above-blank block (preamble or "archived" comments
-    separated from the header by a blank line) belongs to the source
-    document position, not the section being copied.
-    """
+def test_clone_section_keeps_full_leading_block_but_not_document_preamble() -> None:
     doc = tomlrt.loads("# pre\n\n[a]\nx = 1\n")
     doc["b"] = doc["a"]
     assert tomlrt.dumps(doc) == "# pre\n\n[a]\nx = 1\n\n[b]\nx = 1\n"
 
-    doc = tomlrt.loads("[before]\nfoo = 1\n\n# archived\n\n[a]\nx = 1\n")
+    doc = tomlrt.loads(
+        td("""
+        [before]
+        foo = 1
+
+        # notes
+
+        [a]
+        x = 1
+        """)
+    )
     doc["b"] = doc["a"]
-    expected = "[before]\nfoo = 1\n\n# archived\n\n[a]\nx = 1\n\n[b]\nx = 1\n"
-    assert tomlrt.dumps(doc) == expected
+    out = tomlrt.dumps(doc)
+    assert out == td("""
+        [before]
+        foo = 1
+
+        # notes
+
+        [a]
+        x = 1
+
+        # notes
+
+        [b]
+        x = 1
+        """)
+    assert _reparses(out) == doc.to_dict()
 
 
 def test_aot_sort_does_not_drag_source_preamble() -> None:
@@ -1045,7 +1063,6 @@ def test_cross_doc_implicit_table_graft_preserves_trivia() -> None:
         z.lit = 'literal'
         z.hex = 0xFF
         z.vals = [ "p", "q" ]
-
         [tool.z.sub]
         m = 3
         """)
@@ -1288,11 +1305,9 @@ def test_new_key_assign_of_ancestor_into_its_own_descendant() -> None:
 
     Unlike the overwrite case above, nothing is deleted first, so
     ``ancestor`` stays fully live throughout the install.
-    ``_install_attached_subtree`` reads it incrementally; since ``t`` is
-    nested inside ``ancestor``, installing into ``t`` is also live growth
-    of the very structure being walked, which must be snapshotted up
-    front rather than read incrementally. The snapshot is the same
-    document, so the copy keeps the source's header-less shape.
+    Since ``t`` is nested inside ``ancestor``, installing into ``t`` also
+    grows the source. Capture it before publication so the copy retains
+    the original contents and header-less shape.
     """
     doc = tomlrt.loads("x.a = 1\nx.b.c = 2\n")
     x = doc["x"]
@@ -3542,19 +3557,26 @@ def test_install_section_replaces_existing_and_purges_children() -> None:
 
 
 def test_install_section_overwrites_inline_value() -> None:
-    doc = tomlrt.loads('tool = {poetry = {name = "x"}}\n')
+    doc = tomlrt.loads(
+        td("""
+        [tool]
+        keep = 1
+        poetry = {name = "x"}
+        """)
+    )
     doc.install("tool.poetry", Table.section({"version": "2.0"}))
     rendered = tomlrt.dumps(doc)
-    assert rendered == '[tool.poetry]\nversion = "2.0"\n'
+    assert rendered == td("""
+        [tool]
+        keep = 1
+
+        [tool.poetry]
+        version = "2.0"
+        """)
+    assert _reparses(rendered) == doc.to_dict()
 
 
-def test_install_dotted_path_past_unrelated_inline_key() -> None:
-    """Intermediate inline table exists, but the next path component
-    isn't one of its keys, so there's nothing to drop. The inline table
-    is still promoted to a section: a ``[tool.other.deps]`` header can't
-    be attached beneath a still-inline ``tool = {...}`` value without
-    leaving two conflicting definitions of ``tool``.
-    """
+def test_install_dotted_section_path_promotes_when_needed() -> None:
     doc = tomlrt.loads('tool = {poetry = {name = "x"}}\n')
     doc.install("tool.other.deps", Table.section({"requests": "1.0"}))
     out = tomlrt.dumps(doc)
@@ -3570,14 +3592,7 @@ def test_install_dotted_path_past_unrelated_inline_key() -> None:
     }
 
 
-def test_install_dotted_path_promotes_nested_inline_ancestors() -> None:
-    """Every inline ancestor on the path is promoted to a section in
-    place, preserving its other entries; only the final leaf ("c") is
-    ever replaced. ``a`` and ``a.b`` both start life as inline tables
-    and both need a header, since a ``[a.b.c]`` section can't be
-    attached beneath a still-inline ``a = {...}`` or ``b = {...}``
-    value.
-    """
+def test_install_section_promotes_inline_parents() -> None:
     doc = tomlrt.loads("a = {b = {x = 1}, sibling = 2}\n")
     doc.install("a.b.c", Table.section({"y": 9}))
     out = tomlrt.dumps(doc)
@@ -3614,22 +3629,11 @@ def test_install_dotted_path_overwrites_only_conflicting_leaf_inline_key() -> No
     assert _reparses(out) == {"a": {"sibling": 2, "b": {"sibling2": 2, "c": {"y": 9}}}}
 
 
-def test_install_scalar_leaf_promotes_nested_inline_ancestors() -> None:
-    """Inline ancestors are promoted for a scalar leaf too, not just for
-    section/AoT values: ``a`` and ``a.b`` both need an explicit header
-    regardless, to hold the new ``c = 9``.
-    """
+def test_install_scalar_leaf_preserves_nested_inline_ancestors() -> None:
     doc = tomlrt.loads("a = {b = {x = 1}, sibling = 2}\n")
     doc.install("a.b.c", 9)
     out = tomlrt.dumps(doc)
-    assert out == td("""
-        [a]
-        sibling = 2
-
-        [a.b]
-        x = 1
-        c = 9
-        """)
+    assert out == "a = {b = {x = 1, c = 9}, sibling = 2}\n"
     assert _reparses(out) == {"a": {"sibling": 2, "b": {"x": 1, "c": 9}}}
 
 
@@ -3743,11 +3747,12 @@ def test_install_scalar_on_inline_table() -> None:
     assert tomlrt.dumps(doc) == "it = { a = 1, b = 2 }\n"
 
 
-def test_install_multi_segment_on_inline_table_errors() -> None:
+def test_install_multi_segment_on_inline_table_rejects_scalar_ancestor() -> None:
     doc = tomlrt.loads("it = { a = 1 }\n")
     inline = doc.table("it")
-    with pytest.raises(tomlrt.TOMLError, match="inline-style table"):
+    with pytest.raises(tomlrt.TOMLError, match="existing value is not a table"):
         inline.install("a.b", 1)
+    assert tomlrt.dumps(doc) == "it = { a = 1 }\n"
 
 
 def test_table_accepts_dotted_path() -> None:
@@ -5674,14 +5679,13 @@ def test_reassign_nested_orphan_section_with_array_item_inline_view() -> None:
     assert _reparses(out) == doc.to_dict()
 
 
-def test_adopt_orphan_implicit_into_aot_entry_keeps_entry_body_tail() -> None:
-    """An adopted ownerless KV must not become the entry's body tail.
+def test_adopt_orphan_implicit_into_aot_entry_joins_entry_body() -> None:
+    """An adopted dotted KV becomes part of the entry's own body.
 
-    ``adopt_private_implicit`` moves the orphan's dotted KV into an AoT
-    entry without retargeting its ``owner_aot_entry``, so the slot is
-    physically inside the entry but is not part of the entry's own
-    body. A later direct append therefore still lands after ``x``, the
-    entry's real body tail, rather than after the adopted slot.
+    ``adopt_private_implicit`` moves the orphan's dotted KV into the AoT
+    entry and transfers it to that entry, so it is the entry's body tail
+    and a later append follows it. Rendered order then matches the order
+    the keys were assigned in.
     """
     doc = tomlrt.loads(
         td("""
@@ -5699,8 +5703,8 @@ def test_adopt_orphan_implicit_into_aot_entry_keeps_entry_body_tail() -> None:
     assert out == td("""
         [[t]]
         x = 1
-        after = 99
         moved.c = 1
+        after = 99
         """)
     assert _reparses(out) == doc.to_dict()
     assert doc.to_dict() == {"t": [{"x": 1, "moved": {"c": 1}, "after": 99}]}
@@ -6701,11 +6705,11 @@ def test_overwrite_a_key_inside_an_orphan_with_an_earlier_sibling() -> None:
     doc["back"] = orphan
     out = tomlrt.dumps(doc)
     assert out == td("""
-        [back.k3]
-        b.c = 1
-
         [dest]
         z = 0
+
+        [back.k3]
+        b.c = 1
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -6926,14 +6930,14 @@ def test_move_one_entry_out_of_an_orphan_aot_keeps_the_rest() -> None:
     doc["back"] = orphan
     out = tomlrt.dumps(doc)
     assert out == td("""
-        [[back.t]]
-        x = 2
-
         [dest]
         z = 0
 
         [m0]
         x = 1
+
+        [[back.t]]
+        x = 2
         """)
     assert _reparses(out) == doc.to_dict()
 
@@ -7067,16 +7071,13 @@ def test_adopt_onto_the_document_head_needs_no_separator() -> None:
         """)
     doc = tomlrt.loads(src)
     orphan = doc.pop("root")
-    dest = tomlrt.loads("[dest]\nz = 0\n")
+    dest = tomlrt.Document()
     dest["moved"] = orphan["c"]
 
     out = tomlrt.dumps(dest)
     assert out == td("""
         [moved.y]
         x = 1
-
-        [dest]
-        z = 0
         """)
     assert _reparses(out) == dest.to_dict()
 

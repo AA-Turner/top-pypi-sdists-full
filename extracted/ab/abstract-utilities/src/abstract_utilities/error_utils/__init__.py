@@ -1,1 +1,3 @@
-from .error_utils import *
+from .error_utils import (
+    try_func,
+)

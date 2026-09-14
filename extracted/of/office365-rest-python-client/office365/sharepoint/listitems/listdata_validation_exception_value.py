@@ -13,5 +13,7 @@ class ListDataValidationExceptionValue(ClientValue):
     Specifies failure information for a failed field or list item data validation.
     """
 
-    FieldFailures: ClientValueCollection[ListDataValidationFailure] | None = None
+    FieldFailures: ClientValueCollection[ListDataValidationFailure] = field(
+        default_factory=lambda: ClientValueCollection(ListDataValidationFailure)
+    )
     ItemFailure: ListDataValidationFailure = field(default_factory=ListDataValidationFailure)

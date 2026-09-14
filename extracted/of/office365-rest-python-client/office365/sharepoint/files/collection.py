@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import os
+import tempfile
 import uuid
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
-from office365.runtime.client_result import ClientResult
+from office365.runtime.operations import Progress, ProgressCallback
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
@@ -19,6 +21,27 @@ from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 if TYPE_CHECKING:
     from office365.sharepoint.folders.folder import Folder
+
+_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024  # simple-upload threshold / upload-session chunk
+
+
+def _stream_size(stream: IO) -> int:
+    """Byte length of a seekable stream (file or ``io.BytesIO``), preserving position.
+
+    Raises:
+        ValueError: When the upload source is not seekable.
+    """
+    pos = stream.tell()
+    try:
+        stream.seek(0, io.SEEK_END)
+        return stream.tell()
+    except OSError as e:
+        raise ValueError("Upload source must be a seekable file or stream") from e
+    finally:
+        try:
+            stream.seek(pos)
+        except OSError:
+            pass
 
 
 class FileCollection(EntityCollection[File]):
@@ -59,6 +82,42 @@ class FileCollection(EntityCollection[File]):
             content = path_or_file.read()
             return self.add(name, content, True)
 
+    def upload_content(
+        self,
+        content: bytes,
+        file_name: str,
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+        progress: Optional[ProgressCallback] = None,
+    ) -> File:
+        """Uploads in-memory content, dispatching by size.
+
+        Files at or below ``chunk_size`` use the simple :meth:`upload`; larger
+        ones use a resumable :meth:`create_upload_session` (staged to a temp
+        file). The returned :class:`File` is deferred — the caller executes it.
+
+        Args:
+            content (bytes): File content to upload.
+            file_name (str): New file name.
+            chunk_size (int): Upload-session chunk size / size threshold (bytes).
+            progress: Optional hook invoked with a ``Progress`` snapshot
+              (``done``/``total`` in bytes; per chunk for session uploads, once
+              after the upload completes for the simple path).
+        """
+        if len(content) <= chunk_size:
+            file = self.upload(io.BytesIO(content), file_name)
+            if callable(progress):
+                size = len(content)
+
+                def _uploaded(_: Any) -> None:
+                    progress(Progress(done=size, total=size, stage="uploading"))
+
+                file.after_execute(_uploaded)
+            return file
+        with tempfile.NamedTemporaryFile(suffix=file_name) as tmp:
+            tmp.write(content)
+            tmp.flush()
+            return self.create_upload_session(tmp.name, chunk_size=chunk_size, file_name=file_name, progress=progress)
+
     def upload_with_checksum(self, file_object: IO, chunk_size: int = 1024) -> File:
         """ """
         h = hashlib.md5()
@@ -78,6 +137,7 @@ class FileCollection(EntityCollection[File]):
         file_or_path: IO | str,
         chunk_size: int,
         chunk_uploaded: Optional[Callable[[int, Any], None]] = None,
+        progress: Optional[ProgressCallback] = None,
         file_name: Optional[str] = None,
         **kwargs: Any,
     ) -> File:
@@ -88,6 +148,8 @@ class FileCollection(EntityCollection[File]):
             file_or_path: File object or path to upload
             chunk_size: Size of upload chunks in bytes
             chunk_uploaded: Callback that accepts offset and optional additional args
+            progress: Optional hook invoked per uploaded chunk with a
+              ``Progress`` snapshot (``done`` = bytes uploaded, ``total`` = file size).
             file_name: Optional name for the uploaded file
             **kwargs: Additional arguments passed to the upload implementation
         """
@@ -99,17 +161,20 @@ class FileCollection(EntityCollection[File]):
         else:
             f = file_or_path
 
-        file_size = os.fstat(f.fileno()).st_size
-        file_name = file_name if file_name else os.path.basename(f.name)
+        file_size = _stream_size(f)
+        if file_name is None:
+            stream_name = getattr(f, "name", None)
+            file_name = os.path.basename(stream_name) if stream_name else None
+        if not file_name:
+            raise ValueError("file_name is required when uploading from an unnamed stream")
         upload_id = str(uuid.uuid4())
 
         def _upload(return_type: File) -> None:
-            def _after_uploaded(result: ClientResult) -> None:
-                _upload(return_type)
-
             uploaded_bytes = f.tell()
             if callable(chunk_uploaded):
                 chunk_uploaded(uploaded_bytes, **kwargs)  # type: ignore[call-arg]
+            if callable(progress):
+                progress(Progress(done=uploaded_bytes, total=file_size, stage="uploading"))
 
             content = f.read(chunk_size)
             if uploaded_bytes == file_size:
@@ -118,9 +183,11 @@ class FileCollection(EntityCollection[File]):
                 return
 
             if uploaded_bytes == 0:
-                return_type.start_upload(upload_id, content).after_execute(_after_uploaded)
+                return_type.start_upload(upload_id, content).after_execute(lambda _: _upload(return_type))
             elif uploaded_bytes + len(content) < file_size:
-                return_type.continue_upload(upload_id, uploaded_bytes, content).after_execute(_after_uploaded)
+                return_type.continue_upload(upload_id, uploaded_bytes, content).after_execute(
+                    lambda _: _upload(return_type)
+                )
             else:
                 return_type.finish_upload(upload_id, uploaded_bytes, content).after_execute(_upload)
 

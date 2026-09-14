@@ -2,7 +2,25 @@
 # attach_dynamic.py
 from __future__ import annotations
 from .find_collect import get_files_and_dirs
-from ..imports import *
+from ..imports import (
+    re,
+    os,
+    textwrap,
+    importlib,
+    sys,
+    types,
+    pkgutil,
+    inspect,
+    Callable,
+    Optional,
+    Tuple,
+    Dict,
+    List,
+    ModuleType,
+    get_caller_dir,
+    read_from_file,
+    write_to_file,
+)
 ABSPATH = os.path.abspath(__file__)
 ABSROOT = os.path.dirname(ABSPATH)
 

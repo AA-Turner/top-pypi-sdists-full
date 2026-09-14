@@ -96,6 +96,49 @@ def test_frontmatter_name_matches_authored_subagent(tmp_path: Path) -> None:
     assert (authored, missing, unexpected) == (["ai-pr-loop-supervision-worker"], [], [])
 
 
+def test_legacy_agent_wrapper_is_not_duplicate_authored_skill(tmp_path: Path) -> None:
+    """A legacy agent wrapper for an authored skill is not a second artifact claim."""
+    skill = tmp_path / ".agents" / "skills" / "ai-pr-loop-supervision-worker"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: ai-pr-loop-supervision-worker\n---\n# Worker\n",
+        encoding="utf-8",
+    )
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt.ai-pr-loop-supervision.worker.agent.md").write_text(
+        "---\nname: ai-pr-loop-supervision-worker\n---\n"
+        "Run the [worker skill](../../.agents/skills/ai-pr-loop-supervision-worker/SKILL.md) in this turn.\n",
+        encoding="utf-8",
+    )
+    authored, missing, unexpected = derive.verify_authored(
+        [row(target="ai-pr-loop-supervision-worker", disposition="skill")],
+        tmp_path,
+    )
+    assert (authored, missing, unexpected) == (["ai-pr-loop-supervision-worker"], [], [])
+
+
+def test_legacy_agent_with_substantive_body_is_reported(tmp_path: Path) -> None:
+    """A legacy agent sharing a skill target is not exempt when its body is substantive."""
+    skill = tmp_path / ".agents" / "skills" / "ai-pr-loop-supervision-worker"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: ai-pr-loop-supervision-worker\n---\n# Worker\n",
+        encoding="utf-8",
+    )
+    agents = tmp_path / ".github" / "agents"
+    agents.mkdir(parents=True)
+    (agents / "agdt.ai-pr-loop-supervision.worker.agent.md").write_text(
+        "---\nname: ai-pr-loop-supervision-worker\n---\n# Duplicate body\n" + ("Substantive instructions.\n" * 15),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="multiple authored artifacts"):
+        derive.verify_authored(
+            [row(target="ai-pr-loop-supervision-worker", disposition="skill")],
+            tmp_path,
+        )
+
+
 def test_legacy_namespace_with_non_agdt_frontmatter_is_unexpected(tmp_path: Path) -> None:
     """A legacy-namespaced agent with a non-`agdt-*` target remains visible to verification."""
     agents = tmp_path / ".github" / "agents"
@@ -105,10 +148,10 @@ def test_legacy_namespace_with_non_agdt_frontmatter_is_unexpected(tmp_path: Path
         encoding="utf-8",
     )
     authored, missing, unexpected = derive.verify_authored(
-        [row(disposition="delete", target="-", slug="agdt.ai-pr-loop-supervision.workflow-monitor")],
+        [row(disposition="subagent", target="ai-pr-loop-workflow-monitor")],
         tmp_path,
     )
-    assert (authored, missing, unexpected) == (["ai-pr-loop-workflow-monitor"], [], ["ai-pr-loop-workflow-monitor"])
+    assert (authored, missing, unexpected) == (["ai-pr-loop-workflow-monitor"], [], [])
 
 
 def test_invalid_frontmatter_name_does_not_fall_back_to_filename(tmp_path: Path) -> None:

@@ -43,8 +43,17 @@ WORD_KINDS = ("IDENT", "KEYWORD")
 _QUERY_FALLBACK = {
     "FROM": ("ИЗ",), "JOIN": ("СОЕДИНЕНИЕ",), "AS": ("КАК",), "IN": ("В",),
     "NOT": ("НЕ",), "SELECT": ("ВЫБРАТЬ",), "INTO": ("ПОМЕСТИТЬ",),
-    "UNION": ("ОБЪЕДИНИТЬ",), "TEMPORARY": ("ВРЕМЕННАЯ",),
+    "UNION": ("ОБЪЕДИНИТЬ",), "TEMPORARY": ("ВРЕМЕННАЯ",), "ON": ("ПО",),
+    "WHERE": ("ГДЕ",), "GROUP BY": ("СГРУППИРОВАТЬ ПО",), "HAVING": ("ИМЕЮЩИЕ",),
+    "ORDER BY": ("УПОРЯДОЧИТЬ ПО",), "INDEX BY": ("ИНДЕКСИРОВАТЬ ПО",),
 }
+
+#: The query words that may stand inside a condition at its own depth. Any other word of the
+#: vocabulary ends a join condition: a clause (`WHERE`, `GROUP BY`, `UNION`...) or the next join.
+_CONDITION_WORDS = (
+    "AND", "OR", "NOT", "IN", "BETWEEN", "IS", "LIKE", "ESCAPE", "CASE", "WHEN", "THEN", "ELSE",
+    "END", "CAST", "EXISTS", "REFS", "HIERARCHY", "MATCHES",
+)
 
 
 @lru_cache(maxsize=1)
@@ -200,6 +209,248 @@ def query_aliases(source: SourceFile, offset: int) -> dict[str, str]:
     if span is None:
         return {}
     return dict(query_alias_pairs(query_block_tokens(source, span)))
+
+
+@lru_cache(maxsize=1)
+def _query_vocabulary() -> frozenset[str]:
+    """Every single word of the query vocabulary, upper-cased, in both spellings.
+
+    A bare word after a table is its alias only when it is none of these: `ИЗ Заказы З, ...`
+    against `ИЗ Заказы ГДЕ ...`. One-letter entries stay out - `Т` is a word of the vocabulary
+    and the most common alias at once, and taking it for a keyword would only end the reading
+    of a comma list early.
+    """
+    words: set[str] = set()
+    for english, others in (*_query_spellings().items(), *_QUERY_FALLBACK.items()):
+        for phrase in (english, *others):
+            words.update(word for word in phrase.upper().split() if len(word) > 1)
+    return frozenset(words)
+
+
+@lru_cache(maxsize=1)
+def _join_condition_stops() -> frozenset[str]:
+    """The words that end a join condition standing at the depth of its `ON`."""
+    return _query_vocabulary() - query_words(*_CONDITION_WORDS)
+
+
+dataset.register_reset(_query_spellings.cache_clear)
+dataset.register_reset(query_words.cache_clear)
+dataset.register_reset(_query_vocabulary.cache_clear)
+dataset.register_reset(_join_condition_stops.cache_clear)
+
+
+def _query_table_at(block: list[Token], j: int) -> tuple[tuple[list[Token], list[Token]] | None, int]:
+    """The table expression that starts at block[j] and the index right after it.
+
+    Returns (qualifiers, segments) - `Склад::Партии::Заказы.Товары` gives the qualifiers
+    `Склад`, `Партии` and the segments `Заказы`, `Товары` - or None when no name stands there.
+    The parameters of a virtual table (`BatchPrices.SliceLast(&Period)`) are skipped over.
+    """
+    n = len(block)
+    if j >= n or block[j].kind not in WORD_KINDS or block[j].value.upper() in _query_vocabulary():
+        return None, j
+    qualifiers: list[Token] = []
+    segments = [block[j]]
+    j += 1
+    while (j + 1 < n and block[j].kind == "OP" and block[j].value == "::"
+           and block[j + 1].kind in WORD_KINDS):
+        qualifiers.append(segments.pop())
+        segments.append(block[j + 1])
+        j += 2
+    while (j + 1 < n and block[j].kind == "OP" and block[j].value == "."
+           and block[j + 1].kind in WORD_KINDS):
+        segments.append(block[j + 1])
+        j += 2
+    if j < n and block[j].kind == "OP" and block[j].value == "(":
+        depth = 0
+        while j < n:
+            if block[j].kind == "OP" and block[j].value == "(":
+                depth += 1
+            elif block[j].kind == "OP" and block[j].value == ")":
+                depth -= 1
+                if depth == 0:
+                    j += 1
+                    break
+            j += 1
+    return (qualifiers, segments), j
+
+
+def _group_end(block: list[Token], j: int, hi: int) -> int:
+    """The index right after the bracket group that opens at block[j]; `hi` when it never closes."""
+    depth = 0
+    while j < hi:
+        tok = block[j]
+        if tok.kind == "OP" and tok.value in _OPEN_CH:
+            depth += 1
+        elif tok.kind == "OP" and tok.value in _CLOSE_CH:
+            depth -= 1
+            if depth == 0:
+                return j + 1
+        j += 1
+    return hi
+
+
+def _join_condition_end(block: list[Token], j: int, hi: int) -> int:
+    """The index of the token that ends the join condition starting at block[j].
+
+    A condition holds no comma and no clause word at its own depth, so the first of them ends it,
+    as does the bracket that closes the subquery around it: a comma there opens the next item of
+    the FROM list, a word the next clause or join. A word after a dot is the name of a field,
+    whatever it spells.
+    """
+    stops = _join_condition_stops()
+    depth = 0
+    start = j
+    while j < hi:
+        tok = block[j]
+        if tok.kind == "OP" and tok.value in _OPEN_CH:
+            depth += 1
+        elif tok.kind == "OP" and tok.value in _CLOSE_CH:
+            if depth == 0:
+                return j
+            depth -= 1
+        elif depth == 0 and tok.kind == "OP" and tok.value in (",", ";"):
+            return j
+        elif (depth == 0 and tok.kind in WORD_KINDS and tok.value.upper() in stops
+              and not (j > start and block[j - 1].kind == "OP" and block[j - 1].value == ".")):
+            return j
+        j += 1
+    return hi
+
+
+def _read_from_list(
+    block: list[Token], j: int, hi: int,
+    items: list[tuple[tuple[list[Token], list[Token]], Token | None]],
+    nested: list[tuple[int, int]],
+) -> int:
+    """Read the item list that starts at block[j] after FROM or JOIN; return the index after it.
+
+    Every table goes to `items` with its alias. An item that is no table - a subquery or a
+    collection passed by an interpolation (`%Rows`, `%{...}`) - is passed over with its alias,
+    and the list goes on after it all the same. A named parameter (`&Rows`) ends the reading: the
+    IDE server refuses it in a query literal and reported nothing after it, so what follows is not
+    judged. The tokens of a subquery and of a join condition go to `nested`: what they read is
+    read in its own turn.
+    """
+    alias_intro = query_alias_intro()
+    vocabulary = _query_vocabulary()
+    on_words = query_words("ON")
+    while j < hi:
+        tok = block[j]
+        table = None
+        if tok.kind == "OP" and tok.value == "(":
+            end = _group_end(block, j, hi)
+            nested.append((j + 1, end))
+            j = end
+        elif tok.kind == "OP" and tok.value == "%" and j + 1 < hi:
+            if block[j + 1].kind == "OP" and block[j + 1].value == "{":
+                j = _group_end(block, j + 1, hi)
+            elif block[j + 1].kind in WORD_KINDS:
+                j += 2
+            else:
+                break
+        else:
+            table, j = _query_table_at(block, j)
+            if table is None:
+                break
+        alias = None
+        if (j + 1 < hi and block[j].kind in WORD_KINDS and block[j].value.upper() in alias_intro
+                and block[j + 1].kind in WORD_KINDS):
+            alias, j = block[j + 1], j + 2
+        elif j < hi and block[j].kind in WORD_KINDS and block[j].value.upper() not in vocabulary:
+            alias, j = block[j], j + 1  # an alias written without AS
+        if table is not None:
+            items.append((table, alias))
+        if j < hi and block[j].kind in WORD_KINDS and block[j].value.upper() in on_words:
+            end = _join_condition_end(block, j + 1, hi)
+            nested.append((j + 1, end))
+            j = end
+        if j < hi and block[j].kind == "OP" and block[j].value == ",":
+            j += 1
+            continue
+        break
+    return j
+
+
+def query_from_items(block: list[Token]) -> list[tuple[tuple[list[Token], list[Token]], Token | None]]:
+    """Every table of the FROM lists of a query block with its alias token (None without one),
+    in document order.
+
+    A table is the name after FROM/JOIN, in either spelling, and every further item of the list:
+    after a comma (`FROM Orders AS O, Batches B`), after a join condition (`LEFT JOIN Goods AS G
+    ON G.Ref = O.Ref, Batches AS B`), after a subquery and after a collection source. The IDE
+    server settled the last three: in each position it named a missing table as not found and
+    asked for the import of a package for the table of another subsystem, so the item after the
+    comma is a table of the query like the first one - the documented FROM list is a comma list
+    of items, a join being one item. What stands in the table position without being a name is
+    passed over; the FROM of a subquery is read in its own turn.
+    """
+    intro = query_table_intro()
+    items: list[tuple[tuple[list[Token], list[Token]], Token | None]] = []
+    ranges = [(0, len(block))]
+    while ranges:
+        lo, hi = ranges.pop()
+        i = lo
+        while i < hi:
+            if not (block[i].kind in WORD_KINDS and block[i].value.upper() in intro):
+                i += 1
+                continue
+            nested: list[tuple[int, int]] = []
+            j = _read_from_list(block, i + 1, hi, items, nested)
+            ranges.extend(nested)
+            i = max(j, i + 1)
+    items.sort(key=lambda item: (item[0][0] or item[0][1])[0].start)
+    return items
+
+
+def query_tables(source: SourceFile) -> list[tuple[list[Token], list[Token]]]:
+    """Every table the queries of a file read, in order: (the `::` qualifiers, the segments).
+
+    The tables of every FROM list (see query_from_items). Unlike the reading of
+    query/unknown-table no construct silences a block: a union or a temporary table does not
+    change what the name of a project table names. A standalone query file is one block (see
+    query_ranges). Cached on the source.
+    """
+    cached = source.cache.get("query_tables")
+    if cached is not None:
+        return cached
+    out: list[tuple[list[Token], list[Token]]] = []
+    for span in query_ranges(source):
+        out.extend(table for table, _alias in query_from_items(query_block_tokens(source, span)))
+    source.cache["query_tables"] = out
+    return out
+
+
+def query_temporary_tables(source: SourceFile) -> frozenset[str]:
+    """The names the queries of a file give to temporary tables.
+
+    The name after INTO, after CREATE TEMPORARY TABLE and after DROP, in either spelling. A
+    temporary table is read by the short name in the queries of the whole module (the
+    documentation page on the query literal), not only in the block that fills it, so the set is
+    the file's. `INSERT INTO` shares the English word INTO with the clause that fills a temporary
+    table, and the table it names lands here as well - for a caller that subtracts the set that
+    only means one name less to judge.
+    """
+    cached = source.cache.get("query_temporary_tables")
+    if cached is not None:
+        return cached
+    phrases = [tuple(spelling.split())
+               for spelling in query_words("INTO", "CREATE TEMPORARY TABLE", "DROP")]
+    names: set[str] = set()
+    for span in query_ranges(source):
+        words = [t for t in query_block_tokens(source, span)]
+        for i in range(len(words)):
+            for phrase in phrases:
+                end = i + len(phrase)
+                if end >= len(words):
+                    continue
+                if all(words[i + k].kind in WORD_KINDS and words[i + k].value.upper() == part
+                       for k, part in enumerate(phrase)):
+                    if words[end].kind in WORD_KINDS:
+                        names.add(words[end].value)
+    result = frozenset(names)
+    source.cache["query_temporary_tables"] = result
+    return result
 
 
 def _query_columns(toks: list[Token], start: int, end: int) -> list[str]:

@@ -1,6 +1,7 @@
 """Tests for ApproveAction."""
 
-from unittest.mock import MagicMock
+from collections.abc import Iterator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,6 +17,16 @@ from agentic_devtools.cli.ci.pipeline.gate_verdict import (
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
+
+
+@pytest.fixture(autouse=True)
+def _mock_inactive_session_detector() -> Iterator[None]:
+    """Default all tests to known-inactive session inventory."""
+    with patch(
+        "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+        return_value=False,
+    ):
+        yield
 
 
 def _clean_verdict(review_id: int = 1) -> CopilotGateVerdict:
@@ -116,6 +127,49 @@ class TestApproveAction:
         assert result.decision == ActionDecision.SKIP
         assert result.preconditions["no_repair_dispatched"] is False
         assert "repair dispatched" in result.details.lower()
+
+    def test_skip_when_session_inventory_unknown(self) -> None:
+        """Approval fails closed when session inventory is unavailable."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            has_approval_on_head=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=1,
+            unresolved_threads=0,
+            repairable_threads=0,
+        )
+        derived = DerivedState(snapshot)
+        action = ApproveAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+            return_value=None,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
+        assert "inventory unavailable" in result.details.lower()
+
+    def test_skip_when_active_copilot_session_detected(self) -> None:
+        """Approval is blocked while a Copilot coding session is active."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            has_approval_on_head=False,
+            ci_status="passing",
+            review_state="APPROVED",
+            copilot_review_id=1,
+            unresolved_threads=0,
+            repairable_threads=0,
+        )
+        derived = DerivedState(snapshot)
+        action = ApproveAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.approve.is_copilot_session_active_via_agent_task",
+            return_value=True,
+        ):
+            result = action.evaluate(snapshot, derived)
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions.get("no_active_session") is False
 
     def test_skip_when_ci_pending_even_with_squash_preserved_green(self) -> None:
         """ApproveAction must NEVER consume squash_preserved_green — it gates on the real HEAD CI."""

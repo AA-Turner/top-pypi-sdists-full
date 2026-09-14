@@ -8,13 +8,19 @@ in principle: its methods are called by its OWN yaml, so every one of them looks
 
 What counts as a use, and why the two sides are counted differently:
 
-- in a YAML, only a scalar VALUE counts. A key does not (the localization dictionary and the
-  translation dictionary both write names as KEYS - `Задачи: Tasks` - and counting those would
-  silence every component of a bilingual project), and neither does a comment naming the
-  component in prose;
+- in a YAML, only a scalar VALUE counts. A key does not (the localization dictionary writes
+  names as KEYS - `Задачи: Tasks` - and counting those would silence every component of a
+  bilingual project), and neither does a comment naming the component in prose;
+- the translation dictionary counts not at all, its values included: a value is a
+  translation, not markup, and a phrase may keep a component name as it is (`opened from
+  X.`) - so a run over the folder holding the project and its dictionary would stay silent
+  on a component a run over the project alone reports;
 - in a MODULE, any word of the text counts, a comment and a string literal included. That is
   deliberately lax, exactly as in `code/unused-method`: a component may be created by name
-  from a string (an HTML container bridge), and doubt has to silence the finding.
+  from a string (an HTML container bridge), and doubt has to silence the finding;
+- a YAML that does not parse counts like a module, with every word of its text: its values
+  cannot be told from its keys any more, and a file the linter failed to read is no evidence
+  that nothing in it places the component.
 
 Never reported:
 
@@ -44,7 +50,8 @@ from xbsl import dataset, formmodel, i18n, terms
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.engine import SourceFile, rule
 from xbsl.rules.project import _project
-from xbsl.rules.yaml_schema import _HAVE_YAML, _composed, _parsed, object_kind, value_of, yaml
+from xbsl.rules.yaml_schema import (_HAVE_YAML, _composed, _parsed, is_translation_dictionary,
+                                    object_kind, value_of, yaml)
 
 MESSAGES = {
     "yaml/unused-component.title": {
@@ -134,6 +141,8 @@ def _is_entry_point(data, kind: str | None) -> bool:
 
 def _unused_component_mapper(source: SourceFile) -> dict | None:
     """The map phase: what each file USES, and what a component yaml DECLARES."""
+    if source.kind == "yaml" and is_translation_dictionary(source):
+        return None  # names without uses: see the module docstring
     fact: dict = {"stem": _pair_stem(source.rel)}
     if source.kind == "yaml" and _project(source) is not None:
         fact["root"] = True  # the run covers a project, not a subset of one
@@ -142,7 +151,13 @@ def _unused_component_mapper(source: SourceFile) -> dict | None:
         return fact
     if not _HAVE_YAML:
         return None
-    data, _err = _parsed(source)
+    data, err = _parsed(source)
+    if err is not None:
+        # The values cannot be told from the keys in a file that did not parse, but its words
+        # are still text: all of them count, so a component placed only there is not called
+        # dead. What the file declares itself stays unjudged - `yaml/valid` reports the break.
+        fact["uses"] = sorted(_names(source.text))
+        return fact
     fact["uses"] = sorted(_value_names(data))
     kind = object_kind(data)
     if kind != formmodel.COMPONENT_ELEMENT_KIND:

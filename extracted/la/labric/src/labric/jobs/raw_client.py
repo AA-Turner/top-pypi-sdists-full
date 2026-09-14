@@ -12,6 +12,7 @@ from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
@@ -21,6 +22,7 @@ from ..types.error_schema import ErrorSchema
 from ..types.off_platform_job_execution_schema import OffPlatformJobExecutionSchema
 from ..types.revert_result_schema import RevertResultSchema
 from ..types.start_job_execution_schema import StartJobExecutionSchema
+from ..types.tools_job_schema import ToolsJobSchema
 from ..types.validation_error_schema import ValidationErrorSchema
 from .types.update_job_execution_status_schema_status import UpdateJobExecutionStatusSchemaStatus
 from pydantic import ValidationError
@@ -32,6 +34,307 @@ OMIT = typing.cast(typing.Any, ...)
 class RawJobsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def create(
+        self,
+        *,
+        name: str,
+        code: str,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ToolsJobSchema]:
+        """
+        Create a job that runs a Python script on the platform.
+
+        The code becomes the job's script; declare its dependencies inline in a
+        PEP 723 `# /// script` block. The job then appears on the platform, where
+        it can be run and its executions reviewed. To change an existing job's
+        name, description, or code, use update_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        name : str
+            Name of the job. Unique within the organization.
+
+        code : str
+            Python source of the script the job runs. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        description : typing.Optional[str]
+            What the job does.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ToolsJobSchema]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v1/jobs",
+            method="POST",
+            json={
+                "name": name,
+                "description": description,
+                "code": code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ToolsJobSchema,
+                    parse_obj_as(
+                        type_=ToolsJobSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def update(
+        self,
+        job_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        code: typing.Optional[str] = OMIT,
+        archived: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ToolsJobSchema]:
+        """
+        Change a job's name, description, or code, or archive it.
+
+        Only the fields passed are changed. New code is stored as a new version of
+        the job's script, so earlier executions keep the version they ran. To
+        create a job, use create_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        job_id : str
+
+        name : typing.Optional[str]
+            New name for the job.
+
+        description : typing.Optional[str]
+            New description for the job. Pass an empty string to clear it.
+
+        code : typing.Optional[str]
+            New Python source for the job's script, stored as a new script version. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        archived : typing.Optional[bool]
+            True archives the job, hiding it from the active job list; false restores it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ToolsJobSchema]
+            OK
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/jobs/{encode_path_param(job_id)}",
+            method="PATCH",
+            json={
+                "name": name,
+                "description": description,
+                "code": code,
+                "archived": archived,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ToolsJobSchema,
+                    parse_obj_as(
+                        type_=ToolsJobSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def start(
         self,
@@ -408,6 +711,307 @@ class RawJobsClient:
 class AsyncRawJobsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    async def create(
+        self,
+        *,
+        name: str,
+        code: str,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ToolsJobSchema]:
+        """
+        Create a job that runs a Python script on the platform.
+
+        The code becomes the job's script; declare its dependencies inline in a
+        PEP 723 `# /// script` block. The job then appears on the platform, where
+        it can be run and its executions reviewed. To change an existing job's
+        name, description, or code, use update_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        name : str
+            Name of the job. Unique within the organization.
+
+        code : str
+            Python source of the script the job runs. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        description : typing.Optional[str]
+            What the job does.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ToolsJobSchema]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v1/jobs",
+            method="POST",
+            json={
+                "name": name,
+                "description": description,
+                "code": code,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ToolsJobSchema,
+                    parse_obj_as(
+                        type_=ToolsJobSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def update(
+        self,
+        job_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        code: typing.Optional[str] = OMIT,
+        archived: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ToolsJobSchema]:
+        """
+        Change a job's name, description, or code, or archive it.
+
+        Only the fields passed are changed. New code is stored as a new version of
+        the job's script, so earlier executions keep the version they ran. To
+        create a job, use create_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        job_id : str
+
+        name : typing.Optional[str]
+            New name for the job.
+
+        description : typing.Optional[str]
+            New description for the job. Pass an empty string to clear it.
+
+        code : typing.Optional[str]
+            New Python source for the job's script, stored as a new script version. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        archived : typing.Optional[bool]
+            True archives the job, hiding it from the active job list; false restores it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ToolsJobSchema]
+            OK
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/jobs/{encode_path_param(job_id)}",
+            method="PATCH",
+            json={
+                "name": name,
+                "description": description,
+                "code": code,
+                "archived": archived,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ToolsJobSchema,
+                    parse_obj_as(
+                        type_=ToolsJobSchema,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ValidationErrorSchema,
+                        parse_obj_as(
+                            type_=ValidationErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        ErrorSchema,
+                        parse_obj_as(
+                            type_=ErrorSchema,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def start(
         self,

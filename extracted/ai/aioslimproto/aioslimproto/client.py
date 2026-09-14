@@ -98,6 +98,11 @@ class SlimClient:
         # ignore trailing STMt heartbeats of the flushed stream so elapsed_time
         # doesn't keep reporting the previous position (e.g. right after a seek)
         self._awaiting_stream_start: bool = False
+        # set while a new stream (strm-s) awaits its STMc; the player sends the new
+        # stream's RESP only after that STMc, so a RESP before it is stale
+        self._awaiting_stmc: bool = False
+        # the stale RESP guard only applies to players known to send STMc
+        self._stmc_seen: bool = False
         self._current_media: MediaDetails | None = None
         self._buffering_media: MediaDetails | None = None
         self._next_media: MediaDetails | None = None
@@ -390,6 +395,8 @@ class SlimClient:
             enqueue=False,
             autostart=True,
             send_flush=True,
+            stream_threshold=self._next_media.stream_threshold,
+            output_threshold=self._next_media.output_threshold,
         )
 
     async def play_url(  # noqa: PLR0915
@@ -402,6 +409,8 @@ class SlimClient:
         enqueue: bool = False,
         autostart: bool = True,
         send_flush: bool = True,
+        stream_threshold: int = 200,
+        output_threshold: int = 20,
     ) -> None:
         """
         Request player to start playing a single url.
@@ -417,6 +426,10 @@ class SlimClient:
         - autostart: advanced option to not auto start playback,
           but wait for the buffer to be full.
         - send_flush: advanced option to flush the buffer before playback.
+        - stream_threshold: advanced option to set how much stream data (in KB, 0-255)
+          the player buffers before it autostarts or reports the buffer ready.
+        - output_threshold: advanced option to set how much decoded audio
+          (in tenths of a second, 0-255) the player buffers before playback starts.
         """
         self.logger.debug("play url (enqueue: %s): %s", enqueue, url)
 
@@ -442,6 +455,8 @@ class SlimClient:
             metadata=metadata or {},
             transition=transition,
             transition_duration=transition_duration,
+            stream_threshold=stream_threshold,
+            output_threshold=output_threshold,
         )
         if enqueue:
             if not self._decoder_ready:
@@ -512,14 +527,17 @@ class SlimClient:
             b"\r\n" % (path.encode(), host.encode())
         )
         self._auto_play = autostart
+        self._awaiting_stmc = self._stmc_seen
         await self._send_strm(
             command=b"s",
             codec_details=codec_details,
-            autostart=b"3" if autostart else b"0",
+            # the player holds the body back until our cont, so the codc sent on
+            # its RESP lands first (a codc re-opens the decoder, dropping its buffer)
+            autostart=b"3" if autostart else b"2",
             server_port=port,
             server_ip=int(ipaddress.ip_address(ipaddr)),
-            threshold=200,
-            output_threshold=20,
+            threshold=stream_threshold,
+            output_threshold=output_threshold,
             trans_duration=transition_duration,
             trans_type=transition.value,
             flags=0x20 if scheme == "https" else 0x00,
@@ -815,7 +833,7 @@ class SlimClient:
         # from the data stream either because the stream ended, or because
         # they have finished buffering the current file
 
-    def _process_stat(self, data: bytes) -> None:
+    async def _process_stat(self, data: bytes) -> None:
         """Redirect incoming STAT event from player to correct method."""
         event = data[:4].decode()
         event_data = data[4:]
@@ -823,12 +841,14 @@ class SlimClient:
             # Presumed informational stat message
             return
         event_handler = getattr(self, f"_process_stat_{event.lower()}", None)
+        # handled inline, so stat events start in arrival order with other packets
+        # (e.g. an STMc before the RESP that follows it)
         if event_handler is None:
             self.logger.debug("Unhandled event: %s - event_data: %s", event, event_data)
         elif inspect.iscoroutinefunction(event_handler):
-            create_task(event_handler(data[4:]))
+            await event_handler(data[4:])
         else:
-            asyncio.get_running_loop().call_soon(event_handler, data[4:])
+            event_handler(data[4:])
 
     async def _process_stat_aude(self, data: bytes) -> None:
         """Process incoming stat AUDe message (power level and mute)."""
@@ -846,6 +866,8 @@ class SlimClient:
         """Process incoming stat STMc message (connected)."""
         self.logger.debug("STMc received - connected.")
         # srtm-s command received. Guaranteed to be the first response to an strm-s.
+        self._stmc_seen = True
+        self._awaiting_stmc = False
         self._state = PlayerState.BUFFERING
         self.signal_update()
 
@@ -961,7 +983,7 @@ class SlimClient:
     def _process_stat_stml(self, data: bytes) -> None:
         """Process incoming stat STMl message: Buffer threshold reached."""
         self.logger.debug("STMl received - Buffer threshold reached.")
-        # this is only used when autostart < 2 on strm-s commands
+        # only sent for streams started without autostart
         # send an event for lib consumers to handle
         self._state = PlayerState.BUFFER_READY
         self.callback(self, EventType.PLAYER_BUFFER_READY)
@@ -987,10 +1009,17 @@ class SlimClient:
             enqueue=False,
             autostart=True,
             send_flush=False,
+            stream_threshold=enqueued_media.stream_threshold,
+            output_threshold=enqueued_media.output_threshold,
         )
 
     async def _process_resp(self, data: bytes) -> None:
         """Process incoming RESP message: Response received at player."""
+        if self._awaiting_stmc:
+            # a RESP before the new stream's STMc is for a stream the player dropped;
+            # its codc and cont would otherwise land on the new stream and stall it
+            self.logger.debug("Ignoring RESP of a previous stream.")
+            return
         self.logger.debug("RESP received - Response received at player.")
         _, status_code, status = parse_status(data)
         headers = parse_headers(data)
@@ -1001,10 +1030,11 @@ class SlimClient:
             self.logger.debug("Received redirect to %s", location)
             await self.play_url(
                 location,
-                self.next_media.mime_type,
-                self.next_media.metadata,
-                self.next_media.transition,
-                self.next_media.transition_duration,
+                self._buffering_media.mime_type,
+                self._buffering_media.metadata,
+                self._buffering_media.transition,
+                self._buffering_media.transition_duration,
+                autostart=self._auto_play,
             )
             return
 
@@ -1015,6 +1045,8 @@ class SlimClient:
             self._buffering_media = None
             self._next_media = None
             self.signal_update()
+            # the player holds the body back until cont, release it to end this stream
+            await self._send_cont()
             return
 
         if "content-type" in headers:
@@ -1038,9 +1070,13 @@ class SlimClient:
         ):
             self._buffering_media.metadata["title"] = headers["icy-name"]
 
-        # send continue (used when autoplay 1 or 3)
-        if self._auto_play:
-            await self.send_frame(b"cont", b"1")
+        # the player holds the body back until cont, so cont must follow the codc
+        await self._send_cont()
+
+    async def _send_cont(self) -> None:
+        """Let the player start reading the stream body it holds back until cont."""
+        # laid out like LMS: metaint 0 (no ICY metadata in the body), loop 0, no guids
+        await self.send_frame(b"cont", struct.pack("!IBH", 0, 0, 0))
 
     def _process_setd(self, data: bytes) -> None:
         """Process incoming SETD message: Get/set player firmware settings."""

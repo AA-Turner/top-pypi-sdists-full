@@ -73,7 +73,7 @@ from uqff_registry_primitives import (
     DELTA_M2_21_EV2, DELTA_M2_32_EV2,
 )
 
-VERSION = "0.436.0"
+VERSION = "0.437.0"
 
 # NAMED OBSERVED SI ANCHORS (constant drain 2026-08-16, PAPER_2141 bulk pattern + PAPER_2149 observation-headlining)
 # Bit-identical to the literals they replace; UQFF-derived counterparts live in uqff_registry_primitives.
@@ -29431,6 +29431,24 @@ def _paper_2275(dataset):
             'formula': 'd_t u + (rho_eps*u . grad) u + grad p = nu Lap u; eps = sqrt(2 beta_i SSq)/k_c = 0.156 nm; ||grad u_eps||_inf <= C eps^-5/2 ||u_0||_2 -> Gronwall -> global C^inf (Leray 1934)',
             'source': 'PAPER_2275', 'residual_pct': 0.0,
             'status': 'THEOREM_B_PROVED_2026-09-12 (Track 3 closed on Form C; PAPER_106 exponent ruling OPEN)'}
+
+
+@_register('PAPER_2276')
+def _paper_2276(dataset):
+    """The proof set closed (B281): the closing index of the UQFF
+    Navier-Stokes proof set - the ledger B267-B281, Theorems A and B side
+    by side, the derived cap, the ruling, the audit, zero open theory
+    rows, the two open rulings (Q-246 PAPER_106 exponents; Q-247 the
+    sound-cone speed: IXS fast sound 3200 m/s vs c_s 1480 m/s, FLAGGED),
+    and for each of the four data fronts the falsifier, the INSTRUMENT
+    and the ACCESS ROUTE. Not claimed: the Clay statement; any front
+    passed.
+    """
+    from uqff_ns_assembly import proof_set_closeout
+    return {'value': proof_set_closeout(),
+            'formula': 'ledger(B267-B281) + {Theorem A, Theorem B} + cap 17/20 + ruling + audit -> theory rows open 0; fronts 1-4 OPEN with instruments; Q-246/Q-247 OPEN; c_inf/c_0 = 3200/1480 = 2.162',
+            'source': 'PAPER_2276', 'residual_pct': 0.0,
+            'status': 'THEORY_CLOSED_2026-09-13 (index; instruments named; two rulings open)'}
 
 
 @_register('PAPER_2258')

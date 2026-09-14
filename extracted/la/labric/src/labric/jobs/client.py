@@ -7,6 +7,7 @@ from ..core.request_options import RequestOptions
 from ..types.off_platform_job_execution_schema import OffPlatformJobExecutionSchema
 from ..types.revert_result_schema import RevertResultSchema
 from ..types.start_job_execution_schema import StartJobExecutionSchema
+from ..types.tools_job_schema import ToolsJobSchema
 from .raw_client import AsyncRawJobsClient, RawJobsClient
 from .types.update_job_execution_status_schema_status import UpdateJobExecutionStatusSchemaStatus
 
@@ -28,6 +29,119 @@ class JobsClient:
         RawJobsClient
         """
         return self._raw_client
+
+    def create(
+        self,
+        *,
+        name: str,
+        code: str,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ToolsJobSchema:
+        """
+        Create a job that runs a Python script on the platform.
+
+        The code becomes the job's script; declare its dependencies inline in a
+        PEP 723 `# /// script` block. The job then appears on the platform, where
+        it can be run and its executions reviewed. To change an existing job's
+        name, description, or code, use update_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        name : str
+            Name of the job. Unique within the organization.
+
+        code : str
+            Python source of the script the job runs. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        description : typing.Optional[str]
+            What the job does.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ToolsJobSchema
+            OK
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.jobs.create(
+            name="name",
+            code="code",
+        )
+        """
+        _response = self._raw_client.create(
+            name=name, code=code, description=description, request_options=request_options
+        )
+        return _response.data
+
+    def update(
+        self,
+        job_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        code: typing.Optional[str] = OMIT,
+        archived: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ToolsJobSchema:
+        """
+        Change a job's name, description, or code, or archive it.
+
+        Only the fields passed are changed. New code is stored as a new version of
+        the job's script, so earlier executions keep the version they ran. To
+        create a job, use create_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        job_id : str
+
+        name : typing.Optional[str]
+            New name for the job.
+
+        description : typing.Optional[str]
+            New description for the job. Pass an empty string to clear it.
+
+        code : typing.Optional[str]
+            New Python source for the job's script, stored as a new script version. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        archived : typing.Optional[bool]
+            True archives the job, hiding it from the active job list; false restores it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ToolsJobSchema
+            OK
+
+        Examples
+        --------
+        from labric import Labric
+
+        client = Labric(
+            api_key="YOUR_API_KEY",
+        )
+        client.jobs.update(
+            job_id="job_id",
+        )
+        """
+        _response = self._raw_client.update(
+            job_id, name=name, description=description, code=code, archived=archived, request_options=request_options
+        )
+        return _response.data
 
     def start(
         self,
@@ -177,6 +291,135 @@ class AsyncJobsClient:
         AsyncRawJobsClient
         """
         return self._raw_client
+
+    async def create(
+        self,
+        *,
+        name: str,
+        code: str,
+        description: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ToolsJobSchema:
+        """
+        Create a job that runs a Python script on the platform.
+
+        The code becomes the job's script; declare its dependencies inline in a
+        PEP 723 `# /// script` block. The job then appears on the platform, where
+        it can be run and its executions reviewed. To change an existing job's
+        name, description, or code, use update_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        name : str
+            Name of the job. Unique within the organization.
+
+        code : str
+            Python source of the script the job runs. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        description : typing.Optional[str]
+            What the job does.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ToolsJobSchema
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.jobs.create(
+                name="name",
+                code="code",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create(
+            name=name, code=code, description=description, request_options=request_options
+        )
+        return _response.data
+
+    async def update(
+        self,
+        job_id: str,
+        *,
+        name: typing.Optional[str] = OMIT,
+        description: typing.Optional[str] = OMIT,
+        code: typing.Optional[str] = OMIT,
+        archived: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> ToolsJobSchema:
+        """
+        Change a job's name, description, or code, or archive it.
+
+        Only the fields passed are changed. New code is stored as a new version of
+        the job's script, so earlier executions keep the version they ran. To
+        create a job, use create_job instead.
+
+        Requires an API key with the `write` scope.
+
+        Parameters
+        ----------
+        job_id : str
+
+        name : typing.Optional[str]
+            New name for the job.
+
+        description : typing.Optional[str]
+            New description for the job. Pass an empty string to clear it.
+
+        code : typing.Optional[str]
+            New Python source for the job's script, stored as a new script version. Declare dependencies inline in a PEP 723 `# /// script` block.
+
+        archived : typing.Optional[bool]
+            True archives the job, hiding it from the active job list; false restores it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ToolsJobSchema
+            OK
+
+        Examples
+        --------
+        import asyncio
+
+        from labric import AsyncLabric
+
+        client = AsyncLabric(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.jobs.update(
+                job_id="job_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update(
+            job_id, name=name, description=description, code=code, archived=archived, request_options=request_options
+        )
+        return _response.data
 
     async def start(
         self,

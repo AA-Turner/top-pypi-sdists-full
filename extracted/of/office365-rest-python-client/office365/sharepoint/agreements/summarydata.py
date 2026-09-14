@@ -10,11 +10,21 @@ from office365.sharepoint.agreements.datapair import AgreementDataPair
 
 @dataclass
 class AgreementSummaryData(ClientValue):
-    by_category: Optional[ClientValueCollection[AgreementDataPair]] = None
-    by_expiration_year: Optional[ClientValueCollection[AgreementDataPair]] = None
-    by_first_party: Optional[ClientValueCollection[AgreementDataPair]] = None
-    by_renewal_year: Optional[ClientValueCollection[AgreementDataPair]] = None
-    by_second_party: Optional[ClientValueCollection[AgreementDataPair]] = None
+    by_category: ClientValueCollection[AgreementDataPair] = field(
+        default_factory=lambda: ClientValueCollection(AgreementDataPair)
+    )
+    by_expiration_year: ClientValueCollection[AgreementDataPair] = field(
+        default_factory=lambda: ClientValueCollection(AgreementDataPair)
+    )
+    by_first_party: ClientValueCollection[AgreementDataPair] = field(
+        default_factory=lambda: ClientValueCollection(AgreementDataPair)
+    )
+    by_renewal_year: ClientValueCollection[AgreementDataPair] = field(
+        default_factory=lambda: ClientValueCollection(AgreementDataPair)
+    )
+    by_second_party: ClientValueCollection[AgreementDataPair] = field(
+        default_factory=lambda: ClientValueCollection(AgreementDataPair)
+    )
     evergreen: Optional[int] = None
     ByCategory: ClientValueCollection[AgreementDataPair] = field(
         default_factory=lambda: ClientValueCollection(AgreementDataPair)

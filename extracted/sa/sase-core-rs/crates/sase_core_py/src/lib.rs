@@ -325,7 +325,9 @@
 //! - `continuation_validate_delivery_record(record: dict) -> dict`
 //! - `continuation_new_delivery_record(request: dict) -> dict`
 //! - `continuation_transition_delivery(request: dict) -> dict`
+//! - `continuation_decide_resume_adoption(request: dict) -> dict`
 //! - `continuation_plan_replay(request: dict) -> dict`
+//! - `continuation_plan_retention(request: dict) -> dict`
 //! - `continuation_select_evidence(request: dict) -> dict`
 //! - `continuation_resolve_policy(request: dict) -> dict`
 //! - `continuation_validate_policy(policy: dict) -> dict`
@@ -365,6 +367,8 @@
 //! - `artifact_ref_scan_prompt(text: str) -> list[dict]`
 //! - `artifact_ref_scan_document(text: str, known_kinds: list[str] | None = None) -> dict`
 //! - `artifact_ref_document_scan_wire_schema_version() -> int`
+//! - `artifact_ref_split_link_location(target: str) -> dict`
+//! - `artifact_ref_link_location_wire_schema_version() -> int`
 //! - `artifact_ref_resolve_document_source_target(path: str, owner: dict, context: dict) -> dict`
 //! - `artifact_ref_target_resolution_wire_schema_version() -> int`
 //! - `artifact_ref_wire_schema_version() -> int`
@@ -425,10 +429,11 @@
 //! - `raw_placeholder_fields(text: str, context_width: int) -> list[dict]`
 //! - `substitute_raw_placeholders(text: str, values: dict[str, str]) -> str`
 //! - `placeholder_input_names(texts: list[str]) -> list[str]`
-//! - `directive_contract() -> list[dict]`
+//! - `directive_contract(enabled_feature_flags: list[str] | None = None) -> list[dict]`
 //! - `collect_queue_fields(occurrences: list[dict], enabled_feature_flags: list[str] | None = None) -> dict`
 //! - `format_queue_directive(fields: dict) -> str | None`
 //! - `parse_queue_capacity(raw: str, enabled_feature_flags: list[str] | None = None) -> int`
+//! - `normalize_persisted_queue_capacity(queue_capacity: int | None, queue_capacity_explicit: bool, effective_weight: float, global_limit: float, capacity_budget: bool) -> dict`
 //! - `queue_directive_flag_key() -> str`
 //! - `runner_capacity_policy_schema_version() -> int`
 //! - `runner_capacity_snapshot(request: dict) -> dict`
@@ -510,6 +515,8 @@
 //! - `decide_bead_action(request: dict) -> dict`
 //! - `validate_finalizer_bead_decision(context: dict, decision: dict) -> dict`
 //! - `validate_finalizer_assigned_bead_binding(context: dict, expected: dict | None) -> None`
+//! - `gate_decision_wire_schema_version() -> int`
+//! - `decide_gate_decision_acceptance(request: dict) -> dict`
 //! - `validate_task_type_spec(spec: dict) -> None`
 //! - `task_type_spec_digest(spec: dict) -> str`
 //! - `validate_task_type_field_values(spec: dict, values: dict[str, str]) -> list[dict]`
@@ -726,6 +733,7 @@ use sase_core::agent_scan::{
     collect_workflow_artifact_candidates as core_collect_workflow_artifact_candidates,
     delete_agent_artifact_index_row as core_delete_agent_artifact_index_row,
     delete_agent_artifact_index_row_with_busy_timeout as core_delete_agent_artifact_index_row_with_busy_timeout,
+    find_gate_shell_by_gate_id as core_find_gate_shell_by_gate_id,
     load_agent_artifact_records as core_load_agent_artifact_records,
     parse_agent_artifact_path as core_parse_agent_artifact_path,
     parse_output_variable_selector as core_parse_output_variable_selector,
@@ -887,6 +895,7 @@ use sase_core::artifact_ref::{
     resolve_document_source_target as core_resolve_document_source_target,
     scan_artifact_ref_document_links as core_scan_artifact_ref_document_links,
     scan_artifact_refs as core_scan_artifact_refs,
+    split_link_location as core_split_link_location,
     validate_artifact_entry as core_validate_artifact_entry,
     validate_artifact_ref_expansion_format as core_validate_artifact_ref_expansion_format,
     validate_artifact_ref_file_row as core_validate_artifact_ref_file_row,
@@ -905,7 +914,7 @@ use sase_core::artifact_ref::{
     ARTIFACT_REF_PROVIDER_SPEC_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_RESOLUTION_WIRE_SCHEMA_VERSION,
     ARTIFACT_REF_TARGET_RESOLUTION_WIRE_SCHEMA_VERSION,
-    ARTIFACT_REF_USE_WIRE_SCHEMA_VERSION,
+    ARTIFACT_REF_USE_WIRE_SCHEMA_VERSION, LINK_LOCATION_WIRE_SCHEMA_VERSION,
 };
 use sase_core::axe_chop::{
     apply_checkpoint_update as core_apply_checkpoint_update,
@@ -1053,12 +1062,14 @@ use sase_core::content_layout::{
 use sase_core::continuation::{
     bind_conditional_completion as core_bind_conditional_completion,
     consume_conditional_completion_request as core_consume_conditional_completion,
+    decide_resume_adoption as core_decide_resume_adoption,
     evaluate_conditional_completion as core_evaluate_conditional_completion,
     freeze_continuation_policy as core_freeze_continuation_policy,
     invalidate_conditional_completion_request as core_invalidate_conditional_completion,
     new_continuation_delivery_record as core_new_continuation_delivery_record,
     plan_continuation_budget as core_plan_continuation_budget,
     plan_continuation_replay as core_plan_continuation_replay,
+    plan_continuation_retention as core_plan_continuation_retention,
     preview_conditional_completion as core_preview_conditional_completion,
     render_conditional_completion_message_request as core_render_conditional_completion_message,
     resolve_continuation_policy as core_resolve_continuation_policy,
@@ -1088,6 +1099,7 @@ use sase_core::continuation::{
     ContinuationNodeWire, ContinuationOutcomePolicyWire,
     ContinuationPolicyFreezeRequestWire,
     ContinuationPolicyResolutionRequestWire, ContinuationReplayPlanRequestWire,
+    ContinuationResumeAdoptionRequestWire, ContinuationRetentionRequestWire,
     DiagnosticManifestWire, LaunchRequesterContinuationWire, MonitorResultWire,
     CONTINUATION_WIRE_SCHEMA_VERSION,
 };
@@ -1163,6 +1175,10 @@ use sase_core::fleet_mutation::{
     self as core_fleet_mutation, FleetMutationIntentWire,
     FleetMutationRequestWire,
 };
+use sase_core::gate_decision::{
+    decide_gate_decision_acceptance_from_json as core_decide_gate_decision_acceptance_from_json,
+    GateDecisionError, GATE_DECISION_WIRE_SCHEMA_VERSION,
+};
 use sase_core::gate_followup::{
     decide_gate_followup as core_decide_gate_followup,
     gate_followup_attempt_id as core_gate_followup_attempt_id,
@@ -1202,6 +1218,10 @@ use sase_core::managed_origin::{
     decide_managed_origin_reconciliation as core_decide_managed_origin_reconciliation,
     ManagedOriginReconciliationRequestWire,
     MANAGED_ORIGIN_RECONCILIATION_WIRE_SCHEMA_VERSION,
+};
+use sase_core::managed_tmp::{
+    reap_managed_tmpdir as core_reap_managed_tmpdir, ManagedTmpReapError,
+    ManagedTmpReapRequestWire, MANAGED_TMP_REAP_WIRE_SCHEMA_VERSION,
 };
 use sase_core::markdown_link_refs::{
     allocate_markdown_reference_label as core_allocate_markdown_reference_label,
@@ -1480,6 +1500,7 @@ use sase_core::CODE_VALUE_WIRE_SCHEMA_VERSION;
 use sase_core::{
     collect_queue_fields_with_flags as core_collect_queue_fields_with_flags,
     format_queue_directive as core_format_queue_directive,
+    normalize_persisted_queue_capacity as core_normalize_persisted_queue_capacity,
     parse_queue_capacity_with_flags as core_parse_queue_capacity_with_flags,
     queue_directive_flag_key as core_queue_directive_flag_key, QueueFieldsWire,
     QueueOccurrenceWire,
@@ -1850,6 +1871,36 @@ fn py_reconcile_machine_enrollments<'py>(
     )?;
     let result = core_reconcile_machine_enrollments(&request)
         .map_err(machine_setup_error_to_pyerr)?;
+    serialize_to_py(py, &result)
+}
+
+fn managed_tmp_reap_error_to_pyerr(error: ManagedTmpReapError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+#[pyfunction]
+#[pyo3(name = "managed_tmp_reap_wire_schema_version")]
+fn py_managed_tmp_reap_wire_schema_version() -> u32 {
+    MANAGED_TMP_REAP_WIRE_SCHEMA_VERSION
+}
+
+#[pyfunction]
+#[pyo3(name = "reap_managed_tmpdir")]
+fn py_reap_managed_tmpdir<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ManagedTmpReapRequestWire = serde_json::from_value(
+        py_to_json_value(request.as_any())?,
+    )
+    .map_err(|error| {
+        PyValueError::new_err(format!(
+            "request is not a valid ManagedTmpReapRequestWire dict: {error}"
+        ))
+    })?;
+    let result = py
+        .allow_threads(|| core_reap_managed_tmpdir(&request))
+        .map_err(managed_tmp_reap_error_to_pyerr)?;
     serialize_to_py(py, &result)
 }
 
@@ -3560,6 +3611,30 @@ fn py_load_agent_artifact_records<'py>(
         })
         .map_err(PyRuntimeError::new_err)?;
     serialize_to_py(py, &records)
+}
+
+/// Return the newest real gate-shell record for `gate_id`, or `None`.
+///
+/// Uses the persistent index's indexed `gate_shell_id` column, an O(1) SQL
+/// lookup instead of decoding every historical record.
+#[pyfunction]
+#[pyo3(
+    name = "find_gate_shell_by_gate_id",
+    signature = (index_path, project_name, gate_id)
+)]
+fn py_find_gate_shell_by_gate_id<'py>(
+    py: Python<'py>,
+    index_path: &str,
+    project_name: Option<&str>,
+    gate_id: &str,
+) -> PyResult<PyObject> {
+    let index = PathBuf::from(index_path);
+    let record = py
+        .allow_threads(|| {
+            core_find_gate_shell_by_gate_id(&index, project_name, gate_id)
+        })
+        .map_err(PyRuntimeError::new_err)?;
+    serialize_to_py(py, &record)
 }
 
 #[pyfunction(name = "agent_output_variable_history_wire_schema_version")]
@@ -5590,6 +5665,29 @@ fn py_artifact_ref_document_scan_wire_schema_version() -> u64 {
     ARTIFACT_REF_DOCUMENT_SCAN_WIRE_SCHEMA_VERSION
 }
 
+/// Split a trailing colon or GitHub-style line location off a link target.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_split_link_location")]
+fn py_artifact_ref_split_link_location(
+    py: Python<'_>,
+    target: &str,
+) -> PyResult<PyObject> {
+    let value = serde_json::to_value(core_split_link_location(target))
+        .map_err(|error| {
+            PyValueError::new_err(format!(
+                "internal link location serialize error: {error}"
+            ))
+        })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the link-location wire schema version.
+#[pyfunction]
+#[pyo3(name = "artifact_ref_link_location_wire_schema_version")]
+fn py_artifact_ref_link_location_wire_schema_version() -> u64 {
+    LINK_LOCATION_WIRE_SCHEMA_VERSION
+}
+
 /// Resolve an unqualified source-path target in its owning repository.
 ///
 /// `owner` carries whatever provenance the caller already knows about the
@@ -6060,6 +6158,52 @@ fn py_validate_finalizer_assigned_bead_binding(
     };
     core_validate_finalizer_assigned_bead_binding(&context, expected.as_ref())
         .map_err(bead_action_error_to_pyerr)
+}
+
+fn gate_decision_error_to_pyerr(error: GateDecisionError) -> PyErr {
+    PyValueError::new_err(error.to_string())
+}
+
+fn gate_decision_result_to_py<'py, T>(
+    py: Python<'py>,
+    result: Result<T, GateDecisionError>,
+    operation: &str,
+) -> PyResult<PyObject>
+where
+    T: serde::Serialize,
+{
+    let decided = result.map_err(gate_decision_error_to_pyerr)?;
+    let value = serde_json::to_value(decided).map_err(|error| {
+        PyValueError::new_err(format!(
+            "internal gate-decision {operation} serialize error: {error}"
+        ))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+/// Return the gate-decision-acceptance wire schema version.
+#[pyfunction]
+#[pyo3(name = "gate_decision_wire_schema_version")]
+fn py_gate_decision_wire_schema_version() -> u32 {
+    GATE_DECISION_WIRE_SCHEMA_VERSION
+}
+
+/// Decide one gate's decision acceptance: a fresh accept, an idempotent
+/// replay of an identical resubmission, or a prompt conflict rejection
+/// raised as a Python `ValueError` -- before any option command, archive,
+/// or launch work runs.
+#[pyfunction]
+#[pyo3(name = "decide_gate_decision_acceptance")]
+fn py_decide_gate_decision_acceptance<'py>(
+    py: Python<'py>,
+    request: &Bound<'_, PyDict>,
+) -> PyResult<PyObject> {
+    let value = py_to_json_value(request.as_any())?;
+    gate_decision_result_to_py(
+        py,
+        core_decide_gate_decision_acceptance_from_json(&value),
+        "acceptance",
+    )
 }
 
 fn task_type_spec_from_pydict(
@@ -11876,8 +12020,13 @@ fn py_placeholder_input_names(texts: Vec<String>) -> Vec<String> {
 /// Return the canonical directive completion contract as a list of dicts.
 #[pyfunction]
 #[pyo3(name = "directive_contract")]
-fn py_directive_contract(py: Python<'_>) -> PyResult<PyObject> {
-    let contract = sase_core::editor_directive_contract();
+#[pyo3(signature = (enabled_feature_flags = None))]
+fn py_directive_contract(
+    py: Python<'_>,
+    enabled_feature_flags: Option<Vec<String>>,
+) -> PyResult<PyObject> {
+    let flags = enabled_feature_flags.unwrap_or_default();
+    let contract = sase_core::editor_directive_contract_with_flags(&flags);
     let value = serde_json::to_value(&contract).map_err(|e| {
         PyValueError::new_err(format!("internal serialize error: {e}"))
     })?;
@@ -14752,6 +14901,22 @@ fn py_continuation_transition_delivery<'py>(
     )
 }
 
+/// Decide whether resume may fence undelivered branches and admit.
+#[pyfunction]
+#[pyo3(name = "continuation_decide_resume_adoption")]
+fn py_continuation_decide_resume_adoption<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationResumeAdoptionRequestWire =
+        continuation_wire_from_pydict(request, "resume adoption request")?;
+    continuation_result_to_py(
+        py,
+        core_decide_resume_adoption(request),
+        "resume adoption",
+    )
+}
+
 /// Validate one LaunchApproval requester-continuation contract.
 #[pyfunction]
 #[pyo3(name = "continuation_validate_launch_requester_continuation")]
@@ -14781,6 +14946,22 @@ fn py_continuation_plan_replay<'py>(
         py,
         core_plan_continuation_replay(request),
         "replay planning",
+    )
+}
+
+/// Compute the live/recoverable continuation ancestry retention closure.
+#[pyfunction]
+#[pyo3(name = "continuation_plan_retention")]
+fn py_continuation_plan_retention<'py>(
+    py: Python<'py>,
+    request: &Bound<'py, PyDict>,
+) -> PyResult<PyObject> {
+    let request: ContinuationRetentionRequestWire =
+        continuation_wire_from_pydict(request, "retention request")?;
+    continuation_result_to_py(
+        py,
+        core_plan_continuation_retention(request),
+        "retention planning",
     )
 }
 
@@ -15592,13 +15773,39 @@ fn py_runner_capacity_policy_schema_version() -> u32 {
 }
 
 #[pyfunction]
+#[pyo3(name = "normalize_persisted_queue_capacity")]
+#[pyo3(signature = (queue_capacity, queue_capacity_explicit, effective_weight, global_limit, capacity_budget))]
+fn py_normalize_persisted_queue_capacity(
+    py: Python<'_>,
+    queue_capacity: Option<u32>,
+    queue_capacity_explicit: bool,
+    effective_weight: f64,
+    global_limit: f64,
+    capacity_budget: bool,
+) -> PyResult<PyObject> {
+    let value = serde_json::to_value(core_normalize_persisted_queue_capacity(
+        queue_capacity,
+        queue_capacity_explicit,
+        effective_weight,
+        global_limit,
+        capacity_budget,
+    ))
+    .map_err(|e| {
+        PyValueError::new_err(format!("internal serialize error: {e}"))
+    })?;
+    json_value_to_py(py, &value)
+}
+
+#[pyfunction]
 #[pyo3(name = "runner_capacity_snapshot")]
 fn py_runner_capacity_snapshot<'py>(
     py: Python<'py>,
     request: &Bound<'_, PyAny>,
 ) -> PyResult<PyObject> {
-    let request: RunnerCapacityRequestWire =
-        serde_json::from_value(py_to_json_value(request)?).map_err(|err| {
+    let mut value = py_to_json_value(request)?;
+    sase_core::merge_queue_capacity_aliases_in_capacity_request(&mut value);
+    let request: RunnerCapacityRequestWire = serde_json::from_value(value)
+        .map_err(|err| {
             PyValueError::new_err(format!(
                 "invalid runner capacity request: {err}"
             ))
@@ -16150,7 +16357,10 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
         let home = tempfile::tempdir().unwrap();
-        assert_eq!(py_fleet_contract_schema_version(), 1);
+        assert_eq!(
+            py_fleet_contract_schema_version(),
+            core_fleet_contract::FLEET_CONTRACT_SCHEMA_VERSION
+        );
         let missing = py_fleet_installation_identity_load(
             py,
             home.path().to_str().unwrap(),
@@ -16249,7 +16459,9 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
                     "name": "athena.agent-1",
                     "model": "gpt-5",
                     "llm_provider": "codex",
-                    "agent_family": "family-1"
+                    "agent_family": "family-1",
+                    "queue_capacity": 100,
+                    "queue_capacity_explicit": true
                 },
                 "running": {
                     "pid": 1234,
@@ -16269,6 +16481,14 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
                 "connection_health": "online",
                 "freshness": "fresh",
                 "observed_at_unix": 10.0,
+                "started_at_unix": 8.5,
+                "stopped_at_unix": null,
+                "workspace_num": 17,
+                "project_label": "sase",
+                "agent_clan": "fleet",
+                "agent_clan_generation": "20260913",
+                "clan_tribe": "parity",
+                "tribe": "review",
                 "row_kind": "agent_shell",
                 "current_instance": true,
                 "dismissable": false,
@@ -16289,7 +16509,20 @@ fn fleet_contract_bindings_round_trip_nested_dicts() {
         let summary =
             py_fleet_project_resolved_agent_summary(py, request).unwrap();
         let summary_value = py_to_json_value(summary.bind(py)).unwrap();
+        assert_eq!(
+            summary_value["schema_version"],
+            json!(core_fleet_contract::FLEET_CONTRACT_SCHEMA_VERSION)
+        );
         assert_eq!(summary_value["lifecycle"], json!("running"));
+        assert_eq!(summary_value["labels"]["project_label"], json!("sase"));
+        assert_eq!(summary_value["started_at_unix"], json!(8.5));
+        assert_eq!(summary_value["workspace_num"], json!(17));
+        assert_eq!(summary_value["agent_clan"], json!("fleet"));
+        assert_eq!(summary_value["agent_clan_generation"], json!("20260913"));
+        assert_eq!(summary_value["clan_tribe"], json!("parity"));
+        assert_eq!(summary_value["tribe"], json!("review"));
+        assert_eq!(summary_value["queue_capacity"], json!(100));
+        assert_eq!(summary_value["queue_capacity_explicit"], json!(true));
         assert_eq!(summary_value["content"]["handle_count"], json!(1));
         let summary_dict = summary.bind(py).downcast::<PyDict>().unwrap();
         let validated =
@@ -17243,6 +17476,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_classify_tailnet_discovery, m)?)?;
     m.add_function(wrap_pyfunction!(py_reconcile_machine_enrollments, m)?)?;
     m.add_function(wrap_pyfunction!(
+        py_managed_tmp_reap_wire_schema_version,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(py_reap_managed_tmpdir, m)?)?;
+    m.add_function(wrap_pyfunction!(
         py_pending_commit_checkpoint_wire_schema_version,
         m
     )?)?;
@@ -17356,6 +17594,7 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_vacuum_agent_artifact_index, m)?)?;
     m.add_function(wrap_pyfunction!(py_query_agent_artifact_index, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_agent_artifact_records, m)?)?;
+    m.add_function(wrap_pyfunction!(py_find_gate_shell_by_gate_id, m)?)?;
     m.add_function(wrap_pyfunction!(
         py_agent_output_variable_history_wire_schema_version,
         m
@@ -17551,6 +17790,11 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_artifact_ref_document_scan_wire_schema_version,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(py_artifact_ref_split_link_location, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_artifact_ref_link_location_wire_schema_version,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(
         py_artifact_ref_resolve_document_source_target,
         m
@@ -17611,6 +17855,8 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py_validate_finalizer_assigned_bead_binding,
         m
     )?)?;
+    m.add_function(wrap_pyfunction!(py_gate_decision_wire_schema_version, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decide_gate_decision_acceptance, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_spec, m)?)?;
     m.add_function(wrap_pyfunction!(py_task_type_spec_digest, m)?)?;
     m.add_function(wrap_pyfunction!(py_validate_task_type_field_values, m)?)?;
@@ -17962,6 +18208,10 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_substitute_raw_placeholders, m)?)?;
     m.add_function(wrap_pyfunction!(py_placeholder_input_names, m)?)?;
     m.add_function(wrap_pyfunction!(py_directive_contract, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        py_normalize_persisted_queue_capacity,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(py_directive_completion_context, m)?)?;
     m.add_function(wrap_pyfunction!(py_directive_completion_candidates, m)?)?;
     m.add_function(wrap_pyfunction!(py_collect_queue_fields, m)?)?;
@@ -18251,10 +18501,15 @@ fn sase_core_rs(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_continuation_new_delivery_record, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_transition_delivery, m)?)?;
     m.add_function(wrap_pyfunction!(
+        py_continuation_decide_resume_adoption,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
         py_continuation_validate_launch_requester_continuation,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(py_continuation_plan_replay, m)?)?;
+    m.add_function(wrap_pyfunction!(py_continuation_plan_retention, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_select_evidence, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_resolve_policy, m)?)?;
     m.add_function(wrap_pyfunction!(py_continuation_validate_policy, m)?)?;
@@ -18460,6 +18715,47 @@ mod tests {
             let legacy_dict = legacy.bind(py).downcast::<PyDict>().unwrap();
             let direct_dict = direct.bind(py).downcast::<PyDict>().unwrap();
             assert_eq!(py_dict_keys(direct_dict), py_dict_keys(legacy_dict));
+        });
+    }
+
+    #[test]
+    fn scan_agent_artifacts_binding_preserves_canonical_and_legacy_capacity() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path().join("projects");
+            let dir = root
+                .join("proj")
+                .join("artifacts")
+                .join("ace-run")
+                .join("20260913030000");
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("agent_meta.json"),
+                r#"{"name":"canonical","queue_capacity":100,"queue_capacity_explicit":true}"#,
+            )
+            .unwrap();
+            fs::write(
+                dir.join("waiting.json"),
+                r#"{"wait_runners":0,"wait_runners_explicit":true,"queue_capacity":100,"queue_capacity_explicit":true}"#,
+            )
+            .unwrap();
+            let snapshot = py_scan_agent_artifacts(
+                py,
+                root.to_string_lossy().as_ref(),
+                None,
+            )
+            .unwrap();
+            let snapshot = py_to_json_value(snapshot.bind(py)).unwrap();
+            assert_eq!(snapshot["schema_version"], json!(9));
+            let record = &snapshot["records"][0];
+            assert_eq!(record["agent_meta"]["queue_capacity"], json!(100));
+            assert_eq!(
+                record["agent_meta"]["queue_capacity_explicit"],
+                json!(true)
+            );
+            assert_eq!(record["waiting"]["queue_capacity"], json!(100));
+            assert!(record["waiting"].get("wait_runners").is_none());
         });
     }
 
@@ -19941,7 +20237,10 @@ COMMITS:
                 .call1((request.bind(py).downcast::<PyDict>().unwrap(),))
                 .unwrap();
             let result = py_to_json_value(&result).unwrap();
-            assert_eq!(result["schema_version"], json!(1));
+            assert_eq!(
+                result["schema_version"],
+                json!(core_fleet_contract::FLEET_CONTRACT_SCHEMA_VERSION)
+            );
             assert_eq!(result["promotions"][0]["from"], singleton);
             assert_eq!(result["promotions"][0]["to"], family);
 
@@ -21593,7 +21892,9 @@ COMMITS:
                 "continuation_validate_delivery_record",
                 "continuation_new_delivery_record",
                 "continuation_transition_delivery",
+                "continuation_decide_resume_adoption",
                 "continuation_plan_replay",
+                "continuation_plan_retention",
                 "continuation_select_evidence",
                 "continuation_resolve_policy",
                 "continuation_validate_policy",
@@ -23514,6 +23815,8 @@ MENTORS:
                 "artifact_ref_scan_prompt",
                 "artifact_ref_scan_document",
                 "artifact_ref_document_scan_wire_schema_version",
+                "artifact_ref_split_link_location",
+                "artifact_ref_link_location_wire_schema_version",
                 "artifact_ref_wire_schema_version",
             ] {
                 assert!(module.getattr(name).is_ok(), "missing {name}");
@@ -23674,6 +23977,16 @@ MENTORS:
             );
 
             assert_eq!(py_artifact_ref_document_scan_wire_schema_version(), 1);
+            assert_eq!(py_artifact_ref_link_location_wire_schema_version(), 1);
+            let split =
+                py_artifact_ref_split_link_location(py, "src/app.py:12:5-40")
+                    .unwrap();
+            let split_value = py_to_json_value(split.bind(py)).unwrap();
+            assert_eq!(split_value["schema_version"], json!(1));
+            assert_eq!(split_value["base"], json!("src/app.py"));
+            assert_eq!(split_value["location"]["line"], json!(12));
+            assert_eq!(split_value["location"]["column"], json!(5));
+            assert_eq!(split_value["location"]["end_line"], json!(40));
             assert_eq!(py_artifact_ref_wire_schema_version(), 5);
             assert!(py_artifact_ref_parse(py, "commit:sase@BAD").is_err());
             assert_eq!(
@@ -24973,6 +25286,93 @@ MENTORS:
                 Some(matching.bind(py).downcast::<PyDict>().unwrap()),
             )
             .unwrap();
+        });
+    }
+
+    #[test]
+    fn gate_decision_bindings_round_trip_json_shapes() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+            sase_core_rs(py, &module).unwrap();
+            for name in [
+                "gate_decision_wire_schema_version",
+                "decide_gate_decision_acceptance",
+            ] {
+                assert!(module.getattr(name).is_ok(), "missing {name}");
+            }
+            assert_eq!(py_gate_decision_wire_schema_version(), 1);
+
+            let fresh_request = json_value_to_py(
+                py,
+                &json!({
+                    "schema_version": 1,
+                    "gate_id": "gate-abc",
+                    "request_hash": "sha256:deadbeef",
+                    "selected_option_ids": ["approve"],
+                    "input_identity": "sha256:input",
+                    "source": "cli",
+                    "accepted_at_unix": 1_726_000_000.0,
+                    "execution_owner": "attempt:1234",
+                }),
+            )
+            .unwrap();
+            let accepted = py_decide_gate_decision_acceptance(
+                py,
+                fresh_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let accepted = py_to_json_value(accepted.bind(py)).unwrap();
+            assert_eq!(accepted["status"], json!("accepted"));
+            let receipt = accepted["receipt"].clone();
+            assert_eq!(receipt["gate_id"], json!("gate-abc"));
+            assert!(!receipt["identity_fingerprint"]
+                .as_str()
+                .unwrap()
+                .is_empty());
+
+            let mut replay_value = json!({
+                "schema_version": 1,
+                "gate_id": "gate-abc",
+                "request_hash": "sha256:deadbeef",
+                "selected_option_ids": ["approve"],
+                "input_identity": "sha256:input",
+                "source": "ace",
+                "accepted_at_unix": 1_726_000_500.0,
+                "execution_owner": "attempt:5678",
+            });
+            replay_value["existing_receipt"] = receipt.clone();
+            let replay_request = json_value_to_py(py, &replay_value).unwrap();
+            let replayed = py_decide_gate_decision_acceptance(
+                py,
+                replay_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap();
+            let replayed = py_to_json_value(replayed.bind(py)).unwrap();
+            assert_eq!(replayed["status"], json!("replayed"));
+            assert_eq!(
+                replayed["receipt"], receipt,
+                "replay returns the original receipt unmodified"
+            );
+
+            let mut conflict_value = json!({
+                "schema_version": 1,
+                "gate_id": "gate-abc",
+                "request_hash": "sha256:deadbeef",
+                "selected_option_ids": ["reject"],
+                "input_identity": "sha256:input",
+                "source": "cli",
+                "accepted_at_unix": 1_726_000_600.0,
+            });
+            conflict_value["existing_receipt"] = receipt;
+            let conflict_request =
+                json_value_to_py(py, &conflict_value).unwrap();
+            let error = py_decide_gate_decision_acceptance(
+                py,
+                conflict_request.bind(py).downcast::<PyDict>().unwrap(),
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("gate_decision_conflict"));
         });
     }
 
@@ -28666,7 +29066,7 @@ MENTORS:
     fn directive_contract_and_completion_bindings_return_plain_json_shapes() {
         pyo3::prepare_freethreaded_python();
         Python::with_gil(|py| {
-            let contract = py_directive_contract(py).unwrap();
+            let contract = py_directive_contract(py, None).unwrap();
             let contract = py_to_json_value(contract.bind(py)).unwrap();
             let names: Vec<&str> = contract
                 .as_array()
@@ -28748,6 +29148,47 @@ MENTORS:
             .is_err());
             assert!(py_parse_queue_capacity("true", None).is_err());
             assert_eq!(py_runner_capacity_policy_schema_version(), 4);
+            let on_contract = py_directive_contract(
+                py,
+                Some(vec!["queue_capacity_budget".to_string()]),
+            )
+            .unwrap();
+            let on_contract = py_to_json_value(on_contract.bind(py)).unwrap();
+            let on_queue = on_contract
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|entry| entry["name"] == "queue")
+                .unwrap();
+            assert_eq!(on_queue["positional_role"], json!("positive_int"));
+            let suggestions = on_queue["positional_suggestions"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|value| value["value"].as_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(suggestions, ["1", "100"]);
+            assert!(!suggestions.contains(&"0"));
+            let capacity_kw = on_queue["keywords"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|keyword| keyword["name"] == "capacity")
+                .unwrap();
+            assert_eq!(capacity_kw["value_role"], json!("positive_int"));
+            let normalized = py_normalize_persisted_queue_capacity(
+                py,
+                Some(0),
+                true,
+                0.25,
+                8.0,
+                true,
+            )
+            .unwrap();
+            let normalized = py_to_json_value(normalized.bind(py)).unwrap();
+            assert_eq!(normalized["admission_limit"], json!(0.25));
+            assert_eq!(normalized["legacy_zero"], json!(true));
+            assert!(normalized.get("reauthor_capacity").is_none());
             let capacity_request = json_value_to_py(
                 py,
                 &json!({

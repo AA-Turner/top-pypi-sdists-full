@@ -199,7 +199,9 @@ async def test_surface_defaults_survive_desktop_discovery_and_dynamic_drain(
     monkeypatch.setattr(executor, "_execute_delegated", fake_delegated)
     dispatch_result = await executor._dispatch(
         registry.get("local_system"),
-        {},
+        # A VALID call (``action`` is required): delegated calls are checked
+        # against their declared schema before suspension since 2026-09-13.
+        {"action": "info"},
         ToolContext(call_id="dispatch-1", tool_name="local_system"),
         None,
         frozenset(app_ctx.client_tools),

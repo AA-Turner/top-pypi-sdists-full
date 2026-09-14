@@ -6,13 +6,17 @@ every keystroke does not pay for interpreter startup and dataset loading.
 
 Features:
     - live per-file diagnostics on open and change (file-scope rules, debounced);
-    - whole-project diagnostics on save (file and project rules over the source root);
+    - whole-project diagnostics on save (file and project rules over the source root, file
+      rules over the translation dictionary that serves the project); an open document the
+      pass does not read keeps the findings of its own per-file check until it is closed;
     - go-to-definition, completion and hover over the in-memory project index;
     - quick fix (code action) for findings that carry a mechanical fix.
 
 The source root defaults to the workspace folder; if the project lives deeper in the
 repository, pass `--project-root PATH` (absolute or relative to that folder) - the
-equivalent of the extension's `xbsl.projectRoot` setting. Other flags: `--select`,
+equivalent of the extension's `xbsl.projectRoot` setting. A root given this way also bounds
+the yaml the server judges: a yaml document outside it gets diagnostics only when it is a file
+of the project's translation dictionary (see `in_project_scope`). Other flags: `--select`,
 `--ignore`, `--enable` (comma-separated rule sets), `--data-dir` (Element data root),
 `--baseline` (baseline file - excluded findings are suppressed here too, as in the CLI).
 Flags, rather than initializationOptions, make it equally easy to launch the server from
@@ -45,6 +49,7 @@ from xbsl import (
 )
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.templates import Template, TemplateError
+from xbsl.translation import dictionary as translation_dictionary
 from xbsl.lsp_nav import (
     CHAIN_TAIL_RE,
     IndexLookup,
@@ -250,6 +255,10 @@ class _State:
         # the project findings of the opened file would vanish from the Problems panel until
         # the next save, which is exactly how it looked to the user.
         self.project_diags: dict[str, list[Diagnostic]] = {}
+        # The keys of the files the last whole-project pass read, None before the first pass. A
+        # document outside this set - a module opened outside the root - owes its findings to
+        # the per-file pass alone, so the whole-project pass must not answer for it.
+        self.pass_read: Optional[set[str]] = None
         self.file_timers: dict[str, threading.Timer] = {}
         self.project_timer: Optional[threading.Timer] = None
         self.project_lock = threading.Lock()
@@ -376,6 +385,56 @@ def project_sources(root: Path) -> list[Path]:
             + engine.find_resources(root))
 
 
+def _under(path: Path, folder: Path) -> bool:
+    """Whether `path` is `folder` itself or lies inside it, compared as resolved paths."""
+    resolved, base = path.resolve(), folder.resolve()
+    return resolved == base or base in resolved.parents
+
+
+def dictionary_sources(root: Path) -> list[Path]:
+    """The files of the translation dictionary that serves the project, if it lies outside the root.
+
+    The dictionary sits next to the project or above it - `dictionary.discover` walks up from the
+    root, the way `xbsl translate` finds it - so a root narrowed to the project leaves it out of
+    `project_sources`. A lint run over the repository reads it, and CI printed the findings of
+    `translation/english-shape` on its values while the editor never showed them. The
+    whole-project pass runs the file rules over these files: the findings are in the Problems
+    panel after the first pass, and a save refreshes them the way it refreshes the project's yaml.
+
+    The project rules do not get them. A project rule that needs the dictionary reads it from disk
+    (`conventions/missing-translation` does), and the rules that judge the project by the words of
+    its sources leave a dictionary out on their own - it names every method and element without
+    using any (`code/unused-method` among them) - so the pass would gain nothing from it.
+
+    A dictionary inside the root is already among the project sources and is not added twice;
+    there it reaches the project rules, as it does in the CLI.
+    """
+    found = translation_dictionary.discover(root)
+    if found is None or _under(found, root):
+        return []
+    if found.is_file():
+        return [found]
+    return engine.find_sources(found, "*.yaml")
+
+
+def in_project_scope(path: Path, root: Path) -> bool:
+    """Whether a file belongs to the project at `root`: under the root, or in its dictionary.
+
+    The per-file pass asks this of a yaml document when `--project-root` narrowed the root. The
+    extension hands the dictionary over by a glob, and a glob also matches the dictionary of
+    another project in the same checkout or a copy of the sources under the same relative path;
+    only the server knows which dictionary serves this root. A yaml document the project does not
+    own would get findings on open and lose them to the next whole-project pass, which publishes
+    an empty list over every document it has not read.
+    """
+    if _under(path, root):
+        return True
+    found = translation_dictionary.discover(root)
+    if found is None:
+        return False
+    return _under(path, found) if found.is_dir() else path.resolve() == found.resolve()
+
+
 def _make_server() -> "LanguageServer":
     server = LanguageServer("xbsl-lsp", f"v{__version__}")
 
@@ -392,6 +451,16 @@ def _make_server() -> "LanguageServer":
 
     def uri_key(uri: str) -> str:
         return _doc_key(uri_to_path(uri), uri)
+
+    def open_keys() -> set[str]:
+        """The keys of the documents open in the editor right now.
+
+        pygls keeps them in its workspace: it adds a document before the open handler runs and
+        drops it before the close handler does. The whole-project pass runs in a thread of its
+        own, so the map is copied before it is walked.
+        """
+        documents = getattr(server.workspace, "text_documents", None) or {}
+        return {uri_key(uri) for uri in list(documents)}
 
     def language_of(path: Path) -> str:
         if engine.is_query_file(path):
@@ -420,6 +489,12 @@ def _make_server() -> "LanguageServer":
         # Full path, not just the name: findings are matched against baseline entries
         # by it, and structure/xbsl-pair sees the module's real neighbor.
         src = engine.load_text(str(path), doc.source)
+        # A narrowed root is the project's boundary for yaml: outside it only the files of the
+        # dictionary that serves the project are judged (see in_project_scope). Modules are
+        # judged wherever they are opened, as before.
+        if (src.kind == "yaml" and STATE.project_root_arg and STATE.root is not None
+                and not in_project_scope(path, STATE.root)):
+            return
         diags = engine.run_sources([src], select=STATE.select, ignore=STATE.ignore,
                                    enable=STATE.enable, scopes=("file",))
         diags, problem = apply_baseline_file(diags, STATE.baseline)
@@ -474,9 +549,14 @@ def _make_server() -> "LanguageServer":
             return
         build_project_index()  # navigation comes alive before the lint of the whole project
         try:
-            files = project_sources(root)
-            sources = [engine.load(p) for p in files]
+            project_paths = project_sources(root)
+            sources = [engine.load(p) for p in project_paths]
             diags = engine.run_sources(sources, select=STATE.select, ignore=STATE.ignore, enable=STATE.enable)
+            # The dictionary gets the file rules alone (see dictionary_sources).
+            dictionary_paths = dictionary_sources(root)
+            dictionary = [engine.load(p) for p in dictionary_paths]
+            diags += engine.run_sources(dictionary, select=STATE.select, ignore=STATE.ignore,
+                                        enable=STATE.enable, scopes=("file",))
             diags, problem = apply_baseline_file(diags, STATE.baseline)
             if problem:
                 server.show_message_log(f"xbsl-lsp: список принятых не применён: {problem}")
@@ -503,15 +583,29 @@ def _make_server() -> "LanguageServer":
                 if d.rule_id in project_ids:
                     project_diags.setdefault(key, []).append(d)
             STATE.project_diags = project_diags
+            # What this pass can answer for: the files it read, and whatever it found. An open
+            # document beyond that - a module opened outside the root, a file of another
+            # checkout - got its findings from the per-file pass, and an empty list published
+            # from here would wipe them on every save. The key is taken straight from the path:
+            # it equals the one a round trip through the uri gives, at a thirtieth of the cost.
+            read = {_doc_key(p, "") for p in project_paths + dictionary_paths}
+            STATE.pass_read = read
+            answered = read | set(by_key)
+            still_open = open_keys()
             open_dirty = set(STATE.dirty)
+
+            def stands(key: str) -> bool:
+                """Whether the live per-file picture of a document outlasts this pass."""
+                return key in open_dirty or (key not in answered and key in still_open)
+
             for key in set(STATE.published) | set(by_key):
-                if key in open_dirty:
-                    continue  # a dirty buffer keeps its live per-file picture
+                if stands(key):
+                    continue
                 # An open document is answered at the uri the editor itself used.
                 server.publish_diagnostics(
                     STATE.published.get(key) or uri_of[key], by_key.get(key, []),
                 )
-            kept = {k: u for k, u in STATE.published.items() if k in open_dirty}
+            kept = {k: u for k, u in STATE.published.items() if stands(k)}
             STATE.published = {k: STATE.published.get(k) or uri_of[k] for k in by_key} | kept
         finally:
             STATE.project_lock.release()
@@ -587,7 +681,21 @@ def _make_server() -> "LanguageServer":
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CLOSE)
     def _did_close(params: lsp.DidCloseTextDocumentParams) -> None:
-        STATE.dirty.discard(uri_key(params.text_document.uri))
+        uri = params.text_document.uri
+        key = uri_key(uri)
+        STATE.dirty.discard(key)
+        # A check still waiting out the typing pause would read the file from disk and publish
+        # findings for a document nobody has open.
+        timer = STATE.file_timers.pop(uri, None)
+        if timer:
+            timer.cancel()
+        # The findings of a document the whole-project pass does not read came from the per-file
+        # pass alone, and nothing refreshes them once the document is closed. Before the first
+        # pass the server cannot tell which documents those are; that pass clears them, because
+        # the document is no longer open.
+        read = STATE.pass_read
+        if read is not None and key not in read and key in STATE.published:
+            server.publish_diagnostics(STATE.published.pop(key), [])
 
     @server.feature("xbsl/relint")
     def _relint(params: object = None) -> dict:
@@ -1319,11 +1427,20 @@ def _make_server() -> "LanguageServer":
         # empty frame. The pairs come from the platform dictionary, never from a guess.
         from xbsl import formmodel, uischema
 
-        # Three maps: the structure keys, the component types and the component PROPERTIES -
-        # a frame reads `Значение`, `Заголовок`, `Компоновка` as much as `Содержимое`.
-        aliases = dict(uischema.property_aliases())
+        # The keys: the members of an inline value object (`Size` of a font), the component
+        # PROPERTIES - a frame reads `Value`, `Title`, `Layout` as much as `Content` - and the
+        # structure keys, each later table winning over the one before.
+        aliases = dict(uischema.literal_member_aliases())
+        aliases.update(uischema.property_aliases())
         aliases.update(formmodel.key_aliases())  # the structure keys win: they are exact
-        return {"aliases": aliases, "types": uischema.component_aliases()}
+        # The types go beyond the palette (a button's `UsualCommand`), and the values of the
+        # enumerated properties travel in a field of their own, keyed by the property: the same
+        # English word is a different value in different enumerations.
+        return {
+            "aliases": aliases,
+            "types": uischema.type_aliases(),
+            "values": uischema.value_aliases(),
+        }
 
     @server.feature("xbsl/metaKeys")
     def _meta_keys(params: object = None) -> dict:
@@ -1582,6 +1699,124 @@ def _make_server() -> "LanguageServer":
             auto_interface=bool(_param(params, "autoInterface", True)),
             uses=[str(u) for u in uses] if uses else None,
         )
+
+    # The operations below walk every source under the root - the placement of every object,
+    # the references across the project - so they run on a worker thread: a move judged over a
+    # large project must not hold the diagnostics of an open buffer back.
+
+    def _sources_reader(path: Path) -> str:
+        try:
+            return _buffer_reader(path)
+        except RuntimeError:
+            # No workspace yet (a request racing the handshake, a handler driven in tests).
+            return engine.load(path).text
+
+    @server.feature("xbsl/metaProjectInfo")
+    @server.thread()
+    def _meta_project_info(params: object) -> dict:
+        """The scaffold.project_info answer - the placement of every object (subsystem, package,
+        namespace) and the list of packages. Read only: the metadata tree of the editor draws
+        its package nodes from it instead of guessing the placement from the folders."""
+        try:
+            return scaffold.project_info(
+                _meta_root(params),
+                kind=_opt_str(params, "kind"),
+                subsystem=_opt_str(params, "subsystem"),
+                brief=bool(_param(params, "brief", False)),
+                package=_opt_str(params, "package"),
+                project=_opt_str(params, "project"),
+                reference=bool(_param(params, "reference", False)),
+            )
+        except (scaffold.ScaffoldError, OSError) as exc:
+            return {"error": str(exc)}
+
+    @server.feature("xbsl/metaMoveObject")
+    @server.thread()
+    def _meta_move_object(params: object) -> dict:
+        return _meta_op(
+            scaffold.op_move_object,
+            _meta_root(params),
+            Path(str(_param(params, "path"))),
+            Path(str(_param(params, "targetDir"))),
+            reader=_sources_reader,
+        )
+
+    @server.feature("xbsl/metaDeleteObject")
+    @server.thread()
+    def _meta_delete_object(params: object) -> dict:
+        """The plan of deleting an object whole: `deletes`, and the mentions left in `notes`.
+
+        Flat params {path} - the object's yaml - or {name}. The files are the ones delete-object
+        removes (scaffold.object_family): the forms, the query of a virtual table and the WSDL
+        descriptions of a SOAP service client go with the yaml and the modules. The editor
+        deletes the planned files itself, in one WorkspaceEdit that an undo brings back.
+        """
+        path = _opt_str(params, "path")
+        return _meta_op(
+            scaffold.op_delete_object,
+            _meta_root(params),
+            _opt_str(params, "name"),
+            yaml_path=Path(path) if path else None,
+            reader=_sources_reader,
+        )
+
+    @server.feature("xbsl/metaRenamePackage")
+    @server.thread()
+    def _meta_rename_package(params: object) -> dict:
+        return _meta_op(
+            scaffold.op_rename_package,
+            _meta_root(params),
+            Path(str(_param(params, "packageDir"))),
+            str(_param(params, "newName")),
+            reader=_sources_reader,
+        )
+
+    # The folders of resources: the metadata tree moves a file between them, renames and deletes
+    # one. Compute only, like the rest of the family - a deletion comes back as a plan the editor
+    # shows before applying it.
+    @server.feature("xbsl/metaMoveResource")
+    @server.thread()
+    def _meta_move_resource(params: object) -> dict:
+        return _meta_op(
+            scaffold.op_move_resource,
+            _meta_root(params),
+            Path(str(_param(params, "path"))),
+            Path(str(_param(params, "targetDir"))),
+            reader=_sources_reader,
+        )
+
+    @server.feature("xbsl/metaRenameResourceFolder")
+    @server.thread()
+    def _meta_rename_resource_folder(params: object) -> dict:
+        return _meta_op(
+            scaffold.op_rename_resource_folder,
+            _meta_root(params),
+            Path(str(_param(params, "folderDir"))),
+            str(_param(params, "newName")),
+            reader=_sources_reader,
+        )
+
+    @server.feature("xbsl/metaDeleteResourceFolder")
+    @server.thread()
+    def _meta_delete_resource_folder(params: object) -> dict:
+        return _meta_op(
+            scaffold.op_delete_resource_folder,
+            _meta_root(params),
+            Path(str(_param(params, "folderDir"))),
+            reader=_sources_reader,
+        )
+
+    @server.feature("xbsl/metaResourceReferences")
+    @server.thread()
+    def _meta_resource_references(params: object) -> dict:
+        """Every place that names a resource file or a folder (scaffold.resource_references).
+        Read only: the metadata tree shows the answer in the references view."""
+        try:
+            return scaffold.resource_references(
+                _meta_root(params), Path(str(_param(params, "path"))), reader=_sources_reader,
+            )
+        except (scaffold.ScaffoldError, OSError) as exc:
+            return {"error": str(exc)}
 
     # --- form designer (the structure view is a thin client of these methods) ------------
     #

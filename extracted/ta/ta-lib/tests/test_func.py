@@ -3,15 +3,22 @@ from numpy.testing import assert_array_equal, assert_array_almost_equal
 import pytest
 
 import talib
-from talib import func
+from talib import abstract, func
 
 
 def test_talib_version():
-    assert talib.__ta_version__[:5] == b'0.7.1'
+    assert talib.__ta_version__[:5] == b'0.8.1'
 
 
 def test_num_functions():
-    assert len(talib.get_functions()) == 161
+    assert len(talib.get_functions()) == 201
+    assert len(talib.__TA_FUNCTION_NAMES__) == 201
+
+
+def test_every_grouped_function_is_bound():
+    # get_functions() reads the hand-written group dict; __TA_FUNCTION_NAMES__
+    # comes from the C header. A count on one side cannot see a hole in the other.
+    assert set(talib.get_functions()) == set(talib.__TA_FUNCTION_NAMES__)
 
 
 def test_input_wrong_type():
@@ -63,15 +70,106 @@ def test_unstable_period():
     talib.set_unstable_period('EMA', 0)
 
 
-def test_compatibility():
-    a = np.arange(10, dtype=float)
-    talib.set_compatibility(0)
-    r = func.EMA(a, 3)
-    assert_array_equal(r, [np.nan, np.nan, 1, 2, 3, 4, 5, 6, 7, 8])
-    talib.set_compatibility(1)
-    r = func.EMA(a, 3)
-    assert_array_equal(r, [np.nan, np.nan,1.25,2.125,3.0625,4.03125,5.015625,6.0078125,7.00390625,8.001953125])
-    talib.set_compatibility(0)
+# One entry per real unstable-period id in TA-Lib C.  Each id is named after
+# the function it controls, so every case simply calls that same function.
+def _unstable_period_cases():
+    n = 400
+    rs = np.random.RandomState(1)
+    close = np.cumsum(rs.randn(n)) + 100.0
+    high = close + rs.rand(n) + 0.5
+    low = close - rs.rand(n) - 0.5
+    open_ = close + rs.rand(n) - 0.5
+    return {
+        'ADX': lambda: func.ADX(high, low, close),
+        'ATR': lambda: func.ATR(high, low, close),
+        'CMO': lambda: func.CMO(close),
+        'DX': lambda: func.DX(high, low, close),
+        'EMA': lambda: func.EMA(close),
+        'HT_DCPERIOD': lambda: func.HT_DCPERIOD(close),
+        'HT_DCPHASE': lambda: func.HT_DCPHASE(close),
+        'HT_PHASOR': lambda: func.HT_PHASOR(close)[0],
+        'HT_SINE': lambda: func.HT_SINE(close)[0],
+        'HT_TRENDLINE': lambda: func.HT_TRENDLINE(close),
+        'HT_TRENDMODE': lambda: func.HT_TRENDMODE(close),
+        'KAMA': lambda: func.KAMA(close),
+        'MAMA': lambda: func.MAMA(close)[0],
+        'MINUS_DI': lambda: func.MINUS_DI(high, low, close),
+        'MINUS_DM': lambda: func.MINUS_DM(high, low),
+        'NATR': lambda: func.NATR(high, low, close),
+        'PLUS_DI': lambda: func.PLUS_DI(high, low, close),
+        'PLUS_DM': lambda: func.PLUS_DM(high, low),
+        'RSI': lambda: func.RSI(close),
+        'T3': lambda: func.T3(close),
+        'RMA': lambda: func.RMA(close),
+        'HA': lambda: func.HA(open_, high, low, close)[0],
+        'RVI': lambda: func.RVI(close),
+    }
+
+
+UNSTABLE_PERIOD_CASES = _unstable_period_cases()
+
+
+def _leading_unset(result):
+    # TA-Lib writes nothing before its lookback: real outputs stay NaN there,
+    # the one integer output (HT_TRENDMODE) stays 0.
+    valid = ~np.isnan(result) if result.dtype.kind == 'f' else result != 0
+    assert valid.any(), 'no valid output to measure'
+    return int(np.argmax(valid))
+
+
+# NOTE: this has to be a behavioural test.  set_unstable_period() and
+# get_unstable_period() look the id up in the same table, so a wrong id
+# round-trips perfectly -- which is how ta-lib-python shipped a table that
+# pointed 'RSI' at PLUS_DM for two years (issue #752).  Only checking that the
+# setting moves THAT function's own output can catch it.  Please do not
+# "simplify" this into a get/set assertion.
+@pytest.mark.parametrize('name', sorted(UNSTABLE_PERIOD_CASES))
+def test_unstable_period_moves_its_own_function(name):
+    call = UNSTABLE_PERIOD_CASES[name]
+    talib.set_unstable_period(name, 0)
+    unshifted = call()
+    baseline = _leading_unset(unshifted)
+    assert baseline > 0 or name == 'HA'  # HA is the one case with no lookback
+    try:
+        talib.set_unstable_period(name, 5)
+        shifted = call()
+        assert _leading_unset(shifted) == baseline + 5
+        # an unstable period only discards warm-up bars, so whatever both runs
+        # do emit has to be identical -- this pins the shift to a pure delay
+        assert_array_equal(shifted[baseline + 5:], unshifted[baseline + 5:])
+    finally:
+        talib.set_unstable_period(name, 0)
+    assert _leading_unset(call()) == baseline
+
+
+def test_unstable_period_all():
+    talib.set_unstable_period('ALL', 0)
+    baseline = {name: _leading_unset(call())
+                for name, call in UNSTABLE_PERIOD_CASES.items()}
+    try:
+        talib.set_unstable_period('ALL', 3)
+        for name, call in UNSTABLE_PERIOD_CASES.items():
+            assert _leading_unset(call()) == baseline[name] + 3, name
+    finally:
+        talib.set_unstable_period('ALL', 0)
+    for name, call in UNSTABLE_PERIOD_CASES.items():
+        assert _leading_unset(call()) == baseline[name], name
+
+
+# These three are accepted for backwards compatibility only: TA-Lib C retired
+# their unstable-period slots.  They must stay no-ops -- aliasing them to the
+# inner ADX/RSI would give them side effects on every other function.
+@pytest.mark.parametrize('name', ['ADXR', 'MFI', 'STOCHRSI'])
+def test_unstable_period_retired_is_a_warning_and_a_noop(name):
+    talib.set_unstable_period('ALL', 0)
+    before = {n: _leading_unset(call())
+              for n, call in UNSTABLE_PERIOD_CASES.items()}
+    with pytest.deprecated_call():
+        talib.set_unstable_period(name, 5)
+    with pytest.deprecated_call():
+        assert talib.get_unstable_period(name) == 0
+    for n, call in UNSTABLE_PERIOD_CASES.items():
+        assert _leading_unset(call()) == before[n], n
 
 
 def test_MIN(series):
@@ -195,3 +293,54 @@ def test_MAXINDEX():
     d = np.array([1., 2, 3])
     e = func.MAXINDEX(d, 10)
     assert_array_equal(e, [0,0,0])
+
+
+# The func API bakes each parameter's default into its own signature, while the
+# abstract API reads them from the library. They have to agree, for all 201.
+def test_func_and_abstract_agree():
+    n = 200
+    rs = np.random.RandomState(4)
+    close = np.cumsum(rs.randn(n)) + 100.0
+    inputs = {
+        'open': close + rs.rand(n) - 0.5,
+        'high': close + rs.rand(n) + 0.5,
+        'low': close - rs.rand(n) - 0.5,
+        'close': close,
+        'volume': rs.rand(n) * 1e6 + 1e5,
+        'real': close,
+        'real0': close,
+        'real1': close + rs.rand(n),
+        'periods': np.full(n, 10.0),
+    }
+    for name in talib.__TA_FUNCTION_NAMES__:
+        function = abstract.Function(name)
+        args = []
+        for series in function.input_names.values():
+            args += [inputs[s] for s in series] if isinstance(series, list) else [inputs[series]]
+        got = getattr(func, name)(*args)
+        want = function(inputs)
+        got = list(got) if isinstance(got, tuple) else [got]
+        want = want if isinstance(want, list) else [want]
+        assert len(got) == len(want), name
+        for a, b in zip(got, want):
+            assert len(a) == n, name
+            assert_array_equal(a, b, err_msg=name)
+
+
+# The moving averages TA-Lib C 0.8.1 added to TA_MAType.
+@pytest.mark.parametrize('matype,name', [
+    (talib.MA_Type.HMA, 'HMA'),
+    (talib.MA_Type.ZLEMA, 'ZLEMA'),
+    (talib.MA_Type.RMA, 'RMA'),
+])
+def test_MA_dispatches_to_the_new_types(matype, name):
+    a = np.cumsum(np.random.RandomState(3).randn(200)) + 100.0
+    assert_array_equal(func.MA(a, 20, matype), getattr(func, name)(a, 20))
+
+
+def test_MA_DISABLED_and_DEFAULT():
+    a = np.cumsum(np.random.RandomState(3).randn(200)) + 100.0
+    assert_array_equal(func.MA(a, 20, talib.MA_Type.DISABLED), a)
+    # MA's own default is SMA, so it cannot tell DEFAULT from SMA. APO's is EMA.
+    assert_array_equal(func.APO(a, matype=talib.MA_Type.DEFAULT),
+                       func.APO(a, matype=talib.MA_Type.EMA))

@@ -58,6 +58,13 @@ _FAILURE_STATUSES: frozenset[str] = frozenset(
     {"failed", "paused_loop_guard", "max_iterations_exceeded"}
 )
 
+#: The two of those that mean "a tool loop stalled" — a pause designed for a
+#: person to read and answer. Inside an unattended workflow step there is no
+#: person, so it is a failure, and it owes the tool's name and error (W66).
+_LOOP_STALL_STATUSES: frozenset[str] = frozenset(
+    {"paused_loop_guard", "max_iterations_exceeded"}
+)
+
 
 class AiMessage(BaseModel):
     """Single message in the conversation as seen by the workflow.
@@ -108,6 +115,44 @@ class AiModelUsage(BaseModel):
     api: str = ""
 
 
+class AiModelReroute(BaseModel):
+    """ONE model substitution that happened inside this step, and WHY.
+
+    🚨 THE SUBSTITUTION IS PART OF THE ANSWER'S PROVENANCE. A step names its
+    model, and when the provider refuses the call (429/529/503, or a
+    ``billing_error`` — "your credit balance is too low") the executor reroutes:
+    first to a sibling ``ai.offering`` of the SAME model, then to the model
+    row's ``retry_fallback_id`` — a DIFFERENT model, usually a different
+    vendor. That reroute is announced on the stream (``info`` code
+    ``provider_overload_reroute`` / ``provider_credit_reroute``) and recorded in
+    the request metadata — but until 2026-09-12 NONE of it reached the step's
+    stored output. Live runs 843d5847…, 94d48d9c… and 339bb4bf… each authored
+    ``claude-sonnet-5``, each ran entirely on ``gpt-4.1-2025-04-14`` because the
+    Anthropic account was out of credit, and the only trace in the workflow was
+    a usage block naming a model nobody chose. A reader of the run could not
+    tell a deliberate choice from a silent downgrade. This is that record: it
+    rides the usage block (:attr:`AiUsage.reroutes`), so the same place that
+    says WHICH model ran also says which model was ASKED FOR and why it did not.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The executor's own discriminator (``RerouteNote.kind``), carried so a
+    #: note dumped by the orchestrator validates here verbatim.
+    kind: str = "overload_reroute"
+    #: "model" = a different model answered; "offering" = the SAME model,
+    #: re-dialed through another endpoint/api route.
+    scope: str = "model"
+    from_model: str = ""
+    to_model: str = ""
+    from_offering_id: str | None = None
+    to_offering_id: str | None = None
+    error_type: str = ""
+    status_code: int | None = None
+    attempts_on_model: int = 0
+    reason: str = ""
+
+
 class AiUsage(BaseModel):
     """Aggregated token / cost usage for the run.
 
@@ -127,6 +172,14 @@ class AiUsage(BaseModel):
     cost_usd: float = Field(default=0.0, description="Total estimated provider cost in US dollars.")
     models: dict[str, AiModelUsage] = Field(
         default_factory=dict, description="Per-model usage breakdown keyed by canonical model name."
+    )
+    reroutes: list[AiModelReroute] = Field(
+        default_factory=list,
+        description=(
+            "Model substitutions that happened during the run, in order — empty on "
+            "the normal path. A non-empty list means the model the step NAMED did "
+            "not (fully) run: see AiModelReroute."
+        ),
     )
 
 
@@ -245,18 +298,28 @@ def normalize_completed_result(
         normalized = normalize_completed(completed)
     except AiTurnFailedError as e:
         meta = dict(getattr(completed, "metadata", {}) or {})
-        usage = _extract_usage(getattr(completed, "total_usage", None))
+        usage = _with_reroutes(
+            _extract_usage(getattr(completed, "total_usage", None)), completed
+        )
         request = getattr(completed, "request", None)
+        details: dict[str, Any] = {
+            "status": str(meta.get("status") or ""),
+            "error_type": str(meta.get("error_type") or ""),
+            "usage": usage.model_dump(mode="json"),
+            "conversation_id": getattr(request, "conversation_id", "") or "",
+            "request_id": getattr(request, "request_id", "") or "",
+        }
+        # The structured facts ride along, not only the sentence: the run box
+        # and a person debugging the step get the tool, the counts and the
+        # bounded error without re-reading the stored request.
+        for key in ("loop_guard_evidence", "loop_health", "unattended_step"):
+            value = meta.get(key)
+            if value is not None:
+                details[key] = value
         return failure(
             "ai_turn_failed",
             str(e),
-            details={
-                "status": str(meta.get("status") or ""),
-                "error_type": str(meta.get("error_type") or ""),
-                "usage": usage.model_dump(mode="json"),
-                "conversation_id": getattr(request, "conversation_id", "") or "",
-                "request_id": getattr(request, "request_id", "") or "",
-            },
+            details=details,
         )
     if _requires_structured_output(completed):
         from matrx_ai.config.finish_reason import completion_truncation
@@ -392,6 +455,54 @@ def _requires_structured_output(completed: CompletedRequest) -> bool:
     return isinstance(response_format, dict) and response_format.get("type") == "json_schema"
 
 
+def _turn_failure_detail(meta: dict[str, Any], status: str) -> str:
+    """The reason a failed turn gives the node — never a shrug.
+
+    The orchestrator stamps ``error`` on every terminal exit, and for a stalled
+    tool loop that sentence already names the tool, the count, the last error
+    and the remedy (``loop_guard.loop_guard_sentence``). This rebuilds it from
+    the structured ``loop_guard_evidence`` when the sentence is missing — an
+    older stored request, a host that only kept the facts — and when there is
+    genuinely nothing, SAYS there is nothing and what that itself means.
+
+    Live 2026-09-12, workflow run ``6fa6ad90`` node ``n_check``: the node
+    failure read ``'paused_loop_guard': no error detail recorded`` while the
+    metadata's own loop-guard evidence held ``rulebook`` × 11 failures.
+    """
+    recorded = str(meta.get("error") or "").strip()
+    if recorded:
+        return recorded
+
+    evidence = meta.get("loop_guard_evidence")
+    if isinstance(evidence, dict):
+        from matrx_ai.orchestrator.loop_guard import loop_guard_sentence
+
+        sentence = loop_guard_sentence(
+            evidence, unattended=bool(meta.get("unattended_step"))
+        )
+        if sentence:
+            return sentence
+
+    health = meta.get("loop_health")
+    reason = str(health.get("reason") or "") if isinstance(health, dict) else ""
+    if status in _LOOP_STALL_STATUSES:
+        if reason:
+            return (
+                f"the loop stopped on “{reason}”, and no per-call tool error was "
+                f"recorded — so nothing here names what broke. A tool that fails "
+                f"without reporting why is the defect to fix."
+            )
+        return (
+            "the loop stopped without recording which tool failed or what it said — "
+            "the orchestrator stamped no error and no loop-guard evidence on this "
+            "turn, so there is nothing to name. That absence is itself the defect."
+        )
+    return (
+        "no error detail recorded — the turn's metadata carried no error text, so the "
+        "provider or the layer that failed reported nothing."
+    )
+
+
 def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     """Convert a matrx-ai ``CompletedRequest`` into the canonical result shape.
 
@@ -407,7 +518,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     meta = dict(getattr(completed, "metadata", {}) or {})
     status = str(meta.get("status") or "")
     if status in _FAILURE_STATUSES:
-        error_message = str(meta.get("error") or "no error detail recorded")
+        error_message = _turn_failure_detail(meta, status)
         error_type = str(meta.get("error_type") or status)
         raise AiTurnFailedError(
             f"AI turn ended with status '{status}' ({error_type}): {error_message}"
@@ -436,7 +547,7 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     if not final_message and messages:
         final_message = messages[-1]
 
-    usage = _extract_usage(getattr(completed, "total_usage", None))
+    usage = _with_reroutes(_extract_usage(getattr(completed, "total_usage", None)), completed)
 
     timing = getattr(completed, "timing_stats", {}) or {}
     # ``TimingUsage.aggregate`` reports SECONDS under ``total_duration``; it has
@@ -775,6 +886,46 @@ def _sanitize_content_dict(block: dict[str, Any]) -> dict[str, Any]:
         else:
             out[key] = value
     return out
+
+
+def _with_reroutes(usage: AiUsage, completed: Any) -> AiUsage:
+    """Fold this turn's model substitutions into the usage block.
+
+    The executor appends one note per hop to ``request.metadata["overload_reroutes"]``
+    (``matrx_ai.orchestrator.overload_reroute.RerouteNote``). ``CompletedRequest.metadata``
+    is the RESPONSE's metadata and never carried them, so the step's stored
+    output named only the model that ran — see :class:`AiModelReroute`.
+    Defensive by design: a malformed note is skipped, never raised, because a
+    provenance record must not be able to fail a run that already succeeded.
+    """
+    request = getattr(completed, "request", None)
+    raw = getattr(request, "metadata", None)
+    notes = raw.get("overload_reroutes") if isinstance(raw, dict) else None
+    if not isinstance(notes, list) or not notes:
+        return usage
+    collected: list[AiModelReroute] = []
+    for note in notes:
+        if not isinstance(note, dict):
+            continue
+        try:
+            collected.append(
+                AiModelReroute(
+                    scope=str(note.get("scope") or "model"),
+                    from_model=str(note.get("from_model") or ""),
+                    to_model=str(note.get("to_model") or ""),
+                    from_offering_id=note.get("from_offering_id"),
+                    to_offering_id=note.get("to_offering_id"),
+                    error_type=str(note.get("error_type") or ""),
+                    status_code=note.get("status_code"),
+                    attempts_on_model=int(note.get("attempts_on_model") or 0),
+                    reason=str(note.get("reason") or ""),
+                )
+            )
+        except Exception:  # noqa: BLE001 — provenance never fails a finished run
+            continue
+    if not collected:
+        return usage
+    return usage.model_copy(update={"reroutes": collected})
 
 
 def _extract_usage(raw: Any) -> AiUsage:

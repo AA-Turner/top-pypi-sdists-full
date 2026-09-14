@@ -1,5 +1,5 @@
-from ..imports import *
-from .import_functions import *
+# NOTE: original wildcard imports removed (dead/broken standalone module, not
+# part of the package import graph; the referenced target modules do not exist).
 
 def ensure_import_pkg_js(import_pkg_js=None, file_path=None):
     import_pkg_js = import_pkg_js or {"context": {}}

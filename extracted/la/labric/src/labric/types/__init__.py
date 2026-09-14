@@ -34,6 +34,7 @@ if typing.TYPE_CHECKING:
     from .sent_notification_schema_status import SentNotificationSchemaStatus
     from .start_job_execution_schema import StartJobExecutionSchema
     from .table_summary import TableSummary
+    from .tools_job_schema import ToolsJobSchema
     from .tools_ml_model_detail_schema import ToolsMlModelDetailSchema
     from .validation_error_schema import ValidationErrorSchema
     from .write_plan import WritePlan
@@ -66,6 +67,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SentNotificationSchemaStatus": ".sent_notification_schema_status",
     "StartJobExecutionSchema": ".start_job_execution_schema",
     "TableSummary": ".table_summary",
+    "ToolsJobSchema": ".tools_job_schema",
     "ToolsMlModelDetailSchema": ".tools_ml_model_detail_schema",
     "ValidationErrorSchema": ".validation_error_schema",
     "WritePlan": ".write_plan",
@@ -122,6 +124,7 @@ __all__ = [
     "SentNotificationSchemaStatus",
     "StartJobExecutionSchema",
     "TableSummary",
+    "ToolsJobSchema",
     "ToolsMlModelDetailSchema",
     "ValidationErrorSchema",
     "WritePlan",

@@ -146,6 +146,25 @@ class TestSquashAction:
         assert result.decision == ActionDecision.SKIP
         assert "active" in result.details.lower()
 
+    def test_skip_when_session_inventory_unavailable(self) -> None:
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            commit_count=3,
+            ci_status="passing",
+            review_state="APPROVED",
+            base_repo_full_name="owner/repo",
+        )
+        derived = DerivedState(snapshot)
+        action = SquashAction()
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.squash.is_copilot_session_active_via_agent_task",
+            return_value=None,
+        ) as mock_detector:
+            result = action.evaluate(snapshot, derived)
+            mock_detector.assert_called_once_with("owner/repo", 1)
+        assert result.decision == ActionDecision.SKIP
+        assert "unavailable" in result.details.lower()
+
     def test_skip_when_repair_dispatched(self) -> None:
         snapshot = PRStateSnapshot(pr_number=1, commit_count=3, ci_status="passing", review_state="APPROVED")
         derived = DerivedState(snapshot)

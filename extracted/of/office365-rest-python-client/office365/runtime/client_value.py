@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime
-from enum import Enum
-from typing import Any, Dict, Iterator, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from typing_extensions import Self
 
+from office365.runtime.converters.value import _add_type_metadata, declared_type, deserialize_value, serialize_value
 from office365.runtime.odata.json_format import ODataJsonFormat
-from office365.runtime.odata.v3.json_light_format import JsonLightFormat
-from office365.runtime.utilities import parse_datetime, parse_enum
 
 
 class ClientValue:
@@ -16,6 +14,8 @@ class ClientValue:
     Complex types consist of a list of properties with no key, and can therefore only exist as properties of a
     containing entity or as a temporary value
     """
+
+    _is_client_value: bool = True
 
     def __str__(self) -> str:
         return type(self).__name__
@@ -25,24 +25,10 @@ class ClientValue:
 
     def set_property(self, k: str | int, v: Any, persist_changes: bool = True) -> Self:
         k = str(k)
-        prop_val = getattr(self, k, None)
-        if isinstance(prop_val, ClientValue) and v is not None:
-            if isinstance(v, list):
-                for i, p_v in enumerate(v):
-                    prop_val.set_property(i, p_v, persist_changes)
-            else:
-                for key, p_v in v.items():
-                    prop_val.set_property(key, p_v, persist_changes)
-            setattr(self, k, prop_val)
-        elif isinstance(prop_val, Enum):
-            if v is None:
-                setattr(self, k, prop_val)
-            else:
-                setattr(self, k, parse_enum(type(prop_val), v))
-        elif isinstance(prop_val, datetime):
-            setattr(self, k, parse_datetime(v))
-        else:
-            setattr(self, k, v)
+        if v is None:
+            setattr(self, k, None)
+            return self
+        setattr(self, k, deserialize_value(declared_type(type(self), k), v, getattr(self, k, None), persist_changes))
         return self
 
     def get_property(self, name: str) -> Any:
@@ -63,14 +49,15 @@ class ClientValue:
         for n, v in vars(self).items():
             yield n, v
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any]:
+    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any] | List[Any]:
         """Serializes the ClientValue to JSON format.
 
         Args:
             json_format: Optional OData JSON formatting options
 
         Returns:
-            Dictionary representing the JSON-serialized object
+            Dictionary (or list, for collection values) representing the
+            JSON-serialized object
         """
 
         def _is_valid_value(val):
@@ -87,21 +74,8 @@ class ClientValue:
                     return False
             return True
 
-        result = {k: v for k, v in self if _is_valid_value(v)}
-        for n, v in result.items():
-            if isinstance(v, ClientValue):
-                result[n] = v.to_json(json_format)
-            elif isinstance(v, Enum):
-                result[n] = v.value
-            elif isinstance(v, bytes):
-                result[n] = v.decode("utf-8")
-            elif isinstance(v, (datetime, date)):
-                result[n] = v.isoformat()
-        if json_format is not None and json_format.include_control_information and self.entity_type_name is not None:
-            if isinstance(json_format, JsonLightFormat):
-                result[json_format.metadata_type] = {"type": self.entity_type_name}
-            elif isinstance(json_format, ODataJsonFormat):
-                result[json_format.metadata_type] = "#" + self.entity_type_name
+        result = {k: serialize_value(v, json_format) for k, v in self if _is_valid_value(v)}
+        _add_type_metadata(result, json_format, self.entity_type_name)
         return result
 
     @property

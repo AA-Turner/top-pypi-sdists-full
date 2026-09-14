@@ -1,14 +1,19 @@
+from typing import ClassVar
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from solo.models import SingletonModel
 
-from allianceauth.admin_status.managers import ApplicationAnnouncementManager
+from allianceauth.admin_status.managers import ApplicationAnnouncementManager, \
+    SoftwareVersionManager
 
 
 class ApplicationAnnouncement(models.Model):
     """
     Announcement originating from an application
     """
-    object = ApplicationAnnouncementManager()
+
+    objects: ClassVar[ApplicationAnnouncementManager] = ApplicationAnnouncementManager()
 
     application_name = models.CharField(max_length=50, help_text=_("Name of the application that issued the announcement"))
     announcement_number = models.IntegerField(help_text=_("Issue number on the notification source"))
@@ -43,3 +48,14 @@ class ApplicationAnnouncement(models.Model):
     def is_hidden(self) -> bool:
         """Function in case rules are made in the future to force hide/force show some announcements"""
         return self.hide_announcement
+
+
+class SoftwareVersion(SingletonModel):
+    """
+    Model to store the current version of the software.
+    """
+
+    latest_stable_version = models.CharField(max_length=20, help_text=_("Latest stable version of Alliance Auth"))
+    latest_development_version = models.CharField(max_length=20, help_text=_("Latest development version of Alliance Auth"))
+
+    objects: ClassVar[SoftwareVersionManager] = SoftwareVersionManager()

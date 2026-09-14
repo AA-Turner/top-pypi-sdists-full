@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from typing import Callable, List, Optional, Union
 
 from requests import Response
@@ -12,12 +13,13 @@ from office365.runtime.auth.token_response import TokenResponse
 from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.http.url import get_absolute_url
+from office365.runtime.odata.json_format import ODataJsonFormat
 from office365.runtime.odata.request import ODataRequest
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.delete_entity import DeleteEntityQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
-from office365.runtime.utilities import get_absolute_url
 from office365.sharepoint.webs.context_web_information import ContextWebInformation
 
 
@@ -38,6 +40,8 @@ class SharePointRequest(ODataRequest):
         environment: AzureEnvironment = AzureEnvironment.Global,
         allow_ntlm: bool = False,
         browser_mode: bool = False,
+        authority: Optional[str] = None,
+        json_format: Optional[ODataJsonFormat] = None,
     ):
         """
         Initialize SharePoint request client
@@ -47,21 +51,44 @@ class SharePointRequest(ODataRequest):
             environment: Office 365 Cloud Environment endpoint (default: AzureEnvironment.Global)
             allow_ntlm: Whether NTLM authentication is enabled (default: False)
             browser_mode: Enable browser authentication (default: False)
+            authority: Override the MSAL authority URL (e.g. https://<tenant>.ciamlogin.com)
+            json_format: Response JSON format (default: V3 JsonLightFormat; pass a V4
+              format for the ``_api/v2.1`` OData V4 endpoints)
         """
-        super().__init__(base_url, JsonLightFormat())
+        super().__init__(base_url, json_format or JsonLightFormat())
         self._auth_context = AuthenticationContext(
             url=base_url,
             environment=environment,
             allow_ntlm=allow_ntlm,
             browser_mode=browser_mode,
+            authority=authority,
         )
         self._ctx_web_info: ContextWebInformation | None = None
-        self.beforeExecute += self._auth_context.authenticate_request
+        self._digest_lock = threading.Lock()
+        self.beforeExecute += self._authenticate_request
         self.beforeExecute += self.ensure_form_digest
+
+    def _authenticate_request(self, request: RequestOptions) -> None:
+        """Authenticate the request, resolving the auth context lazily so it can be
+        swapped via :meth:`reuse`."""
+        self._auth_context.authenticate_request(request)
 
     def set_base_url(self, url: str) -> Self:
         self._base_url = url
         self._auth_context.url = url
+        return self
+
+    def reuse(self, other: SharePointRequest) -> Self:
+        """Reuse the authentication context and transport of another request.
+
+        The same objects are shared by reference (not copied), so the token
+        cache and HTTP session stay single-flight and thread-safe.
+
+        Args:
+            other: The request whose auth context and transport to reuse
+        """
+        self._auth_context = other._auth_context
+        self._transport = other._transport
         return self
 
     def build_request(self, query: ClientQuery) -> RequestOptions:
@@ -91,7 +118,9 @@ class SharePointRequest(ODataRequest):
 
     def ensure_form_digest(self, request: RequestOptions) -> None:
         if not self.context_info.is_valid:
-            self._ctx_web_info = self._get_context_web_information()
+            with self._digest_lock:
+                if not self.context_info.is_valid:
+                    self._ctx_web_info = self._get_context_web_information()
         assert self._ctx_web_info is not None
         request.set_header("X-RequestDigest", self._ctx_web_info.FormDigestValue)
 
@@ -128,15 +157,14 @@ class SharePointRequest(ODataRequest):
         self._auth_context.with_credentials(credentials)
         return self
 
-    def with_cookies(self, cookie_source, ttl_seconds=None):
-        # type: (object, object) -> Self
+    def with_cookies(self, cookie_source, ttl_seconds: int | None = None):
         """Initializes authentication using browser-session cookies.
 
         Args:
             cookie_source (object): Callable returning Dict[str, str] or an AuthCookies instance.
             ttl_seconds (object): Optional max age for cached cookies before reloading from source.
         """
-        self._auth_context.with_cookies(cookie_source, ttl_seconds)  # type: ignore[arg-type]
+        self._auth_context.with_cookies(cookie_source, ttl_seconds)
         return self
 
     def with_client_secret(

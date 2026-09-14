@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+from agentic_devtools.cli.ci.pipeline.session_detector import is_copilot_session_active_via_agent_task
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.ci.provider import CIPlatformProvider
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
@@ -66,6 +67,16 @@ class PublishAction:
                 decision=ActionDecision.SKIP,
                 preconditions=preconditions,
                 details="PR title is WIP",
+            )
+
+        active_session = is_copilot_session_active_via_agent_task(snapshot.base_repo_full_name, snapshot.pr_number)
+        preconditions["no_active_session"] = active_session is False
+        if active_session is not False:
+            return ActionResult(
+                name=self.name,
+                decision=ActionDecision.SKIP,
+                preconditions=preconditions,
+                details="Copilot session active or inventory unavailable — publish blocked",
             )
 
         return ActionResult(

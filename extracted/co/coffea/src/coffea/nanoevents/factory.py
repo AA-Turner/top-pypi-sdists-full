@@ -1,3 +1,4 @@
+import inspect
 import io
 import pathlib
 import warnings
@@ -18,7 +19,8 @@ from coffea.nanoevents.mapping import (
     TrivialUprootOpener,
     UprootSourceMapping,
 )
-from coffea.nanoevents.schemas import BaseSchema, NanoAODSchema
+from coffea.nanoevents.schemas import BaseSchema, EDM4HEPSchema, NanoAODSchema
+from coffea.nanoevents.schemas.edm4hep import podio_collection_types
 from coffea.nanoevents.util import key_to_tuple, quote, tuple_to_key, unquote
 from coffea.util import _import_dask_awkward, _is_interpretable
 
@@ -53,7 +55,15 @@ class _map_schema_base:  # ImplementsFormMapping, ImplementsFormMappingInfo
                 [
                     name
                     for name, maybe_transform in zip(operands, it_operands)
-                    if maybe_transform == "!load"
+                    # Match both "!load" and "!loadallowmissing": a saved/union form
+                    # marks branches that may be missing in some files with the
+                    # "!loadallowmissing" token (see nanoevents.mapping.base, which
+                    # dispatches on node.startswith("!load")). Both tokens denote a
+                    # real column read, so both branches must be requested from the
+                    # file. Matching only "!load" silently drops the maybe-missing
+                    # branches, causing dask mode to fabricate them as all-None even
+                    # in files that actually contain them.
+                    if maybe_transform.startswith("!load")
                 ]
             )
         return base_columns
@@ -97,9 +107,29 @@ class _OnlySliceableAs:
         return self._array
 
 
+def _reads_podio_metadata(schemaclass):
+    return isinstance(schemaclass, type) and issubclass(schemaclass, EDM4HEPSchema)
+
+
+def _first_file_podio_collection_types(files, uproot_options):
+    """podio collection types of the first file of a uproot.dask files specification."""
+    if isinstance(files, uproot.behaviors.TBranch.HasBranches):
+        return podio_collection_types(files)
+    path, objpath = uproot._util.regularize_files(
+        files, steps_allowed=True, **uproot_options
+    )[0][:2]
+    with uproot.open(path, **uproot_options) as directory:
+        return podio_collection_types(directory[objpath])
+
+
 class _map_schema_uproot(_map_schema_base):
     def __init__(
-        self, schemaclass=BaseSchema, metadata=None, behavior=None, version=None
+        self,
+        schemaclass=BaseSchema,
+        metadata=None,
+        behavior=None,
+        version=None,
+        base_form_extras=None,
     ):
         super().__init__(
             schemaclass=schemaclass,
@@ -107,6 +137,8 @@ class _map_schema_uproot(_map_schema_base):
             behavior=behavior,
             version=version,
         )
+        # file-level information the schema needs beyond the form (dask mode has no tree)
+        self.base_form_extras = base_form_extras or {}
 
     def __call__(self, form):
         from coffea.nanoevents.mapping.uproot import _lazify_form
@@ -133,6 +165,7 @@ class _map_schema_uproot(_map_schema_base):
         typenames = form.parameters.get("typenames")
         if typenames is not None:
             lform["typenames"] = typenames
+        lform.update(self.base_form_extras)
 
         return (
             awkward.forms.form.from_dict(self.schemaclass(lform, self.version).form),
@@ -159,8 +192,17 @@ class _map_schema_uproot(_map_schema_base):
             f"{start}-{stop}",
         )
         uuidpfn = {partition_key[0]: tree.file.file_path}
+        # A saved/union form can mark branches as maybe-missing
+        # ("!loadallowmissing"); such branches may be genuinely absent from
+        # this particular file, so only request the branches that are present.
+        # Absent branches are then simply not in the preloaded column source,
+        # and the PreloadedSourceMapping backfills them as all-None through its
+        # allow_missing path (matching eager/virtual semantics), while a
+        # genuinely-required ("!load") branch that is absent still raises
+        # loudly at buffer-access time.
+        present_keys = [key for key in keys if key in tree]
         arrays = tree.arrays(
-            keys,
+            present_keys,
             entry_start=start,
             entry_stop=stop,
             ak_add_doc=interp_options["ak_add_doc"],
@@ -230,19 +272,23 @@ class NanoEventsFactory:
         self._mapping = mapping
         self._partition_key = partition_key
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     def __getstate__(self):
         return {
             "schema": self._schema,
             "mapping": self._mapping,
             "partition_key": self._partition_key,
+            "mode": self._mode,
         }
 
     def __setstate__(self, state):
         self._schema = state["schema"]
         self._mapping = state["mapping"]
         self._partition_key = state["partition_key"]
+        self._mode = state.get("mode", "virtual")
         self._events = lambda: None
+        self._mapping_accepts_form_mapping = None
 
     @classmethod
     def from_root(
@@ -336,13 +382,6 @@ class NanoEventsFactory:
             and not isinstance(schemaclass, FunctionType)
             and schemaclass.__dask_capable__
         ):
-            map_schema = _map_schema_uproot(
-                schemaclass=schemaclass,
-                behavior=dict(schemaclass.behavior()),
-                metadata=metadata,
-                version="latest",
-            )
-
             to_open = file
             if isinstance(file, uproot.reading.ReadOnlyDirectory):
                 if treepath is uproot._util.unset:
@@ -350,6 +389,19 @@ class NanoEventsFactory:
                         "The treepath argument must be specified when the file argument is an uproot.reading.ReadOnlyDirectory"
                     )
                 to_open = file[treepath]
+
+            base_form_extras = {}
+            if known_base_form is None and _reads_podio_metadata(schemaclass):
+                base_form_extras["podio_collection_types"] = (
+                    _first_file_podio_collection_types(to_open, uproot_options)
+                )
+            map_schema = _map_schema_uproot(
+                schemaclass=schemaclass,
+                behavior=dict(schemaclass.behavior()),
+                metadata=metadata,
+                version="latest",
+                base_form_extras=base_form_extras,
+            )
             opener = partial(
                 uproot.dask,
                 to_open,
@@ -439,6 +491,8 @@ class NanoEventsFactory:
             file_handle=file_handle,
             use_ak_forth=use_ak_forth,
             virtual=mode == "virtual",
+            decompression_executor=decompression_executor,
+            interpretation_executor=interpretation_executor,
             preloaded_arrays=preloaded_arrays,
             buffer_cache=buffer_cache,
         )
@@ -448,12 +502,13 @@ class NanoEventsFactory:
             tree, iteritems_options=iteritems_options
         )
         base_form["typenames"] = typenames
+        if _reads_podio_metadata(schemaclass):
+            base_form["podio_collection_types"] = podio_collection_types(tree)
 
         return cls._from_mapping(
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode=mode,
@@ -478,7 +533,7 @@ class NanoEventsFactory:
 
         Parameters
         ----------
-            file : str or pathlib.Path or pyarrow.NativeFile or io.IOBase
+            file : str or pathlib.Path or io.IOBase or pyarrow.NativeFile or pyarrow.parquet.ParquetFile
                 The filename or already opened file using e.g. ``pyarrow.NativeFile()``.
             mode : {"eager", "virtual", "dask"}, default "virtual"
                 Backend to use when interpreting parquet data.
@@ -553,6 +608,8 @@ class NanoEventsFactory:
             warnings.warn(
                 f"{schemaclass} is not dask capable despite allowing dask, generating non-dask nanoevents"
             )
+        # only the str branch opens an fsspec handle for the shim to close
+        fs_file = None
         if isinstance(file, ftypes):
             table_file = pyarrow.parquet.ParquetFile(file, **parquet_options)
         elif isinstance(file, str):
@@ -600,7 +657,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode,
@@ -668,7 +724,11 @@ class NanoEventsFactory:
         )
         uuidpfn = {uuid: array_source}
         mapping = PreloadedSourceMapping(
-            PreloadedOpener(uuidpfn), entry_start, entry_stop, access_log=access_log
+            PreloadedOpener(uuidpfn),
+            entry_start,
+            entry_stop,
+            access_log=access_log,
+            buffer_cache=buffer_cache,
         )
         mapping.preload_column_source(partition_key[0], partition_key[1], array_source)
 
@@ -678,7 +738,6 @@ class NanoEventsFactory:
             mapping,
             partition_key,
             base_form,
-            buffer_cache,
             schemaclass,
             metadata,
             mode="eager",
@@ -690,7 +749,6 @@ class NanoEventsFactory:
         mapping,
         partition_key,
         base_form,
-        buffer_cache,
         schemaclass,
         metadata,
         mode,
@@ -705,9 +763,6 @@ class NanoEventsFactory:
                 Basic information about the column source, uuid, paths.
             base_form : dict
                 The awkward form describing the nanoevents interpretation of the mapped file.
-            buffer_cache : dict
-                A dict-like interface to a cache object. Only bare numpy arrays will be placed in this cache,
-                using globally-unique keys.
             schemaclass : BaseSchema
                 A schema class deriving from `BaseSchema` and implementing the desired view of the file
             metadata : dict
@@ -765,7 +820,18 @@ class NanoEventsFactory:
         if self._mode == "dask":
             dask_awkward = _import_dask_awkward()
             dask_awkward.lib.core.dak_cache.clear()
-            events = self._mapping(form_mapping=self._schema)
+
+            # Whether the mapping accepts form_mapping (explicitly or via **kwargs) only
+            # depends on the mapping callable, so inspect its signature once and memoize.
+            if self._mapping_accepts_form_mapping is None:
+                params = inspect.signature(self._mapping).parameters
+                self._mapping_accepts_form_mapping = "form_mapping" in params or any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+                )
+            if self._mapping_accepts_form_mapping:
+                events = self._mapping(form_mapping=self._schema)
+            else:
+                events = self._mapping()
             report = None
             if isinstance(events, tuple):
                 events, report = events

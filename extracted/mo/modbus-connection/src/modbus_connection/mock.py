@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Literal
 
 from ._client import BaseModbusConnection, ModbusTcpParams
+from .model._const import Space
 
 __all__ = [
     "CoilSpec",
@@ -24,9 +26,7 @@ CoilSpec = bool | list[bool] | Callable[[], "bool | list[bool]"]
 """Value accepted by a mock bit store."""
 
 RegisterType = Literal["holding", "coil"]
-
-ReadRegisterType = Literal["holding", "input", "coil", "discrete_input"]
-"""Selects one of the four readable data tables for ``fail_read``."""
+"""Selects one of the two writable address spaces."""
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ class WriteEvent:
 class ReadEvent:
     """Describe a block read from a mock unit."""
 
-    register_type: ReadRegisterType
+    register_type: Space
     address: int
     count: int
 
@@ -73,6 +73,28 @@ def _read_bits(space: dict[int, Any], address: int, count: int) -> list[bool]:
     return [bool(materialized.get(address + i, False)) for i in range(count)]
 
 
+def _warn_store_name(old: str, new: str) -> None:
+    warnings.warn(
+        f"MockModbusUnit.{old} is deprecated. Use {new}, the name "
+        "async_read_raw() and ReadEvent use for that space.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+
+
+def _space(register_type: Space | Literal["discrete_input"]) -> Space:
+    """Resolve a ``register_type`` argument to the address space it names."""
+    if register_type == "discrete_input":
+        warnings.warn(
+            'register_type="discrete_input" is deprecated. Use "discrete", the '
+            "name async_read_raw() and ReadEvent use for that space.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return "discrete"
+    return register_type
+
+
 class MockModbusConnection(BaseModbusConnection):
     """Implement ``ModbusConnection`` in memory."""
 
@@ -94,11 +116,21 @@ class MockModbusConnection(BaseModbusConnection):
     def simulate_connection_lost(self) -> None:
         """Drop the link and fire every ``on_connection_lost`` callback.
 
-        The drop is transient, as it is on a real connection: the next request
+        The drop is transient, as on a real connection. The next request
         establishes the link again.
         """
         self._client = None
         self._lost_callbacks.fire()
+
+
+def _address(address: int | str) -> int:
+    """One address of a raw snapshot, as a number whether or not it is one."""
+    try:
+        return int(address)
+    except ValueError:
+        raise ValueError(
+            f"address {address!r} in raw snapshot is not a number"
+        ) from None
 
 
 class MockModbusUnit:
@@ -109,19 +141,33 @@ class MockModbusUnit:
         self._unit_id = unit_id
         self.holding: dict[int, RegisterSpec] = {}
         self.input: dict[int, RegisterSpec] = {}
-        self.coils: dict[int, CoilSpec] = {}
-        self.discrete_inputs: dict[int, CoilSpec] = {}
+        self.coil: dict[int, CoilSpec] = {}
+        self.discrete: dict[int, CoilSpec] = {}
         self._write_callbacks: list[Callable[[WriteEvent], None]] = []
         self._write_failures: dict[tuple[RegisterType, int], Exception] = {}
-        self._read_failures: dict[tuple[ReadRegisterType, int], Exception] = {}
+        self._read_failures: dict[tuple[Space, int], Exception] = {}
         self._request_failure: Exception | None = None
         self._responses: dict[str, object] = {}
         self.message_spacing = 0.0
+        self.required_timeout: float | None = None
+        self.required_connect_delay: float | None = None
         self.read_events: list[ReadEvent] = []
 
     @property
     def connected(self) -> bool:
         return self._conn.connected
+
+    @property
+    def coils(self) -> dict[int, CoilSpec]:
+        """Deprecated name of the ``coil`` store."""
+        _warn_store_name("coils", "coil")
+        return self.coil
+
+    @property
+    def discrete_inputs(self) -> dict[int, CoilSpec]:
+        """Deprecated name of the ``discrete`` store."""
+        _warn_store_name("discrete_inputs", "discrete")
+        return self.discrete
 
     def set_message_spacing(self, seconds: float) -> None:
         """Record the per-unit request interval.
@@ -131,6 +177,24 @@ class MockModbusUnit:
         if seconds < 0:
             raise ValueError("message_spacing must be non-negative")
         self.message_spacing = seconds
+
+    def require_timeout(self, seconds: float | None) -> None:
+        """Record the required per-request timeout, or ``None`` to withdraw it.
+
+        Raises ``ValueError`` if ``seconds`` is negative.
+        """
+        if seconds is not None and seconds < 0:
+            raise ValueError("timeout must be non-negative")
+        self.required_timeout = seconds
+
+    def require_connect_delay(self, seconds: float | None) -> None:
+        """Record the required pause after the link opens, or ``None`` to withdraw it.
+
+        Raises ``ValueError`` if ``seconds`` is negative.
+        """
+        if seconds is not None and seconds < 0:
+            raise ValueError("connect_delay must be non-negative")
+        self.required_connect_delay = seconds
 
     async def _ensure_connected(self) -> None:
         await self._conn.connect()
@@ -168,10 +232,15 @@ class MockModbusUnit:
         address: int,
         error: Exception | None,
         *,
-        register_type: ReadRegisterType = "holding",
+        register_type: Space | Literal["discrete_input"] = "holding",
     ) -> None:
-        """Set the exception raised by matching reads."""
-        key = (register_type, address)
+        """Set the exception raised by matching reads.
+
+        ``register_type`` names the address space with the same words as an
+        ``async_read_raw()`` snapshot. ``"discrete_input"`` is accepted for
+        ``"discrete"`` and raises a ``DeprecationWarning``.
+        """
+        key = (_space(register_type), address)
         if error is None:
             self._read_failures.pop(key, None)
         else:
@@ -180,15 +249,16 @@ class MockModbusUnit:
     def fail_requests(self, error: Exception | None) -> None:
         """Set the exception raised by every read and write on this unit.
 
-        Models a device that is not answering at all — powered down, unplugged,
-        behind a dead gateway — where no address is special and a test should
-        not have to know which one its caller happens to reach first. Pass
-        ``None`` to let the unit answer again.
+        Models a device that is not answering at all (powered down, unplugged,
+        behind a dead gateway), where no address is special and a test need
+        not know which one its caller reaches first. Pass ``None`` to let the
+        unit answer again.
 
-        This is about the device, not the link: ``connected`` still follows the
-        connection, and reads are still recorded in ``read_events`` before they
-        raise, so a test can assert what was attempted. Per-address
-        ``fail_read`` and ``fail_write`` continue to apply on top.
+        This models the device rather than the link. ``connected`` still
+        follows the connection, and reads are still recorded in
+        ``read_events`` before they raise, so a test can assert what was
+        attempted. Per-address ``fail_read`` and ``fail_write`` continue to
+        apply on top.
         """
         self._request_failure = error
 
@@ -196,18 +266,19 @@ class MockModbusUnit:
         """Set a canned response for an operation."""
         self._responses[method] = value
 
-    def load_raw(self, raw: Mapping[str, Mapping[int, int | bool]]) -> None:
+    def load_raw(self, raw: Mapping[str, Mapping[int | str, int | bool]]) -> None:
         """Load an ``async_read_raw`` snapshot into the stores.
 
-        Raises ``ValueError`` for an unknown address space.
+        Raises ``ValueError`` for an unknown address space, and for an
+        address that is not a number.
         """
         registers = {"holding": self.holding, "input": self.input}
-        bits = {"coil": self.coils, "discrete": self.discrete_inputs}
+        bits = {"coil": self.coil, "discrete": self.discrete}
         for space, values in raw.items():
             if space in registers:
-                registers[space].update(values)
+                registers[space].update({_address(a): v for a, v in values.items()})
             elif space in bits:
-                bits[space].update({addr: bool(v) for addr, v in values.items()})
+                bits[space].update({_address(a): bool(v) for a, v in values.items()})
             else:
                 raise ValueError(f"unknown space {space!r} in raw snapshot")
 
@@ -222,7 +293,7 @@ class MockModbusUnit:
                 raise error
 
     def _raise_if_read_fails(
-        self, register_type: ReadRegisterType, address: int, count: int
+        self, register_type: Space, address: int, count: int
     ) -> None:
         if self._request_failure is not None:
             raise self._request_failure
@@ -232,7 +303,7 @@ class MockModbusUnit:
                 raise error
 
     async def _dispatch_read(
-        self, register_type: ReadRegisterType, address: int, count: int
+        self, register_type: Space, address: int, count: int
     ) -> None:
         """Connect, record the block, then apply any configured read failure."""
         await self._ensure_connected()
@@ -280,16 +351,16 @@ class MockModbusUnit:
 
     async def read_coils(self, address: int, count: int) -> list[bool]:
         await self._dispatch_read("coil", address, count)
-        return _read_bits(self.coils, address, count)
+        return _read_bits(self.coil, address, count)
 
     async def read_discrete_inputs(self, address: int, count: int) -> list[bool]:
-        await self._dispatch_read("discrete_input", address, count)
-        return _read_bits(self.discrete_inputs, address, count)
+        await self._dispatch_read("discrete", address, count)
+        return _read_bits(self.discrete, address, count)
 
     async def write_coil(self, address: int, value: bool) -> None:
         await self._ensure_connected()
         self._raise_if_write_fails("coil", address)
-        self.coils[address] = bool(value)
+        self.coil[address] = bool(value)
         self._fire_write(WriteEvent("coil", address, [bool(value)], 0x05))
 
     async def write_coils(self, address: int, values: list[bool]) -> None:
@@ -297,7 +368,7 @@ class MockModbusUnit:
         bools = [bool(v) for v in values]
         self._raise_if_write_fails("coil", address, len(bools))
         for offset, value in enumerate(bools):
-            self.coils[address + offset] = value
+            self.coil[address + offset] = value
         self._fire_write(WriteEvent("coil", address, bools, 0x0F))
 
     # -- full function-code surface -------------------------------------------

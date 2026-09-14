@@ -15,6 +15,11 @@ from __future__ import annotations
 from matrx_ai.tools.registry import ToolRegistry
 
 
+# The host-wired half — a native tool must not suspend on a client that cannot
+# execute it — needs aidream's generated declarations, which a package may not
+# import: it lives at aidream/tools/tests/test_server_declaration_routing.py.
+
+
 class TestClientKindsForExecutor:
     def _registry(self) -> ToolRegistry:
         return ToolRegistry.get_instance()
@@ -99,19 +104,30 @@ class TestClientKindsForExecutor:
         """A native tool must not suspend on a client that cannot execute it.
 
         This is the exact red boundary from the Masterwork Scout incident:
-        ``rulebook`` has an ``aidream`` implementation, but a stale
+        ``rulebook`` has a server (``aidream``) implementation, but a stale
         ``matrx-user`` binding would previously classify it as delegated when
         the Rulebook surface was active.  The server declaration owns routing.
+
+        The declaration is made HERE, in the package, through the same
+        ``@tool`` door the host's generated declarations use — a package test
+        never imports the app (scripts/check_package_boundaries.py).
         """
-        import aidream.tools._generated_declarations  # noqa: F401
+        from matrx_ai.tools.declared import _REGISTRY, tool
 
         registry = self._registry()
-        name = "rulebook"
+        name = "__test_native_server_tool__"
+        assert name not in _REGISTRY
+
+        @tool(name=name, source_kind="native", executor="aidream")
+        def _native(args: object, ctx: object) -> None:  # pragma: no cover - never called
+            return None
+
         saved_binding = registry._bindings_by_tool.get(name)
         registry._bindings_by_tool[name] = {"aidream", "matrx-user"}
         try:
             assert registry.resolve_executor_binding(name, {"matrx-user"}) == "server"
         finally:
+            _REGISTRY.pop(name, None)
             if saved_binding is None:
                 registry._bindings_by_tool.pop(name, None)
             else:

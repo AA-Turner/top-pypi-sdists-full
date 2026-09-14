@@ -602,3 +602,36 @@ _REFERENCEABLE_RECORD_LOADER_KEY = "referenceable_record_loader"
 def get_referenceable_record_loader() -> Any:
     """Return the host-injected referenceable-record loader, or None when unset."""
     return _registry.get(_REFERENCEABLE_RECORD_LOADER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Authoring-mandate policy (THE CHANGE-CLAIM GATE's declaration channel)
+# ---------------------------------------------------------------------------
+#
+# Whether the mandate holding a run has WRITING as its job is DECLARED DATA in
+# the host (``declare_mandate(..., authoring=True)``). The executor's
+# change-claim gate (``orchestrator/change_claims.py``) asks for that
+# declaration at the turn-completion boundary, so matrx-ai never holds a list of
+# mandate keys and a new authoring mandate needs no runtime edit.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured → ``get_authoring_mandate_policy()`` returns None
+#     and the gate never fires (standalone matrx-ai declares no mandates).
+#   * Called ONLY for a tool-less finishing turn whose model text already
+#     matched a change claim — so it is off the hot path, and the host may read
+#     the database to answer.
+#   * The host MUST NOT raise; the executor wraps it regardless, and a failure
+#     to answer means "no gate", never a refused answer to the person.
+#   * Signature (keyword-only, forward-compatible):
+#         async policy(*, mandate_key: str | None, agent_id: str | None,
+#                      agent_version_id: str | None, user_id: str | None,
+#                      organization_id: str | None) -> dict | None
+#     The dict is coerced by ``AuthoringPolicy.from_host``:
+#         {"mandate_key": str, "write_tools": [str, ...], "correction_turns": int}
+
+_AUTHORING_MANDATE_POLICY_KEY = "authoring_mandate_policy"
+
+
+def get_authoring_mandate_policy() -> Any:
+    """Return the host-injected authoring-mandate policy resolver, or None."""
+    return _registry.get(_AUTHORING_MANDATE_POLICY_KEY)

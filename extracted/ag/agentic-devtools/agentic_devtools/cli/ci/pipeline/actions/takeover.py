@@ -78,13 +78,13 @@ class TakeOverAutomationCommitAction:
             )
 
         active_session = is_copilot_session_active_via_agent_task(snapshot.base_repo_full_name, snapshot.pr_number)
-        preconditions["no_active_session"] = not active_session
-        if active_session:
+        preconditions["no_active_session"] = active_session is False
+        if active_session is not False:
             return ActionResult(
                 name=self.name,
                 decision=ActionDecision.SKIP,
                 preconditions=preconditions,
-                details="Copilot session active — deferring takeover until Copilot finishes",
+                details="Copilot session active or inventory unavailable — takeover blocked",
             )
 
         return ActionResult(

@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_noop as _
 
-from allianceauth.menu.constants import MenuItemType
+from allianceauth.menu.models import MenuItem
 
 
 class MenuItemTypeListFilter(admin.SimpleListFilter):
@@ -13,12 +13,12 @@ class MenuItemTypeListFilter(admin.SimpleListFilter):
     parameter_name = "type"
 
     def lookups(self, request, model_admin):
-        return [(obj.value, obj.label.title()) for obj in MenuItemType]
+        return [(obj.value, obj.label.title()) for obj in MenuItem.MenuItemType]
 
     def queryset(self, request, queryset):
         if value := self.value():
             return queryset.annotate_item_type_2().filter(
-                item_type_2=MenuItemType(value).value
+                item_type_2=MenuItem.MenuItemType(value).value
             )
 
         return None

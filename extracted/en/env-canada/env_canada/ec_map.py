@@ -1,26 +1,21 @@
 import asyncio
 import logging
-import math
 from datetime import timedelta
 from io import BytesIO
 
-import dateutil.parser
 import voluptuous as vol
-from aiohttp import ClientSession
 from aiohttp.client_exceptions import ClientConnectorError
-from lxml import etree as et
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, UnidentifiedImageError
 
-from .constants import USER_AGENT
+from .ec_validate import coordinates
 from .ec_cache import Cache
+from .ec_geomet import ATTRIBUTION
+from .ec_geomet import compute_bounding_box as _compute_bounding_box
+from .ec_geomet import geomet_url, get_layer_dimension
+from .ec_geomet import get_resource as _get_resource
 from .ec_legend import generate_legend, load_font
 
 LOG = logging.getLogger(__name__)
-
-ATTRIBUTION = {
-    "english": "Data provided by Environment Canada",
-    "french": "Données fournies par Environnement Canada",
-}
 
 __all__ = ["ECMap"]
 
@@ -65,15 +60,6 @@ wms_style_prefixes = {
 }
 
 
-geomet_url = "https://geo.weather.gc.ca/geomet"
-capabilities_params = {
-    "lang": "en",
-    "service": "WMS",
-    "version": "1.3.0",
-    "request": "GetCapabilities",
-}
-wms_namespace = {"wms": "http://www.opengis.net/wms"}
-dimension_xpath = './/wms:Layer[wms:Name="{layer}"]/wms:Dimension[@name="{dim}"]'
 map_params = {
     "service": "WMS",
     "version": "1.3.0",
@@ -91,58 +77,13 @@ timestamp_label = {
 }
 
 
-def _compute_bounding_box(distance, latittude, longitude):
-    """
-    Modified from https://gist.github.com/alexcpn/f95ae83a7ee0293a5225
-    """
-    latittude = math.radians(latittude)
-    longitude = math.radians(longitude)
-
-    distance_from_point_km = distance
-    angular_distance = distance_from_point_km / 6371.01
-
-    lat_min = max(-math.pi / 2, latittude - angular_distance)
-    lat_max = min(math.pi / 2, latittude + angular_distance)
-
-    cos_latittude = math.cos(latittude)
-    ratio = math.sin(angular_distance) / cos_latittude if cos_latittude else math.inf
-
-    if abs(ratio) >= 1:
-        # Circle encloses a pole: longitude spans the full range.
-        lon_min = -math.pi
-        lon_max = math.pi
-    else:
-        delta_longitude = math.asin(ratio)
-        lon_min = longitude - delta_longitude
-        lon_max = longitude + delta_longitude
-    lon_min = round(math.degrees(lon_min), 5)
-    lat_max = round(math.degrees(lat_max), 5)
-    lon_max = round(math.degrees(lon_max), 5)
-    lat_min = round(math.degrees(lat_min), 5)
-
-    return lat_min, lon_min, lat_max, lon_max
-
-
-async def _get_resource(url, params, bytes=True):
-    async with ClientSession(raise_for_status=True) as session:
-        response = await session.get(
-            url=url, params=params, headers={"User-Agent": USER_AGENT}
-        )
-        if bytes:
-            return await response.read()
-        return await response.text()
-
-
 class ECMap:
     def __init__(self, **kwargs):
         """Initialize the map object."""
 
         init_schema = vol.Schema(
             {
-                vol.Required("coordinates"): (
-                    vol.All(vol.Or(int, float), vol.Range(-90, 90)),
-                    vol.All(vol.Or(int, float), vol.Range(-180, 180)),
-                ),
+                vol.Required("coordinates"): coordinates,
                 vol.Required("radius", default=200): vol.All(int, vol.Range(min=10)),
                 vol.Required("width", default=800): vol.All(int, vol.Range(min=10)),
                 vol.Required("height", default=800): vol.All(int, vol.Range(min=10)),
@@ -209,6 +150,10 @@ class ECMap:
 
         self.timestamp = None
 
+        # Frame spacing, replaced by whatever the layer's time dimension
+        # actually advertises once GetCapabilities has been read.
+        self._image_interval = image_interval
+
     def _get_cache_prefix(self):
         """Generate a location-specific cache prefix based on bounding box."""
         return f"{self.bbox[0]:.3f},{self.bbox[1]:.3f},{self.bbox[2]:.3f},{self.bbox[3]:.3f}"
@@ -259,22 +204,12 @@ class ECMap:
         GetCapabilities. Returns (start, end, default) or None if the layer
         or dimension doesn't exist."""
 
-        capabilities_cache_key = f"capabilities-{layer_name}"
-
-        if not (capabilities_xml := Cache.get(capabilities_cache_key)):
-            params = {**capabilities_params, "layer": layer_name}
-            capabilities_xml = await _get_resource(geomet_url, params, bytes=True)
-            Cache.add(capabilities_cache_key, capabilities_xml, timedelta(minutes=5))
-
-        element = et.fromstring(capabilities_xml).find(
-            dimension_xpath.format(layer=layer_name, dim=dimension),
-            namespaces=wms_namespace,
-        )
-        if element is None or not element.text:
+        result = await get_layer_dimension(layer_name, dimension, fetch=_get_resource)
+        if result is None:
             return None
-
-        start, end = (dateutil.parser.isoparse(t) for t in element.text.split("/")[:2])
-        return start, end, element.get("default")
+        if dimension == "time" and result.step:
+            self._image_interval = result.step
+        return result.start, result.end, result.default
 
     async def _get_dimensions(self):
         """Get the time range of currently observed images for the layer.
@@ -322,7 +257,10 @@ class ECMap:
         self._future_boundary = future_start
         self._reference_time = reference[2] if reference else None
 
-        return min(future_end, end + timedelta(minutes=self.future_minutes))
+        # Same grid-alignment concern as loop_minutes above, but stepping
+        # forward from "end" (now) instead of back.
+        steps_forward = timedelta(minutes=self.future_minutes) // self._image_interval
+        return min(future_end, end + steps_forward * self._image_interval)
 
     def _resolve_layer(self, frame_time):
         """Return (wms_layer_name, is_future, query_time) for a frame's
@@ -371,10 +309,22 @@ class ECMap:
 
         try:
             layer_bytes = await _get_resource(geomet_url, params)
-            return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
         except ClientConnectorError:
             LOG.warning("Layer could not be retrieved")
             return None
+
+        # GetCapabilities advertises a continuous time range, but doesn't
+        # guarantee every step within it actually has data - a gap here
+        # gets a ServiceExceptionReport (XML, HTTP 200) instead of an
+        # image. Treat it as "no data for this frame" rather than caching
+        # and returning bytes that will fail to decode as an image later.
+        try:
+            Image.open(BytesIO(layer_bytes))
+        except UnidentifiedImageError:
+            LOG.warning("No radar data for %s at %s", layer_name, time)
+            return None
+
+        return Cache.add(layer_cache_key, layer_bytes, timedelta(minutes=200))
 
     async def _create_composite_image(self, frame_time):
         """Create a composite image from the layer."""
@@ -499,7 +449,14 @@ class ECMap:
 
         start, now = timespan
         if self.loop_minutes:
-            start = max(start, now - timedelta(minutes=self.loop_minutes))
+            # loop_minutes isn't guaranteed to be a multiple of the layer's
+            # time-grid step (e.g. 65 minutes on a 6-minute grid) - "now"
+            # itself is always grid-aligned, so stepping back by whole
+            # intervals keeps every subsequent frame on-grid too. A plain
+            # `now - timedelta(minutes=loop_minutes)` would shift the whole
+            # loop off-grid, and GeoMet rejects every off-grid timestamp.
+            steps_back = timedelta(minutes=self.loop_minutes) // self._image_interval
+            start = max(start, now - steps_back * self._image_interval)
 
         # Extend the end of the loop using the extrapolation (nowcast) layer,
         # if future_minutes is set and one exists for self.layer. Anchored to
@@ -511,7 +468,7 @@ class ECMap:
         curr = start
         while curr <= end:
             tasks.append(self._create_composite_image(frame_time=curr))
-            curr = curr + image_interval
+            curr = curr + self._image_interval
         composite_frames = await asyncio.gather(*tasks)
 
         # Repeat the last frame 3 times to make it pause at the end

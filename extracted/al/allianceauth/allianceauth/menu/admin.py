@@ -6,7 +6,8 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_noop as _
 
-from .constants import MenuItemType
+from allianceauth.authentication.models import Permission
+
 from .core.smart_sync import sync_menu
 from .filters import MenuItemTypeListFilter
 from .forms import (
@@ -33,6 +34,12 @@ class MenuItemAdmin(admin.ModelAdmin):
         ("parent", admin.RelatedOnlyFieldListFilter),
     ]
     ordering = ["parent", "order", "text"]
+    filter_horizontal = ["permissions"]
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == "permissions":
+            kwargs["queryset"] = Permission.objects.select_related("content_type")
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     def get_form(self, request: HttpRequest, obj: MenuItem | None = None, **kwargs):
         kwargs["form"] = self._choose_form(request, obj)
@@ -51,14 +58,14 @@ class MenuItemAdmin(admin.ModelAdmin):
             return LinkMenuItemAdminForm
 
         # add
-        if cls._type_from_request(request) is MenuItemType.FOLDER:
+        if cls._type_from_request(request) is MenuItem.MenuItemType.FOLDER:
             return FolderMenuItemAdminForm
 
         return LinkMenuItemAdminForm
 
     def add_view(self, request, form_url="", extra_context=None) -> HttpResponse:
         context = extra_context or {}
-        item_type = self._type_from_request(request, default=MenuItemType.LINK)
+        item_type = self._type_from_request(request, default=MenuItem.MenuItemType.LINK)
         context["title"] = _("Add %s menu item") % item_type.label
         return super().add_view(request, form_url, context)
 
@@ -75,7 +82,7 @@ class MenuItemAdmin(admin.ModelAdmin):
         # and when the admin page is opened directly
         sync_menu()
         extra_context = extra_context or {}
-        extra_context["folder_type"] = MenuItemType.FOLDER.value
+        extra_context["folder_type"] = MenuItem.MenuItemType.FOLDER.value
         return super().changelist_view(request, extra_context)
 
     @admin.display(description=_("children"))
@@ -103,8 +110,8 @@ class MenuItemAdmin(admin.ModelAdmin):
     @staticmethod
     def _type_from_request(
         request: HttpRequest, default=None
-    ) -> MenuItemType | None:
+    ) -> "MenuItem.MenuItemType | None":
         try:
-            return MenuItemType(request.GET.get("type"))
+            return MenuItem.MenuItemType(request.GET.get("type"))
         except ValueError:
             return default

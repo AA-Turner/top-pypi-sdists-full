@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.client_query import ClientQuery
@@ -35,6 +36,7 @@ from office365.sharepoint.clientsidecomponent.query_result import (
 )
 from office365.sharepoint.clientsidecomponent.storage_entity import StorageEntity
 from office365.sharepoint.contenttypes.collection import ContentTypeCollection
+from office365.sharepoint.contenttypes.content_type import ContentType
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.eventreceivers.definition_collection import (
     EventReceiverDefinitionCollection,
@@ -666,25 +668,34 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
-    def get_all_webs(self) -> WebCollection:
-        """Returns a collection containing a flat list of all Web objects in the Web."""
+    def get_all_webs(self, progress: Optional[Callable[[Progress[Web]], None]] = None) -> WebCollection:
+        """Returns a collection containing a flat list of all Web objects in the Web.
+
+        Args:
+            progress: Optional hook invoked per web with a ``Progress[Web]``
+              snapshot (``done`` = webs discovered so far).
+        """
 
         assert self.webs.resource_path is not None
-        return_type = WebCollection(self.context, self.webs.resource_path)
+        return_type = WebCollection(self.context, self.webs.resource_path, self)
 
         def _webs_loaded():
-            self._load_sub_webs_inner(self.webs, return_type)
+            self._load_sub_webs_inner(self.webs, return_type, progress)
 
         self.ensure_property("Webs").after_execute(lambda _: _webs_loaded())
         return return_type
 
-    def _load_sub_webs_inner(self, webs: WebCollection, all_webs: WebCollection):
+    def _load_sub_webs_inner(
+        self, webs: WebCollection, all_webs: WebCollection, progress: Optional[Callable[[Progress[Web]], None]] = None
+    ):
         for cur_web in webs:
             all_webs.add_child(cur_web)
+            if callable(progress):
+                progress(Progress(done=len(all_webs), stage="scanning"))
 
             def _webs_loaded(web):
                 if len(web.webs) > 0:
-                    self._load_sub_webs_inner(web.webs, all_webs)
+                    self._load_sub_webs_inner(web.webs, all_webs, progress)
 
             cur_web.ensure_property("Webs").after_execute(lambda _, w=cur_web: _webs_loaded(w))
 
@@ -975,13 +986,43 @@ class Web(SecurableObject):
         self.context.add_query(qry)
         return return_type
 
-    def ensure_folder_path(self, path):
+    def ensure_folder_path(self, path) -> Folder:
         """Ensures a nested folder hierarchy exist
 
         Args:
             path (str): relative server URL (path) to a folder
         """
-        return self.root_folder.folders.ensure_path(path)
+        return self.root_folder.folders.ensure_by_path(path)
+
+    def ensure_content_type(
+        self, name: str, description: Optional[str] = None, group: Optional[str] = None
+    ) -> ContentType:
+        """Ensure a content type with the given name exists (idempotent).
+
+        Args:
+            name (str): Content type name
+            description (str): Content type description
+            group (str): Content type group
+        """
+        return self.content_types.ensure(name, description, group)
+
+    def ensure_list(
+        self,
+        title: str,
+        description: Optional[str] = None,
+        template_type: ListTemplateType = ListTemplateType.GenericList,
+    ) -> List:
+        """Ensure a list with the given title exists (idempotent).
+
+        Creates the list when a list with the given title doesn't exist; otherwise
+        returns the existing list.
+
+        Args:
+            title (str): Specifies the display name of the list.
+            description (str or None): Specifies the description of the list.
+            template_type (ListTemplateType): Specifies the list server template of the list.
+        """
+        return self.lists.ensure_list(title, description, template_type)
 
     def ensure_edu_class_setup(self, bypass_for_automation):
         """Args:
@@ -1935,6 +1976,12 @@ class Web(SecurableObject):
         """Specifies the site identifier for the site"""
         return self.properties.get("Id", None)
 
+    @odata(name="SiteId")
+    @property
+    def site_id(self) -> Optional[str]:
+        """Specifies the site collection identifier for the site collection that contains the site"""
+        return self.properties.get("SiteId", None)
+
     @property
     def language(self) -> Optional[int]:
         """Specifies the language code identifier (LCID) for the language that is used on the site"""
@@ -1944,7 +1991,7 @@ class Web(SecurableObject):
     @property
     def last_item_modified_date(self) -> Optional[datetime]:
         """Specifies when an item was last modified in the site"""
-        return self.properties.get("LastItemModifiedDate", datetime.min)
+        return self.properties.get("LastItemModifiedDate", None)
 
     @odata(name="AccessRequestsList")
     @property

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from office365.booking.questionanswer import BookingQuestionAnswer
 from office365.outlook.mail.location import Location
@@ -11,7 +11,9 @@ from office365.runtime.client_value_collection import ClientValueCollection
 @dataclass
 class BookingCustomerInformation(ClientValue):
     customerId: str | None = None
-    customQuestionAnswers: ClientValueCollection[BookingQuestionAnswer] | None = None
+    customQuestionAnswers: ClientValueCollection[BookingQuestionAnswer] = field(
+        default_factory=lambda: ClientValueCollection(BookingQuestionAnswer)
+    )
     emailAddress: str | None = None
     location: Location | None = None
     name: str | None = None

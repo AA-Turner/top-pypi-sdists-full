@@ -2,7 +2,7 @@ name: segregation
 channels:
   - conda-forge
 dependencies:
-  - python
+  - python >=3.12
   - geopandas
   - joblib
   - libpysal
@@ -10,11 +10,21 @@ dependencies:
   - matplotlib
   - numba
   - numpy
-  - pandarm
   - pandas
   - pip
   - pyproj >=3
   - scikit-learn
   - scipy
+  - statsmodels
   - seaborn
   - tqdm
+  # docs (building the docs also executes the example notebooks)
+  - sphinx
+  - myst-nb
+  - jupyter-cache
+  - ipykernel
+  - ipywidgets
+  - numpydoc
+  - sphinxcontrib-bibtex
+  - sphinx_bootstrap_theme
+  - watermark

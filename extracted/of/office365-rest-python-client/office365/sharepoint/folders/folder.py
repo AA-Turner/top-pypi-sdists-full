@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import IO, TYPE_CHECKING, Callable, List, Optional, Union
+from pathlib import Path
+from typing import IO, TYPE_CHECKING, Callable, Iterable, List, Optional, Tuple, Union
 
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.operations import Progress, ProgressCallback
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
@@ -34,6 +36,8 @@ if TYPE_CHECKING:
     from office365.sharepoint.files.file import File
     from office365.sharepoint.folders.collection import FolderCollection
 
+_DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024  # simple-upload threshold / upload-session chunk
+
 
 class Folder(Entity):
     """Represents a folder in a SharePoint Website."""
@@ -57,47 +61,154 @@ class Folder(Entity):
         relative_url = abs_url.replace(ctx.base_url, "")
         return ctx.web.get_folder_by_server_relative_url(relative_url)
 
-    def download_folder(
-        self, download_file: IO, after_file_downloaded: Optional[Callable[[File], None]] = None, recursive: bool = True
+    def download_folder_as_zip(
+        self,
+        download_file: Union[str, Path, IO],
+        after_file_downloaded: Optional[Callable[[File], None]] = None,
+        recursive: bool = True,
+        include_versions: bool = False,
+        progress: Optional[ProgressCallback] = None,
     ):
         """Downloads a folder into a zip file
 
         Args:
-            download_file (typing.IO): A download zip file object
+            download_file (str or pathlib.Path or IO): Destination zip (a path or
+              a seekable file object).
             after_file_downloaded ((office365.sharepoint.files.file.File)->None): A download callback
             recursive (bool): Determines whether to traverse folders recursively
+            include_versions (bool): If True, also downloads each file's version history
+              into the zip under ``versions/{path}/v{label}``
+            progress: Optional hook invoked per downloaded file with a
+              ``Progress`` snapshot.
         """
-        return MoveCopyUtil.download_folder(self, download_file, after_file_downloaded, recursive)
+        return MoveCopyUtil.download_folder_as_zip(
+            self, download_file, after_file_downloaded, recursive, include_versions, progress
+        )
+
+    def download_folder(
+        self,
+        download_file: Union[str, Path, IO],
+        after_file_downloaded: Optional[Callable[[File], None]] = None,
+        recursive: bool = True,
+        include_versions: bool = False,
+        progress: Optional[ProgressCallback] = None,
+    ):
+        """Deprecated alias of :meth:`download_folder_as_zip`."""
+        return self.download_folder_as_zip(download_file, after_file_downloaded, recursive, include_versions, progress)
+
+    def upload_folder(
+        self,
+        source: Union[str, Path, Iterable[Union[str, Path, Tuple[str, Union[str, Path, bytes]]]]],
+        after_file_uploaded: Optional[Callable[[File], None]] = None,
+        recursive: bool = True,
+        progress: Optional[ProgressCallback] = None,
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+    ):
+        """Upload a local directory / files into this folder — sequential, deferred.
+
+        Counterpart of :meth:`download_folder_as_zip`; see
+        :meth:`MoveCopyUtil.upload_folder` for the ``source`` forms (directory,
+        file, list of file paths, or ``(relative_path, content)`` pairs).
+
+        Args:
+            source: Local directory / file / file list / (path, content) pairs.
+            after_file_uploaded ((office365.sharepoint.files.file.File)->None): Per-file callback.
+            recursive (bool): Traverse subdirectories when ``source`` is a directory.
+            progress: Optional hook invoked per uploaded file with a ``Progress`` snapshot.
+            chunk_size (int): Upload-session chunk size / size threshold (bytes).
+
+        Returns:
+            The target folder (chainable).
+        """
+        return MoveCopyUtil.upload_folder(self, source, after_file_uploaded, recursive, progress, chunk_size)
+
+    def upload_folder_from_zip(
+        self,
+        source_zip: Union[str, Path, IO],
+        after_file_uploaded: Optional[Callable[[File], None]] = None,
+        progress: Optional[ProgressCallback] = None,
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+    ):
+        """Upload a zip archive's file/folder hierarchy into this folder.
+
+        Counterpart of :meth:`download_folder_as_zip`; see
+        :meth:`MoveCopyUtil.upload_folder_from_zip`. Entries are read in memory,
+        one at a time, and uploaded at their literal relative paths (deferred).
+
+        Args:
+            source_zip (str or pathlib.Path or IO): A zip archive (path or file object).
+            after_file_uploaded ((office365.sharepoint.files.file.File)->None): Per-file callback.
+            progress: Optional hook invoked per uploaded file with a ``Progress`` snapshot.
+            chunk_size (int): Upload-session chunk size / size threshold (bytes).
+
+        Returns:
+            The target folder (chainable).
+        """
+        return MoveCopyUtil.upload_folder_from_zip(self, source_zip, after_file_uploaded, progress, chunk_size)
 
     def get_user_effective_permissions(self, user: str | User) -> ClientResult[BasePermissions]:
         """Returns the user permissions for a folder"""
         return self.list_item_all_fields.get_user_effective_permissions(user)
 
-    def get_folders(self, recursive: bool = False) -> FolderCollection:
+    def get_folders(
+        self,
+        recursive: bool = False,
+        progress: Optional[Callable[[Progress[Folder]], None]] = None,
+    ) -> FolderCollection:
         """Retrieves folders
 
         Args:
             recursive (bool): Determines whether to enumerate folders recursively
+            progress: Optional hook invoked per scanned folder with a
+              ``Progress[Folder]`` snapshot (``done`` = folders discovered so
+              far; ``items`` = the folders found in the folder just scanned).
+
+        The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
+        collection is honored on every per-folder load.
         """
+        from office365.runtime.queries.deferred import DeferredOperationQuery
         from office365.sharepoint.folders.collection import FolderCollection
 
         return_type = FolderCollection(self.context, self.folders.resource_path, self)
 
         def _get_folders(parent: Folder) -> None:
-            [return_type.add_child(f) for f in parent.folders]
-            if recursive:
-                for folder in parent.folders:
-                    folder.ensure_properties(["Folders"]).after_execute(lambda _, f=folder: _get_folders(parent=f))
+            def _on_loaded(folders) -> None:
+                for folder in folders:
+                    return_type.add_child(folder)
+                if callable(progress):
+                    progress(Progress(done=len(return_type), stage="scanning", items=list(folders)))
+                if recursive:
+                    for folder in folders:
+                        _get_folders(folder)
 
-        self.ensure_properties(["Folders"]).after_execute(lambda _: _get_folders(parent=self))
+            child_folders = parent.folders
+            return_type.query_options.apply_to(child_folders)
+            if return_type.query_options.select:
+                fields = sorted({"Id", "Name", "ServerRelativeUrl"} | set(return_type.query_options.select))
+                child_folders.select(fields)
+            child_folders.get().after_execute(_on_loaded)
+
+        placeholder = DeferredOperationQuery(self.context)
+        self.context.add_query(placeholder).after_execute(lambda _: _get_folders(self))
         return return_type
 
-    def get_files(self, recursive: bool = False) -> FileCollection:
+    def get_files(
+        self,
+        recursive: bool = False,
+        progress: Optional[Callable[[Progress[File]], None]] = None,
+    ) -> FileCollection:
         """Retrieves files
 
         Args:
             recursive (bool): Determines whether to enumerate folders recursively
+            progress: Optional hook invoked per scanned folder with a
+              ``Progress[File]`` snapshot (``done`` = files discovered so far;
+              ``items`` = the files found in the folder just scanned).
+
+        The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
+        collection is honored on every per-folder file load.
         """
+        from office365.runtime.queries.deferred import DeferredOperationQuery
         from office365.sharepoint.files.collection import FileCollection
 
         resource_path = self.files.resource_path
@@ -105,14 +216,24 @@ class Folder(Entity):
         return_type = FileCollection(self.context, resource_path, self)
 
         def _get_files(parent: Folder) -> None:
-            [return_type.add_child(f) for f in parent.files]
-            if recursive:
-                for folder in parent.folders:
-                    folder.ensure_properties(["Files", "Folders"]).after_execute(
-                        lambda _, f=folder: _get_files(parent=f)
-                    )
+            def _on_files_loaded(col) -> None:
+                for file in col:
+                    return_type.add_child(file)
+                if callable(progress):
+                    progress(Progress(done=len(return_type), stage="scanning", items=list(col)))
+                if recursive:
+                    subfolders = parent.folders
+                    subfolders.get().after_execute(lambda _: [_get_files(folder) for folder in subfolders])
 
-        self.ensure_properties(["Files", "Folders"]).after_execute(lambda _: _get_files(parent=self))
+            files = parent.files
+            return_type.query_options.apply_to(files)
+            if return_type.query_options.select:
+                fields = sorted({"Id", "Name", "ServerRelativeUrl"} | set(return_type.query_options.select))
+                files.select(fields)
+            files.get().after_execute(_on_files_loaded)
+
+        placeholder = DeferredOperationQuery(self.context)
+        self.context.add_query(placeholder).after_execute(lambda _: _get_files(self))
         return return_type
 
     def get_sharing_information(self) -> ObjectSharingInformation:
@@ -291,15 +412,36 @@ class Folder(Entity):
         self.context.add_query(qry)
         return self
 
-    def upload_file(self, file_name: str, content: Union[str, bytes]) -> File:
-        """Uploads a file into folder.
-        Note: This method only supports files up to 4MB in size!
+    def upload_file(
+        self,
+        relative_path: str,
+        content: Union[str, bytes],
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+        progress: Optional[ProgressCallback] = None,
+    ) -> File:
+        """Upload content to a path relative to this folder, creating folders as needed.
+
+        A plain ``file_name`` (no slashes) uploads directly into this folder;
+        a nested ``relative_path`` ensures the parent folders first. Content is
+        uploaded with the size-dispatching :meth:`FileCollection.upload_content`
+        (simple upload up to ``chunk_size``, resumable session above). The
+        returned :class:`File` is deferred — the caller executes it.
 
         Args:
-            file_name (str): Specifies the URL of the file to be added
+            relative_path (str): File name, or a path relative to this folder,
+              e.g. ``"report.pdf"`` or ``"Projects/2026/report.pdf"``.
             content (str or bytes): Specifies the binary content of the file to be added.
+            chunk_size (int): Upload-session chunk size / size threshold (bytes).
+            progress: Optional hook invoked with a ``Progress`` snapshot
+              (``done``/``total`` in bytes) while the file uploads.
         """
-        return self.files.add(file_name, content, True)
+        if isinstance(content, str):
+            content = content.encode("utf-8")
+        parts = relative_path.split("/")
+        folder = self
+        if len(parts) > 1:
+            folder = self.ensure_folder("/".join(parts[:-1]))
+        return folder.files.upload_content(content, parts[-1], chunk_size, progress)
 
     def update_document_sharing_info(
         self,
@@ -461,6 +603,36 @@ class Folder(Entity):
         return self.properties.get(
             "Folders", FolderCollection(self.context, ResourcePath("Folders", self.resource_path), self)
         )
+
+    def ensure_folder(self, relative_path: str) -> Folder:
+        """Ensure a nested folder tree exists under this folder.
+
+        A folder-level mirror of :meth:`Web.ensure_folder_path` — creates any
+        missing intermediate folders along a path relative to this folder
+        (deferred; the caller executes the query).
+
+        Args:
+            relative_path (str): Path relative to this folder, e.g. ``"Projects/2026"``.
+        """
+        return self.folders.ensure_by_path(relative_path)
+
+    def ensure_folders(self, relative_paths: Iterable[str]) -> Folder:
+        """Ensure a set of nested folder paths under this folder — deduplicated.
+
+        Since :meth:`ensure_folder` already creates intermediate folders for a
+        nested path, only the *deepest* paths are ensured: a path that is an
+        ancestor of another is covered by it. All ensures are queued as one
+        deferred batch; the caller executes them in a single round-trip.
+        Returns ``self`` for chaining.
+
+        Args:
+            relative_paths (Iterable[str]): Paths relative to this folder.
+        """
+        paths = sorted(set(relative_paths))
+        deepest = [path for path in paths if not any(other.startswith(f"{path}/") for other in paths if other != path)]
+        for path in deepest:
+            self.ensure_folder(path)
+        return self
 
     @odata(name="ParentFolder")
     @property

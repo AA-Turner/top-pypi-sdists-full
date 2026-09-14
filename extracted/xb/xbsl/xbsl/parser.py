@@ -623,6 +623,11 @@ def parse_text(text: str) -> tuple[Module, list[ParseError]]:
     return _Parser(tokenize(text)).parse_module()
 
 
+def parse_tokens(toks: list[Token]) -> tuple[Module, list[ParseError]]:
+    """Parse tokens the caller already holds (the lexer output of a whole text)."""
+    return _Parser(toks).parse_module()
+
+
 def parse(source) -> tuple[Module, list[ParseError]]:
     """Parse a source file; the result is cached in source.cache."""
     cached = source.cache.get("ast")
@@ -1399,11 +1404,7 @@ class _Parser:
 
     def log_fact(self) -> Expr:
         # rulelogFact: [не] logPrimary [это [не] Тип | как Тип]
-        if self.at_kw("NOT"):
-            op = self.advance()
-            operand = self.log_fact()
-            return Unary(op.start, operand.end, op.value, operand)
-        left = self.log_primary()
+        left = self.log_negation()
         while self.at_kw("IS", "AS"):
             kw = self.advance()
             if kw.canonical == "IS":
@@ -1428,6 +1429,23 @@ class _Parser:
                 t = self.compound_type()
                 left = AsType(left.start, self.toks[self.pos - 1].end, left, t)
         return left
+
+    def log_negation(self) -> Expr:
+        """`[не] logPrimary` - the head of rulelogFact.
+
+        The grammar gives `не` the PRIMARY alone and puts `это`/`как` after the negation, so
+        `не Значение это Строка` is `(не Значение) это Строка`: the platform refuses it with a type
+        error on the operand of `не` unless the value is a boolean, and `не Флаг это Булево` is a
+        check whose result is known in advance. A comparison stays under the negation
+        (`не Количество > 0` is `не (Количество > 0)` - a comparison is part of the primary), while
+        `и`/`или` lie beyond it. A second `не` in a row is a syntax error for the platform; the
+        parser reads it permissively, as the negation of a negation.
+        """
+        if self.at_kw("NOT"):
+            op = self.advance()
+            operand = self.log_negation()
+            return Unary(op.start, operand.end, op.value, operand)
+        return self.log_primary()
 
     def log_primary(self) -> Expr:
         # rulelogPrimary: chained comparisons a < b <= c
@@ -1633,6 +1651,14 @@ class _Parser:
         t = self.peek()
         if t.kind == "KEYWORD":
             c = t.canonical
+            nxt = self.peek(1)
+            if nxt.kind == "OP" and nxt.value == "->" and self.at_name():
+                # A short lambda whose single parameter is a keyword usable as a name - the
+                # grammar takes any name there: `Типы.Фильтровать(Тип -> Тип != ...)`. The
+                # branches below would read `Type` as the start of a type literal, `Query` as
+                # a query and `Method` as a full lambda or a call, and the arrow broke the
+                # enclosing call.
+                return self.static_feature()
             if c == "THROW":
                 self.advance()
                 value = None
@@ -1731,9 +1757,7 @@ class _Parser:
                 break
         if is_lambda and self.eat_op(")") and self.at_op("->"):
             self.advance()
-            body = None
-            if not self.expression_ended():
-                body = self.expression()
+            body = self.lambda_simple_body()
             return Lambda(lb.start, self.toks[self.pos - 1].end, params, body, None)
         self.rollback(snap)
         self.advance()  # (
@@ -1755,12 +1779,40 @@ class _Parser:
         name = Name(start_tok.start, self.toks[self.pos - 1].end, "::".join(segs))
         if self.at_op("->"):  # lambdaShort with a single parameter
             self.advance()
-            body = None
-            if not self.expression_ended():
-                body = self.expression()
+            body = self.lambda_simple_body()
             return Lambda(name.start, self.toks[self.pos - 1].end,
                           [Param(name.start, name.end, segs[-1], None, None)], body, None)
         return self.maybe_call(name)
+
+    def lambda_simple_body(self) -> Expr | Assign | None:
+        """The body of a short lambda: an expression or an assignment.
+
+        The grammar gives the short body the same shape as an expression statement, so any
+        assignment operator may follow the expression:
+        `Список.ДляКаждого(Элемент -> Элемент.Значение = 1)`, `() -> Счетчик += 1`. The
+        reference corpus writes it that way to fill fields of the elements, and the IDE server
+        accepts it silently. The operator belongs to the lambda, not to the construct around
+        it: the lambda ends where the right-hand side ends, the same greedy reading the
+        platform makes. A named call argument `Имя = значение` does not compete for the `=`:
+        call_args recognizes the name before any value is parsed, and a lambda starts with
+        its parameters, never with `Имя =`.
+
+        While the body stopped at the expression, the `=` broke the enclosing call, and a
+        module with a single such lambda dropped out of every rule that skips a file with
+        parse errors.
+        """
+        if self.expression_ended():
+            return None
+        body = self.expression()
+        if not self.at_op(*_ASSIGN_OPS):
+            return body
+        op = self.advance()
+        value = None
+        if not self.expression_ended():
+            value = self.expression()
+        else:
+            self.error(i18n.t("parser.expected-expr-after-assign"), op)
+        return Assign(body.start, self.toks[self.pos - 1].end, body, op.value, value)
 
     def creator(self) -> Expr:
         start = self.advance().start  # NEW

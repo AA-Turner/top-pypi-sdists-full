@@ -14,7 +14,7 @@ class MenuState(ClientValue):
 
     AudienceIds: GuidCollection = field(default_factory=GuidCollection)
     FriendlyUrlPrefix: str | None = None
-    Nodes: ClientValueCollection[MenuNode] | None = None
+    Nodes: ClientValueCollection[MenuNode] = field(default_factory=lambda: ClientValueCollection(MenuNode))
     SimpleUrl: str | None = None
     SPSitePrefix: str | None = None
     IsAudienceTargetEnabledForGlobalNav: bool | None = None

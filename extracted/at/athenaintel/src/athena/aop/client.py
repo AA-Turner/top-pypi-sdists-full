@@ -5,11 +5,15 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.aop_async_execute_response_out import AopAsyncExecuteResponseOut
+from ..types.aop_batch_execute_response_out import AopBatchExecuteResponseOut
+from ..types.aop_batch_run_in import AopBatchRunIn
+from ..types.aop_batch_status_response_out import AopBatchStatusResponseOut
 from ..types.aop_config_response_out import AopConfigResponseOut
 from ..types.aop_config_update_response_out import AopConfigUpdateResponseOut
 from ..types.aop_create_response_out import AopCreateResponseOut
 from ..types.aop_execute_request_in import AopExecuteRequestIn
 from ..types.aop_execute_response_out import AopExecuteResponseOut
+from ..types.run_budget import RunBudget
 from .raw_client import AsyncRawAopClient, RawAopClient
 
 # this is used as the default value for optional parameters
@@ -30,6 +34,58 @@ class AopClient:
         RawAopClient
         """
         return self._raw_client
+
+    def get_batch_status(
+        self,
+        batch_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AopBatchStatusResponseOut:
+        """
+        Aggregate lifecycle status of every run launched under a batch handle from `POST /aop/execute-batch`: counts per canonical run status, an `is_complete` flag, and a cursor-paged list of runs. Poll this once per batch instead of `GET /threads/{thread_id}/status` per thread; fetch a run's messages from the thread status endpoint only once it is terminal. This read never loads transcripts.
+
+        Parameters
+        ----------
+        batch_id : str
+            Batch handle returned by execute-batch
+
+        status : typing.Optional[str]
+            Which runs to list: `terminal` (completed/failed/canceled), `active` (everything else) or `all`. Counts always cover the whole batch.
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum runs to return in this page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AopBatchStatusResponseOut
+            Batch status
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.aop.get_batch_status(
+            batch_id="batch_0f4c3c3e-1c1a-4a3e-9a5f-0d3f1a2b3c4d",
+            status="terminal",
+            limit=200,
+        )
+        """
+        _response = self._raw_client.get_batch_status(
+            batch_id, status=status, cursor=cursor, limit=limit, request_options=request_options
+        )
+        return _response.data
 
     def create(
         self,
@@ -174,14 +230,21 @@ class AopClient:
         return _response.data
 
     def execute_async(
-        self, *, request: AopExecuteRequestIn, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: AopExecuteRequestIn,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AopAsyncExecuteResponseOut:
         """
-        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
+        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion. Send an `Idempotency-Key` header to make the launch safe to retry: if the response is lost, repeating the identical request with the same key returns the original `thread_id` (with `deduplicated: true`) instead of starting a second run. Keys are private to your account; reusing a key with different parameters is rejected with 422, and a retry that races the first attempt gets 409.
 
         Parameters
         ----------
         request : AopExecuteRequestIn
+
+        idempotency_key : typing.Optional[str]
+            Optional caller-chosen key that makes this launch safe to retry. Repeating the identical request with the same key replays the original response instead of starting another run.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -209,7 +272,82 @@ class AopClient:
             ),
         )
         """
-        _response = self._raw_client.execute_async(request=request, request_options=request_options)
+        _response = self._raw_client.execute_async(
+            request=request, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    def execute_batch(
+        self,
+        *,
+        runs: typing.Sequence[AopBatchRunIn],
+        asset_id: typing.Optional[str] = OMIT,
+        batch_id: typing.Optional[str] = OMIT,
+        dry_run: typing.Optional[bool] = OMIT,
+        run_budget: typing.Optional[RunBudget] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AopBatchExecuteResponseOut:
+        """
+        Start many Agent Operating Procedure (AOP) runs under one batch handle. Each run is queued exactly like `POST /aop/execute-async`; the response returns a `batch_id` so the caller polls `GET /aop/batches/{batch_id}` once per batch instead of once per thread. Pass the `batch_id` back to append more runs to the same batch. Runs are launched independently: a run that fails to launch is reported with an error and does not stop the others. Runs are idempotent within a batch: a run whose `idempotency_key` (or, when omitted, `client_ref`) was already launched into the same batch with the same parameters is not started again; its original outcome is replayed with `deduplicated: true`.
+
+        Parameters
+        ----------
+        runs : typing.Sequence[AopBatchRunIn]
+            Runs to launch (1-100 per request). Launch more into the same batch by repeating the call with the returned `batch_id`.
+
+        asset_id : typing.Optional[str]
+            Default AOP asset ID for runs that omit their own `asset_id`
+
+        batch_id : typing.Optional[str]
+            Existing batch to append these runs to (returned by a previous execute-batch call). Omit to start a new batch.
+
+        dry_run : typing.Optional[bool]
+            Execute every run in dry-run mode: side-effectful tool calls are validated and captured instead of executed.
+
+        run_budget : typing.Optional[RunBudget]
+            Per-run spend cap (max_model_calls / max_cost_usd) applied to every run in the request.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AopBatchExecuteResponseOut
+            Batch accepted; see per-run outcomes
+
+        Examples
+        --------
+        from athena import AopBatchRunIn, Athena, RunBudget
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.aop.execute_batch(
+            asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+            run_budget=RunBudget(
+                max_cost_usd=30.0,
+                max_model_calls=80,
+            ),
+            runs=[
+                AopBatchRunIn(
+                    client_ref="row-1",
+                    user_inputs={"company": "Acme Corp"},
+                ),
+                AopBatchRunIn(
+                    client_ref="row-2",
+                    user_inputs={"company": "Globex"},
+                ),
+            ],
+        )
+        """
+        _response = self._raw_client.execute_batch(
+            runs=runs,
+            asset_id=asset_id,
+            batch_id=batch_id,
+            dry_run=dry_run,
+            run_budget=run_budget,
+            request_options=request_options,
+        )
         return _response.data
 
     def get_config(
@@ -346,6 +484,66 @@ class AsyncAopClient:
         AsyncRawAopClient
         """
         return self._raw_client
+
+    async def get_batch_status(
+        self,
+        batch_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AopBatchStatusResponseOut:
+        """
+        Aggregate lifecycle status of every run launched under a batch handle from `POST /aop/execute-batch`: counts per canonical run status, an `is_complete` flag, and a cursor-paged list of runs. Poll this once per batch instead of `GET /threads/{thread_id}/status` per thread; fetch a run's messages from the thread status endpoint only once it is terminal. This read never loads transcripts.
+
+        Parameters
+        ----------
+        batch_id : str
+            Batch handle returned by execute-batch
+
+        status : typing.Optional[str]
+            Which runs to list: `terminal` (completed/failed/canceled), `active` (everything else) or `all`. Counts always cover the whole batch.
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum runs to return in this page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AopBatchStatusResponseOut
+            Batch status
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.aop.get_batch_status(
+                batch_id="batch_0f4c3c3e-1c1a-4a3e-9a5f-0d3f1a2b3c4d",
+                status="terminal",
+                limit=200,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_batch_status(
+            batch_id, status=status, cursor=cursor, limit=limit, request_options=request_options
+        )
+        return _response.data
 
     async def create(
         self,
@@ -506,14 +704,21 @@ class AsyncAopClient:
         return _response.data
 
     async def execute_async(
-        self, *, request: AopExecuteRequestIn, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: AopExecuteRequestIn,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AopAsyncExecuteResponseOut:
         """
-        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
+        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion. Send an `Idempotency-Key` header to make the launch safe to retry: if the response is lost, repeating the identical request with the same key returns the original `thread_id` (with `deduplicated: true`) instead of starting a second run. Keys are private to your account; reusing a key with different parameters is rejected with 422, and a retry that races the first attempt gets 409.
 
         Parameters
         ----------
         request : AopExecuteRequestIn
+
+        idempotency_key : typing.Optional[str]
+            Optional caller-chosen key that makes this launch safe to retry. Repeating the identical request with the same key replays the original response instead of starting another run.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -549,7 +754,90 @@ class AsyncAopClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.execute_async(request=request, request_options=request_options)
+        _response = await self._raw_client.execute_async(
+            request=request, idempotency_key=idempotency_key, request_options=request_options
+        )
+        return _response.data
+
+    async def execute_batch(
+        self,
+        *,
+        runs: typing.Sequence[AopBatchRunIn],
+        asset_id: typing.Optional[str] = OMIT,
+        batch_id: typing.Optional[str] = OMIT,
+        dry_run: typing.Optional[bool] = OMIT,
+        run_budget: typing.Optional[RunBudget] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AopBatchExecuteResponseOut:
+        """
+        Start many Agent Operating Procedure (AOP) runs under one batch handle. Each run is queued exactly like `POST /aop/execute-async`; the response returns a `batch_id` so the caller polls `GET /aop/batches/{batch_id}` once per batch instead of once per thread. Pass the `batch_id` back to append more runs to the same batch. Runs are launched independently: a run that fails to launch is reported with an error and does not stop the others. Runs are idempotent within a batch: a run whose `idempotency_key` (or, when omitted, `client_ref`) was already launched into the same batch with the same parameters is not started again; its original outcome is replayed with `deduplicated: true`.
+
+        Parameters
+        ----------
+        runs : typing.Sequence[AopBatchRunIn]
+            Runs to launch (1-100 per request). Launch more into the same batch by repeating the call with the returned `batch_id`.
+
+        asset_id : typing.Optional[str]
+            Default AOP asset ID for runs that omit their own `asset_id`
+
+        batch_id : typing.Optional[str]
+            Existing batch to append these runs to (returned by a previous execute-batch call). Omit to start a new batch.
+
+        dry_run : typing.Optional[bool]
+            Execute every run in dry-run mode: side-effectful tool calls are validated and captured instead of executed.
+
+        run_budget : typing.Optional[RunBudget]
+            Per-run spend cap (max_model_calls / max_cost_usd) applied to every run in the request.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AopBatchExecuteResponseOut
+            Batch accepted; see per-run outcomes
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AopBatchRunIn, AsyncAthena, RunBudget
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.aop.execute_batch(
+                asset_id="asset_9249292-d118-42d3-95b4-00eccfe0754f",
+                run_budget=RunBudget(
+                    max_cost_usd=30.0,
+                    max_model_calls=80,
+                ),
+                runs=[
+                    AopBatchRunIn(
+                        client_ref="row-1",
+                        user_inputs={"company": "Acme Corp"},
+                    ),
+                    AopBatchRunIn(
+                        client_ref="row-2",
+                        user_inputs={"company": "Globex"},
+                    ),
+                ],
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.execute_batch(
+            runs=runs,
+            asset_id=asset_id,
+            batch_id=batch_id,
+            dry_run=dry_run,
+            run_budget=run_budget,
+            request_options=request_options,
+        )
         return _response.data
 
     async def get_config(

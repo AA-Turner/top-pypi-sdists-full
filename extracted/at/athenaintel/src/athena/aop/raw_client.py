@@ -11,17 +11,22 @@ from ..core.pydantic_utilities import parse_obj_as
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.aop_async_execute_response_out import AopAsyncExecuteResponseOut
+from ..types.aop_batch_execute_response_out import AopBatchExecuteResponseOut
+from ..types.aop_batch_run_in import AopBatchRunIn
+from ..types.aop_batch_status_response_out import AopBatchStatusResponseOut
 from ..types.aop_config_response_out import AopConfigResponseOut
 from ..types.aop_config_update_response_out import AopConfigUpdateResponseOut
 from ..types.aop_create_response_out import AopCreateResponseOut
 from ..types.aop_execute_request_in import AopExecuteRequestIn
 from ..types.aop_execute_response_out import AopExecuteResponseOut
+from ..types.run_budget import RunBudget
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -30,6 +35,109 @@ OMIT = typing.cast(typing.Any, ...)
 class RawAopClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+
+    def get_batch_status(
+        self,
+        batch_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AopBatchStatusResponseOut]:
+        """
+        Aggregate lifecycle status of every run launched under a batch handle from `POST /aop/execute-batch`: counts per canonical run status, an `is_complete` flag, and a cursor-paged list of runs. Poll this once per batch instead of `GET /threads/{thread_id}/status` per thread; fetch a run's messages from the thread status endpoint only once it is terminal. This read never loads transcripts.
+
+        Parameters
+        ----------
+        batch_id : str
+            Batch handle returned by execute-batch
+
+        status : typing.Optional[str]
+            Which runs to list: `terminal` (completed/failed/canceled), `active` (everything else) or `all`. Counts always cover the whole batch.
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum runs to return in this page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AopBatchStatusResponseOut]
+            Batch status
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/aop/batches/{jsonable_encoder(batch_id)}",
+            method="GET",
+            params={
+                "status": status,
+                "cursor": cursor,
+                "limit": limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AopBatchStatusResponseOut,
+                    parse_obj_as(
+                        type_=AopBatchStatusResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create(
         self,
@@ -293,14 +401,21 @@ class RawAopClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def execute_async(
-        self, *, request: AopExecuteRequestIn, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: AopExecuteRequestIn,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AopAsyncExecuteResponseOut]:
         """
-        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
+        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion. Send an `Idempotency-Key` header to make the launch safe to retry: if the response is lost, repeating the identical request with the same key returns the original `thread_id` (with `deduplicated: true`) instead of starting a second run. Keys are private to your account; reusing a key with different parameters is rejected with 422, and a retry that races the first attempt gets 409.
 
         Parameters
         ----------
         request : AopExecuteRequestIn
+
+        idempotency_key : typing.Optional[str]
+            Optional caller-chosen key that makes this launch safe to retry. Repeating the identical request with the same key replays the original response instead of starting another run.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -318,6 +433,7 @@ class RawAopClient:
             ),
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -328,6 +444,145 @@ class RawAopClient:
                     AopAsyncExecuteResponseOut,
                     parse_obj_as(
                         type_=AopAsyncExecuteResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def execute_batch(
+        self,
+        *,
+        runs: typing.Sequence[AopBatchRunIn],
+        asset_id: typing.Optional[str] = OMIT,
+        batch_id: typing.Optional[str] = OMIT,
+        dry_run: typing.Optional[bool] = OMIT,
+        run_budget: typing.Optional[RunBudget] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AopBatchExecuteResponseOut]:
+        """
+        Start many Agent Operating Procedure (AOP) runs under one batch handle. Each run is queued exactly like `POST /aop/execute-async`; the response returns a `batch_id` so the caller polls `GET /aop/batches/{batch_id}` once per batch instead of once per thread. Pass the `batch_id` back to append more runs to the same batch. Runs are launched independently: a run that fails to launch is reported with an error and does not stop the others. Runs are idempotent within a batch: a run whose `idempotency_key` (or, when omitted, `client_ref`) was already launched into the same batch with the same parameters is not started again; its original outcome is replayed with `deduplicated: true`.
+
+        Parameters
+        ----------
+        runs : typing.Sequence[AopBatchRunIn]
+            Runs to launch (1-100 per request). Launch more into the same batch by repeating the call with the returned `batch_id`.
+
+        asset_id : typing.Optional[str]
+            Default AOP asset ID for runs that omit their own `asset_id`
+
+        batch_id : typing.Optional[str]
+            Existing batch to append these runs to (returned by a previous execute-batch call). Omit to start a new batch.
+
+        dry_run : typing.Optional[bool]
+            Execute every run in dry-run mode: side-effectful tool calls are validated and captured instead of executed.
+
+        run_budget : typing.Optional[RunBudget]
+            Per-run spend cap (max_model_calls / max_cost_usd) applied to every run in the request.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AopBatchExecuteResponseOut]
+            Batch accepted; see per-run outcomes
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "api/v0/aop/execute-batch",
+            method="POST",
+            json={
+                "asset_id": asset_id,
+                "batch_id": batch_id,
+                "dry_run": dry_run,
+                "run_budget": convert_and_respect_annotation_metadata(
+                    object_=run_budget, annotation=typing.Optional[RunBudget], direction="write"
+                ),
+                "runs": convert_and_respect_annotation_metadata(
+                    object_=runs, annotation=typing.Sequence[AopBatchRunIn], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AopBatchExecuteResponseOut,
+                    parse_obj_as(
+                        type_=AopBatchExecuteResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -614,6 +869,109 @@ class AsyncRawAopClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
+    async def get_batch_status(
+        self,
+        batch_id: str,
+        *,
+        status: typing.Optional[str] = None,
+        cursor: typing.Optional[str] = None,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AopBatchStatusResponseOut]:
+        """
+        Aggregate lifecycle status of every run launched under a batch handle from `POST /aop/execute-batch`: counts per canonical run status, an `is_complete` flag, and a cursor-paged list of runs. Poll this once per batch instead of `GET /threads/{thread_id}/status` per thread; fetch a run's messages from the thread status endpoint only once it is terminal. This read never loads transcripts.
+
+        Parameters
+        ----------
+        batch_id : str
+            Batch handle returned by execute-batch
+
+        status : typing.Optional[str]
+            Which runs to list: `terminal` (completed/failed/canceled), `active` (everything else) or `all`. Counts always cover the whole batch.
+
+        cursor : typing.Optional[str]
+            `next_cursor` from the previous page
+
+        limit : typing.Optional[int]
+            Maximum runs to return in this page
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AopBatchStatusResponseOut]
+            Batch status
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/aop/batches/{jsonable_encoder(batch_id)}",
+            method="GET",
+            params={
+                "status": status,
+                "cursor": cursor,
+                "limit": limit,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AopBatchStatusResponseOut,
+                    parse_obj_as(
+                        type_=AopBatchStatusResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def create(
         self,
         *,
@@ -876,14 +1234,21 @@ class AsyncRawAopClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def execute_async(
-        self, *, request: AopExecuteRequestIn, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        request: AopExecuteRequestIn,
+        idempotency_key: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AopAsyncExecuteResponseOut]:
         """
-        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion.
+        Start execution of an Agent Operating Procedure (AOP) asset asynchronously. Returns immediately with a thread_id for tracking execution progress without waiting for completion. Send an `Idempotency-Key` header to make the launch safe to retry: if the response is lost, repeating the identical request with the same key returns the original `thread_id` (with `deduplicated: true`) instead of starting a second run. Keys are private to your account; reusing a key with different parameters is rejected with 422, and a retry that races the first attempt gets 409.
 
         Parameters
         ----------
         request : AopExecuteRequestIn
+
+        idempotency_key : typing.Optional[str]
+            Optional caller-chosen key that makes this launch safe to retry. Repeating the identical request with the same key replays the original response instead of starting another run.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -901,6 +1266,7 @@ class AsyncRawAopClient:
             ),
             headers={
                 "content-type": "application/json",
+                "Idempotency-Key": str(idempotency_key) if idempotency_key is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -911,6 +1277,145 @@ class AsyncRawAopClient:
                     AopAsyncExecuteResponseOut,
                     parse_obj_as(
                         type_=AopAsyncExecuteResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def execute_batch(
+        self,
+        *,
+        runs: typing.Sequence[AopBatchRunIn],
+        asset_id: typing.Optional[str] = OMIT,
+        batch_id: typing.Optional[str] = OMIT,
+        dry_run: typing.Optional[bool] = OMIT,
+        run_budget: typing.Optional[RunBudget] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AopBatchExecuteResponseOut]:
+        """
+        Start many Agent Operating Procedure (AOP) runs under one batch handle. Each run is queued exactly like `POST /aop/execute-async`; the response returns a `batch_id` so the caller polls `GET /aop/batches/{batch_id}` once per batch instead of once per thread. Pass the `batch_id` back to append more runs to the same batch. Runs are launched independently: a run that fails to launch is reported with an error and does not stop the others. Runs are idempotent within a batch: a run whose `idempotency_key` (or, when omitted, `client_ref`) was already launched into the same batch with the same parameters is not started again; its original outcome is replayed with `deduplicated: true`.
+
+        Parameters
+        ----------
+        runs : typing.Sequence[AopBatchRunIn]
+            Runs to launch (1-100 per request). Launch more into the same batch by repeating the call with the returned `batch_id`.
+
+        asset_id : typing.Optional[str]
+            Default AOP asset ID for runs that omit their own `asset_id`
+
+        batch_id : typing.Optional[str]
+            Existing batch to append these runs to (returned by a previous execute-batch call). Omit to start a new batch.
+
+        dry_run : typing.Optional[bool]
+            Execute every run in dry-run mode: side-effectful tool calls are validated and captured instead of executed.
+
+        run_budget : typing.Optional[RunBudget]
+            Per-run spend cap (max_model_calls / max_cost_usd) applied to every run in the request.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AopBatchExecuteResponseOut]
+            Batch accepted; see per-run outcomes
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "api/v0/aop/execute-batch",
+            method="POST",
+            json={
+                "asset_id": asset_id,
+                "batch_id": batch_id,
+                "dry_run": dry_run,
+                "run_budget": convert_and_respect_annotation_metadata(
+                    object_=run_budget, annotation=typing.Optional[RunBudget], direction="write"
+                ),
+                "runs": convert_and_respect_annotation_metadata(
+                    object_=runs, annotation=typing.Sequence[AopBatchRunIn], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AopBatchExecuteResponseOut,
+                    parse_obj_as(
+                        type_=AopBatchExecuteResponseOut,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

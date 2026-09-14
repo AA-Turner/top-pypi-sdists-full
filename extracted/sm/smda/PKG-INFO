@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.6.0
+Version: 4.7.0
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License: BSD 2-Clause

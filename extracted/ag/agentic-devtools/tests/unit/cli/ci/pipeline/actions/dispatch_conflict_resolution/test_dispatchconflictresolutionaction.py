@@ -116,6 +116,18 @@ class TestDispatchConflictResolutionActionEvaluate:
         assert result.preconditions["no_active_session"] is False
         assert derived.get("repair_dispatched", False) is True
 
+    def test_skips_when_copilot_session_inventory_is_unknown(self) -> None:
+        """An unavailable Copilot session inventory defers conflict repair."""
+        snapshot = _make_snapshot(mergeable_state="dirty")
+        derived = DerivedState(snapshot)
+
+        with patch(f"{_MODULE}.is_copilot_session_active_via_agent_task", return_value=None):
+            result = DispatchConflictResolutionAction().evaluate(snapshot, derived)
+
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_active_session"] is False
+        assert derived.get("repair_dispatched", False) is True
+
 
 class TestDispatchConflictResolutionActionExecute:
     """Tests for execute()."""

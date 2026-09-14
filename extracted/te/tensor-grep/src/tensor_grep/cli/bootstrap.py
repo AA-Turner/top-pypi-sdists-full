@@ -609,6 +609,10 @@ def _can_delegate_to_native_tg_search(search_args: list[str]) -> bool:
         "--format",
         "--lang",
         "--ltl",
+        # HUNT-5 (2026-09-13): needs the --multiline fail-closed gate (5331dc9); door had none.
+        "--multiline",
+        "-U",
+        "--multiline-dotall",
         "--rank",
         "--semantic",
         "--replace",
@@ -1092,9 +1096,8 @@ def _search_paths_include_vendored_root(paths: list[str]) -> bool:
     from tensor_grep.io.root_probe import iter_top_level_vendored_dirs
     from tensor_grep.io.scan_limits import UNBOUNDED_VENDORED_ROOT_DIR_NAMES
 
-    for _name in iter_top_level_vendored_dirs(paths, UNBOUNDED_VENDORED_ROOT_DIR_NAMES):
-        return True
-    return False
+    # any() short-circuits on first hit, same as the original loop, with no discarded var.
+    return any(iter_top_level_vendored_dirs(paths, UNBOUNDED_VENDORED_ROOT_DIR_NAMES))
 
 
 # Item #105 (bootstrap raw-rg-passthrough gap, CEO dogfood v1.92.x directive): neither

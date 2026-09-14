@@ -2,6 +2,7 @@
 
 from unittest.mock import patch
 
+from agentic_devtools.cli.git.core import GitError
 from agentic_devtools.cli.workflows.worktree_setup import (
     PlaceholderIssueResult,
     WorktreeSetupResult,
@@ -92,6 +93,27 @@ class TestCreatePlaceholderAndSetupWorktree:
         )
 
         assert success is True
+        assert issue_key == "PROJECT-9999"
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    @patch("agentic_devtools.state.set_value")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.create_placeholder_issue")
+    def test_returns_issue_key_when_worktree_lookup_fails(
+        self,
+        mock_create_issue,
+        mock_set_value,
+        mock_check_exists,
+    ):
+        """A metadata lookup failure preserves the created issue key and diagnostic."""
+        mock_create_issue.return_value = PlaceholderIssueResult(success=True, issue_key="PROJECT-9999")
+        mock_check_exists.side_effect = GitError(128, "fatal: lookup failed", ["worktree", "list"])
+
+        success, issue_key = create_placeholder_and_setup_worktree(
+            project_key="PROJECT",
+            issue_type="Task",
+        )
+
+        assert success is False
         assert issue_key == "PROJECT-9999"
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment")

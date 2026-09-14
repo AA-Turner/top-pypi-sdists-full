@@ -24,8 +24,23 @@ COMMANDS = [
     },
     {
         "name": "skylos verify <path>",
-        "desc": "Verify changed code for AI-code defects",
+        "desc": "Verify AI-code defects and Python working changes",
+        "details": [
+            "Automatically compares affected Python functions with Git HEAD",
+            "Explains changes and their impact in the terminal; pipes and saved output use JSON",
+        ],
         "group": "AI Agent",
+    },
+    {
+        "name": "skylos review [path]",
+        "desc": "Review a finding and remember the local decision",
+        "details": [
+            "Interactive: scan, select a finding, then mark it false positive or accept risk temporarily",
+            "list [path]: show local decisions and their expiry",
+            "restore <decision-id> [path]: revoke a decision and show the finding again",
+            "Local decisions are operator-owned and ignored in CI",
+        ],
+        "group": "Core Analysis",
     },
     {
         "name": "skylos discover <path>",

@@ -14,7 +14,9 @@ from office365.sharepoint.marketplace.corporatecuratedgallery.sperrorwithserverr
 
 @dataclass
 class SPAvailableAddinsResponse(ClientValue):
-    addins: ClientValueCollection[SPAddinInstanceInfo] | None = None
+    addins: ClientValueCollection[SPAddinInstanceInfo] = field(
+        default_factory=lambda: ClientValueCollection(SPAddinInstanceInfo)
+    )
     errorsWithServerRelativeUrl: ClientValueCollection[SPErrorWithServerRelativeUrl] = field(
         default_factory=lambda: ClientValueCollection(SPErrorWithServerRelativeUrl)
     )

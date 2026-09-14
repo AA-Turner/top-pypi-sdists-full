@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import copy
-from typing import TYPE_CHECKING, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import requests
-from requests import RequestException
 from typing_extensions import Self
 
 from office365.azure_env import AzureEnvironment
@@ -15,11 +15,11 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_object import ClientObject
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_runtime_context import ClientRuntimeContext
-from office365.runtime.odata.v3.batch_request import ODataBatchV3Request
+from office365.runtime.http.url import get_absolute_url
+from office365.runtime.odata.v3.batch_request import DEFAULT_MAX_BATCH_BYTES, ODataBatchV3Request
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.collections import StringCollection
-from office365.runtime.utilities import get_absolute_url, urlparse
 from office365.sharepoint.portal.groups.creation_params import GroupCreationParams
 from office365.sharepoint.portal.groups.site_info import GroupSiteInfo
 from office365.sharepoint.portal.sites.creation_response import SPSiteCreationResponse
@@ -43,6 +43,7 @@ from office365.sharepoint.webs.context_web_information import ContextWebInformat
 from office365.sharepoint.webs.web import Web
 
 if TYPE_CHECKING:
+    from office365.runtime.queries.batch import BatchQuery
     from office365.sharepoint.brandcenter.brand_center import BrandCenter
     from office365.sharepoint.portal.theme_manager import ThemeManager
     from office365.sharepoint.search.service import SearchService
@@ -61,11 +62,13 @@ class ClientContext(ClientRuntimeContext):
         environment: Optional[AzureEnvironment] = None,
         allow_ntlm: bool = False,
         browser_mode: bool = False,
+        authority: Optional[str] = None,
     ) -> None:
         """Instantiates a SharePoint client context
 
         Args:
             base_url (str): Absolute Web or Site Url
+            authority (str or None): Override the MSAL authority URL (e.g. https://<tenant>.ciamlogin.com)
         """
         super().__init__()
         self._base_url: str = base_url.rstrip("/")
@@ -74,6 +77,7 @@ class ClientContext(ClientRuntimeContext):
         self._site: Site | None = None
         self._allow_ntlm: bool = allow_ntlm
         self._browser_mode: bool = browser_mode
+        self._authority: Optional[str] = authority
 
     @staticmethod
     def from_url(full_url: str) -> ClientContext:
@@ -92,7 +96,11 @@ class ClientContext(ClientRuntimeContext):
         return ctx
 
     def with_client_secret(
-        self, tenant: str, client_id: str, client_secret: str, scopes: Optional[List[str]] = None
+        self,
+        tenant: str,
+        client_id: str,
+        client_secret: str,
+        scopes: Optional[List[str]] = None,
     ) -> Self:
         """Initializes a client to acquire a token via client secret (MSAL app-only).
 
@@ -156,11 +164,14 @@ class ClientContext(ClientRuntimeContext):
         self.authentication_context.with_device_flow(tenant, client_id, scopes)
         return self
 
-    def with_access_token(self, token_func: Callable[[], TokenResponse]) -> Self:
+    def with_access_token(self, token_func: Callable[[], TokenResponse | Dict[str, Any] | None]) -> Self:
         """Initializes a client to acquire a token from a callback
 
+        The callback is invoked lazily and its result cached; acquisition is
+        thread-safe (single-flight), so it is safe to use under concurrent batches.
+
         Args:
-            token_func (() -> TokenResponse): A token callback
+            token_func: A token callback returning a token response
         """
         self.authentication_context.with_access_token(token_func)
         return self
@@ -261,22 +272,48 @@ class ClientContext(ClientRuntimeContext):
         self,
         items_per_batch: int = 100,
         success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]] = None,
+        concurrency: int = 1,
+        max_batch_bytes: Optional[int] = None,
     ) -> Self:
         """Construct and submit to a server a batch request
+
+        With ``concurrency`` > 1 the batches run on a thread pool; each batch
+        is an independent HTTP request. Batches are capped by item count
+        (``items_per_batch``) and by estimated payload size (``max_batch_bytes``).
+        Throttled sub-requests (HTTP 429/503) are retried individually, honoring
+        ``Retry-After`` — only the failed sub-requests are re-sent, so successful
+        writes aren't re-applied. ``success_callback`` runs on the caller thread
+        in completion order (not submission order).
 
         Args:
             items_per_batch (int): Maximum to be selected for bulk operation
             success_callback ((List[ClientObject|ClientResult])-> None): A success callback
+            concurrency (int): Maximum number of concurrent batch requests (default 1)
+            max_batch_bytes (int or None): Maximum estimated batch payload size (default ~1 MB)
         """
+        max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
+        batches = self._split_batches(items_per_batch, max_bytes)
+        if concurrency <= 1:
+            batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat())
+            batch_request.beforeExecute += self.authentication_context.authenticate_request
+            batch_request.beforeExecute += self.pending_request().ensure_form_digest
+            for qry in batches:
+                batch_request.execute_query_with_retry(qry)
+                if callable(success_callback) and qry.return_type is not None:
+                    success_callback(qry.return_type)
+            return self
+
+        self.pending_request()
+        self._execute_batches_in_parallel(batches, concurrency, success_callback)
+        return self
+
+    def _execute_batch(self, batch_qry: "BatchQuery") -> list[Any]:
+        """Execute a single batch unit on a worker thread (with per-request retry)."""
         batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat())
         batch_request.beforeExecute += self.authentication_context.authenticate_request
         batch_request.beforeExecute += self.pending_request().ensure_form_digest
-        while self.has_pending_request:
-            qry = self._get_next_query(items_per_batch)
-            batch_request.execute_query(qry)
-            if callable(success_callback) and qry.return_type is not None:
-                success_callback(qry.return_type)
-        return self
+        batch_request.execute_query_with_retry(batch_qry)
+        return batch_qry.return_types
 
     def pending_request(self) -> SharePointRequest:
         """Provides access to underlying request instance"""
@@ -284,40 +321,48 @@ class ClientContext(ClientRuntimeContext):
             self._pending_request = SharePointRequest(
                 base_url=self._base_url,
                 environment=self._environment,
+                authority=self._authority,
             )
         return self._pending_request  # type: ignore[return-value]
 
-    def execute_query_with_incremental_retry(self, max_retry=5):
-        """Handles throttling requests."""
-        settings: dict[str, int] = {"timeout": 0}
+    def execute_query_with_incremental_retry(self, max_retry=5, max_delay=None, jitter: bool = True):
+        """Handles throttling requests.
 
-        def _try_process_if_failed(retry: int, ex: Exception) -> None:
-            """
-            check if request was throttled - http status code 429
-            or check is request failed due to server unavailable - http status code 503
-            """
-            if isinstance(ex, RequestException) and ex.response is not None and ex.response.status_code in {429, 503}:
-                retry_after = ex.response.headers.get("Retry-After", None)
-                if retry_after is not None:
-                    settings["timeout"] = int(retry_after)
+        Args:
+            max_retry: Maximum number of retry attempts
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay (default True)
+        """
+        from office365.runtime.retry import retry_after_delay
 
         self.execute_query_retry(
-            timeout_secs=settings["timeout"],
             max_retry=max_retry,
-            failure_callback=_try_process_if_failed,
+            max_delay=max_delay,
+            jitter=jitter,
+            failure_callback=lambda _retry, ex: retry_after_delay(ex),
         )
 
     def clone(self, url: str, clear_queries: bool = True) -> ClientContext:
-        """Creates a clone of ClientContext
+        """Creates a clone of ClientContext for a new site URL.
+
+        The clone reuses the source's authentication context and HTTP transport
+        (shared by reference, thread-safe under concurrent batches), while
+        starting with a fresh pending-query queue and per-site form digest.
 
         Args:
-            clear_queries (bool):
             url (str): Site Url
+            clear_queries (bool): Whether to drop pending queries (default True)
         """
-        ctx = copy.deepcopy(self)
-        ctx.pending_request().set_base_url(url)
-        if clear_queries:
-            ctx.clear()
+        ctx = ClientContext(
+            url,
+            environment=self._environment,
+            allow_ntlm=self._allow_ntlm,
+            browser_mode=self._browser_mode,
+            authority=self._authority,
+        )
+        ctx.pending_request().reuse(self.pending_request())
+        if not clear_queries:
+            ctx._queries = copy.copy(self._queries)
         return ctx
 
     def create_modern_site(self, title: str, alias: str, owner: Optional[Union[str, User]] = None) -> Site:

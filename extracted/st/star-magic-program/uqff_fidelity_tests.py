@@ -130,7 +130,7 @@ assert_that(abs(P.N_EFF_NEUTRINO - n_eff_expected) < 1e-15,
 # =============================================================================
 # BLOCK 7 — CALCULATOR SCAFFOLD INTEGRITY
 # =============================================================================
-assert_that(C.VERSION == "0.436.0", "uqff_calculator.VERSION = 0.436.0 (THE REYNOLDS LADDER SHIP: the cap holds at every Reynolds number the public record offers, up to the largest DNS in existence - and the envelope drift is flagged, not softened)")
+assert_that(C.VERSION == "0.437.0", "uqff_calculator.VERSION = 0.437.0 (THE CLOSEOUT INDEX SHIP: the proof set closed on its own terms - two theorems, a derived cap, a ruling, an audit - and every open front given its instrument and its door)")
 assert_that(isinstance(C.DISPATCH, dict), "DISPATCH is a dict")
 assert_that(C.wired_count() >= 0, "wired_count is queryable (>= 0)")
 assert_that(callable(C.calc), "calc is callable")
@@ -15232,6 +15232,30 @@ assert_that(abs(_b280['q'] - 0.7092) < 5e-4 and abs(_b280['lambda_c_nm'] - 1.184
             and '**THEOREM B.**' in _b280p and 'RULING REQUESTED' in _b280p and '0.156 nm' in _b280p and 'beta > 5/2' in _b280p
             and 'theorem_b_continuum' in _readfile('UNIFIED_REGISTRY.csv'),
             "B280 - THEOREM B (PAPER_2275, Daniel: 'I have a feeling the solution is all three. Let's solve for all three'): the THREE phonon forms of the corpus - the LINE (Form A: Gaussian/Lorentzian at f_c = 1.25 THz, Q = 25/2), the THRESHOLD (Form B: H_SCm(k_c - k), dynamics only below the carrier) and the Gaussian TAIL in mode number (Form C: q^{n^2}, q = exp(-beta_i [SSq]) = 0.7092, PAPER_1042) - compose into ONE Fourier multiplier, unity below k_c, shoulder at k_c, Gaussian above it, i.e. a Leray mollifier rho_eps of width eps = sqrt(2 beta_i [SSq])/k_c = 0.829/k_c = 0.156 nm (water; 0.1319 lambda_c; NO free parameter, one FLAGGED identification n = k/k_c); for the CONTINUUM fluid with phonon-mollified transport d_t u + (rho_eps*u . grad) u + grad p = nu Lap u - ALL modes present, nothing truncated - Leray 1934 gives a UNIQUE GLOBAL C^inf solution in four RIGOROUS steps (energy; ||grad u_eps||_inf <= ||grad rho_eps||_2 ||u_0||_2 = C eps^{-5/2} ||u_0||_2 = M_eps, the step S300 needed and could not have, legitimate because the bounded field is the SMOOTHED one, C^2 = 3/(16 pi^{3/2}) EXACT; Gronwall on H^1; local well-posedness + a-priori bounds at every order); the theorem uses NO cap, NO envelope, NO Sobolev embedding, NO BKM, NO truncation; Theorem A is its sharp-filter limit, and M_eps DIVERGING as eps -> 0 is the PAPER_2268 domain boundary made quantitative; post-sweep (sec 8) the whole corpus (2,307 papers) carries all three high-k readings and the PAPER_106 forms close the same track iff beta > 5/2 (mollifier) / a >= 5/2 (Lions) - the 5/2 threshold TWICE, a consistency the papers could not have arranged - so Track 3 is CLOSED on the Gaussian form and CONDITIONALLY closed on PAPER_106 pending Daniel's exponent RULING; front 4 gains a SHAPE (roll-off exp(-0.344 (k/k_c)^2), 1/e at 1.71 k_c - Gaussian, not power-law); NOT claimed: the no-cutoff Clay statement, uniformity as eps -> 0, that 0.156 nm is measured; registry row theorem_b_continuum WIRED")
+
+# ---- B281 2026-09-13: THE PROOF SET CLOSED - the index, the fronts, the instruments ----
+_b281 = _b267.proof_set_closeout()
+_b281f = _b281['fronts']; _b281r = _b281['open_rulings']; _b281s = _b281['fast_sound_scaling']
+_b281p = _readfile('whitepapers/PAPER_2276_THE_PROOF_SET_CLOSED_UQFF_NAVIER_STOKES_INDEX_TWO_THEOREMS_FOUR_FRONTS_INSTRUMENTS_UQFF_LANDMARK.md')
+assert_that(_b281['rungs'] == 15 and _b281['ledger'][0][0] == 'B267' and _b281['ledger'][-1] == ('B281', 'PAPER_2276', 'closeout index', 'proof_set_closeout')
+            and _b281['theory_open_rows'] == 0 and 'THEOREM_B_PROVED' in _b281['theorem_b_status']
+            and 'THEORY_COMPLETE_AWAITING_DATA' in _b281['proof_set_status'] and 'SUPERSEDED_BY_RULING' in _b281['spine_disposition']
+            and abs(_b281s['ratio'] - 3200.0 / 1480.0) < 1e-12 and abs(_b281s['lambda_c_nm_cinf'] - 2.560) < 1e-3
+            and abs(_b281s['eps_nm_cinf'] - 0.338) < 5e-4 and abs(_b281s['eps_nm_c0'] - 0.156) < 5e-4
+            and 'FLAGGED' in _b281r['Q-247'] and 'no theorem changes' in _b281r['Q-247'] and '5/2' in _b281r['Q-246']
+            and set(_b281f) == {'1_kill_test', '2_pair_cap_discrimination', '3_thz_bench', '4_spectrum_above_kc'}
+            and all(v['status'].startswith('OPEN') for v in _b281f.values())
+            and all(('instrument' in v or 'instrument_a' in v) and 'falsifier' in v for v in _b281f.values())
+            and 'turbulence@lists.johnshopkins.edu' in _b281f['1_kill_test']['access'] and 'Kerr' in _b281f['1_kill_test']['access']
+            and _b281f['1_kill_test']['testing_token'].startswith('CANNOT') and _b281f['2_pair_cap_discrimination']['testing_token'].startswith('CANNOT')
+            and 'ATTENUATED TOTAL REFLECTION' in _b281f['3_thz_bench']['instrument'] and 'NEGATIVE' in _b281f['3_thz_bench']['rule_7']
+            and 'molecular dynamics' in _b281f['4_spectrum_above_kc']['instrument_a'] and 'CHEAPEST' in _b281f['4_spectrum_above_kc']['instrument_a']
+            and '3200 m/s' in _b281f['4_spectrum_above_kc']['rule_7']
+            and 'Clay' in _b281['not_claimed'] and 'any front has been passed' in _b281['not_claimed']
+            and 'THEORY_CLOSED_B281' in _b281['status']
+            and 'Q-247' in _b281p and 'turbulence@lists.johnshopkins.edu' in _b281p and 'NOT CLAIMED' in _b281p and '3200' in _b281p
+            and 'ns_proof_set_closeout' in _readfile('UNIFIED_REGISTRY.csv') and 'Q-247' in _readfile('RULINGS_QUEUE.md'),
+            "B281 - THE PROOF SET CLOSED (PAPER_2276, Daniel: 'what is remaining to closeout the Navier-Stokes proof?' / 'author the paper. then address remaining work. tell me how to obtain token and the physics instruments'): the closing index - fifteen rungs B267-B281 each with its paper and live mirror; Theorems A and B side by side (A the sharp-filter limit of B; neither needs the cap; the cap is the falsifiable physics beside them); the derived cap graded 8-13x under on three DNS families with the envelope drift FLAGGED; the ruling and the audit; registry theory rows OPEN = 0. Two rulings named and NEITHER changes a theorem: Q-246 (PAPER_106 exponents vs the 5/2 threshold) and Q-247, NEW - the sound-cone speed at omega_SCm: the corpus anchors c_0 = 1480 m/s while inelastic x-ray scattering measures water's collective mode at c_inf = 3200 +/- 100 m/s at Q = 4-14 nm^-1, exactly where k_c falls, so lambda_c 1.184 -> 2.560 nm, k_c 5.307 -> 2.454 nm^-1, eps 0.156 -> 0.338 nm (ratio 2.162) - FLAGGED, not canonized, no corpus chain. Every open front now has an INSTRUMENT and a DOOR: front 1 (kill test) = JHTDB full token by e-mail to turbulence@lists.johnshopkins.edu or SciServer + cutouts, plus the Kerr trefoil fields by letter; front 2 (pair-cap discrimination) = the same token on channel/channel5200 tails; front 3 (THz bench) = ATR THz-TDS, one afternoon, with the negative outcome stated BEFORE measurement; front 4 (above k_c) = MD current spectra (the cheapest open act, no token, no bench) + archived IXS/INS, with the honesty that IXS already shows MOLECULAR modes propagating at 3200 m/s above k_c so the front is a statement about the hydrodynamic velocity field only; the testing token CANNOT do fronts 1-2 and will not be stretched. NOT claimed: the Clay statement; any front passed; that eps is measured. Formalization (Lean/Mathlib Theorem B) recorded as an option, not a rung")
 
 # ---- B268 2026-09-09: THE THREE TIERS - "TIER 1, THEN TIER 2, THEN TIER 3" (Daniel's order) ----
 import os as _b268os, tempfile as _b268tmp, csv as _b268csv

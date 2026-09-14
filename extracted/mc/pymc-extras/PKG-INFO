@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pymc-extras
-Version: 0.14.0
+Version: 0.15.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -234,10 +234,10 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: >=3.12
 Requires-Dist: arviz<2.0,>=1.2
 Requires-Dist: better-optimize<1.0,>=0.4.2
-Requires-Dist: preliz<0.28.0,>=0.27.0
+Requires-Dist: preliz<0.29.0,>=0.27.0
 Requires-Dist: pydantic<3.0,>=2.0.0
-Requires-Dist: pymc<6.3,>=6.2.0
-Requires-Dist: pytensor<3.3,>=3.2.3
+Requires-Dist: pymc<6.4,>=6.3.0
+Requires-Dist: pytensor<3.4,>=3.3.0
 Provides-Extra: complete
 Requires-Dist: dask[complete]<2025.1.1; extra == 'complete'
 Requires-Dist: xhistogram; extra == 'complete'

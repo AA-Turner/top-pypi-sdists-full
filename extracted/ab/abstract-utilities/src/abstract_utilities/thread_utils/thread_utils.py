@@ -28,7 +28,12 @@ Author: putkoff
 Date: 10/25/2023
 Version: 0.1.2
 """
-from .imports import *
+from .imports import (
+    threading,
+    queue,
+    create_new_name,
+    get_last_comp_list,
+)
 class ThreadedEvent:
     def __init__(self, target_function,termination_result=None,function_args={},daemon=True):
         self._event = threading.Event()

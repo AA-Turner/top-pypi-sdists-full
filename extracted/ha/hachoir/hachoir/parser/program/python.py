@@ -187,6 +187,10 @@ def createDictDesc(parent):
     return "Dict: %s" % ("%s keys" % parent.count)
 
 
+def createFrozendictDesc(parent):
+    return "Frozendict: %s" % ("%s keys" % parent.count)
+
+
 def createDictValue(parent):
     return {k.value: v.value for k, v in zip(parent.array("key"), parent.array("value"))}
 
@@ -223,6 +227,12 @@ def parseShortASCII(parent):
     yield size
     if size.value:
         yield String(parent, "text", size.value, "String content", charset="ASCII")
+
+
+def parseSlice(parent):
+    yield Object(parent, "start")
+    yield Object(parent, "stop")
+    yield Object(parent, "step")
 
 # --- Code ---
 
@@ -296,7 +306,7 @@ class Object(FieldSet):
         'x': ("complex", parseComplex, "Complex", None, createComplexValue),
         'y': ("bin_complex", parseBinaryComplex, "Binary complex", None, createComplexValue),
         'l': ("long", parseLong, "Long", None, createLongValue),
-        's': ("string", parseString, "String", None, createStringValue),
+        's': ("bytes", parseString, "Bytes", None, createStringValue),
         't': ("interned", parseString, "Interned", None, createStringValue),
         'u': ("unicode", parseString, "Unicode", None, createStringValue),
         'R': ("string_ref", parseStringRef, "String ref", createStringRefDesc, createStringRefValue),
@@ -306,12 +316,14 @@ class Object(FieldSet):
         '<': ("set", parseTuple, "Set", createTupleDesc, tupleValueCreator(set)),
         '>': ("frozenset", parseTuple, "Frozen set", createTupleDesc, tupleValueCreator(frozenset)),
         '{': ("dict", parseDict, "Dict", createDictDesc, createDictValue),
+        '}': ("frozendict", parseDict, "Frozendict", createFrozendictDesc, createDictValue),
         'c': ("code", parseCode, "Code", None, None),
         'r': ("ref", parseRef, "Reference", createRefDesc, createRefValue),
         'a': ("ascii", parseASCII, "ASCII", None, createStringValue),
         'A': ("ascii_interned", parseASCII, "ASCII interned", None, createStringValue),
         'z': ("short_ascii", parseShortASCII, "Short ASCII", None, createStringValue),
         'Z': ("short_ascii_interned", parseShortASCII, "Short ASCII interned", None, createStringValue),
+        ':': ("slice", parseSlice, "Slice", None, createStringValue),
     }
 
     def __init__(self, parent, name, **kw):
@@ -395,8 +407,8 @@ class PythonCompiledFile(Parser):
 
     # Dictionnary which associate the pyc signature (32-bit integer)
     # to a Python version string (eg. "m\xf2\r\n" => "Python 2.4b1").
-    # This list comes from CPython source code, see MAGIC_NUMBER
-    # in file Lib/importlib/_bootstrap_external.py
+    # This list comes from CPython source code, see PYC_MAGIC_NUMBER
+    # in file Include/internal/pycore_magic_number.h.
     MAGIC = {
         # Python 1.x
         20121: ("1.5", 0x1050000),
@@ -493,6 +505,8 @@ class PythonCompiledFile(Parser):
         3423: ("Python 3.9a2", VERSION(3, 9)),
         3424: ("Python 3.9a2", VERSION(3, 9)),
         3425: ("Python 3.9a2", VERSION(3, 9)),
+
+        # Python 3.10
         3430: ("Python 3.10a1", VERSION(3, 10)),
         3431: ("Python 3.10a1", VERSION(3, 10)),
         3432: ("Python 3.10a2", VERSION(3, 10)),
@@ -503,6 +517,8 @@ class PythonCompiledFile(Parser):
         3437: ("Python 3.10b1", VERSION(3, 10)),
         3438: ("Python 3.10b1", VERSION(3, 10)),
         3439: ("Python 3.10b1", VERSION(3, 10)),
+
+        # Python 3.11
         3450: ("Python 3.11a1", VERSION(3, 11)),
         3451: ("Python 3.11a1", VERSION(3, 11)),
         3452: ("Python 3.11a1", VERSION(3, 11)),
@@ -548,6 +564,8 @@ class PythonCompiledFile(Parser):
         3492: ("Python 3.11a7", VERSION(3, 11)),
         3493: ("Python 3.11a7", VERSION(3, 11)),
         3494: ("Python 3.11a7", VERSION(3, 11)),
+
+        # Python 3.12
         3500: ("Python 3.12a1", VERSION(3, 12)),
         3501: ("Python 3.12a1", VERSION(3, 12)),
         3502: ("Python 3.12a1", VERSION(3, 12)),
@@ -560,6 +578,105 @@ class PythonCompiledFile(Parser):
         3509: ("Python 3.12a1", VERSION(3, 12)),
         3510: ("Python 3.12a1", VERSION(3, 12)),
         3511: ("Python 3.12a1", VERSION(3, 12)),
+        3512: ("Python 3.12a2", VERSION(3, 12)),
+        3513: ("Python 3.12a4", VERSION(3, 12)),
+        3514: ("Python 3.12a4", VERSION(3, 12)),
+        3515: ("Python 3.12a5", VERSION(3, 12)),
+        3516: ("Python 3.12a5", VERSION(3, 12)),
+        3517: ("Python 3.12a5", VERSION(3, 12)),
+        3518: ("Python 3.12a6", VERSION(3, 12)),
+        3519: ("Python 3.12a6", VERSION(3, 12)),
+        3520: ("Python 3.12a6", VERSION(3, 12)),
+        3521: ("Python 3.12a7", VERSION(3, 12)),
+        3522: ("Python 3.12a7", VERSION(3, 12)),
+        3523: ("Python 3.12a7", VERSION(3, 12)),
+        3524: ("Python 3.12a7", VERSION(3, 12)),
+        3525: ("Python 3.12b1", VERSION(3, 12)),
+        3526: ("Python 3.12b1", VERSION(3, 12)),
+        3527: ("Python 3.12b1", VERSION(3, 12)),
+        3528: ("Python 3.12b1", VERSION(3, 12)),
+        3529: ("Python 3.12b1", VERSION(3, 12)),
+        3530: ("Python 3.12b1", VERSION(3, 12)),
+        3531: ("Python 3.12b1", VERSION(3, 12)),
+
+        # Python 3.13
+        3550: ("Python 3.13a1", VERSION(3, 13)),
+        3551: ("Python 3.13a1", VERSION(3, 13)),
+        3552: ("Python 3.13a1", VERSION(3, 13)),
+        3553: ("Python 3.13a1", VERSION(3, 13)),
+        3554: ("Python 3.13a1", VERSION(3, 13)),
+        3555: ("Python 3.13a1", VERSION(3, 13)),
+        3556: ("Python 3.13a1", VERSION(3, 13)),
+        3557: ("Python 3.13a1", VERSION(3, 13)),
+        3558: ("Python 3.13a1", VERSION(3, 13)),
+        3559: ("Python 3.13a1", VERSION(3, 13)),
+        3560: ("Python 3.13a1", VERSION(3, 13)),
+        3561: ("Python 3.13a1", VERSION(3, 13)),
+        3562: ("Python 3.13a1", VERSION(3, 13)),
+        3563: ("Python 3.13a1", VERSION(3, 13)),
+        3564: ("Python 3.13a1", VERSION(3, 13)),
+        3565: ("Python 3.13a1", VERSION(3, 13)),
+        3566: ("Python 3.13a1", VERSION(3, 13)),
+        3567: ("Python 3.13a1", VERSION(3, 13)),
+        3568: ("Python 3.13a1", VERSION(3, 13)),
+        3569: ("Python 3.13a5", VERSION(3, 13)),
+        3570: ("Python 3.13a6", VERSION(3, 13)),
+        3571: ("Python 3.13b1", VERSION(3, 13)),
+
+        # Python 3.14
+        3600: ("Python 3.14a1", VERSION(3, 14)),
+        3601: ("Python 3.14a1", VERSION(3, 14)),
+        3602: ("Python 3.14a1", VERSION(3, 14)),
+        3603: ("Python 3.14a1", VERSION(3, 14)),
+        3604: ("Python 3.14a1", VERSION(3, 14)),
+        3605: ("Python 3.14a1", VERSION(3, 14)),
+        3606: ("Python 3.14a1", VERSION(3, 14)),
+        3607: ("Python 3.14a1", VERSION(3, 14)),
+        3608: ("Python 3.14a1", VERSION(3, 14)),
+        3609: ("Python 3.14a2", VERSION(3, 14)),
+        3610: ("Python 3.14a4", VERSION(3, 14)),
+        3611: ("Python 3.14a4", VERSION(3, 14)),
+        3612: ("Python 3.14a4", VERSION(3, 14)),
+        3613: ("Python 3.14a4", VERSION(3, 14)),
+        3614: ("Python 3.14a5", VERSION(3, 14)),
+        3615: ("Python 3.14a5", VERSION(3, 14)),
+        3616: ("Python 3.14a5", VERSION(3, 14)),
+        3617: ("Python 3.14a6", VERSION(3, 14)),
+        3618: ("Python 3.14a6", VERSION(3, 14)),
+        3619: ("Python 3.14a6", VERSION(3, 14)),
+        3620: ("Python 3.14a6", VERSION(3, 14)),
+        3621: ("Python 3.14a7", VERSION(3, 14)),
+        3622: ("Python 3.14a7", VERSION(3, 14)),
+        3623: ("Python 3.14a7", VERSION(3, 14)),
+        3624: ("Python 3.14b1", VERSION(3, 14)),
+        3625: ("Python 3.14b3", VERSION(3, 14)),
+        3626: ("Python 3.14rc2", VERSION(3, 14)),
+        3627: ("Python 3.14rc3", VERSION(3, 14)),
+
+        # Python 3.15
+        3650: ("Python 3.15a0", VERSION(3, 15)),
+        3651: ("Python 3.15a1", VERSION(3, 15)),
+        3652: ("Python 3.15a1", VERSION(3, 15)),
+        3653: ("Python 3.15a1", VERSION(3, 15)),
+        3654: ("Python 3.15a1", VERSION(3, 15)),
+        3655: ("Python 3.15a1", VERSION(3, 15)),
+        3656: ("Python 3.15a1", VERSION(3, 15)),
+        3657: ("Python 3.15a4", VERSION(3, 15)),
+        3658: ("Python 3.15a4", VERSION(3, 15)),
+        3659: ("Python 3.15a4", VERSION(3, 15)),
+        3660: ("Python 3.15a4", VERSION(3, 15)),
+        3661: ("Python 3.15a4", VERSION(3, 15)),
+        3662: ("Python 3.15a8", VERSION(3, 15)),
+        3663: ("Python 3.15a8", VERSION(3, 15)),
+        3664: ("Python 3.15a8", VERSION(3, 15)),
+        3665: ("Python 3.15a8", VERSION(3, 15)),
+        3666: ("Python 3.15b1", VERSION(3, 15)),
+        3700: ("Python 3.16a0", VERSION(3, 16)),
+        3701: ("Python 3.16a0", VERSION(3, 16)),
+        3702: ("Python 3.16a1", VERSION(3, 16)),
+        3703: ("Python 3.16a1", VERSION(3, 16)),
+        3704: ("Python 3.16a1", VERSION(3, 16)),
+        3705: ("Python 3.16a1", VERSION(3, 16)),
     }
 
     # Dictionnary which associate the pyc signature (4-byte long string)

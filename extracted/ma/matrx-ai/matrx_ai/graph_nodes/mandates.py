@@ -64,7 +64,11 @@ from typing import Any
 
 from matrx_utils import vcprint
 
-from matrx_ai.config.output_ceiling import enforce_document_ceiling
+from matrx_ai.config.output_ceiling import (
+    declared_output_schema,
+    enforce_document_ceiling,
+    model_output_maximum,
+)
 
 #: The Mandate that holds every runtime AI step of an authored workflow.
 #: Declared in ``aidream/workflows/mandates.py``; spelled here once.
@@ -101,48 +105,13 @@ def step_metadata(
     return carried
 
 
-def _declared_output_schema(step: dict[str, Any]) -> Any:
-    """The JSON Schema this step forces its answer into, or ``None`` for prose.
-
-    Reads the ``response_format`` the node already built — ``{"type":
-    "json_schema", "json_schema": {"name": …, "schema": {...}}}`` — plus the
-    bare ``output_schema`` some nodes carry. ``None`` means free prose, which
-    ``document_output_reason`` treats as a document here because a workflow
-    step has nowhere to continue.
-    """
-    fmt = step.get("response_format")
-    if isinstance(fmt, dict):
-        inner = fmt.get("json_schema")
-        if isinstance(inner, dict):
-            return inner
-        if fmt.get("type") not in (None, "text"):
-            return fmt
-    schema = step.get("output_schema")
-    return schema if isinstance(schema, dict) and schema else None
-
-
-async def model_output_maximum(model_id_or_name: Any) -> int | None:
-    """The model's REAL output maximum (``ai.model_definition.max_tokens``), or
-    ``None`` when the catalog cannot say.
-
-    ``None`` is a deliberate no-op for the document-ceiling floor: inventing a
-    maximum it could not read would be worse than staying quiet, and the
-    release-health audit still catches the row.
-    """
-    if not model_id_or_name:
-        return None
-    try:
-        from matrx_ai.db.ai_models.ai_model_manager import ai_model_manager_instance
-
-        row = await ai_model_manager_instance.load_model(str(model_id_or_name))
-        value = getattr(row, "max_tokens", None)
-        return int(value) if isinstance(value, int | float) and value > 0 else None
-    except Exception as exc:  # noqa: BLE001 — never fail a step over a guard's lookup
-        vcprint(
-            f"document-ceiling floor could not read max_tokens for {model_id_or_name}: {exc}",
-            color="yellow",
-        )
-        return None
+#: The step's declared output schema and the model's real maximum both come from
+#: THE ONE predicate module (``matrx_ai.config.output_ceiling``) — never a local
+#: copy, so the layer that authors a ceiling and the layers that send it can
+#: never disagree about what a document is or what a model can do. Re-exported
+#: under these names because ``hold_step`` calls them as module globals (tests
+#: monkeypatch ``model_output_maximum`` here).
+_declared_output_schema = declared_output_schema
 
 
 @dataclass(frozen=True, slots=True)

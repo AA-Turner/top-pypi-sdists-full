@@ -1,11 +1,15 @@
+from django.contrib.auth.models import AnonymousUser, Group
 from django.test import TestCase
 
-from allianceauth.menu.constants import MenuItemType
+from allianceauth.authentication.models import State, User
+from allianceauth.menu.models import MenuItem
+from allianceauth.tests.auth_utils import AuthUtils
 
 from .factories import (
     create_app_menu_item,
     create_folder_menu_item,
     create_link_menu_item,
+    create_user,
 )
 
 
@@ -25,9 +29,9 @@ class TestMenuItem(TestCase):
         folder_item = create_folder_menu_item()
 
         cases = [
-            (app_item, MenuItemType.APP),
-            (link_item, MenuItemType.LINK),
-            (folder_item, MenuItemType.FOLDER),
+            (app_item, MenuItem.MenuItemType.APP),
+            (link_item, MenuItem.MenuItemType.LINK),
+            (folder_item, MenuItem.MenuItemType.FOLDER),
         ]
         # when
         for obj, expected in cases:
@@ -117,6 +121,95 @@ class TestMenuItem(TestCase):
         # then
         obj.refresh_from_db()
         self.assertIsNone(obj.hook_hash)
+
+    def test_should_give_access_to_everyone_when_no_permissions_assigned(self):
+        # given
+        item = create_link_menu_item()
+
+        cases = [create_user(), AnonymousUser()]
+        # when
+        for user in cases:
+            with self.subTest(user=str(user)):
+                self.assertTrue(item.user_has_access(user))
+
+    def test_any_mode_should_give_access_when_user_has_one_permission(self):
+        # given
+        item = create_link_menu_item(
+            permissions=["auth.add_group", "auth.change_group"],
+            permission_mode=MenuItem.PermissionMode.ANY,
+        )
+        user = create_user(permissions=["auth.add_group"])
+
+        # then
+        self.assertTrue(item.user_has_access(user))
+
+    def test_all_mode_should_give_access_when_user_has_all_permissions(self):
+        # given
+        item = create_link_menu_item(
+            permissions=["auth.add_group", "auth.change_group"],
+            permission_mode=MenuItem.PermissionMode.ALL,
+        )
+        user = create_user(permissions=["auth.add_group", "auth.change_group"])
+
+        # then
+        self.assertTrue(item.user_has_access(user))
+
+    def test_all_mode_should_deny_access_when_user_has_only_some_permissions(self):
+        # given
+        item = create_link_menu_item(
+            permissions=["auth.add_group", "auth.change_group"],
+            permission_mode=MenuItem.PermissionMode.ALL,
+        )
+        user = create_user(permissions=["auth.add_group"])
+
+        # then
+        self.assertFalse(item.user_has_access(user))
+
+    def test_should_deny_access_when_user_has_no_permissions(self):
+        # given
+        for mode in [MenuItem.PermissionMode.ANY, MenuItem.PermissionMode.ALL]:
+            with self.subTest(mode=mode):
+                item = create_link_menu_item(
+                    permissions=["auth.add_group"], permission_mode=mode
+                )
+
+                cases = [create_user(), AnonymousUser()]
+                # when
+                for user in cases:
+                    with self.subTest(user=str(user)):
+                        self.assertFalse(item.user_has_access(user))
+
+    def test_should_give_access_to_superusers(self):
+        # given
+        item = create_link_menu_item(permissions=["auth.add_group"])
+        user = create_user(is_superuser=True)
+
+        # then
+        self.assertTrue(item.user_has_access(user))
+
+    def test_should_give_access_when_permission_granted_through_group(self):
+        # given
+        item = create_link_menu_item(permissions=["auth.add_group"])
+        group = Group.objects.create(name="dummy")
+        group.permissions.add(AuthUtils.get_permission_by_name("auth.add_group"))
+        user = create_user()
+        user.groups.add(group)
+        user = User.objects.get(pk=user.pk)  # avoid stale permission cache
+
+        # then
+        self.assertTrue(item.user_has_access(user))
+
+    def test_should_give_access_when_permission_granted_through_state(self):
+        # given
+        item = create_link_menu_item(permissions=["auth.add_group"])
+        state = State.objects.create(name="dummy", priority=200)
+        state.permissions.add(AuthUtils.get_permission_by_name("auth.add_group"))
+        user = create_user()
+        AuthUtils.assign_state(user, state, disconnect_signals=True)
+        user = User.objects.get(pk=user.pk)  # avoid stale permission cache
+
+        # then
+        self.assertTrue(item.user_has_access(user))
 
 
 class TestMenuItemToHookObj(TestCase):

@@ -1,5 +1,43 @@
 # --- auto-package bootstrap (run-safe) ---------------------------------
-from ..imports import *
+from ..imports import (
+    imports,
+    os,
+    importlib,
+    sys,
+    inspect,
+    get_args,
+    Path,
+    load_dotenv,
+    jsonify,
+    secure_filename,
+    read_from_file,
+    write_to_file,
+    get_text_or_read,
+    eatAll,
+    eatInner,
+    eatElse,
+    clean_line,
+    if_none_change,
+    if_none_default,
+    get_true_globals,
+    get_initial_caller_dir,
+    get_caller_path,
+    get_caller_dir,
+    make_list,
+    get_file_parts,
+    is_number,
+    collect_filepaths,
+    collect_globs,
+    get_shortest_path,
+    get_common_root,
+    get_logFile,
+    IMPORT_TAG,
+    FROM_TAG,
+    is_line_import,
+    is_line_group_import,
+    is_from_line_group,
+    get_unique_name,
+)
 from .dot_utils import get_dot_range
 from .sysroot_utils import get_sysroot,get_import_with_sysroot,get_py_files,get_all_py_sysroots
 from .extract_utils import get_all_py_file_paths
@@ -53,7 +91,7 @@ def safe_import(name: str, *, package: str | None = None, member: str | None = N
 def dynamic_import(module_path: str, namespace: dict, all_imports = None):
     """
     Emulates:
-        from module_path import *
+        from module_path import <names>
     but includes private (_xxx) names too.
     """
     all_imports = if_none_change(all_imports,True)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: office365-rest-python-client
-Version: 3.0.0
+Version: 3.1.0
 Summary: Microsoft 365 & Microsoft Graph Library for Python
 Author: Vadim Gremyachev
 Author-email: Vadim Gremyachev <vvgrem@gmail.com>
@@ -44,18 +44,22 @@ Requires-Dist: pytz>=2021.1
 Requires-Dist: requests>=2.32.4,<3
 Requires-Dist: typing-extensions>=4.5
 Requires-Dist: faker ; extra == 'examples'
+Requires-Dist: openpyxl>=3.1 ; extra == 'excel'
 Requires-Dist: pandas>=1.3.0 ; extra == 'notebooks'
 Requires-Dist: jupyter ; extra == 'notebooks'
 Requires-Dist: nbformat ; extra == 'notebooks'
 Requires-Dist: jinja2 ; extra == 'notebooks'
 Requires-Dist: requests-ntlm ; extra == 'ntlm'
+Requires-Dist: pandas>=1.5 ; extra == 'pandas'
 Maintainer: Domenico Di Nicola
 Maintainer-email: Domenico Di Nicola <dom.dinicola@gmail.com>
 Requires-Python: >=3.8.0
 Project-URL: repository, https://github.com/vgrem/office365-rest-python-client
 Provides-Extra: examples
+Provides-Extra: excel
 Provides-Extra: notebooks
 Provides-Extra: ntlm
+Provides-Extra: pandas
 Description-Content-Type: text/markdown
 
 # office365-rest-python-client
@@ -79,7 +83,7 @@ Covers SharePoint REST API v1, Microsoft Graph (Outlook, OneDrive, Teams, OneNot
 
 - [**GitHub Sponsors**](https://github.com/sponsors/vgrem) — recurring monthly support
 - [**PayPal**](https://paypal.me/ossvgrem) — one-off donation
-- **Using this in production?** The [Organization tier](https://github.com/sponsors/vgrem) adds priority issue response and a roadmap vote; [contact us](https://github.com/vgrem/office365-rest-python-client/discussions) for paid support or custom feature work.
+- **Using this in production?** The [Organization tier](https://github.com/sponsors/vgrem) adds priority issue response and a roadmap vote; [contact us](https://github.com/vgrem/office365-rest-python-client/discussions) for paid support, custom feature work, or help migrating from 2.6.2 → 3.0.0.
 
 ---
 
@@ -220,10 +224,16 @@ for item in items:
 target_list = ctx.web.lists.get_by_title("Tasks")
 item = target_list.add_item({"Title": "New task", "Status": "Active"}).execute_query()
 
-# Bulk create — auto-batches in chunks of 100
+# Bulk create — auto-batches in chunks of 100 (sequential by default)
 for row in data:
     target_list.add_item({"Title": row["name"]})
 ctx.execute_batch()
+
+# Parallel bulk create — up to 5 batch requests in flight at once, cutting
+# wall time for large imports. Transient failures (e.g. HTTP 429) are retried,
+# honoring Retry-After. With concurrency > 1 the success_callback runs on the
+# caller thread in completion order (not submission order).
+ctx.execute_batch(concurrency=5)
 
 # Filter, select, expand
 items = ctx.web.lists.get_by_title("Projects")\

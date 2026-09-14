@@ -288,8 +288,31 @@ class FunctionCandidateManager:
                 dont_skip,
                 next_gap,
             )
+        elif dont_skip and self.gap_pointer is not None and self.disassembly is not None:
+            # The branch above only fires for a candidate that became a function. One that did
+            # not leaves gap_pointer outside code_map, so the scan resumes at the next entry of
+            # the gap map -- snapshotted once in initGapSearch() and never refreshed -- which
+            # abandons whatever is left of the gap this candidate was found in.
+            resume = self._failedGapResumeTarget()
+            if resume is not None:
+                next_gap = min(next_gap, resume)
+                LOGGER.debug(
+                    "getNextGap(%s) => resuming inside the gap a failed candidate was in: 0x%08x",
+                    dont_skip,
+                    next_gap,
+                )
         LOGGER.debug("getNextGap(%s) final gap_ptr: 0x%08x", dont_skip, next_gap)
         return next_gap
+
+    def _failedGapResumeTarget(self):
+        """Where to resume after a gap candidate failed to become a function, or None.
+
+        None keeps the historical behaviour of abandoning the rest of the gap. A backend
+        overrides this when it can name the next plausible entry cheaply; scanning byte by byte
+        from the failed address instead costs an order of magnitude in runtime, because the
+        candidates it then walks are mostly the interior of whatever the failed one was.
+        """
+        return None
 
     def nextGapCandidate(self, start_gap_pointer=None):
         """Architecture-specific gap scan; implemented per backend."""
@@ -709,6 +732,73 @@ class FunctionCandidateManager:
                 break
             index -= 1
         return None
+
+    def _pdataInteriorRefusalEnabled(self):
+        """Whether this backend's exception-directory interior rule is enabled.
+
+        `_pdata_ranges` is filled by whichever backend read the directory, and the two that do
+        answer to separate flags: the x64 and ARM64 PE rules are separate features with separate
+        defaults. Naming either flag here would leave one architecture's rule answering to the
+        other architecture's switch, so each backend says instead. Those two are also the only
+        managers this engine builds today, so what is inherited here is the answer for one that
+        carves no directory at all: off, there being no extents for the rule to read.
+        """
+        return False
+
+    def declaredInteriorOwner(self, addr):
+        """The recovered function whose declared range contains `addr`, or None.
+
+        Either structure that declares one answers: an ELF's `.eh_frame` FDE ranges, or a PE
+        exception directory's `RUNTIME_FUNCTION` extents.
+
+        The same evidence the gap scan already refuses on, asked at the point a candidate from
+        any source is about to be analysed rather than only where the gap pointer reaches. Both
+        of that rule's guards apply unchanged. A PLT is exempt because the whole table sits
+        under one FDE, so the range test reads every stub after the first as interior to the
+        first. And the range's own start has to be a recovered function, because an FDE can
+        begin in the alignment padding ahead of its function, which leaves the real entry a few
+        bytes in interior to nothing.
+
+        Both structures answer here, as they do in the gap scan, and they are format-disjoint:
+        `_pdata_ranges` is only ever filled from a PE exception directory and the `.eh_frame`
+        ranges decode nothing unless lief reports an ELF, so no address is arbitrated between
+        them. Disjointness is load-bearing rather than merely tidy, unlike in the gap scan: a
+        declared FDE range whose start was never recovered sets `owner` and then fails the
+        recovered-owner test, so on an image carrying both structures the exception directory
+        would never be asked about that address. A fragment record is not the shortcut it is in
+        the gap scan: its own start is not the function that covers the address, so it fails the
+        recovered-owner test below and declines, which is the conservative reading at a point
+        where a better one is available.
+
+        A third guard the gap scan does not need: the owner's own recovered extent has to
+        surround the address. An FDE can reach past everything its function's control flow
+        arrives at, and refusing an address out there discards bytes nothing else claims --
+        along with any reference only those bytes carry, which costs real functions elsewhere.
+        Inside the extent, the address is never one the owner decoded: a candidate landing on
+        recovered code is refused a step earlier against a byte-level code map, and
+        `function_borders` records only the extremes of that code, not its coverage. What
+        reaches here sits in the holes -- alignment between blocks, an unreached tail, a data
+        island -- so the exposure is a real entry with no FDE of its own in one of them, which
+        loses whatever reference only its bytes carry. An entry that carries its own FDE is
+        never interior to it, so the shape needs a routine covered by a neighbour's range, and
+        nothing in the format forbids that; what bounds it is measurement rather than
+        structure, no true positive lost across the ELF corpora this was measured over.
+        """
+        owner = None
+        if self.config.USE_ELF_FDE_INTERIOR_GAPS and not self.isInDeclaredPltSection(addr):
+            declared = self.declaredFdeRangeContaining(addr)
+            if declared is not None:
+                owner = declared[0]
+        if owner is None and self._pdata_ranges and self._pdataInteriorRefusalEnabled():
+            declared = self.declaredExceptionRangeContaining(addr)
+            if declared is not None:
+                owner = declared[0]
+        if owner is None or owner not in self.disassembly.functions:
+            return None
+        borders = self.disassembly.function_borders.get(owner)
+        if borders is None or not borders[0] <= addr < borders[1]:
+            return None
+        return owner
 
     def opensInsideDeclaredFdeRange(self, addr):
         """Whether `addr` falls inside a declared FDE range without being that range's start."""

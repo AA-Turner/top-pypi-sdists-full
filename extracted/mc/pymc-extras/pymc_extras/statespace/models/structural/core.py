@@ -38,7 +38,9 @@ from pymc_extras.statespace.models.utilities import (
 from pymc_extras.statespace.utils.constants import (
     ALL_STATE_AUX_DIM,
     ALL_STATE_DIM,
+    JITTER_DEFAULT,
     LONG_MATRIX_NAMES,
+    MISSING_FILL,
 )
 
 _log = logging.getLogger(__name__)
@@ -131,7 +133,11 @@ class StructuralTimeSeries(PyMCStateSpace):
         measurement_error: bool,
         verbose: bool = True,
         filter_type: str = "standard",
+        smoother_type: str = "disturbance",
+        joint_smoothed_draws: bool = True,
         mode: str | Mode | None = None,
+        cov_jitter: float = JITTER_DEFAULT,
+        missing_fill_value: float = MISSING_FILL,
     ):
         """
         Initialize a StructuralTimeSeries model.
@@ -168,6 +174,12 @@ class StructuralTimeSeries(PyMCStateSpace):
             Type of Kalman filter to use.
         mode : str | Mode | None, default None
             PyTensor compilation mode.
+        cov_jitter : float, optional
+            Jitter added to covariance diagonals at each filtering step. Post-estimation graphs use the same
+            value. Default 1e-8, or 1e-6 if ``pytensor.config.floatX`` is float32.
+        missing_fill_value : float, optional
+            Sentinel used to mask missing observations. Post-estimation graphs use the same value.
+            Default -9999.0.
         """
         self._name = name or "StructuralTimeSeries"
         self.measurement_error = measurement_error
@@ -183,9 +195,13 @@ class StructuralTimeSeries(PyMCStateSpace):
             k_states,
             max(1, k_posdef),
             filter_type=filter_type,
+            smoother_type=smoother_type,
+            joint_smoothed_draws=joint_smoothed_draws,
             verbose=verbose,
             measurement_error=measurement_error,
             mode=mode,
+            cov_jitter=cov_jitter,
+            missing_fill_value=missing_fill_value,
         )
 
         self._tensor_variable_info = tensor_variable_info
@@ -194,7 +210,7 @@ class StructuralTimeSeries(PyMCStateSpace):
         self._exog_names = data_info.exogenous_names
         self._needs_exog_data = data_info.needs_exogenous_data
 
-        self._init_ssm(ssm, k_posdef)
+        self._init_ssm(ssm)
 
     def _init_info_objects(
         self,
@@ -236,20 +252,24 @@ class StructuralTimeSeries(PyMCStateSpace):
         self._shock_names = strip(self._shock_info.names)
         self._param_names = strip(self._param_info.names)
 
-    def _init_ssm(self, ssm: PytensorRepresentation, k_posdef: int) -> None:
-        """Initialize state space model representation."""
-        self.ssm = ssm.copy()
+    def _init_ssm(self, ssm: PytensorRepresentation) -> None:
+        """Build this model's representation from the component's matrices."""
+        matrices = {name: ssm[name] for name in LONG_MATRIX_NAMES}
+        matrices["initial_state_cov"] = self.make_and_register_variable(
+            "P0", shape=(self.k_states, self.k_states)
+        )
 
-        if k_posdef == 0:
+        if ssm.k_posdef == 0:
             # Components without shocks degrade to a one-shock placeholder so the filter has
             # consistent dims; the placeholder selection/state_cov are zero, so the shock has
             # no effect.
-            self.ssm.k_posdef = self.k_posdef
-            self.ssm["state_cov"] = pt.zeros((1, 1))
-            self.ssm["selection"] = pt.zeros((self.k_states, 1))
+            matrices["state_cov"] = pt.zeros((1, 1))
+            matrices["selection"] = pt.zeros((self.k_states, 1))
 
-        P0 = self.make_and_register_variable("P0", shape=(self.k_states, self.k_states))
-        self.ssm["initial_state_cov"] = P0
+        self.ssm = PytensorRepresentation(
+            k_endog=ssm.k_endog, k_states=ssm.k_states, k_posdef=self.k_posdef, **matrices
+        )
+        self.ssm.declare_time_varying(*ssm.time_varying_names)
 
     def _populate_properties(self) -> None:
         # The base class method needs to be overridden because we directly set properties in
@@ -966,7 +986,15 @@ class Component:
         return new_comp
 
     def build(
-        self, name=None, filter_type="standard", verbose=True, mode: str | Mode | None = None
+        self,
+        name=None,
+        filter_type="standard",
+        smoother_type="disturbance",
+        joint_smoothed_draws=True,
+        verbose=True,
+        mode: str | Mode | None = None,
+        cov_jitter: float = JITTER_DEFAULT,
+        missing_fill_value: float = MISSING_FILL,
     ):
         """
         Build a StructuralTimeSeries statespace model from the current component(s)
@@ -990,6 +1018,16 @@ class Component:
             Regardless of whether a mode is specified, it can always be overwritten via the ``compile_kwargs`` argument
             to all sampling methods.
 
+        cov_jitter: float, optional
+            Jitter added to the diagonal of every covariance matrix at each filtering step, for numerical
+            stability. Post-estimation graphs are built with this same value. Default 1e-8, or 1e-6 if
+            ``pytensor.config.floatX`` is float32.
+
+        missing_fill_value: float, optional
+            Sentinel used to mask missing observations. Set this only if your data legitimately contains the
+            default sentinel. Post-estimation graphs are built with this same value. Default None, which the
+            filter resolves to -9999.0.
+
         Returns
         -------
         PyMCStateSpace
@@ -1010,6 +1048,10 @@ class Component:
             component_info=self._component_info,
             measurement_error=self.measurement_error,
             filter_type=filter_type,
+            smoother_type=smoother_type,
+            joint_smoothed_draws=joint_smoothed_draws,
             verbose=verbose,
             mode=mode,
+            cov_jitter=cov_jitter,
+            missing_fill_value=missing_fill_value,
         )

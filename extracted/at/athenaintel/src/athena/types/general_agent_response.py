@@ -13,6 +13,10 @@ class GeneralAgentResponse(UniversalBaseModel):
     """
 
     messages: typing.List[GeneralAgentResponseMessage]
+    structured_output: typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]] = pydantic.Field(default=None)
+    """
+    The agent's final answer as an object matching `config.structured_output`. Null when no schema was requested.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

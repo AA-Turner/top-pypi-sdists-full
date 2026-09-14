@@ -14,8 +14,11 @@ import unittest
 
 import lief
 
+from smda.aarch64.FunctionCandidateManager import FunctionCandidateManager as Aarch64FunctionCandidateManager
 from smda.common.EhFrameDecoder import decodeEhFrameFdeRanges
+from smda.common.FunctionCandidateManager import FunctionCandidateManager
 from smda.Disassembler import Disassembler
+from smda.intel.FunctionCandidateManager import FunctionCandidateManager as IntelFunctionCandidateManager
 from smda.SmdaConfig import SmdaConfig
 
 logging.disable(logging.CRITICAL)
@@ -86,10 +89,6 @@ class FdeInteriorGapRuleTest(unittest.TestCase):
         self.assertEqual((off & named) - on, set())
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class FdeInteriorGapRuleAArch64Test(unittest.TestCase):
     """The rule lives in the shared candidate manager and both gap scans consult it.
 
@@ -138,3 +137,226 @@ class FdeInteriorGapRuleAArch64Test(unittest.TestCase):
             self.assertIsNotNone(owner, f"0x{address:x} was refused but is inside no declared range")
             # the condition that keeps an FDE opening in padding from refusing its own function
             self.assertIn(owner[0], on, f"0x{address:x} was refused by a range whose start is not a function")
+
+    def analysedFixture(self, claim=None):
+        """Run the fixture, optionally having the rule claim one address, and keep the manager."""
+        config = SmdaConfig()
+        config.CALCULATE_SCC = False
+        config.CALCULATE_NESTING = False
+        config.CALCULATE_HASHING = False
+        original = FunctionCandidateManager.declaredInteriorOwner
+        if claim is not None:
+            address, owner = claim
+
+            def claiming(manager, candidate_address):
+                if candidate_address == address:
+                    return owner
+                return original(manager, candidate_address)
+
+            FunctionCandidateManager.declaredInteriorOwner = claiming
+        temp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as handle:
+                handle.write(self.data)
+                temp_path = handle.name
+            disassembler = Disassembler(config)
+            report = disassembler.disassembleFile(temp_path)
+        finally:
+            if temp_path is not None:
+                os.unlink(temp_path)
+            # restore inside the finally, and with everything after the patch inside the try:
+            # a failure while writing the sample or building the disassembler would otherwise
+            # leave the claim installed on the class for every later test in the process
+            FunctionCandidateManager.declaredInteriorOwner = original
+        return disassembler.disassembler, {function.offset for function in report.getFunctions()}
+
+    def testAnalysisItselfDeclinesWhatTheRuleClaims(self):
+        """The refusal is wired into analysis, not only into the gap scan.
+
+        On this fixture every address the rule would claim is one the gap scan already
+        refused or the collision check already caught, so asserting over what it happens to
+        drop here would assert nothing. Claiming one address the fixture does recover is what
+        shows analysis consults the rule at all, and that it declines rather than reports.
+        """
+        _, baseline = self.analysedFixture()
+        self.assertGreater(len(baseline), 200)
+        owner, target = sorted(baseline)[0], sorted(baseline)[1]
+
+        backend, recovered = self.analysedFixture(claim=(target, owner))
+        self.assertNotIn(target, recovered, "analysis reported an address the rule claimed")
+        self.assertEqual(baseline - recovered, {target}, "the claim moved more than the address it named")
+        # the reason is not asserted: a refused address is offered again as a gap candidate,
+        # and that pass records its own outcome over this one
+        self.assertTrue(backend.fc_manager.candidates[target].analysis_aborted)
+
+
+class _RecoveredDisassembly:
+    """The two things `declaredInteriorOwner` reads about what analysis has recovered."""
+
+    def __init__(self, functions, borders):
+        self.functions = functions
+        self.function_borders = borders
+
+
+def declaredOwnerOf(
+    address,
+    ranges,
+    functions,
+    borders,
+    plt=(),
+    enabled=True,
+    pdata=(),
+    pe_enabled=True,
+    arm64_pe_enabled=True,
+    manager_class=FunctionCandidateManager,
+):
+    # the exception-directory arm asks the backend whether its own rule is on, and the common
+    # class answers no, so a PE case has to be posed to the backend that fills those ranges --
+    # otherwise it passes by declining for the wrong reason
+    manager = manager_class(SmdaConfig())
+    manager.config.USE_ELF_FDE_INTERIOR_GAPS = enabled
+    manager.config.USE_PE_X64_PDATA_INTERIOR_GAPS = pe_enabled
+    manager.config.USE_PE_ARM64_PDATA_INTERIOR_GAPS = arm64_pe_enabled
+    manager.disassembly = _RecoveredDisassembly(dict.fromkeys(functions), dict(borders))
+    manager._eh_frame_fde_ranges = list(ranges)
+    manager._eh_frame_fde_starts = [start for start, _ in ranges]
+    manager._plt_ranges = list(plt)
+    manager._pdata_ranges = list(pdata)
+    manager._pdata_range_starts = None
+    return manager.declaredInteriorOwner(address)
+
+
+class DeclaredInteriorOwnerTest(unittest.TestCase):
+    """The conditions the analysis-time refusal requires, one at a time.
+
+    The gap scan reaches a candidate only where its pointer walks; this answers the same
+    question for a candidate from any source, so each condition needs a case of its own
+    rather than whatever a corpus happens to exercise.
+    """
+
+    RANGES = [(0x1000, 0x2000)]
+    FUNCTIONS = [0x1000]
+    BORDERS = {0x1000: (0x1000, 0x1F00)}
+
+    def testAnAddressItsOwnerSurroundsIsRefused(self):
+        self.assertEqual(declaredOwnerOf(0x1500, self.RANGES, self.FUNCTIONS, self.BORDERS), 0x1000)
+
+    def testARangeStartIsNotInteriorToItself(self):
+        self.assertIsNone(declaredOwnerOf(0x1000, self.RANGES, self.FUNCTIONS, self.BORDERS))
+
+    def testAnAddressOutsideEveryRangeIsKept(self):
+        self.assertIsNone(declaredOwnerOf(0x2500, self.RANGES, self.FUNCTIONS, self.BORDERS))
+
+    def testARangeWhoseStartWasNotRecoveredRefusesNothing(self):
+        # an FDE can begin in the alignment padding ahead of its function, and then the real
+        # entry a few bytes in is interior to nothing
+        self.assertIsNone(declaredOwnerOf(0x1500, self.RANGES, [], self.BORDERS))
+
+    def testAnAddressPastTheOwnersRecoveredExtentIsKept(self):
+        # the declared range reaches further than the owner's control flow arrived; refusing
+        # out there discards bytes nothing else claims, and any reference only they carry
+        short = {0x1000: (0x1000, 0x1100)}
+        self.assertIsNone(declaredOwnerOf(0x1500, self.RANGES, self.FUNCTIONS, short))
+
+    def testAnOwnerWithNoRecordedExtentRefusesNothing(self):
+        self.assertIsNone(declaredOwnerOf(0x1500, self.RANGES, self.FUNCTIONS, {}))
+
+    def testAStubInADeclaredPltIsExempt(self):
+        # the whole table sits under one FDE, so every stub after the first reads as interior
+        self.assertIsNone(declaredOwnerOf(0x1500, self.RANGES, self.FUNCTIONS, self.BORDERS, plt=[(0x1400, 0x1600)]))
+
+    def testTheFlagTurnsTheRefusalOff(self):
+        self.assertIsNone(declaredOwnerOf(0x1500, self.RANGES, self.FUNCTIONS, self.BORDERS, enabled=False))
+
+
+class DeclaredInteriorOwnerPeTest(unittest.TestCase):
+    """The same question asked of a PE exception directory rather than an `.eh_frame`.
+
+    The two structures never describe the same image, so the arms are exercised apart: an
+    ELF names no `RUNTIME_FUNCTION` extents and a PE decodes no FDE ranges.
+    """
+
+    PDATA = [(0x1000, 0x2000, False)]
+    FUNCTIONS = [0x1000]
+    BORDERS = {0x1000: (0x1000, 0x1F00)}
+
+    MANAGER_CLASS = IntelFunctionCandidateManager
+
+    def ownerOf(self, address, **kwargs):
+        options = {
+            "ranges": [],
+            "functions": self.FUNCTIONS,
+            "borders": self.BORDERS,
+            "pdata": self.PDATA,
+            "manager_class": self.MANAGER_CLASS,
+            **kwargs,
+        }
+        return declaredOwnerOf(address, **options)
+
+    def testAnAddressInsideADeclaredExtentIsRefused(self):
+        self.assertEqual(self.ownerOf(0x1500), 0x1000)
+
+    def testAnExtentStartIsNotInteriorToItself(self):
+        self.assertIsNone(self.ownerOf(0x1000))
+
+    def testAnExtentWhoseOwnerWasNotRecoveredRefusesNothing(self):
+        self.assertIsNone(self.ownerOf(0x1500, functions=[]))
+
+    def testAnAddressPastTheOwnersRecoveredExtentIsKept(self):
+        self.assertIsNone(self.ownerOf(0x1500, borders={0x1000: (0x1000, 0x1100)}))
+
+    def testAFragmentRecordDeclinesRatherThanRefusing(self):
+        # the gap scan takes a fragment as evidence on its own; here the record's own start is
+        # not the function covering the address, so it fails the recovered-owner test instead
+        self.assertIsNone(self.ownerOf(0x1500, pdata=[(0x1400, 0x1600, True)]))
+
+    def testTheFlagTurnsTheRefusalOff(self):
+        self.assertIsNone(self.ownerOf(0x1500, pe_enabled=False))
+
+    def testTheElfFlagDoesNotGateTheExceptionDirectory(self):
+        # the two arms carry their own switches; turning the ELF one off leaves this one alone
+        self.assertEqual(self.ownerOf(0x1500, enabled=False), 0x1000)
+
+    def testTheOtherArchitecturesFlagDoesNotGateThisOne(self):
+        self.assertEqual(self.ownerOf(0x1500, arm64_pe_enabled=False), 0x1000)
+
+
+class DeclaredInteriorOwnerArm64PeTest(DeclaredInteriorOwnerPeTest):
+    """The same extents read by the backend that carves an ARM64 PE's `.pdata`.
+
+    Both backends fill `_pdata_ranges` and each gap scan gates on its own architecture's flag,
+    so the analysis-time rule has to as well: naming one flag in the shared helper leaves the
+    other architecture's rule answering to a switch for an image format it never sees.
+    """
+
+    MANAGER_CLASS = Aarch64FunctionCandidateManager
+
+    def testTheFlagTurnsTheRefusalOff(self):
+        self.assertIsNone(self.ownerOf(0x1500, arm64_pe_enabled=False))
+
+    def testTheOtherArchitecturesFlagDoesNotGateThisOne(self):
+        self.assertEqual(self.ownerOf(0x1500, pe_enabled=False), 0x1000)
+
+
+class DeclaredInteriorOwnerUnbackedPeTest(unittest.TestCase):
+    """A manager that carves no exception directory refuses nothing on one.
+
+    The two native backends are the only ones that reach the rule today, so this pins what the
+    inherited answer is: a manager added without an override cannot start refusing on extents
+    it never filled.
+    """
+
+    def testTheCommonManagerDeclinesAnExtentItCouldNotHaveFilled(self):
+        self.assertIsNone(
+            declaredOwnerOf(
+                0x1500,
+                ranges=[],
+                functions=[0x1000],
+                borders={0x1000: (0x1000, 0x1F00)},
+                pdata=[(0x1000, 0x2000, False)],
+            )
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

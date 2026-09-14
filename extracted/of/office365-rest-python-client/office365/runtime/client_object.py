@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -16,14 +14,12 @@ from typing_extensions import Self
 
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_runtime_context import ClientRuntimeContext
-from office365.runtime.client_value import ClientValue
+from office365.runtime.converters.value import _add_type_metadata, declared_type, deserialize_value, serialize_value
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.json_format import ODataJsonFormat
 from office365.runtime.odata.query_options import QueryOptions
-from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.paths.resource_path import ResourcePath
-from office365.runtime.types.odata_property import _ODATA_MARKER
-from office365.runtime.utilities import parse_datetime, parse_enum
+from office365.runtime.types.odata_property import _ODATA_MARKER, ODataPropertyMeta
 
 if TYPE_CHECKING:
     from office365.runtime.client_object_collection import ClientObjectCollection
@@ -35,21 +31,18 @@ ClientObjectT = TypeVar("ClientObjectT", bound="ClientObject")
 class ClientObject:
     """Base client object which defines named properties and relationships of an entity."""
 
-    _odata_meta: dict[str, str] = {}
+    _odata_meta: dict[str, ODataPropertyMeta] = {}
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         super().__init_subclass__(**kwargs)
-        meta: dict[str, str] = {}
-        persist: list[str] = []
+        meta: dict[str, ODataPropertyMeta] = dict(getattr(cls, "_odata_meta", {}))
         for attr_name, attr in cls.__dict__.items():
             target = attr.fget if isinstance(attr, property) else attr
-            m = getattr(target, _ODATA_MARKER, None)
+            m: ODataPropertyMeta | None = getattr(target, _ODATA_MARKER, None)
             if m is not None:
-                meta[m.name] = attr_name
-                if m.persist:
-                    persist.append(m.name)
+                m.attr = attr_name
+                meta[m.name] = m
         cls._odata_meta = meta
-        cls._odata_persist = persist
 
     def __init__(
         self,
@@ -66,7 +59,7 @@ class ClientObject:
             parent_collection: The collection that contains this object
         """
         self._properties: dict[str, Any] = {}
-        self._changes: set[str] = set(getattr(type(self), "_odata_persist", []))
+        self._changes: set[str] = {name for name, m in type(self)._odata_meta.items() if m.persist}
         self._query_options = QueryOptions()
         self._parent_collection = parent_collection
         self._context = context
@@ -106,13 +99,20 @@ class ClientObject:
         """
         Resets the client object's state, clearing any pending changes.
 
-        Returns:
-            The current instance for method chaining
+        Persist-marked properties are kept so they stay present and are sent
+        again on subsequent updates (``persist=True`` means "always include"),
+        while explicitly changed, non-persistable props are dropped.
         """
-        self._properties = {k: v for k, v in self._properties.items() if k not in self._changes}
+        persistable = self._persistable_names
+        self._properties = {k: v for k, v in self._properties.items() if k not in self._changes or k in persistable}
         self._changes.clear()
         self._query_options = QueryOptions()
         return self
+
+    @property
+    def _persistable_names(self) -> set[str]:
+        """Names of properties marked ``@odata(persist=True)``."""
+        return {name for name, m in type(self)._odata_meta.items() if m.persist}
 
     def execute_query(self) -> Self:
         """
@@ -128,24 +128,28 @@ class ClientObject:
         self,
         max_retry: int = 5,
         timeout_secs: int = 5,
+        max_delay=None,
+        jitter: bool = True,
         success_callback=None,
         failure_callback=None,
         exceptions=(ClientRequestException,),
-    ):
+    ) -> Self:
         """Executes the current set of data retrieval queries and method invocations and retries it if needed.
 
         Args:
             max_retry (int): Number of times to retry the request
-            timeout_secs (int): Seconds to wait before retrying the request.
-            success_callback ((office365.runtime.client_object.ClientObject)-> None): A callback to call if
-              the request executes successfully.
-            failure_callback ((int, requests.exceptions.RequestException)-> None): A callback to call if the request
-              fails to execute
-            exceptions: tuple of exceptions that we retry
+            timeout_secs (int): Base delay for exponential backoff (seconds)
+            max_delay (int): Optional cap on the exponential delay (seconds)
+            jitter (bool): Whether to randomize the delay
+            success_callback (callable): A callback to call if the request executes successfully.
+            failure_callback (callable): A callback to call if the request fails to execute.
+            exceptions (tuple): Tuple of exceptions that we retry.
         """
         self.context.execute_query_retry(
             max_retry=max_retry,
             timeout_secs=timeout_secs,
+            max_delay=max_delay,
+            jitter=jitter,
             success_callback=success_callback,
             failure_callback=failure_callback,
             exceptions=exceptions,
@@ -196,7 +200,7 @@ class ClientObject:
     def copy_from(self, other: ClientObject) -> Self:
         """Copies all properties from the other object into this one."""
         for k, v in other._properties.items():
-            self.set_property(k, v)
+            self.set_property(k, v, False)
         return self
 
     def get(self) -> Self:
@@ -265,16 +269,18 @@ class ClientObject:
             The property value or default value
         """
         if default_value is None:
-            odata_meta = type(self)._odata_meta
-            if name in odata_meta:
-                return getattr(self, odata_meta[name])
+            meta = type(self)._odata_meta.get(name)
+            if meta is not None:
+                return getattr(self, meta.attr)
             normalized_name = name[0].lower() + name[1:]
             default_value = getattr(self, normalized_name, None)
         return self._properties.get(name, default_value)
 
     def set_property(self, name: str, value: Any, persist_changes: bool = True) -> Self:
-        """
-        Sets the value of a property.
+        """Set a property, coercing the value to its declared type.
+
+        Uses the shared conversion core (``deserialize_value``/``declared_type``) so
+        deserialization and the CSV/JSON pipeline use the same conversions.
 
         Args:
             name: The property name
@@ -284,28 +290,13 @@ class ClientObject:
         Returns:
             The current instance for method chaining
         """
+        if name == "__odata_type":
+            return self
         if persist_changes:
             self._changes.add(name)
-
-        typed_value = self.get_property(name)
-        if isinstance(typed_value, (ClientObject, ClientValue)):
-            if isinstance(value, list):
-                [typed_value.set_property(str(i), v, persist_changes) for i, v in enumerate(value)]
-                self._properties[name] = typed_value
-            elif isinstance(value, dict):
-                [typed_value.set_property(k, v, persist_changes) for k, v in value.items()]
-                self._properties[name] = typed_value
-            else:
-                self._properties[name] = value
-        elif isinstance(typed_value, datetime):
-            self._properties[name] = parse_datetime(value)
-        elif isinstance(typed_value, Enum):
-            if value is None:
-                self._properties[name] = typed_value
-            else:
-                self._properties[name] = parse_enum(type(typed_value), value)
-        else:
-            self._properties[name] = value
+        self._properties[name] = deserialize_value(
+            declared_type(type(self), name), value, self.get_property(name), persist_changes
+        )
         return self
 
     def ensure_property(self, name: str) -> Self:
@@ -323,9 +314,9 @@ class ClientObject:
 
             qry = ReadEntityQuery[ClientObject](self, names_to_include)
         else:
-            from office365.runtime.queries.noop import NoOpQuery
+            from office365.runtime.queries.deferred import DeferredOperationQuery
 
-            qry = NoOpQuery(self.context, self)
+            qry = DeferredOperationQuery(self.context, return_type=self)
         self.context.add_query(qry)
         return self
 
@@ -412,7 +403,7 @@ class ClientObject:
         """
         return self._parent_collection
 
-    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any]:
+    def to_json(self, json_format: Optional[ODataJsonFormat] = None) -> Dict[str, Any] | List[Any]:
         """
         Serializes the client object to a JSON-compatible dictionary.
 
@@ -420,25 +411,17 @@ class ClientObject:
             json_format: The OData JSON format settings
 
         Returns:
-            Dictionary representing the serialized object
+            Dictionary (or list, for collections) representing the serialized object
         """
         if json_format is None:
             include_control_info = False
             json = {k: self.get_property(k) for k in self._properties}
         else:
             include_control_info = self.entity_type_name is not None and json_format.include_control_information
-            json = {k: self.get_property(k) for k in self._changes if k in self._properties}
-        for k, v in json.items():
-            if isinstance(v, (ClientObject, ClientValue)):
-                json[k] = v.to_json(json_format)
-            elif isinstance(v, Enum):
-                json[k] = v.value
-            elif isinstance(v, datetime):
-                json[k] = v.isoformat()
+            persistable = self._persistable_names
+            json = {k: self.get_property(k) for k in self._properties if k in self._changes or k in persistable}
+        json = {k: serialize_value(v, json_format) for k, v in json.items()}
 
         if json and include_control_info:
-            if isinstance(json_format, JsonLightFormat):
-                json[json_format.metadata_type] = {"type": self.entity_type_name}
-            elif isinstance(json_format, ODataJsonFormat):
-                json[json_format.metadata_type] = "#" + self.entity_type_name
+            _add_type_metadata(json, json_format, self.entity_type_name)
         return json

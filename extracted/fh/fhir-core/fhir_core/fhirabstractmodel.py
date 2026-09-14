@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import decimal
+import uuid
 import inspect
 import logging
 import typing
@@ -23,7 +24,7 @@ from pydantic_core import InitErrorDetails, PydanticCustomError, ValidationError
 from typing_extensions import Literal, Self
 
 from .constraints import HAS_XML_SUPPORT, HAS_YAML_SUPPORT
-from .utils import get_base64_encoder, is_primitive_type
+from .utils import get_base64_encoder, is_list_type, is_primitive_type
 
 if HAS_YAML_SUPPORT:
     from .yaml_utils import yaml_dumps, yaml_loads
@@ -150,9 +151,14 @@ class FHIRAbstractModel(BaseModel):
     ) -> typing.Dict[str, str]:
         """Mappings between a field's name and alias"""
         aliases = cls.elements_sequence()
-        return {
-            fi.alias: fn for fn, fi in cls.model_fields.items() if fi.alias in aliases
-        }
+        mapping = {}
+        for field_name, field_info in cls.model_fields.items():
+            # A subclass may redeclare a field to change its default, which drops
+            # the generated alias. The field name is the element name in that case.
+            element_name = field_info.alias or field_name
+            if element_name in aliases:
+                mapping[element_name] = field_name
+        return mapping
 
     @classmethod
     def get_json_encoder(cls) -> typing.Callable[[typing.Any], typing.Any]:
@@ -586,6 +592,13 @@ class FHIRAbstractModel(BaseModel):
             _enc_klass = get_base64_encoder(field_info)
             if _enc_klass:
                 return _enc_klass.encode(value)
+        # @TODO: the function types.py#Uuid.__get_pydantic_core_schema__._serialize
+        # is not called either (see the Decimal note below), so the FHIR ``uuid``
+        # type, which is a URI and always carries the ``urn:uuid:`` scheme,
+        # is serialized from here as well.
+        # https://hl7.org/fhir/R5/datatypes.html#uuid
+        if isinstance(value, uuid.UUID):
+            return f"urn:uuid:{value}"
         # @TODO: the function types.py#Decimal.__get_pydantic_core_schema__._serialize
         # somehow is not called, until the reason is found, we serialize from here!
         if isinstance(value, decimal.Decimal):
@@ -599,6 +612,44 @@ class FHIRAbstractModel(BaseModel):
                 return int(value)
             return float(value)
         return value
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_null_complex_elements(cls, data: typing.Any) -> typing.Any:
+        """A null inside a list of complex types has no meaning in FHIR.
+
+        Primitive lists keep their nulls: there a null is the positional
+        placeholder that lines a value up with its ``_field`` extension sibling.
+        """
+        if not isinstance(data, dict):
+            return data
+        errors: typing.List[InitErrorDetails] = []
+        for name, field in cls.model_fields.items():
+            # ``<name>__ext`` lists are the extension siblings of primitive
+            # arrays; their nulls are positional placeholders and stay.
+            if (
+                not is_list_type(field)
+                or is_primitive_type(field)
+                or name.endswith("__ext")
+            ):
+                continue
+            key = field.alias if field.alias and field.alias in data else name
+            value = data.get(key)
+            if isinstance(value, list) and any(item is None for item in value):
+                errors.append(
+                    {
+                        "type": PydanticCustomError(
+                            "list_type",
+                            "None is not allowed as an element of {field}",
+                            {"field": key},
+                        ),
+                        "loc": (key,),
+                        "input": value,
+                    }
+                )
+        if errors:
+            raise ValidationError.from_exception_data(cls.__name__, errors)
+        return data
 
     @model_validator(mode="after")
     def validate_after_model_construction(self) -> Self:

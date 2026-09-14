@@ -140,10 +140,14 @@ def extract(
         'fuzzy_alignment_threshold' (float, 0.75),
         'fuzzy_alignment_algorithm' (str, "lcs"; "legacy" is deprecated),
         'fuzzy_alignment_min_density' (float, 1/3),
+        'exact_alignment_algorithm' (str, "dp"; "difflib" restores the
+        legacy exact-match behavior),
         'accept_match_lesser' (bool, True).
       language_model_params: Additional provider-specific constructor kwargs,
         such as Gemini retry settings ('max_retries', 'retry_delay',
-        'max_retry_delay') or 'http_options'.
+        'max_retry_delay'), generation settings ('max_output_tokens', 'top_p',
+        'top_k'), or 'http_options'. For Gemini output truncated at the model's
+        token limit, increase 'max_output_tokens'.
       debug: Whether to enable debug logging. When True, enables detailed logging
         of function calls, arguments, return values, and timing for the langextract
         namespace. Note: Debug logging remains enabled for the process once activated.

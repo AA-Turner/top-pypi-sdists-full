@@ -1,4 +1,8 @@
-from .imports import *
+from .imports import (
+    string,
+    is_number,
+    make_list,
+)
 """
 compare_utils.py
 Part of the abstract_utilities package

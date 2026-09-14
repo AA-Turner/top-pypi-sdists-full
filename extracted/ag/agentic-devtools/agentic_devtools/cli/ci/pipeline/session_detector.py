@@ -2,7 +2,7 @@
 
 Provides two detection strategies:
 - ``is_copilot_session_active_via_agent_task``: Uses ``gh agent-task list`` for
-  authoritative session state (preferred, fail-open).
+  authoritative session state (preferred, fail-closed).
 - ``is_copilot_session_active``: Legacy events-based heuristic (deprecated,
   fail-closed).
 """
@@ -14,7 +14,7 @@ import logging
 import os
 import subprocess
 import warnings
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from agentic_devtools.cli.ci.models import (
     COPILOT_SESSION_EVENT_FINISHED,
@@ -26,8 +26,12 @@ from agentic_devtools.cli.subprocess_utils import run_safe
 
 logger = logging.getLogger(__name__)
 
-_ACTIVE_TASK_STATUSES = frozenset({"queued", "requested", "waiting", "in_progress", "running"})
+_ACTIVE_TASK_STATUSES = frozenset(
+    {"idle", "in_progress", "queued", "requested", "running", "waiting", "waiting_for_user"}
+)
+_INACTIVE_TASK_STATUSES = frozenset({"canceled", "cancelled", "completed", "failed", "stopped", "timed_out"})
 _DEFAULT_AGENT_TASK_TIMEOUT_SECONDS = 10
+_AGENT_TASK_LIST_LIMIT = 1000
 
 _DEFAULT_MAX_SESSION_AGE_SECONDS = 3600  # 1 hour
 
@@ -66,8 +70,8 @@ def _is_session_stale(created_at: str, max_age_seconds: int) -> bool:
         return False
     # Normalize naive datetimes (no tzinfo) to UTC to avoid TypeError on subtraction.
     if started_time.tzinfo is None:
-        started_time = started_time.replace(tzinfo=timezone.utc)
-    age = (datetime.now(tz=timezone.utc) - started_time).total_seconds()
+        started_time = started_time.replace(tzinfo=UTC)
+    age = (datetime.now(tz=UTC) - started_time).total_seconds()
     return age > max_age_seconds
 
 
@@ -76,13 +80,13 @@ def is_copilot_session_active_via_agent_task(
     pr_number: int,
     *,
     timeout_seconds: int = _DEFAULT_AGENT_TASK_TIMEOUT_SECONDS,
-) -> bool:
+) -> bool | None:
     """Check if a Copilot coding session is active using ``gh agent-task list``.
 
     This is the preferred session detector. It queries the GitHub CLI for
-    authoritative agent task state and uses **fail-open** semantics: if the
-    command fails for any reason the function returns ``False`` (no active
-    session) rather than blocking automation.
+    authoritative agent task state. If the command's result is unavailable or
+    invalid, it returns ``None`` so mutations which require an inactive
+    session can fail closed.
 
     Args:
         repo: Full repository name (e.g. ``owner/repo``).
@@ -90,18 +94,20 @@ def is_copilot_session_active_via_agent_task(
         timeout_seconds: Maximum time to wait for the ``gh`` subprocess.
 
     Returns:
-        True if at least one agent task for the given PR is in an active status
-        (queued, requested, waiting, in_progress, running).
-        False otherwise or on any error (fail-open).
+        True if at least one agent task for the given repository and PR is in an
+        active status (idle, queued, requested, waiting, waiting_for_user,
+        in_progress, running).
+        False when a valid task inventory contains no active task; ``None``
+        when the inventory is unavailable or invalid.
     """
     cmd = [
         "gh",
         "agent-task",
         "list",
-        "--repo",
-        repo,
+        "--limit",
+        str(_AGENT_TASK_LIST_LIMIT),
         "--json",
-        "id,status,pullRequestNumber,createdAt",
+        "id,state,repository,pullRequestNumber,createdAt",
     ]
     try:
         result = run_safe(
@@ -113,57 +119,86 @@ def is_copilot_session_active_via_agent_task(
         )
     except subprocess.TimeoutExpired:
         logger.warning(
-            "PR #%d: gh agent-task list timed out after %ds — assuming no active session (fail-open)",
+            "PR #%d: gh agent-task list timed out after %ds — session state unavailable",
             pr_number,
             timeout_seconds,
         )
-        return False
+        return None
     except (OSError, FileNotFoundError, PermissionError) as exc:
         logger.warning(
-            "PR #%d: gh agent-task list failed — assuming no active session (fail-open): %s",
+            "PR #%d: gh agent-task list failed — session state unavailable: %s",
             pr_number,
             exc,
         )
-        return False
+        return None
 
     if result.returncode != 0:
         logger.warning(
-            "PR #%d: gh agent-task list exited with code %d — assuming no active session (fail-open)",
+            "PR #%d: gh agent-task list exited with code %d — session state unavailable",
             pr_number,
             result.returncode,
         )
-        return False
+        return None
 
     try:
         tasks = json.loads(result.stdout)
     except (json.JSONDecodeError, ValueError) as exc:
         logger.warning(
-            "PR #%d: gh agent-task list returned malformed JSON — assuming no active session (fail-open): %s",
+            "PR #%d: gh agent-task list returned malformed JSON — session state unavailable: %s",
             pr_number,
             exc,
         )
-        return False
+        return None
 
     if not isinstance(tasks, list):
         logger.warning(
-            "PR #%d: gh agent-task list returned non-list JSON — assuming no active session (fail-open)",
+            "PR #%d: gh agent-task list returned non-list JSON — session state unavailable",
             pr_number,
         )
-        return False
+        return None
 
+    if len(tasks) >= _AGENT_TASK_LIST_LIMIT:
+        logger.warning(
+            "PR #%d: gh agent-task list reached its limit — session state may be truncated",
+            pr_number,
+        )
+        return None
+
+    inventory_unknown = False
     for task in tasks:
         if not isinstance(task, dict):
+            inventory_unknown = True
+            continue
+        task_repo = task.get("repository")
+        if not isinstance(task_repo, str):
+            inventory_unknown = True
+            continue
+        if task_repo != repo:
             continue
         task_pr = task.get("pullRequestNumber")
-        if task_pr == pr_number and task.get("status") in _ACTIVE_TASK_STATUSES:
+        if not isinstance(task_pr, int) or isinstance(task_pr, bool):
+            inventory_unknown = True
+            continue
+        if task_pr != pr_number:
+            continue
+        status = task.get("state")
+        if status in _ACTIVE_TASK_STATUSES:
             logger.info(
                 "PR #%d: Active agent task detected (id=%s, status=%s)",
                 pr_number,
                 task.get("id"),
-                task.get("status"),
+                status,
             )
             return True
+        if not isinstance(status, str) or status not in _INACTIVE_TASK_STATUSES:
+            inventory_unknown = True
 
+    if inventory_unknown:
+        logger.warning(
+            "PR #%d: gh agent-task list contained unusable task records — session state unavailable",
+            pr_number,
+        )
+        return None
     return False
 
 

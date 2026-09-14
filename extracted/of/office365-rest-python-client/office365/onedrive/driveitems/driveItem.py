@@ -6,12 +6,13 @@ from functools import partial
 from io import IOBase
 from os import PathLike
 from os.path import isfile, join
-from typing import IO, AnyStr, Callable
+from typing import IO, AnyStr, Callable, Optional
 
 import requests
 from requests import Response
 from typing_extensions import Self
 
+from office365.delta_collection import DeltaCollection
 from office365.delta_path import DeltaPath
 from office365.directory.permissions.require_permission import require_permission
 from office365.entity_collection import EntityCollection
@@ -58,6 +59,7 @@ from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.v4.upload_session import UploadSession
 from office365.runtime.odata.v4.upload_session_request import UploadSessionRequest
+from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.function import FunctionQuery
@@ -120,13 +122,25 @@ class DriveItem(BaseItem):
         self.retention_label.update()
         return self
 
-    def get_files(self, recursive: bool = False, page_size: int | None = None) -> EntityCollection[DriveItem]:
+    def get_files(
+        self,
+        recursive: bool = False,
+        page_size: int | None = None,
+        progress: Optional[Callable[[Progress[DriveItem]], None]] = None,
+    ) -> EntityCollection[DriveItem]:
         """Retrieves files
 
         Args:
             recursive (bool): Determines whether to enumerate folders recursively
             page_size (int): Page size
+            progress: Optional hook invoked per page with a ``Progress[DriveItem]``
+              snapshot (``done`` = files discovered so far; ``items`` = the page's items).
+
+        The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
+        collection is honored on every ``children`` page the scan loads.
         """
+        from office365.runtime.queries.deferred import DeferredOperationQuery
+
         return_type = EntityCollection(self.context, DriveItem, self.resource_path)
 
         def _get_files(parent_drive_item: DriveItem) -> None:
@@ -140,19 +154,39 @@ class DriveItem(BaseItem):
                             _get_files(drive_item)
                     else:
                         return_type.add_child(drive_item)
+                if callable(progress):
+                    progress(Progress(done=len(return_type), stage="scanning", items=list(col)))
 
-            parent_drive_item.children.get_all(page_size=page_size, page_loaded=_after_loaded)
+            children = parent_drive_item.children
+            return_type.query_options.apply_to(children)
+            if return_type.query_options.select:
+                fields = sorted({"folder", "id"} | set(return_type.query_options.select))
+                children.select(fields)
+            children.get_all(page_size=page_size, page_loaded=_after_loaded)
 
-        _get_files(self)
+        placeholder = DeferredOperationQuery(self.context)
+        self.context.add_query(placeholder).after_execute(lambda _: _get_files(self))
         return return_type
 
-    def get_folders(self, recursive: bool = False, page_size: int | None = None) -> EntityCollection[DriveItem]:
+    def get_folders(
+        self,
+        recursive: bool = False,
+        page_size: int | None = None,
+        progress: Optional[Callable[[Progress[DriveItem]], None]] = None,
+    ) -> EntityCollection[DriveItem]:
         """Retrieves folders
 
         Args:
             recursive (bool): Determines whether to enumerate folders recursively
             page_size (int): Page size
+            progress: Optional hook invoked per page with a ``Progress[DriveItem]``
+              snapshot (``done`` = folders discovered so far; ``items`` = the page's items).
+
+        The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
+        collection is honored on every ``children`` page the scan loads.
         """
+        from office365.runtime.queries.deferred import DeferredOperationQuery
+
         return_type = EntityCollection(self.context, DriveItem, self.resource_path)
 
         def _get_folders(parent: DriveItem) -> None:
@@ -164,10 +198,18 @@ class DriveItem(BaseItem):
                     if recursive and drive_item.folder.childCount is not None and drive_item.folder.childCount > 0:
                         _get_folders(drive_item)
                     return_type.add_child(drive_item)
+                if callable(progress):
+                    progress(Progress(done=len(return_type), stage="scanning", items=list(col)))
 
-            parent.children.filter("folder ne null").get_all(page_size=page_size, page_loaded=_after_loaded)
+            children = parent.children.filter("folder ne null")
+            return_type.query_options.apply_to(children)
+            if return_type.query_options.select:
+                fields = sorted({"folder", "id"} | set(return_type.query_options.select))
+                children.select(fields)
+            children.get_all(page_size=page_size, page_loaded=_after_loaded)
 
-        _get_folders(self)
+        placeholder = DeferredOperationQuery(self.context)
+        self.context.add_query(placeholder).after_execute(lambda _: _get_folders(self))
         return return_type
 
     @require_permission(
@@ -185,6 +227,62 @@ class DriveItem(BaseItem):
     def get_by_path(self, url_path: str) -> DriveItem:
         """Retrieve DriveItem by server relative path"""
         return DriveItem(self.context, UrlPath(url_path, self.resource_path), self.children)
+
+    @require_permission(
+        delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
+        notes="Ensure a nested folder exists in a drive",
+    )
+    def ensure_folder(self, url_path: str) -> DriveItem:
+        """Ensure a folder exists at the given path, creating missing levels.
+
+        Walks the path segment by segment (e.g. ``"2024/Q1/Reports"``) and, per
+        level, reuses the existing folder when present or creates it otherwise.
+        Fully deferred — run the chain with ``execute_query()`` and the returned
+        item addresses the target folder:
+
+            >>> folder = drive_item.ensure_folder("2024/Q1/Reports").execute_query()
+
+        Args:
+            url_path (str): Path to the folder, relative to this item.
+
+        Returns:
+            DriveItem: The target folder (existing or newly created).
+        """
+        from office365.runtime.client_request_exception import ObjectNotFoundException
+
+        names = [name for name in url_path.replace("\\", "/").split("/") if name]
+        if not names:
+            raise ValueError("Path is empty")
+        return_type = DriveItem(self.context)
+
+        def _walk(parent: DriveItem, idx: int) -> None:
+            if idx == len(names):
+                return_type._resource_path = parent._resource_path
+                return_type.copy_from(parent)
+                return
+
+            child = parent.get_by_path(names[idx])
+
+            def _on_found(_) -> None:
+                _walk(child, idx + 1)
+
+            def _on_missing(error) -> None:
+                if not isinstance(error, ObjectNotFoundException):
+                    raise error
+                created = parent.create_folder(names[idx])
+                created.after_execute(lambda _: _reload(idx))
+
+            child.get().after_execute(_on_found).on_error(_on_missing)
+
+        def _reload(idx: int) -> None:
+            # Re-resolve the freshly created folder by path so the next level has
+            # a stable, addressable parent entity.
+            prefix = "/".join(names[: idx + 1])
+            self.get_by_path(prefix).get().after_execute(lambda resolved: _walk(resolved, idx + 1))
+
+        _walk(self, 0)
+        return return_type
 
     def create_powerpoint(self, name: str) -> DriveItem:
         """Creates a PowerPoint file
@@ -427,7 +525,7 @@ class DriveItem(BaseItem):
         action_name = "content"
         if format_name is not None:
             action_name = action_name + rf"?format={format_name}"
-        qry = FunctionQuery(self, action_name, None, return_type)
+        qry = FunctionQuery(self, action_name, None, return_type, return_raw_content=True)
         self.context.add_query(qry)
         return return_type
 
@@ -473,21 +571,25 @@ class DriveItem(BaseItem):
                 if callable(after_file_downloaded):
                     after_file_downloaded(drive_item)
 
-        def _after_folder_downloaded(parent_item: DriveItem, base_path: str | None = None) -> None:
-            for drive_item in parent_item.children:
+        def _after_folder_downloaded(children, base_path: str | None = None) -> None:
+            for drive_item in children:
                 if drive_item.is_file:
                     drive_item.get_content().after_execute(partial(_after_file_downloaded, drive_item, base_path))
                 elif recursive:
-                    if base_path is None:
-                        next_base_path = str(drive_item.name)
-                    else:
-                        next_base_path = "/".join([base_path, drive_item.name or ""])
+                    next_base_path = "/".join(filter(None, (base_path, drive_item.name)))
                     _download_folder(drive_item, next_base_path)
 
-        def _download_folder(drive_item: "DriveItem", prev_result: str | None = None) -> None:
-            drive_item.ensure_properties(
-                ["children", "name"],
-            ).after_execute(lambda _: _after_folder_downloaded(drive_item, prev_result))
+        def _download_folder(drive_item: "DriveItem", base_path: str | None = None) -> None:
+            children = drive_item.children
+            processed = {"count": 0}
+
+            def _page_loaded(col) -> None:
+                # pages arrive incrementally — process only the new items
+                new_items = list(col)[processed["count"] :]
+                processed["count"] = len(col)
+                _after_folder_downloaded(new_items, base_path)
+
+            children.get_all(page_loaded=_page_loaded)
 
         _download_folder(self)
         return self
@@ -1033,11 +1135,11 @@ class DriveItem(BaseItem):
         application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
         notes="Track changes to a drive item and its children over time",
     )
-    def delta(self) -> EntityCollection["DriveItem"]:
+    def delta(self) -> DeltaCollection["DriveItem"]:
         """Tracks changes to a drive item and its children over time."""
         return self.properties.get(
             "delta",
-            EntityCollection(self.context, DriveItem, DeltaPath(self.resource_path)),
+            DeltaCollection(self.context, DriveItem, DeltaPath(self.resource_path)),
         )
 
     @property

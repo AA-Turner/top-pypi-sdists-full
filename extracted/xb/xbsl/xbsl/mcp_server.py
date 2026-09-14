@@ -29,7 +29,7 @@ from xbsl import (
     cijob, formmodel, i18n, metamodel, report, scaffold, uischema,
 )
 from xbsl.cli import _filter_requested, discover_with_context
-from xbsl.engine import RULES, active_rules, load, load_text, run, run_sources
+from xbsl.engine import RULES, active_rules, is_source_file, load, load_text, run, run_sources
 
 # mcp 2.0 renamed the ergonomic server class and moved it: FastMCP from mcp.server.fastmcp
 # became MCPServer in mcp.server.mcpserver, and the old module is gone rather than aliased -
@@ -213,6 +213,7 @@ def lint_paths(
     root: str | None = None,
     as_ci: bool = False,
     as_ci_job: str | None = None,
+    compact: bool = False,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -240,10 +241,20 @@ def lint_paths(
                   linter twice as soon as the project checks a second tree - the sources in
                   one job, what `translate` wrote in another - and those judge different
                   sets. Without a name the first command wins and `as_ci.jobs` names the
-                  others; a part of the name is enough when only one job fits.
+                  others; a part of the name is enough when only one job fits;
+    compact     – answer without the list of findings: the summary alone, plus `errors` - the
+                  full records of the error-level findings, and nothing else. A full answer
+                  costs several hundred characters per finding, tens of thousands over one
+                  project run, when the question was only whether the tree is clean and
+                  whether the pipeline would go red: the counts of the summary answer that,
+                  and the errors are what a build fails on. Everything the summary carries
+                  about the baseline and the CI job stays.
     A path inside a project pulls the whole project in as context (the cross-file rules need
     it), the diagnostics are reported for the requested paths only.
-    Returns {diagnostics: [...], summary: {...}}; when a baseline applied, the summary also
+    Returns {diagnostics: [...], summary: {...}} (with `compact`: {summary, errors}). The
+    summary counts the findings by rule (`by_rule`), by file (`by_file`, the same absolute
+    paths the diagnostics carry) and by severity (`by_severity`, all three levels named).
+    When a baseline applied, the summary also
     carries `baseline` (the file), `baselined` (findings it suppressed), `baseline_unused`
     and `baseline_stale`, so "clean" here means the same as it does in a terminal and in CI.
     The stale entries are also NAMED, in `baseline_stale_entries`: {path, rule, message,
@@ -292,7 +303,7 @@ def lint_paths(
         # pipeline has to know which of them it reproduced), where the command actually
         # stands when an `include:` brought it, and the includes nobody fetched.
         payload["summary"]["as_ci"] = job.as_dict(hint=not as_ci_job)
-    return payload
+    return report.compact(payload) if compact else payload
 
 
 @mcp.tool()
@@ -658,7 +669,7 @@ def _failed(exc: Exception, base: Path) -> dict:
 
 def _apply_and_lint(result: scaffold.ScaffoldResult, base: Path) -> dict:
     written = scaffold.apply_result(result)
-    sources = [load(Path(p)) for p in written]
+    sources = [load(Path(p)) for p in written if is_source_file(Path(p))]
     diags = run_sources(sources, scopes=("file",))
     out = {
         "files": [
@@ -685,26 +696,45 @@ def _meta(root_dir: Path, op, *args, **kwargs) -> dict:
 
 @mcp.tool()
 def meta_project_info(root: str, kind: str | None = None, subsystem: str | None = None,
-                      brief: bool = False) -> dict:
-    """Map the 1C:Element sources under a root: projects, subsystems, objects by kind.
+                      brief: bool = False, package: str | None = None,
+                      project: str | None = None, reference: bool = False) -> dict:
+    """Map the 1C:Element sources under a root: projects, subsystems, packages, objects by kind.
 
     root – the caller's project or repository root, an absolute path (a relative one is taken
     against the server's working directory, which a session started elsewhere does not
     share); the answer repeats the absolute path read as `root`, and every path in it is
     absolute.
-    kind / subsystem – list only the objects of that kind (`Catalog`) or of that
-    subsystem; brief – leave the list out and answer with the counts alone. A real project
-    does not fit here whole (the site sources are 105 KB of listing), so ask narrowly: the
-    counts by kind (`object_counts`) come with every answer, filtered or not, and `filter`
-    states what was left out.
+    kind / subsystem / package – list only the objects of that kind (`Catalog`), of that
+    subsystem (its packages included) or of that package (`Batches`, or `Warehouse::Batches`;
+    a nested package belongs to the one it lies in); brief – leave the list out and answer
+    with the counts alone. A real project does not fit here whole (the site sources are 105 KB
+    of listing), so ask narrowly: the counts by kind (`object_counts`) come with every answer,
+    filtered or not, and `filter` states what was left out.
+    project – walk only the projects of that name (`Name` or `Vendor::Name`, as `projects`
+    lists them) or the one in that folder (absolute or under root; two checkouts of a project
+    share the name). A repository root holds more than the project: a folder of examples next
+    to it multiplied one answer sevenfold (3324 objects against 471). An unknown name is an
+    error naming the projects found.
 
-    Also reports which object kinds meta_new_object can create and which section kinds
-    meta_add_field accepts per object kind. Use before creating objects to pick the
-    directory and to check for name clashes.
+    Every object carries `subsystem`, `package` (null at the subsystem root, `P` or `P1::P2`
+    inside one) and `namespace` (`Vendor::Project::Subsystem[::Package]` - the prefix of a
+    full type name). `packages` goes with the list and follows its filters:
+    `{subsystem, package, dir, objects}` for every package a listed object lies in (enclosing
+    packages included), `objects` counting the listed objects lying directly in it; brief
+    leaves it out together with the objects.
+
+    reference – also answer which object kinds meta_new_object can create
+    (`creatable_kinds`), which section kinds meta_add_field accepts per object kind
+    (`field_kinds`) and the access methods and rights (`access_methods`,
+    `access_kind_rights`). These do not depend on the sources and cost about 4 KB - more than
+    a narrow answer itself - so they come only with reference=true or with brief (the
+    orienting call). Use before creating objects to pick the directory and to check for name
+    clashes.
     """
     base = _base(root)
     try:
-        info = scaffold.project_info(base, kind=kind, subsystem=subsystem, brief=brief)
+        info = scaffold.project_info(base, kind=kind, subsystem=subsystem, brief=brief,
+                                     package=package, project=project, reference=reference)
     except scaffold.ScaffoldError as exc:
         return _failed(exc, base)
     return {"root": str(base), **info}
@@ -716,7 +746,8 @@ def meta_object_info(root: str, name: str | None = None, yaml_path: str | None =
 
     Fields (with the standard ones the platform adds: Наименование / Номер+Дата, and for
     registers Период / Регистратор / ВидЗаписи), tabular sections with their own fields,
-    hierarchy, existing forms, suggested form layout, namespace, plus:
+    hierarchy, existing forms, suggested form layout, subsystem, package (null at the subsystem
+    root) and namespace (`Vendor::Project::Subsystem[::Package]`), plus:
 
     - access – the КонтрольДоступа summary (null means no section: РазрешеноАдминистраторам)
       and access_rights – the rights this kind has;
@@ -788,7 +819,8 @@ def meta_new_object(
 ) -> dict:
     """Create a configuration object: <Имя>.yaml (+ <Имя>.xbsl for kinds with a module).
 
-    directory – the subsystem folder; kind – one of meta_project_info().creatable_kinds
+    directory – the subsystem folder; kind – one of
+    meta_project_info(reference=True).creatable_kinds
     (Справочник, Документ, Перечисление, ОбщийМодуль, HttpСервис, Отчет, КлючДоступа,
     ПланОбмена, НаборКонстант, ВиртуальнаяТаблица, Обработка, ЗапланированноеЗадание,
     контракты, права, команды ...). Kinds whose module has a mandatory handler get it
@@ -1184,7 +1216,8 @@ def meta_rename_object(
     under it, a relative yaml_path resolves against it, and the answer names it as `root`
     next to absolute paths.
     Renames the object's files (yaml, modules, its forms `<Имя>Форма*`, the card-list row
-    component `СтрокаСписка<Имя>`) and rewrites references: yaml type/table/form keys,
+    component `СтрокаСписка<Имя>`, the WSDL descriptions `<Имя>.Wsdl.<N>.wsdl` of a SOAP
+    service client with their numbers) and rewrites references: yaml type/table/form keys,
     `=` bindings, .xbsl code (string literals are left intact) and composite form names.
     Attributes, components or dynamic-list fields that merely share the old name are NOT
     touched. new_presentation/old_presentation update Заголовок/Представление values of the
@@ -1192,7 +1225,8 @@ def meta_rename_object(
     objects share old_name. dry_run=true returns the plan (renames, files, notes) without
     writing anything.
 
-    See also: meta_delete_object removes the same set of files instead of renaming it.
+    See also: meta_delete_object removes the same set of files instead of renaming it;
+    meta_move_object carries it into another folder under the same name.
     """
     base = _base(root)
     try:
@@ -1216,7 +1250,8 @@ def meta_delete_object(
     dry_run: bool = True,
 ) -> dict:
     """Delete a configuration object whole: the yaml/module pair, its forms `<Имя>Форма*`
-    and the card-list row component `СтрокаСписка<Имя>`, with their pairs. A subsystem in
+    and the card-list row component `СтрокаСписка<Имя>`, with their pairs, and the WSDL
+    descriptions `<Имя>.Wsdl.<N>.wsdl` of a SOAP service client. A subsystem in
     1C:Element is the folder the files live in, so the membership goes away with the files.
     Every REMAINING mention of the name across the project is listed by file and line
     (string literals and comments included - a router string, seeding, dictionary keys)
@@ -1246,6 +1281,220 @@ def meta_delete_object(
 
 
 @mcp.tool()
+def meta_move_object(
+    root: str,
+    yaml_path: str,
+    target_dir: str,
+    dry_run: bool = False,
+) -> dict:
+    """Move a configuration object into another folder of its project and keep it reachable.
+
+    target_dir – a package of the object's subsystem (a folder that does not exist yet becomes a
+    new package), another package, the subsystem root or a folder of another subsystem. The
+    object moves with its forms `<Имя>Форма*`, modules, list row and list table (and the
+    translations of a localized-strings element, the WSDL descriptions of a SOAP service
+    client).
+    An element of a package lives in the package's own namespace: another subsystem reaches it
+    only through `импорт Subsystem::Package`, while the root and the packages of one subsystem
+    see each other. So the move adds that import where a reference now needs it - modules and
+    yaml `Import` sections of other subsystems, the moved files themselves when the move
+    crosses a subsystem boundary, the project module, the yaml of a virtual table whose query
+    names a moved table - rewrites qualified names that spell the old place (the full
+    `Vendor::Project::Subsystem::Form.ListRowData` type of a generated form included) and adds
+    the subsystem to `Using` where a new cross-subsystem import needs it. The decision
+    is made by the linter's own import rules run before and after the move. Refused: a target
+    outside the project's subsystems, a taken name, and a non-public element left reachable
+    from another subsystem. An import the move made unnecessary is named in notes, not removed.
+    root – the caller's project or repository root (absolute): references are looked for under
+    it, relative paths resolve against it, and the answer names it as `root`. dry_run=true
+    returns the plan (renames, files, notes) without writing.
+
+    See also: meta_rename_package renames a package folder, meta_rename_object renames the
+    object itself, meta_project_info lists the packages.
+    """
+    base = _base(root)
+    try:
+        result = scaffold.op_move_object(
+            base, _under(base, yaml_path), _under(base, target_dir),
+        )
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    if dry_run:
+        return _absolute(result.as_dict(content=False), base)
+    return _apply_and_lint(result, base)
+
+
+@mcp.tool()
+def meta_rename_package(
+    root: str,
+    package_dir: str,
+    new_name: str,
+    dry_run: bool = False,
+) -> dict:
+    """Rename a package of a subsystem: its folder and every name that spells it.
+
+    package_dir – the package folder inside a subsystem folder (a nested package works too);
+    new_name – an identifier. Every file under the folder moves (nested packages, resources,
+    translations), and the sources under root get `импорт Subsystem::Old[::Nested]`, the
+    `Import` items and the qualified names `Subsystem::Old::Element` (with the project's
+    `Vendor::Project::` prefix or without) rewritten to the new name. A file of another project
+    under root is edited only where it spells the full name with this project's prefix. Short
+    names need nothing. Notes remind of the translation dictionary pair a new Cyrillic name
+    needs when the project has a dictionary.
+    root – the caller's project or repository root (absolute); relative paths resolve against
+    it, and the answer names it as `root`. dry_run=true returns the plan without writing.
+
+    See also: meta_move_object moves an object into a package, meta_project_info lists the
+    packages.
+    """
+    base = _base(root)
+    try:
+        result = scaffold.op_rename_package(base, _under(base, package_dir), new_name)
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    if dry_run:
+        return _absolute(result.as_dict(content=False), base)
+    return _apply_and_lint(result, base)
+
+
+@mcp.tool()
+def meta_move_resource(
+    root: str,
+    resource_path: str,
+    target_dir: str,
+    dry_run: bool = False,
+) -> dict:
+    """Move a resource file - or a folder of them - into another folder of its `Resources` folder.
+
+    resource_path – a file or a folder inside the `Resources` folder of a subsystem or a package;
+    target_dir – that `Resources` folder itself or a folder in it (a folder that does not exist
+    yet is created: the platform keeps no empty folder, so a folder starts with its first file).
+    A resource is addressed by its path under the folder, so the move rewrites the static
+    references that resolve to the moved files: `Resource{Old/file.svg}` literals of modules and
+    yaml bindings and the bare values of image properties, with a namespace
+    (`Subsystem::Old/file.svg`) or without one - a bare key from the subsystem itself or from a
+    file importing it. A key two visible folders hold is named in notes rather than rewritten.
+    String literals that spell the old path (`ResourcesPackage.Current().Get("Old/...")`) are
+    resolved at run time and are listed in notes by file and line, never edited. Refused: a
+    target in the `Resources` folder of another subsystem or package (the file would change its
+    namespace, and a lookup by a string in the old place has nothing to rewrite), a taken name,
+    the resources description `Resources.yaml`.
+    root – the caller's project or repository root (absolute): references are looked for under
+    it, relative paths resolve against it, and the answer names it as `root`. dry_run=true
+    returns the plan (renames, files, notes) without writing.
+
+    See also: meta_rename_resource_folder renames a folder, meta_delete_resource_folder removes
+    one, meta_move_object moves a configuration object.
+    """
+    base = _base(root)
+    try:
+        result = scaffold.op_move_resource(
+            base, _under(base, resource_path), _under(base, target_dir),
+        )
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    if dry_run:
+        return _absolute(result.as_dict(content=False), base)
+    return _apply_and_lint(result, base)
+
+
+@mcp.tool()
+def meta_rename_resource_folder(
+    root: str,
+    folder_dir: str,
+    new_name: str,
+    dry_run: bool = False,
+) -> dict:
+    """Rename a folder inside a `Resources` folder: every file under it and every key naming one.
+
+    folder_dir – a folder inside the `Resources` folder of a subsystem or a package (the
+    `Resources` folder itself is refused); new_name – the new folder name, a segment of the keys.
+    The files move under the new name, the static references that resolve to them are
+    rewritten (the same reading as meta_move_resource), and the string literals that spell the
+    old path are listed in notes by file and line - a lookup by a computed string is left to
+    the author. Notes remind of the translation dictionary pair a new Cyrillic name needs when
+    the project has a dictionary.
+    root – the caller's project or repository root (absolute); relative paths resolve against
+    it, and the answer names it as `root`. dry_run=true returns the plan without writing.
+
+    See also: meta_move_resource moves a resource into a folder, meta_delete_resource_folder
+    removes a folder, meta_rename_package renames a package.
+    """
+    base = _base(root)
+    try:
+        result = scaffold.op_rename_resource_folder(base, _under(base, folder_dir), new_name)
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    if dry_run:
+        return _absolute(result.as_dict(content=False), base)
+    return _apply_and_lint(result, base)
+
+
+@mcp.tool()
+def meta_resource_references(root: str, resource_path: str, limit: int = 100) -> dict:
+    """Find every place in the sources that names a resource file or a folder of them.
+
+    resource_path – a file or a folder inside the `Resources` folder of a subsystem or a
+    package. The reading is the one meta_move_resource makes, so the answer lists what a move
+    would rewrite or name. Each place has `path`, a zero-based LSP `range` (characters counted
+    in UTF-16 code units), the `text` of its line and a `kind`:
+    `reference` – a `Resource{...}` literal of a module or a yaml binding, or the bare value of
+    an image property, that resolves to the file, with a namespace or without one;
+    `ambiguous` – a key that two resources folders visible from the file hold, this one among
+    them; `string` – a string literal that spells the path, read at run time by
+    `ResourcesPackage.Current().Get()` or a wrapper of the project; `computed` – a string with
+    the folder of the file and a computed name, which may name the file.
+    For a folder, every file under it counts. `total` is the number of places; `references`
+    holds the first `limit` of them, sorted by file and position.
+    root – the caller's project or repository root (absolute): references are looked for under
+    it, relative paths resolve against it, and the answer names it as `root`.
+
+    See also: meta_move_resource moves a resource and rewrites its keys,
+    meta_delete_resource_folder lists them before a folder is deleted.
+    """
+    base = _base(root)
+    try:
+        answer = scaffold.resource_references(base, _under(base, resource_path))
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    answer["references"] = answer["references"][:max(0, limit)]
+    return {"root": str(base), **answer}
+
+
+@mcp.tool()
+def meta_delete_resource_folder(
+    root: str,
+    folder_dir: str,
+    dry_run: bool = True,
+) -> dict:
+    """Delete a folder inside a `Resources` folder with every file under it.
+
+    Nothing is rewritten: the static references that resolve to the deleted files
+    (`Resource{...}` literals, bare values of image properties) and the string literals that spell
+    the folder's path are listed in notes by file and line - which one is dead code is the
+    author's call. The folder goes away with its last file. Deletion is irreversible, so
+    dry_run defaults to TRUE - the first call returns the plan; repeat with dry_run=false to
+    perform it.
+    root – the caller's project or repository root (absolute); relative paths resolve against
+    it, and the answer names it as `root`.
+
+    See also: meta_rename_resource_folder when the folder stays under another name,
+    meta_delete_object removes a configuration object.
+    """
+    base = _base(root)
+    try:
+        result = scaffold.op_delete_resource_folder(base, _under(base, folder_dir))
+    except scaffold.ScaffoldError as exc:
+        return _failed(exc, base)
+    if dry_run:
+        payload = _absolute(result.as_dict(content=False), base)
+        payload["dry-run"] = True
+        return payload
+    scaffold.apply_result(result)
+    return _absolute(result.as_dict(content=False), base)
+
+
+@mcp.tool()
 @_documents_root
 def meta_add_subsystem(
     parent_dir: str,
@@ -1259,7 +1508,9 @@ def meta_add_subsystem(
     for the Использование block; representation – the navigation caption.
 
     See also: meta_new_object creates an object INSIDE such a folder - the folder is what
-    its `directory` names; meta_project_info lists the subsystems already there.
+    its `directory` names; meta_project_info lists the subsystems already there. A subsystem
+    is a first-level folder of the project: the finer division is a package, a folder
+    created with its first object (meta_new_object) or by meta_move_object.
     """
     base = _base(root)
     return _meta(
@@ -1604,12 +1855,22 @@ def meta_add_handler(
 
 
 @mcp.tool()
-def translate_status(root: str) -> dict:
+def translate_status(root: str, against: str = "") -> dict:
     """Coverage of the project's translation dictionary: how much is done and what is left.
 
     root – the project directory (the one with the project descriptor), next to which - or
     above which - the xbsl-translation dictionary sits; a root without one is refused with
     the places looked at, and the answer names the absolute `dictionary` read.
+    against – a git ref (say `origin/master`): the answer then carries `collisions`, the keys
+    the working tree's dictionary files and the ref's translate in more than one place -
+    differently (`conflicts`, what the load of the merged dictionary would refuse) or the same
+    way (`duplicates`) - so a branch sees a collision with the target branch before the merge.
+    A place is a file and a line (`places: [{file, line, value}]`), so a key one file declares
+    twice is reported too. The same report as `xbsl translate --check-duplicates --against
+    REF`, with `against` naming the ref, its file count and how many of its entries the
+    working tree does not carry. A dictionary that does not load - a conflict already in the
+    working tree - answers with the `error` naming every conflict and, when a ref was given,
+    the `collisions` report next to it.
     Returns the totals only - a cheap health check before deciding what to fill.
     Two units live here, so read the names: `missing_tokens`, `missing_phrases`,
     `literals_translated` and `missing_literals` count DISTINCT entries - what a dictionary line
@@ -1617,18 +1878,25 @@ def translate_status(root: str) -> dict:
     pass touched. `literals_translated` and `missing_literals` are the two halves of one number:
     how many different literal texts the plane names and how many it does not.
     `literal_occurrences` is the odd one out and says so: it counts rewritten SPANS, the size
-    of the change rather than the size of the dictionary.
+    of the change rather than the size of the dictionary. `duplicates` counts the keys
+    translated the same way in two places, two files or twice in one - harmless to the
+    lookups, listed by the CLI's `--check-duplicates` for the copy to take out.
     """
     from xbsl.translation import cli as translate_cli
 
     project, dictionary, error = translate_cli.load_for_tools(root)
+    collisions = None
+    if against and project.is_dir():
+        found = translate_cli.dictionary_path_for(project)
+        if found is not None:
+            collisions = translate_cli.collisions_report(found, against)
     if error:
-        return {"error": error}
+        return {"error": error, "collisions": collisions} if collisions else {"error": error}
     from xbsl.translation import project as project_module
 
     report_obj = project_module.translate_project(project, dictionary, None)
     totals = report_obj.totals()
-    return {
+    answer = {
         "coverage": totals["coverage"],
         "translated": totals["translated"],
         "missing": totals["missing"],
@@ -1638,9 +1906,13 @@ def translate_status(root: str) -> dict:
         "missing_literals": totals["missing_literals"],
         "literal_occurrences": totals["literal_occurrences"],
         "platform_gaps": totals["platform_gaps"],
+        "duplicates": len(dictionary.duplicates),
         "problems": report_obj.problems[:20],
         "dictionary": str(translate_cli.dictionary_path_for(project)),
     }
+    if collisions:
+        answer["collisions"] = collisions
+    return answer
 
 
 @mcp.tool()
@@ -1705,18 +1977,26 @@ def translate_entries(
     root: str,
     filter: str = "",
     kind: str = "any",
-    limit: int = 50,
+    limit: int = 10,
     offset: int = 0,
+    compact: bool = False,
 ) -> dict:
     """What the dictionary already says - the way to keep a new entry consistent with it.
 
     root   – the project directory (a root without a dictionary next to or above it is
              refused with the places looked at);
     filter – a substring of the key OR of the value (look up a root before inventing a word);
-    kind   – 'token', 'phrase', 'literal' or 'any'.
-    Every row names the file and line it lives on, so an entry can be corrected in place.
-    A page that does not carry everything says so: `truncated`, `remaining` and a `hint`
-    naming the next `offset`.
+    kind   – 'token', 'phrase', 'literal' or 'any';
+    limit/offset – the page (limit 0 means all). Ten rows by default: the question this
+             answers is how a word is translated already, and ten rows settle it, while
+             fifty full rows on a common stem came to ten kilobytes per call;
+    compact – each row is only {key, kind, value}: the shape of an answer to "how is this
+             term translated". The file, the line and the scope are the bulk of a full
+             row, and they matter only when an entry is to be corrected in place - ask for
+             full rows then.
+    Every full row names the file and line it lives on, so an entry can be corrected in
+    place. A page that does not carry everything says so: `truncated`, `remaining` and a
+    `hint` naming the next `offset`.
     """
     from xbsl.translation import cli as translate_cli
     from xbsl.translation import entries as entries_module
@@ -1735,20 +2015,25 @@ def translate_entries(
         and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
     ]
     page, paging = entries_module.page_of(rows, limit, offset)
-    return {**paging, "dictionary": str(path),
-            "entries": [entry.as_dict() for entry in page]}
+    out = {**paging, "dictionary": str(path)}
+    if compact:
+        out["entries"] = [{"key": e.key, "kind": e.kind, "value": e.value} for e in page]
+    else:
+        out["entries"] = [entry.as_dict() for entry in page]
+    return out
 
 
 @mcp.tool()
 def translate_unused(
     root: str,
     kind: str = "any",
-    filter: str = "",
+    filter: str | list[str] = "",
     since: str = "",
     limit: int = 50,
     offset: int = 0,
     prune: bool = False,
     compact: bool = False,
+    budget_seconds: float = 300,
 ) -> dict:
     """The opposite of translate_gaps: what the DICTIONARY still says and the project has not.
 
@@ -1762,15 +2047,23 @@ def translate_unused(
     root   – the project directory (a root without a dictionary next to or above it is
              refused with the places looked at);
     kind   – 'token' (names), 'phrase' (comment lines), 'literal' or 'any';
-    filter – a substring of the key OR of the value: the way to ask about the names of one
-             component that has just been deleted rather than about the whole history;
+    filter – a substring of the key OR of the value, or a LIST of them (a row matches any):
+             the way to ask about the names of one component that has just been deleted, or
+             about the ten lines a comment sweep took out, in one call rather than ten. The
+             answer then carries `unmatched` - the substrings no orphan fell under, which
+             for a sweep means the dictionary keeps nothing of those lines;
     since  – the orphans of ONE change, which is what a task cleaning up after itself asks:
-             only the keys that occurred nowhere but in the lines the change REMOVED. A
-             branch or a commit is read from the fork point with HEAD to the WORKING TREE, so
-             work not committed yet counts; a range `A..B` is handed to git as written, which
-             is how a change already merged is examined. Without it the answer covers the
-             whole accumulated dictionary - a live project answers with thousands of rows,
-             every one of them somebody's old deletion - and says so in `note`;
+             the keys that occurred nowhere but in the lines the change REMOVED, and the
+             entries the change itself ADDED to the dictionary - a comment line written and
+             reworded inside one branch shows neither wording in the diff against the base,
+             and its first pair would otherwise stay for good. A branch or a commit is read
+             from the fork point with HEAD to the WORKING TREE, so work not committed yet
+             counts; a range `A..B` is handed to git as written, which is how a change
+             already merged is examined. The `since` block of the answer sizes both sides:
+             `files` of the change and `dictionary_files` / `dictionary_added` of the
+             dictionary diff. Without it the answer covers the whole accumulated dictionary
+             - a live project answers with thousands of rows, every one of them somebody's
+             old deletion - and says so in `note`;
     limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
     prune  – REMOVE the listed entries from the dictionary files. Off by default and named
              separately from the listing on purpose: this is the one direction where a
@@ -1778,7 +2071,14 @@ def translate_unused(
              answers with, so `kind`, `filter` and the page apply to the removal too;
     compact – each row is only {key, kind, file, line}: the values are the bulk of a
              page, and a cleaning pass needs the keys and their places, not the
-             translations.
+             translations;
+    budget_seconds – how long the walk over the sources may take (300 by default). Past it
+             the tool answers with what it has read: `partial` is true, `sources` counts the
+             files read of the total, and `note` says how to go on (a larger budget, or a
+             narrower `filter` / `kind`). A partial list holds candidates, not a verdict -
+             an entry used only in a file not read is in it too - so `prune` does nothing
+             on such an answer. Before the budget a call over a large project stayed silent
+             until the client gave up on it, half an hour later.
     Every answer carries `counts` - the orphans by kind over the WHOLE filtered set, not
     the page - so the size of a cleaning is known before any page is read.
 
@@ -1788,9 +2088,14 @@ def translate_unused(
     payload reading, so the two sides spell a phrase alike; a qualified key (`<Owner>.<Name>`)
     is judged by both halves, since the sources spell them apart.
     """
+    import time
+
     from xbsl.translation import cli as translate_cli
     from xbsl.translation import entries as entries_module
 
+    # The clock starts before git is asked: the budget bounds the whole call, and the git
+    # calls have a bound of their own (entries.GIT_TIMEOUT).
+    deadline = time.monotonic() + max(float(budget_seconds), 0.0)
     refusal = entries_module.kind_refusal(kind)
     if refusal:
         return {"error": refusal}
@@ -1801,23 +2106,40 @@ def translate_unused(
     removed = None
     if since:
         try:
-            removed = entries_module.removed_surfaces(project, since)
+            removed = entries_module.removed_surfaces(project, since, path)
         except ValueError as exc:
             return {"error": str(exc)}
-    needle = (filter or "").casefold()
-    rows = [
-        entry for entry in entries_module.unused_entries(project, path, dictionary, removed)
-        if (kind in ("any", entry.kind))
-        and (not needle or needle in entry.key.casefold() or needle in entry.value.casefold())
-    ]
+    wanted = [filter] if isinstance(filter, str) else list(filter or [])
+    needles = {text: text.casefold() for text in wanted if text}
+    hit: set[str] = set()
+    found = entries_module.orphans_of(project, path, dictionary, removed, deadline=deadline)
+    rows = []
+    for entry in found.entries:
+        if kind not in ("any", entry.kind):
+            continue
+        if needles:
+            key, value = entry.key.casefold(), entry.value.casefold()
+            matched = [text for text, needle in needles.items()
+                       if needle in key or needle in value]
+            if not matched:
+                continue
+            hit.update(matched)
+        rows.append(entry)
     page, paging = entries_module.page_of(rows, limit, offset)
     counts: dict[str, int] = {}
     for entry in rows:
         counts[entry.kind] = counts.get(entry.kind, 0) + 1
-    out = {**paging, "dictionary": str(path), "counts": counts}
+    out = {**paging, "dictionary": str(path), "counts": counts,
+           "sources": {"read": found.read, "total": found.total}}
+    if needles:
+        out["unmatched"] = [text for text in needles if text not in hit]
     if removed is not None:
-        out["since"] = {"base": removed.base, "files": removed.files}
-    elif not needle:
+        out["since"] = removed.as_dict()
+    if found.partial:
+        out["partial"] = True
+        out["note"] = i18n.t("translate.unused.partial", seconds=f"{float(budget_seconds):g}",
+                             read=found.read, total=found.total)
+    elif removed is None and not needles:
         out["note"] = i18n.t("translate.unused.textual", option="since")
     if compact:
         out["unused"] = [
@@ -1825,7 +2147,7 @@ def translate_unused(
         ]
     else:
         out["unused"] = [entry.as_dict() for entry in page]
-    if prune and page:
+    if prune and page and not found.partial:
         removed = entries_module.write_entries(
             path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
         )
@@ -1910,7 +2232,8 @@ def translate_set(root: str, edits: list[dict] | None = None, edits_file: str = 
              written. An empty value REMOVES the entry - a half-filled stub is not a
              translation.
     target – the file NEW entries go to (default 090-manual.yaml). An entry that already
-             exists is corrected where it lives, whatever the target says.
+             exists is corrected where it lives, whatever the target says - in every place
+             the dictionary declares it, so a copy of the key keeps the value it shares.
     comment – the head line a NEWLY created file gets: say what the batch is for ("Names of
              the feature icons"), since only the caller knows. Without it the file gets a
              neutral line naming no author.

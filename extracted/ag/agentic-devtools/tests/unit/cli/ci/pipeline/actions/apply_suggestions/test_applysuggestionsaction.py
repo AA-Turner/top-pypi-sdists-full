@@ -1,6 +1,7 @@
 """Tests for ApplySuggestionsAction."""
 
 import os
+from collections.abc import Iterator
 from typing import cast
 from unittest.mock import MagicMock, patch
 
@@ -19,12 +20,47 @@ from agentic_devtools.cli.ci.pipeline.discovery.models import (
 )
 from agentic_devtools.cli.ci.pipeline.exclusion import ExclusionContext
 from agentic_devtools.cli.ci.pipeline.models import ActionDecision, ActionResult
+from agentic_devtools.cli.ci.pipeline.runner import run_pipeline
 from agentic_devtools.cli.ci.pipeline.snapshot import DerivedState, PRStateSnapshot
 from agentic_devtools.cli.shared.retry import ProviderRateLimitError
 
 
 class TestApplySuggestionsActionEvaluate:
     """Tests for ApplySuggestionsAction.evaluate()."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_inactive_session_detector(self) -> Iterator[None]:
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.apply_suggestions.is_copilot_session_active_via_agent_task",
+            return_value=False,
+        ):
+            yield
+
+    @pytest.mark.parametrize("active_session", [True, None])
+    @patch.dict(os.environ, {"ENABLE_AUTO_APPLY_SUGGESTIONS": "true"}, clear=False)
+    def test_skip_when_session_active_or_inventory_unavailable(self, active_session: bool | None) -> None:
+        """SKIP when the Copilot session is active or its inventory is unavailable."""
+        snapshot = PRStateSnapshot(
+            pr_number=1,
+            base_repo_full_name="owner/repo",
+            review_state="CHANGES_REQUESTED",
+            copilot_review_id=100,
+            copilot_review_inline_count=3,
+        )
+        action = ApplySuggestionsAction()
+
+        with patch(
+            "agentic_devtools.cli.ci.pipeline.actions.apply_suggestions.is_copilot_session_active_via_agent_task",
+            return_value=active_session,
+        ):
+            provider = MagicMock()
+            summary = run_pipeline(provider, snapshot, [action])
+            result = summary.results[0]
+
+        assert result.decision == ActionDecision.SKIP
+        assert result.preconditions["no_active_session"] is False
+        assert "suggestion application blocked" in result.details
+        provider.graphql.assert_not_called()
 
     @patch.dict(os.environ, {"ENABLE_AUTO_APPLY_SUGGESTIONS": "true"}, clear=False)
     def test_skip_when_no_actionable_review(self) -> None:

@@ -1141,6 +1141,85 @@ _CORE_MESSAGES = {
         "ru": "yaml объекта (при нескольких объектах с одним именем)",
         "en": "the object's yaml (when several objects share one name)",
     },
+    "cli.help.scaf.move-object": {
+        "ru": "перенести объект в другой каталог проекта – пакет подсистемы (новый каталог "
+              "становится пакетом), её корень или другую подсистему; дописывает импорт нового "
+              "пространства имён туда, где он теперь нужен, и переписывает полные имена; см. "
+              "также rename-package – переименовать пакет",
+        "en": "move an object into another folder of its project - a package of the subsystem (a "
+              "new folder becomes a package), its root or another subsystem; adds the import of "
+              "the new namespace where it is needed now and rewrites the full names; see also "
+              "rename-package, which renames a package",
+    },
+    "cli.help.scaf.mo-yaml": {
+        "ru": "yaml переносимого объекта; формы, модули и строка списка переносятся вместе с ним",
+        "en": "the yaml of the object to move; its forms, modules and list row move along",
+    },
+    "cli.help.scaf.mo-target": {
+        "ru": "каталог назначения – каталог подсистемы или пакета (несуществующий создаётся)",
+        "en": "the target folder - a subsystem or a package folder (a missing one is created)",
+    },
+    "cli.help.scaf.rename-package": {
+        "ru": "переименовать пакет подсистемы: каталог со всеми файлами и имена "
+              "Подсистема::Пакет в импортах и полных именах по проекту; см. также move-object – "
+              "перенести объект в пакет",
+        "en": "rename a package of a subsystem: its folder with every file and the "
+              "Subsystem::Package names in imports and full names across the project; see also "
+              "move-object, which moves an object into a package",
+    },
+    "cli.help.scaf.rp-package": {
+        "ru": "каталог пакета (внутри каталога подсистемы)",
+        "en": "the package folder (inside a subsystem folder)",
+    },
+    "cli.help.scaf.rp-new": {
+        "ru": "новое имя пакета – идентификатор",
+        "en": "the new package name - an identifier",
+    },
+    "cli.help.scaf.move-resource": {
+        "ru": "перенести файл ресурса или папку в другую папку того же каталога Ресурсы "
+              "(несуществующая папка создаётся): ключи Ресурс{{...}} и значения свойств-картинок, "
+              "которые указывают на перенесённые файлы, переписываются, обращения по строке "
+              "перечисляются в заметках; см. также rename-resource-folder – переименовать папку",
+        "en": "move a resource file or a folder into another folder of the same Resources folder "
+              "(a missing folder is created): the Resource{{...}} keys and the image property "
+              "values naming the moved files are rewritten, the lookups by a string are listed "
+              "in the notes; see also rename-resource-folder, which renames a folder",
+    },
+    "cli.help.scaf.mr-path": {
+        "ru": "файл ресурса или папка внутри каталога Ресурсы подсистемы или пакета",
+        "en": "a resource file or a folder inside the Resources folder of a subsystem or a "
+              "package",
+    },
+    "cli.help.scaf.mr-target": {
+        "ru": "папка назначения в том же каталоге Ресурсы или сам этот каталог",
+        "en": "the target folder in the same Resources folder, or that folder itself",
+    },
+    "cli.help.scaf.rename-resource-folder": {
+        "ru": "переименовать папку внутри каталога Ресурсы: файлы переносятся, ключи Ресурс{{...}}, "
+              "которые на них указывают, переписываются по проекту, обращения по строке "
+              "перечисляются в заметках; см. также move-resource – перенести ресурс в папку, "
+              "delete-resource-folder – удалить папку",
+        "en": "rename a folder inside a Resources folder: the files move, the Resource{{...}} keys "
+              "naming them are rewritten across the project, the lookups by a string are listed "
+              "in the notes; see also move-resource, which moves a resource into a folder, and "
+              "delete-resource-folder",
+    },
+    "cli.help.scaf.rrf-folder": {
+        "ru": "папка внутри каталога Ресурсы подсистемы или пакета",
+        "en": "a folder inside the Resources folder of a subsystem or a package",
+    },
+    "cli.help.scaf.rrf-new": {
+        "ru": "новое имя папки – оно становится частью ключа ресурса",
+        "en": "the new folder name - it becomes a part of the resource key",
+    },
+    "cli.help.scaf.delete-resource-folder": {
+        "ru": "удалить папку внутри каталога Ресурсы со всеми файлами и перечислить ключи "
+              "Ресурс{{...}} и обращения по строке, которые на них указывают; без --apply – только "
+              "план; см. также rename-resource-folder – переименовать вместо удаления",
+        "en": "delete a folder inside a Resources folder with every file and list the "
+              "Resource{{...}} keys and the lookups by a string naming them; without --apply - the "
+              "plan only; see also rename-resource-folder, which renames instead of removing",
+    },
     "cli.help.scaf.delete-object": {
         "ru": "удалить объект целиком (пара yaml+xbsl, формы, строка списка) и перечислить "
               "оставшиеся упоминания; без --apply – только план; см. также rename-object – "
@@ -1182,6 +1261,15 @@ _CORE_MESSAGES = {
         "ru": "сводка объекта: реквизиты, ТЧ, формы, namespace",
         "en": "object summary: attributes, tabular sections, forms, namespace",
     },
+    "cli.help.scaf.resource-references": {
+        "ru": "найти места, которые называют файл ресурса или папку: ключи Ресурс{{...}}, значения "
+              "свойств-картинок и обращения по строке; ответ – JSON с файлом, диапазоном и текстом "
+              "строки каждого места; см. также move-resource – перенести ресурс с правкой ключей",
+        "en": "find the places that name a resource file or a folder: Resource{{...}} keys, image "
+              "property values and lookups by a string; the answer is JSON with the file, the "
+              "range and the line of each place; see also move-resource, which moves a resource "
+              "and rewrites its keys",
+    },
     "cli.help.scaf.project-info": {
         "ru": "обзор исходников: проекты, подсистемы, объекты",
         "en": "sources overview: projects, subsystems, objects",
@@ -1191,12 +1279,30 @@ _CORE_MESSAGES = {
         "en": "only the objects of this kind",
     },
     "cli.help.scaf.project-info-subsystem": {
-        "ru": "только объекты этой подсистемы",
-        "en": "only the objects of this subsystem",
+        "ru": "только объекты этой подсистемы (с её пакетами)",
+        "en": "only the objects of this subsystem (its packages included)",
+    },
+    "cli.help.scaf.project-info-package": {
+        "ru": "только объекты этого пакета: путь под подсистемой или Подсистема::Пакет; "
+              "вложенный пакет входит в тот, где лежит",
+        "en": "only the objects of this package: the path under the subsystem or "
+              "Subsystem::Package; a nested package belongs to the one it lies in",
+    },
+    "cli.help.scaf.project-info-project": {
+        "ru": "обходить только проекты с этим именем (Имя или Поставщик::Имя) либо проект "
+              "в этом каталоге – корень репозитория держит не один проект",
+        "en": "walk only the projects of this name (Name or Vendor::Name) or the project in "
+              "this folder – a repository root holds more than one project",
     },
     "cli.help.scaf.project-info-brief": {
-        "ru": "без перечня объектов: только счётчики по видам",
-        "en": "no list of objects: the counts by kind alone",
+        "ru": "без перечней объектов и пакетов: счётчики по видам и справочные разделы",
+        "en": "no lists of objects and packages: the counts by kind and the reference sections",
+    },
+    "cli.help.scaf.project-info-reference": {
+        "ru": "добавить справочные разделы (виды объектов, виды секций, методы доступа) – "
+              "около 4 КБ, от исходников не зависят",
+        "en": "add the reference sections (object kinds, section kinds, access methods) – "
+              "about 4 KB, independent of the sources",
     },
     "cli.help.scaf.form-tree": {
         "ru": "дерево компонента интерфейса (узлы, слоты, свойства со спанами); см. также "

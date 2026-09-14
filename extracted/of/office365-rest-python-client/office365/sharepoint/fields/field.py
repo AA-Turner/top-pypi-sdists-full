@@ -5,10 +5,10 @@ from typing import Optional, Type, Union
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
+from office365.runtime.converters.scalars import parse_enum
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.odata_property import odata
-from office365.runtime.utilities import parse_enum
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.fields.type import FieldType
 from office365.sharepoint.translation.user_resource import UserResource
@@ -307,6 +307,8 @@ class Field(Entity):
         # fallback: create a new resource path
         if name == "FieldTypeKind":
             self.__class__ = self.resolve_field_type(value)  # type: ignore[reportAttributeAccessIssue]
-        elif name == "TypeAsString" and self.properties.get("FieldTypeKind", 0) == 0:
+        elif name == "TypeAsString" and self.properties.get("FieldTypeKind") in (None, 0, FieldType.Invalid):
+            # taxonomy fields report an "Invalid" field kind, so the type name
+            # (e.g. "TaxonomyFieldType") is the reliable signal
             self.__class__ = self.resolve_field_type(value)  # type: ignore[reportAttributeAccessIssue]
         return self

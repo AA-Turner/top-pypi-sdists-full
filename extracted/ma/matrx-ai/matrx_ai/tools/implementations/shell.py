@@ -362,8 +362,12 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             # duplicated an unbounded stderr in ToolError.message after its
             # structured output had already been capped, bypassing the producer
             # size contract and firing the universal result gate.
-            stdout_for_response = stdout_text[-MAX_OUTPUT_SIZE:] if stdout_truncated else stdout_text
-            stderr_for_response = stderr_text[-MAX_OUTPUT_SIZE:] if stderr_truncated else stderr_text
+            stdout_for_response = (
+                stdout_text[-MAX_OUTPUT_SIZE:] if stdout_truncated else stdout_text
+            )
+            stderr_for_response = (
+                stderr_text[-MAX_OUTPUT_SIZE:] if stderr_truncated else stderr_text
+            )
             duration_ms = int((time.time() - started_at) * 1000)
 
             # Persist the FULL call (untruncated stdout/stderr + metadata)
@@ -401,6 +405,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     exit_code=exit_code,
                     cwd=str(result.get("cwd", cwd_path)),
                     log_path=log_path,
+                    backend="sandbox",
                 ).model_dump(mode="json"),
                 error=ToolError(
                     error_type="exit_code",
@@ -425,6 +430,11 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 error=ToolError(
                     error_type=getattr(exc, "error_type", "sandbox_error"),
                     message=str(exc),
+                    # A transient orchestrator-restart outage arrives flagged
+                    # retryable with the wait-once instruction attached, so the
+                    # model waits instead of burning the loop on instant retries.
+                    is_retryable=bool(getattr(exc, "is_retryable", False)),
+                    suggested_action=getattr(exc, "suggested_action", None),
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -513,6 +523,7 @@ async def shell_execute(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 stdout=stdout_str,
                 stderr=stderr_str,
                 exit_code=process.returncode,
+                backend="host",
             ).model_dump(mode="json"),
             error=ToolError(
                 error_type="exit_code",
@@ -598,6 +609,7 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     stderr_truncated=stderr_truncated,
                     exit_code=exit_code,
                     log_path=log_path,
+                    backend="sandbox",
                 ).model_dump(mode="json"),
                 error=ToolError(
                     error_type="exit_code",
@@ -621,6 +633,11 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 error=ToolError(
                     error_type=getattr(exc, "error_type", "sandbox_error"),
                     message=str(exc),
+                    # A transient orchestrator-restart outage arrives flagged
+                    # retryable with the wait-once instruction attached, so the
+                    # model waits instead of burning the loop on instant retries.
+                    is_retryable=bool(getattr(exc, "is_retryable", False)),
+                    suggested_action=getattr(exc, "suggested_action", None),
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -695,6 +712,7 @@ async def shell_python(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 stdout=stdout_str,
                 stderr=stderr_str,
                 exit_code=process.returncode,
+                backend="host",
             ).model_dump(mode="json"),
             error=ToolError(
                 error_type="exit_code",

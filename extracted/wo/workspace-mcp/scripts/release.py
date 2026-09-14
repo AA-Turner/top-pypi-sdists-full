@@ -32,6 +32,12 @@ def check_dependencies():
     except ImportError:
         missing.append("tomlkit")
 
+    # Check for python-dotenv
+    try:
+        import dotenv
+    except ImportError:
+        missing.append("python-dotenv")
+
     # Check for twine
     try:
         result = subprocess.run(["twine", "--version"], capture_output=True, text=True)
@@ -64,9 +70,11 @@ def check_dependencies():
 
 check_dependencies()
 import tomlkit
+from dotenv import dotenv_values
 
 # --- Configuration ---
 REPO_ROOT = Path(__file__).parent.parent
+DOTENV_PATH = REPO_ROOT / ".env"
 PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 SERVER_JSON_PATH = REPO_ROOT / "server.json"
 README_PATH = REPO_ROOT / "README.md"
@@ -148,6 +156,41 @@ class PypiCredentials:
         self.env = env  # Extra environment for twine; empty when twine self-serves.
 
 
+def _clean_token(value):
+    """A token with surrounding whitespace and one layer of quotes removed.
+
+    A shell exports `KEY="pypi-..."` unquoted, but a value lifted straight out
+    of a dotenv-style file keeps its quotes. Twine then sends them as part of
+    the credential and PyPI answers 403, so strip them at every source rather
+    than trusting each one to arrive clean. No PyPI token contains a quote.
+    """
+    token = (value or "").strip()
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in "\"'":
+        token = token[1:-1].strip()
+    return token
+
+
+def _dotenv_token():
+    """The first PyPI token in the repo's .env, as (variable name, token).
+
+    This is the same file main.py and fastmcp_server.py already load, so a
+    project configured to run also has what it needs to publish. Reads the file
+    directly instead of load_dotenv() to avoid mutating the release's own
+    environment. Returns (None, None) when there is nothing to find.
+    """
+    if not DOTENV_PATH.exists():
+        return None, None
+    try:
+        values = dotenv_values(DOTENV_PATH)
+    except OSError:
+        return None, None
+    for var in PYPI_TOKEN_ENV_VARS:
+        token = _clean_token(values.get(var))
+        if token:
+            return var, token
+    return None, None
+
+
 def _pypirc_has_credentials():
     """True when ~/.pypirc holds a password twine can use unprompted."""
     pypirc = Path.home() / ".pypirc"
@@ -185,25 +228,30 @@ def resolve_pypi_credentials(allow_prompt=True):
     """Finds a PyPI credential, or returns None if there is nothing to find.
 
     Ordered by how deliberate the intent is: an environment variable set for
-    this run beats a file on disk, which beats the keyring, which beats asking.
-    Prompting is a last resort and only possible on a terminal — which is why
-    this can be called during pre-flight and trusted to fail early in CI.
+    this run beats the repo's own .env, which beats a file in the home
+    directory, which beats the keyring, which beats asking. Prompting is a last
+    resort and only possible on a terminal — which is why this can be called
+    during pre-flight and trusted to fail early in CI.
     """
     for var in PYPI_TOKEN_ENV_VARS:
-        token = os.environ.get(var, "").strip()
+        token = _clean_token(os.environ.get(var))
         if token:
             return PypiCredentials(f"${var}", _token_env(token))
+
+    dotenv_var, token = _dotenv_token()
+    if token:
+        return PypiCredentials(f"${dotenv_var} in .env", _token_env(token))
 
     if _pypirc_has_credentials():
         return PypiCredentials("~/.pypirc", {"TWINE_NON_INTERACTIVE": "1"})
 
-    token = (_keyring_token() or "").strip()
+    token = _clean_token(_keyring_token())
     if token:
         return PypiCredentials("system keyring", _token_env(token))
 
     if allow_prompt and sys.stdin.isatty():
         print("🔑 No stored PyPI credential found.")
-        token = getpass.getpass("   PyPI API token (input hidden): ").strip()
+        token = _clean_token(getpass.getpass("   PyPI API token (input hidden): "))
         if token:
             return PypiCredentials("interactive prompt", _token_env(token))
 
@@ -218,7 +266,11 @@ def check_pypi_credentials():
         print(
             "   Set one of "
             + ", ".join(f"${v}" for v in PYPI_TOKEN_ENV_VARS)
-            + ", add a password to ~/.pypirc, store one in your keyring,",
+            + f" in the environment or in {DOTENV_PATH.name},",
+            file=sys.stderr,
+        )
+        print(
+            "   add a password to ~/.pypirc, store one in your keyring,",
             file=sys.stderr,
         )
         print(
@@ -228,11 +280,24 @@ def check_pypi_credentials():
         )
         sys.exit(1)
 
+    # Finding a credential is not the same as finding a usable one. A malformed
+    # token passed pre-flight once and failed at step 7, after the tag was
+    # already pushed — exactly the half-shipped state this check exists to
+    # prevent. In token mode the value must look like a token, so refuse now.
     token = credentials.env.get("TWINE_PASSWORD", "")
-    if token and not token.startswith("pypi-"):
+    is_token_auth = credentials.env.get("TWINE_USERNAME") == "__token__"
+    if token and is_token_auth and not token.startswith("pypi-"):
         print(
-            "⚠️ Warning: that token does not look like a PyPI API token (no 'pypi-' prefix)."
+            f"❌ Error: the credential from {credentials.source} is not a PyPI API"
+            " token (no 'pypi-' prefix).",
+            file=sys.stderr,
         )
+        print(
+            "   Refusing to start: the tag would be pushed before the upload"
+            " could fail.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     print(f"✅ PyPI credential resolved from {credentials.source}.")
     return credentials
